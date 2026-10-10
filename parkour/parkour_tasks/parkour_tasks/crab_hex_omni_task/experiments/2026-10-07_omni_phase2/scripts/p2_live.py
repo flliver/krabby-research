@@ -93,6 +93,16 @@ P2__Z<k>R<j>_s<seed>):
                   identity_cpu true with a non-empty identity_gpu_stamps, and the three agent knobs are present
                   (the first two weights positive, KRABBY_ANCHOR_CKPT equal to the chain's own fork checkpoint) --
                   it does NOT need a p2s replay-gate verdict, a sampled magnitude or a stand share (no stand terms).
+  Z2 (NOTE(p2r Z2, 2026-10-10); P2R_Z2_PLAN.md step 4; chains P2__Z2_s<seed> / P2__Z2R<j>_s<seed>): the statue prior's
+                  target is the re-stance controller R(obs) (KRABBY_STAND_PRIOR_TARGET=restance, KRABBY_RESTANCE) and the
+                  stand rows see the sample-and-hold proxy (KRABBY_OMNI_STAND_PROXY=hold). Z1's wiring is unchanged; a Z2
+                  arm runs Z1's row / mb0 / finiteness checks with the realised-dose band read from p2r_z2_dose.json
+                  (keys band_lo, band_hi; step 4's CPU dose -- the check REFUSES, i.e. fails, without the file, never
+                  falls back to Z1's [1.2, 4.6]), plus: the three Z2 knobs in the overlay (STAND_PROXY hold, TARGET
+                  restance, a parseable RESTANCE); Loss/restance_nonzero >= 0.5 (window mean); every
+                  Loss/restance_<branch> (hold / wait / lift / home / seat) logged in the window and the 'home' share > 0
+                  (the in-air homing branch is live); Metrics/stand_proxy_live_frac >= 0.99 (held == live on training
+                  stand rows). The Z2 preflight adds the same knobs and a readable dose file to Z1's.
 
 Exit codes (run_arm.sh's contract): 0 pass / not applicable, 2 not enough telemetry yet (retry next poll), 3 FAIL
 (kill + stop the queue), 5 NOTIFY-ONLY (p2s termination flag: notify, never kill). The last stdout line is one JSON
@@ -100,9 +110,9 @@ object.
 
     p2_live.py --iters RUN_DIR                                   -> "<first> <last>" logged iterations
     p2_live.py --check RUN_DIR --chain CHAIN --at 200|1000|collapse|p2s [--train-log F] [--source RUN_DIR]
-               [--candidates F] [--replay F] [--arms DIR]
+               [--candidates F] [--replay F] [--arms DIR] [--z2-dose F]
     p2_live.py --smoke-audit RUN_DIR --chain CHAIN [--train-log F] [--require-terrain-move]
-    p2_live.py --preflight --chain CHAIN [--code-root DIR] [--replay F] [--arms DIR]
+    p2_live.py --preflight --chain CHAIN [--code-root DIR] [--replay F] [--arms DIR] [--z2-dose F]
     p2_live.py --code-guard [--code-root DIR] [--lrout DIR] [--anchor-name ANC_s18] [--reanchor]
     p2_live.py --self-test
 
@@ -219,6 +229,21 @@ P2R_ANCHOR_MB0_TAG = "Loss/anchor_mb0"
 P2R_ANCHOR_ROWS_BAND, P2R_PRIOR_ROWS_BAND = (0.8, 0.95), (0.05, 0.2)
 #: the REALISED DOSE band: the first-update Loss/stand_prior (fork value ~ 2.3 at weight 1.0, KL units)
 P2R_STAND_PRIOR_DOSE_BAND = (1.2, 4.6)
+#: NOTE(p2r Z2, 2026-10-10): the Z2 arm (P2R_Z2_PLAN.md step 4 "+200 wiring"). The dose band comes from step 4's CPU
+#: dose (p2r_z2_dose.json: band_lo / band_hi), never from Z1's constant; the branch names are pinned against
+#: mdp/crab_hex_omni_restance.BRANCH_NAMES by the tests (kept literal here so p2_live never imports torch to log).
+P2R_Z2_ARM = "Z2"
+P2R_Z2_DOSE_JSON = CAMPAIGN / "p2r_z2_dose.json"
+P2R_STAND_PROXY, P2R_STAND_PRIOR_TARGET, P2R_RESTANCE = (
+    "KRABBY_OMNI_STAND_PROXY", "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE")
+P2R_RESTANCE_NONZERO_TAG = "Loss/restance_nonzero"
+P2R_RESTANCE_BRANCHES = ("hold", "wait", "lift", "home", "seat")
+P2R_RESTANCE_BRANCH_TAGS = tuple(f"Loss/restance_{b}" for b in P2R_RESTANCE_BRANCHES)
+P2R_PROXY_LIVE_TAG = "Metrics/stand_proxy_live_frac"
+#: P2R_PROXY_LIVE_MIN is the PLAN's pre-knee-decision line, kept for the record only: the live line is
+#: p2r_z2_dose.json's ``proxy_live_min`` (decision 2026-10-10, CHARTER 12.1).
+P2R_RESTANCE_NONZERO_MIN, P2R_PROXY_LIVE_MIN = 0.5, 0.99
+RESTANCE_PY = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/crab_hex_omni_restance.py"
 #: F1's "non-zero only in stand-slot envs" from per-slot telemetry, when logged: any of these tags, reading 0 over the
 #: window. None is emitted in the tree (2026-10-06); the stand-only construction check stands in (CHARTER 9).
 F1_NONSTAND_TAGS = ("Metrics/stand_stance/nonstand_income", "Metrics/base_velocity/stand_stance_nonstand")
@@ -298,9 +323,11 @@ def point_at(series, step):
     return None
 
 
-def judge_p2r_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: int) -> tuple[list, list, dict]:
+def judge_p2r_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: int,
+                       dose_band: tuple | None = P2R_STAND_PRIOR_DOSE_BAND) -> tuple[list, list, dict]:
     """Stage p2r's Z-arm +200 wiring (pure; P2R_STATUE_PLAN.md step 1/4): the graft + two masked PPO losses, no
-    stand-slot reward terms at all. ``(fails, notes, live)``."""
+    stand-slot reward terms at all. ``(fails, notes, live)``. ``dose_band`` (NOTE(p2r Z2, 2026-10-10)): Z1's constant
+    by default; Z2 passes its p2r_z2_dose.json band, or None to skip the dose clause (the caller then refuses)."""
     fails: list = []
     notes: list = []
     live: dict = {}
@@ -337,9 +364,112 @@ def judge_p2r_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: int) -
         fails.append(f"term liveness: Loss/stand_prior {lp} is not finite and > 0")
     dose = point_at(ser.get(P2R_LOSS_PRIOR), first)
     live["stand_prior_first_update"] = dose
-    lo_d, hi_d = P2R_STAND_PRIOR_DOSE_BAND
-    if dose is None or not (lo_d - 1e-9 <= dose <= hi_d + 1e-9):
-        fails.append(f"term liveness: realised dose (first-update Loss/stand_prior) {dose} outside [{lo_d}, {hi_d}]")
+    if dose_band is not None:
+        lo_d, hi_d = dose_band
+        live["dose_band"] = [lo_d, hi_d]
+        if dose is None or not (lo_d - 1e-9 <= dose <= hi_d + 1e-9):
+            fails.append(f"term liveness: realised dose (first-update Loss/stand_prior) {dose} outside "
+                         f"[{lo_d}, {hi_d}]")
+    return fails, notes, live
+
+
+_RESTANCE_MOD = None
+
+
+def restance_mod(path: Path = RESTANCE_PY):
+    """mdp/crab_hex_omni_restance.py loaded BY PATH (pure torch, no Isaac import), once -- only the Z2 judges need
+    it (to parse KRABBY_RESTANCE exactly as the trainer does)."""
+    global _RESTANCE_MOD
+    if _RESTANCE_MOD is None:
+        spec = importlib.util.spec_from_file_location("_p2_live_restance", path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["_p2_live_restance"] = mod
+        spec.loader.exec_module(mod)
+        _RESTANCE_MOD = mod
+    return _RESTANCE_MOD
+
+
+def z2_dose_band(doc: dict | None) -> tuple[tuple[float, float] | None, str | None]:
+    """``(band, why)`` from p2r_z2_dose.json (keys band_lo, band_hi): both finite and lo < hi, else ``(None, why)``."""
+    if not isinstance(doc, dict):
+        return None, f"no readable {P2R_Z2_DOSE_JSON.name} (step 4's CPU dose sets the +200 band)"
+    try:
+        lo, hi = float(doc["band_lo"]), float(doc["band_hi"])
+    except (KeyError, TypeError, ValueError):
+        return None, (f"{P2R_Z2_DOSE_JSON.name} lacks numeric band_lo / band_hi (band_lo={doc.get('band_lo')!r}, "
+                      f"band_hi={doc.get('band_hi')!r})")
+    if not (math.isfinite(lo) and math.isfinite(hi) and lo < hi):
+        return None, f"{P2R_Z2_DOSE_JSON.name} band [{lo}, {hi}] is not a finite lo < hi"
+    # NOTE(p2r Z2, 2026-10-10): a dose file written at a non-OK rc (STOP: no home branch; error) is refused, and the
+    # calibrated held == live line must be there too (z2_proxy_live_min).
+    if doc.get("rc") != 0:
+        return None, f"{P2R_Z2_DOSE_JSON.name} was written at rc {doc.get('rc')!r} ({doc.get('verdict')!r}), not 0"
+    if z2_proxy_live_min(doc) is None:
+        return None, f"{P2R_Z2_DOSE_JSON.name} lacks a numeric proxy_live_min in (0, 1)"
+    return (lo, hi), None
+
+
+def z2_proxy_live_min(doc: dict | None) -> float | None:
+    """The +200 held == live line from p2r_z2_dose.json (``proxy_live_min``: the training-noise bank's own share
+    minus a margin; decision 2026-10-10, CHARTER 12.1), or None when absent / not in (0, 1)."""
+    try:
+        v = float((doc or {})["proxy_live_min"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return v if 0.0 < v < 1.0 else None
+
+
+def judge_z2_knobs(overlay: dict) -> list:
+    """The three Z2 knobs a Z2 chain must carry (pure but for parsing KRABBY_RESTANCE through the trainer's own
+    parser): KRABBY_OMNI_STAND_PROXY=hold, KRABBY_STAND_PRIOR_TARGET=restance, a KRABBY_RESTANCE that parses ON."""
+    ov = overlay or {}
+    fails = []
+    if str(ov.get(P2R_STAND_PROXY, "")).strip().lower() != "hold":
+        fails.append(f"{P2R_STAND_PROXY}={ov.get(P2R_STAND_PROXY)!r}, want 'hold'")
+    if str(ov.get(P2R_STAND_PRIOR_TARGET, "")).strip().lower() != "restance":
+        fails.append(f"{P2R_STAND_PRIOR_TARGET}={ov.get(P2R_STAND_PRIOR_TARGET)!r}, want 'restance'")
+    try:
+        params = restance_mod().parse_restance(ov.get(P2R_RESTANCE))
+    except ValueError as exc:
+        params, why = None, str(exc)
+    else:
+        why = "blank / 0 reads OFF"
+    if params is None:
+        fails.append(f"{P2R_RESTANCE}={ov.get(P2R_RESTANCE)!r} does not parse to R's constants ({why})")
+    return fails
+
+
+def judge_p2r_z2_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: int,
+                          z2_dose: dict | None) -> tuple[list, list, dict]:
+    """Stage p2r's Z2 +200 wiring (pure but for the RESTANCE parse; P2R_Z2_PLAN.md step 4): Z1's row / mb0 /
+    finiteness checks with the realised-dose band from ``z2_dose`` (p2r_z2_dose.json; REFUSED -- a fail -- without
+    it), the Z2 knobs, Loss/restance_nonzero >= 0.5, every Loss/restance_<branch> logged with 'home' > 0, and
+    Metrics/stand_proxy_live_frac >= 0.99 (window means). ``(fails, notes, live)``."""
+    band, why = z2_dose_band(z2_dose)
+    fails, notes, live = judge_p2r_liveness(overlay, ser, lo, hi, first, dose_band=band)
+    if band is None:
+        fails.append(f"term liveness: the Z2 realised-dose check refuses to run: {why}")
+    fails += [f"term liveness: {f}" for f in judge_z2_knobs(overlay)]
+    nz = window(ser.get(P2R_RESTANCE_NONZERO_TAG), lo, hi)
+    live["restance_nonzero"] = nz
+    if nz is None or not nz >= P2R_RESTANCE_NONZERO_MIN - 1e-9:
+        fails.append(f"term liveness: {P2R_RESTANCE_NONZERO_TAG} {nz} < {P2R_RESTANCE_NONZERO_MIN} (R's target is 0 on "
+                     "most bit-1 rows: the prior is still Z1's statue)")
+    shares = {b: window(ser.get(t), lo, hi) for b, t in zip(P2R_RESTANCE_BRANCHES, P2R_RESTANCE_BRANCH_TAGS)}
+    live["restance_branch_shares"] = shares
+    missing = [b for b, v in shares.items() if v is None]
+    if missing:
+        fails.append(f"term liveness: Loss/restance_<branch> not logged in the window for {missing}")
+    if shares.get("home") is None or not shares["home"] > 0:
+        fails.append(f"term liveness: Loss/restance_home {shares.get('home')} is not > 0 (the in-air homing branch "
+                     "never fires on training stand rows)")
+    pl = window(ser.get(P2R_PROXY_LIVE_TAG), lo, hi)
+    live["stand_proxy_live_frac"] = pl
+    pmin = z2_proxy_live_min(z2_dose)
+    live["stand_proxy_live_min"] = pmin
+    if pl is None or pmin is None or not pl >= pmin - 1e-9:
+        fails.append(f"term liveness: {P2R_PROXY_LIVE_TAG} {pl} < {pmin} (the dose bank's calibrated line; the held "
+                     "proxy is stale on training stand rows)")
     return fails, notes, live
 
 
@@ -472,7 +602,8 @@ def read_tb(run_dir: Path, extra_tags=()) -> dict:
         {f"Episode_Reward/{t}" for t in ARM_TERMS.values()} | \
         {f"Episode_Reward/{t}" for terms in P2B_ARM_TERMS.values() for t in terms} | \
         {f"Episode_Reward/{t}" for t in P2S_TERMS} | {P2S_STAND_FRAC_TAG} | \
-        {P2R_LOSS_ANCHOR, P2R_LOSS_PRIOR, P2R_ANCHOR_ROWS_TAG, P2R_PRIOR_ROWS_TAG, P2R_ANCHOR_MB0_TAG}
+        {P2R_LOSS_ANCHOR, P2R_LOSS_PRIOR, P2R_ANCHOR_ROWS_TAG, P2R_PRIOR_ROWS_TAG, P2R_ANCHOR_MB0_TAG} | \
+        {P2R_RESTANCE_NONZERO_TAG, P2R_PROXY_LIVE_TAG} | set(P2R_RESTANCE_BRANCH_TAGS)
     return {t: [(int(e.step), float(e.value)) for e in ea.Scalars(t)] for t in want if t in have}
 
 
@@ -616,11 +747,12 @@ def _close(a, b, tol=1e-9):
 
 def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, audit: list, replay: dict | None,
                  stand_gate: tuple[bool, str] | None = None, ref_tail: dict | None = None,
-                 p2s_gate: dict | None = None) -> dict:
+                 p2s_gate: dict | None = None, z2_dose: dict | None = None) -> dict:
     """CHARTER 8 wiring at +200 (pure). ``audit`` = run_candidates.overlay_checks output [(name, ok)];
     ``stand_gate`` = :func:`stand_gate_structural` of the code root (F1 only; None = not read = FAIL for F1);
     ``ref_tail`` = the seed's S1 p2a training tail (TG only; P2B_PLAN.md step 1, e.g. {"reward_orientation": x});
-    ``p2s_gate`` = :func:`p2s_gate_structural` of the code root (ST1 / ST2 only; None = not read = FAIL)."""
+    ``p2s_gate`` = :func:`p2s_gate_structural` of the code root (ST1 / ST2 only; None = not read = FAIL);
+    ``z2_dose`` = p2r_z2_dose.json (the Z2 arm only; None = not read = the dose check refuses)."""
     last = max((s for v in ser.values() for s, _ in v), default=None)
     lo, hi = first + W200[0], first + W200[1]
     if last is None or last < hi:
@@ -723,6 +855,10 @@ def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, au
         f3, n3 = judge_p2s_construction(facts, p2s_gate)
         fails += f3
         notes += n3
+    elif arm == P2R_Z2_ARM:
+        f2, n2, live = judge_p2r_z2_liveness(overlay, ser, lo, hi, first, z2_dose)
+        fails += f2
+        notes += n2
     elif Z_ARM_RE.match(arm):
         f2, n2, live = judge_p2r_liveness(overlay, ser, lo, hi, first)
         fails += f2
@@ -906,7 +1042,7 @@ def emitted_metric_keys(code_root: Path, keys) -> dict:
 def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tuple[bool, str] | None,
                     overlay: dict | None = None, p2s_gate: dict | None = None,
                     p2s_ref: tuple[bool, str] | None = None, p2r_graft: dict | None = None,
-                    fork_ckpt: str | None = None) -> dict:
+                    fork_ckpt: str | None = None, z2_dose: dict | None = None) -> dict:
     """What the live reads need before a launch (pure). ``emitted`` = :func:`emitted_metric_keys` output; for a p2s
     arm also the chain ``overlay``, ``p2s_gate`` (:func:`p2s_gate_structural`) and ``p2s_ref`` = ``(readable, why)``
     of the guards' reference run (:func:`p2s_reference_ok`); for a Z arm, ``overlay``, ``p2r_graft`` (the fork
@@ -976,6 +1112,12 @@ def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tu
             notes.append(f"p2s guard reference: {p2s_ref[1]}")
     if Z_ARM_RE.match(arm):
         fails += judge_p2r_preflight(overlay or {}, p2r_graft, fork_ckpt)
+    if arm == P2R_Z2_ARM:
+        # NOTE(p2r Z2, 2026-10-10): the Z2 knobs and step 4's dose file, so the +200 dose check cannot refuse later
+        fails += judge_z2_knobs(overlay or {})
+        _band, why = z2_dose_band(z2_dose)
+        if why:
+            fails.append(why)
     if arm == "F1":
         tags = [t for t in F1_NONSTAND_TAGS if (emitted.get(t.rsplit("/", 1)[-1]))]
         if tags:
@@ -1050,7 +1192,7 @@ def judge_collapse(ser: dict, first: int, source_tail_len) -> dict:
             "ep_len_roll": r_len, "crab_failure_roll": r_cf, "source_tail": source_tail_len}
 
 
-def judge_p2s_guards(ser: dict, first: int, ref: dict | None) -> dict:
+def judge_p2s_guards(ser: dict, first: int, ref: dict | None, *, ep_len_notify: bool = False) -> dict:
     """P2S_PLAN step 6, the three p2s guards (pure), at the run's newest logged iteration ``last`` (fork-relative
     offset ``d = last - first``), each a rolling window ending at ``last`` against the reference's SAME fork-relative
     window (``ref["kind"] == "run"``: its own series from its own first logged iteration) or its constant source tail
@@ -1059,7 +1201,10 @@ def judge_p2s_guards(ser: dict, first: int, ref: dict | None) -> dict:
       * KILL (rc 3) if rolling-200 PPO/effective_std < 0.8 x the reference's (from +1000);
       * NOTIFY-ONLY (rc 5, never a kill) if rolling-500 Episode_Termination/crab_failure > the reference's + 0.08
         (from +500 -- the rolling-500 window is undefined before it).
-    A kill outranks the flag. A reference window that is not there yet is WAIT (rc 2) for that clause only."""
+    A kill outranks the flag. A reference window that is not there yet is WAIT (rc 2) for that clause only.
+    ``ep_len_notify`` (the Z2 arm; P2R_Z2_PLAN "Left for implementation"): the episode-length clause is a NOTIFY-ONLY
+    flag instead of a kill -- R re-steps through most noisy training stands, so read the stand-slot terminations
+    before acting on it."""
     last = max((s for v in ser.values() for s, _ in v), default=None)
     if last is None:
         return {"rc": RC_WAIT, "why": "no telemetry"}
@@ -1083,8 +1228,12 @@ def judge_p2s_guards(ser: dict, first: int, ref: dict | None) -> dict:
     if el is None or rel is None:
         waits.append("episode length (arm or reference window missing)")
     elif el < (frac := P2S_LEN_FRAC_TAIL if ref.get("kind") == "tail" else P2S_LEN_FRAC) * rel:
-        kills.append(f"termination: rolling-{P2S_LEN_ROLL} episode length {el:.1f} < {frac} x the reference's "
-                     f"{rel:.1f} (+{d})")
+        msg = (f"termination: rolling-{P2S_LEN_ROLL} episode length {el:.1f} < {frac} x the reference's "
+               f"{rel:.1f} (+{d})")
+        if ep_len_notify:
+            flags.append(f"{msg} (notify-only for Z2: read the stand-slot terminations before acting)")
+        else:
+            kills.append(msg)
     if d >= P2S_STD_AT:
         sd, rsd = arm_roll(TAGS["std"], P2S_STD_ROLL), ref_roll(TAGS["std"], P2S_STD_ROLL)
         read.update(std=sd, ref_std=rsd)
@@ -1135,6 +1284,15 @@ def judge_smoke(audit: list, facts: dict, ser: dict, overlay: dict, require_move
 
 
 # ------------------------------------------------------------------------------------------------ IO drivers
+def _json_file(path) -> dict | None:
+    """A JSON file's object, or None when missing / unreadable (the Z2 dose file: None makes the check refuse)."""
+    try:
+        doc = json.load(open(path))
+    except (OSError, ValueError, TypeError):
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
 def _gather(run_dir: Path, train_log):
     envp, agp = run_dir / "params" / "env.yaml", run_dir / "params" / "agent.yaml"
     env = _yaml_tolerant(envp) if envp.is_file() else None
@@ -1149,7 +1307,8 @@ def check(a) -> tuple[int, dict]:
     cands = yaml.safe_load(open(a.candidates))
     if a.chain not in (cands.get("chains") or {}):
         return RC_WAIT, {"why": f"chain {a.chain} not in {a.candidates}"}
-    arm = p2s_arm(a.chain) or arm_of(a.chain)
+    # NOTE(p2r Z2, 2026-10-10): z_arm reads a fresh relaunch name (P2__Z2R1_s18 -> Z2); arm_of reads it as ''
+    arm = p2s_arm(a.chain) or z_arm(a.chain) or arm_of(a.chain)
     ov = chain_overlay(cands, a.chain)
     ser = read_tb(a.check)
     first, last = first_last(ser)
@@ -1166,12 +1325,14 @@ def check(a) -> tuple[int, dict]:
         seed = seed_of(a.chain)
         ref_tail = s1_p2a_tail(a.arms, seed) if arm == "TG" and seed is not None else None
         pg = p2s_gate_structural(Path(a.code_root) / MOTION_REWARDS_PY) if arm in P2S_ARMS else None
-        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail, pg)
+        z2d = _json_file(getattr(a, "z2_dose", P2R_Z2_DOSE_JSON)) if arm == P2R_Z2_ARM else None
+        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail, pg, z2d)
     elif a.at == "p2s":
         # a p2s dose arm OR a stage-p2r Z arm (P2R_STATUE_PLAN.md step 1 "Left for implementation": Z arms share
         # the three guards, read against the same reference, but have no dose/term-liveness to read here).
         if arm in P2S_ARMS or z_arm(a.chain):
-            res = judge_p2s_guards(ser, first, load_p2s_reference(p2s_reference(a.arms, seed_of(a.chain))))
+            res = judge_p2s_guards(ser, first, load_p2s_reference(p2s_reference(a.arms, seed_of(a.chain))),
+                                   ep_len_notify=(arm == P2R_Z2_ARM))
         else:
             res = {"rc": RC_PASS, "result": f"n/a (chain {a.chain} is not a p2s or p2r Z arm)"}
     elif a.at == "1000":
@@ -1203,7 +1364,7 @@ def preflight(a) -> tuple[int, dict]:
     cands = yaml.safe_load(open(a.candidates))
     if a.chain not in (cands.get("chains") or {}):
         return RC_FAIL, {"result": "FAIL", "fails": [f"chain {a.chain} not in {a.candidates}"]}
-    arm = p2s_arm(a.chain) or arm_of(a.chain)
+    arm = p2s_arm(a.chain) or z_arm(a.chain) or arm_of(a.chain)
     keys = [t[len(METRIC_PREFIX):] for t in OBST_LEVEL_TAGS + PROMO_TAGS] + [t.rsplit("/", 1)[-1] for t in F1_NONSTAND_TAGS]
     emitted = emitted_metric_keys(Path(a.code_root), keys)
     replay = json.load(open(a.replay)) if a.replay and Path(a.replay).is_file() else None
@@ -1222,7 +1383,9 @@ def preflight(a) -> tuple[int, dict]:
                 except (OSError, ValueError):
                     p2r_graft = None
     res = judge_preflight(arm, emitted, replay, sg, chain_overlay(cands, a.chain), pg, pref,
-                          p2r_graft=p2r_graft, fork_ckpt=fork_ckpt)
+                          p2r_graft=p2r_graft, fork_ckpt=fork_ckpt,
+                          z2_dose=(_json_file(getattr(a, "z2_dose", P2R_Z2_DOSE_JSON)) if arm == P2R_Z2_ARM
+                                   else None))
     res.update(chain=a.chain, emitted={k: v for k, v in emitted.items() if v})
     return int(res["rc"]), res
 
@@ -1635,6 +1798,53 @@ def _self_test() -> int:
     check_("p2r preflight: no p2s replay-gate verdict needed (never checked for a Z arm)",
            judge_preflight("Z1", em_ok, None, None, ov_z1, p2r_graft=graft_ok,
                            fork_ckpt=ov_z1["KRABBY_ANCHOR_CKPT"])["rc"], RC_PASS)
+    # NOTE(p2r Z2, 2026-10-10): the Z2 arm -- Z1's checks, the dose band from p2r_z2_dose.json, the R / proxy reads
+    ov_z2 = dict(ov_z1, KRABBY_OMNI_STAND_PROXY="hold", KRABBY_STAND_PRIOR_TARGET="restance", KRABBY_RESTANCE="default")
+    dose_z2 = {"band_lo": 3.0, "band_hi": 9.0, "rc": 0, "proxy_live_min": 0.96}
+
+    def s_z2(loss_prior=5.0, nonzero=0.9, home=0.05, live=1.0, drop=None):
+        s = s_z1(loss_prior=loss_prior)
+        for t, v in ((P2R_RESTANCE_NONZERO_TAG, nonzero), (P2R_PROXY_LIVE_TAG, live),
+                     *((t, v) for t, v in zip(P2R_RESTANCE_BRANCH_TAGS, (0.6, 0.1, 0.1, home, 0.15)))):
+            if t != drop:
+                s[t] = [(F0 + i, v) for i in range(215)]
+        return s
+    check_("p2r Z2 wiring: a clean Z2 passes",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(), F0, audit_ok, None, z2_dose=dose_z2)["rc"], RC_PASS)
+    check_("p2r Z2 wiring: no dose file refuses (fails), never falls back to Z1's band",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(loss_prior=2.3), F0, audit_ok, None)["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: Z1's band value 2.3 outside the Z2 band fails",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(loss_prior=2.3), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: restance_nonzero 0.4 fails",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(nonzero=0.4), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: home share 0 fails",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(home=0.0), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: a missing branch tag fails",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(drop="Loss/restance_wait"), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: stand_proxy_live_frac 0.95 (< the dose file's 0.96) fails",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(live=0.95), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: stand_proxy_live_frac 0.97 (>= 0.96; the plan's 0.99 is not the live line) passes",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(live=0.97), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_PASS)
+    check_("p2r Z2 wiring: a dose file written at rc 2 (no home branch) is refused",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(), F0, audit_ok, None,
+                        z2_dose=dict(dose_z2, rc=2))["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: a dose file without proxy_live_min is refused",
+           judge_wiring("Z2", ov_z2, _facts(weights=w_s1), s_z2(), F0, audit_ok, None,
+                        z2_dose={k: v for k, v in dose_z2.items() if k != "proxy_live_min"})["rc"], RC_FAIL)
+    check_("p2r Z2 wiring: Z1 itself is unchanged by a Z2 dose file (Z1 band)",
+           judge_wiring("Z1", ov_z1, _facts(weights=w_s1), s_z1(loss_prior=5.0), F0, audit_ok, None,
+                        z2_dose=dose_z2)["rc"], RC_FAIL)
+    check_("p2r Z2 preflight: knobs + dose file pass; no dose file refused",
+           [judge_preflight("Z2", em_ok, None, None, ov_z2, p2r_graft=graft_ok, fork_ckpt=ov_z2["KRABBY_ANCHOR_CKPT"],
+                            z2_dose=dose_z2)["rc"],
+            judge_preflight("Z2", em_ok, None, None, ov_z2, p2r_graft=graft_ok, fork_ckpt=ov_z2["KRABBY_ANCHOR_CKPT"],
+                            z2_dose=None)["rc"]], [RC_PASS, RC_FAIL])
     pref_ok = (True, "ref ok")
     check_("p2s preflight: PASS verdict + magnitudes + matching weights + gate + reference passes",
            judge_preflight("ST2", em_ok, rp_st2, None, ov_st2, pg_ok, pref_ok)["rc"], RC_PASS)
@@ -1715,6 +1925,9 @@ def main() -> int:
                           "(default $P2_OUT/arms)")
     ap.add_argument("--p2b-checkpoints", type=int, default=None, metavar="FORK_MODEL_N",
                      help="print the p2b intermediate checkpoint numbers for a fork of model_<FORK_MODEL_N>.pt")
+    ap.add_argument("--z2-dose", type=Path, default=P2R_Z2_DOSE_JSON,
+                     help="the Z2 arm's +200 realised-dose band (P2R_Z2_PLAN step 4; default the campaign's "
+                          "p2r_z2_dose.json)")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.arms is None:

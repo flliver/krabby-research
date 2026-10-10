@@ -87,6 +87,21 @@ clock would share the column) and unless ``stand_obs`` is off (the two are alter
 The single observation group feeds both actor and critic, so the critic sees the same current-step
 bit. ``crab_hex_omni_mirror.build_mirrors`` reads the same param and makes column 15 mirror-invariant.
 
+THE SAMPLE-AND-HOLD CONTACT PROXY ON STAND ROWS (``params["stand_proxy_hold"]``,
+``KRABBY_OMNI_STAND_PROXY=hold``; omni phase-2 stage p2r Z2, ``P2R_Z2_PLAN.md`` step 1, 2026-10-10; DEFAULT OFF,
+WIDTH-PRESERVING). The current-sense proxy (columns 83-88, ``_get_contact_fill``) is gated by rod speed, so a
+parked leg reads -0.5 whatever it carries and a still statue is blind to its loads. This param keeps a per-env,
+per-leg HELD buffer (initialised and reset to -0.5, "unknown"): EVERY step, on every row, a leg's held value
+becomes its live proxy (columns 83-88 as ``super().__call__`` produced them) wherever that leg's KNEE rod gate is
+full -- ``|knee_rod_speed| / (_CURRENT_SENSE_GATE_FRACTION * KNEE_SPEED_M_S) >= 1``, the knee-inclusive scale
+(user decision 2026-10-10: a hip-only reading is never held). Then, on STAND rows (``command.stand_mask()``, the
+same latched slot as the column-15 bit), the CURRENT step's columns 83-88 read the held values; the history rows
+stay the raw live proxy (the push happens inside ``super().__call__`` before the overwrite, exactly as for column
+15), and walking rows are untouched. At each reset the term logs ``Metrics/stand_proxy_live_frac`` into
+``env.extras["log"]``: the share of (stand row, leg) entries since the last log whose held value equals the live
+one bitwise. Construction-time only; refused without ``stand_bit_clock`` (the stand rows are the bit's) and with
+``lpf_obs`` (the appended head would move the proxy off columns 83-88, which the re-stance controller R reads).
+
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
 what it sees). Here those dims ARE the command -- a facing error the policy must integrate
@@ -122,8 +137,12 @@ from isaaclab.utils.math import wrap_to_pi
 
 from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
 
+from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
 from parkour_tasks.crab_hex_forward_task.mdp.curriculums import ramp_value
-from parkour_tasks.crab_hex_forward_task.mdp.observations import CrabHexParkourObservations
+from parkour_tasks.crab_hex_forward_task.mdp.observations import (
+    _CURRENT_SENSE_GATE_FRACTION,
+    CrabHexParkourObservations,
+)
 
 #: The only two spellings :data:`CrabHexOmniParkourObservations.facing_obs_encoding` accepts.
 #: Must stay equal to ``omni_knobs.FACING_OBS_ENCODINGS`` (the knob validates at config build,
@@ -252,6 +271,17 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: Off unless ``params["stand_bit_clock"]`` (``KRABBY_OMNI_STAND_OBS=clock``); see the module docstring.
     stand_bit_clock: bool = False
 
+    #: NOTE(p2r Z2, 2026-10-10): the first of the six current-sense proxy columns of the CURRENT step
+    #: (``17 + 2 * 24 joints + 18 actions``; ``crab_hex_omni_restance.PROXY_OBS_COLS``, pinned by the tests).
+    STAND_PROXY_COL = 83
+    #: The proxy's value for "unknown" (a parked rod's reading): the held buffer's init and reset value.
+    STAND_PROXY_UNKNOWN = -0.5
+    #: The training-log key the held proxy writes at every reset (see the module docstring).
+    STAND_PROXY_LIVE_FRAC_KEY = "Metrics/stand_proxy_live_frac"
+
+    #: Off unless ``params["stand_proxy_hold"]`` (``KRABBY_OMNI_STAND_PROXY=hold``); see the module docstring.
+    stand_proxy_hold: bool = False
+
     @staticmethod
     def _check_clock_hide_ramp(ramp, clock_hide: bool) -> tuple[int, int] | None:
         """``None`` or ``(t0, t1)`` env steps, ``0 <= t0 < t1``; a ramp without the hide flag raises.
@@ -286,6 +316,20 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         if stand_obs:
             raise ValueError("stand_bit_clock and stand_obs are two alternative stand bits; set one")
 
+    @staticmethod
+    def _check_stand_proxy_hold(stand_proxy_hold: bool, stand_bit_clock: bool, lpf_obs: bool) -> None:
+        """NOTE(p2r Z2, 2026-10-10): ``stand_proxy_hold`` needs ``stand_bit_clock`` (its stand rows are the bit's)
+        and no ``lpf_obs`` (the appended head would move the proxy off columns 83-88); the knob parser refuses
+        the same at config build, this guards the built cfg."""
+        if not stand_proxy_hold:
+            return
+        if not stand_bit_clock:
+            raise ValueError("stand_proxy_hold holds the contact proxy on the stand-bit rows, which needs "
+                             "stand_bit_clock (KRABBY_OMNI_STAND_OBS=clock)")
+        if lpf_obs:
+            raise ValueError("stand_proxy_hold and lpf_obs: the appended filtered-rod head would move the proxy "
+                             "off columns 83-88, which the re-stance controller reads")
+
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         _check_omni()
         clip = None
@@ -313,6 +357,11 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         # NOTE(p2r statue, 2026-10-09): the stand bit in the hidden clock column (width unchanged).
         self.stand_bit_clock = bool(params.get("stand_bit_clock", False)) if isinstance(params, dict) else False
         self._check_stand_bit_clock(self.stand_bit_clock, self.clock_hide, self.clock_hide_ramp, self.stand_obs)
+        # NOTE(p2r Z2, 2026-10-10): the sample-and-hold proxy on stand rows (width unchanged).
+        self.stand_proxy_hold = (
+            bool(params.get("stand_proxy_hold", False)) if isinstance(params, dict) else False
+        )
+        self._check_stand_proxy_hold(self.stand_proxy_hold, self.stand_bit_clock, self.lpf_obs)
         super().__init__(cfg, env)
         # The per-episode latch (ramp mode). All-False before the first reset is the draw at
         # t = 0, where p(0) = 0 for every legal t0 >= 0; rows are forced hidden from t1 on anyway.
@@ -320,6 +369,14 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
             if self.clock_hide else None
         )
+        # The held proxy (N, 6) and the live-share counters since the last log (device tensors: no sync per
+        # step). None while the knob is off, so nothing below touches a knob-off term.
+        self._stand_proxy_held = None
+        self._stand_proxy_n_live = self._stand_proxy_n_total = None
+        if self.stand_proxy_hold:
+            self._stand_proxy_held = torch.full((self.num_envs, 6), self.STAND_PROXY_UNKNOWN, device=self.device)
+            self._stand_proxy_n_live = torch.zeros((), dtype=torch.long, device=self.device)
+            self._stand_proxy_n_total = torch.zeros((), dtype=torch.long, device=self.device)
 
     # ------------------------------------------------ the optional head extensions (default off)
     def _extra_head_dim(self) -> int:
@@ -374,6 +431,8 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         (1e-3) would hide 0.1 % of episodes BEFORE ``t0``. Knob off: the base reset, nothing else.
         """
         super().reset(env_ids)
+        if self.stand_proxy_hold:
+            self._reset_stand_proxy(env_ids)
         if not self.clock_hide:
             return
         env = self._env
@@ -391,6 +450,51 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         extras = getattr(env, "extras", None)
         if isinstance(extras, dict):
             extras.setdefault("log", {})[self.CLOCK_HIDDEN_FRAC_KEY] = frac
+
+    # ------------------------------- the sample-and-hold proxy on stand rows (p2r Z2, 2026-10-10)
+    def _reset_stand_proxy(self, env_ids=None) -> None:
+        """Reset rows read "unknown" (-0.5) again; log the live share since the last log, then restart it.
+
+        Nothing is logged while no (stand row, leg) entry was seen since the last log (the runner skips a key
+        an episode-info dict lacks): a share of nothing is not a 1.0.
+        """
+        if env_ids is None:
+            self._stand_proxy_held[:] = self.STAND_PROXY_UNKNOWN
+        else:
+            ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+            self._stand_proxy_held[ids] = self.STAND_PROXY_UNKNOWN
+        total = int(self._stand_proxy_n_total)
+        if total == 0:
+            return
+        frac = self._stand_proxy_n_live.double() / total
+        extras = getattr(self._env, "extras", None)
+        if isinstance(extras, dict):
+            extras.setdefault("log", {})[self.STAND_PROXY_LIVE_FRAC_KEY] = frac.float()
+        self._stand_proxy_n_live.zero_()
+        self._stand_proxy_n_total.zero_()
+
+    def _knee_gate_full(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor:
+        """``(N, 6)`` bool: the leg's KNEE rod drive gate is full -- the forward proxy's ``gate_k``
+        (``_get_contact_fill``), same expression, at 1. The hip gate is deliberately not read."""
+        action_term = env.action_manager.get_term("joint_pos")
+        gate_k = (
+            action_term.knee_rod_speed.abs()
+            / (_CURRENT_SENSE_GATE_FRACTION * linkage.KNEE_SPEED_M_S)
+        ).clamp(0.0, 1.0)
+        return gate_k >= 1.0
+
+    def _hold_stand_proxy(self, env: ParkourManagerBasedRLEnv, observations: torch.Tensor) -> None:
+        """Update the held buffer from this step's live proxy, then write it into the CURRENT step's stand rows.
+
+        In place on ``observations`` (columns 83-88 only); ``_obs_history_buffer`` is never touched.
+        """
+        c0 = self.STAND_PROXY_COL
+        live = observations[:, c0:c0 + 6].clone()
+        self._stand_proxy_held = torch.where(self._knee_gate_full(env), live, self._stand_proxy_held)
+        stand = env.command_manager.get_term("base_velocity").stand_mask().bool()[:, None]
+        observations[:, c0:c0 + 6] = torch.where(stand, self._stand_proxy_held, live)
+        self._stand_proxy_n_total += stand.sum() * 6
+        self._stand_proxy_n_live += ((self._stand_proxy_held == live) & stand).sum()
 
     # ------------------------------------------------------------------ the two hooks
     def _steering_channels(
@@ -460,6 +564,7 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         clock_hide_ramp: tuple[int, int] | None = None,
         cmd_obs_scalar: bool = False,
         stand_bit_clock: bool = False,
+        stand_proxy_hold: bool = False,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -501,6 +606,11 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
                 "stand_bit_clock changed after the observation term was built (built "
                 f"{self.stand_bit_clock}, called {stand_bit_clock}); it is construction-time only"
             )
+        if bool(stand_proxy_hold) != self.stand_proxy_hold:
+            raise ValueError(
+                "stand_proxy_hold changed after the observation term was built (built "
+                f"{self.stand_proxy_hold}, called {stand_proxy_hold}); it is construction-time only"
+            )
         observations = super().__call__(
             env, asset_cfg, sensor_cfg, parkour_name, history_length
         )
@@ -522,4 +632,8 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             # ``super().__call__`` just pushed onto the history carries the hidden clock's 0 there,
             # and nothing here touches ``_obs_history_buffer`` -- unlike slot 5 above, on purpose.
             observations[:, self.STAND_BIT_CLOCK_COL] = self._stand_bit(env)
+        if self.stand_proxy_hold:
+            # NOTE(p2r Z2, 2026-10-10): the held proxy on the CURRENT step's stand rows only; the row
+            # ``super().__call__`` pushed onto the history carries the live proxy, and stays so.
+            self._hold_stand_proxy(env, observations)
         return observations

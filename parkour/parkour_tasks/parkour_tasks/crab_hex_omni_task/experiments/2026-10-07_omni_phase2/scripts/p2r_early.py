@@ -22,6 +22,18 @@ Reported beside every checkpoint (never gated): PPO/kl_mean, PPO/lr_applied (the
 Loss/value_function, and -- logged every 50 iterations only, so read at the nearest available point -- the
 gradient-norm split Loss/grad_norm_statue / _anchor / _rest.
 
+Z2 MODE (``--mode z2``; NOTE(p2r Z2, 2026-10-10), P2R_Z2_PLAN.md step 4 "Early checks", notify-only as for Z1).
+Z2's statue target is R(obs), not 0, so the prior does not decay to ~0 the way Z1's did:
+  walking drift   unchanged (D(Z2) <= 0.5 x D(C0) at the same checkpoint, cosine vs ST2 reported).
+  formation       rolling-20 Loss/stand_prior at +500 must be <= 0.25 x its first-update value (Z1's 0.1x-at-+200
+                  line assumed a constant target).
+  stand fidelity  :mod:`p2r_z2_fidelity` on the restance probe's ``p2r_stand_bank.npz`` (``--stand-bank``), the eval
+                  path (own estimator, ``hist_encoding=True``): NOTIFY when the max over legs of the mean signed
+                  HOLD-branch cam residual |mu_cam - R_cam| exceeds 0.015 (half the trim's +-0.03); a bank with no
+                  HOLD-branch row cannot be read and NOTIFIES too.
+  residual        computed and REPORTED only (not gated: Z2's plan lists drift / formation / fidelity; a varying target
+                  makes the 2x-over-minimum line a Z1-only statistic).
+
 Exit codes: 0 = every checkpoint read clean, 5 = at least one flag fired (NOTIFY, never a kill), 2 = not enough
 telemetry yet for a checkpoint that already has a model file (retry), 1 = the run dir / bank is unreadable.
 
@@ -32,6 +44,8 @@ CLI:
     p2r_early.py --watch RUN_DIR [--poll-s N] [--timeout-s N] [... same options]
         a sentinel loop (for the orchestrator): polls every ``--poll-s`` (default 120) until BOTH model_20500.pt
         and model_21000.pt exist (or ``--timeout-s``, default unbounded), then runs the one-shot read once.
+    p2r_early.py --mode z2 --run-dir RUN_DIR --bank BANK.npz --stand-bank p2r_stand_bank.npz [... same options]
+        the Z2 read (see Z2 MODE above); ``--watch`` works the same way.
     p2r_early.py --self-test
         synthetic TensorBoard series (the pure formation / residual logic) + a tiny synthetic checkpoint pair (the
         drift logic, reusing p2r_graft.py's toy-checkpoint builder). Exit 0 / 1.
@@ -51,6 +65,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 import p2_live as live   # noqa: E402  (read_tb / window / point_at / first_last -- same directory, CPU-only)
 import p2r_drift as drift  # noqa: E402
+import p2r_z2_fidelity as z2fid  # noqa: E402  (NOTE(p2r Z2, 2026-10-10): the stand-fidelity scorer)
 
 R = Path("/home/nickmagus/krabby/krabby-research")
 #: the fixed references (P2R_STATUE_PLAN.md step 4): the graft's source S1 head, and the two matched-iteration
@@ -71,6 +86,9 @@ RESIDUAL_RATIO_LINE = 2.0
 REPORT_TAGS = ("PPO/kl_mean", "PPO/lr_applied", "PPO/grad_norm", "Loss/value_function")
 GRAD_SPLIT_TAGS = ("Loss/grad_norm_statue", "Loss/grad_norm_anchor", "Loss/grad_norm_rest")
 RC_OK, RC_WAIT, RC_NOTIFY, RC_ERROR = 0, 2, 5, 1
+#: NOTE(p2r Z2, 2026-10-10): Z2's formation line (P2R_Z2_PLAN step 4) -- rolling-20 at +500 <= 0.25 x first update
+Z2_FORMATION_FRAC, Z2_FORMATION_AT = 0.25, 500
+MODES = ("z1", "z2")
 
 
 # ================================================================================================ pure logic
@@ -88,19 +106,20 @@ def rolling_min_over(series, lo: int, hi: int, window: int):
     return min(vals) if vals else None
 
 
-def judge_formation(series, first: int) -> dict:
-    """P2R_STATUE_PLAN.md step 4 "formation" (pure)."""
+def judge_formation(series, first: int, at: int = FORMATION_AT, frac: float = FORMATION_FRAC) -> dict:
+    """P2R_STATUE_PLAN.md step 4 "formation" (pure). ``at`` / ``frac`` default to Z1's +200 / 0.1x; Z2 passes
+    :data:`Z2_FORMATION_AT` / :data:`Z2_FORMATION_FRAC`."""
     first_val = live.point_at(series, first)
-    r20 = rolling_mean_at(series, first + FORMATION_AT, FORMATION_ROLL)
-    out = {"first_update_value": first_val, f"rolling{FORMATION_ROLL}_at_{FORMATION_AT}": r20}
+    r20 = rolling_mean_at(series, first + at, FORMATION_ROLL)
+    out = {"first_update_value": first_val, f"rolling{FORMATION_ROLL}_at_{at}": r20}
     if first_val is None or r20 is None:
-        return dict(out, rc=RC_WAIT, why="missing Loss/stand_prior at the fork start or +%d" % FORMATION_AT)
-    line = FORMATION_FRAC * first_val
+        return dict(out, rc=RC_WAIT, why="missing Loss/stand_prior at the fork start or +%d" % at)
+    line = frac * first_val
     out["line"] = line
     flagged = r20 > line
     return dict(out, rc=RC_NOTIFY if flagged else RC_OK,
-               why=(f"rolling-{FORMATION_ROLL} Loss/stand_prior at +{FORMATION_AT} ({r20:.4g}) > "
-                    f"{FORMATION_FRAC:g} x its first-update value ({first_val:.4g})") if flagged else "formed")
+               why=(f"rolling-{FORMATION_ROLL} Loss/stand_prior at +{at} ({r20:.4g}) > "
+                    f"{frac:g} x its first-update value ({first_val:.4g})") if flagged else "formed")
 
 
 def judge_residual(series, prior_rows_series, first: int) -> dict:
@@ -148,12 +167,31 @@ def judge_drift(d_z: float | None, d_c0: float | None) -> dict:
                    else "the walking anchor is holding")}
 
 
+def judge_fidelity(fid: dict | None) -> dict:
+    """NOTE(p2r Z2, 2026-10-10): :func:`p2r_z2_fidelity.score`'s result -> this module's rc (pure). Over the line ->
+    NOTIFY; a bank with no HOLD-branch row cannot be judged -> NOTIFY (surfaced, never silently passed)."""
+    if fid is None:
+        return {"rc": RC_WAIT, "why": "stand fidelity not computed"}
+    out = {k: fid.get(k) for k in ("hold_cam_residual_signed_by_leg", "hold_cam_residual_max_abs", "line", "why")}
+    out["by_branch_cam_abs_mean"] = {b: (v.get("cam_abs") or {}).get("mean") for b, v in (fid.get("by_branch") or {}).items()}
+    out["prior_per_row"] = fid.get("prior_per_row")
+    out["rc"] = RC_OK if fid.get("rc") == z2fid.RC_OK else RC_NOTIFY
+    return out
+
+
 def judge_checkpoint(ckpt_name: str, d_z: float | None, d_c0: float | None, cos_zst2: float | None,
-                     ser: dict, first: int) -> dict:
+                     ser: dict, first: int, mode: str = "z1", fidelity: dict | None = None) -> dict:
     """One checkpoint's full read (pure): drift + formation + residual, plus the reported-only tags. ``ser`` is
-    the Z run's own TensorBoard series (:func:`p2_live.read_tb`); ``first`` its fork's first logged iteration."""
+    the Z run's own TensorBoard series (:func:`p2_live.read_tb`); ``first`` its fork's first logged iteration.
+    ``mode="z2"``: Z2's formation line, the stand-fidelity judge on ``fidelity`` (:func:`p2r_z2_fidelity.score`'s
+    result), residual reported only."""
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
     drift_j = judge_drift(d_z, d_c0)
-    form_j = judge_formation(ser.get("Loss/stand_prior"), first)
+    if mode == "z2":
+        form_j = judge_formation(ser.get("Loss/stand_prior"), first, at=Z2_FORMATION_AT, frac=Z2_FORMATION_FRAC)
+    else:
+        form_j = judge_formation(ser.get("Loss/stand_prior"), first)
     resid_j = judge_residual(ser.get("Loss/stand_prior"), ser.get("Loss/prior_rows"), first)
     reported = {}
     at = int(ckpt_name.split("_")[1].split(".")[0]) - first
@@ -163,6 +201,12 @@ def judge_checkpoint(ckpt_name: str, d_z: float | None, d_c0: float | None, cos_
         # logged every 50 its: the nearest point at or before fork+at
         pts = [(s, v) for s, v in ser.get(t) or [] if s <= first + at]
         reported[t] = pts[-1][1] if pts else None
+    if mode == "z2":
+        fid_j = judge_fidelity(fidelity)
+        rc = max(j["rc"] for j in (drift_j, form_j, fid_j))
+        return {"checkpoint": ckpt_name, "mode": mode, "cosine_delta_mu_vs_st2": cos_zst2, "drift": drift_j,
+                "formation": form_j, "stand_fidelity": fid_j, "residual_reported": resid_j, "reported": reported,
+                "rc": rc}
     rc = max(j["rc"] for j in (drift_j, form_j, resid_j))
     return {"checkpoint": ckpt_name, "cosine_delta_mu_vs_st2": cos_zst2, "drift": drift_j, "formation": form_j,
            "residual": resid_j, "reported": reported, "rc": rc}
@@ -195,9 +239,12 @@ def score_checkpoint(ckpt: Path, s1_ckpt: Path, c0_run: Path, st2_run: Path, ban
 
 
 def run_once(run_dir: Path, s1_ckpt: Path, c0_run: Path, st2_run: Path, bank_path: Path,
-            agent_yaml: Path | None = None) -> dict:
+            agent_yaml: Path | None = None, mode: str = "z1", stand_bank: Path | None = None) -> dict:
     """The one-shot read over both :data:`CHECKPOINTS` (IO + pure judging). ``rc`` is the worst of every
-    checkpoint read (``RC_ERROR`` if the run's own TensorBoard series cannot be read at all)."""
+    checkpoint read (``RC_ERROR`` if the run's own TensorBoard series cannot be read at all). ``mode="z2"`` also
+    scores each checkpoint's stand fidelity on ``stand_bank`` (:func:`p2r_z2_fidelity.run`, the eval path)."""
+    if mode == "z2" and stand_bank is None:
+        return {"rc": RC_ERROR, "why": "--mode z2 needs --stand-bank (the restance probe's p2r_stand_bank.npz)"}
     try:
         ser = live.read_tb(run_dir)
     except Exception as e:  # noqa: BLE001 -- an unreadable run dir is RC_ERROR, never silently n/a
@@ -206,6 +253,8 @@ def run_once(run_dir: Path, s1_ckpt: Path, c0_run: Path, st2_run: Path, bank_pat
     if first is None:
         return {"rc": RC_WAIT, "why": f"{run_dir}: no telemetry yet"}
     out = {"run_dir": str(run_dir), "fork_first_iteration": first, "checkpoints": {}}
+    if mode == "z2":
+        out["mode"] = mode
     worst = RC_OK
     for name in CHECKPOINTS:
         ckpt = Path(run_dir) / name
@@ -214,7 +263,14 @@ def run_once(run_dir: Path, s1_ckpt: Path, c0_run: Path, st2_run: Path, bank_pat
             out["checkpoints"][name] = {"checkpoint": name, "rc": RC_WAIT, "why": f"{ckpt} does not exist yet"}
             worst = max(worst, RC_WAIT)
             continue
-        j = judge_checkpoint(name, d_score["D_Z"], d_score["D_C0"], d_score["cosine_delta_mu_vs_st2"], ser, first)
+        fid = None
+        if mode == "z2":
+            try:
+                fid = z2fid.run(Path(stand_bank), ckpt, agent_yaml)
+            except (OSError, KeyError, ValueError) as e:
+                return {"rc": RC_ERROR, "why": f"stand fidelity unreadable ({e.__class__.__name__}: {e})"}
+        j = judge_checkpoint(name, d_score["D_Z"], d_score["D_C0"], d_score["cosine_delta_mu_vs_st2"], ser, first,
+                             mode=mode, fidelity=fid)
         j["score"] = d_score
         out["checkpoints"][name] = j
         worst = max(worst, j["rc"])
@@ -304,6 +360,25 @@ def _self_test() -> int:
     j_bad = judge_checkpoint("model_20501.pt", 0.9, 1.4, 0.9, ser_ok, F0)
     check_("judge_checkpoint: a flagged drift propagates to rc", j_bad["rc"], RC_NOTIFY)
 
+    # ---- Z2 mode (NOTE(p2r Z2, 2026-10-10)) ----
+    z2_slow = ramp({0: 2.3, 450: 0.7})                          # 0.7 at +500 > 0.25 x 2.3 = 0.575
+    check_("z2 formation: 0.7 at +500 flags against 0.25x", judge_formation(
+        z2_slow, F0, at=Z2_FORMATION_AT, frac=Z2_FORMATION_FRAC)["rc"], RC_NOTIFY)
+    z2_ok = ramp({0: 2.3, 450: 0.5})
+    check_("z2 formation: 0.5 at +500 passes", judge_formation(
+        z2_ok, F0, at=Z2_FORMATION_AT, frac=Z2_FORMATION_FRAC)["rc"], RC_OK)
+    check_("z2 fidelity: within the line -> ok", judge_fidelity({"rc": z2fid.RC_OK})["rc"], RC_OK)
+    check_("z2 fidelity: over the line -> notify", judge_fidelity({"rc": z2fid.RC_NOTIFY})["rc"], RC_NOTIFY)
+    check_("z2 fidelity: no HOLD rows -> notify", judge_fidelity({"rc": z2fid.RC_NO_ROWS})["rc"], RC_NOTIFY)
+    ser_z2 = dict(ser_ok, **{"Loss/stand_prior": z2_ok})
+    jz = judge_checkpoint("model_20500.pt", 0.5, 1.4, 0.9, ser_z2, F0, mode="z2", fidelity={"rc": z2fid.RC_OK})
+    check_("z2 judge_checkpoint: clean -> rc 0, residual reported only", (jz["rc"], "residual" in jz,
+                                                                          "residual_reported" in jz),
+           (RC_OK, False, True))
+    jz_bad = judge_checkpoint("model_20500.pt", 0.5, 1.4, 0.9, ser_z2, F0, mode="z2",
+                              fidelity={"rc": z2fid.RC_NOTIFY})
+    check_("z2 judge_checkpoint: a fidelity flag propagates", jz_bad["rc"], RC_NOTIFY)
+
     # ---- end-to-end score_checkpoint on tiny synthetic checkpoints (no real Isaac/CUDA checkpoint needed) ----
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
@@ -360,6 +435,8 @@ def main(argv=None) -> int:
     ap.add_argument("--c0-run", type=Path, default=C0_RUN_DEFAULT)
     ap.add_argument("--st2-run", type=Path, default=ST2_RUN_DEFAULT)
     ap.add_argument("--json", type=Path)
+    ap.add_argument("--mode", choices=MODES, default="z1")
+    ap.add_argument("--stand-bank", type=Path, default=None, help="z2: the restance probe's p2r_stand_bank.npz")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args(argv)
     if a.self_test:
@@ -369,7 +446,10 @@ def main(argv=None) -> int:
         ap.error("--run-dir or --watch is required (or --self-test)")
     if not a.bank:
         ap.error("--bank is required (the step-1 non-stand probe bank, p2r_bank.npz)")
-    kwargs = dict(s1_ckpt=a.s1_ckpt, c0_run=a.c0_run, st2_run=a.st2_run, bank_path=a.bank, agent_yaml=a.agent_yaml)
+    if a.mode == "z2" and not a.stand_bank:
+        ap.error("--mode z2 needs --stand-bank (the restance probe's p2r_stand_bank.npz)")
+    kwargs = dict(s1_ckpt=a.s1_ckpt, c0_run=a.c0_run, st2_run=a.st2_run, bank_path=a.bank, agent_yaml=a.agent_yaml,
+                  mode=a.mode, stand_bank=a.stand_bank)
     out = watch(run_dir, a.poll_s, a.timeout_s, **kwargs) if a.watch else run_once(run_dir, **kwargs)
     text = json.dumps(out, indent=1, default=str)
     if a.json:

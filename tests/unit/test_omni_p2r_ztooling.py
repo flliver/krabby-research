@@ -421,6 +421,12 @@ def test_candidates_yaml_has_the_z1_chain_with_the_s1_overlay_verbatim():
 
 
 def test_candidates_v12_copy_is_identical_to_the_campaign_file():
+    # NOTE(p2r Z2, 2026-10-10): the campaign file moved to v13 (P2__Z2_s18 added); its copy is now
+    # scripts/candidates_v13.yaml, and v12's Z1 chain / reference must survive into it unchanged.
     cands = (CAMP / "candidates.yaml").read_bytes()
-    v12 = (SCRIPTS / "candidates_v12.yaml").read_bytes()
-    assert cands == v12
+    v13 = (SCRIPTS / "candidates_v13.yaml").read_bytes()
+    assert cands == v13
+    v12 = yaml.safe_load(open(SCRIPTS / "candidates_v12.yaml"))
+    cur = yaml.safe_load(open(CAMP / "candidates.yaml"))
+    assert cur["chains"]["P2__Z1_s18"] == v12["chains"]["P2__Z1_s18"]
+    assert cur["references"]["P2__Z1_s18"] == v12["references"]["P2__Z1_s18"]

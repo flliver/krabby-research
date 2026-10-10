@@ -22,12 +22,31 @@ suite's cross-wave latch carry-over: the move_turn wave's settle inherited the t
   (<= ``--p2r-bank-max`` rows, a private generator, seed 0) of the recorded NON-STAND steps' obs with the true priv
   columns (hold label not ``stand`` / the suite settle; settled turns included), their hold label and telemetry
   category, and ``s1_sigma``.
+* ``--p2r-mode restance`` -- NOTE(p2r Z2, 2026-10-10; P2R_Z2_PLAN.md step 1 "Probe"): applied action = the scripted
+  re-stance controller ``R(obs)`` (``mdp/crab_hex_omni_restance.py``, loaded BY PATH -- the very function the PPO
+  statue prior distils) on stand rows, S1's action elsewhere: the ``hold`` branch with ``R(obs)`` in place of zeros.
+  ``obs`` is exactly the tensor the harness hands the policy (R reads only the current step's cam columns 18..28 and
+  proxy columns 83..88, both in the proprio head, which the harness's priv_explicit overwrite never touches), so under
+  ``KRABBY_OMNI_STAND_PROXY=hold`` R sees the env's sample-and-hold proxy. R's constants come from the environment's
+  ``KRABBY_RESTANCE`` (refused unset, or without ``KRABBY_OMNI_STAND_OBS=clock`` + ``KRABBY_OMNI_STAND_PROXY=hold``).
+  ``--p2r-residual JSON`` (``{"mu_bias": [18 floats]}``; the plan's residual pass) adds a fixed per-dim bias to R on
+  stand rows, BEFORE the env's own action clip. ``--p2r-stand-bank`` reservoir-samples the stand rows (alive, stand
+  mode; <= ``--p2r-bank-max``, a private generator, seed 0) into ``<stamp>/p2r_stand_bank.npz``: the TRUE obs (true
+  priv columns, as the probe bank captures them), R's target and branch, the policy-visible (held) proxy, the hold
+  label and telemetry category, the step / episode index, ``s1_sigma``, R's params and the bias -- the CPU stand
+  fidelity check's input (``p2r_z2_fidelity.py``).
 
 RECORD (the shared contract). Raw npz per episode: ``p2r_stand_mode`` (T,) bool, and (probe) ``p2r_dmu_<NAME>`` (T,)
-float32. ``run_meta.json`` key ``p2r_mode``: variant, enter_rule, launcher/harness/S1 shas, specialist, probes
-(probe variant only), rng_restored, stand_mode_share (recorded env-steps), switches_per_episode_mean,
-settle_mode_share_by_wave (suite rows, else null), bank (relative path or null) -- plus the reported extras
-``stand_mode_share_by_hold``, ``priv_cols``, ``raw_series``, ``bank_rows``.
+float32; (restance) ``p2r_branch`` (T, 6) int8 (R's per-leg ``BRANCH_*`` code on stand rows, -1 off-stand),
+``p2r_target`` (T, 18) float32 (R's target WITHOUT the residual bias on stand rows, 0 off-stand) and
+``p2r_obs_proxy`` (T, 6) float32 (obs columns 83..88 exactly as the policy saw them, every row). ``run_meta.json``
+key ``p2r_mode``: variant, enter_rule, launcher/harness/S1 shas, specialist, probes (probe variant only),
+rng_restored, stand_mode_share (recorded env-steps), switches_per_episode_mean, settle_mode_share_by_wave (suite
+rows, else null), bank (relative path or null) -- plus the reported extras ``stand_mode_share_by_hold``,
+``priv_cols``, ``raw_series``, ``bank_rows``; (restance) ``restance`` (params, knob spelling, module sha, residual,
+stand-row branch shares) and ``stand_bank`` / ``stand_bank_rows``. The restance swap-live proof (applied action ==
+``p2r_target`` + bias on every stand-mode step, and == REFS before each episode's first stand entry) is
+:func:`restance_swap_live`, read from the raws alone.
 
 PATCH POINTS (verified against the harness at sha256 342339cc..., commit 60532fb9):
 * ``:140`` ``args_cli = parser.parse_args()`` at IMPORT time -> this launcher strips its own args from ``sys.argv``
@@ -52,8 +71,10 @@ PATCH POINTS (verified against the harness at sha256 342339cc..., commit 60532fb
   in its own ``finally``.
 
 ENV FALLBACK (``run_arm.sh``'s ``lr_eval`` passes no extra CLI args): ``P2R_MODE``, ``P2R_STAND_CKPT``,
-``P2R_PROBES`` (``NAME=PATH`` separated by commas), ``P2R_BANK_MAX``, used only when the CLI flag is absent -- set them
-through ``P2_ENV_EXTRA``. None of them is a ``KRABBY_*`` variable, so ``run_meta.env_vars`` is unchanged.
+``P2R_PROBES`` (``NAME=PATH`` separated by commas), ``P2R_BANK_MAX``, ``P2R_RESIDUAL`` (the JSON path),
+``P2R_STAND_BANK`` (``1`` = on), used only when the CLI flag is absent -- set them through ``P2_ENV_EXTRA``. None of
+them is a ``KRABBY_*`` variable, so ``run_meta.env_vars`` is unchanged. (The restance probe's own ``KRABBY_RESTANCE``
+/ ``KRABBY_OMNI_STAND_PROXY`` ARE ``KRABBY_*`` variables: they travel in ``P2_ENV_EXTRA`` too and are recorded.)
 
 Launch exactly as the harness (``run_arm.sh`` with ``P2_EVAL=<this file>`` and the mode args in ``EVAL_EXTRA_ARGS``).
 """
@@ -75,18 +96,27 @@ _THIS = Path(__file__).resolve()
 # scripts -> 2026-10-07_omni_phase2 -> experiments -> crab_hex_omni_task -> parkour_tasks (inner)
 _TASKS = _THIS.parents[4]
 HARNESS = _TASKS / "crab_hex_forward_task" / "scripts" / "eval_crab_hex_gait.py"
+#: NOTE(p2r Z2, 2026-10-10): the scripted re-stance controller R (pure torch; loaded by path, see :func:`load_restance`)
+RESTANCE_MODULE = _TASKS / "crab_hex_omni_task" / "mdp" / "crab_hex_omni_restance.py"
 
-VARIANTS = ("hold", "st2", "probe")
+VARIANTS = ("hold", "st2", "probe", "restance")
 ENTER_RULE = "latched_stand_slot"
 DEFAULT_BANK_MAX = 20000
 BANK_NAME = "p2r_bank.npz"
 BANK_SEED = 0
+STAND_BANK_NAME = "p2r_stand_bank.npz"
 STAND_LABEL = "stand"
 PROLOGUE_LABEL = "prologue"
 RAW_STAND = "p2r_stand_mode"
 RAW_DMU_PREFIX = "p2r_dmu_"
+RAW_BRANCH = "p2r_branch"
+RAW_TARGET = "p2r_target"
+RAW_OBS_PROXY = "p2r_obs_proxy"
+#: the env knobs the restance variant needs (the env's own obs term reads them; refused otherwise)
+STAND_OBS_VAR, STAND_PROXY_VAR = "KRABBY_OMNI_STAND_OBS", "KRABBY_OMNI_STAND_PROXY"
 _PROBE_NAME = re.compile(r"^[A-Za-z0-9_]+$")
-_ENV_KEYS = {"mode": "P2R_MODE", "stand_ckpt": "P2R_STAND_CKPT", "probes": "P2R_PROBES", "bank_max": "P2R_BANK_MAX"}
+_ENV_KEYS = {"mode": "P2R_MODE", "stand_ckpt": "P2R_STAND_CKPT", "probes": "P2R_PROBES", "bank_max": "P2R_BANK_MAX",
+             "residual": "P2R_RESIDUAL", "stand_bank": "P2R_STAND_BANK"}
 
 
 def sha256_file(path) -> str:
@@ -119,6 +149,8 @@ def strip_p2r_args(argv: list[str], environ=None) -> tuple[argparse.Namespace, l
     ap.add_argument("--p2r-stand-ckpt", dest="stand_ckpt", default=None)
     ap.add_argument("--p2r-probe", dest="probes", action="append", default=None)
     ap.add_argument("--p2r-bank-max", dest="bank_max", type=int, default=None)
+    ap.add_argument("--p2r-residual", dest="residual", default=None)
+    ap.add_argument("--p2r-stand-bank", dest="stand_bank", action="store_const", const=True, default=None)
     opts, rest = ap.parse_known_args(list(argv))
     if opts.mode is None and environ.get(_ENV_KEYS["mode"]):
         opts.mode = environ[_ENV_KEYS["mode"]]
@@ -130,14 +162,89 @@ def strip_p2r_args(argv: list[str], environ=None) -> tuple[argparse.Namespace, l
         opts.bank_max = int(environ[_ENV_KEYS["bank_max"]])
     if opts.bank_max is None:
         opts.bank_max = DEFAULT_BANK_MAX
+    if opts.residual is None and environ.get(_ENV_KEYS["residual"]):
+        opts.residual = environ[_ENV_KEYS["residual"]]
+    if opts.stand_bank is None:
+        raw_sb = str(environ.get(_ENV_KEYS["stand_bank"], "")).strip()
+        if raw_sb not in ("", "0", "1"):
+            raise SystemExit(f"p2r: {_ENV_KEYS['stand_bank']} must be blank / 0 / 1, got {raw_sb!r}")
+        opts.stand_bank = raw_sb == "1"
     stray = [a for a in rest if a.startswith("--p2r")]
     if stray:
         raise SystemExit(f"p2r: unrecognised p2r argument(s) {stray}")
     return opts, rest
 
 
-def validate_opts(opts: argparse.Namespace, *, check_files: bool = True) -> argparse.Namespace:
-    """Normalise ``opts.probes`` to an ordered ``{name: path}`` and refuse every inconsistent combination."""
+def load_restance(path: Path | str = RESTANCE_MODULE):
+    """The re-stance controller module, loaded BY PATH (pure torch; never through the task package, whose
+    ``__init__`` pulls in Isaac). The SAME file the PPO statue prior imports, so the probe proves the distilled
+    target bit for bit."""
+    import importlib.util  # noqa: PLC0415
+
+    spec = importlib.util.spec_from_file_location("_p2r_restance", str(path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def load_residual(path, action_dim: int) -> dict:
+    """``--p2r-residual`` JSON -> ``{"path", "sha256", "mu_bias", "source"}``: exactly ``{"mu_bias": [action_dim
+    finite floats]}`` plus an optional ``"source"`` provenance string; anything else is refused (a typo'd key must
+    never run as a zero bias)."""
+    import json  # noqa: PLC0415
+    import math  # noqa: PLC0415
+
+    p = Path(path)
+    if not p.is_file():
+        raise SystemExit(f"p2r: --p2r-residual file not found: {p}")
+    try:
+        d = json.loads(p.read_text())
+    except ValueError as exc:
+        raise SystemExit(f"p2r: --p2r-residual {p} is not JSON ({exc})") from exc
+    if not isinstance(d, dict) or "mu_bias" not in d or set(d) - {"mu_bias", "source"}:
+        raise SystemExit(f"p2r: --p2r-residual {p} must be {{\"mu_bias\": [{action_dim} floats]}} (+ optional "
+                         f"\"source\"), got keys {sorted(d) if isinstance(d, dict) else type(d).__name__}")
+    bias = d["mu_bias"]
+    if (not isinstance(bias, list) or len(bias) != action_dim
+            or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in bias)):
+        raise SystemExit(f"p2r: --p2r-residual mu_bias must be {action_dim} finite numbers, got {bias!r}")
+    return {"path": str(p), "sha256": sha256_file(p), "mu_bias": [float(v) for v in bias],
+            "source": d.get("source")}
+
+
+def _validate_restance(opts: argparse.Namespace, environ) -> None:
+    """NOTE(p2r Z2, 2026-10-10): the restance variant's own refusals (environment knobs, R's constants, the bias)."""
+    if opts.mode != "restance":
+        if opts.residual:
+            raise SystemExit(f"p2r: --p2r-residual is the restance variant's bias; refused with --p2r-mode {opts.mode}")
+        if opts.stand_bank:
+            raise SystemExit(f"p2r: --p2r-stand-bank is the restance variant's bank; refused with --p2r-mode {opts.mode}")
+        opts.restance = None
+        return
+    stand_obs = str(environ.get(STAND_OBS_VAR, "")).strip()
+    stand_proxy = str(environ.get(STAND_PROXY_VAR, "")).strip()
+    if stand_obs != "clock" or stand_proxy != "hold":
+        raise SystemExit(f"p2r: --p2r-mode restance needs {STAND_OBS_VAR}=clock and {STAND_PROXY_VAR}=hold in the "
+                         f"environment (got {stand_obs!r} / {stand_proxy!r}): R reads the stand-row held proxy")
+    rst = load_restance()
+    try:
+        params = rst.parse_restance(environ.get(rst.RESTANCE_VAR))
+    except ValueError as exc:
+        raise SystemExit(f"p2r: {exc}") from exc
+    if params is None:
+        raise SystemExit(f"p2r: --p2r-mode restance needs {rst.RESTANCE_VAR} (R's constants; 'default' = the seeds)")
+    opts.restance = params
+    if opts.residual:
+        opts.residual = load_residual(opts.residual, rst.ACTION_DIM)
+
+
+def validate_opts(opts: argparse.Namespace, *, check_files: bool = True, environ=None) -> argparse.Namespace:
+    """Normalise ``opts.probes`` to an ordered ``{name: path}`` and refuse every inconsistent combination.
+
+    ``environ`` (default ``os.environ``) is read only by the restance variant (its ``KRABBY_*`` knobs)."""
+    environ = os.environ if environ is None else environ
+    opts.residual = getattr(opts, "residual", None)
+    opts.stand_bank = bool(getattr(opts, "stand_bank", False))
     if opts.mode not in VARIANTS:
         raise SystemExit(f"p2r: --p2r-mode (or P2R_MODE) must be one of {VARIANTS}, got {opts.mode!r}")
     probes: dict[str, str] = {}
@@ -158,6 +265,7 @@ def validate_opts(opts: argparse.Namespace, *, check_files: bool = True) -> argp
     if opts.bank_max is None or int(opts.bank_max) <= 0:
         raise SystemExit(f"p2r: --p2r-bank-max must be a positive integer, got {opts.bank_max!r}")
     opts.bank_max = int(opts.bank_max)
+    _validate_restance(opts, environ)
     if check_files:
         for p in ([opts.stand_ckpt] if opts.stand_ckpt else []) + list(probes.values()):
             if not Path(p).is_file():
@@ -297,7 +405,8 @@ class P2RMode:
     """
 
     def __init__(self, variant, cmd_term, unwrapped, *, priv, num_prop, stand=None, probes=None,
-                 bank_max=DEFAULT_BANK_MAX, stand_labels=(STAND_LABEL,)):
+                 bank_max=DEFAULT_BANK_MAX, stand_labels=(STAND_LABEL,), restance=None, mu_bias=None,
+                 stand_bank=False):
         if variant not in VARIANTS:
             raise ValueError(variant)
         self.variant = variant
@@ -311,6 +420,14 @@ class P2RMode:
             raise ValueError("st2 needs the specialist")
         if variant == "probe" and not self.probes:
             raise ValueError("probe needs probes")
+        # NOTE(p2r Z2, 2026-10-10): restance = (the by-path controller module, its RestanceParams)
+        if (variant == "restance") != (restance is not None):
+            raise ValueError("restance (module, params) is given exactly with the restance variant")
+        if variant != "restance" and (mu_bias is not None or stand_bank):
+            raise ValueError("mu_bias / stand_bank are restance-only")
+        self.restance = restance
+        self.mu_bias = None if mu_bias is None else [float(v) for v in mu_bias]
+        self.stand_bank = bool(stand_bank)
         self.bank_max = int(bank_max)
         self.stand_labels = set(stand_labels)
         self.s1_policy = None
@@ -329,6 +446,11 @@ class P2RMode:
         self.bank_label = None
         self.bank_cat = None
         self._bank_rng = None
+        # the stand bank (restance --p2r-stand-bank only): a reservoir over every recorded alive stand-mode step
+        self.sbank_seen = 0
+        self.sbank = None
+        self._sbank_rng = None
+        self._ep_offset = 0      # episodes of the closed passes (the stacked series' episode axis)
 
     # ---------------------------------------------------------------- wiring
     def bind_s1(self, s1_policy, s1_module) -> None:
@@ -358,7 +480,10 @@ class P2RMode:
         part = {RAW_STAND: c["stand"].detach().cpu().numpy().copy()}
         for name, v in c["dmu"].items():
             part[RAW_DMU_PREFIX + name] = v.detach().cpu().numpy().astype("float32").copy()
+        for key, v in c.get("rst", {}).items():
+            part[key] = v.detach().cpu().numpy().copy()
         self.parts.append(part)
+        self._ep_offset += int(c["stand"].shape[1])
         self._cur = None
 
     def observe(self, obs) -> None:
@@ -420,6 +545,14 @@ class P2RMode:
             c["stand"] = torch.zeros(c["T"], n, dtype=torch.bool, device=obs.device)
             for name in self.probes:
                 c["dmu"][name] = torch.zeros(c["T"], n, dtype=torch.float32, device=obs.device)
+            if self.variant == "restance":
+                rst = self.restance[0]
+                c["rst"] = {
+                    RAW_BRANCH: torch.full((c["T"], n, len(rst.LEGS)), -1, dtype=torch.int8, device=obs.device),
+                    RAW_TARGET: torch.zeros(c["T"], n, rst.ACTION_DIM, dtype=torch.float32, device=obs.device),
+                    RAW_OBS_PROXY: torch.zeros(c["T"], n, len(rst.PROXY_OBS_COLS), dtype=torch.float32,
+                                               device=obs.device),
+                }
         if self.alive is None:
             self.alive = torch.ones(n, dtype=torch.bool, device=obs.device)
         t = c["t"]
@@ -434,6 +567,8 @@ class P2RMode:
             st_policy, st_est = self.stand
             a_st = st_policy(self._clone_with_own_estimate(obs, st_est), hist_encoding=True)
             actions = torch.where(stand.unsqueeze(1), a_st.to(a_s1.dtype), a_s1)
+        elif self.variant == "restance":
+            actions = self._restance_step(t, obs, stand, a_s1)
         else:
             actions = a_s1
             obs_true = self._true_obs(obs)
@@ -448,7 +583,111 @@ class P2RMode:
         self.calls += 1
         return actions
 
+    def _restance_step(self, t: int, obs, stand, a_s1):
+        """NOTE(p2r Z2, 2026-10-10): R(obs) (+ the residual bias) on stand rows, S1's action elsewhere; the three raw
+        series; the stand bank. ``obs`` is the harness's own tensor (never written)."""
+        import torch  # noqa: PLC0415
+
+        rst, params = self.restance
+        tgt, branch = rst.restance_target(obs, params)
+        applied = tgt
+        if self.mu_bias is not None:
+            applied = tgt + torch.tensor(self.mu_bias, dtype=tgt.dtype, device=tgt.device).reshape(1, -1)
+        sm = stand.unsqueeze(1)
+        actions = torch.where(sm, applied.to(a_s1.dtype), a_s1)
+        rec = self._cur["rst"]
+        rec[RAW_BRANCH][t] = torch.where(sm, branch.to(torch.int8), torch.full_like(rec[RAW_BRANCH][t], -1))
+        rec[RAW_TARGET][t] = torch.where(sm, tgt.float(), torch.zeros_like(rec[RAW_TARGET][t]))
+        proxy = obs[:, list(rst.PROXY_OBS_COLS)].float()
+        rec[RAW_OBS_PROXY][t] = proxy
+        if self.stand_bank:
+            self._stand_bank_add(t, self._true_obs(obs), stand, tgt, branch, proxy)
+        return actions
+
     # ---------------------------------------------------------------- bank
+    @staticmethod
+    def _reservoir_pick(seen: int, n_cand: int, cap: int, rng):
+        """Algorithm R over ``n_cand`` new items (``seen`` before them, capacity ``cap``) -> ``(cand_pos, slots)``:
+        the candidate positions kept and their bank slots, a slot hit twice in one step keeping the LATER item (the
+        order Algorithm R applies replacements in); ``(None, None)`` when nothing is kept."""
+        import numpy as np  # noqa: PLC0415
+
+        idx = seen + np.arange(n_cand)
+        slot = np.where(idx < cap, idx, -1)
+        late = idx >= cap
+        if late.any():
+            j = rng.integers(0, idx[late] + 1)
+            slot[late] = np.where(j < cap, j, -1)
+        keep = slot >= 0
+        if not keep.any():
+            return None, None
+        pos, slots = np.nonzero(keep)[0], slot[keep]
+        _, last = np.unique(slots[::-1], return_index=True)
+        pick = slots.size - 1 - last
+        return pos[pick], slots[pick]
+
+    def _stand_bank_add(self, t: int, obs_true, stand, tgt, branch, proxy) -> None:
+        """Reservoir over every recorded ALIVE stand-mode step (restance ``--p2r-stand-bank``): the TRUE obs, R's
+        target / branch, the policy-visible proxy, hold label, category, step and episode index."""
+        import numpy as np  # noqa: PLC0415
+        import torch  # noqa: PLC0415
+
+        c = self._cur
+        alive = self.alive.detach().cpu().numpy().astype(bool)
+        st = stand.detach().cpu().numpy().astype(bool)
+        cand = np.nonzero(alive & st[: alive.shape[0]])[0]
+        if cand.size == 0:
+            return
+        if self.sbank is None:
+            k = self.bank_max
+            self.sbank = {"obs": np.zeros((k, int(obs_true.shape[1])), np.float32),
+                          "target": np.zeros((k, int(tgt.shape[1])), np.float32),
+                          "branch": np.zeros((k, int(branch.shape[1])), np.int8),
+                          "proxy": np.zeros((k, int(proxy.shape[1])), np.float32),
+                          "hold_label": np.empty(k, dtype=object), "category": np.empty(k, dtype=object),
+                          "t": np.zeros(k, np.int32), "episode": np.zeros(k, np.int32)}
+            self._sbank_rng = np.random.default_rng(BANK_SEED)
+        pos, slots = self._reservoir_pick(self.sbank_seen, cand.size, self.bank_max, self._sbank_rng)
+        self.sbank_seen += int(cand.size)
+        if pos is None:
+            return
+        rows = cand[pos]
+        rows_t = torch.as_tensor(rows, device=obs_true.device)
+        b = self.sbank
+        b["obs"][slots] = obs_true[rows_t].detach().float().cpu().numpy()
+        b["target"][slots] = tgt[rows_t].detach().float().cpu().numpy()
+        b["branch"][slots] = branch[rows_t].detach().cpu().numpy().astype(np.int8)
+        b["proxy"][slots] = proxy[rows_t].detach().float().cpu().numpy()
+        b["hold_label"][slots] = c["lab_arr"][c["seg_idx"][t, rows]]
+        cat = self.cmd_term.telemetry_category().reshape(-1)[rows_t].detach().cpu().numpy()
+        b["category"][slots] = np.array(list(self.cmd_term.TELEMETRY_CATEGORIES), dtype=object)[cat]
+        b["t"][slots] = t
+        b["episode"][slots] = self._ep_offset + rows
+
+    def stand_bank_arrays(self) -> dict | None:
+        """The stand bank's npz payload (restance ``--p2r-stand-bank``), else None."""
+        import json  # noqa: PLC0415
+
+        import numpy as np  # noqa: PLC0415
+
+        if self.variant != "restance" or not self.stand_bank:
+            return None
+        rst, params = self.restance
+        n = min(self.sbank_seen, self.bank_max)
+        if self.sbank is None:
+            raise RuntimeError("p2r: --p2r-stand-bank is on but the run recorded no alive stand-mode step")
+        b = self.sbank
+        out = {k: b[k][:n] for k in ("obs", "target", "branch", "proxy", "t", "episode")}
+        out["hold_label"] = np.array([str(x) for x in b["hold_label"][:n]], dtype=str)
+        out["category"] = np.array([str(x) for x in b["category"][:n]], dtype=str)
+        out["s1_sigma"] = self.s1_sigma.detach().cpu().numpy().astype(np.float32)
+        out["restance"] = np.array(rst.format_restance(params))
+        out["restance_json"] = np.array(json.dumps(params.to_dict(), sort_keys=True))
+        out["mu_bias"] = np.asarray(self.mu_bias if self.mu_bias is not None else [0.0] * rst.ACTION_DIM,
+                                    dtype=np.float32)
+        out["has_residual"] = np.array(self.mu_bias is not None)
+        return out
+
     def _bank_add(self, t: int, obs_true) -> None:
         import numpy as np  # noqa: PLC0415
         import torch  # noqa: PLC0415
@@ -463,21 +702,12 @@ class P2RMode:
             self.bank_label = np.empty(self.bank_max, dtype=object)
             self.bank_cat = np.empty(self.bank_max, dtype=object)
             self._bank_rng = np.random.default_rng(BANK_SEED)
-        idx = self.bank_seen + np.arange(cand.size)
-        slot = np.where(idx < self.bank_max, idx, -1)
-        late = idx >= self.bank_max
-        if late.any():
-            j = self._bank_rng.integers(0, idx[late] + 1)
-            slot[late] = np.where(j < self.bank_max, j, -1)
-        self.bank_seen += int(cand.size)
-        keep = slot >= 0
-        if not keep.any():
-            return
-        rows, slots = cand[keep], slot[keep]
         # Algorithm R applies replacements in order: for a slot hit twice in one step the LATER item wins
-        _, last = np.unique(slots[::-1], return_index=True)
-        pick = slots.size - 1 - last
-        rows, slots = rows[pick], slots[pick]
+        pos, slots = self._reservoir_pick(self.bank_seen, cand.size, self.bank_max, self._bank_rng)
+        self.bank_seen += int(cand.size)
+        if pos is None:
+            return
+        rows = cand[pos]
         rows_t = torch.as_tensor(rows, device=obs_true.device)
         self.bank_obs[slots] = obs_true[rows_t].detach().float().cpu().numpy()
         self.bank_label[slots] = c["lab_arr"][c["seg_idx"][t, rows]]
@@ -543,6 +773,83 @@ def summarize(series: dict, n_steps, *, compiled=None, settle_label=None) -> dic
     return out
 
 
+def restance_stats(series: dict, n_steps, branch_names) -> dict:
+    """NOTE(p2r Z2, 2026-10-10): R's branch shares over the RECORDED stand-mode leg-rows (``p2r_branch`` >= 0), and
+    the share of recorded stand-mode steps whose target has any |component| > 1e-6 (the PPO side's
+    ``Loss/restance_nonzero`` statistic, here on the probe's own stands)."""
+    import numpy as np  # noqa: PLC0415
+
+    br = np.asarray(series[RAW_BRANCH])
+    tgt = np.asarray(series[RAW_TARGET])
+    st = np.asarray(series[RAW_STAND], dtype=bool)
+    rec = np.arange(st.shape[0])[:, None] < np.asarray([int(n) for n in n_steps])[None, :]
+    on = rec & st
+    legs = br[on]                                   # (rows, 6)
+    n = int(legs.size)
+    shares = {name: (float((legs == k).sum()) / n if n else None) for k, name in enumerate(branch_names)}
+    nonzero = float((np.abs(tgt[on]) > 1e-6).any(axis=-1).mean()) if on.any() else None
+    return {"branch_shares_on_stand": shares, "target_nonzero_share": nonzero, "stand_rows": int(on.sum())}
+
+
+def restance_swap_live(refs_stamp, rst_stamp) -> dict:
+    """NOTE(p2r Z2, 2026-10-10): the restance variant's swap-live proof, read from the raws alone (the HOLD proof's
+    twin, ``p2_read.p2r_hold_swap_live``): (a) on every ``p2r_stand_mode`` step the applied action is exactly
+    ``p2r_target`` + the stamp's residual bias (float32, bitwise), and ``p2r_branch`` is a code (>= 0); off stand,
+    ``p2r_branch`` is -1 and ``p2r_target`` 0; (b) stand-mode share > 0; (c) actions BEFORE each episode's first
+    stand entry equal REFS bitwise on the same episode index (no held-buffer leak into walking rows or history --
+    non-vacuous on walkstop, whose first stand follows walking; the suite enters stand at its settle, step 0)."""
+    import json  # noqa: PLC0415
+
+    import numpy as np  # noqa: PLC0415
+
+    out = {"stand_actions_equal_target": None, "off_stand_series_clean": None, "stand_mode_share": None,
+           "pre_entry_matches_refs": None, "pre_entry_episodes_checked": 0, "fails": []}
+    if not rst_stamp:
+        return dict(out, fails=["no restance stamp"])
+    rst_stamp = Path(rst_stamp)
+    meta = json.loads((rst_stamp / "run_meta.json").read_text())
+    blk = meta.get("p2r_mode") or {}
+    if blk.get("variant") != "restance":
+        return dict(out, fails=[f"{rst_stamp}: p2r_mode.variant is {blk.get('variant')!r}, not 'restance'"])
+    res = (blk.get("restance") or {}).get("residual")
+    bias = np.asarray(res["mu_bias"] if res else [0.0] * 18, dtype=np.float32)
+    ref_files = {p.name: p for p in sorted((Path(refs_stamp) / "raw").glob("episode_*.npz"))} if refs_stamp else {}
+    eq_ok, clean_ok, pre_ok, shares, checked = True, True, True, [], 0
+    for f in sorted((rst_stamp / "raw").glob("episode_*.npz")):
+        d = np.load(f)
+        if not {RAW_STAND, RAW_BRANCH, RAW_TARGET, RAW_OBS_PROXY} <= set(d.files):
+            out["fails"].append(f"{f.name}: a restance raw series is missing")
+            continue
+        mode = np.asarray(d[RAW_STAND]).astype(bool)
+        shares.append(float(mode.mean()))
+        acts, tgt, br = np.asarray(d["actions"]), np.asarray(d[RAW_TARGET]), np.asarray(d[RAW_BRANCH])
+        if mode.any():
+            want = (tgt[mode] + bias[None, :]) if res else tgt[mode]
+            if not np.array_equal(acts[mode], want.astype(acts.dtype)):
+                eq_ok = False
+                out["fails"].append(f"{f.name}: a stand-mode action differs from p2r_target + bias")
+            if (br[mode] < 0).any():
+                eq_ok = False
+                out["fails"].append(f"{f.name}: a stand-mode step carries no branch code")
+        if (br[~mode] != -1).any() or (tgt[~mode] != 0).any():
+            clean_ok = False
+            out["fails"].append(f"{f.name}: p2r_branch / p2r_target set on an off-stand step")
+        first_on = int(np.argmax(mode)) if mode.any() else 0
+        if first_on and f.name in ref_files:
+            ra = np.asarray(np.load(ref_files[f.name])["actions"])
+            n = min(first_on, acts.shape[0], ra.shape[0])
+            checked += 1
+            if n and not np.array_equal(acts[:n], ra[:n]):
+                pre_ok = False
+                out["fails"].append(f"{f.name}: pre-entry actions (steps 0:{n}) differ from REFS")
+    out.update(stand_actions_equal_target=eq_ok, off_stand_series_clean=clean_ok, pre_entry_matches_refs=pre_ok,
+               pre_entry_episodes_checked=checked)
+    out["stand_mode_share"] = float(np.mean(shares)) if shares else None
+    if out["stand_mode_share"] is not None and out["stand_mode_share"] <= 0:
+        out["fails"].append("stand-mode share is not > 0 on a stamp with a stand hold")
+    return out
+
+
 # ===================================================================================== install
 class _Ctx:
     def __init__(self, opts, harness: Path):
@@ -556,6 +863,7 @@ class _Ctx:
         self.probe_meta: dict = {}
         self.rng_restored = None
         self.latch_preexisting = None
+        self.restance_meta = None
 
 
 def _refuse_harness_flags(args_cli) -> None:
@@ -600,7 +908,7 @@ def make_factory(ctx: _Ctx, orig_factory):
         opts = ctx.opts
         stand = None
         probes = {}
-        if opts.mode != "hold":
+        if opts.mode in ("st2", "probe"):
             standin = StandInEnv(env, template)
             before = save_rng()
             try:
@@ -628,8 +936,19 @@ def make_factory(ctx: _Ctx, orig_factory):
         suite = getattr(ctx.scenario, "suite", None)
         if suite is not None:
             stand_labels.add(suite.settle_label)
+        restance = mu_bias = None
+        if opts.mode == "restance":
+            # NOTE(p2r Z2, 2026-10-10): R's module by path + the params validate_opts parsed from KRABBY_RESTANCE
+            rst = load_restance()
+            restance = (rst, opts.restance)
+            residual = getattr(opts, "residual", None)
+            mu_bias = residual["mu_bias"] if residual else None
+            ctx.restance_meta = {"params": opts.restance.to_dict(), "knob": rst.format_restance(opts.restance),
+                                 "module": str(RESTANCE_MODULE), "module_sha256": sha256_file(RESTANCE_MODULE),
+                                 "residual": residual}
         mode = P2RMode(opts.mode, cmd_term, unwrapped, priv=priv, num_prop=int(est["num_prop"]), stand=stand,
-                       probes=probes, bank_max=opts.bank_max, stand_labels=stand_labels)
+                       probes=probes, bank_max=opts.bank_max, stand_labels=stand_labels, restance=restance,
+                       mu_bias=mu_bias, stand_bank=bool(getattr(opts, "stand_bank", False)))
         ctx.mode = mode
 
         orig_step = env.step
@@ -681,7 +1000,7 @@ class _ReportProxy:
         return getattr(self._real, name)
 
 
-def p2r_block(ctx: _Ctx, stats: dict, *, bank_rel) -> dict:
+def p2r_block(ctx: _Ctx, stats: dict, *, bank_rel, rst_stats=None, stand_bank_rel=None) -> dict:
     mode = ctx.mode
     block = {
         "variant": mode.variant,
@@ -706,6 +1025,13 @@ def p2r_block(ctx: _Ctx, stats: dict, *, bank_rel) -> dict:
     }
     if mode.variant == "probe":
         block["probes"] = dict(ctx.probe_meta)
+    if mode.variant == "restance":
+        # NOTE(p2r Z2, 2026-10-10): restance-only keys (the other variants' blocks are unchanged)
+        block["raw_series"] = [RAW_STAND, RAW_BRANCH, RAW_TARGET, RAW_OBS_PROXY]
+        block["restance"] = dict(ctx.restance_meta or {}, **(rst_stats or {}))
+        block["stand_bank"] = stand_bank_rel
+        block["stand_bank_rows"] = (min(mode.sbank_seen, mode.bank_max) if mode.stand_bank else None)
+        block["stand_bank_seen"] = (mode.sbank_seen if mode.stand_bank else None)
     return block
 
 
@@ -726,8 +1052,24 @@ def make_write_run(ctx: _Ctx, orig_write_run):
         series = mode.series()
         T = int(np.asarray(raw["actions"]).shape[0])
         for k, v in series.items():
-            if v.shape != (T, len(run_meta["n_steps_per_env"])):
+            # the restance series carry a trailing per-leg / per-dim axis: (T, episodes, k)
+            if v.shape[:2] != (T, len(run_meta["n_steps_per_env"])):
                 raise RuntimeError(f"p2r: series {k} shape {v.shape} != host ({T}, {len(run_meta['n_steps_per_env'])})")
+        rst_stats = stand_bank_rel = None
+        if mode.variant == "restance":
+            env_vars = run_meta.get("env_vars")
+            if env_vars is not None and (env_vars.get(STAND_OBS_VAR) != "clock"
+                                         or env_vars.get(STAND_PROXY_VAR) != "hold"):
+                raise RuntimeError(f"p2r: restance stamp records {STAND_OBS_VAR}={env_vars.get(STAND_OBS_VAR)!r} / "
+                                   f"{STAND_PROXY_VAR}={env_vars.get(STAND_PROXY_VAR)!r}; the env did not run the "
+                                   "held proxy R was validated against")
+            rst_stats = restance_stats(series, run_meta["n_steps_per_env"], mode.restance[0].BRANCH_NAMES)
+            if mode.stand_bank:
+                sbank = mode.stand_bank_arrays()
+                Path(run_dir).mkdir(parents=True, exist_ok=True)
+                # before the real write_run, like the probe bank (complete.json stays the stamp's last file)
+                np.savez_compressed(Path(run_dir) / STAND_BANK_NAME, **sbank)
+                stand_bank_rel = STAND_BANK_NAME
         suite = getattr(ctx.scenario, "suite", None)
         stats = summarize(series, run_meta["n_steps_per_env"], compiled=kwargs.get("compiled"),
                           settle_label=(suite.settle_label if suite is not None else None))
@@ -738,11 +1080,15 @@ def make_write_run(ctx: _Ctx, orig_write_run):
             # before the real write_run: its complete.json (suite rows) stays the LAST file of the stamp
             np.savez_compressed(Path(run_dir) / BANK_NAME, **bank)
             bank_rel = BANK_NAME
-        run_meta["p2r_mode"] = p2r_block(ctx, stats, bank_rel=bank_rel)
+        run_meta["p2r_mode"] = p2r_block(ctx, stats, bank_rel=bank_rel, rst_stats=rst_stats,
+                                         stand_bank_rel=stand_bank_rel)
         kwargs["raw"] = {**raw, **series}
         print(f"[P2R] variant={mode.variant} stand_mode_share={stats['stand_mode_share']:.4f} "
               f"switches/ep={stats['switches_per_episode_mean']:.3f} settle_by_wave={stats['settle_mode_share_by_wave']} "
               f"bank={bank_rel}", flush=True)
+        if rst_stats is not None:
+            print(f"[P2R] restance branches={rst_stats['branch_shares_on_stand']} "
+                  f"nonzero={rst_stats['target_nonzero_share']} stand_bank={stand_bank_rel}", flush=True)
         return orig_write_run(run_dir, *args, **kwargs)
 
     return write_run
@@ -783,9 +1129,12 @@ def install(hg: dict, ctx: _Ctx) -> None:
 def main(argv: list[str] | None = None, *, harness: Path | str = HARNESS, environ=None) -> None:
     argv = list(sys.argv if argv is None else argv)
     opts, rest = strip_p2r_args(argv[1:], environ)
-    validate_opts(opts)
+    validate_opts(opts, environ=environ)
     print(f"[P2R] variant={opts.mode} specialist={opts.stand_ckpt} probes={opts.probes} bank_max={opts.bank_max}",
           flush=True)
+    if opts.mode == "restance":
+        print(f"[P2R] restance params={opts.restance.to_dict()} residual={opts.residual} "
+              f"stand_bank={opts.stand_bank}", flush=True)
     sys.argv = [argv[0]] + rest
     g = runpy.run_path(str(harness), run_name="p2r_harness")
     hg = g["main"].__globals__

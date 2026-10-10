@@ -1737,6 +1737,57 @@ def _statue_w_ok(txt: str, key: str, value, var: str) -> bool:
     return col is not None and int(col) == int(_motion().STAND_BIT_OBS_COL)
 
 
+def _stand_proxy_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_STAND_PROXY`` (p2r Z2, 2026-10-10): ``hold`` = ``stand_proxy_hold: true`` on the omni obs
+    term with ``stand_bit_clock: true`` beside it (the rows it holds on); off = the param absent or false."""
+    mode = _motion().parse_stand_proxy(value)
+    got = _grep_scalar(txt, "stand_proxy_hold")
+    if mode is None:
+        return got in (None, "false")
+    return got == "true" and _grep_scalar(txt, "stand_bit_clock") == "true"
+
+
+def _restance_dump(txt: str) -> dict | None:
+    """The ``algorithm.restance`` mapping of an agent dump as ``{name: float}`` (None when absent / null)."""
+    alg = _alg_block(txt)
+    inline = _grep_scalar(alg, "restance", indent=r"\s{2}")
+    if inline is not None and inline.strip() in ("null", "None", "{}"):
+        return None
+    block = _yaml_block(alg, "restance", indent=2)
+    if not block.strip():
+        return None
+    out = {}
+    for name, raw in re.findall(r"^\s{4}(\w+):\s*(\S+)\s*$", block, re.M):
+        num = _num(raw)
+        if num is None:
+            return {}
+        out[name] = float(num)
+    return out
+
+
+def _stand_prior_target_ok(txt: str, value) -> bool:
+    """``KRABBY_STAND_PRIOR_TARGET`` (p2r Z2): off = ``algorithm.stand_prior_target`` absent (or null); armed =
+    equal to the parsed target, with ``algorithm.restance`` present beside it (the knobs travel together)."""
+    want = _motion().parse_stand_prior_target(value)
+    got = _grep_scalar(_alg_block(txt), "stand_prior_target", indent=r"\s{2}")
+    got = None if got is None or got.strip().strip("'\"") in ("null", "None") else got.strip().strip("'\"")
+    if want is None:
+        return got is None
+    return got == want and bool(_restance_dump(txt))
+
+
+def _restance_ok(txt: str, value) -> bool:
+    """``KRABBY_RESTANCE`` (p2r Z2): off = no ``algorithm.restance``; armed = the dumped mapping equals
+    ``parse_restance(value).to_dict()`` key for key (every constant, no extra ones) to 1e-12."""
+    params = _motion().parse_restance_knob(value)
+    got = _restance_dump(txt)
+    if params is None:
+        return got is None
+    want = params.to_dict()
+    return (got is not None and set(got) == set(want)
+            and all(abs(got[k] - float(want[k])) <= 1e-12 for k in want))
+
+
 def _anchor_ckpt_ok(txt: str, value) -> bool:
     """``KRABBY_ANCHOR_CKPT``: absent while blank, else the algorithm block's ``anchor_ckpt`` names the same
     file (compared as real paths)."""
@@ -2441,6 +2492,27 @@ def _orient_all_tiles_ok(txt: str, value) -> bool:
                             "reward_orientation_upright" if on else "reward_orientation")
 
 
+def _check_restance_composition(env: dict, where: str, reasons: list) -> None:
+    """The p2r Z2 cross rules (``motion_knobs.check_restance_composition``, as a TRAINING env) on a COMPOSED
+    stage env, at ``--dry-run`` (2026-10-10): the held proxy without the clock bit, the re-stance target without
+    its weight / held proxy / constants, or ``KRABBY_RESTANCE`` without the target would otherwise raise only at
+    config build, once Kit has started. Inert while none of the three knobs is set; a malformed value is left to
+    ``_check_knob``."""
+    mk = _motion()
+    names = (mk.STAND_PROXY_VAR, *mk.RESTANCE_KNOBS)
+    if not any(str(env.get(var) or "").strip() for var in names):
+        return
+    for var in (*names, mk.STAND_OBS_VAR, mk.STAND_PRIOR_W_VAR):
+        try:
+            mk.MOTION_KNOB_PARSERS[var](env.get(var))
+        except ValueError:
+            return                        # _check_knob names the malformed value; one reason, not two
+    try:
+        mk.check_restance_composition(env, training=True)
+    except ValueError as exc:
+        reasons.append(f"{where}: {exc}")
+
+
 def _check_field_geom_composition(env: dict, where: str, reasons: list) -> None:
     """The geometry guard (``require_omni_geom``) on a COMPOSED stage env, at ``--dry-run`` (omni
     phase-2 plan step 4, 2026-10-06): ``KRABBY_FIELD_*`` under ``ring`` (or ``KRABBY_RING_*`` under
@@ -2471,7 +2543,10 @@ AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET",
                             "KRABBY_PPO_HAND_DIAG",
                             # omni phase-2 stage p2r (P2R_STATUE_PLAN step 1, 2026-10-09): the statue
                             # distillation's three runner-side knobs (motion_knobs.STATUE_KNOBS).
-                            "KRABBY_ANCHOR_W", "KRABBY_ANCHOR_CKPT", "KRABBY_STAND_PRIOR_W"})
+                            "KRABBY_ANCHOR_W", "KRABBY_ANCHOR_CKPT", "KRABBY_STAND_PRIOR_W",
+                            # p2r Z2 (P2R_Z2_PLAN step 1, 2026-10-10): the re-stance prior target and R's
+                            # constants (motion_knobs.RESTANCE_KNOBS); KRABBY_OMNI_STAND_PROXY is env side.
+                            "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE"})
 
 
 #: ``KRABBY_*`` -> what the config DUMP must show for it. Every overlay key a recipe may carry needs
@@ -2619,6 +2694,11 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_ANCHOR_W": lambda txt, v: _statue_w_ok(txt, "anchor_coef", v, "KRABBY_ANCHOR_W"),
     "KRABBY_STAND_PRIOR_W": lambda txt, v: _statue_w_ok(txt, "stand_prior_coef", v, "KRABBY_STAND_PRIOR_W"),
     "KRABBY_ANCHOR_CKPT": lambda txt, v: _anchor_ckpt_ok(txt, v),
+    # ---- p2r Z2 re-stance (P2R_Z2_PLAN step 1, 2026-10-10). Env side: the held proxy on the omni obs term;
+    # runner side (AGENT_DUMP_KEYS): the prior's target and R's constants in the algorithm block.
+    "KRABBY_OMNI_STAND_PROXY": lambda txt, v: _stand_proxy_ok(txt, v),
+    "KRABBY_STAND_PRIOR_TARGET": lambda txt, v: _stand_prior_target_ok(txt, v),
+    "KRABBY_RESTANCE": lambda txt, v: _restance_ok(txt, v),
 }
 
 
@@ -2717,20 +2797,28 @@ def construction_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
 
 #: The ``PPOWithExtractor`` fields the p2r statue knobs write (``algorithm.*``), and the loss the runner
 #: prints (``Mean <key>:``) for each armed weight.
-STATUE_ALG_FIELDS = ("anchor_coef", "anchor_ckpt", "stand_prior_coef", "stand_mask_col")
-STATUE_LOSS_KEYS = {"KRABBY_ANCHOR_W": "anchor", "KRABBY_STAND_PRIOR_W": "stand_prior"}
+STATUE_ALG_FIELDS = ("anchor_coef", "anchor_ckpt", "stand_prior_coef", "stand_mask_col",
+                     # p2r Z2 (2026-10-10): the re-stance prior target and R's constants
+                     "stand_prior_target", "restance")
+STATUE_LOSS_KEYS = {"KRABBY_ANCHOR_W": "anchor", "KRABBY_STAND_PRIOR_W": "stand_prior",
+                    # p2r Z2: the share of bit-1 rows whose R target is non-zero (logged with the prior)
+                    "KRABBY_STAND_PRIOR_TARGET": "restance_nonzero"}
 
 
 def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     """The TRAINING LOG half of the p2r statue audit (P2R_STATUE_PLAN step 1, 2026-10-09).
 
-    Empty unless the overlay arms a statue knob (``motion_knobs.STATUE_KNOBS``). Then: each armed knob's
-    ``[KNOB] <NAME>=<value> consumed`` line, no runner warning dropping a statue field, and ``Mean anchor:``
-    / ``Mean stand_prior:`` printed for each armed weight (the loss ran).
+    Empty unless the overlay arms a statue knob (``motion_knobs.STATUE_KNOBS``, or since p2r Z2 its
+    ``RESTANCE_KNOBS`` / ``KRABBY_OMNI_STAND_PROXY``). Then: each armed knob's ``[KNOB] <NAME>=<value> consumed``
+    line, no runner warning dropping a statue field, and ``Mean anchor:`` / ``Mean stand_prior:`` printed for each
+    armed weight (the loss ran). With the re-stance target armed (p2r Z2, 2026-10-10) also the algorithm's own
+    ``[PPO] construction:`` line naming ``stand_prior_target=restance`` and ``Mean restance_nonzero:`` (R was
+    evaluated on the stand rows). ``KRABBY_RESTANCE`` prints its consumed line only alongside the target.
     """
     mk = _motion()
     armed = []
-    for key in getattr(mk, "STATUE_KNOBS", ()):
+    for key in (*getattr(mk, "STATUE_KNOBS", ()), *getattr(mk, "RESTANCE_KNOBS", ()),
+                *((mk.STAND_PROXY_VAR,) if hasattr(mk, "STAND_PROXY_VAR") else ())):
         if key not in (env or {}):
             continue
         try:
@@ -2745,8 +2833,10 @@ def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     if not log or not Path(log).exists():
         return [(f"training log readable for the statue wiring audit ({log})", False)]
     txt = Path(log).read_text(errors="ignore")
+    # (KRABBY_RESTANCE's value is a k=v list that may carry spaces: any non-empty value there)
+    value_re = {key: (r".+?" if key == "KRABBY_RESTANCE" else r"\S+") for key in armed}
     out = [(f"log: [KNOB] {key} consumed",
-            re.search(rf"^\[KNOB\] {re.escape(key)}=\S+ consumed\s*$", txt, re.M) is not None)
+            re.search(rf"^\[KNOB\] {re.escape(key)}={value_re[key]} consumed\s*$", txt, re.M) is not None)
            for key in armed]
     dropped = [ln for ln in txt.splitlines() if "Ignoring unsupported PPO config keys" in ln
                and any(re.search(rf"\b{f}\b", ln) for f in STATUE_ALG_FIELDS)]
@@ -2756,6 +2846,11 @@ def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
         if loss_key is not None:
             out.append((f"log: Mean {loss_key} printed (the {key} loss ran)",
                         re.search(rf"^\s*Mean {loss_key}:", txt, re.M) is not None))
+    if getattr(mk, "STAND_PRIOR_TARGET_VAR", None) in armed:
+        target = mk.parse_stand_prior_target(str(env[mk.STAND_PRIOR_TARGET_VAR]))
+        out.append((f"log: [PPO] construction names stand_prior_target={target}",
+                    re.search(rf"^\[PPO\] construction:.*\bstand_prior_target={re.escape(str(target))}\b", txt, re.M)
+                    is not None))
     return out
 
 
@@ -3209,6 +3304,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_field_geom_composition(stage_env_, where, r)
             _check_cmd_obs_mirror_composition(stage_env_, where, r)
             _check_rsi_cam_stage_composition(stage_env_, where, r)
+            _check_restance_composition(stage_env_, where, r)
         if screen_iters and total != screen_iters and name not in ref_only:
             r.append(f"chain {name} totals {total} iterations; every screen is {screen_iters} "
                      "(equal compute is what makes the screens comparable)")

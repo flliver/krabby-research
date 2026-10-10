@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import math
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -57,6 +59,26 @@ HAND_DIAG_DEADZONE = 0.05
 STATUE_GRAD_SPLIT_EVERY = 50
 #: A row is a STAND row when its mask column exceeds this (the bit is exactly 0.0 or 1.0).
 STAND_BIT_THRESHOLD = 0.5
+#: NOTE(p2r Z2, 2026-10-10): the statue prior's non-zero targets (``stand_prior_target``). ``restance`` = the
+#: scripted re-stance controller R(obs) of ``crab_hex_omni_restance.py`` (``P2R_Z2_PLAN.md``), loaded BY PATH
+#: (pure torch; the task package's ``__init__`` would pull in Isaac).
+STAND_PRIOR_TARGETS = ("restance",)
+RESTANCE_PY = (Path(__file__).resolve().parents[3]
+               / "parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/crab_hex_omni_restance.py")
+#: A bit-1 row's R target counts as non-zero (``Loss/restance_nonzero``) when any component exceeds this.
+RESTANCE_NONZERO_EPS = 1e-6
+_RESTANCE_MOD = None
+
+
+def restance_module():
+    """``crab_hex_omni_restance`` (R, :class:`RestanceParams`, the branch names), loaded by path once."""
+    global _RESTANCE_MOD
+    if _RESTANCE_MOD is None:
+        spec = importlib.util.spec_from_file_location("_krabby_crab_hex_omni_restance__ppo", RESTANCE_PY)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _RESTANCE_MOD = mod
+    return _RESTANCE_MOD
 
 
 def anchor_sigma_from_state(state: dict) -> torch.Tensor:
@@ -182,6 +204,8 @@ class PPOWithExtractor:
         anchor_ckpt: str | None = None,
         stand_prior_coef: float = 0.0,
         stand_mask_col: int | None = None,
+        stand_prior_target: str | None = None,
+        restance: dict | None = None,
     ) -> None:
         """The six keywords after ``optimizer`` are the PPO-construction knobs (2026-10-01), all DEFAULT OFF:
 
@@ -216,6 +240,17 @@ class PPOWithExtractor:
             either weight is > 0.
         ``stand_mask_col``
             the POLICY observation column carrying the stand bit (15: ``KRABBY_OMNI_STAND_OBS=clock``).
+
+        The last two are the p2r Z2 re-stance target (``P2R_Z2_PLAN.md`` step 1, 2026-10-10), DEFAULT OFF
+        (``KRABBY_STAND_PRIOR_TARGET`` / ``KRABBY_RESTANCE``):
+
+        ``stand_prior_target``
+            ``"restance"``: the statue prior on bit-1 rows becomes ``0.5 * sum_d ((mu - R) / sigma_A,d)^2`` with
+            ``R = restance_target(obs[:B], RestanceParams.from_dict(restance))[0]`` under ``no_grad`` -- the same
+            mask, the same sum / B, the same ``sigma_A``. Needs ``stand_prior_coef > 0``. ``None`` = the target 0,
+            Z1's path bit for bit.
+        ``restance``
+            R's constants (``RestanceParams.to_dict()``); given exactly when ``stand_prior_target`` is.
         """
         if schedule not in SCHEDULES:
             raise ValueError(f"PPOWithExtractor: schedule must be one of {SCHEDULES}, got {schedule!r}")
@@ -262,6 +297,21 @@ class PPOWithExtractor:
                                  f"got {stand_mask_col!r}")
         elif anchor_ckpt is not None:
             raise ValueError("PPOWithExtractor: anchor_ckpt is set but anchor_coef and stand_prior_coef are both 0")
+        restance_params = None
+        if stand_prior_target is not None:
+            if stand_prior_target not in STAND_PRIOR_TARGETS:
+                raise ValueError(f"PPOWithExtractor: stand_prior_target must be one of {STAND_PRIOR_TARGETS} "
+                                 f"(or None), got {stand_prior_target!r}")
+            if not stand_prior_coef > 0.0:
+                raise ValueError(f"PPOWithExtractor: stand_prior_target={stand_prior_target!r} needs "
+                                 f"stand_prior_coef > 0 (got {stand_prior_coef}): it would train nothing")
+            if restance is None:
+                raise ValueError(f"PPOWithExtractor: stand_prior_target={stand_prior_target!r} needs restance "
+                                 "(R's constants)")
+            restance_params = restance_module().RestanceParams.from_dict(dict(restance))
+        elif restance is not None:
+            raise ValueError("PPOWithExtractor: restance is set but stand_prior_target is not: the constants "
+                             "would distil nothing")
         self.device = device
         self.is_multi_gpu = multi_gpu_cfg is not None
         if multi_gpu_cfg is not None:
@@ -348,6 +398,9 @@ class PPOWithExtractor:
         #: The frozen anchor actor (``anchor_coef > 0`` only) and the fixed ``sigma_A`` (either weight > 0).
         self.anchor_actor: nn.Module | None = None
         self.anchor_sigma: torch.Tensor | None = None
+        #: NOTE(p2r Z2): the statue prior's target (None = 0) and R's validated constants.
+        self.stand_prior_target = stand_prior_target
+        self.restance_params = restance_params
         if statue_armed:
             self._build_anchor()
         #: The runner's training iteration of the coming :meth:`update` (set by the runner; read only by
@@ -372,6 +425,9 @@ class PPOWithExtractor:
                 ("stand_prior_coef", stand_prior_coef or None),
                 ("anchor_ckpt", self.anchor_ckpt),
                 ("stand_mask_col", self.stand_mask_col if statue_armed else None),
+                ("stand_prior_target", self.stand_prior_target),
+                ("restance", None if restance_params is None
+                 else restance_module().format_restance(restance_params)),
             ) if v is not None
         }
         if armed:
@@ -411,7 +467,9 @@ class PPOWithExtractor:
         ``obs_batch`` is the FULL tensor the policy forward ran on (augmented rows included);
         ``mu_batch`` its first ``batch_size`` rows' means. The anchor forwards on that same full
         tensor and is sliced afterwards, so at the fork it reproduces ``mu_batch`` bit for bit.
-        Returns ``{"bit", "anchor", "prior"}`` (a loss is None while its weight is 0).
+        Returns ``{"bit", "anchor", "prior"}`` (a loss is None while its weight is 0); with the re-stance
+        target (p2r Z2) also ``"restance_target"`` ``(B, 18)`` and ``"restance_branch"`` ``(B, 6)``, R on every
+        original row (detached; only the bit-1 rows enter the prior).
         """
         col = self.stand_mask_col
         if col >= obs_batch.shape[-1]:
@@ -425,7 +483,15 @@ class PPOWithExtractor:
             k_anchor = statue_row_losses(mu_batch, self.anchor_sigma, mu_a.detach())
             out["anchor"] = torch.where(~bit, k_anchor, zero).sum() / batch_size
         if self.stand_prior_coef > 0.0:
-            k_prior = statue_row_losses(mu_batch, self.anchor_sigma)
+            if self.stand_prior_target is None:
+                k_prior = statue_row_losses(mu_batch, self.anchor_sigma)
+            else:
+                # NOTE(p2r Z2, 2026-10-10): the target R(obs) of the ORIGINAL rows (an augmented copy's bit is
+                # never a stand row), under no_grad -- a fixed, observation-only target like the anchor's mu_A.
+                with torch.no_grad():
+                    target, branch = restance_module().restance_target(obs_batch[:batch_size], self.restance_params)
+                out["restance_target"], out["restance_branch"] = target.detach(), branch
+                k_prior = statue_row_losses(mu_batch, self.anchor_sigma, target.detach())
             out["prior"] = torch.where(bit, k_prior, zero).sum() / batch_size
         return out
 
@@ -768,6 +834,10 @@ class PPOWithExtractor:
         st_n = 0
         st_anchor_mb0 = None
         st_split: dict[str, float] = {}
+        # p2r Z2: pooled counts over the minibatches that took a step -- bit-1 rows, those with a non-zero R
+        # target, and bit-1 leg-rows per R branch
+        rst_rows = rst_nonzero = rst_legs = 0
+        rst_branch = [0] * len(restance_module().BRANCH_NAMES) if self.stand_prior_target is not None else []
 
         if self.policy.is_recurrent:
             generator = self.storage.recurrent_mini_batch_generator(
@@ -1026,6 +1096,16 @@ class PPOWithExtractor:
                         st_anchor_sum += statue["anchor"].item()
                     if statue["prior"] is not None:
                         st_prior_sum += statue["prior"].item()
+                    if "restance_target" in statue:
+                        with torch.no_grad():
+                            bit = statue["bit"]
+                            rst_rows += int(bit.sum())
+                            big = statue["restance_target"].abs() > RESTANCE_NONZERO_EPS
+                            rst_nonzero += int((big.any(dim=-1) & bit).sum())
+                            br = statue["restance_branch"][bit]
+                            rst_legs += br.numel()
+                            counts = torch.bincount(br.reshape(-1), minlength=len(rst_branch)).tolist()
+                            rst_branch = [a + b for a, b in zip(rst_branch, counts)]
                     st_n += 1
             else:
                 self.optimizer.zero_grad(set_to_none=True)
@@ -1116,6 +1196,13 @@ class PPOWithExtractor:
                 loss_dict["stand_prior"] = st_prior_sum / n
             loss_dict["anchor_rows"] = st_anchor_rows / n
             loss_dict["prior_rows"] = st_prior_rows / n
+            if self.stand_prior_target is not None:
+                # ``Loss/restance_nonzero`` / ``Loss/restance_<branch>`` (P2R_Z2_PLAN step 4's +200 wiring); 0.0 when
+                # no bit-1 row was seen
+                names = restance_module().BRANCH_NAMES
+                loss_dict["restance_nonzero"] = rst_nonzero / rst_rows if rst_rows else 0.0
+                for k, name in enumerate(names):
+                    loss_dict[f"restance_{name}"] = rst_branch[k] / rst_legs if rst_legs else 0.0
             loss_dict.update(st_split)
         return loss_dict
 

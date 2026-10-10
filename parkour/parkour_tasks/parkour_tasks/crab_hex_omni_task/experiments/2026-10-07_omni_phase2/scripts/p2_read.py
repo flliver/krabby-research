@@ -144,6 +144,18 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
                                          always (CHARTER 12: every verdict stops and asks regardless).
     (P2R_PROBE_S18 / P2R_HOLD_S18 / P2R_ST2M_S18 in the environment name the p2r heads -- fresh names after a kill;
     defaults P2R_PROBE_s18 / P2R_HOLD_s18 / P2R_ST2M_s18.)
+    p2_read.py --p2r-rst [NAME] [--p2r-md PATH]
+                                         NOTE(p2r Z2, 2026-10-10) P2R_Z2_PLAN.md step 3's PREMISE GATE on a
+                                         controller-probe stamp set (default P2R_RST_s18): the Z2 stand gates
+                                         without the ladder and the relative settle clause, field_turn / field_hard
+                                         es1 vs P2R_HOLD_s18 (2 SE), stand body height vs REFS_S1_s18 (0.03 m); es1
+                                         and es2 separately, unrun rows NOT RUN. Exit 0 PASS / PASS ON ROWS RUN, 4.
+    p2_read.py --p2r-z2 [NAME] [--probe NAME] [--p2r-md PATH]
+                                         P2R_Z2_PLAN.md step 5's read of NAME (default P2__Z2_s18): the --p2r-z
+                                         ladder + attribution verbatim, INVALID widened (STAND_PROXY=hold, raw bit),
+                                         the Z2 stand gates (relative settle vs --probe, default P2R_RST_s18),
+                                         adoption_grade, baselines / fidelity / walls vs Z1 / hip yaw. Exit 0 unless
+                                         INVALID (4). (P2R_Z2_S18 / P2R_RST_S18 rename the heads.)
     p2_read.py --self-test
 
 CHARTER 11 (stage p2s, P2S_PLAN.md "Pre-registered verdicts"; pre-registered before any p2s run). Points:
@@ -575,16 +587,30 @@ def invalid_reasons(pt: dict, ref: dict, keys=VALIDITY_STAMPS) -> list[str]:
 
 
 def _bridged(sa, sb) -> bool:
-    """True iff two clean sidecars with the same eval_sha differ only by a code_sha pair the campaign's
+    """True iff two clean sidecars with the same eval_sha differ only by code_shas the campaign's
     ``inertness_bridge.json`` records as verified bitwise-inert (P2R_STATUE_PLAN step 2: REFB on the new code ==
-    REFS on ae892cec on every raw key of the bridge rows). Any other difference stays INVALID."""
+    REFS on ae892cec on every raw key of the bridge rows). Any other difference stays INVALID.
+
+    NOTE(p2r Z2, 2026-10-10): every ``ok`` pair at that eval_sha is read (never a hard-coded pair), and the accept
+    is the CHAIN of recorded pairs (connected code_shas), so the Z2 bridge appended later (P2R_Z2_PLAN step 2:
+    new code == the bridged Z1-era stamps) also links the new code to ae892cec's REFS stamps. Like the single-pair
+    rule, it extrapolates each pair's verified rows to the others."""
     if not sa or not sb or sa[1] != sb[1] or sa[2] or sb[2]:
         return False
     br = _json(HERE.parent / "inertness_bridge.json") or {}
+    adj: dict = {}
     for pr in br.get("pairs") or []:
-        if pr.get("ok") and pr.get("eval_sha") == sa[1] and {sa[0], sb[0]} == {pr.get("from_code_sha"), pr.get("to_code_sha")}:
-            return True
-    return False
+        a, b = pr.get("from_code_sha"), pr.get("to_code_sha")
+        if pr.get("ok") and pr.get("eval_sha") == sa[1] and a and b:
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+    seen, todo = {sa[0]}, [sa[0]]
+    while todo:
+        for nxt in adj.get(todo.pop(), ()):
+            if nxt not in seen:
+                seen.add(nxt)
+                todo.append(nxt)
+    return sb[0] in seen and sb[0] != sa[0]
 
 
 def pending_reasons(pt: dict, anc: dict, bd: dict, need_dose: bool = True) -> list[str]:
@@ -2411,16 +2437,19 @@ def z_raw_bit_reasons(pt: dict, lag: int = 1) -> tuple[list[str], int]:
     return fails, checked
 
 
-def load_p2r_z(seed: int = 18, with_tb: bool = True, env=None) -> dict:
+def load_p2r_z(seed: int = 18, with_tb: bool = True, env=None, name: str | None = None,
+               suite_stamp: str | None = None) -> dict:
     """Z1_s<seed> loaded with the FULL p2s read set against REFS_S1_s<seed> (C0R the PARTIAL comparator) --
     P2R_STATUE_PLAN.md step 5. Reuses :func:`load_p2s` verbatim for refs / ancw / p2a / c0r (identical machinery:
     the Z verdict rules are the SAME as a p2s dose arm's), with the Z head inserted into ``heads`` the same way a
-    p2s head would be."""
+    p2s head would be. ``name`` / ``suite_stamp`` (NOTE(p2r Z2, 2026-10-10)) read another Z head the same way (Z2)
+    and override its suite es1 stamp; defaults Z1's name and the record's driver stamp."""
     res = load_p2s(with_tb=with_tb, seeds=[seed])
-    name = z_name(seed, env)
+    name = name or z_name(seed, env)
     rec = _rec(name) or {}
     if rec and not rec.get("killed"):
-        pt = load_p2s_point(name, suite_stamp=rec.get("driver_stamp"), run_dir=rec.get("run_dir"), with_tb=with_tb)
+        pt = load_p2s_point(name, suite_stamp=suite_stamp or rec.get("driver_stamp"), run_dir=rec.get("run_dir"),
+                            with_tb=with_tb)
     else:
         pt = {"name": name, "missing": True, "killed": (rec or {}).get("killed")}
     res["heads"] = {name: pt}
@@ -3013,6 +3042,431 @@ def p2r_step1_markdown(out: dict) -> str:
     dp = out.get("drift_premise") or {}
     L += ["", f"**Drift premise:** D_ref (ST2 +506) = {_f(dp.get('d_ref_506'))}, D(C0 +506) = "
              f"{_f(dp.get('d_c0_506'))}, **stop = {dp.get('stop')}**"]
+    return "\n".join(L) + "\n"
+
+
+# ================================================================================================ p2r Z2 (CHARTER 12 /
+# P2R_Z2_PLAN.md steps 3 and 5). NOTE(p2r Z2, 2026-10-10): Z2 changes only the stand TARGET (the statue prior pulls
+# toward the re-stance controller R instead of 0) and adds the sample-and-hold proxy, so every Z1 read stays and the
+# new per-stand estimators (p2s_stand.z2_head_summary: six-down / homed / settle / post-settle / lifts, over EVERY
+# walkstop stand) carry the new gates. Two reads:
+#   --p2r-rst NAME  step 3's PREMISE GATE on a controller-probe stamp set (P2R_RST_s18; S1 + R at stand rows, no
+#                   training): the Z2 stand gates except the ladder and the relative settle clause (the probe SETS
+#                   that line), plus field_turn / field_hard es1 stand falls and completion no worse than
+#                   P2R_HOLD_s18's by more than 2 SE (HOLD's own binomial SE: against HOLD's 0 falls one fall already
+#                   stops and asks, the plan's reading), plus stand body height within 0.03 m of REFS_S1_s18 on the
+#                   suite and walkstop stands. es1 (the tuning seed) and es2 are reported separately; a row the
+#                   stamp set never ran (the residual pass runs es1 only) is listed NOT RUN, never silently passed.
+#   --p2r-z2 [NAME] step 5's read: the --p2r-z ladder verbatim (OBSTACLE LOSS / FLAT FAIL / COST, attribution vs
+#                   C0R) with the INVALID rule widened (KRABBY_OMNI_STAND_OBS=clock AND KRABBY_OMNI_STAND_PROXY=hold in
+#                   every stamp env, and the raw stand bit folded in), plus the Z2 stand gates incl. the relative
+#                   settle line against the probe, and the reported baselines / fidelity / walls / hip yaw.
+STAND_PROXY_VAR, STAND_PROXY_ON = "KRABBY_OMNI_STAND_PROXY", "hold"
+P2R_RST_VARIANT = "restance"
+#: the Z2 stand gates (P2R_Z2_PLAN.md step 5): shares of STANDS, per seed
+Z2_SIXDOWN_STANDS, Z2_HOMED_STANDS, Z2_SETTLED_STANDS = 0.90, 0.90, 0.95
+Z2_SETTLE_PLUS_S = 1.0                           # median settle <= the probe's median + 1 s (same seed)
+Z2_POST = {"post_settle_steps_per_s": 0.5, "post_settle_taps_per_s": 1.0, "post_settle_ks_m_s": 0.5}
+Z2_FALLS_FLOOR = 1.0                             # walkstop stand falls <= max(1, Z1's) per 300 stands
+Z2_HEIGHT_TOL = 0.03                             # premise: stand body height within 0.03 m of REFS
+Z2_FIELD_SE_K = 2.0                              # premise: field rows no worse than HOLD by more than 2 SE
+Z2_SEEDS = (1, 2)
+Z2_FIELD_ROWS = (f"{FT}@1", f"{FH}@1")
+#: the stamps a Z2-family light point resolves (suite es1 via the record's driver stamp when there is one)
+Z2_LIGHT_STAMPS = ("suite@1", "suite@2", f"{WS}@1", f"{WS}@2", f"{FT}@1") + tuple(f"{FH}@{s}" for s in P2B_FH_SEEDS)
+Z2_REPORT_KEYS = ("n", "six_down_stand_share", "homed_share", "settled_share", "settle_median_s", "lifts_median",
+                  "post_settle_steps_per_s", "post_settle_taps_per_s", "post_settle_ks_m_s", "falls", "falls_per_300",
+                  "body_height_m", "hip_yaw_mean_deg", "hip_yaw_max_deg")
+
+
+def z2_names(env=None) -> dict:
+    """The Z2-stage names (fresh names after a kill through the environment, the p2s_queue.sh convention)."""
+    e = os.environ if env is None else env
+    return {"z2": e.get("P2R_Z2_S18", "P2__Z2_s18"), "probe": e.get("P2R_RST_S18", "P2R_RST_s18"),
+            "z1": z_name(18, e), "hold": e.get("P2R_HOLD_S18", P2R_HOLD_NAME), "refs": refs_name(GATE_SEED)}
+
+
+@functools.lru_cache(maxsize=256)
+def z2_summary(stamp: str | None) -> dict | None:
+    """p2s_stand.z2_head_summary, cached per stamp."""
+    return PS().z2_head_summary(stamp) if stamp else None
+
+
+def z2_reads(stamps: dict) -> dict:
+    """The Z2 per-stand summaries of one point's suite and walkstop stamps (IO, raws)."""
+    st = stamps or {}
+    return {"suite": {s: z2_summary(st.get(f"suite@{s}")) for s in Z2_SEEDS},
+            "walkstop": {s: z2_summary(st.get(f"{WS}@{s}")) for s in Z2_SEEDS}}
+
+
+def _stamp_env(stamp: str | None) -> dict | None:
+    return dict((_json(Path(stamp) / "run_meta.json") or {}).get("env_vars") or {}) if stamp else None
+
+
+def _proxy_held(stamp: str | None) -> bool:
+    return str((_stamp_env(stamp) or {}).get(STAND_PROXY_VAR, "")).strip().lower() == STAND_PROXY_ON
+
+
+def z2_suite_stamp(name: str, lrout: Path | None = None) -> str | None:
+    """Suite es1 for a Z2-family head: the record's driver stamp, unless that stamp lacks
+    KRABBY_OMNI_STAND_PROXY=hold and a complete lr/<name>/suite__omni/seed001 row-eval carries it -- then the
+    row-eval. The chain's own ladder suite row builds WITHOUT the hold (run_phases.EVAL_CARRY does not carry it:
+    candidates.yaml's P2__Z2_s18 note), so the campaign re-evaluates suite es1 with P2_ENV_EXTRA; without this the
+    INVALID rule would read the driver stamp forever. Z1 (no proxy anywhere) keeps its driver stamp."""
+    rec = _rec(name) or {}
+    drv = rec.get("driver_stamp") if rec and not rec.get("killed") else None
+    lr1 = newest_stamp(name, SUITE, 1, lrout or LROUT)
+    if drv and not _proxy_held(drv) and _proxy_held(lr1):
+        return lr1
+    return drv or lr1
+
+
+def z2_light_point(name: str, lrout: Path | None = None) -> dict:
+    """The stamps a Z2 gate / baseline reads, located the way the p2r reads locate them (suite es1 = the arm
+    record's ``driver_stamp`` when there is one -- Z1's lives under gait_eval/omni_phases/.../seed18_X16_p2r_A15pB,
+    not lr/ -- every other row the newest complete lr/<name>/<row>/seed00k stamp), with validity, env, the Z2 reads,
+    the suite stand summaries (STILL, body height), and the field rows' stand summaries and completions (suite es1:
+    :func:`z2_suite_stamp`, the driver stamp unless only an lr row-eval carries the held proxy). No
+    training log, no lr row: a light point never reads HAND LOSS / DOSE."""
+    lrout = lrout or LROUT
+    st = {}
+    for k in Z2_LIGHT_STAMPS:
+        row, s = k.rsplit("@", 1)
+        st[k] = (z2_suite_stamp(name, lrout) if k == "suite@1"
+                 else newest_stamp(name, SUITE if row == "suite" else row, int(s), lrout))
+    return {"name": name, "stamps": st, "valid": {k: stamp_validity(v) for k, v in st.items()},
+            "env": {k: _stamp_env(v) for k, v in st.items()},
+            "ws_env": {s: _stamp_env(st.get(f"{WS}@{s}")) for s in P2S_WS_SEEDS},
+            "z2": z2_reads(st), "still": {s: p2s_summary(st.get(f"suite@{s}")) for s in Z2_SEEDS},
+            "field": {k: {"stand": p2s_summary(st.get(k)) if k in Z2_FIELD_ROWS else None,
+                          "comp": comp_read(st.get(k))}
+                      for k in Z2_FIELD_ROWS + tuple(f"{FH}@{s}" for s in P2B_FH_SEEDS[1:])},
+            "missing": not any(st.values())}
+
+
+def _ge(v, lim) -> tuple:
+    return (v, lim, v is not None and lim is not None and v >= lim - EPS)
+
+
+def _le(v, lim) -> tuple:
+    return (v, lim, v is not None and lim is not None and v <= lim + EPS)
+
+
+def z2_stand_gates(z2: dict, still: dict, z1_z2: dict | None, probe_z2: dict | None = None, seeds=Z2_SEEDS,
+                   relative: bool = True) -> dict:
+    """The Z2 stand gates (P2R_Z2_PLAN.md step 5, pure), per seed in ``seeds``: STILL on the suite (all six
+    clauses); six-down >= 90 % of stands (suite steady window, walkstop last 5 s); homed >= 90 % of walkstop stands;
+    walkstop stand falls <= max(1, Z1's) per 300 (over all three stands); >= 95 % of walkstop stands settled;
+    (``relative``) the walkstop median settle <= the probe's same-seed median + 1 s; post-settle steps <= 0.5/s,
+    taps <= 1/s, KS <= 0.5 (fail-closed medians: an unsettled stand fails them). ``z2`` = :func:`z2_reads` of the
+    head, ``still`` = {seed: p2s head_summary of suite es<seed>}, ``z1_z2`` / ``probe_z2`` = the same reads of Z1
+    and of the probe. A missing summary is PENDING (named in ``pending``), a present summary with a None statistic
+    FAILS. ``{"clauses": {name: (value, line, ok)}, "pending": [...], "verdict": PASS / FAIL / PENDING}``."""
+    S = PS()
+    cl, pend = {}, []
+    for s in seeds:
+        su, ws = (z2.get("suite") or {}).get(s), (z2.get("walkstop") or {}).get(s)
+        if not still.get(s):
+            pend.append(f"suite es{s} stand summary (STILL)")
+        for k, (v, t, ok) in S.still_clauses(still.get(s)).items():
+            cl[f"STILL {k} suite es{s}"] = (v, t, ok)
+        if not su:
+            pend.append(f"suite es{s} Z2 read")
+        if not ws:
+            pend.append(f"walkstop es{s} Z2 read")
+        su, ws = su or {}, ws or {}
+        cl[f"six-down stands suite es{s} (steady)"] = _ge(su.get("six_down_stand_share"), Z2_SIXDOWN_STANDS)
+        cl[f"six-down stands walkstop es{s} (last 5 s)"] = _ge(ws.get("six_down_stand_share"), Z2_SIXDOWN_STANDS)
+        cl[f"homed walkstop es{s}"] = _ge(ws.get("homed_share"), Z2_HOMED_STANDS)
+        z1w = ((z1_z2 or {}).get("walkstop") or {}).get(s)
+        if not z1w:
+            pend.append(f"Z1 walkstop es{s} Z2 read (the stand-falls line)")
+        line = max(Z2_FALLS_FLOOR, z1w["falls_per_300"]) if z1w else None
+        cl[f"walkstop stand falls per 300 es{s} <= max(1, Z1)"] = _le(ws.get("falls_per_300"), line)
+        cl[f"settled walkstop es{s}"] = _ge(ws.get("settled_share"), Z2_SETTLED_STANDS)
+        if relative:
+            pw = ((probe_z2 or {}).get("walkstop") or {}).get(s)
+            if not pw or pw.get("settle_median_s") is None:
+                pend.append(f"probe walkstop es{s} median settle (the relative settle line)")
+            pm = (pw or {}).get("settle_median_s")
+            cl[f"median settle walkstop es{s} <= probe + {Z2_SETTLE_PLUS_S} s"] = _le(
+                ws.get("settle_median_s"), None if pm is None else pm + Z2_SETTLE_PLUS_S)
+        for k, lim in Z2_POST.items():
+            cl[f"{k} walkstop es{s}"] = _le(ws.get(k), lim)
+    verdict = "PENDING" if pend else ("PASS" if all(ok for _v, _t, ok in cl.values()) else "FAIL")
+    return {"clauses": cl, "pending": pend, "verdict": verdict,
+            "failed": [k for k, (_v, _t, ok) in cl.items() if not ok]}
+
+
+def z2_env_reasons(pt: dict, stamps=None) -> list[str]:
+    """The Z2 env INVALID rule (P2R_Z2_PLAN.md "Verification"): every stamp's ``run_meta.env_vars`` must carry
+    ``KRABBY_OMNI_STAND_OBS=clock`` AND ``KRABBY_OMNI_STAND_PROXY=hold`` -- fail closed (missing / any other
+    value is INVALID): a stand read without the held proxy armed scores the blind statue, not R's regime."""
+    out = []
+    for k, stamp in sorted((pt.get("stamps") or {}).items()):
+        if not stamp or (stamps is not None and k not in stamps):
+            continue
+        env = (_json(Path(stamp) / "run_meta.json") or {}).get("env_vars") or {}
+        if str(env.get("KRABBY_OMNI_STAND_OBS", "")).strip().lower() != "clock":
+            out.append(f"{pt.get('name')} {k}: KRABBY_OMNI_STAND_OBS={env.get('KRABBY_OMNI_STAND_OBS')!r}, want 'clock'")
+        if str(env.get(STAND_PROXY_VAR, "")).strip().lower() != STAND_PROXY_ON:
+            out.append(f"{pt.get('name')} {k}: {STAND_PROXY_VAR}={env.get(STAND_PROXY_VAR)!r}, want "
+                       f"{STAND_PROXY_ON!r}")
+    return out
+
+
+def rst_invalid_reasons(pt: dict, refs: dict, raw_bit: bool = True) -> list[str]:
+    """INVALID for a controller-probe stamp set (P2R_RST_s18): CHARTER 6.1's stamp rule against REFS (env4, row env
+    block, code-state sidecar with the bridged code_sha chain) on every stamp it has, the walkstop flat-row rule,
+    :func:`z2_env_reasons`, ``run_meta.p2r_mode.variant == 'restance'`` driving REFS's own S1 checkpoint, and (with
+    ``raw_bit``) the raw stand bit against the labels (:func:`z_raw_bit_reasons`)."""
+    have = tuple(k for k, v in (pt.get("stamps") or {}).items() if v)
+    out = invalid_reasons(pt, refs, have) + walkstop_flat_fails(pt) + z2_env_reasons(pt)
+    ref_sha = ((refs.get("valid") or {}).get("suite@1") or {}).get("ckpt_sha")
+    for k in have:
+        mode = p2r_mode_of(pt["stamps"][k])
+        if not mode:
+            out.append(f"{pt.get('name')} {k}: no run_meta.p2r_mode")
+            continue
+        if mode.get("variant") != P2R_RST_VARIANT:
+            out.append(f"{pt.get('name')} {k}: p2r_mode.variant {mode.get('variant')!r} != {P2R_RST_VARIANT!r}")
+        if ref_sha and mode.get("s1_checkpoint_sha256") != ref_sha:
+            out.append(f"{pt.get('name')} {k}: p2r_mode.s1_checkpoint_sha256 "
+                       f"{str(mode.get('s1_checkpoint_sha256'))[:12]} != REFS {str(ref_sha)[:12]}")
+    if raw_bit:
+        out += z_raw_bit_reasons(pt)[0]
+    return out
+
+
+def z2_field_vs_hold(arm: dict, hold: dict, rows=Z2_FIELD_ROWS) -> dict:
+    """Premise clause (pure): on each of ``rows`` the arm's stand-hold fall rate <= HOLD's + 2 SE and its schedule
+    completion >= HOLD's - 2 SE, SE = HOLD's own binomial SE sqrt(p (1 - p) / n) (P2R_Z2_PLAN "Gate rows": against
+    HOLD's 0 falls 2 SE is 0, so one fall lands in the stop-and-ask). A row the arm never ran is ``not_run``; a row
+    HOLD lacks is PENDING."""
+    cl, pend, not_run = {}, [], []
+    for k in rows:
+        if not (arm.get("stamps") or {}).get(k):
+            not_run.append(k)
+            continue
+        a, h = (arm.get("field") or {}).get(k) or {}, (hold.get("field") or {}).get(k) or {}
+        if not h.get("stand") or not h.get("comp"):
+            pend.append(f"{hold.get('name')} {k} (stand summary / completion)")
+            continue
+        hs, hc = h["stand"], h["comp"]
+        hf = hs["falls"] / hs["n"] if hs.get("n") else None
+        as_, ac = a.get("stand"), a.get("comp")
+        af = (as_["falls"] / as_["n"]) if as_ and as_.get("n") else None
+        cl[f"{k} stand-fall rate <= HOLD + {Z2_FIELD_SE_K:g} SE"] = _le(
+            af, None if hf is None else hf + Z2_FIELD_SE_K * binom_se(hf, hs["n"]))
+        cl[f"{k} completion >= HOLD - {Z2_FIELD_SE_K:g} SE"] = _ge(
+            (ac or {}).get("rate"), hc["rate"] - Z2_FIELD_SE_K * binom_se(hc["rate"], hc["n"]))
+    return {"clauses": cl, "pending": pend, "not_run": not_run}
+
+
+def z2_height_vs_refs(arm: dict, refs: dict, seeds=Z2_SEEDS) -> dict:
+    """Premise clause (pure): stand body height within 0.03 m of REFS_S1_s18's, on the suite stand (p2s
+    head_summary) and the walkstop stands (the Z2 per-stand median), same seed."""
+    cl, pend, heights = {}, [], {}
+    for s in seeds:
+        for lab, a, r in (("suite", (arm.get("still") or {}).get(s), (refs.get("still") or {}).get(s)),
+                          ("walkstop", ((arm.get("z2") or {}).get("walkstop") or {}).get(s),
+                           ((refs.get("z2") or {}).get("walkstop") or {}).get(s))):
+            if not r:
+                pend.append(f"{refs.get('name')} {lab} es{s} body height")
+                continue
+            av, rv = (a or {}).get("body_height_m"), r.get("body_height_m")
+            d = None if av is None or rv is None else abs(av - rv)
+            cl[f"{lab} es{s} |body height - REFS| <= {Z2_HEIGHT_TOL}"] = _le(d, Z2_HEIGHT_TOL)
+            heights[f"{lab} es{s}"] = [av, rv]
+    return {"clauses": cl, "pending": pend, "heights": heights}
+
+
+def _seed_ran(pt: dict, s: int) -> str:
+    """'all' / 'none' / 'partial' -- whether a stamp set ran suite AND walkstop at env_seed ``s``."""
+    have = [bool((pt.get("stamps") or {}).get(k)) for k in (f"suite@{s}", f"{WS}@{s}")]
+    return "all" if all(have) else "none" if not any(have) else "partial"
+
+
+def p2r_rst_gate(probe: dict, hold: dict, refs: dict, z1: dict, raw_bit: bool = True) -> dict:
+    """P2R_Z2_PLAN.md step 3's PREMISE GATE on one controller-probe stamp set (pure but for the raw-bit read):
+    INVALID EVAL > per seed (the Z2 stand gates without the ladder and the relative settle clause, plus body height
+    vs REFS) > the field rows vs HOLD. ``verdict``: INVALID EVAL / FAIL (any evaluated clause) / PENDING (a
+    baseline or a half-run seed) / PASS (every row of the full set ran) / PASS ON ROWS RUN (the listed rows were
+    not run: the residual pass is es1 only)."""
+    out = {"name": probe.get("name"), "hold": hold.get("name"), "refs": refs.get("name"), "z1": z1.get("name")}
+    if probe.get("missing"):
+        return dict(out, verdict="PENDING", why=[f"{probe.get('name')}: no stamps"])
+    inv = rst_invalid_reasons(probe, refs, raw_bit=raw_bit)
+    if inv:
+        return dict(out, verdict="INVALID EVAL", why=inv)
+    seeds, pend, failed, not_run = {}, [], [], []
+    for s in Z2_SEEDS:
+        ran = _seed_ran(probe, s)
+        if ran == "none":
+            seeds[s] = {"verdict": "NOT RUN"}
+            not_run += [f"suite@{s}", f"{WS}@{s}"]
+            continue
+        if ran == "partial":
+            pend.append(f"es{s}: suite and walkstop must both run")
+        g = z2_stand_gates(probe.get("z2") or {}, probe.get("still") or {}, z1.get("z2"), None, seeds=(s,),
+                           relative=False)
+        h = z2_height_vs_refs(probe, refs, seeds=(s,))
+        cl = dict(g["clauses"], **h["clauses"])
+        p = g["pending"] + h["pending"]
+        bad = [k for k, (_v, _t, ok) in cl.items() if not ok]
+        seeds[s] = {"clauses": cl, "pending": p, "failed": bad, "body_height_m": h["heights"],
+                    "verdict": "FAIL" if bad and not p else "PENDING" if p else "PASS",
+                    "role": "tuning seed" if s == 1 else "held-out seed"}
+        pend += [f"es{s}: {x}" for x in p]
+        failed += [f"es{s}: {x}" for x in bad]
+    fv = z2_field_vs_hold(probe, hold)
+    not_run += fv["not_run"]
+    pend += fv["pending"]
+    failed += [k for k, (_v, _t, ok) in fv["clauses"].items() if not ok]
+    out.update(seeds=seeds, field=fv, not_run=not_run, pending=pend, failed=failed)
+    if seeds.get(1, {}).get("verdict") == "NOT RUN":
+        pend.append("es1 (the tuning seed) not run")
+    if failed and not pend:
+        return dict(out, verdict="FAIL", why=failed)
+    if pend:
+        return dict(out, verdict="PENDING", why=pend + ([f"(also failing: {failed})"] if failed else []))
+    return dict(out, verdict="PASS" if not not_run else "PASS ON ROWS RUN",
+                why=["every evaluated clause holds"] + ([f"NOT RUN: {not_run}"] if not_run else []))
+
+
+def p2r_rst_report(name: str | None = None, env=None, raw_bit: bool = True) -> dict:
+    """``--p2r-rst NAME``: :func:`p2r_rst_gate` on the probe stamp set, plus the Z1 / HOLD / REFS baselines on
+    every new statistic."""
+    n = z2_names(env)
+    probe = z2_light_point(name or n["probe"])
+    refs, hold, z1 = z2_light_point(n["refs"]), z2_light_point(n["hold"]), z2_light_point(n["z1"])
+    gate = p2r_rst_gate(probe, hold, refs, z1, raw_bit=raw_bit)
+    return {"gate": gate, "probe": _z2_brief(probe),
+            "baselines": {lab: _z2_brief(p) for lab, p in (("Z1", z1), ("HOLD", hold), ("REFS", refs))}}
+
+
+def _z2_brief(pt: dict | None) -> dict:
+    """The new statistics of one point, per row and seed (the reported baselines)."""
+    z = (pt or {}).get("z2") or {}
+    return {"name": (pt or {}).get("name"),
+            **{row: {s: ({k: (z.get(row) or {}).get(s, {}).get(k) for k in Z2_REPORT_KEYS}
+                         if (z.get(row) or {}).get(s) else None) for s in Z2_SEEDS} for row in ("suite", "walkstop")}}
+
+
+def z2_invalid_reasons(pt: dict) -> list[str]:
+    """The Z2 head's INVALID additions over :func:`p2r_z_verdicts` (which already requires STAND_OBS=clock):
+    STAND_PROXY=hold on every stamp, and the raw stand bit folded into the verdict (P2R_Z2_PLAN "Verification":
+    the raw bit must match the labels)."""
+    return [r for r in z2_env_reasons(pt) if STAND_PROXY_VAR in r] + z_raw_bit_reasons(pt)[0]
+
+
+def p2r_z2_verdicts(res: dict) -> dict:
+    """:func:`p2r_z_verdicts` (the Z1 ladder verbatim) + :func:`z2_invalid_reasons`, which overrides any verdict but
+    PENDING (as the clock rule does)."""
+    out = p2r_z_verdicts(res)
+    for name, pt in (res.get("heads") or {}).items():
+        v = out.get(name)
+        if not v or pt.get("missing") or v.get("verdict") == "PENDING":
+            continue
+        inv = z2_invalid_reasons(pt)
+        if inv:
+            out[name] = dict(v, verdict="INVALID EVAL", why=inv + list(v.get("why") or []))
+    return out
+
+
+def fh400_light(pt: dict) -> tuple[float, int] | None:
+    """field_hard pooled over env_seeds 1-4 from a light point's completions (n = 400)."""
+    got = [((pt.get("field") or {}).get(f"{FH}@{s}") or {}).get("comp") for s in P2B_FH_SEEDS]
+    if any(not g or not g.get("n") for g in got):
+        return None
+    n = sum(g["n"] for g in got)
+    return sum(g["rate"] * g["n"] for g in got) / n, n
+
+
+def p2r_z2_report(seed: int = 18, with_tb: bool = True, env=None, name: str | None = None,
+                  probe_name: str | None = None) -> dict:
+    """The whole ``--p2r-z2`` read (P2R_Z2_PLAN.md step 5): the Z1 ladder + attribution vs C0R (verbatim), the
+    widened INVALID rule, the Z2 stand gates (relative settle vs the probe), ``adoption_grade`` (ladder STILL, no
+    COST, LEVER, every Z2 gate), and the reported baselines (Z1 / HOLD / REFS on every new statistic), fidelity to
+    the probe, walls vs Z1 (n = 400) and stopped hip yaw."""
+    n = z2_names(env)
+    name = name or n["z2"]
+    res = load_p2r_z(seed, with_tb=with_tb, env=env, name=name, suite_stamp=z2_suite_stamp(name))
+    pt = (res.get("heads") or {}).get(name) or {}
+    if not pt.get("missing"):
+        pt["z2"] = z2_reads(pt.get("stamps") or {})
+    verdicts = p2r_z2_verdicts(res)
+    v = verdicts.get(name) or {"name": name, "verdict": "PENDING", "why": ["no record"]}
+    attr = p2s_attribution(pt if not pt.get("missing") else None, res.get("c0r"), v,
+                           bands(res["refs"][seed], res["refs"][seed]))
+    probe = z2_light_point(probe_name or n["probe"])
+    z1, hold, refs = z2_light_point(n["z1"]), z2_light_point(n["hold"]), z2_light_point(n["refs"])
+    still = (((pt.get("p2s") or {}).get("suite")) or {}) if not pt.get("missing") else {}
+    gates = (z2_stand_gates(pt.get("z2") or {}, still, z1.get("z2"), probe.get("z2"), relative=True)
+             if not pt.get("missing") else {"verdict": "PENDING", "clauses": {}, "pending": ["no Z2 head"]})
+    ladder_ok = v.get("verdict") == STILL and (v.get("stand") or {}).get("outcome") == STILL
+    adoption = bool(ladder_ok and attr.get("status") == "LEVER" and gates.get("verdict") == "PASS")
+    fid = {}
+    for row in ("suite", "walkstop"):
+        for s in Z2_SEEDS:
+            a = ((pt.get("z2") or {}).get(row) or {}).get(s) or {}
+            b = ((probe.get("z2") or {}).get(row) or {}).get(s) or {}
+            fid[f"{row} es{s}"] = {k: [a.get(k), b.get(k)] for k in ("settle_median_s", "settled_share",
+                                                                     "lifts_median", "six_down_stand_share")}
+    w_z2 = fh400(pt) if not pt.get("missing") else None
+    w_z1 = fh400_light(z1)
+    walls = {"z2": w_z2, "z1": w_z1}
+    if w_z2 and w_z1:
+        g = se_need(w_z1[0], w_z1[1], w_z2[0], w_z2[1])
+        walls.update(delta=w_z2[0] - w_z1[0], se=g["se"])
+    yaw = {lab: {f"walkstop es{s}": {k: (((p.get("z2") or {}).get("walkstop") or {}).get(s) or {}).get(k)
+                                     for k in ("hip_yaw_mean_deg", "hip_yaw_max_deg")} for s in Z2_SEEDS}
+           for lab, p in (("Z2", pt), ("probe", probe), ("Z1", z1), ("HOLD", hold), ("REFS", refs))}
+    raw_fails, raw_checked = z_raw_bit_reasons(pt) if not pt.get("missing") else ([], 0)
+    return {"name": name, "seed": seed, "probe": probe.get("name"), "verdict": v, "attribution": attr,
+            "z2_gates": gates, "adoption_grade": adoption,
+            "adoption_conditions": {"ladder STILL, no COST": ladder_ok, "attribution LEVER vs C0R":
+                                    attr.get("status") == "LEVER", "every Z2 gate": gates.get("verdict") == "PASS"},
+            "baselines": {lab: _z2_brief(p) for lab, p in (("Z2", pt), ("probe", probe), ("Z1", z1), ("HOLD", hold),
+                                                          ("REFS", refs))},
+            "fidelity_to_probe": {"note": "[Z2, probe] per statistic", **fid}, "walls_vs_z1": walls,
+            "stopped_hip_yaw_deg": yaw,
+            "raw_bit_check": {"fails": raw_fails, "n_checked": raw_checked, "note": "folded into INVALID for Z2"}}
+
+
+def _clause_lines(clauses: dict) -> list[str]:
+    return [f"| {k} | {_f(v, '{:.4g}')} | {_f(t, '{:.4g}')} | {'ok' if ok else '**FAIL**'} |"
+            for k, (v, t, ok) in clauses.items()]
+
+
+def p2r_rst_markdown(out: dict) -> str:
+    g = out["gate"]
+    L = [f"# Omni phase 2, stage p2r -- Z2 premise gate on {g.get('name')} (P2R_Z2_PLAN.md step 3)", "",
+         f"**Verdict: {g.get('verdict')}**", "", "Why:"] + [f"- {w}" for w in g.get("why") or ["(none)"]]
+    for s, sv in (g.get("seeds") or {}).items():
+        L += ["", f"## es{s} ({sv.get('role', '')}): {sv.get('verdict')}", ""]
+        if sv.get("clauses"):
+            L += ["| clause | value | line | |", "|---|---|---|---|"] + _clause_lines(sv["clauses"])
+    fv = g.get("field") or {}
+    if fv.get("clauses"):
+        L += ["", "## Field rows vs HOLD", "", "| clause | value | line | |", "|---|---|---|---|"]
+        L += _clause_lines(fv["clauses"])
+    L += ["", "## Baselines (new statistics)", "", f"```\n{json.dumps(out.get('baselines'), indent=1)}\n```"]
+    return "\n".join(L) + "\n"
+
+
+def p2r_z2_markdown(out: dict) -> str:
+    v, g = out["verdict"], out["z2_gates"]
+    L = [f"# Omni phase 2, stage p2r -- {out['name']} (CHARTER 12 / P2R_Z2_PLAN.md step 5)", "",
+         f"**Adoption-grade: {out['adoption_grade']}** {json.dumps(out['adoption_conditions'])}", "",
+         f"**Ladder verdict: {v.get('verdict')}**", "", "Why:"] + [f"- {w}" for w in v.get("why") or ["(none)"]]
+    L += ["", f"**Attribution (vs {out['attribution'].get('control')}): {out['attribution'].get('status')}**", "",
+          f"## Z2 stand gates: {g.get('verdict')}", ""]
+    if g.get("pending"):
+        L += [f"- PENDING: {p}" for p in g["pending"]] + [""]
+    L += ["| clause | value | line | |", "|---|---|---|---|"] + _clause_lines(g.get("clauses") or {})
+    rep = {k: out[k] for k in ("baselines", "fidelity_to_probe", "walls_vs_z1", "stopped_hip_yaw_deg", "raw_bit_check")}
+    L += ["", "## Baselines, fidelity, walls, hip yaw", "", f"```\n{json.dumps(rep, indent=1, default=str)}\n```"]
     return "\n".join(L) + "\n"
 
 
@@ -3644,6 +4098,9 @@ def main() -> int:
     ap.add_argument("--p2r-md", type=Path, metavar="PATH")
     ap.add_argument("--p2r-z", action="store_true")
     ap.add_argument("--p2r-early-json", type=Path, metavar="PATH")
+    ap.add_argument("--p2r-rst", nargs="?", const="", default=None, metavar="NAME")
+    ap.add_argument("--p2r-z2", nargs="?", const="", default=None, metavar="NAME")
+    ap.add_argument("--probe", default=None, metavar="NAME")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
     if a.self_test:
@@ -3705,6 +4162,20 @@ def main() -> int:
             a.p2r_md.write_text(p2r_step1_markdown(out))
         print(json.dumps(out, default=str))
         return 0
+    if a.p2r_rst is not None:
+        # NOTE(p2r Z2, 2026-10-10): the step-3 premise gate -- exit 0 on PASS / PASS ON ROWS RUN, else 4
+        out = p2r_rst_report(a.p2r_rst or None)
+        if a.p2r_md:
+            a.p2r_md.write_text(p2r_rst_markdown(out))
+        print(json.dumps(out, default=str))
+        return 0 if out["gate"].get("verdict") in ("PASS", "PASS ON ROWS RUN") else 4
+    if a.p2r_z2 is not None:
+        # NOTE(p2r Z2, 2026-10-10): the step-5 read -- exit 0 unless INVALID (every verdict stops and asks), as --p2r-z
+        out = p2r_z2_report(name=a.p2r_z2 or None, probe_name=a.probe)
+        if a.p2r_md:
+            a.p2r_md.write_text(p2r_z2_markdown(out))
+        print(json.dumps(out, default=str))
+        return 0 if out["verdict"].get("verdict") not in ("INVALID EVAL",) else 4
     if a.p2r_z:
         early = json.loads(a.p2r_early_json.read_text()) if a.p2r_early_json else None
         out = p2r_z_report(early_json=early)

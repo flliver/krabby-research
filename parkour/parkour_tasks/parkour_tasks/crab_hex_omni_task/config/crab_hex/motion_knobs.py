@@ -66,6 +66,10 @@ variable                        what it writes when armed
                                 ``stand_obs``) -- the STAND bit written into the CURRENT step's
                                 hidden clock column 15 only (never the history); needs
                                 ``KRABBY_OMNI_CLOCK_HIDE=1`` with no ramp; width unchanged (p2r)
+``KRABBY_OMNI_STAND_PROXY=hold`` omni obs term ``params["stand_proxy_hold"]`` = True -- on the
+                                stand-bit rows the CURRENT step's proxy columns 83-88 read each
+                                leg's last knee-gated value (sample-and-hold; -0.5 after a reset);
+                                needs ``KRABBY_OMNI_STAND_OBS=clock``; width unchanged (p2r Z2)
 **PPO construction (runner cfg; ``apply_exploration_knobs``; PPO-construction plan, 2026-10-01)**
 ``KRABBY_ACTION_BOUND_LOSS``    ``algorithm.action_bound_loss_coef`` -- the FINAL coefficient c1
                                 of the rl_games bound loss on the raw mean (blank / ``0`` = off)
@@ -94,6 +98,13 @@ variable                        what it writes when armed
                                 (>= 0): 1/2 sum_d (mu / sigma_A,d)^2 on the bit-1 rows, summed / B
                                 (any of the three armed also writes ``algorithm.stand_mask_col =
                                 15``; all need ``KRABBY_OMNI_STAND_OBS=clock`` and the checkpoint)
+``KRABBY_STAND_PRIOR_TARGET``   ``algorithm.stand_prior_target = "restance"`` -- the statue prior's
+                                target becomes R(obs) (p2r Z2): 1/2 sum_d ((mu - R) / sigma_A,d)^2;
+                                needs ``KRABBY_STAND_PRIOR_W`` > 0, ``KRABBY_OMNI_STAND_PROXY=hold``
+                                and ``KRABBY_RESTANCE``
+``KRABBY_RESTANCE``             ``algorithm.restance`` -- R's constants (``mdp/crab_hex_omni_restance``
+                                ``RestanceParams.to_dict()``; ``default`` = the seeds); refused in a
+                                training recipe without ``KRABBY_STAND_PRIOR_TARGET``
 **RSI cam staging (env cfg; ``events.rsi_reference_reset`` params, applied by ``omni_knobs._repoint_rsi``)**
 ``KRABBY_RSI_CAM_STAGE=1``      ``params["stage_cam"] = True`` -- an RSI-seeded env starts with the
                                 bank frame's cam shaft velocity as the applied cam target
@@ -159,6 +170,18 @@ two masked action-mean losses. They are refused unless ``KRABBY_OMNI_STAND_OBS=c
 column would carry no stand bit), with a negative weight, with a weight but no checkpoint (sigma_A
 and mu_A come from it), or with a checkpoint but no weight (a recipe naming a loss it does not
 train). Each prints ``[KNOB] <NAME>=<value> consumed`` when applied.
+
+Omni phase-2 stage p2r Z2 (``P2R_Z2_PLAN.md`` step 1, 2026-10-10) added ``KRABBY_OMNI_STAND_PROXY`` (env side,
+an OBS-SEMANTICS knob in :data:`EVAL_SEMANTIC_KNOBS`, off value ``0``; refused without
+``KRABBY_OMNI_STAND_OBS=clock``) and two RUNNER-side knobs (:data:`RESTANCE_KNOBS`; not carried into evals):
+``KRABBY_STAND_PRIOR_TARGET=restance`` and ``KRABBY_RESTANCE``, which turn the statue prior's target from 0 into
+the scripted re-stance controller R(obs) (``mdp/crab_hex_omni_restance.py``, loaded BY PATH and lazily, so this
+module stays torch-free at import). The target is refused without ``KRABBY_STAND_PRIOR_W`` > 0,
+``KRABBY_OMNI_STAND_PROXY=hold`` and ``KRABBY_RESTANCE``. ``KRABBY_RESTANCE`` without the target writes nothing
+-- the controller-level probe reads it from the environment itself, inside an EVAL whose agent cfg passes
+through here too -- and is refused only where it would be a training recipe that says something it does not
+train: alongside an armed statue knob here (an eval never carries those), and on any chain stage at the
+ladder's dry run (:func:`check_restance_composition`).
 
 Pure at module scope (no Isaac, no torch): the appliers import ``RewTerm`` / ``SceneEntityCfg`` /
 the reward functions lazily, and every parser runs in a bare interpreter -- see
@@ -237,6 +260,19 @@ RSI_CAM_STAGE_PARAMS = {RSI_CAM_STAGE_VAR: "stage_cam", RSI_CAM_STAGE_DEBUG_VAR:
 ANCHOR_W_VAR = "KRABBY_ANCHOR_W"
 ANCHOR_CKPT_VAR = "KRABBY_ANCHOR_CKPT"
 STAND_PRIOR_W_VAR = "KRABBY_STAND_PRIOR_W"
+# -- p2r Z2 re-stance (P2R_Z2_PLAN step 1, 2026-10-10; all DEFAULT OFF, set by no preset)
+#: Env side: the sample-and-hold contact proxy on stand rows (``params["stand_proxy_hold"]``).
+STAND_PROXY_VAR = "KRABBY_OMNI_STAND_PROXY"
+#: Runner side: the statue prior's target (``algorithm.stand_prior_target``) and R's constants
+#: (``algorithm.restance``; ``crab_hex_omni_restance.RESTANCE_VAR`` -- pinned equal by the unit tests).
+STAND_PRIOR_TARGET_VAR = "KRABBY_STAND_PRIOR_TARGET"
+RESTANCE_VAR = "KRABBY_RESTANCE"
+#: The two runner-side re-stance knobs.
+RESTANCE_KNOBS = (STAND_PRIOR_TARGET_VAR, RESTANCE_VAR)
+#: ``KRABBY_OMNI_STAND_PROXY`` values (blank / ``0`` = off) and ``KRABBY_STAND_PRIOR_TARGET`` values (blank /
+#: ``0`` = off: the statue target 0).
+STAND_PROXY_MODES = ("hold",)
+STAND_PRIOR_TARGETS = ("restance",)
 #: The three runner-side statue knobs (``algorithm.anchor_coef`` / ``anchor_ckpt`` / ``stand_prior_coef``).
 STATUE_KNOBS = (ANCHOR_W_VAR, ANCHOR_CKPT_VAR, STAND_PRIOR_W_VAR)
 #: ``KRABBY_OMNI_STAND_OBS`` values (blank / ``0`` = off): ``1`` the appended head bit, ``clock`` the bit in
@@ -253,21 +289,27 @@ PPO_CONSTRUCTION_KNOBS = (ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_B
 AGENT_KNOBS = (ACTION_STD_MAX_VAR, ACTION_STD_RESET_VAR, ENTROPY_COEF_VAR,
                ACTION_BOUND_LOSS_VAR, ACTION_BOUND_RAMP_VAR, ACTION_BOUND_VAR, STD_PARAM_VAR, INIT_STD_VAR,
                PPO_SCHEDULE_VAR, PPO_LR_VAR, PPO_DESIRED_KL_VAR, PPO_KL_STOP_VAR, PPO_HIST_LR_VAR,
-               PPO_HAND_DIAG_VAR, *STATUE_KNOBS)
+               PPO_HAND_DIAG_VAR, *STATUE_KNOBS, *RESTANCE_KNOBS)
 
 #: The env-side knobs that change command, clock, action-path or observation SEMANTICS: an eval
 #: of a policy trained with one of them must be built with it too (``run_phases.EVAL_CARRY``).
 EVAL_SEMANTIC_KNOBS = (RELAY_HYST_VAR, STAND_HOLD_VAR, STAND_PARK_VAR, ACTION_LPF_HZ_VAR,
-                       ACTION_LPF_OBS_VAR, STAND_OBS_VAR)
+                       ACTION_LPF_OBS_VAR, STAND_OBS_VAR, STAND_PROXY_VAR)
 #: The RUNNER-side knobs an eval must carry too: they change the policy's PARAMETER STRUCTURE
 #: (``soft`` std: ``std_raw`` instead of ``std``), and an eval rebuilds the policy from the env
 #: knobs before it loads the checkpoint (strictly). ``KRABBY_INIT_STD`` is carried with it (the
 #: soft parameter is initialised through it; the load then overwrites it).
 EVAL_STRUCTURE_KNOBS = (STD_PARAM_VAR, INIT_STD_VAR)
+#: NOTE(p2r Z2, 2026-10-10): the EVAL_SEMANTIC_KNOBS that ``run_phases.EVAL_CARRY`` does NOT carry. That tuple
+#: is eval-locked (``eval_sha``), so a semantics knob added after the lock reaches an eval only through the
+#: campaign's own eval environment (``run_arm.sh``: the env stamp's ``run_meta.env_vars`` + ``P2_ENV_EXTRA``);
+#: a ladder ``eval:`` row (``run_phases.eval_env_for``) builds WITHOUT it. Pinned by test_crab_hex_omni_gate.py
+#: (each one is absent from ``EVAL_CARRY``; the rest of EVAL_SEMANTIC_KNOBS is carried).
+EVAL_CARRY_EXTERNAL = (STAND_PROXY_VAR,)
 #: ... and the value each one takes when OFF (what ``EVAL_CARRY_DEFAULTS`` restates).
 KNOB_OFF_VALUES = {RELAY_HYST_VAR: "0", STAND_HOLD_VAR: "0", STAND_PARK_VAR: "0",
                    ACTION_LPF_HZ_VAR: "0", ACTION_LPF_OBS_VAR: "0", STAND_OBS_VAR: "0",
-                   STD_PARAM_VAR: "0", INIT_STD_VAR: "0"}
+                   STD_PARAM_VAR: "0", INIT_STD_VAR: "0", STAND_PROXY_VAR: "0"}
 #: The omni POLICY observation column of the body-frame lateral (vy) command:
 #: ``CrabHexOmniParkourObservations.OBSERVED_COMMAND_SLOTS`` maps slot 9 -> command index 1, and the
 #: current step's proprio head opens the policy observation (pinned by the unit tests).
@@ -359,6 +401,10 @@ __all__ = [
     # omni phase-2 stage p2r (2026-10-09)
     "ANCHOR_W_VAR", "ANCHOR_CKPT_VAR", "STAND_PRIOR_W_VAR", "STATUE_KNOBS", "STAND_OBS_MODES",
     "STAND_BIT_OBS_COL", "parse_stand_obs", "parse_statue_w", "parse_anchor_ckpt",
+    # omni phase-2 stage p2r Z2 (2026-10-10)
+    "STAND_PROXY_VAR", "STAND_PRIOR_TARGET_VAR", "RESTANCE_VAR", "RESTANCE_KNOBS", "STAND_PROXY_MODES",
+    "STAND_PRIOR_TARGETS", "EVAL_CARRY_EXTERNAL", "parse_stand_proxy", "parse_stand_prior_target", "parse_restance_knob",
+    "restance_module", "check_restance_composition",
 ]
 
 
@@ -420,6 +466,86 @@ def parse_anchor_ckpt(text) -> str | None:
     if _blank(text):
         return None
     return str(text).strip()
+
+
+def parse_stand_proxy(text) -> str | None:
+    """``KRABBY_OMNI_STAND_PROXY`` -> ``"hold"``, or None for OFF (blank / ``0``); anything else raises."""
+    if _blank(text):
+        return None
+    token = str(text).strip().lower()
+    if token == "0":
+        return None
+    if token in STAND_PROXY_MODES:
+        return token
+    raise ValueError(f"{STAND_PROXY_VAR} must be '0' or 'hold', got {text!r}")
+
+
+def parse_stand_prior_target(text) -> str | None:
+    """``KRABBY_STAND_PRIOR_TARGET`` -> ``"restance"``, or None for OFF (blank / ``0``: the statue target 0)."""
+    if _blank(text):
+        return None
+    token = str(text).strip().lower()
+    if token == "0":
+        return None
+    if token in STAND_PRIOR_TARGETS:
+        return token
+    raise ValueError(f"{STAND_PRIOR_TARGET_VAR} must be '0' or one of {STAND_PRIOR_TARGETS}, got {text!r}")
+
+
+#: ``mdp/crab_hex_omni_restance.py`` (pure torch, no Isaac import), resolved from this file.
+_RESTANCE_PY = Path(__file__).resolve().parents[2] / "mdp" / "crab_hex_omni_restance.py"
+_RESTANCE_MOD = None
+
+
+def restance_module():
+    """The re-stance controller module, loaded BY PATH on first use (it imports torch; this module must not at
+    import time, and the task package's ``__init__`` would pull in Isaac)."""
+    global _RESTANCE_MOD
+    if _RESTANCE_MOD is None:
+        import importlib.util  # noqa: PLC0415
+
+        spec = importlib.util.spec_from_file_location("_krabby_crab_hex_omni_restance__mk", _RESTANCE_PY)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _RESTANCE_MOD = mod
+    return _RESTANCE_MOD
+
+
+def parse_restance_knob(text):
+    """``KRABBY_RESTANCE`` -> ``RestanceParams``, or None for OFF (blank / ``0``) -- the controller module's own
+    :func:`parse_restance` (``default`` / ``1`` = the seeds, else ``k=v,...``; bad keys / values raise)."""
+    if _blank(text) or str(text).strip() == "0":
+        return None
+    return restance_module().parse_restance(text)
+
+
+def check_restance_composition(env, *, training: bool) -> None:
+    """The p2r Z2 knobs' cross rules on one environment (a composed stage env, or the process env).
+
+    Raises ``ValueError`` naming the rule. ``training`` additionally refuses ``KRABBY_RESTANCE`` without
+    ``KRABBY_STAND_PRIOR_TARGET`` (a training recipe naming constants it never distils); an EVAL that carries
+    ``KRABBY_RESTANCE`` for the controller-level probe is not refused by that rule. All off -> nothing.
+    """
+    get = env.get
+    proxy = parse_stand_proxy(get(STAND_PROXY_VAR))
+    target = parse_stand_prior_target(get(STAND_PRIOR_TARGET_VAR))
+    params = parse_restance_knob(get(RESTANCE_VAR))
+    if proxy is not None and parse_stand_obs(get(STAND_OBS_VAR)) != "clock":
+        raise ValueError(f"{STAND_PROXY_VAR}={get(STAND_PROXY_VAR)!r} holds the proxy on the stand-bit rows, which "
+                         f"only {STAND_OBS_VAR}=clock writes (got {get(STAND_OBS_VAR)!r})")
+    if target is not None:
+        if parse_statue_w(get(STAND_PRIOR_W_VAR), STAND_PRIOR_W_VAR) is None:
+            raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} sets the statue prior's target, but "
+                             f"{STAND_PRIOR_W_VAR} is off (got {get(STAND_PRIOR_W_VAR)!r}): it would train nothing")
+        if proxy != "hold":
+            raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} reads the held contact proxy, which needs "
+                             f"{STAND_PROXY_VAR}=hold (got {get(STAND_PROXY_VAR)!r})")
+        if params is None:
+            raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} needs {RESTANCE_VAR} (R's constants; 'default' = "
+                             "the seeds)")
+    elif training and params is not None:
+        raise ValueError(f"{RESTANCE_VAR}={get(RESTANCE_VAR)!r} is set but {STAND_PRIOR_TARGET_VAR} is off: a "
+                         "training recipe would name constants it never distils")
 
 
 def resolve_anchor_ckpt(path: str) -> str:
@@ -684,6 +810,10 @@ MOTION_KNOB_PARSERS = {
     ANCHOR_W_VAR: lambda t: parse_statue_w(t, ANCHOR_W_VAR),
     ANCHOR_CKPT_VAR: parse_anchor_ckpt,
     STAND_PRIOR_W_VAR: lambda t: parse_statue_w(t, STAND_PRIOR_W_VAR),
+    # omni phase-2 stage p2r Z2 (2026-10-10): env side, then runner side
+    STAND_PROXY_VAR: parse_stand_proxy,
+    STAND_PRIOR_TARGET_VAR: parse_stand_prior_target,
+    RESTANCE_VAR: parse_restance_knob,
 }
 
 
@@ -936,6 +1066,18 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power
                                    f"(the obs term carries clock_hide={params.get('clock_hide')!r}, "
                                    f"clock_hide_ramp={params.get('clock_hide_ramp')!r})")
         _set_obs_param(cfg, STAND_OBS_VAR, "stand_bit_clock")
+    # p2r Z2 (2026-10-10): the sample-and-hold proxy on the stand-bit rows -- needs the clock bit (written just
+    # above) and no appended head (lpf_obs would move the proxy columns R reads).
+    if parse_stand_proxy(get(STAND_PROXY_VAR)) is not None:
+        if stand_obs != "clock":
+            raise RuntimeError(f"{STAND_PROXY_VAR}={get(STAND_PROXY_VAR)} holds the contact proxy on the stand-bit "
+                               f"rows, which needs {STAND_OBS_VAR}=clock (got {get(STAND_OBS_VAR)!r})")
+        for _g, _t, term in _omni_obs_terms(cfg):
+            if (term.params or {}).get("lpf_obs"):
+                raise RuntimeError(f"{STAND_PROXY_VAR}=hold and {ACTION_LPF_OBS_VAR}=1: the appended filtered-rod "
+                                   "head would move the proxy off obs columns 83-88, which R reads")
+        _set_obs_param(cfg, STAND_PROXY_VAR, "stand_proxy_hold")
+        _consumed(STAND_PROXY_VAR, get(STAND_PROXY_VAR))
     # Every STAND-keyed knob the eval carries also latches the eval hook's slot per hold
     # (``CrabHexOmniCommand.schedule_hook``): otherwise an eval stand hold that drifts past the
     # facing dead band re-derives as "turn" and escapes the very knob it is scoring.
@@ -986,6 +1128,12 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
     anchor_ckpt = parse_anchor_ckpt(env.get(ANCHOR_CKPT_VAR))
     prior_w = parse_statue_w(env.get(STAND_PRIOR_W_VAR), STAND_PRIOR_W_VAR)
     _check_statue_knobs(env, anchor_w, anchor_ckpt, prior_w)
+    # -- p2r Z2 re-stance (2026-10-10). ``training`` = a statue knob is armed: an eval never carries them
+    # (run_phases.EVAL_CARRY), and the probe's eval env carries KRABBY_RESTANCE on its own.
+    target = parse_stand_prior_target(env.get(STAND_PRIOR_TARGET_VAR))
+    restance = parse_restance_knob(env.get(RESTANCE_VAR))
+    check_restance_composition(env, training=(anchor_w is not None or anchor_ckpt is not None
+                                              or prior_w is not None))
     if ramp is not None and (bound_c1 is None or ramp[1] != bound_c1):
         raise ValueError(f"{ACTION_BOUND_RAMP_VAR}={env.get(ACTION_BOUND_RAMP_VAR)!r} ramps TO its c1, which must "
                          f"equal {ACTION_BOUND_LOSS_VAR} (got {env.get(ACTION_BOUND_LOSS_VAR)!r}): the loss "
@@ -1064,6 +1212,12 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
         _consumed(STAND_PRIOR_W_VAR, env.get(STAND_PRIOR_W_VAR))
     if anchor_w is not None or prior_w is not None:
         agent_cfg.algorithm.stand_mask_col = STAND_BIT_OBS_COL
+    if target is not None:
+        # (the cross rules above guarantee R's constants exist; KRABBY_RESTANCE alone writes nothing)
+        agent_cfg.algorithm.stand_prior_target = target
+        _consumed(STAND_PRIOR_TARGET_VAR, env.get(STAND_PRIOR_TARGET_VAR))
+        agent_cfg.algorithm.restance = restance.to_dict()
+        _consumed(RESTANCE_VAR, env.get(RESTANCE_VAR))
 
 
 def _check_statue_knobs(env, anchor_w, anchor_ckpt, prior_w) -> None:

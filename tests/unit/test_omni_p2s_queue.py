@@ -39,9 +39,9 @@ def cands():
 
 
 def test_v10_copy_is_the_live_file():
-    # v12 (CHARTER 12 / P2R_STATUE_PLAN.md step 1) is the newest snapshot: it adds P2__Z1_s18 on top of v11's six
-    # p2s chains, so it -- not v11 -- is now the one that must equal the live file.
-    assert (SCRIPTS / "candidates_v12.yaml").read_bytes() == (CAMP / "candidates.yaml").read_bytes()
+    # v12 (CHARTER 12 / P2R_STATUE_PLAN.md step 1) added P2__Z1_s18 on top of v11's six p2s chains; v13 (P2R_Z2_PLAN.md
+    # step 1, 2026-10-10) adds P2__Z2_s18 and is now the newest snapshot, so it is the one that must equal the live file.
+    assert (SCRIPTS / "candidates_v13.yaml").read_bytes() == (CAMP / "candidates.yaml").read_bytes()
 
 
 @pytest.mark.parametrize("chain", P2S_CHAINS)
@@ -75,7 +75,7 @@ def test_p2s_overlay_equals_the_p2b_continuation_plus_the_knobs(cands):
 def test_earlier_chains_are_untouched(cands):
     # v12 (CHARTER 12 / P2R_STATUE_PLAN.md step 1) adds exactly one new chain, P2__Z1_s18, on top of v11's six
     # p2s chains -- excluded here the same way the p2s chains themselves are, since v9 predates both.
-    excl = P2S_CHAINS + ("P2__Z1_s18",)
+    excl = P2S_CHAINS + ("P2__Z1_s18", "P2__Z2_s18")      # + v13's Z2 chain (P2R_Z2_PLAN.md step 1)
     v9 = yaml.safe_load((SCRIPTS / "candidates_v9.yaml").read_text())
     assert {k: v for k, v in cands["chains"].items() if k not in excl} == v9["chains"]
     assert {k: v for k, v in cands["references"].items() if k not in excl} == v9["references"]

@@ -76,8 +76,33 @@ body-frame command, the same frame ``root_lin_vel_b`` is already in), first reac
 speed and stays at or above it for 0.5 s running. ``None`` (censored) if it never does. The head-level
 statistic is the MEDIAN over episodes (P2S_PLAN.md "left for implementation").
 
+Z2 PER-STAND ESTIMATORS (NOTE(p2r Z2, 2026-10-10): P2R_Z2_PLAN.md step 1 "Reads"; every estimator above is
+unchanged). :func:`iter_stand_holds` enumerates EVERY hold labelled "stand" of every kept episode -- walkstop
+carries three per episode, and :func:`stand_hold_index` (the first one only) stays as it is for the estimators
+above. Per stand (:func:`stand_z2_metrics`), on the fall-trimmed ``full`` rows of that hold:
+  cams              ``joint_pos`` columns whose ``run_meta.joint_names`` end in ``_Body_CamShaft_RevoluteJoint``,
+                     ``wrap_to_pi``'d (home is cam = 0; the spawn pose reads exactly 0).
+  homed              max over legs AND rows of |cam| over the stand's LAST 5 s <= 0.10 rad.
+  six-down share     fraction of window rows with all six ``foot_force_norm`` > 50 N; window = the ``steady``
+                     window (:func:`hold_masks`) on a category_suite stamp, the last 5 s of the fall-trimmed stand
+                     on every schedule row (walkstop, field rows).
+  settle time        seconds from the stand's first row to the first row from which (all six > 50 N AND max|cam|
+                     <= 0.10) holds for 0.5 s running (25 rows); None = never inside the stand (unsettled).
+  post-settle        steps/s and taps/s (:func:`gait_eval.metrics.step_tap_runs` on the loaded mask) and KS (mean
+                     3-D foot-speed sum) from the settle row to the stand's end; None on an unsettled stand.
+  re-stance lifts    steps (:func:`gait_eval.metrics.step_tap_runs`) from the stand's first row to the settle row
+                     (the whole stand when unsettled).
+  hip yaw            report-only: mean / max over legs and the last 5 s of |``*_Body_Hip_RevoluteJoint``| (deg).
+  body height        the estimator above (mean over ``steady`` rows of root z minus the mean terrain z).
+  falls              ``crab_failure`` anywhere in the untrimmed hold (:func:`fell_in_hold`).
+:func:`z2_head_summary` reads every reached stand (rows in the hold, or a fall in it): shares of stands with
+six-down share >= 0.90 / homed / settled, the median settle time (settled stands), FAIL-CLOSED medians of the
+post-settle steps / taps / KS over ALL reached stands (an unsettled stand ranks worst; a median that lands on one
+reads None, which every clause fails), stand falls per 300 stands, the body-height and hip-yaw medians and ``n``.
+
 CLI:
-    p2s_stand.py --stamp DIR [--hold stand] [--json OUT]     one stamp, one hold label
+    p2s_stand.py --stamp DIR [--hold stand] [--json OUT]     one stamp, one hold label (+ the "z2" per-stand
+                                                              summary when the stamp carries joint_pos)
     p2s_stand.py --baseline [--json OUT]                     the P2S_PLAN.md step-1 baseline table (markdown
                                                               to stdout; the full read tree to --json)
     p2s_stand.py --selfcheck                                 exit 0 iff the E6 statue reads STILL on every
@@ -86,7 +111,9 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import ast
 import json
+import math
 import os
 import statistics
 import sys
@@ -131,6 +158,16 @@ STILL_THRESHOLDS = {
     "taps_per_s": 1.0,
     "ks_m_s": 0.5,
 }
+
+#: NOTE(p2r Z2, 2026-10-10): the Z2 per-stand estimators' constants (P2R_Z2_PLAN.md step 1 "Reads" / step 5).
+Z2_LAST_S = 5.0                              #: homed / hip yaw / schedule-row six-down window: the stand's last 5 s
+Z2_HOMED_RAD = 0.10                          #: homed: every cam within 0.10 rad of home (about 1.7 deg of hip yaw)
+Z2_SIXDOWN_SHARE = 0.90                      #: a stand counts as six-down at a window share >= this
+Z2_SETTLE_HOLD_S = 0.5                       #: settle: six-down AND homed held this long running
+Z2_FALLS_PER = 300                           #: stand falls are reported per this many stands (walkstop: 100 x 3)
+CAM_JOINT_SUFFIX = "_Body_CamShaft_RevoluteJoint"
+HIP_YAW_JOINT_SUFFIX = "_Body_Hip_RevoluteJoint"
+WINDOW_STEADY, WINDOW_LAST = "steady", "last5"
 
 
 # ================================================================================================ stamp resolution
@@ -472,6 +509,188 @@ def still_clauses(summary: dict | None) -> dict[str, tuple[float | None, float, 
     return out
 
 
+# ================================================================================================ Z2 per-stand reads
+# NOTE(p2r Z2, 2026-10-10): P2R_Z2_PLAN.md step 1 "Reads" -- homed / six-down / settle / post-settle / re-stance
+# lifts per stand, over EVERY "stand" hold (walkstop's three included). Nothing above changes behaviour.
+def wrap_to_pi(x):
+    """``(x + pi) mod 2 pi - pi`` -- the cam observation's own wrapping (|value| is all any estimator reads, so
+    the +-pi boundary convention does not matter)."""
+    return (np.asarray(x, dtype=np.float64) + math.pi) % (2.0 * math.pi) - math.pi
+
+
+def joint_columns(meta: dict, suffix: str) -> list[int] | None:
+    """Indices into the raw ``joint_pos`` columns of the joints whose ``run_meta.joint_names`` end in ``suffix``
+    (in articulation order). ``joint_names`` is a list on every current stamp; an older stamp that stored its repr
+    is parsed. None if the names are missing or no joint matches."""
+    names = meta.get("joint_names")
+    if isinstance(names, str):
+        try:
+            names = ast.literal_eval(names)
+        except (ValueError, SyntaxError):
+            return None
+    if not isinstance(names, (list, tuple)):
+        return None
+    cols = [i for i, n in enumerate(names) if str(n).endswith(suffix)]
+    return cols or None
+
+
+def stand_window_kind(meta: dict) -> str:
+    """The six-down window a stamp's stands are read on: ``steady`` on a category_suite stamp (it carries an
+    ``env_index_map``), the last 5 s of the stand on every schedule row (walkstop, field_hard / field_light /
+    field_turn)."""
+    return WINDOW_STEADY if meta.get("env_index_map") else WINDOW_LAST
+
+
+def iter_stand_holds(stamp: str):
+    """EVERY "stand" hold of every kept episode (suite: the env_index_map's "stand" wave; schedule rows: every
+    episode) as dicts ``{meta, labels, env_index, hold_idx, ordinal, d}`` -- ``ordinal`` = 0, 1, 2 for walkstop's
+    three stands in schedule order. :func:`stand_hold_index` (first stand only) is left as it is."""
+    for meta, labels, e, d in _raw_episodes(stamp, lambda e: e.get("label") in (None, "stand")):
+        stands = [i for i, lab in enumerate(labels) if lab == "stand"]
+        for k, i in enumerate(stands):
+            yield {"meta": meta, "labels": labels, "env_index": e.get("env_index"), "hold_idx": i, "ordinal": k,
+                   "d": d}
+
+
+def _first_run_start(cond: np.ndarray, need: int) -> int | None:
+    """The first index from which ``cond`` holds for ``need`` rows running, or None (a run cut off by the end of
+    the window before ``need`` rows is not a settle -- censored, as :func:`episode_onset_latency`)."""
+    run = 0
+    for t, c in enumerate(cond):
+        run = run + 1 if c else 0
+        if run >= need:
+            return t - need + 1
+    return None
+
+
+def stand_z2_metrics(d, hold_idx: int, dt: float, cam_cols: list[int] | None, hip_cols: list[int] | None = None,
+                     window: str = WINDOW_LAST) -> dict:
+    """One stand's Z2 estimators (module docstring, "Z2 PER-STAND ESTIMATORS"). Any estimator that cannot be read
+    (no rows, no ``joint_pos`` / cam names) is None -- never 0."""
+    full, steady = hold_masks(d, hold_idx, dt)
+    idx = np.flatnonzero(full)
+    fall = fell_in_hold(d, hold_idx)
+    out: dict = {"n_full": int(idx.size), "fall": fall, "reached": bool(idx.size or fall), "window": window}
+    keys = ("six_down_share", "window_rows", "homed", "cam_max_last_rad", "hip_yaw_mean_deg", "hip_yaw_max_deg",
+            "settle_s", "settled", "lifts_before_settle", "post_settle_steps_per_s", "post_settle_taps_per_s",
+            "post_settle_ks_m_s", "body_height_m")
+    out.update({k: None for k in keys})
+    if not idx.size:
+        out["settled"] = False
+        return out
+    last_n = max(1, int(round(Z2_LAST_S / dt)))
+    last = idx[-last_n:]
+    force = np.asarray(d["foot_force_norm"])
+    six = (force > TOUCH_REF_N).all(axis=-1)                            # (T,)
+    win = np.flatnonzero(steady) if window == WINDOW_STEADY else last
+    out["window_rows"] = int(win.size)
+    out["six_down_share"] = float(six[win].mean()) if win.size else None
+
+    if steady.any():
+        root_z = np.asarray(d["root_pos_w"])[steady, 2]
+        out["body_height_m"] = float((root_z - np.asarray(d["terrain_z"])[steady].mean(axis=-1)).mean())
+
+    jp = np.asarray(d["joint_pos"]) if "joint_pos" in getattr(d, "files", d) else None
+    cam_abs = None
+    if jp is not None and cam_cols:
+        cam_abs = np.abs(wrap_to_pi(jp[:, cam_cols])).max(axis=-1)      # (T,) worst leg
+        out["cam_max_last_rad"] = float(cam_abs[last].max())
+        out["homed"] = bool(out["cam_max_last_rad"] <= Z2_HOMED_RAD)
+    if jp is not None and hip_cols:
+        hy = np.degrees(np.abs(wrap_to_pi(jp[np.ix_(last, hip_cols)])))
+        out["hip_yaw_mean_deg"], out["hip_yaw_max_deg"] = float(hy.mean()), float(hy.max())
+
+    loaded = force[idx] > TOUCH_REF_N                                   # (n_full, 6)
+    if cam_abs is None:                                                  # no cams: settle cannot be read
+        return out
+    need = max(1, int(round(Z2_SETTLE_HOLD_S / dt)))
+    t0 = _first_run_start(six[idx] & (cam_abs[idx] <= Z2_HOMED_RAD), need)
+    out["settled"] = t0 is not None
+    pre = loaded if t0 is None else loaded[:t0]
+    out["lifts_before_settle"] = len(M.step_tap_runs(pre, min_step_steps=MIN_STEP_STEPS)[0]) if pre.shape[0] else 0
+    if t0 is None:
+        return out
+    out["settle_s"] = float(t0 * dt)
+    post = idx[t0:]
+    steps, taps, _c = M.step_tap_runs(loaded[t0:], min_step_steps=MIN_STEP_STEPS)
+    dur = post.size * dt
+    out["post_settle_steps_per_s"] = float(len(steps) / dur)
+    out["post_settle_taps_per_s"] = float(len(taps) / dur)
+    out["post_settle_ks_m_s"] = float(np.linalg.norm(np.asarray(d["foot_lin_vel_w"])[post], axis=-1).sum(-1).mean())
+    return out
+
+
+def _median_fail_closed(vals: list) -> float | None:
+    """The median of ``vals`` with every None ranked WORST (+inf): None if the median lands on one -- a clause
+    read on it then fails, as an unsettled stand fails every post-settle clause."""
+    if not vals:
+        return None
+    m = statistics.median([math.inf if v is None else float(v) for v in vals])
+    return None if math.isinf(m) else round(m, 5)
+
+
+def z2_head_summary(stamp: str | None, window: str | None = None) -> dict | None:
+    """Every reached stand of ``stamp`` through :func:`stand_z2_metrics`, summarised (module docstring). ``window``
+    overrides :func:`stand_window_kind`. None if the stamp has no stand hold at all (PENDING, not a crash)."""
+    if not stamp:
+        return None
+    meta = _json(Path(stamp) / "run_meta.json") or {}
+    dt = float(meta.get("dt", 0.02))
+    kind = window or stand_window_kind(meta)
+    cam_cols = joint_columns(meta, CAM_JOINT_SUFFIX)
+    hip_cols = joint_columns(meta, HIP_YAW_JOINT_SUFFIX)
+    per, n_ep = [], set()
+    for h in iter_stand_holds(stamp):
+        n_ep.add(h["env_index"])
+        m = stand_z2_metrics(h["d"], h["hold_idx"], dt, cam_cols, hip_cols, kind)
+        if m["reached"]:
+            per.append(dict(m, ordinal=h["ordinal"]))
+    if not per:
+        return None
+
+    def share(pred, rows):
+        return round(sum(1 for r in rows if pred(r)) / len(rows), 5) if rows else None
+
+    def med(key, rows):
+        vals = [r[key] for r in rows if r.get(key) is not None]
+        return round(statistics.median(vals), 5) if vals else None
+
+    def block(rows):
+        settled = [r for r in rows if r["settled"]]
+        falls = sum(1 for r in rows if r["fall"])
+        return {
+            "n": len(rows),
+            "six_down_stand_share": share(lambda r: r["six_down_share"] is not None
+                                          and r["six_down_share"] >= Z2_SIXDOWN_SHARE - 1e-12, rows),
+            "six_down_share_median": med("six_down_share", rows),
+            "homed_share": share(lambda r: r["homed"] is True, rows),
+            "settled_share": share(lambda r: r["settled"], rows),
+            "settle_median_s": med("settle_s", settled),
+            "lifts_median": med("lifts_before_settle", rows),
+            "lifts_mean": (round(sum(r["lifts_before_settle"] for r in rows if r["lifts_before_settle"] is not None)
+                                 / max(1, sum(1 for r in rows if r["lifts_before_settle"] is not None)), 5)
+                           if any(r["lifts_before_settle"] is not None for r in rows) else None),
+            "post_settle_steps_per_s": _median_fail_closed([r["post_settle_steps_per_s"] for r in rows]),
+            "post_settle_taps_per_s": _median_fail_closed([r["post_settle_taps_per_s"] for r in rows]),
+            "post_settle_ks_m_s": _median_fail_closed([r["post_settle_ks_m_s"] for r in rows]),
+            "post_settle_steps_per_s_settled": med("post_settle_steps_per_s", settled),
+            "post_settle_taps_per_s_settled": med("post_settle_taps_per_s", settled),
+            "post_settle_ks_m_s_settled": med("post_settle_ks_m_s", settled),
+            "falls": falls, "falls_per_300": round(Z2_FALLS_PER * falls / len(rows), 5),
+            "body_height_m": med("body_height_m", rows),
+            "hip_yaw_mean_deg": med("hip_yaw_mean_deg", rows),
+            "hip_yaw_max_deg": (round(max(r["hip_yaw_max_deg"] for r in rows if r["hip_yaw_max_deg"] is not None), 5)
+                                if any(r["hip_yaw_max_deg"] is not None for r in rows) else None),
+            "cam_max_last_rad_median": med("cam_max_last_rad", rows),
+        }
+    out = {"stamp": stamp, "window": kind, "n_episodes": len(n_ep), "cams_read": bool(cam_cols)}
+    out.update(block(per))
+    ords = sorted({r["ordinal"] for r in per})
+    if len(ords) > 1:
+        out["by_stand"] = {str(k): block([r for r in per if r["ordinal"] == k]) for k in ords}
+    return out
+
+
 # ================================================================================================ baseline table
 #: P2S_PLAN.md step 1's "C0/CL/TG/A1/F1 = newest stamp under .../seed18_X{12,13,14,06,09}_*/" mapping (verified
 #: against each arm's own $OUT/arms/<name>.record.json run_dir, which names the X-id the queue assigned it).
@@ -633,7 +852,7 @@ def main(argv=None) -> int:
     if args.hold == "stand":
         summary = head_summary(args.stamp)
         result = {"summary": summary, "still_clauses": {k: v for k, v in still_clauses(summary).items()},
-                 "onset": onset_summary(args.stamp)}
+                 "onset": onset_summary(args.stamp), "z2": z2_head_summary(args.stamp)}
     else:
         result = {"note": f"hold {args.hold!r} not stand -- only stand-hold estimators are implemented"}
     text = json.dumps(result, indent=1, default=str)

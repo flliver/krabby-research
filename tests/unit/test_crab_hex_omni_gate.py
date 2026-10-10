@@ -650,8 +650,16 @@ def test_motion_carry_defaults_are_the_knob_off_values_and_build_nothing(drv):
     class-default cfg a policy trained without the knob saw (the whole point of the pin)."""
     knobs = _load(OMNI_KNOBS, "omni_knobs_gate_motion_test")
     mk = knobs._mk
-    assert set(mk.EVAL_SEMANTIC_KNOBS) <= set(drv.EVAL_CARRY)
+    # NOTE(p2r Z2, 2026-10-10): EVAL_CARRY is eval-locked, so a semantics knob added after the lock
+    # (KRABBY_OMNI_STAND_PROXY) is named in mk.EVAL_CARRY_EXTERNAL and carried by the campaign's own eval env
+    # instead; every other semantics knob is carried here, and an external one must really be absent here.
+    external = set(getattr(mk, "EVAL_CARRY_EXTERNAL", ()))
+    assert external <= set(mk.EVAL_SEMANTIC_KNOBS) and not external & set(drv.EVAL_CARRY)
+    assert set(mk.EVAL_SEMANTIC_KNOBS) - external <= set(drv.EVAL_CARRY)
     for key in mk.EVAL_SEMANTIC_KNOBS:
+        if key in external:
+            assert key not in drv.EVAL_CARRY_DEFAULTS and mk.KNOB_OFF_VALUES[key] == "0", key
+            continue
         assert drv.EVAL_CARRY_DEFAULTS[key] == mk.KNOB_OFF_VALUES[key], key
     # the reward / exploration knobs of the same plan are NOT carried (reward and sampler rule)
     for banned in ("KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
@@ -678,7 +686,8 @@ def test_motion_carry_defaults_are_the_knob_off_values_and_build_nothing(drv):
         return obj
 
     carried, unset = _cfg(), _cfg()
-    mk.apply_motion_knobs(carried, {k: drv.EVAL_CARRY_DEFAULTS[k] for k in mk.EVAL_SEMANTIC_KNOBS})
+    mk.apply_motion_knobs(carried, {k: drv.EVAL_CARRY_DEFAULTS.get(k, mk.KNOB_OFF_VALUES[k])
+                                    for k in mk.EVAL_SEMANTIC_KNOBS})
     mk.apply_motion_knobs(unset, {})
     assert _snapshot(carried) == _snapshot(unset) == _snapshot(_cfg())
 
