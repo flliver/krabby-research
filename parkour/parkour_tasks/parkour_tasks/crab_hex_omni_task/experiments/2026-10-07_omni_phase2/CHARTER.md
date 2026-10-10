@@ -1411,3 +1411,32 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     code (4d4d833d) both link to REFS.
   - The guard was re-anchored on REFC for the first row (`P2_REANCHOR=1`, deliberate; the code moved). Later rows are
     guarded by REFC.
+- 2026-10-10 02:25–02:40, **Z2 step 3: calibration pass + tuning pass 1** (S1 + R at stand rows; walkstop es1, then
+  + suite es1). Reads from `scratchpad z2_calib.py` (live proxy rebuilt from raws; branch occupancy) and the new
+  per-stand estimators.
+
+  | | homed (walkstop) | six-down ≥ 0.9 | stand falls | stuck in last 5 s | notes |
+  |---|---|---|---|---|---|
+  | c0 (seeds: lift −0.5, ρ 0.5, θ_L 0.35, θ_S 0.75, κ 0.5) | 2.9 % | 0.4 % | 14 / 276 | WAIT 38 %, SEAT 30 % | body +1.5 cm |
+  | t1 (lift −0.4, **ρ 2.0**, θ_S 0.9) walkstop | 27 % | 9 % | **50 / 231** | LIFT 11 % | — |
+  | t1 suite (from spawn) | 100 % | 0 % (median share 0.24) | 0 | SEAT 21 % | **40 taps/s**, KS 0.34 |
+
+  - **Findings:**
+    1. **Knee gate closes before the hip finishes.** With the knee-only validity rule, at ρ 0.5 the knee rod ends
+       its travel well before the hip, so the held reading froze mid-motion:
+       - a lifted leg kept 0.35 "loaded" in the air and sat in LIFT forever;
+       - pressing legs kept 0.07 "unloaded" while carrying 240–760 N, and pressed to full extension.
+       By the linkage, the knee rod is about 18 mm per action unit at 33 mm/s against the hip's 29 mm at 28 mm/s,
+       so ρ ≥ 1.9 keeps the knee moving through the hip's travel. ρ 2.0 it is, which forces lift −0.4.
+    2. **R's support rule was missing** (a logic flaw in the plan's rule as written). Any unloaded, un-homed leg
+       lifted, so a planted-tripod leg that lost load lifted while the stepping tripod was in the air (traced: FL
+       and FR up, pitch to −28°).
+       - **Fixed in d5aa8c2e** (decide-record): HOME needs the other tripod fully loaded; otherwise the leg seats.
+       - This is a code move, so a short bridge (REFD: suite, field_hard es1, walkstop) runs before tuning pass 2.
+    3. **θ_L too low.** In-air readings during a ρ-2 lift reach 0.39–0.49, while loaded legs read 1.0. θ_L → 0.6.
+    4. **Chatter at the lottery leg.** The proportional seat law, closed through the gated current reading, chatters:
+       suite 40 taps/s and 21 % SEAT. A leg that unloads at zero extension has no stable point.
+       - Tuning pass 2 tests a halved gain (κ 0.25).
+       - **If chatter persists:** the premise "a memoryless seat law on the held proxy plants six feet stably"
+         fails, and step 3's STOP-and-ask comes due (fallbacks: sag signal, cams-only, or a bounded last-action
+         press).
