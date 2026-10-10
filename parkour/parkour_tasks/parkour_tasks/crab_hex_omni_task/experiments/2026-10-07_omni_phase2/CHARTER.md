@@ -1597,3 +1597,16 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     training.
   - The early-check sentinel (`p2r_early --mode z2`) is armed on the new run dir. It covers drift on the P2R_PROBE
     bank, formation at 0.25×, and fidelity on the P2R_RSTf stand bank, at model_20500 and model_21000.
+- 2026-10-10 12:24 / ~12:31, **Z2 training checks** (run X17 `2026-10-10_12-18-22_seed18_X17_p2r_A15pB`).
+  - **+200 wiring: PASS.** Anchor rows 0.82, prior rows 0.18, anchor 0 at the fork; first-update `Loss/stand_prior`
+    2.015, inside the dose band [1.05, 5.37]. Resume read clean.
+  - **+506 early checks:**
+    - walking drift D(Z2) 0.021 against D(C0) 1.35 (line 0.67): the anchor is holding;
+    - formation: rolling-20 prior 0.113 against a first update of 2.015 (line 0.50): formed;
+    - **stand fidelity: NOTIFY.** The loaded-leg (HOLD) cam residual μ_cam − R_cam on the P2R_RSTf bank reaches 0.092
+      (FR), with FL 0.060 and RL 0.054, against the 0.015 line. The trim can cancel only ±0.03, so cams would drift if
+      this persists. Mean prior per bank row is 0.44.
+    - Per the plan this is notify-only and the run continues; +1000 shows the trend. For comparison, Z1's per-row
+      residual fell 0.015 → 0.010 from +500 to +1000.
+  - The sentinel's saved line was truncated (multi-line JSON, as with Z1). The full record is `p2r_z2_early.json`,
+    re-run by hand.
