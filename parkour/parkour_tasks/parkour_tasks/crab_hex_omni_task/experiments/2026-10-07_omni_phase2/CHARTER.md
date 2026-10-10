@@ -1310,3 +1310,20 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - The raw stand bit matches the labels on all 15 Z stamps.
   - The fable check of the read is running. **STOP and ask** (P2R_STATUE_PLAN step 5): replicates and the bake are
     the user's.
+- 2026-10-09 ~21:50, **fable check of the Z1 read: CONFIRM** (STILL, no COST, LEVER against C0R). Every gated number
+  re-derives from the stamps.
+  - The strict stand-bit re-check finds 0 mismatches over 5.96 M labelled steps.
+  - The INVALID rule is clean; the only differing sidecar pair is the bridged one.
+  - **Minor notes, recorded:**
+    - The HOLD fidelity column read None (a `p2r_z_fidelity` read bug: it gates HOLD on a record HOLD never had).
+      HOLD's real values are suite 0 / 0 steps, 0 taps, KS 0.10. Z1 is marginally chattier (about one tap per 12-s
+      hold, KS 0.18) and comparable after walking.
+    - **Early-check timing:** the sentinel's +500 run failed twice (`--bank` missing). The +500 check was run by hand
+      during training (≈ 18:37) and the +1000 by the relaunched sentinel. Both PASS. Their JSON was only saved after
+      the reads; the per-checkpoint sidecars hold a truncated line.
+    - The early-check "reported" tags were null (a `read_tb` extra-tags omission). The real values at +506 / +1006:
+      KL 0.012; LR ≈ 5e-5; grad_norm 15; grad split statue / anchor / rest 0.29 / 5.5 / 18.9, then 0.24 / 2.1 / 12.9;
+      σ 0.82 → 0.86 at the end. Nothing unstable.
+    - **DOSE rung:** skipped by the Z read, but it would pass (median |μ| cam 0.73 / rod 0.87; stand clip share 0 vs
+      REFS 0.325).
+    - The bridge accept rule is per code_sha pair. It was verified on 7 rows and extrapolated to the others.
