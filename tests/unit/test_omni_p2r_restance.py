@@ -108,20 +108,37 @@ def test_spawn_seats_all_six_with_the_seat_extension():
 
 
 def test_mid_air_homing():
-    cam = torch.tensor([0.8, -0.3, 0.06, -2.0, 0.2, -0.051])
-    h = torch.tensor([-0.5, 0.0, -0.5, 0.2, -0.5, 0.34])          # all below theta_L: unloaded
+    # tripod A (FL, MR, RL) in the air, tripod B (FR, ML, RR) planted and loaded: A's legs HOME
+    cam = torch.tensor([0.8, 0.0, 0.0, -2.0, 0.2, 0.0])
+    h = torch.tensor([-0.5, 0.6, 0.6, 0.2, 0.34, 0.6])            # A below theta_L, B loaded
     target, branch = R.restance_target(_obs(1, cam=cam, h=h), P0)
-    assert torch.equal(branch[0], torch.full((6,), HOME))         # every |c| > eps_air
-    assert torch.allclose(target[0, CAM], -(P0.k_c * cam).clamp(-1, 1))
+    assert branch[0].tolist() == [HOME, HOLD, HOLD, HOME, HOME, HOLD]
+    a = [0, 3, 4]
+    assert torch.allclose(target[0, CAM][a], -(P0.k_c * cam[a]).clamp(-1, 1))
     assert target[0, CAM][3] == 1.0 and target[0, CAM][0] == -1.0  # saturated at the clip
-    assert torch.allclose(target[0, HIP], torch.full((6,), P0.lift))
-    assert torch.allclose(target[0, KNEE], -P0.rho * _side() * P0.lift)
-    assert bool((target[0, HIP] < 0).all())                        # lift = negative hip pitch
+    assert torch.allclose(target[0, HIP][a], torch.full((3,), P0.lift))
+    assert torch.allclose(target[0, KNEE][a], -P0.rho * _side()[a] * P0.lift)
+    assert bool((target[0, HIP][a] < 0).all())                     # lift = negative hip pitch
     # once inside the air band the leg seats (and keeps homing its cam)
     cam2 = cam.clone()
     cam2[0] = 0.049
     _, branch2 = R.restance_target(_obs(1, cam=cam2, h=h), P0)
-    assert branch2[0, 0] == SEAT and bool((branch2[0, 1:] == HOME).all())
+    assert branch2[0].tolist() == [SEAT, HOLD, HOLD, HOME, HOME, HOLD]
+
+
+def test_support_rule_an_unloaded_leg_without_a_loaded_other_tripod_seats():
+    """NOTE(p2r Z2 probe, 2026-10-10): HOME needs the OTHER tripod fully loaded (the P2R_RSTt1_s18 pitch-overs:
+    a planted-tripod leg that lost load lifted while the stepping tripod was in the air)."""
+    cam = torch.tensor([0.8, 1.2, 0.0, -0.5, 0.3, 0.0])
+    h = torch.tensor([-0.5, 0.0, 0.6, -0.5, -0.5, 0.6])            # A in the air; FR (B) lost its load
+    target, branch = R.restance_target(_obs(1, cam=cam, h=h), P0)
+    # FR's other tripod (A) is not loaded -> FR seats (presses down), never lifts; A's legs' other tripod (B) is not
+    # fully loaded either (FR) -> they seat too, so every unloaded leg presses down until support is back
+    assert branch[0].tolist() == [SEAT, SEAT, HOLD, SEAT, SEAT, HOLD]
+    assert bool((target[0, HIP][[0, 1, 3, 4]] >= 0).all())
+    # every unloaded leg everywhere (spawn-like but out of band): all seat
+    _, branch = R.restance_target(_obs(1, cam=torch.full((6,), 0.8), h=-0.5), P0)
+    assert torch.equal(branch, torch.full((1, 6), SEAT))
 
 
 def test_tripod_gate_needs_the_other_tripod_fully_loaded():

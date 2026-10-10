@@ -18,8 +18,13 @@ target restoring and absolute, so it stays bounded under training noise):
     HOLD  loaded, ``|c| <= eps_c``      cam: restoring trim ``-clip(k_h c, +-trim)``; rods: seat law
     WAIT  loaded, ``|c| > eps_c``, its tripod not selected   cam 0; rods: seat law
     LIFT  loaded, ``|c| > eps_c``, its tripod selected       cam 0; rods: lift
-    HOME  unloaded, ``|c| > eps_air``                        cam: ``-clip(k_c c, +-1)``; rods: lift
-    SEAT  unloaded, ``|c| <= eps_air``                       cam: ``-clip(k_c c, +-1)``; rods: seat law
+    HOME  unloaded, ``|c| > eps_air``, the OTHER tripod fully loaded
+                                                             cam: ``-clip(k_c c, +-1)``; rods: lift
+    SEAT  unloaded, otherwise                                cam: ``-clip(k_c c, +-1)``; rods: seat law
+  (NOTE(p2r Z2 probe, 2026-10-10, CHARTER 12.1): HOME needs the other tripod fully loaded, exactly like LIFT. The
+  plan's first rule lifted ANY unloaded un-homed leg, so a planted-tripod leg that lost load while the stepping
+  tripod was in the air lifted too -- two adjacent legs of different tripods up, a forward pitch-over (probe pass
+  P2R_RSTt1_s18: 50 stand falls in 231 walkstop stands). An unloaded leg without support now SEATS instead.)
   (``eps_air < eps_c``: a leg homes in the air to a tighter band than the loaded one, so a cam coast after
   landing stays inside ``eps_c`` and the trim holds it there.)
 * tripods ``A = (FL, MR, RL)``, ``B = (FR, ML, RR)``. A tripod MAY step when it has a loaded leg with
@@ -190,8 +195,12 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
     branch = torch.full(c.shape, BRANCH_HOLD, dtype=torch.long, device=dev)
     branch = torch.where(loaded & out_c & ~selected, torch.full_like(branch, BRANCH_WAIT), branch)
     branch = torch.where(loaded & out_c & selected, torch.full_like(branch, BRANCH_LIFT), branch)
-    branch = torch.where(~loaded & out_air, torch.full_like(branch, BRANCH_HOME), branch)
-    branch = torch.where(~loaded & ~out_air, torch.full_like(branch, BRANCH_SEAT), branch)
+    # the support rule: a leg may be (or stay) in the air for homing only while the OTHER tripod is fully loaded
+    other_loaded = torch.where(in_a[None, :], loaded[:, b_idx].all(-1, keepdim=True),
+                               loaded[:, a_idx].all(-1, keepdim=True))
+    home = ~loaded & out_air & other_loaded
+    branch = torch.where(home, torch.full_like(branch, BRANCH_HOME), branch)
+    branch = torch.where(~loaded & ~home, torch.full_like(branch, BRANCH_SEAT), branch)
 
     # ---- cam velocity
     cam_air = -(p.k_c * c).clamp(-1.0, 1.0)
