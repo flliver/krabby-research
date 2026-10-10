@@ -1685,3 +1685,35 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     4.5).
   - **Launched** the REFG bridge, the probe `P2R_RSTg_s18` (k3 + `eps_step 0.3`, `trim 0.1`, `k_h 1`; 100k banks), and
     the residual pass `P2R_RSTresg_s18` (bias = Z2's cams + Z1's rods, `p2r_z2c_residual.json`).
+- 2026-10-10 18:18, **Z2c step 2: short bridge PASS.** REFG_S1_s18 (knobs off) is bitwise = REFS on suite, field_hard es1
+  and walkstop; pair appended to `inertness_bridge.json` (dd2edac2).
+- 2026-10-10 ~19:00, **Z2c step 3: drift-proof R probe PASS** (`p2_read --p2r-rst`; `p2r_rstg_read.json`,
+  `p2r_rstresg_read.json`). No tuning pass was needed.
+
+  | | P2R_RSTg es1 | P2R_RSTg es2 | P2R_RSTresg es1 (residual) |
+  |---|---|---|---|
+  | suite STILL | yes (KS 0.098) | yes (KS 0.105) | yes (KS 0.102) |
+  | walkstop homed / settled | 97.0 / 97.0 % | 97.7 / 97.7 % | 98.3 / 98.7 % |
+  | settle median | 2.92 s | 2.96 s | 2.41 s |
+  | post-settle steps / taps / KS | 0.11 / 0 / 0.15 | 0.11 / 0 / 0.15 | 0.12 / 0 / 0.15 |
+  | stand falls | 0 | 0 | 0 |
+  | body height (REFS 1.068) | 1.062 | 1.062 | 1.062 |
+
+  - Field rows (es1, against HOLD on SE(diff)): field_turn 0 falls / completion 1.0; field_hard 0 falls / 0.81.
+  - **Residual pass** (Z2's cams ≤ 0.063 + Z1's rods injected): PASS ON ROWS RUN. The ±0.1 trim holds a Z2-sized cam
+    bias, which the k3 R's ±0.03 trim could not.
+  - Six-down is reported only: 0.19–0.37 of stands.
+  - Banks recorded (100k rows each): walkstop / suite es1 + es2, field_turn, field_hard (RSTg); walkstop / suite es1
+    (RSTresg).
+- 2026-10-10 ~19:30, **Z2c step 4: dose and pre-launch.**
+  - **Gate controls through the exact gate path** (`p2r_z2c_gate.py`, held-out RSTg walkstop es2, 71,707 all-HOLD
+    rows, eval path):
+    - GRAFT: FAIL, hip 0.527 / cam 0.533 (expected);
+    - an offline BC-fit actor (positive control): PASS, hip 0.0085 / cam 0.0061.
+    - So a path bug cannot false-stop a good run, and the gate does reject the fork.
+  - **BC dose** on GRAFT over the six training banks: expected `Loss/bc_mb0` = 7.57 per row (band × [0.52, 2]);
+    `p2r_z2_dose.json` regenerated for the drift-proof constants.
+  - **Candidates v16:** `P2__Z2c_s18` = the `P2__Z2_s18` chain + the drift-proof R
+    (`eps_step=0.3, trim=0.1, k_h=1`) + `KRABBY_BC_W 1.0`, `KRABBY_BC_BATCH 2048`, `KRABBY_BC_BANK` = the RSTg
+    walkstop / suite / field_turn / field_hard es1 + RSTresg walkstop / suite es1 banks. RSTg walkstop es2 is held out
+    as the gate bank; suite es2 is not trained on either.

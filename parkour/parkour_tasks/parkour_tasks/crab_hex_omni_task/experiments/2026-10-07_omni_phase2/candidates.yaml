@@ -159,6 +159,9 @@ decision_rule:
 # in a later copy). Every other chain is unchanged.
 # v15 (2026-10-10, CHARTER 12.1, after the final probe P2R_RSTf_s18 and the user's go): P2__Z2_s18's KRABBY_RESTANCE
 # = the probe's final constants (tuning passes k1-k3 + the tilt guard, e6c82ab2). Every other chain is unchanged.
+# v16 (2026-10-10, CHARTER 12.1 / P2R_Z2C_PLAN.md step 4): new chain P2__Z2c_s18 = P2__Z2_s18 + the drift-proof R
+# constants (eps_step 0.3, trim 0.1, k_h 1) + the clean-state cloning knobs (KRABBY_BC_W / BANK / BATCH). Every other
+# chain is unchanged.
 
 chains:
   # ======================================================================== calibration smokes (CHARTER 5)
@@ -1246,6 +1249,65 @@ chains:
         categories: [back, diag, fwd, move_turn, side, stand, turn]
         floor: {kind: none}
 
+
+  P2__Z2c_s18:
+    notes: "p2r Z2c amendment -- clean-state cloning (CHARTER 12 / P2R_Z2C_PLAN.md, audited 1 pass): the P2__Z2_s18
+      chain + the drift-proof R (eps_step 0.3 dead band, trim 0.1, k_h 1; probe P2R_RSTg_s18 PASS) + a BC term on the
+      P2R_RSTg / P2R_RSTresg es1 + field stand banks (walkstop es2 held out: the +500 fidelity gate bank)."
+    absolute_units: true
+    stages:
+      - stage: p2r
+        base: "2a"
+        iters: 5000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07"
+          KRABBY_OMNI_SLOTS: "0.15:0.55:0.1:0.2"
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_FACING: "0.2:1.2"
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          KRABBY_OMNI_MIRROR_IMAGES: fa
+          KRABBY_RSI_FRAC: "0"
+          KRABBY_OMNI_SPEED_ELLIPSE: "0.35:0.35:0.25"
+          KRABBY_ACTION_BOUND_LOSS: "0.001"
+          KRABBY_ACTION_BOUND_RAMP: "0.0001:0.001:500"
+          KRABBY_ACTION_BOUND: "1.1"
+          KRABBY_STD_PARAM: soft
+          KRABBY_INIT_STD: "0.8"
+          KRABBY_ENTROPY_COEF: "0.0025"
+          KRABBY_ACTION_RATE_W: "-0.05"
+          KRABBY_PPO_HAND_DIAG: "1"
+          KRABBY_PHASEOUT: ""
+          KRABBY_FLAT_TERRAIN_GEOM: field
+          KRABBY_FIELD_PAD_R: "1.7"
+          KRABBY_FIELD_BLOCKS: "14:28"
+          KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+          KRABBY_FIELD_EDGES: wall    # CHARTER 9 walls re-tune 2026-10-06
+          KRABBY_FLAT_TERRAIN_DIFF: "0.20:1.0"
+          KRABBY_TERRAIN_PROMOTE: "0.7:0.4"    # CHARTER 9 walls calibration: r-bar 0.798 (P2__CALW1_s18)
+          # ---- the p2r statue: THE ONE PLACE this chain's four knobs live (P2R_STATUE_PLAN.md step 1/3 planning
+          # dose, KL units at weight 1.0; p2_live.py --preflight refuses a launch unless KRABBY_ANCHOR_CKPT equals
+          # this chain's own resume_from checkpoint and graft.json reads identity_cpu true with a GPU stamp)
+          KRABBY_OMNI_STAND_OBS: clock
+          KRABBY_ANCHOR_W: "1.0"
+          KRABBY_ANCHOR_CKPT: parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt
+          KRABBY_STAND_PRIOR_W: "1.0"
+          # ---- the p2r Z2 re-stance (P2R_Z2_PLAN.md step 1 + the 2026-10-10 cams-only amendment), with the drift-proof
+          # constants of probe P2R_RSTg_s18 (P2R_Z2C_PLAN.md step 3; no KRABBY_OMNI_STAND_PROXY: R reads no proxy)
+          KRABBY_STAND_PRIOR_TARGET: restance
+          KRABBY_RESTANCE: lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3
+          # ---- the p2r Z2c clean-state cloning (P2R_Z2C_PLAN.md step 4): THE ONE PLACE this chain's BC knobs live; the
+          # banks are the P2R_RSTg / P2R_RSTresg es1 + field stand banks (walkstop es2 is held out for the gate)
+          KRABBY_BC_W: "1.0"
+          KRABBY_BC_BANK: parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/walkstop__omni/seed001/2026-10-10_22-18-27/p2r_stand_bank.npz,parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/suite__omni/seed001/2026-10-10_22-24-03/p2r_stand_bank.npz,parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/field_turn__omni/seed001/2026-10-10_22-38-42/p2r_stand_bank.npz,parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/field_hard__omni/seed001/2026-10-10_22-41-00/p2r_stand_bank.npz,parkour/outputs/omni_plan/phase2/lr/P2R_RSTresg_s18/walkstop__omni/seed001/2026-10-10_22-44-47/p2r_stand_bank.npz,parkour/outputs/omni_plan/phase2/lr/P2R_RSTresg_s18/suite__omni/seed001/2026-10-10_22-47-41/p2r_stand_bank.npz
+          KRABBY_BC_BATCH: "2048"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
   P2__ST2_s16:
     notes: "p2s ST2 stand-stillness dose (CHARTER 11 / P2S_PLAN.md), a replicate (lever + continuation): S1 + reward_stand_support / penalty_stand_slide at the ST2 dose; fork of P2__S1_s16 model_19994."
     absolute_units: true
@@ -1457,6 +1519,7 @@ references:
   P2__ST1_s18: {chain: P2__ST1_s18, seed: 18}
   P2__Z1_s18: {chain: P2__Z1_s18, seed: 18}
   P2__Z2_s18: {chain: P2__Z2_s18, seed: 18}
+  P2__Z2c_s18: {chain: P2__Z2c_s18, seed: 18}
   P2__ST2_s16: {chain: P2__ST2_s16, seed: 16}
   P2__ST2_s17: {chain: P2__ST2_s17, seed: 17}
   P2__ST1_s16: {chain: P2__ST1_s16, seed: 16}

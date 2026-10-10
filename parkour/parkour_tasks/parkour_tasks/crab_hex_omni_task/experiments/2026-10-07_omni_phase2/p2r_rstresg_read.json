@@ -1,0 +1,390 @@
+{
+ "gate": {
+  "name": "P2R_RSTresg_s18",
+  "hold": "P2R_HOLD_s18",
+  "refs": "REFS_S1_s18",
+  "z1": "P2__Z1_s18",
+  "seeds": {
+   "1": {
+    "clauses": {
+     "STILL steps_per_s suite es1": [
+      0.0,
+      0.5,
+      true
+     ],
+     "STILL clearance_m suite es1": [
+      1e-05,
+      0.05,
+      true
+     ],
+     "STILL off_ground_share suite es1": [
+      0.0,
+      0.1,
+      true
+     ],
+     "STILL hover_episodes_per_100 suite es1": [
+      0.0,
+      5.0,
+      true
+     ],
+     "STILL taps_per_s suite es1": [
+      0.0,
+      1.0,
+      true
+     ],
+     "STILL ks_m_s suite es1": [
+      0.1024,
+      0.5,
+      true
+     ],
+     "homed walkstop es1": [
+      0.98333,
+      0.9,
+      true
+     ],
+     "walkstop stand falls per 300 es1 <= max(1, Z1)": [
+      0.0,
+      1.0,
+      true
+     ],
+     "settled walkstop es1": [
+      0.98667,
+      0.9,
+      true
+     ],
+     "post_settle_steps_per_s walkstop es1": [
+      0.12108,
+      0.5,
+      true
+     ],
+     "post_settle_taps_per_s walkstop es1": [
+      0.0,
+      1.0,
+      true
+     ],
+     "post_settle_ks_m_s walkstop es1": [
+      0.14531,
+      0.5,
+      true
+     ],
+     "suite es1 |body height - REFS| <= 0.03": [
+      0.003689999999999971,
+      0.03,
+      true
+     ],
+     "walkstop es1 |body height - REFS| <= 0.03": [
+      0.006290000000000129,
+      0.03,
+      true
+     ]
+    },
+    "reported": {
+     "six-down stands suite es1 (steady)": [
+      0.19,
+      0.9,
+      false
+     ],
+     "six-down stands walkstop es1 (last 5 s)": [
+      0.31333,
+      0.9,
+      false
+     ]
+    },
+    "pending": [],
+    "failed": [],
+    "body_height_m": {
+     "suite es1": [
+      1.0643,
+      1.06799
+     ],
+     "walkstop es1": [
+      1.06228,
+      1.06857
+     ]
+    },
+    "verdict": "PASS",
+    "role": "tuning seed"
+   },
+   "2": {
+    "verdict": "NOT RUN"
+   }
+  },
+  "field": {
+   "clauses": {},
+   "pending": [],
+   "not_run": [
+    "field_turn__omni@1",
+    "field_hard__omni@1"
+   ]
+  },
+  "not_run": [
+   "suite@2",
+   "walkstop__omni@2",
+   "field_turn__omni@1",
+   "field_hard__omni@1"
+  ],
+  "pending": [],
+  "failed": [],
+  "verdict": "PASS ON ROWS RUN",
+  "why": [
+   "every evaluated clause holds",
+   "NOT RUN: ['suite@2', 'walkstop__omni@2', 'field_turn__omni@1', 'field_hard__omni@1']"
+  ]
+ },
+ "probe": {
+  "name": "P2R_RSTresg_s18",
+  "suite": {
+   "1": {
+    "n": 100,
+    "six_down_stand_share": 0.19,
+    "homed_share": 1.0,
+    "settled_share": 1.0,
+    "settle_median_s": 0.0,
+    "lifts_median": 0.0,
+    "post_settle_steps_per_s": 0.0,
+    "post_settle_taps_per_s": 0.0,
+    "post_settle_ks_m_s": 0.10224,
+    "falls": 0,
+    "falls_per_300": 0.0,
+    "body_height_m": 1.0643,
+    "hip_yaw_mean_deg": 0.43376,
+    "hip_yaw_max_deg": 1.80034
+   },
+   "2": null
+  },
+  "walkstop": {
+   "1": {
+    "n": 300,
+    "six_down_stand_share": 0.31333,
+    "homed_share": 0.98333,
+    "settled_share": 0.98667,
+    "settle_median_s": 2.41,
+    "lifts_median": 6.0,
+    "post_settle_steps_per_s": 0.12108,
+    "post_settle_taps_per_s": 0.0,
+    "post_settle_ks_m_s": 0.14531,
+    "falls": 0,
+    "falls_per_300": 0.0,
+    "body_height_m": 1.06228,
+    "hip_yaw_mean_deg": 0.73741,
+    "hip_yaw_max_deg": 24.71166
+   },
+   "2": null
+  }
+ },
+ "baselines": {
+  "Z1": {
+   "name": "P2__Z1_s18",
+   "suite": {
+    "1": {
+     "n": 100,
+     "six_down_stand_share": 0.09,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 0.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06387,
+     "hip_yaw_mean_deg": 4.08982,
+     "hip_yaw_max_deg": 15.9117
+    },
+    "2": {
+     "n": 100,
+     "six_down_stand_share": 0.11,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 1.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06413,
+     "hip_yaw_mean_deg": 4.33356,
+     "hip_yaw_max_deg": 16.13033
+    }
+   },
+   "walkstop": {
+    "1": {
+     "n": 300,
+     "six_down_stand_share": 0.21667,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 2.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.0633,
+     "hip_yaw_mean_deg": 5.96508,
+     "hip_yaw_max_deg": 23.62931
+    },
+    "2": {
+     "n": 300,
+     "six_down_stand_share": 0.24333,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 3.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06346,
+     "hip_yaw_mean_deg": 5.85025,
+     "hip_yaw_max_deg": 23.04302
+    }
+   }
+  },
+  "HOLD": {
+   "name": "P2R_HOLD_s18",
+   "suite": {
+    "1": {
+     "n": 100,
+     "six_down_stand_share": 0.29,
+     "homed_share": 1.0,
+     "settled_share": 1.0,
+     "settle_median_s": 0.0,
+     "lifts_median": 0.0,
+     "post_settle_steps_per_s": 0.0,
+     "post_settle_taps_per_s": 0.0,
+     "post_settle_ks_m_s": 0.09837,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06478,
+     "hip_yaw_mean_deg": 0.09443,
+     "hip_yaw_max_deg": 0.83359
+    },
+    "2": {
+     "n": 100,
+     "six_down_stand_share": 0.2,
+     "homed_share": 1.0,
+     "settled_share": 1.0,
+     "settle_median_s": 0.0,
+     "lifts_median": 0.0,
+     "post_settle_steps_per_s": 0.0,
+     "post_settle_taps_per_s": 0.0,
+     "post_settle_ks_m_s": 0.10436,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06514,
+     "hip_yaw_mean_deg": 0.11447,
+     "hip_yaw_max_deg": 1.13598
+    }
+   },
+   "walkstop": {
+    "1": {
+     "n": 300,
+     "six_down_stand_share": 0.34667,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 3.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06399,
+     "hip_yaw_mean_deg": 5.95511,
+     "hip_yaw_max_deg": 22.45351
+    },
+    "2": {
+     "n": 300,
+     "six_down_stand_share": 0.33667,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 2.5,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06409,
+     "hip_yaw_mean_deg": 6.14226,
+     "hip_yaw_max_deg": 23.88078
+    }
+   }
+  },
+  "REFS": {
+   "name": "REFS_S1_s18",
+   "suite": {
+    "1": {
+     "n": 100,
+     "six_down_stand_share": 0.0,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 34.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06799,
+     "hip_yaw_mean_deg": 3.53255,
+     "hip_yaw_max_deg": 14.48375
+    },
+    "2": {
+     "n": 100,
+     "six_down_stand_share": 0.0,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 34.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06684,
+     "hip_yaw_mean_deg": 3.59446,
+     "hip_yaw_max_deg": 14.6337
+    }
+   },
+   "walkstop": {
+    "1": {
+     "n": 300,
+     "six_down_stand_share": 0.0,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 34.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06857,
+     "hip_yaw_mean_deg": 3.51729,
+     "hip_yaw_max_deg": 16.5609
+    },
+    "2": {
+     "n": 300,
+     "six_down_stand_share": 0.0,
+     "homed_share": 0.0,
+     "settled_share": 0.0,
+     "settle_median_s": null,
+     "lifts_median": 34.0,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06817,
+     "hip_yaw_mean_deg": 3.57395,
+     "hip_yaw_max_deg": 19.04369
+    }
+   }
+  }
+ }
+}
