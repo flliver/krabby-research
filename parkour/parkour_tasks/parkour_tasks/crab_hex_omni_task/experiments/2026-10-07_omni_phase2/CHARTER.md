@@ -1404,3 +1404,10 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
        noisy training stands.
   - **Dose-script cross-check:** the proxy rebuild matches recorded obs within 4.8e-7 and the cams bitwise. DIAG
     stamps record SAMPLED actions; on REFSAMP the noise term is subtracted (σ_sample = σ_A).
+- 2026-10-10 01:57–02:24, **Z2 step 2: inertness bridge PASS** (≈ 0.45 GPU-h). REFC_S1_s18 runs the new code
+  (ad89ba23, code_sha 4d4d833d, every Z2 knob off) and is **bitwise equal to REFS_S1_s18 (ae892cec) on every raw key**
+  of suite es1 (1000 episodes), field_hard es1–4, walkstop es1 and field_turn es1.
+  - Appended to `inertness_bridge.json`. The read's accept rule chains pairs, so the Z1 code (d9f0022f) and the Z2
+    code (4d4d833d) both link to REFS.
+  - The guard was re-anchored on REFC for the first row (`P2_REANCHOR=1`, deliberate; the code moved). Later rows are
+    guarded by REFC.

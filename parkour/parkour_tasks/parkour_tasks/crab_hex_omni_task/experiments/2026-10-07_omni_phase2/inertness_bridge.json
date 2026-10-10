@@ -52,6 +52,59 @@
    "check": "scratchpad bitwise_cmp.py: every raw key equal, every episode",
    "ok": true,
    "verified_at": "2026-10-09"
+  },
+  {
+   "from_code_sha": "ae892cec7f2b782b94202b31dab35816c38337e16427bca0aa9f51065a4c6214",
+   "to_code_sha": "4d4d833d3180eb9e693e2e1fdccd248736e5405319d902f07ac7691a17989507",
+   "eval_sha": "1d021625844bb372556c26389fdb0ce610e42e1bfeae2dcd15e7ebc0ffabb7ff",
+   "what": "P2R_Z2_PLAN step 2: REFC_S1_s18 (code ad89ba23, every Z2 knob off) is BITWISE equal to REFS_S1_s18 (ae892cec) on every raw key of these rows",
+   "check": "scratchpad bitwise_cmp.py: every raw key equal, every episode",
+   "ok": true,
+   "verified_at": "2026-10-10",
+   "rows": [
+    {
+     "row": "suite__omni",
+     "env_seed": 1,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/suite__omni/seed001/2026-10-10_05-57-47",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 1,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/field_hard__omni/seed001/2026-10-10_06-04-52",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed001/2026-10-09_03-47-57"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 2,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/field_hard__omni/seed002/2026-10-10_06-08-33",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed002/2026-10-09_03-51-29"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 3,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/field_hard__omni/seed003/2026-10-10_06-12-13",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed003/2026-10-09_03-55-03"
+    },
+    {
+     "row": "field_hard__omni",
+     "env_seed": 4,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/field_hard__omni/seed004/2026-10-10_06-15-55",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed004/2026-10-09_03-58-35"
+    },
+    {
+     "row": "walkstop__omni",
+     "env_seed": 1,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/walkstop__omni/seed001/2026-10-10_06-19-36",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/walkstop__omni/seed001/2026-10-09_04-11-22"
+    },
+    {
+     "row": "field_turn__omni",
+     "env_seed": 1,
+     "refc": "parkour/outputs/omni_plan/phase2/lr/REFC_S1_s18/field_turn__omni/seed001/2026-10-10_06-22-12",
+     "refs": "parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_turn__omni/seed001/2026-10-09_04-02-09"
+    }
+   ]
   }
  ]
 }
