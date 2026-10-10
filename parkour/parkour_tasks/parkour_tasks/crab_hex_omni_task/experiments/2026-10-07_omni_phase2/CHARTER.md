@@ -1269,3 +1269,44 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - The GPU stamps are written to graft.json.
   - **Step 3:** doses 1.0 / 1.0 (KL units, sum ÷ B). Expected first-update `Loss/stand_prior` ≈ 2.3; anchor 0.
   - Validator dry run: `P2__Z1_s18` ok. `p2_live --preflight` PASS. **Z1 launches.**
+- 2026-10-09 18:11–21:26, **Z1 (P2__Z1_s18, X16 model_24993) trained and read** (≈ 3.3 GPU-h; `p2r_z.md/.json`,
+  `p2r_z1_early.json`).
+
+  **Training checks:**
+  - +200 wiring PASS: anchor rows 0.84, prior rows 0.16, anchor 0 at the fork; first-update statue loss 1.99
+    (expected ≈ 2.3, band [1.2, 4.6]).
+  - +1000 curriculum 1.1 → 5.6.
+
+  **Early checks** (both PASS):
+
+  | | walking drift D(Z1) | D(C0) | statue formation (rolling-20 at +200) | stand residual per row |
+  |---|---|---|---|---|
+  | +506 | 0.023 | 1.35 | 0.0093 (line 0.20) | 0.015 |
+  | +1006 | 0.013 | 1.93 | — | 0.010 |
+
+  The cosine of Z1's Δμ against ST2's is −0.25 / −0.19.
+
+  **Read: STILL, no COST, attribution LEVER against C0R.**
+
+  | | REFS | Z1 |
+  |---|---|---|
+  | stand steps/s (es1 / es2) | 2.83 / 2.83 | 0.00 / 0.08 |
+  | taps/s | 2.8 / 2.7 | 0.08 / 0.08 |
+  | clearance | 0.135 | 0.0013 |
+  | off-ground | 0.34 | 0 |
+  | hover | 0 | 0 |
+  | KS | 1.72 | 0.18 |
+  | action jitter at stand | 0.215 | 0.0 |
+  | work at stand | 309 W/s | 43 W/s |
+  | field_hard (n = 400) | 0.8125, 75 falls | 0.83, 68 falls |
+  | field_light / ring | 0.995 / 1.0 | 0.995 / 1.0 |
+  | onset (walkstop median) | 0.14 s | 0.12 s |
+  | stand falls | — | 0 / 1500 |
+  | body height | 1.067 | 1.064 |
+  | field_turn | 0.99 | 1.0 |
+
+  - Flat deltas against REFS are all ≤ 0.017; no FLAT FAIL against REFS or chained against ANCW.
+  - Walkstop stands after walking: 0.17 / 0.25 steps/s and 0.33 / 0.42 taps/s (touchdowns on entry).
+  - The raw stand bit matches the labels on all 15 Z stamps.
+  - The fable check of the read is running. **STOP and ask** (P2R_STATUE_PLAN step 5): replicates and the bake are
+    the user's.
