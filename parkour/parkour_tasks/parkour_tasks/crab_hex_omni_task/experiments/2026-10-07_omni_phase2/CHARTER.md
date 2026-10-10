@@ -1440,3 +1440,25 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
        - **If chatter persists:** the premise "a memoryless seat law on the held proxy plants six feet stably"
          fails, and step 3's STOP-and-ask comes due (fallbacks: sag signal, cams-only, or a bounded last-action
          press).
+- 2026-10-10 02:42–03:05, **short bridge PASS** for the R fix (REFD_S1_s18 at fa4ce645, bitwise = REFS on suite,
+  field_hard es1 and walkstop), then **tuning pass 2** (θ_L 0.6, κ 0.25, support rule on):
+
+  | | homed | six-down ≥ 0.9 | stand falls | other |
+  |---|---|---|---|---|
+  | walkstop es1 | 50 % | 22 % (Z1 22–24 %, HOLD 34–35 %) | 4 / 298 | 116 / 294 stands end in a WAIT + SEAT deadlock |
+  | suite es1 (from spawn) | 100 % | 0 % | 0 | **37 taps/s**, KS 0.31 (STILL fails) |
+
+- **STEP-3 PREMISE STOP** (P2R_Z2_PLAN step 3, after 2 of 3 tuning passes): the current-sense seat law cannot plant six
+  feet stably. The failure is structural, not a matter of constants:
+  1. **Stale holds.** A parked leg cannot refresh its reading.
+     - 71 % of the legs stuck in SEAT at stand end are actually loaded (median 494 N) while reading a held 0.10.
+     - The last full-gate reading is often knee-only, taken after the hip rod (which carries the load torque) has
+       stopped.
+     - The stale "unloaded" blocks the other tripod (the support rule) → a deadlock in 116 / 294 walkstop stands.
+  2. **Chatter.** When the reading does stay live, the press never settles. SEAT legs' knee rods move 99 % of the
+     time, with 23 crossings of 50 N per leg-second, and they shake the HOLD legs (8 / s).
+  3. **Overlap.** In-air readings during a ρ-2 lift (p90 0.39–0.49) overlap light-load readings (40–120 N median
+     0.57, p10 −0.09).
+  - **What works:** the cam homing itself (suite 100 %, walkstop 50 % and limited only by the deadlock) and the
+    support rule (falls 50 → 4).
+  - **NOTIFY + ask the user** (the fallbacks are theirs).
