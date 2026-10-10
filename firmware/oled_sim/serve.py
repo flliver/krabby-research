@@ -21,6 +21,7 @@ import viewer    # noqa: E402
 _WATCH = [HERE / "krab.py", HERE / "ssd1306.py", HERE / "viewer.py"]
 _WATCH += sorted((HERE / "native").rglob("*"))
 _WATCH += sorted((HERE.parent / "arduino" / "src" / "display").rglob("*"))
+_WATCH += sorted((HERE.parent / "arduino" / "src" / "power_monitor").rglob("*"))
 
 _LIVE_JS = """
 <script>

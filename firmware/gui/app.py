@@ -162,6 +162,124 @@ class ImuRow:
         self._state_lbl.configure(foreground=col)
 
 
+
+def _state_label(value) -> str:
+    """Defined values show their name; an unknown byte shows the raw number so a
+    newer firmware is visible rather than silently mapped onto something known."""
+    return value.name if hasattr(value, "name") else str(value)
+
+
+SENSOR_STALE_S = 1.0
+
+
+class BattRow:
+    """Display battery readings, divergence, measurement validity, and frame age.
+
+    Retain samples between updates. Divergence includes assumed divergence when
+    a battery cannot be read; successful reads may still need numeric checks.
+    """
+
+    COLS = ["", "pack V", "pack A", "pack W", "charge C", "battA", "battB",
+            "region", "diverge", "pack", "mid", "freshness"]
+    # Leave room for DIVERGED and the longer region labels.
+    COL_WIDTHS = {"region": 8, "diverge": 9, "pack": 6, "mid": 6, "freshness": 9}
+    # Status columns have independent colours.
+    COLOURED = ("diverge", "pack", "mid", "freshness")
+
+    @staticmethod
+    def resolve_state(battery, age_seconds: Optional[float]) -> tuple[str, str]:
+        """How old the latched sample is. Says nothing about its contents."""
+        if battery is None:
+            return "—", ""
+        if age_seconds is not None and age_seconds > SENSOR_STALE_S:
+            return "stale", STATE_COLOR_STALE
+        return "fresh", STATE_COLOR_OK
+
+    @staticmethod
+    def resolve_monitor(valid: Optional[bool]) -> tuple[str, str]:
+        """Display whether all reads in the monitor measurement succeeded."""
+        if valid is None:
+            return "—", ""
+        return ("up", STATE_COLOR_OK) if valid else ("DOWN", STATE_COLOR_STALE)
+
+    @staticmethod
+    def resolve_divergence(battery) -> tuple[str, str]:
+        """Keep assumed divergence visible even when a monitor is unavailable."""
+        if battery is None:
+            return "—", ""
+        if battery.divergence:
+            return "DIVERGED", STATE_COLOR_STALE
+        if not battery.split_available:
+            return "—", ""
+        return "ok", STATE_COLOR_OK
+
+    @staticmethod
+    def latch_sample(previous_sample, previous_timestamp, sample, now):
+        if sample is not None and sample is not previous_sample:
+            return sample, now
+        return previous_sample, previous_timestamp
+
+    def __init__(self, parent: tk.Widget):
+        self._sample = None
+        self._sample_timestamp: Optional[float] = None
+        ttk.Label(parent, text="BATT", font=FONT_SENSOR_LABEL, width=6, anchor="w").grid(
+            row=3, column=0, padx=4, pady=2, sticky="w"
+        )
+        for c, h in enumerate(self.COLS):
+            if not h:
+                continue
+            ttk.Label(parent, text=h, font=FONT_SENSOR_HEADER, anchor="e").grid(
+                row=2, column=c, padx=4, sticky="e"
+            )
+        self._vars = [tk.StringVar(value="—") for _ in self.COLS]
+        for c in range(1, len(self.COLS)):
+            ttk.Label(
+                parent,
+                textvariable=self._vars[c],
+                font=FONT_SENSOR_VALUE,
+                width=self.COL_WIDTHS.get(self.COLS[c], 7),
+                anchor="e",
+            ).grid(row=3, column=c, padx=4)
+        self._lbl = {name: parent.grid_slaves(row=3, column=self.COLS.index(name))[0]
+                     for name in self.COLOURED}
+
+    def update(self, battery, now: float):
+        self._sample, self._sample_timestamp = BattRow.latch_sample(
+            self._sample, self._sample_timestamp, battery, now
+        )
+        battery = self._sample
+        age_seconds = (
+            None if self._sample_timestamp is None else now - self._sample_timestamp
+        )
+        if battery is None:
+            for v in self._vars[1:]:
+                v.set("—")
+            for lbl in self._lbl.values():
+                lbl.configure(foreground="")
+            return
+        fmt = [
+            None,
+            f"{battery.pack_volts:.2f}",
+            f"{battery.pack_current_amperes:+.2f}",
+            f"{battery.pack_power_watts:.1f}",
+            f"{battery.pack_charge_coulombs:.0f}",
+            battery.format_battery_voltage(battery.battery_a_volts),
+            battery.format_battery_voltage(battery.battery_b_volts),
+            _state_label(battery.pack_region),
+        ]
+        for c, text in enumerate(fmt):
+            if text is not None:
+                self._vars[c].set(text)
+        for name, (text, colour) in (
+            ("diverge", self.resolve_divergence(battery)),
+            ("pack", self.resolve_monitor(battery.pack_valid)),
+            ("mid", self.resolve_monitor(battery.midpoint_valid)),
+            ("freshness", self.resolve_state(battery, age_seconds)),
+        ):
+            self._vars[self.COLS.index(name)].set(text)
+            self._lbl[name].configure(foreground=colour)
+
+
 class KrabbyTestGUI(tk.Tk):
     def __init__(self, port: Optional[str] = None, baud: int = DEFAULT_BAUD):
         super().__init__()
@@ -204,6 +322,7 @@ class KrabbyTestGUI(tk.Tk):
         imu_frame = ttk.Frame(self, padding=(8, 0))
         imu_frame.pack(fill="x")
         self._imu_row = ImuRow(imu_frame)
+        self._batt_row = BattRow(imu_frame)
 
         sep = ttk.Separator(self, orient="horizontal")
         sep.pack(fill="x", pady=4)
@@ -266,7 +385,9 @@ class KrabbyTestGUI(tk.Tk):
             jt = self._mcu.joints.get(name)
             jr.update_from_telemetry(jt)
 
+        now = time.time()
         self._imu_row.update(self._mcu.imu)
+        self._batt_row.update(self._mcu.battery, now)
 
         now = time.time()
         fresh = {

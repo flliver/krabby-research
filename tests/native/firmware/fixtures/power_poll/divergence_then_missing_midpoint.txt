@@ -1,0 +1,48 @@
+[diverged]
+;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 0 1 1
+events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1000
+measurement.pack=26,-12.5,325,1200
+model=26,125,135,0.357142955,1
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 26.0V
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+fill 13 12 6 5 1
+text 34 11 12.5V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+fill 77 12 16 5 1
+text 98 11 13.5V
+
+[midpoint-fails-pack-remains-valid]
+;BATT 26.00 -12.50 325.0 1200.0 nan nan 1 0 1 0
+events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | millis=1050 | telemetry.begin
+clock-after=1050
+measurement.pack=26,-12.5,325,1200
+model=26,-32768,-32768,0,0
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,1,1,0,0
+draw=1
+font 5x7
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+text 34 11 --.-V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+text 98 11 --.-V
+

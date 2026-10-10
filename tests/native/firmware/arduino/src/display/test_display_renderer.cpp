@@ -197,7 +197,7 @@ void test_a_tilt_change_redraws_only_the_tilt_field(void)
 {
     RecordingCanvas canvas;
     DisplayFrame tilted = baseFrame();
-    tilted.roll = Degrees(7.0f);
+    tilted.roll = Degrees(107.0f);
 
     renderThenCapture(canvas, baseFrame(), tilted);
 
@@ -209,7 +209,7 @@ void test_a_tilt_change_redraws_only_the_tilt_field(void)
         if (call.kind == CALL_TEXT)
         {
             TEST_ASSERT_EQUAL_INT(SSD1306_HEADER_TILT_X, call.x0);
-            TEST_ASSERT_EQUAL_STRING("+07/+00", call.text);
+            TEST_ASSERT_EQUAL_STRING("+107/+00", call.text);
         }
     }
 }
@@ -453,6 +453,34 @@ void test_missing_battery_readings_replace_voltage_labels(void)
     TEST_ASSERT_EQUAL_INT(0, canvas.count());
 }
 
+void test_subpixel_battery_changes_do_not_draw(void)
+{
+    RecordingCanvas canvas;
+    DisplayRenderer<RecordingCanvas> renderer(canvas);
+    DisplayFrame frame = baseFrame();
+    renderer.render(frame);
+    canvas.reset();
+    frame.packVoltage = Volts(26.51f);
+    frame.batteryLevel[0] += 0.01f;
+    TEST_ASSERT_FALSE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(0, canvas.count());
+}
+
+void test_voltage_fields_are_right_aligned(void)
+{
+    RecordingCanvas canvas;
+    DisplayRenderer<RecordingCanvas> renderer(canvas);
+    DisplayFrame frame;
+    const Volts readings[2] = {Volts(0.0f), Volts(0.0f)};
+    setBatteryVoltages(frame, readings);
+    renderer.render(frame);
+    int zeroLabels = 0;
+    for (int i = 0; i < canvas.count(); ++i)
+        if (canvas.at(i).kind == CALL_TEXT && strcmp(canvas.at(i).text, " 0.0V") == 0)
+            ++zeroLabels;
+    TEST_ASSERT_EQUAL_INT(3, zeroLabels);
+}
+
 void test_a_canvas_that_cannot_recover_is_neither_probed_nor_drawn(void)
 {
     RecordingCanvas canvas;
@@ -516,6 +544,8 @@ void test_only_a_drawn_frame_is_flushed(void)
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_subpixel_battery_changes_do_not_draw);
+    RUN_TEST(test_voltage_fields_are_right_aligned);
     RUN_TEST(test_missing_battery_readings_replace_voltage_labels);
     RUN_TEST(test_the_first_frame_erases_and_rules_the_header);
     RUN_TEST(test_an_unchanged_model_draws_nothing);

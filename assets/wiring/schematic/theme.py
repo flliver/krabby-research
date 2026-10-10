@@ -42,26 +42,3 @@ def add_title(
         .at((0, y))
         .label(title, fontsize=18, halign="left")
     )
-
-
-def write_inline_html(
-    svg_path: Path,
-    html_path: Path,
-    title: str,
-    hint: str,
-) -> None:
-    svg = svg_path.read_text(encoding="utf-8")
-    html_path.write_text(
-        "<!doctype html>\n"
-        "<html><head><meta charset='utf-8'>"
-        f"<title>{title}</title>"
-        "<style>"
-        "body{margin:0;padding:24px;background:#f8fafc;font-family:sans-serif}"
-        ".hint{color:#526178;margin:0 0 16px}"
-        "svg{display:block;width:100%;height:auto;background:white}"
-        "</style></head><body>"
-        f"<p class='hint'>{hint}</p>"
-        f"{svg}"
-        "</body></html>\n",
-        encoding="utf-8",
-    )

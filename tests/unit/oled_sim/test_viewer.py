@@ -10,7 +10,7 @@ def test_viewer_has_one_live_screen_and_state_controls():
     assert 'fetch("/render"' in page
     for control in (
         "role", "front", "left", "right", "imu_valid",
-        "roll", "pitch", "battery_a", "battery_b",
+        "roll", "pitch", "battery_a", "battery_b", "battery_valid",
     ):
         assert f'id="{control}"' in page
 
@@ -23,6 +23,7 @@ def test_browser_payload_maps_to_hardware_state():
         "pitch": -3,
         "imu_valid": False,
         "battery_volts": [13.2, 12.7],
+        "battery_valid": False,
         "front": True,
         "left": False,
         "right": True,
@@ -33,5 +34,6 @@ def test_browser_payload_maps_to_hardware_state():
     assert (state.roll, state.pitch) == (8, -3)
     assert state.imu_valid is False
     assert state.battery_volts == (13.2, 12.7)
+    assert state.battery_valid is False
     assert (state.front, state.left, state.right) == (True, False, True)
     assert state.legs == legs

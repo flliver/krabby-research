@@ -1,0 +1,101 @@
+[healthy]
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1000
+measurement.pack=26.5,-12.5,331.25,1200
+model=26.5,133,133,0.892857373,0.892857373
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 26.5V
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+fill 13 12 14 5 1
+text 34 11 13.3V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+fill 77 12 14 5 1
+text 98 11 13.3V
+
+[both-monitors-valid-but-negative-battery-B]
+;BATT 10.00 -12.50 125.0 1200.0 12.00 -2.00 1 0 1 1
+events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1050
+measurement.pack=10,-12.5,125,1200
+model=10,120,-32768,0,0
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 10.0V
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+text 34 11 12.0V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+text 98 11 --.-V
+
+[both-monitors-valid-but-battery-B-above-20V]
+;BATT 40.00 -12.50 500.0 1200.0 10.00 30.00 1 0 1 1
+events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1100
+measurement.pack=40,-12.5,500,1200
+model=40,100,300,0,1
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 40.0V
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+text 34 11 10.0V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+fill 77 12 16 5 1
+text 98 11 30.0V
+
+[consistent-again]
+;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 0 1 1
+events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
+clock-after=1150
+measurement.pack=26,-12.5,325,1200
+model=26,130,130,0.71428591,0.71428591
+calibration=0,0,1
+pack.up/bad/begins/shunts/resets=1,0,1,1,1
+mid.up/bad/begins/shunts/resets=1,0,1,0,0
+draw=1
+font 5x7
+fill 98 0 30 8 0
+text 98 0 26.0V
+fill 6 11 58 8 0
+text 6 11 A
+rect 12 11 18 7
+fill 30 13 2 3 1
+fill 13 12 11 5 1
+text 34 11 13.0V
+fill 70 11 58 8 0
+text 70 11 B
+rect 76 11 18 7
+fill 94 13 2 3 1
+fill 77 12 11 5 1
+text 98 11 13.0V
+

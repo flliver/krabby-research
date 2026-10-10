@@ -3,6 +3,8 @@
 #include "src/actuator/actuator_constants.h"
 #include <Arduino.h>
 #include <EEPROM.h>
+
+#include "eeprom_layout.h"
 #include "command.h"
 #include "hall_hw.h"
 #include "src/actuator/actuator_status.h"
@@ -427,6 +429,11 @@ public:
         int magic; // 0xDEADBEEF to check validity
     };
 
+#ifdef __AVR__
+    static_assert(sizeof(CalData) == EEPROM_ACTUATOR_CAL_SIZE,
+                  "actuator calibration EEPROM layout changed");
+#endif
+
     void startAutoCalibration()
     {
         calState = CAL_START;
@@ -590,14 +597,14 @@ public:
             data.minVals[i] = actuators[i]->minStop;
             data.maxVals[i] = actuators[i]->maxStop;
         }
-        EEPROM.put(0, data);
+        EEPROM.put(EEPROM_ACTUATOR_CAL_ADDR, data);
         Serial.println("Limits saved to EEPROM.");
     }
 
     void loadCalibration()
     {
         CalData data;
-        EEPROM.get(0, data);
+        EEPROM.get(EEPROM_ACTUATOR_CAL_ADDR, data);
         if (data.magic == 0xDEADBEEF)
         {
             for (int i = 0; i < count && i < 6; i++)

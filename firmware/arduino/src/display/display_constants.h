@@ -21,10 +21,10 @@ static constexpr int SSD1306_HEADER_Y = 0;
 static constexpr int SSD1306_HEADER_RULE_Y = 9;
 static constexpr int SSD1306_HEADER_ROLE_X = 0;
 static constexpr int SSD1306_HEADER_ROLE_CHARS = 5;   // "UNKWN"
-static constexpr int SSD1306_HEADER_TILT_X = 36;
-static constexpr int SSD1306_HEADER_TILT_CHARS = 7;   // "+00/+00"
-static constexpr int SSD1306_HEADER_VOLTS_X = 92;
-static constexpr int SSD1306_HEADER_VOLTS_CHARS = 6;  // "24.8V"
+static constexpr int SSD1306_HEADER_TILT_X = 40;
+static constexpr int SSD1306_HEADER_TILT_CHARS = 8;   // "+000/+00"
+static constexpr int SSD1306_HEADER_VOLTS_X = 98;
+static constexpr int SSD1306_HEADER_VOLTS_CHARS = 5;  // "24.8V"
 
 static_assert(
     SSD1306_HEADER_ROLE_X + SSD1306_HEADER_ROLE_CHARS * SSD1306_CHAR_WIDTH <=

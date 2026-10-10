@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
+from firmware.interfaces.battery_telemetry import BatteryTelemetry
 from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
@@ -9,6 +10,7 @@ from firmware.interfaces.joint_telemetry import JointTelemetry
 class TelemetryFrame:
     joints: Tuple[JointTelemetry, ...] = ()
     imu: Optional[ImuTelemetry] = None
+    battery: Optional[BatteryTelemetry] = None
 
     ROLE_TAGS = ("FRONT", "UNKWN", "LEFT", "RIGHT")
 
@@ -28,6 +30,7 @@ class TelemetryFrame:
     def parse_line(cls, line: str) -> "TelemetryFrame":
         joints = []
         imu = None
+        battery = None
         for segment in line.strip().split(";"):
             tokens = segment.split()
             if not tokens:
@@ -36,8 +39,12 @@ class TelemetryFrame:
                 parsed_imu = ImuTelemetry.from_tokens(tokens)
                 if parsed_imu is not None:
                     imu = parsed_imu
+            elif tokens[0] == "BATT":
+                parsed_battery = BatteryTelemetry.from_segment(segment)
+                if parsed_battery is not None:
+                    battery = parsed_battery
             else:
                 joint = JointTelemetry.from_tokens(tokens)
                 if joint is not None:
                     joints.append(joint)
-        return cls(joints=tuple(joints), imu=imu)
+        return cls(joints=tuple(joints), imu=imu, battery=battery)

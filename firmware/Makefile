@@ -85,20 +85,30 @@ test-native:
 # The filter must name real files -- a filter matching
 # nothing reports 0% and fails, it does not pass vacuously.
 test-native-coverage: test-native
-	# Rebuild to exclude stale .gcda/.gcno data. Reuse Unity from the test build.
+	# Rebuild to exclude stale .gcda/.gcno data. Reuse fetched sources from the test build.
 	$(CMAKE) -E rm -rf "$(NATIVE_COVERAGE_BUILD)"
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_COVERAGE_BUILD)" \
 		-DKRABBY_NATIVE_COVERAGE=ON \
-		-DFETCHCONTENT_SOURCE_DIR_UNITY="$(NATIVE_TEST_BUILD)/_deps/unity-src"
+		-DFETCHCONTENT_SOURCE_DIR_UNITY="$(NATIVE_TEST_BUILD)/_deps/unity-src" \
+		-DFETCHCONTENT_SOURCE_DIR_SPARKFUN_TOOLKIT="$(NATIVE_TEST_BUILD)/_deps/sparkfun_toolkit-src" \
+		-DFETCHCONTENT_SOURCE_DIR_SPARKFUN_INA2XX="$(NATIVE_TEST_BUILD)/_deps/sparkfun_ina2xx-src"
 	$(CMAKE) --build "$(NATIVE_COVERAGE_BUILD)"
 	$(CTEST) --test-dir "$(NATIVE_COVERAGE_BUILD)" --output-on-failure
 	$(CMAKE) -E chdir "$(REPO_ROOT)" $(GCOVR) --root . "$(NATIVE_COVERAGE_BUILD)" \
 		--gcov-executable "$(GCOV)" \
-		--filter 'firmware/arduino/units\.h$$' \
+		--gcov-exclude-directory '.*/CMakeFiles/oled_trace\.dir/.*' \
+		--filter 'firmware/arduino/src/units/.*' \
 		--filter 'firmware/arduino/actuator_manager\.h$$' \
-		--filter 'firmware/arduino/src/(actuator|display|imu)/.*' \
+		--filter 'firmware/arduino/src/(actuator|cli|display|imu|power_monitor)/.*' \
 		--exclude-unreachable-branches --exclude-throw-branches \
 		--txt --print-summary --fail-under-line 90 --fail-under-branch 88
+
+	# Only the verbatim extracted sketch regions, not whole-sketch coverage.
+	$(CMAKE) -E chdir "$(REPO_ROOT)" $(GCOVR) --root . "$(NATIVE_COVERAGE_BUILD)" \
+		--gcov-executable "$(GCOV)" \
+		--filter 'firmware/arduino/arduino\.ino$$' \
+		--exclude-unreachable-branches --exclude-throw-branches \
+		--txt --print-summary --fail-under-line 100 --fail-under-branch 100
 
 test-firmware: test-native
 	cd "$(REPO_ROOT)" && $(PYTEST) -q tests/unit/firmware
@@ -124,6 +134,8 @@ LSM6DSO_LIB_DIR := SparkFun_Qwiic_6Dof_-_LSM6DSO
 # Versions from 1.0.14 compile a CH1120 driver that includes C++ <map>, which the
 # AVR toolchain lacks. 1.0.13 is the last that builds for AVR.
 OLED_LIB := SparkFun Qwiic OLED Arduino Library@1.0.13
+INA228_LIB := SparkFun INA2XX Arduino Library@1.0.0
+SPARKFUN_TOOLKIT_LIB := SparkFun Toolkit@1.2.0
 
 fetch-libs:
 	@installed="$$($(ARDUINO_CLI) config get directories.user)/libraries/$(LSM6DSO_LIB_DIR)"; \
@@ -135,6 +147,8 @@ fetch-libs:
 		echo "$(LSM6DSO_LIB_REF)" > "$$installed/.krabby-pin"; \
 	fi
 	$(ARDUINO_CLI) lib install "$(OLED_LIB)"
+	$(ARDUINO_CLI) lib install "$(SPARKFUN_TOOLKIT_LIB)"
+	$(ARDUINO_CLI) lib install "$(INA228_LIB)"
 
 compile-firmware: arduino-core fetch-libs
 	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(BUILD_PROPS) --output-dir "$(BUILD_DIR)" $(SKETCH)
