@@ -1873,3 +1873,32 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
       +500 with its last-action cue);
     - Z2c crouch bank: HOLD 0.039 / 0.047;
     - drift 0.017 (line 0.67); formed.
+- 2026-10-11 11:38–13:00, **Z2dR1 trained (X20 model_24993) and fully read: the ladder reads STILL, no COST,
+  attribution LEVER, but every Z2 homing gate FAILS** (`p2r_z2d_read.json`, `p2r_z2d_observe.json`; step 5 → fable
+  check, then STOP and ask).
+  - Every read stamp carries `KRABBY_OMNI_STAND_MASK=1`; suite es1 is the run_arm row.
+  - **Fit on held-out R-driven states, by checkpoint:**
+    - HOLD hip 0.006–0.026, cam 0.02–0.03 (gate PASS throughout);
+    - LIFT hip 0.394 (+500) → 0.365 → 0.353 → 0.338 → 0.334 (end), plateaued above the physical 0.30;
+    - HOME hip 0.28 → 0.168.
+
+  | | Z2d suite es1 / es2 | Z2d walkstop es1 / es2 | Z2c + mask only (2b) | probe (R) | Z1 |
+  |---|---|---|---|---|---|
+  | STILL | yes / yes (KS 0.13) | — | suite yes | yes | yes |
+  | homed | 5 / 4 % | 1.7 / 2.3 % | ws 22 % | 97–100 % | 0 % |
+  | settled | 18 / 13 % | 17 / 19 % | ws 45 % | 97–100 % | 0 % |
+  | re-step lifts per stand | 0 / 0 | 6 / 6 | ws 4 | 0 / 6 | 0–3 |
+  | six-down | 0.33 / 0.34 | 0.58 / 0.52 | ws 0.43 | 0.2–0.37 | 0.09–0.24 |
+  | body height | 1.062 / 1.063 | 1.058 / 1.058 | 1.064 | 1.062–1.065 | 1.063 |
+  | stopped hip yaw mean / max | 0.74° / 7.3° | 1.98° / 25° | — | 0.1–0.4° / 1–17° | 4–6° / 16–24° |
+  | falls | 0 | 0 | 0 | 0 | 0 |
+
+  - **Walking: no cost.** field_hard 0.8225 against Z1 0.83 (n = 400, Δ −0.0075, SE 0.027) and C0R 0.785.
+  - **Closed-loop observe** (Z2d's own masked stand states):
+    - HOLD hip fine (0.01–0.02 abs): the crouch is gone.
+    - **LIFT hip |μ − R| 0.45–0.48: the network does not start a re-step where R lifts.** R's LIFT onset is a
+      discontinuity (|c| crosses eps_step 0.3 → −0.5 at once); the smooth network sits on the HOLD side of it in
+      closed loop.
+    - Per-leg HOLD cam bias up to ±0.08 (open-loop held-out 0.02–0.03), so cams drift and are never re-stepped.
+  - **Net:** Z2d is a STILL statue with cams nearer home than Z1 (0.7–2° mean vs 4–6°) and 2–3× Z1's six-down, but it
+    does not home (the Z2 objective) and is behind the mask-only baseline on walkstop homing.
