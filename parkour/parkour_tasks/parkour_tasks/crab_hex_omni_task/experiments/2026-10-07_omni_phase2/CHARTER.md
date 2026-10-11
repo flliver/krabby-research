@@ -1857,3 +1857,9 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     R: per-row prior, masked / unmasked, is 0.95–1.0 on R-driven banks and 0.75–0.80 on Z2c's crouch states. The
     effect grows with how live the proxy / last action are, and iteration-0 stand rows are the graft marching in place.
   - Not a dead or mis-wired term. **STOP: asked the user** how to relaunch (a fresh chain name is required).
+- 2026-10-11 ~01:35, **user decision: relaunch with the Z2D prior-dose clause as LIVENESS**: > 0.1 and ≤ the unmasked
+  band's upper edge, the reason recorded.
+  - The cloning band, mask liveness and the model_20500 gate are unchanged.
+  - p2_live: `P2R_Z2D_PRIOR_LIVE_FLOOR`. The Z2D judge replaces Z2c's in-band verdict for this one clause and notes a
+    below-band value. Tests added. A replay on the killed X19 run now passes the clause with the note.
+  - Candidates v18: `P2__Z2dR1_s18` = `P2__Z2d_s18` verbatim (fresh name). Preflight PASS.

@@ -280,6 +280,11 @@ P2R_BC_DOSE_BAND = (0.52, 2.0)
 #: banded like Loss/prior_rows (P2R_PRIOR_ROWS_BAND: the same stand rows).
 P2R_Z2D_ARM = "Z2D"
 P2R_Z2D_DOSE_JSON = CAMPAIGN / "p2r_z2d_dose.json"
+#: NOTE(p2r Z2d, 2026-10-11; user decision after the P2__Z2d_s18 +200 kill, CHARTER 12.1): for the Z2D arm the statue
+#: prior's realised-dose clause is LIVENESS, not the unmasked band -- the band (p2r_z2d_dose.json band_lo/hi) is
+#: computed from UNMASKED S1 stand rows, and the stand-row mask lowers the graft's starting distance from R (realised
+#: 0.966 vs the band's 1.04). Pass iff finite, > this floor, and <= the band's upper edge.
+P2R_Z2D_PRIOR_LIVE_FLOOR = 0.1
 P2R_STAND_MASK, P2R_STAND_MASK_FRAC_TAG = "KRABBY_OMNI_STAND_MASK", "Metrics/stand_mask_frac"
 #: the Z arms with a variant letter this file judges explicitly; any other lettered Z arm is refused
 P2R_Z_VARIANT_ARMS = (P2R_Z2C_ARM, P2R_Z2D_ARM)
@@ -649,6 +654,19 @@ def judge_p2r_z2d_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: in
     reads). ``(fails, notes, live)``."""
     fails, notes, live = judge_p2r_z2c_liveness(overlay, ser, lo, hi, first, z2_dose,
                                                 dose_name=P2R_Z2D_DOSE_JSON.name)
+    # the prior-dose clause as LIVENESS (P2R_Z2D_PRIOR_LIVE_FLOOR): Z2c's in-band verdict is replaced, not added to
+    band = live.get("dose_band")
+    if band is not None:
+        fails = [f for f in fails if not f.startswith("term liveness: realised dose (first-update ")]
+        dose = live.get("stand_prior_first_update")
+        live["prior_dose_rule"] = (f"Z2D liveness: > {P2R_Z2D_PRIOR_LIVE_FLOOR} and <= the unmasked band's upper edge "
+                                   f"{band[1]:.4g} (user decision 2026-10-11)")
+        if dose is None or not math.isfinite(dose) or not (P2R_Z2D_PRIOR_LIVE_FLOOR < dose <= band[1] + 1e-9):
+            fails.append(f"term liveness: realised dose (first-update {live.get('stand_prior_dose_tag', P2R_LOSS_PRIOR)}) "
+                         f"{dose} is not live (> {P2R_Z2D_PRIOR_LIVE_FLOOR}) and <= {band[1]:.4g}")
+        elif not (band[0] - 1e-9 <= dose):
+            notes.append(f"prior realised dose {dose:.4g} is below the UNMASKED band [{band[0]:.4g}, {band[1]:.4g}] "
+                         "(expected under the stand-row mask; liveness rule applied)")
     fails += [f"term liveness: {f}" for f in judge_z2d_mask_knobs(overlay, z2_dose)]
     fr = window(ser.get(P2R_STAND_MASK_FRAC_TAG), lo, hi)
     live["stand_mask_frac"] = fr

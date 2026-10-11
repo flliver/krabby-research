@@ -328,7 +328,8 @@ def test_z2d_wiring_clean_passes_and_dispatches_to_the_z2d_judge(Z, live, tmp_pa
 @pytest.mark.parametrize("case", ["frac_high", "frac_low", "frac_missing", "frac_nan", "frac_edge_lo_ok",
                                   "frac_edge_hi_ok", "no_mask_knob", "mask_knob_0", "dose_unmasked",
                                   "dose_no_stand_mask", "no_dose_file", "dose_other_banks", "z2c_bc_mb0_low",
-                                  "z2c_no_loss_bc", "z2_band_still_read"])
+                                  "z2c_no_loss_bc", "z2_band_still_read", "prior_below_band_live_ok",
+                                  "prior_dead", "prior_none"])
 def test_z2d_wiring_cases(Z, live, tmp_path, case):
     banks = _banks(tmp_path)
     ov, ser, dose = _ov_d(Z, live, banks), _ser_d(Z, live), _dose_d(Z, live, banks)
@@ -362,9 +363,19 @@ def test_z2d_wiring_cases(Z, live, tmp_path, case):
     elif case == "z2c_no_loss_bc":
         ser = _ser_d(Z, live, drop=(live.P2R_LOSS_BC,))
     elif case == "z2_band_still_read":
-        ser = _ser_d(Z, live, prior_first=9.0)
+        ser = _ser_d(Z, live, prior_first=9.0)                              # above the band's upper edge: FAIL
+    elif case == "prior_below_band_live_ok":
+        # NOTE(p2r Z2d, 2026-10-11; user decision after the +200 kill): below the UNMASKED band but live -> PASS
+        ser, want = _ser_d(Z, live, prior_first=0.5), live.RC_PASS
+    elif case == "prior_dead":
+        ser = _ser_d(Z, live, prior_first=0.05)                             # <= P2R_Z2D_PRIOR_LIVE_FLOOR: FAIL
+    elif case == "prior_none":
+        ser = _ser_d(Z, live, prior_first=float("nan"))                     # not finite: FAIL
     r = _wire(live, "Z2D", ov, ser, dose)
     assert r["rc"] == want, (case, r.get("fails"))
+    if case == "prior_below_band_live_ok":
+        assert "Z2D liveness" in r["liveness"]["prior_dose_rule"]
+        assert any("below the UNMASKED band" in n for n in r.get("notes", [])), r.get("notes")
     if case == "no_dose_file":
         assert any("p2r_z2d_dose.json" in f for f in r["fails"]), r["fails"]
 
