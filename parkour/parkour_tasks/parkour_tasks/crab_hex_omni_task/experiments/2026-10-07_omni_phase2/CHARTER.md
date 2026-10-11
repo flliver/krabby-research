@@ -1772,3 +1772,28 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - The history encoder is constant on this fork.
   - **Next (diagnosis, before asking):** a closed-loop observe pass (`--p2r-observe`, 014447d7). Z2c acts; R, its
     branch and the applied μ are banked on stand rows (P2R_OBSZ2c_s18 suite es1 + walkstop es1).
+- 2026-10-10 22:23–23:00, **Z2c closed-loop diagnosis** (observe pass P2R_OBSZ2c_s18, suite + walkstop es1, 100k
+  stand rows each; `p2r_z2c_observe.json`, `scripts/p2r_z2c_observe_read.py`). **Fable·high check:** verdict
+  CONFIRMED, gate legitimate, mechanism CONFIRMED and sharpened.
+  - **No path bug:** the CPU eval-path μ reproduces the harness's applied action to 1e-6.
+  - **Z2c's own stand states:** R says HOLD on 96 % (suite) / 86 % (walkstop) of leg-rows. Z2c commands hip −0.08 to
+    −0.115 on every leg there: a crouch (feet never leave the ground, 4 mm clearance, 50 taps/s), not a lift.
+  - **The inputs are off the bank manifold:**
+    - proxy parked 21 % of rows, against 94 % in the training banks;
+    - |last-action rods| 0.10, against 0.018;
+    - joint velocity 3×, hip position 2× (consequences, not drivers).
+  - **Two inputs carry the loop** (counterfactuals on the closed-loop all-HOLD rows, reproduced here):
+    - proxy → −0.5 alone: −0.046;
+    - last action → 0 alone: −0.088;
+    - **both: +0.003** (walkstop +0.001);
+    - joint velocity and positions to bank values: no change.
+  - **It is seeded at stand onset.** The proxy is live at spawn in both loops, and Z2c already outputs −0.074 on R's
+    own t = 0 rows (0.8 % of the bank, never fit). R parks the rods by t = 2; Z2c's −0.08 keeps them moving, a fixed
+    point by t = 2.
+  - **The gate's blind spot:** its held-out mean is 97.7 % parked-proxy rows. Split by proxy state, the same rows
+    read −0.002 (parked), −0.009 (1–2 live) and −0.034 (3+ live). Report this split alongside any future gate.
+  - **A mask alone does not finish the job.** On the masked closed-loop rows HOLD is fixed (+0.001 to +0.003), but
+    LIFT / HOME go to hip ≈ 0 where R lifts (error +0.48 to +0.50). The network reads its stepping phase from its own
+    last action, not from the leg state R uses. Mask-only would give a still stand that never re-steps to home its
+    cams (Z1's outcome).
+  - **STOP: asked the user** (step 6). Z1 stays the stand of record.
