@@ -159,6 +159,19 @@ and stand stepping, turn band) are reported for the judges; the ranking is their
                                          the Z2 stand gates (relative settle vs --probe, default P2R_RST_s18),
                                          adoption_grade, baselines / fidelity / walls vs Z1 / hip yaw. Exit 0 unless
                                          INVALID (4). (P2R_Z2_S18 / P2R_RST_S18 rename the heads.)
+                                         NOTE(p2r Z2d rep, 2026-10-11; P2R_Z2D_REP_PLAN.md step 1): the seed is
+                                         NAME's _s<seed> suffix: REFS_S1_s<seed>, the seed's p2a head and bands
+                                         (load_p2s's replicate path); Z1 / HOLD / probe / C0R stay the s18
+                                         references, labelled "cross-seed (s18)" (the falls line = Z1_s18's walkstop
+                                         falls; attribution PENDING off s18 by construction); + replicate_grade
+                                         (ladder_ok, walkstop falls <= 1 / 300, hip-yaw <= 0.5 x and six-down >
+                                         the SAME-seed P2R_HOLD_s<seed>'s), computed at every seed.
+    p2_read.py --p2r-graft-identity NAME SEED
+                                         NOTE(p2r Z2d rep, 2026-10-11): GRAFT_S1_s<SEED> (NAME) vs REFS_S1_s<SEED> on
+                                         suite / field_turn / walkstop es1 (newest complete stamps): bitwise on
+                                         every raw key but clock_obs, and clock_obs[:,0] == the stand label (the
+                                         driver's check). Prints {ok, rows, stamps_to_write}; never writes the
+                                         graft sidecar. Exit 0 PASS, 4 FAIL, 2 PENDING.
     p2_read.py --self-test
 
 CHARTER 11 (stage p2s, P2S_PLAN.md "Pre-registered verdicts"; pre-registered before any p2s run). Points:
@@ -2799,11 +2812,11 @@ def _p2r_dir_episodes(stamp: str) -> dict:
     return {int(f.stem.split("_")[1]): f for f in (Path(stamp) / "raw").glob("episode_*.npz")}
 
 
-def p2r_bitwise_diff(refs_stamp: str, probe_stamp: str) -> list[str]:
+def p2r_bitwise_diff(refs_stamp: str, probe_stamp: str, skip=()) -> list[str]:
     """Every raw key the REFS npz has, bitwise-compared episode by episode against the probe's own
     (``np.array_equal`` -- a probe run must be bit-identical, not merely numerically close). The first mismatch
     per episode is kept (P2R_PLAN.md: "report the first mismatch"); empty = bitwise equal on every shared key and
-    episode."""
+    episode. ``skip``: NOTE(p2r Z2d rep, 2026-10-11), raw keys left out (the graft identity's ``clock_obs``)."""
     import numpy as np  # noqa: PLC0415
 
     fa, fb = _p2r_dir_episodes(refs_stamp), _p2r_dir_episodes(probe_stamp)
@@ -2811,6 +2824,8 @@ def p2r_bitwise_diff(refs_stamp: str, probe_stamp: str) -> list[str]:
     for ep in sorted(set(fa) & set(fb)):
         da, db = np.load(fa[ep]), np.load(fb[ep])
         for k in da.files:
+            if k in skip:
+                continue
             if k not in db.files:
                 out.append(f"episode_{ep}: key {k!r} (in REFS) missing from the probe stamp")
                 continue
@@ -3468,14 +3483,24 @@ def fh400_light(pt: dict) -> tuple[float, int] | None:
     return sum(g["rate"] * g["n"] for g in got) / n, n
 
 
-def p2r_z2_report(seed: int = 18, with_tb: bool = True, env=None, name: str | None = None,
+def p2r_z2_report(seed: int | None = None, with_tb: bool = True, env=None, name: str | None = None,
                   probe_name: str | None = None) -> dict:
     """The whole ``--p2r-z2`` read (P2R_Z2_PLAN.md step 5): the Z1 ladder + attribution vs C0R (verbatim), the
     widened INVALID rule, the Z2 stand gates (relative settle vs the probe), ``adoption_grade`` (ladder STILL, no
     COST, LEVER, every Z2 gate), and the reported baselines (Z1 / HOLD / REFS on every new statistic), fidelity to
-    the probe, walls vs Z1 (n = 400) and stopped hip yaw."""
+    the probe, walls vs Z1 (n = 400) and stopped hip yaw.
+
+    NOTE(p2r Z2d rep, 2026-10-11; P2R_Z2D_REP_PLAN.md step 1): ``seed`` defaults to the head name's ``_s<seed>``
+    (else 18). Every per-seed load is that seed's (:func:`load_p2r_z`: REFS_S1_s<seed>, its bands and the seed's p2a
+    head -- load_p2s's replicate path); REFS on the new statistics is REFS_S1_s<seed>. Z1 / HOLD / probe / C0R stay
+    the s18 references, labelled ``cross-seed (s18)`` in ``references`` off s18: the Z2 gates' falls line is Z1_s18's
+    walkstop falls and the settle line the probe's (s18) medians; attribution needs C0R (s18 only), so it is PENDING
+    off s18 and ``adoption_grade`` is false by construction there. ``replicate_grade`` (:func:`z2d_replicate_grade`,
+    against the SAME-seed P2R_HOLD_s<seed>) is computed at every seed, s18 included (calibration)."""
     n = z2_names(env)
     name = name or n["z2"]
+    if seed is None:
+        seed = seed_of_name(name) or GATE_SEED
     res = load_p2r_z(seed, with_tb=with_tb, env=env, name=name, suite_stamp=z2_suite_stamp(name))
     pt = (res.get("heads") or {}).get(name) or {}
     if not pt.get("missing"):
@@ -3484,11 +3509,21 @@ def p2r_z2_report(seed: int = 18, with_tb: bool = True, env=None, name: str | No
     v = verdicts.get(name) or {"name": name, "verdict": "PENDING", "why": ["no record"]}
     attr = p2s_attribution(pt if not pt.get("missing") else None, res.get("c0r"), v,
                            bands(res["refs"][seed], res["refs"][seed]))
+    if seed != GATE_SEED:
+        attr = dict(attr, note=f"C0R exists at s{GATE_SEED} only: attribution is PENDING at s{seed} by construction "
+                               "(P2R_Z2D_REP_PLAN.md); adoption_grade is false here, read replicate_grade")
     probe = z2_light_point(probe_name or n["probe"])
-    z1, hold, refs = z2_light_point(n["z1"]), z2_light_point(n["hold"]), z2_light_point(n["refs"])
+    refs_nm = n["refs"] if seed == GATE_SEED else refs_name(seed)
+    z1, hold, refs = z2_light_point(n["z1"]), z2_light_point(n["hold"]), z2_light_point(refs_nm)
+    hold_seed_nm = z2d_hold_name(seed, env)
+    hold_seed = hold if hold_seed_nm == hold.get("name") else z2_light_point(hold_seed_nm)
     still = (((pt.get("p2s") or {}).get("suite")) or {}) if not pt.get("missing") else {}
     gates = (z2_stand_gates(pt.get("z2") or {}, still, z1.get("z2"), probe.get("z2"), relative=True)
              if not pt.get("missing") else {"verdict": "PENDING", "clauses": {}, "pending": ["no Z2 head"]})
+    gates = dict(gates, notes=[f"the walkstop falls line is max(1, {z1.get('name')}'s walkstop falls per 300) and the "
+                               f"settle line {probe.get('name')}'s walkstop median + {Z2_SETTLE_PLUS_S} s"
+                               + (f" -- both cross-seed (s{GATE_SEED}) references at s{seed}"
+                                  if seed != GATE_SEED else "")])
     ladder_ok = v.get("verdict") == STILL and (v.get("stand") or {}).get("outcome") == STILL
     adoption = bool(ladder_ok and attr.get("status") == "LEVER" and gates.get("verdict") == "PASS")
     fid = {}
@@ -3504,19 +3539,180 @@ def p2r_z2_report(seed: int = 18, with_tb: bool = True, env=None, name: str | No
     if w_z2 and w_z1:
         g = se_need(w_z1[0], w_z1[1], w_z2[0], w_z2[1])
         walls.update(delta=w_z2[0] - w_z1[0], se=g["se"])
+    # NOTE(p2r Z2d rep, 2026-10-11): off s18 the same-seed HOLD joins the baselines, and walls are also reported
+    # against the s18 Z2d head (P2R_Z2D_REP_PLAN.md "Reported, not gating")
+    labs = (("Z2", pt), ("probe", probe), ("Z1", z1), ("HOLD", hold), ("REFS", refs))
+    if hold_seed is not hold:
+        labs += ((f"HOLD_s{seed}", hold_seed),)
+        walls_z2d = fh400_light(z2_light_point(z2d_s18_name(env)))
+        walls["z2d_s18"] = walls_z2d
+        if w_z2 and walls_z2d:
+            g = se_need(walls_z2d[0], walls_z2d[1], w_z2[0], w_z2[1])
+            walls.update(delta_vs_z2d_s18=w_z2[0] - walls_z2d[0], se_vs_z2d_s18=g["se"])
     yaw = {lab: {f"walkstop es{s}": {k: (((p.get("z2") or {}).get("walkstop") or {}).get(s) or {}).get(k)
                                      for k in ("hip_yaw_mean_deg", "hip_yaw_max_deg")} for s in Z2_SEEDS}
-           for lab, p in (("Z2", pt), ("probe", probe), ("Z1", z1), ("HOLD", hold), ("REFS", refs))}
+           for lab, p in labs}
     raw_fails, raw_checked = z_raw_bit_reasons(pt) if not pt.get("missing") else ([], 0)
+    ref_sha = (((refs.get("valid") or {}).get("suite@1")) or {}).get("ckpt_sha")
+    rep = z2d_replicate_grade(v, pt.get("z2") if not pt.get("missing") else None, hold_seed.get("z2"),
+                              hold_name=hold_seed.get("name"), seed=seed,
+                              hold_fails=p2r_mode_fails(hold_seed, "HOLD", ref_sha, stamps=(f"{WS}@1", f"{WS}@2")))
+    references = {lab: z2d_reference_label(p.get("name"), seed)
+                  for lab, p in (("probe", probe), ("Z1", z1), ("HOLD", hold), ("REFS", refs),
+                                 ("HOLD_same_seed", hold_seed))}
+    references["C0R"] = z2d_reference_label(C0R, seed)
     return {"name": name, "seed": seed, "probe": probe.get("name"), "verdict": v, "attribution": attr,
             "z2_gates": gates, "adoption_grade": adoption,
             "adoption_conditions": {"ladder STILL, no COST": ladder_ok, "attribution LEVER vs C0R":
                                     attr.get("status") == "LEVER", "every Z2 gate": gates.get("verdict") == "PASS"},
-            "baselines": {lab: _z2_brief(p) for lab, p in (("Z2", pt), ("probe", probe), ("Z1", z1), ("HOLD", hold),
-                                                          ("REFS", refs))},
+            **rep, "references": references,
+            "baselines": {lab: _z2_brief(p) for lab, p in labs},
             "fidelity_to_probe": {"note": "[Z2, probe] per statistic", **fid}, "walls_vs_z1": walls,
             "stopped_hip_yaw_deg": yaw,
             "raw_bit_check": {"fails": raw_fails, "n_checked": raw_checked, "note": "folded into INVALID for Z2"}}
+
+
+# ================================================================================================ p2r Z2d replicates
+# NOTE(p2r Z2d rep, 2026-10-11; P2R_Z2D_REP_PLAN.md "Pre-registered replicate rule", CHARTER 12.1): the statue
+# replicates at a seed iff ladder_ok (verdict STILL and stand outcome STILL vs REFS_S1_s<seed>, exactly as
+# p2r_z2_report computes it), walkstop stand falls <= 1 per 300 at es1 AND es2 (the Z2 gate's falls statistic), the
+# walkstop stopped hip-yaw mean (es1 / es2 mean) <= 0.5 x the SAME-seed P2R_HOLD_s<seed>'s, and the walkstop six-down
+# share (es1 / es2 mean) > that HOLD's. Calibrated at s18 (P2R_HOLD_s18): Z2d 1.94 deg <= 3.03, 0.55 > 0.34 (PASS);
+# Z1 5.91 deg, 0.23 (FAIL).
+Z2D_REP_FALLS_PER_300 = 1.0
+Z2D_REP_YAW_FRAC = 0.5
+#: the s18 Z2d head (walls "against Z2d s18" at the replicate seeds; a fresh name through P2R_Z2D_S18)
+Z2D_S18_NAME = "P2__Z2dR1_s18"
+#: the graft-identity rows (es1) and the raw keys the bitwise diff leaves out (the grafted stand bit's own column)
+P2R_GRAFT_ID_ROWS = (SUITE, FT, WS)
+P2R_GRAFT_ID_SKIP = ("clock_obs",)
+#: --p2r-graft-identity exit codes
+P2R_GRAFT_ID_PASS, P2R_GRAFT_ID_FAIL, P2R_GRAFT_ID_PENDING = 0, 4, 2
+_SEED_SUFFIX_RE = _p2r_re.compile(r"_s(\d+)$")
+
+
+def seed_of_name(name: str | None) -> int | None:
+    """P2__Z2d_s16 -> 16; GRAFT_S1_s17 -> 17 (the trailing ``_s<digits>``); None without one."""
+    m = _SEED_SUFFIX_RE.search(str(name or ""))
+    return int(m.group(1)) if m else None
+
+
+def z2d_hold_name(seed: int, env=None) -> str:
+    """The SAME-seed zero-action stand reference P2R_HOLD_s<seed> (a fresh name through P2R_HOLD_S<seed>, the
+    p2r_names convention)."""
+    e = os.environ if env is None else env
+    return e.get(f"P2R_HOLD_S{seed}", f"P2R_HOLD_s{seed}")
+
+
+def z2d_s18_name(env=None) -> str:
+    e = os.environ if env is None else env
+    return e.get(f"P2R_Z2D_S{GATE_SEED}", Z2D_S18_NAME)
+
+
+def z2d_reference_label(name: str | None, seed: int) -> dict:
+    """``{name, seed, label}``: ``cross-seed (s18)`` when the reference's own seed is not the head's."""
+    rs = seed_of_name(name)
+    return {"name": name, "seed": rs,
+            "label": "same seed" if rs == seed else f"cross-seed (s{rs})" if rs is not None else "unknown seed"}
+
+
+def _seed_get(d: dict | None, s: int):
+    """A per-seed entry by int OR str key (a report read back from JSON carries "1" / "2")."""
+    d = d or {}
+    return d[s] if s in d else d.get(str(s))
+
+
+def z2d_walkstop_mean(z2: dict | None, key: str, seeds=Z2_SEEDS) -> float | None:
+    """The es1 / es2 mean of one walkstop Z2 statistic; None when any seed's read or value is missing."""
+    ws = (z2 or {}).get("walkstop") or {}
+    vals = [(_seed_get(ws, s) or {}).get(key) for s in seeds]
+    return None if any(x is None for x in vals) else sum(vals) / len(vals)
+
+
+def z2d_replicate_grade(v: dict | None, z2: dict | None, hold_z2: dict | None, hold_name: str | None = None,
+                        seed: int | None = None, hold_fails=(), seeds=Z2_SEEDS) -> dict:
+    """The pre-registered replicate rule (pure). ``v`` = the head's ladder verdict (:func:`p2r_z2_verdicts`), ``z2`` /
+    ``hold_z2`` = :func:`z2_reads`-shaped reads (or :func:`_z2_brief` from a report, str seed keys allowed) of the head
+    and of the same-seed HOLD; ``hold_fails`` = the HOLD stamps' p2r_mode check (variant hold, driving REFS's S1)
+    -- any makes the grade PENDING (a HOLD on the wrong S1 is no reference). ``{"replicate_grade": True / False /
+    None (pending), "replicate_clauses": {name: (value, line, ok)}, "replicate_pending": [...]}``; a missing read is
+    PENDING, never a pass."""
+    cl, pend = {}, []
+    hn = hold_name or (f"P2R_HOLD_s{seed}" if seed is not None else "HOLD")
+    verdict, outcome = (v or {}).get("verdict"), ((v or {}).get("stand") or {}).get("outcome")
+    if verdict in (None, "PENDING"):
+        pend.append(f"ladder verdict {verdict or 'not read'}")
+    cl[f"ladder_ok (verdict STILL, stand outcome STILL vs {refs_name(seed) if seed else 'REFS'})"] = (
+        f"{verdict} / {outcome}", "STILL / STILL", verdict == STILL and outcome == STILL)
+    ws = (z2 or {}).get("walkstop") or {}
+    for s in seeds:
+        w = _seed_get(ws, s)
+        if not w:
+            pend.append(f"walkstop es{s} Z2 read (the head)")
+        cl[f"walkstop stand falls per 300 es{s} <= {Z2D_REP_FALLS_PER_300:g}"] = _le((w or {}).get("falls_per_300"),
+                                                                                      Z2D_REP_FALLS_PER_300)
+    pend += [f"{hn}: {f}" for f in hold_fails]
+    for key, lab in (("hip_yaw_mean_deg", "hip-yaw mean"), ("six_down_stand_share", "six-down")):
+        if z2d_walkstop_mean(hold_z2, key, seeds) is None:
+            pend.append(f"{hn} walkstop {lab} (es1 / es2): the same-seed HOLD stamps")
+    a_yaw, h_yaw = z2d_walkstop_mean(z2, "hip_yaw_mean_deg", seeds), z2d_walkstop_mean(hold_z2, "hip_yaw_mean_deg", seeds)
+    cl[f"walkstop stopped hip-yaw mean (es1/es2) <= {Z2D_REP_YAW_FRAC:g} x {hn}'s"] = _le(
+        a_yaw, None if h_yaw is None else Z2D_REP_YAW_FRAC * h_yaw)
+    a_six, h_six = (z2d_walkstop_mean(z2, "six_down_stand_share", seeds),
+                    z2d_walkstop_mean(hold_z2, "six_down_stand_share", seeds))
+    cl[f"walkstop six-down share (es1/es2) > {hn}'s"] = (a_six, h_six, a_six is not None and h_six is not None
+                                                          and a_six > h_six + EPS)
+    grade = None if pend else all(ok for _v, _t, ok in cl.values())
+    return {"replicate_grade": grade, "replicate_clauses": cl, "replicate_pending": pend, "replicate_hold": hn}
+
+
+def p2r_graft_identity(name: str, seed: int, lrout: Path | None = None, rows=P2R_GRAFT_ID_ROWS) -> dict:
+    """``--p2r-graft-identity NAME SEED`` (P2R_Z2D_REP_PLAN.md step 3; the s18 procedure of CHARTER 12.1 2026-10-09):
+    for each of ``rows`` at env_seed 1, NAME's (GRAFT_S1_s<SEED>) newest complete stamp against REFS_S1_s<SEED>'s --
+    :func:`p2r_bitwise_diff` on every raw key but ``clock_obs`` (both stamps must hold raw episodes), and the grafted
+    bit ``clock_obs[:, 0]`` == the stand label (the driver's ``_npz_clock_obs_stand_bit``, as
+    :func:`z_raw_bit_reasons`). ``verdict`` FAIL (any row fails, or NAME is not at SEED) > PENDING (a stamp missing) >
+    PASS; ``stamps_to_write`` = the graft stamps repo-relative (graft.json's ``identity_gpu_stamps`` form), on PASS
+    only. Writes nothing."""
+    lrout = lrout or LROUT
+    refs = refs_name(seed)
+    out = {"name": name, "seed": seed, "refs": refs, "rows": {}, "stamps_to_write": [], "pending": [], "fails": []}
+    if seed_of_name(name) != seed:
+        out["fails"].append(f"{name!r} is not a seed-{seed} name (no _s{seed} suffix)")
+    rc = None
+    for row in rows:
+        g, r = newest_stamp(name, row, 1, lrout), newest_stamp(refs, row, 1, lrout)
+        ent = {"graft": g, "refs": r, "diff": None, "stand_bit_ok": None}
+        out["rows"][row] = ent
+        if not g or not r:
+            out["pending"].append(f"{row} es1: no complete stamp (graft {bool(g)}, {refs} {bool(r)})")
+            continue
+        n_g, n_r = len(_p2r_dir_episodes(g)), len(_p2r_dir_episodes(r))
+        d = p2r_bitwise_diff(r, g, skip=P2R_GRAFT_ID_SKIP)
+        if not n_g or not n_r:
+            d = [f"no raw episodes (graft {n_g}, {refs} {n_r})"] + d
+        rc = rc or _run_candidates_mod()
+        bit_ok, why = rc._npz_clock_obs_stand_bit(g)
+        ent.update(diff=d[:20], n_diff=len(d), stand_bit_ok=bool(bit_ok), stand_bit=why, episodes=[n_g, n_r],
+                   ok=not d and bool(bit_ok))
+        if d:
+            out["fails"].append(f"{row} es1: not bitwise equal to {refs} off clock_obs ({len(d)}): {d[0]}")
+        if not bit_ok:
+            out["fails"].append(f"{row} es1: clock_obs[:,0] vs the stand label -- {why}")
+    verdict = "FAIL" if out["fails"] else "PENDING" if out["pending"] else "PASS"
+    if verdict == "PASS":
+        out["stamps_to_write"] = [_repo_rel(out["rows"][row]["graft"]) for row in rows]
+    return dict(out, ok=verdict == "PASS", verdict=verdict)
+
+
+def _repo_rel(p: str) -> str:
+    """``p`` relative to the repo root when it lies under it (graft.json's stamp form), else as given."""
+    rp, rr = Path(p).resolve(), R.resolve()
+    return str(rp.relative_to(rr)) if rp.is_relative_to(rr) else str(p)
+
+
+def _rep_val(x) -> str:
+    return "--" if x is None else f"{x:.4g}" if isinstance(x, (int, float)) and not isinstance(x, bool) else str(x)
 
 
 def _clause_lines(clauses: dict) -> list[str]:
@@ -3554,8 +3750,23 @@ def p2r_z2_markdown(out: dict) -> str:
     L = [f"# Omni phase 2, stage p2r -- {out['name']} (CHARTER 12 / P2R_Z2_PLAN.md step 5)", "",
          f"**Adoption-grade: {out['adoption_grade']}** {json.dumps(out['adoption_conditions'])}", "",
          f"**Ladder verdict: {v.get('verdict')}**", "", "Why:"] + [f"- {w}" for w in v.get("why") or ["(none)"]]
-    L += ["", f"**Attribution (vs {out['attribution'].get('control')}): {out['attribution'].get('status')}**", "",
-          f"## Z2 stand gates: {g.get('verdict')}", ""]
+    L += ["", f"**Attribution (vs {out['attribution'].get('control')}): {out['attribution'].get('status')}**"]
+    if out["attribution"].get("note"):
+        L += ["", f"_{out['attribution']['note']}_"]
+    # NOTE(p2r Z2d rep, 2026-10-11): the pre-registered replicate rule (P2R_Z2D_REP_PLAN.md), at every seed
+    if "replicate_grade" in out:
+        L += ["", f"## Replicate grade (s{out.get('seed')}, vs {out.get('replicate_hold')}): "
+                  f"{out['replicate_grade']}", ""]
+        L += [f"- PENDING: {p}" for p in out.get("replicate_pending") or []]
+        L += ["| clause | value | line | |", "|---|---|---|---|"]
+        L += [f"| {k} | {_rep_val(v)} | {_rep_val(t)} | {'ok' if ok else '**FAIL**'} |"
+              for k, (v, t, ok) in (out.get("replicate_clauses") or {}).items()]
+    if out.get("references"):
+        L += ["", "## References", "", "| role | name | seed | |", "|---|---|---|---|"]
+        L += [f"| {lab} | {r.get('name')} | {r.get('seed')} | {r.get('label')} |"
+              for lab, r in out["references"].items()]
+    L += ["", f"## Z2 stand gates: {g.get('verdict')}", ""]
+    L += [f"- {x}" for x in g.get("notes") or []]
     if g.get("pending"):
         L += [f"- PENDING: {p}" for p in g["pending"]] + [""]
     L += ["| clause | value | line | |", "|---|---|---|---|"] + _clause_lines(g.get("clauses") or {})
@@ -4197,6 +4408,7 @@ def main() -> int:
     ap.add_argument("--p2r-early-json", type=Path, metavar="PATH")
     ap.add_argument("--p2r-rst", nargs="?", const="", default=None, metavar="NAME")
     ap.add_argument("--p2r-z2", nargs="?", const="", default=None, metavar="NAME")
+    ap.add_argument("--p2r-graft-identity", nargs=2, default=None, metavar=("NAME", "SEED"))
     ap.add_argument("--probe", default=None, metavar="NAME")
     ap.add_argument("--self-test", action="store_true")
     a = ap.parse_args()
@@ -4268,11 +4480,24 @@ def main() -> int:
         return 0 if out["gate"].get("verdict") in ("PASS", "PASS ON ROWS RUN") else 4
     if a.p2r_z2 is not None:
         # NOTE(p2r Z2, 2026-10-10): the step-5 read -- exit 0 unless INVALID (every verdict stops and asks), as --p2r-z
+        # NOTE(p2r Z2d rep, 2026-10-11): the seed is the head name's _s<seed> (p2r_z2_report's default)
         out = p2r_z2_report(name=a.p2r_z2 or None, probe_name=a.probe)
         if a.p2r_md:
             a.p2r_md.write_text(p2r_z2_markdown(out))
         print(json.dumps(out, default=str))
         return 0 if out["verdict"].get("verdict") not in ("INVALID EVAL",) else 4
+    if a.p2r_graft_identity:
+        # NOTE(p2r Z2d rep, 2026-10-11): the per-seed graft GPU identity -- exit 0 PASS / 4 FAIL / 2 PENDING; the
+        # operator writes stamps_to_write into the graft sidecar after a PASS (never written here)
+        gname, gseed = a.p2r_graft_identity
+        try:
+            gseed = int(gseed)
+        except ValueError:
+            print(json.dumps({"ok": False, "verdict": "FAIL", "fails": [f"SEED {gseed!r} is not an integer"]}))
+            return P2R_GRAFT_ID_FAIL
+        out = p2r_graft_identity(gname, gseed)
+        print(json.dumps(out, default=str))
+        return {"PASS": P2R_GRAFT_ID_PASS, "PENDING": P2R_GRAFT_ID_PENDING}.get(out["verdict"], P2R_GRAFT_ID_FAIL)
     if a.p2r_z:
         early = json.loads(a.p2r_early_json.read_text()) if a.p2r_early_json else None
         out = p2r_z_report(early_json=early)

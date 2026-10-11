@@ -280,6 +280,10 @@ P2R_BC_DOSE_BAND = (0.52, 2.0)
 #: banded like Loss/prior_rows (P2R_PRIOR_ROWS_BAND: the same stand rows).
 P2R_Z2D_ARM = "Z2D"
 P2R_Z2D_DOSE_JSON = CAMPAIGN / "p2r_z2d_dose.json"
+#: NOTE(p2r Z2d rep, 2026-10-11; P2R_Z2D_REP_PLAN.md step 1): the seed whose Z2D dose file is p2r_z2d_dose.json; any
+#: other seed's Z2D chain reads its OWN p2r_z2d_dose_s<seed>.json (computed on that seed's graft), and every Z2D dose
+#: file's bc.checkpoint must be the chain's fork (a reused s18 file passes the bank-set check silently otherwise)
+P2R_Z2D_DOSE_SEED = 18
 #: NOTE(p2r Z2d, 2026-10-11; user decision after the P2__Z2d_s18 +200 kill, CHARTER 12.1): for the Z2D arm the statue
 #: prior's realised-dose clause is LIVENESS, not the unmasked band -- the band (p2r_z2d_dose.json band_lo/hi) is
 #: computed from UNMASKED S1 stand rows, and the stand-row mask lowers the graft's starting distance from R (realised
@@ -646,14 +650,17 @@ def judge_z2d_mask_knobs(overlay: dict, z2_dose: dict | None) -> list:
 
 
 def judge_p2r_z2d_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: int,
-                           z2_dose: dict | None) -> tuple[list, list, dict]:
+                           z2_dose: dict | None, dose_name: str | None = None) -> tuple[list, list, dict]:
     """NOTE(p2r Z2d, 2026-10-11): the Z2d +200 wiring (P2R_Z2D_PLAN.md step 1 "The arm wiring" / step 4 "+200
     wiring") -- every Z2c check (:func:`judge_p2r_z2c_liveness`, against p2r_z2d_dose.json), the mask knobs
     (:func:`judge_z2d_mask_knobs`), and Metrics/stand_mask_frac logged, finite and inside
     :data:`P2R_PRIOR_ROWS_BAND` (window mean; the share of rows the obs term masked -- the stand rows the prior
-    reads). ``(fails, notes, live)``."""
+    reads). ``(fails, notes, live)``. NOTE(p2r Z2d rep, 2026-10-11): ``dose_name`` = the seed's dose file (default
+    p2r_z2d_dose.json); its bc.checkpoint must be the overlay's KRABBY_ANCHOR_CKPT (= the fork, preflight-checked).
+    """
+    dose_name = dose_name or P2R_Z2D_DOSE_JSON.name
     fails, notes, live = judge_p2r_z2c_liveness(overlay, ser, lo, hi, first, z2_dose,
-                                                dose_name=P2R_Z2D_DOSE_JSON.name)
+                                                dose_name=dose_name)
     # the prior-dose clause as LIVENESS (P2R_Z2D_PRIOR_LIVE_FLOOR): Z2c's in-band verdict is replaced, not added to
     band = live.get("dose_band")
     if band is not None:
@@ -668,6 +675,8 @@ def judge_p2r_z2d_liveness(overlay: dict, ser: dict, lo: int, hi: int, first: in
             notes.append(f"prior realised dose {dose:.4g} is below the UNMASKED band [{band[0]:.4g}, {band[1]:.4g}] "
                          "(expected under the stand-row mask; liveness rule applied)")
     fails += [f"term liveness: {f}" for f in judge_z2d_mask_knobs(overlay, z2_dose)]
+    fails += [f"term liveness: {f}" for f in judge_z2d_dose_fork(z2_dose, (overlay or {}).get(P2R_ANCHOR_CKPT),
+                                                                  dose_name)]
     fr = window(ser.get(P2R_STAND_MASK_FRAC_TAG), lo, hi)
     live["stand_mask_frac"] = fr
     lo_p, hi_p = P2R_PRIOR_ROWS_BAND
@@ -683,9 +692,40 @@ def z_variant_unknown(arm: str) -> bool:
     return bool(Z_ARM_RE.match(arm or "")) and arm[-1].isalpha() and arm not in P2R_Z_VARIANT_ARMS
 
 
-def z2_dose_default(arm: str) -> Path:
-    """NOTE(p2r Z2d, 2026-10-11): the arm's own dose file -- p2r_z2d_dose.json for Z2D, else p2r_z2_dose.json."""
-    return P2R_Z2D_DOSE_JSON if arm == P2R_Z2D_ARM else P2R_Z2_DOSE_JSON
+def z2_dose_default(arm: str, seed: int | None = None) -> Path:
+    """NOTE(p2r Z2d, 2026-10-11): the arm's own dose file -- p2r_z2d_dose.json for Z2D, else p2r_z2_dose.json.
+    NOTE(p2r Z2d rep, 2026-10-11): a Z2D chain at a seed other than :data:`P2R_Z2D_DOSE_SEED` (``seed`` = the chain's
+    :func:`seed_of`) reads p2r_z2d_dose_s<seed>.json; None / 18 keep p2r_z2d_dose.json."""
+    if arm != P2R_Z2D_ARM:
+        return P2R_Z2_DOSE_JSON
+    if seed is None or int(seed) == P2R_Z2D_DOSE_SEED:
+        return P2R_Z2D_DOSE_JSON
+    return CAMPAIGN / f"p2r_z2d_dose_s{int(seed)}.json"
+
+
+def judge_z2d_dose_fork(z2_dose: dict | None, fork_ckpt: str | None, dose_name: str | None = None) -> list:
+    """NOTE(p2r Z2d rep, 2026-10-11; P2R_Z2D_REP_PLAN.md "Quiet-failure risks" 1): a Z2D dose file is refused unless its
+    ``bc.checkpoint`` (and its top-level ``checkpoint`` when recorded: the same ``--ckpt``) resolves to the chain's own
+    fork checkpoint ``fork_ckpt`` (repo-relative or absolute) -- the bank-set equality check cannot see which graft
+    the dose was read on, so another seed's file would pass silently. Pure; a missing file is the band checks'
+    refusal (nothing here)."""
+    if not isinstance(z2_dose, dict):
+        return []
+    name = dose_name or P2R_Z2D_DOSE_JSON.name
+    if not str(fork_ckpt or "").strip():
+        return [f"{name}: the chain's fork checkpoint is unknown, so the dose file's bc.checkpoint cannot be checked"]
+    want = resolve_repo_path(str(fork_ckpt)).resolve()
+    fails = []
+    for lab, ck in (("bc.checkpoint", (z2_dose.get("bc") or {}).get("checkpoint")),
+                    ("checkpoint", z2_dose.get("checkpoint", None))):
+        if lab == "checkpoint" and ck is None:
+            continue
+        if not str(ck or "").strip():
+            fails.append(f"{name} records no {lab} (rerun p2r_z2_dose.py --ckpt <the chain's fork>)")
+        elif resolve_repo_path(str(ck)).resolve() != want:
+            fails.append(f"{name}'s {lab} {ck!r} is not the chain's fork checkpoint {str(fork_ckpt)!r} (a dose read on "
+                         "another graft / seed: compute this seed's own dose file)")
+    return fails
 
 
 def judge_p2r_preflight(overlay: dict, graft: dict | None, fork_ckpt: str | None) -> list:
@@ -964,13 +1004,15 @@ def _close(a, b, tol=1e-9):
 
 def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, audit: list, replay: dict | None,
                  stand_gate: tuple[bool, str] | None = None, ref_tail: dict | None = None,
-                 p2s_gate: dict | None = None, z2_dose: dict | None = None) -> dict:
+                 p2s_gate: dict | None = None, z2_dose: dict | None = None,
+                 z2_dose_name: str | None = None) -> dict:
     """CHARTER 8 wiring at +200 (pure). ``audit`` = run_candidates.overlay_checks output [(name, ok)];
     ``stand_gate`` = :func:`stand_gate_structural` of the code root (F1 only; None = not read = FAIL for F1);
     ``ref_tail`` = the seed's S1 p2a training tail (TG only; P2B_PLAN.md step 1, e.g. {"reward_orientation": x});
     ``p2s_gate`` = :func:`p2s_gate_structural` of the code root (ST1 / ST2 only; None = not read = FAIL);
     ``z2_dose`` = p2r_z2_dose.json (the Z2 / Z2C arms; p2r_z2d_dose.json for Z2D -- NOTE(p2r Z2d, 2026-10-11);
-    None = not read = the dose check refuses)."""
+    None = not read = the dose check refuses); ``z2_dose_name`` = NOTE(p2r Z2d rep, 2026-10-11) that file's name
+    (Z2D at s16 / s17: p2r_z2d_dose_s<seed>.json)."""
     last = max((s for v in ser.values() for s, _ in v), default=None)
     lo, hi = first + W200[0], first + W200[1]
     if last is None or last < hi:
@@ -1082,7 +1124,7 @@ def judge_wiring(arm: str, overlay: dict, facts: dict, ser: dict, first: int, au
         fails += f2
         notes += n2
     elif arm == P2R_Z2D_ARM:                         # NOTE(p2r Z2d, 2026-10-11): Z2c's + the stand-row mask
-        f2, n2, live = judge_p2r_z2d_liveness(overlay, ser, lo, hi, first, z2_dose)
+        f2, n2, live = judge_p2r_z2d_liveness(overlay, ser, lo, hi, first, z2_dose, dose_name=z2_dose_name)
         fails += f2
         notes += n2
     elif z_variant_unknown(arm):                     # NOTE(p2r Z2d, 2026-10-11): never Z1's checks by default
@@ -1271,13 +1313,14 @@ def emitted_metric_keys(code_root: Path, keys) -> dict:
 def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tuple[bool, str] | None,
                     overlay: dict | None = None, p2s_gate: dict | None = None,
                     p2s_ref: tuple[bool, str] | None = None, p2r_graft: dict | None = None,
-                    fork_ckpt: str | None = None, z2_dose: dict | None = None) -> dict:
+                    fork_ckpt: str | None = None, z2_dose: dict | None = None, seed: int | None = None) -> dict:
     """What the live reads need before a launch (pure). ``emitted`` = :func:`emitted_metric_keys` output; for a p2s
     arm also the chain ``overlay``, ``p2s_gate`` (:func:`p2s_gate_structural`) and ``p2s_ref`` = ``(readable, why)``
     of the guards' reference run (:func:`p2s_reference_ok`); for a Z arm, ``overlay``, ``p2r_graft`` (the fork
     checkpoint's graft.json, or None) and ``fork_ckpt`` (the chain's own fork checkpoint path, for the
     KRABBY_ANCHOR_CKPT == fork check) -- :func:`judge_p2r_preflight`, NOT a p2s replay-gate verdict (no stand
-    terms, P2R_STATUE_PLAN.md step 1 "Left for implementation")."""
+    terms, P2R_STATUE_PLAN.md step 1 "Left for implementation"). ``seed``: NOTE(p2r Z2d rep, 2026-10-11) the chain's
+    seed, naming its Z2D dose file (:func:`z2_dose_default`)."""
     fails, notes = [], []
     if arm != "CAL1":                                 # every arm (+1000 terrain read) and CAL2 (levels must move)
         for tag in OBST_LEVEL_TAGS + PROMO_TAGS:
@@ -1346,7 +1389,7 @@ def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tu
         fails.append(f"Z arm {arm!r} has a variant letter no explicit branch judges (known: "
                      f"{list(P2R_Z_VARIANT_ARMS)})")
     # NOTE(p2r Z2d, 2026-10-11): Z2D's dose file is its own (named in the reasons)
-    dose_name = z2_dose_default(arm).name
+    dose_name = z2_dose_default(arm, seed).name
     if arm in P2R_Z2_FAMILY:
         # NOTE(p2r Z2, 2026-10-10): the Z2 knobs and step 4's dose file, so the +200 dose check cannot refuse later
         fails += judge_z2_knobs(overlay or {})
@@ -1362,6 +1405,8 @@ def judge_preflight(arm: str, emitted: dict, replay: dict | None, stand_gate: tu
     if arm == P2R_Z2D_ARM:
         # NOTE(p2r Z2d, 2026-10-11): the mask knob and the dose file's masked BC block
         fails += judge_z2d_mask_knobs(overlay or {}, z2_dose)
+        # NOTE(p2r Z2d rep, 2026-10-11): the dose must have been read on THIS chain's fork (its own seed's graft)
+        fails += judge_z2d_dose_fork(z2_dose, fork_ckpt or (overlay or {}).get(P2R_ANCHOR_CKPT), dose_name)
     if arm == "F1":
         tags = [t for t in F1_NONSTAND_TAGS if (emitted.get(t.rsplit("/", 1)[-1]))]
         if tags:
@@ -1569,9 +1614,11 @@ def check(a) -> tuple[int, dict]:
         seed = seed_of(a.chain)
         ref_tail = s1_p2a_tail(a.arms, seed) if arm == "TG" and seed is not None else None
         pg = p2s_gate_structural(Path(a.code_root) / MOTION_REWARDS_PY) if arm in P2S_ARMS else None
-        z2d = (_json_file(getattr(a, "z2_dose", None) or z2_dose_default(arm)) if arm in P2R_Z2_FAMILY
-               else None)
-        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail, pg, z2d)
+        # NOTE(p2r Z2d rep, 2026-10-11): the chain's seed picks a Z2D chain's own dose file
+        z2d_path = getattr(a, "z2_dose", None) or z2_dose_default(arm, seed_of(a.chain))
+        z2d = _json_file(z2d_path) if arm in P2R_Z2_FAMILY else None
+        res = judge_wiring(arm, ov, dump_facts(env, agent, log), ser, first, audit, replay, sg, ref_tail, pg, z2d,
+                           z2_dose_name=Path(z2d_path).name)
     elif a.at == "p2s":
         # a p2s dose arm OR a stage-p2r Z arm (P2R_STATUE_PLAN.md step 1 "Left for implementation": Z arms share
         # the three guards, read against the same reference, but have no dose/term-liveness to read here).
@@ -1629,8 +1676,8 @@ def preflight(a) -> tuple[int, dict]:
                     p2r_graft = None
     res = judge_preflight(arm, emitted, replay, sg, chain_overlay(cands, a.chain), pg, pref,
                           p2r_graft=p2r_graft, fork_ckpt=fork_ckpt,
-                          z2_dose=(_json_file(getattr(a, "z2_dose", None) or z2_dose_default(arm))
-                                   if arm in P2R_Z2_FAMILY else None))
+                          z2_dose=(_json_file(getattr(a, "z2_dose", None) or z2_dose_default(arm, seed_of(a.chain)))
+                                   if arm in P2R_Z2_FAMILY else None), seed=seed_of(a.chain))
     res.update(chain=a.chain, emitted={k: v for k, v in emitted.items() if v})
     return int(res["rc"]), res
 

@@ -279,8 +279,13 @@ def _ov_d(Z, live, banks, **over):
     return Z._ov(live, banks, **dict({"KRABBY_OMNI_STAND_MASK": "1"}, **over))
 
 
+#: NOTE(p2r Z2d rep, 2026-10-11): a Z2D dose file's bc.checkpoint must be the chain's fork (the overlay's
+#: KRABBY_ANCHOR_CKPT in these fixtures; judge_z2d_dose_fork), as the real p2r_z2d_dose.json records it
+GRAFT_S18 = REPO / "parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt"
+
+
 def _dose_d(Z, live, banks, stand_mask=True, **over):
-    bc = {"banks": [{"path": str(Path(b).resolve())} for b in banks]}
+    bc = {"banks": [{"path": str(Path(b).resolve())} for b in banks], "checkpoint": str(GRAFT_S18)}
     if stand_mask is not None:
         bc["stand_mask"] = stand_mask
     return Z._dose(live, banks, **dict({"bc": bc}, **over))
@@ -310,7 +315,8 @@ def test_z_arm_reads_z2d_and_the_constants(live):
     src = (SCRIPTS / "p2_live.py").read_text()
     assert "{P2R_STAND_MASK_FRAC_TAG}" in src.split("def read_tb")[1].split("def load_rc")[0]
     # check() / preflight() read the arm's own dose file when --z2-dose is not given
-    assert src.count('getattr(a, "z2_dose", None) or z2_dose_default(arm)') == 2
+    # NOTE(p2r Z2d rep, 2026-10-11): ... at the chain's own seed (p2r_z2d_dose_s<seed>.json off s18)
+    assert src.count('getattr(a, "z2_dose", None) or z2_dose_default(arm, seed_of(a.chain))') == 2
     assert 'ap.add_argument("--z2-dose", type=Path, default=None' in src
 
 
