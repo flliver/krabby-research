@@ -1797,3 +1797,6 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     last action, not from the leg state R uses. Mask-only would give a still stand that never re-steps to home its
     cams (Z1's outcome).
   - **STOP: asked the user** (step 6). Z1 stays the stand of record.
+- 2026-10-10 ~23:05, **user decision: Z2d = stand-row input mask + fine-tune.** On stand rows only, last action
+  → 0 and proxy → parked (−0.5); walking rows are untouched. Fine-tune with cloning on masked banks, so the stepping
+  phase is learned from leg state, as R reads it. A plan comes next (plan mode, audit). Z1 stays the stand of record.
