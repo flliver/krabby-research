@@ -1844,3 +1844,16 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - **Candidates v17:** `P2__Z2d_s18` = `P2__Z2c_s18` + `KRABBY_OMNI_STAND_MASK=1` + the 7th bank (Z2c's suite
       crouch bank).
     - **Preflight:** PASS (arm Z2D).
+- 2026-10-11 01:10–01:19, **Z2d launched (X19) and KILLED at the +200 wiring check** (queue STOPPED; CHARTER 8 → ask).
+  - **The failing clause:** statue-prior realised dose (first-update `Loss/stand_prior_mb0`) 0.966, against the band
+    [1.04, 5.34] (Z2c: 2.217).
+  - **Every other wiring value is live and in band:**
+    - `stand_mask_frac` 0.126 = the prior-row share (the mask is live);
+    - cloning first-update `Loss/bc_mb0` 7.10 against the masked dose's 7.18;
+    - R target nonzero on 99 % of prior rows;
+    - on-policy branch shares hold 0.34 / wait 0.28 / lift 0.18 / home 0.09 / seat 0.12.
+  - **Cause: a calibration miss in the plan.** The prior's band comes from `p2r_z2_dose.json`, computed on UNMASKED S1
+    stand rows; only the cloning dose was regenerated for the mask. The mask lowers the graft's starting distance from
+    R: per-row prior, masked / unmasked, is 0.95–1.0 on R-driven banks and 0.75–0.80 on Z2c's crouch states. The
+    effect grows with how live the proxy / last action are, and iteration-0 stand rows are the graft marching in place.
+  - Not a dead or mis-wired term. **STOP: asked the user** how to relaunch (a fresh chain name is required).
