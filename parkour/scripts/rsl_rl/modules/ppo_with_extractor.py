@@ -222,6 +222,7 @@ class PPOWithExtractor:
         bc_bank: list[str] | tuple[str, ...] | str | None = None,
         bc_batch_size: int = 2048,
         bc_seed: int = 0,
+        bc_stand_mask: bool = False,
     ) -> None:
         """The six keywords after ``optimizer`` are the PPO-construction knobs (2026-10-01), all DEFAULT OFF:
 
@@ -286,6 +287,15 @@ class PPOWithExtractor:
             row); the actor's training-path columns are kept on the device as plain attributes (no ``state_dict``).
         ``bc_batch_size`` / ``bc_seed``
             the rows per minibatch and the private generator's seed (its state rides in :meth:`resume_state`).
+
+        The last one is the p2r Z2d stand-row input mask (``P2R_Z2D_PLAN.md`` step 1, 2026-10-11), DEFAULT OFF (set
+        by ``KRABBY_OMNI_STAND_MASK=1`` beside ``KRABBY_BC_W``):
+
+        ``bc_stand_mask``
+            True applies ``crab_hex_omni_restance.stand_mask_obs`` -- the env's own stand-row mask (last action 0,
+            proxy -0.5, current step + the real history frames) -- to every FULL-width bank row after R is computed
+            and before the training-path trim, so the cloned rows look like what the masked env feeds the policy. R
+            reads columns 3, 4, 18..34 only, so the targets are unchanged. Needs ``bc_coef > 0``.
         """
         if schedule not in SCHEDULES:
             raise ValueError(f"PPOWithExtractor: schedule must be one of {SCHEDULES}, got {schedule!r}")
@@ -368,6 +378,11 @@ class PPOWithExtractor:
                 raise ValueError(f"PPOWithExtractor: bc_seed must be an integer, got {bc_seed!r}")
         elif bc_bank:
             raise ValueError("PPOWithExtractor: bc_bank is set but bc_coef is 0: the bank would train nothing")
+        # NOTE(p2r Z2d, 2026-10-11): the bank rows' stand-row mask (default off)
+        if not isinstance(bc_stand_mask, bool):
+            raise ValueError(f"PPOWithExtractor: bc_stand_mask must be a bool, got {bc_stand_mask!r}")
+        if bc_stand_mask and not bc_coef > 0.0:
+            raise ValueError("PPOWithExtractor: bc_stand_mask is set but bc_coef is 0: there is no bank to mask")
         self.device = device
         self.is_multi_gpu = multi_gpu_cfg is not None
         if multi_gpu_cfg is not None:
@@ -465,6 +480,8 @@ class PPOWithExtractor:
         self.bc_bank = bc_bank if bc_coef > 0.0 else None
         self.bc_batch_size = int(bc_batch_size) if bc_coef > 0.0 else None
         self.bc_seed = int(bc_seed) if bc_coef > 0.0 else None
+        #: NOTE(p2r Z2d): the bank rows carry the env's stand-row mask (applied on load).
+        self.bc_stand_mask = bc_stand_mask
         self.bc_obs: torch.Tensor | None = None
         self.bc_target: torch.Tensor | None = None
         self.bc_generator: torch.Generator | None = None
@@ -499,6 +516,7 @@ class PPOWithExtractor:
                 ("bc_bank_rows", None if self.bc_obs is None else int(self.bc_obs.shape[0])),
                 ("bc_batch_size", self.bc_batch_size),
                 ("bc_seed", self.bc_seed),
+                ("bc_stand_mask", True if bc_stand_mask else None),
             ) if v is not None
         }
         if armed:
@@ -573,6 +591,7 @@ class PPOWithExtractor:
 
         Refused: a file without ``obs``, a width other than :data:`BC_BANK_OBS_WIDTH`, no rows, a non-finite value,
         or a row whose stand bit (``obs[:, stand_mask_col]``) is not exactly 1 (a bank of stand rows only).
+        With ``bc_stand_mask`` (p2r Z2d) every full-width row gets the env's stand-row mask after R, before the trim.
         """
         actor = self.policy.actor
         try:
@@ -604,6 +623,10 @@ class PPOWithExtractor:
                                  f"obs[:, {col}] != 1 (a BC bank holds stand rows only)")
             with torch.no_grad():
                 target, _branch = rst.restance_target(obs, self.restance_params)
+            if self.bc_stand_mask:
+                # NOTE(p2r Z2d, 2026-10-11): the env's stand-row mask on every (stand) row, full width, after R
+                # (which reads none of the masked columns) and before the trim
+                rst.stand_mask_obs(obs, None, inplace=True)
             obs_parts.append(obs[:, :cols].clone())
             tgt_parts.append(target.float())
             del obs, obs_np

@@ -3067,9 +3067,18 @@ def p2r_step1_markdown(out: dict) -> str:
 #                   absent or 0 -- in every stamp env, and the raw stand bit folded in), plus the Z2 stand gates incl.
 #                   the relative settle line against the probe, and the reported baselines / fidelity / walls / hip
 #                   yaw.
+#                   NOTE(p2r Z2d, 2026-10-11; P2R_Z2D_PLAN.md "The evals must carry the mask"): for a MASKED head (its
+#                   chain overlay in candidates.yaml carries KRABBY_OMNI_STAND_MASK=1) every stamp must carry the mask
+#                   in run_meta.env_vars (else INVALID: the unmasked policy was read), and suite es1 is the newest
+#                   run_arm lr row-eval, never the record's driver stamp (the training-end driver suite eval builds
+#                   WITHOUT the mask); for an unmasked head a stamp WITH the mask is INVALID. The controller-probe
+#                   read (--p2r-rst) is unchanged: the probe never masks.
 STAND_PROXY_VAR, STAND_PROXY_ON = "KRABBY_OMNI_STAND_PROXY", "hold"
 #: NOTE(p2r Z2 cams-only, 2026-10-10): the STAND_PROXY values a Z2-family stamp may carry (absent / blank / 0 = off)
 STAND_PROXY_OFF = ("", "0")
+#: NOTE(p2r Z2d, 2026-10-11): the stand-row input mask knob (a masked head's stamps carry exactly "1"; an unmasked
+#: head's carry it off: absent / blank / 0)
+STAND_MASK_VAR, STAND_MASK_ON, STAND_MASK_OFF = "KRABBY_OMNI_STAND_MASK", "1", ("", "0")
 P2R_RST_VARIANT = "restance"
 #: the Z2 stand gates (P2R_Z2_PLAN.md step 5): shares of STANDS, per seed. NOTE(p2r Z2 cams-only, 2026-10-10): the
 #: six-down line is REPORTED against Z2_SIXDOWN_STANDS (``reported``), no longer a gate clause.
@@ -3120,11 +3129,37 @@ def _proxy_off(stamp: str | None) -> bool:
     return str((_stamp_env(stamp) or {}).get(STAND_PROXY_VAR, "")).strip().lower() in STAND_PROXY_OFF
 
 
-def z2_suite_stamp(name: str, lrout: Path | None = None) -> str | None:
+def head_masked(name: str | None, cands: dict | None = None) -> bool | None:
+    """NOTE(p2r Z2d, 2026-10-11): True when the head's chain (``references.<name>.chain``, else ``name`` itself) carries
+    ``KRABBY_OMNI_STAND_MASK=1`` in its candidates.yaml overlay (:func:`chain_overlay_value`, the last stage that sets
+    it). ``cands`` = a parsed candidates file (default the campaign's). FAILS CLOSED (fable review note 1): an
+    unreadable file, or a head that resolves to no ``chains`` entry, returns None ("unknown"), never False --
+    :func:`z2_invalid_reasons` turns an unknown into an INVALID reason."""
+    if not name:
+        return None
+    if cands is None:
+        try:
+            import yaml  # noqa: PLC0415
+            cands = yaml.safe_load(open(CAMPAIGN / "candidates.yaml")) or {}
+        except Exception:                                              # noqa: BLE001  (OSError / a yaml.YAMLError)
+            return None
+    chain = ((cands.get("references") or {}).get(name) or {}).get("chain") or name
+    if chain not in (cands.get("chains") or {}):
+        return None
+    return str(chain_overlay_value(cands, chain, STAND_MASK_VAR) or "").strip() == STAND_MASK_ON
+
+
+def z2_suite_stamp(name: str, lrout: Path | None = None, masked: bool | None = None) -> str | None:
     """Suite es1 for a Z2-family head: the record's driver stamp (as Z1's), else the newest complete
     lr/<name>/suite__omni/seed001 row-eval. NOTE(p2r Z2 cams-only, 2026-10-10): the cams-only chain runs with
     KRABBY_OMNI_STAND_PROXY OFF, so the chain's own ladder suite row (which never carries the proxy:
-    run_phases.EVAL_CARRY) is the right stamp -- the earlier preference for a proxy-carrying lr row-eval is gone."""
+    run_phases.EVAL_CARRY) is the right stamp -- the earlier preference for a proxy-carrying lr row-eval is gone.
+    NOTE(p2r Z2d, 2026-10-11): a MASKED head (``masked``, default :func:`head_masked`) skips the driver stamp -- the
+    training-end driver suite eval builds without the mask -- and takes the newest run_arm lr row-eval."""
+    if masked is None:
+        masked = head_masked(name)
+    if masked:
+        return newest_stamp(name, SUITE, 1, lrout or LROUT)
     rec = _rec(name) or {}
     drv = rec.get("driver_stamp") if rec and not rec.get("killed") else None
     return drv or newest_stamp(name, SUITE, 1, lrout or LROUT)
@@ -3210,12 +3245,15 @@ def z2_stand_gates(z2: dict, still: dict, z1_z2: dict | None, probe_z2: dict | N
             "failed": [k for k, (_v, _t, ok) in cl.items() if not ok]}
 
 
-def z2_env_reasons(pt: dict, stamps=None) -> list[str]:
+def z2_env_reasons(pt: dict, stamps=None, want_mask: bool | None = None) -> list[str]:
     """The Z2 env INVALID rule (P2R_Z2_PLAN.md "Verification" + the 2026-10-10 amendment): every stamp's
     ``run_meta.env_vars`` must carry ``KRABBY_OMNI_STAND_OBS=clock`` (fail closed: missing / any other value is
     INVALID) and ``KRABBY_OMNI_STAND_PROXY`` OFF (absent / blank / 0). NOTE(p2r Z2 cams-only, 2026-10-10): R reads
     no load signal and Z2's chain runs the proxy off, so the obs stays Z1's; a stamp with the held proxy armed ran
-    a different observation (the load-sensing R's regime) and is INVALID for the cams-only reads."""
+    a different observation (the load-sensing R's regime) and is INVALID for the cams-only reads.
+    NOTE(p2r Z2d, 2026-10-11): ``want_mask`` True -- a stamp whose env lacks ``KRABBY_OMNI_STAND_MASK=1`` is INVALID
+    (the unmasked policy was read); False -- a stamp WITH the mask (not absent / blank / 0) is INVALID; None (the
+    default: the controller probe, which never masks) -- no mask rule."""
     out = []
     for k, stamp in sorted((pt.get("stamps") or {}).items()):
         if not stamp or (stamps is not None and k not in stamps):
@@ -3226,6 +3264,13 @@ def z2_env_reasons(pt: dict, stamps=None) -> list[str]:
         if str(env.get(STAND_PROXY_VAR, "")).strip().lower() not in STAND_PROXY_OFF:
             out.append(f"{pt.get('name')} {k}: {STAND_PROXY_VAR}={env.get(STAND_PROXY_VAR)!r}, want it off "
                        "(absent / 0: the cams-only chain)")
+        mv = str(env.get(STAND_MASK_VAR, "")).strip()
+        if want_mask is True and mv != STAND_MASK_ON:
+            out.append(f"{pt.get('name')} {k}: {STAND_MASK_VAR}={env.get(STAND_MASK_VAR)!r}, want "
+                       f"{STAND_MASK_ON!r} (a masked head: an eval without the mask read the unmasked policy)")
+        elif want_mask is False and mv.lower() not in STAND_MASK_OFF:
+            out.append(f"{pt.get('name')} {k}: {STAND_MASK_VAR}={env.get(STAND_MASK_VAR)!r}, want it off "
+                       "(an unmasked head read through the stand-row mask)")
     return out
 
 
@@ -3385,12 +3430,19 @@ def _z2_brief(pt: dict | None) -> dict:
                          if (z.get(row) or {}).get(s) else None) for s in Z2_SEEDS} for row in ("suite", "walkstop")}}
 
 
-def z2_invalid_reasons(pt: dict) -> list[str]:
+def z2_invalid_reasons(pt: dict, want_mask: bool | None = None) -> list[str]:
     """The Z2 head's INVALID additions over :func:`p2r_z_verdicts` (which already requires STAND_OBS=clock):
     STAND_PROXY off on every stamp (the cams-only chain, 2026-10-10), and the raw stand bit folded into the verdict
     (P2R_Z2_PLAN "Verification":
-    the raw bit must match the labels)."""
-    return [r for r in z2_env_reasons(pt) if STAND_PROXY_VAR in r] + z_raw_bit_reasons(pt)[0]
+    the raw bit must match the labels). NOTE(p2r Z2d, 2026-10-11): + the stand-row mask rule of
+    :func:`z2_env_reasons` with ``want_mask`` (default :func:`head_masked` of the point's name)."""
+    if want_mask is None:
+        want_mask = head_masked(pt.get("name"))
+        if want_mask is None:   # NOTE(p2r Z2d, 2026-10-11): fail closed -- an unresolvable head is never read as unmasked
+            return [f"cannot resolve whether head {pt.get('name')!r} is masked ({STAND_MASK_VAR}): no candidates.yaml "
+                    "chain / reference"] + z_raw_bit_reasons(pt)[0]
+    return ([r for r in z2_env_reasons(pt, want_mask=want_mask) if STAND_PROXY_VAR in r or STAND_MASK_VAR in r]
+            + z_raw_bit_reasons(pt)[0])
 
 
 def p2r_z2_verdicts(res: dict) -> dict:

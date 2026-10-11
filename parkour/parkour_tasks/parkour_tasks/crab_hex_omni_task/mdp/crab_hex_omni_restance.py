@@ -54,6 +54,15 @@ laws restoring, so it stays bounded under training noise):
 MIRROR. R is equivariant under both planes provided its constants are the same on every leg (hip-pitch mirror sign +1
 in both planes, so ``p`` and the hip target are mirror-invariant per leg) and the knee carries ``side`` (left-right
 knee sign -1, fore-aft +1); the cam laws are odd in ``c`` (cam sign -1 in both planes). Pinned by the tests.
+
+THE STAND-ROW INPUT MASK (NOTE(p2r Z2d, 2026-10-11), ``P2R_Z2D_PLAN.md``). Z2c's closed loop carried a stand-onset
+crouch through two inputs: the contact proxy (columns 83-88) and the network's own last action (columns 65-82).
+:func:`stand_mask_obs` sets both blocks to constants on the given rows -- last action 0, proxy -0.5 ("parked") --
+in the CURRENT step's 89-wide ``obs_buf`` and, on a full-width (>= 1149) row, in each of the 10 REAL history
+frames (89 wide at ``259 + 89 j``; the actor's own 75-wide history view is misaligned with them, so the mask follows
+the real frames -- defence in depth, the history latent being constant on this fork). One pure function shared by
+the env (``KRABBY_OMNI_STAND_MASK=1``, obs param ``stand_mask``), the cloning bank loader (``bc_stand_mask``) and the
+CPU tools, so the bank and env masks cannot drift. Mirror-invariant: the constants are the same on every leg.
 """
 # No ``from __future__ import annotations``: with string annotations ``dataclasses`` looks the module up in
 # ``sys.modules``, which a by-path load (the CPU tools) need not have registered.
@@ -89,6 +98,22 @@ ACTION_DIM = 18
 
 BRANCH_HOLD, BRANCH_WAIT, BRANCH_LIFT, BRANCH_HOME, BRANCH_SEAT = range(5)
 BRANCH_NAMES = ("hold", "wait", "lift", "home", "seat")
+
+# NOTE(p2r Z2d, 2026-10-11): the stand-row input mask's layout and constants (see the module docstring).
+#: The ``obs_buf`` last-action block ``[start, stop)`` (``17 + 2 * 24`` joints .. + 18 actions).
+STAND_MASK_LAST_ACT_COLS = (65, 83)
+#: The ``obs_buf`` contact-proxy block ``[start, stop)`` (= :data:`PROXY_OBS_COLS`).
+STAND_MASK_PROXY_COLS = (83, 89)
+#: The masked proxy value: "parked" (a still rod's reading).
+STAND_MASK_PROXY_VALUE = -0.5
+#: The masked last-action value.
+STAND_MASK_LAST_ACT_VALUE = 0.0
+#: The per-step ``obs_buf`` width; a history frame is one ``obs_buf``.
+OBS_BUF_WIDTH = 89
+#: The first REAL history frame's column: ``obs_buf`` 89 + heights 108 + priv_explicit 9 + priv_latent 53.
+HISTORY_OFFSET = 259
+#: The real history frames, ``OBS_BUF_WIDTH`` wide at ``HISTORY_OFFSET + OBS_BUF_WIDTH * j``.
+HISTORY_FRAMES = 10
 
 
 @dataclasses.dataclass(frozen=True)
@@ -252,6 +277,65 @@ def restance_target(obs: torch.Tensor, p: RestanceParams) -> tuple[torch.Tensor,
 
     target = torch.cat([cam, hip, knee], dim=-1).clamp(-1.0, 1.0)
     return target, branch
+
+
+def stand_mask_columns(width: int) -> tuple[list[int], list[float]]:
+    """``(columns, values)`` the stand-row mask writes on a row ``width`` wide (NOTE(p2r Z2d, 2026-10-11)).
+
+    The current step's last-action + proxy blocks (columns 65..88) always; on a full-width row (``width >=
+    HISTORY_OFFSET + HISTORY_FRAMES * OBS_BUF_WIDTH`` = 1149) also the same two blocks of each real history frame.
+    ``width < OBS_BUF_WIDTH`` raises.
+    """
+    width = int(width)
+    if width < OBS_BUF_WIDTH:
+        raise ValueError(f"stand_mask: a row must be >= {OBS_BUF_WIDTH} wide (the obs_buf), got {width}")
+    starts = [0]
+    if width >= HISTORY_OFFSET + HISTORY_FRAMES * OBS_BUF_WIDTH:
+        starts += [HISTORY_OFFSET + OBS_BUF_WIDTH * j for j in range(HISTORY_FRAMES)]
+    a0, a1 = STAND_MASK_LAST_ACT_COLS
+    p0, p1 = STAND_MASK_PROXY_COLS
+    cols: list[int] = []
+    values: list[float] = []
+    for s in starts:
+        cols += list(range(s + a0, s + a1)) + list(range(s + p0, s + p1))
+        values += [STAND_MASK_LAST_ACT_VALUE] * (a1 - a0) + [STAND_MASK_PROXY_VALUE] * (p1 - p0)
+    return cols, values
+
+
+#: ``(width, device, dtype) -> (index, values)`` device tensors, built once (the env masks every step).
+_STAND_MASK_TENSORS: dict = {}
+
+
+def _stand_mask_tensors(width: int, device, dtype) -> tuple[torch.Tensor, torch.Tensor]:
+    key = (int(width), str(device), dtype)
+    if key not in _STAND_MASK_TENSORS:
+        cols, values = stand_mask_columns(width)
+        _STAND_MASK_TENSORS[key] = (torch.tensor(cols, dtype=torch.long, device=device),
+                                    torch.tensor(values, dtype=dtype, device=device))
+    return _STAND_MASK_TENSORS[key]
+
+
+def stand_mask_obs(obs: torch.Tensor, rows: torch.Tensor | None = None, *, inplace: bool = False) -> torch.Tensor:
+    """The stand-row input mask (NOTE(p2r Z2d, 2026-10-11)): on ``rows`` of ``obs`` (N, >= 89) the last-action
+    columns read :data:`STAND_MASK_LAST_ACT_VALUE` and the proxy columns :data:`STAND_MASK_PROXY_VALUE`, in the
+    current step and (full width) every real history frame -- :func:`stand_mask_columns`.
+
+    ``rows``: None = every row, else an (N,) bool tensor; the other rows are bitwise unchanged, as is every other
+    column. A new tensor unless ``inplace`` (then ``obs`` is written and returned). dtype / device never change.
+    """
+    if obs.dim() != 2:
+        raise ValueError(f"stand_mask_obs: obs must be (N, >= {OBS_BUF_WIDTH}), got {tuple(obs.shape)}")
+    idx, val = _stand_mask_tensors(obs.shape[1], obs.device, obs.dtype)
+    out = obs if inplace else obs.clone()
+    if rows is None:
+        out[:, idx] = val.expand(out.shape[0], -1)
+        return out
+    rows = torch.as_tensor(rows, device=obs.device)
+    if rows.dtype != torch.bool or tuple(rows.shape) != (obs.shape[0],):
+        raise ValueError(f"stand_mask_obs: rows must be a ({obs.shape[0]},) bool tensor, got "
+                         f"{rows.dtype} {tuple(rows.shape)}")
+    out[:, idx] = torch.where(rows[:, None], val[None, :], out[:, idx])
+    return out
 
 
 def branch_shares(branch: torch.Tensor) -> dict[str, float]:

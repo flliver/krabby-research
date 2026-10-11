@@ -71,6 +71,12 @@ variable                        what it writes when armed
                                 leg's last knee-gated value (sample-and-hold; -0.5 after a reset);
                                 needs ``KRABBY_OMNI_STAND_OBS=clock``; width unchanged (p2r Z2;
                                 since the 2026-10-10 cams-only amendment read by nothing in R)
+``KRABBY_OMNI_STAND_MASK=1``    omni obs term ``params["stand_mask"]`` = True -- on the stand-bit
+                                rows the RETURNED observation's last-action columns 65-82 read 0
+                                and proxy columns 83-88 read -0.5, current step + the 10 real
+                                history frames; needs ``KRABBY_OMNI_STAND_OBS=clock``, refused with
+                                the held proxy and ``KRABBY_ACTION_LPF_OBS=1``; width unchanged
+                                (p2r Z2d); with ``KRABBY_BC_W`` also ``algorithm.bc_stand_mask``
 **PPO construction (runner cfg; ``apply_exploration_knobs``; PPO-construction plan, 2026-10-01)**
 ``KRABBY_ACTION_BOUND_LOSS``    ``algorithm.action_bound_loss_coef`` -- the FINAL coefficient c1
                                 of the rl_games bound loss on the raw mean (blank / ``0`` = off)
@@ -204,6 +210,14 @@ weight unless ``KRABBY_OMNI_STAND_OBS=clock``, ``KRABBY_STAND_PRIOR_TARGET=resta
 (:func:`check_bc_composition`, pure, also run by the ladder's dry run); the bank files must exist when applied.
 Each prints ``[KNOB] <NAME>=<value> consumed`` when applied.
 
+Omni phase-2 stage p2r Z2d (``P2R_Z2D_PLAN.md`` step 1, 2026-10-11) added ``KRABBY_OMNI_STAND_MASK`` (env side, an
+OBS-SEMANTICS knob in :data:`EVAL_SEMANTIC_KNOBS` and :data:`EVAL_CARRY_EXTERNAL`, off value ``0``): the stand-row
+input mask (``crab_hex_omni_restance.stand_mask_obs``: last action 0, proxy -0.5 on the stand-bit rows). Refused
+without ``KRABBY_OMNI_STAND_OBS=clock``, with ``KRABBY_OMNI_STAND_PROXY=hold`` (both write columns 83-88) and with
+``KRABBY_ACTION_LPF_OBS=1`` (the appended head would shift the layout) -- :func:`check_restance_composition` and the
+env-side applier. With the cloning term armed (``KRABBY_BC_W``) it also sets ``algorithm.bc_stand_mask`` (the bank
+rows masked on load by the same function), so the bank and env masks cannot disagree.
+
 Pure at module scope (no Isaac, no torch): the appliers import ``RewTerm`` / ``SceneEntityCfg`` /
 the reward functions lazily, and every parser runs in a bare interpreter -- see
 ``tests/unit/test_crab_hex_omni_motion_knobs.py``.
@@ -285,6 +299,9 @@ STAND_PRIOR_W_VAR = "KRABBY_STAND_PRIOR_W"
 #: Env side: the sample-and-hold contact proxy on stand rows (``params["stand_proxy_hold"]``). Independent of
 #: the re-stance target since the 2026-10-10 cams-only amendment (R reads no load signal).
 STAND_PROXY_VAR = "KRABBY_OMNI_STAND_PROXY"
+#: NOTE(p2r Z2d, 2026-10-11): env side: the stand-row input mask (``params["stand_mask"]``; with ``KRABBY_BC_W`` also
+#: ``algorithm.bc_stand_mask``).
+STAND_MASK_VAR = "KRABBY_OMNI_STAND_MASK"
 #: Runner side: the statue prior's target (``algorithm.stand_prior_target``) and R's constants
 #: (``algorithm.restance``; ``crab_hex_omni_restance.RESTANCE_VAR`` -- pinned equal by the unit tests).
 STAND_PRIOR_TARGET_VAR = "KRABBY_STAND_PRIOR_TARGET"
@@ -325,7 +342,7 @@ AGENT_KNOBS = (ACTION_STD_MAX_VAR, ACTION_STD_RESET_VAR, ENTROPY_COEF_VAR,
 #: The env-side knobs that change command, clock, action-path or observation SEMANTICS: an eval
 #: of a policy trained with one of them must be built with it too (``run_phases.EVAL_CARRY``).
 EVAL_SEMANTIC_KNOBS = (RELAY_HYST_VAR, STAND_HOLD_VAR, STAND_PARK_VAR, ACTION_LPF_HZ_VAR,
-                       ACTION_LPF_OBS_VAR, STAND_OBS_VAR, STAND_PROXY_VAR)
+                       ACTION_LPF_OBS_VAR, STAND_OBS_VAR, STAND_PROXY_VAR, STAND_MASK_VAR)
 #: The RUNNER-side knobs an eval must carry too: they change the policy's PARAMETER STRUCTURE
 #: (``soft`` std: ``std_raw`` instead of ``std``), and an eval rebuilds the policy from the env
 #: knobs before it loads the checkpoint (strictly). ``KRABBY_INIT_STD`` is carried with it (the
@@ -336,11 +353,11 @@ EVAL_STRUCTURE_KNOBS = (STD_PARAM_VAR, INIT_STD_VAR)
 #: campaign's own eval environment (``run_arm.sh``: the env stamp's ``run_meta.env_vars`` + ``P2_ENV_EXTRA``);
 #: a ladder ``eval:`` row (``run_phases.eval_env_for``) builds WITHOUT it. Pinned by test_crab_hex_omni_gate.py
 #: (each one is absent from ``EVAL_CARRY``; the rest of EVAL_SEMANTIC_KNOBS is carried).
-EVAL_CARRY_EXTERNAL = (STAND_PROXY_VAR,)
+EVAL_CARRY_EXTERNAL = (STAND_PROXY_VAR, STAND_MASK_VAR)
 #: ... and the value each one takes when OFF (what ``EVAL_CARRY_DEFAULTS`` restates).
 KNOB_OFF_VALUES = {RELAY_HYST_VAR: "0", STAND_HOLD_VAR: "0", STAND_PARK_VAR: "0",
                    ACTION_LPF_HZ_VAR: "0", ACTION_LPF_OBS_VAR: "0", STAND_OBS_VAR: "0",
-                   STD_PARAM_VAR: "0", INIT_STD_VAR: "0", STAND_PROXY_VAR: "0"}
+                   STD_PARAM_VAR: "0", INIT_STD_VAR: "0", STAND_PROXY_VAR: "0", STAND_MASK_VAR: "0"}
 #: The omni POLICY observation column of the body-frame lateral (vy) command:
 #: ``CrabHexOmniParkourObservations.OBSERVED_COMMAND_SLOTS`` maps slot 9 -> command index 1, and the
 #: current step's proprio head opens the policy observation (pinned by the unit tests).
@@ -439,6 +456,8 @@ __all__ = [
     # omni phase-2 stage p2r Z2c (2026-10-10)
     "BC_W_VAR", "BC_BANK_VAR", "BC_BATCH_VAR", "BC_KNOBS", "BC_BATCH_DEFAULT", "parse_bc_w", "parse_bc_bank",
     "parse_bc_batch", "check_bc_composition", "resolve_bc_bank",
+    # omni phase-2 stage p2r Z2d (2026-10-11)
+    "STAND_MASK_VAR", "parse_stand_mask",
 ]
 
 
@@ -514,6 +533,19 @@ def parse_stand_proxy(text) -> str | None:
     raise ValueError(f"{STAND_PROXY_VAR} must be '0' or 'hold', got {text!r}")
 
 
+def parse_stand_mask(text) -> bool | None:
+    """NOTE(p2r Z2d, 2026-10-11): ``KRABBY_OMNI_STAND_MASK`` -> True for ``1``, or None for OFF (blank / ``0``);
+    anything else raises (a typo must not pick)."""
+    if _blank(text):
+        return None
+    token = str(text).strip()
+    if token == "0":
+        return None
+    if token == "1":
+        return True
+    raise ValueError(f"{STAND_MASK_VAR} must be '0' or '1', got {text!r}")
+
+
 def parse_stand_prior_target(text) -> str | None:
     """``KRABBY_STAND_PRIOR_TARGET`` -> ``"restance"``, or None for OFF (blank / ``0``: the statue target 0)."""
     if _blank(text):
@@ -567,6 +599,17 @@ def check_restance_composition(env, *, training: bool) -> None:
     if proxy is not None and parse_stand_obs(get(STAND_OBS_VAR)) != "clock":
         raise ValueError(f"{STAND_PROXY_VAR}={get(STAND_PROXY_VAR)!r} holds the proxy on the stand-bit rows, which "
                          f"only {STAND_OBS_VAR}=clock writes (got {get(STAND_OBS_VAR)!r})")
+    # NOTE(p2r Z2d, 2026-10-11): the stand-row input mask's cross rules
+    if parse_stand_mask(get(STAND_MASK_VAR)) is not None:
+        if parse_stand_obs(get(STAND_OBS_VAR)) != "clock":
+            raise ValueError(f"{STAND_MASK_VAR}={get(STAND_MASK_VAR)!r} masks the stand-bit rows, which only "
+                             f"{STAND_OBS_VAR}=clock writes (got {get(STAND_OBS_VAR)!r})")
+        if proxy is not None:
+            raise ValueError(f"{STAND_MASK_VAR}=1 and {STAND_PROXY_VAR}={get(STAND_PROXY_VAR)!r} both write the proxy "
+                             "columns 83-88 on the stand-bit rows; set one")
+        if parse_flag(get(ACTION_LPF_OBS_VAR), ACTION_LPF_OBS_VAR):
+            raise ValueError(f"{STAND_MASK_VAR}=1 and {ACTION_LPF_OBS_VAR}=1: the appended filtered-rod head would "
+                             "shift the obs layout the mask writes (columns 65-88 and the history frames)")
     if target is not None:
         if parse_statue_w(get(STAND_PRIOR_W_VAR), STAND_PRIOR_W_VAR) is None:
             raise ValueError(f"{STAND_PRIOR_TARGET_VAR}={target} sets the statue prior's target, but "
@@ -921,6 +964,8 @@ MOTION_KNOB_PARSERS = {
     BC_W_VAR: parse_bc_w,
     BC_BANK_VAR: parse_bc_bank,
     BC_BATCH_VAR: parse_bc_batch,
+    # omni phase-2 stage p2r Z2d (2026-10-11): env side
+    STAND_MASK_VAR: parse_stand_mask,
 }
 
 
@@ -1185,6 +1230,21 @@ def apply_motion_knobs(cfg, environ=None, *, term_cls=None, builders=None, power
                                    "head would move the proxy off obs columns 83-88, which R reads")
         _set_obs_param(cfg, STAND_PROXY_VAR, "stand_proxy_hold")
         _consumed(STAND_PROXY_VAR, get(STAND_PROXY_VAR))
+    # NOTE(p2r Z2d, 2026-10-11): the stand-row input mask -- needs the clock bit (written above), refuses the held
+    # proxy (both write cols 83-88) and an appended head (lpf_obs would shift the layout the mask writes).
+    if parse_stand_mask(get(STAND_MASK_VAR)) is not None:
+        if stand_obs != "clock":
+            raise RuntimeError(f"{STAND_MASK_VAR}={get(STAND_MASK_VAR)} masks the stand-bit rows, which needs "
+                               f"{STAND_OBS_VAR}=clock (got {get(STAND_OBS_VAR)!r})")
+        if parse_stand_proxy(get(STAND_PROXY_VAR)) is not None:
+            raise RuntimeError(f"{STAND_MASK_VAR}=1 and {STAND_PROXY_VAR}={get(STAND_PROXY_VAR)}: both write the proxy "
+                               "columns 83-88 on the stand-bit rows; set one")
+        for _g, _t, term in _omni_obs_terms(cfg):
+            if (term.params or {}).get("lpf_obs"):
+                raise RuntimeError(f"{STAND_MASK_VAR}=1 and {ACTION_LPF_OBS_VAR}=1: the appended filtered-rod head "
+                                   "would shift the obs layout the mask writes (columns 65-88 and the history frames)")
+        _set_obs_param(cfg, STAND_MASK_VAR, "stand_mask")
+        _consumed(STAND_MASK_VAR, get(STAND_MASK_VAR))
     # Every STAND-keyed knob the eval carries also latches the eval hook's slot per hold
     # (``CrabHexOmniCommand.schedule_hook``): otherwise an eval stand hold that drifts past the
     # facing dead band re-derives as "turn" and escapes the very knob it is scoring.
@@ -1345,6 +1405,10 @@ def apply_exploration_knobs(agent_cfg, environ=None) -> None:
         agent_cfg.algorithm.bc_batch_size = BC_BATCH_DEFAULT if bc_batch is None else bc_batch
         if bc_batch is not None:
             _consumed(BC_BATCH_VAR, env.get(BC_BATCH_VAR))
+        if parse_stand_mask(env.get(STAND_MASK_VAR)) is not None:
+            # NOTE(p2r Z2d, 2026-10-11): the bank rows get the env's stand-row mask on load (the knob's consumed line
+            # is the env side's; the algorithm's [PPO] construction line names bc_stand_mask=True)
+            agent_cfg.algorithm.bc_stand_mask = True
 
 
 def _check_statue_knobs(env, anchor_w, anchor_ckpt, prior_w) -> None:

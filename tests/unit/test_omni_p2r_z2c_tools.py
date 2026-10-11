@@ -506,7 +506,9 @@ def test_z2c_preflight(live, banks):
 def test_z2c_inherits_z2s_ep_length_notify_only_guard(live, tmp_path):
     """check(--at p2s) passes ep_len_notify for Z2C (source-level: the arm set the guard reads)."""
     src = (SCRIPTS / "p2_live.py").read_text()
-    assert "ep_len_notify=(arm in (P2R_Z2_ARM, P2R_Z2C_ARM))" in src
+    # NOTE(p2r Z2d, 2026-10-11): the arm set is the Z2 family (Z2 / Z2C / Z2D)
+    assert "ep_len_notify=(arm in P2R_Z2_FAMILY)" in src
+    assert live.P2R_Z2_FAMILY == ("Z2", "Z2C", "Z2D")
     EL, CF, SD = live.TAGS["ep_len"], live.TAGS["crab_failure"], live.TAGS["std"]
     ref = {"kind": "run", "name": "P2__C0_s18", "first": 19994,
            "ser": {t: [(19994 + i, v) for i in range(5000)] for t, v in ((EL, 1800.0), (CF, 0.2), (SD, 0.82))}}

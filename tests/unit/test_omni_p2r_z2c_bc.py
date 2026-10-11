@@ -550,7 +550,8 @@ def test_bc_knobs_are_registered_with_the_ladder(rc):
         assert parsers[var] is rc.knobs()._mk.MOTION_KNOB_PARSERS[var], var
     assert set(BC_KNOBS) <= rc.AGENT_DUMP_KEYS
     assert rc.AGENT_DUMP_KEYS == set(mk.AGENT_KNOBS) | {"KRABBY_OMNI_MIRROR_IMAGES"}
-    assert set(rc.BC_ALG_FIELDS) == {"bc_coef", "bc_bank", "bc_batch_size", "bc_seed"}
+    # NOTE(p2r Z2d, 2026-10-11): + the bank rows' stand-row mask (pinned by test_omni_p2r_z2d_mask.py)
+    assert set(rc.BC_ALG_FIELDS) == {"bc_coef", "bc_bank", "bc_batch_size", "bc_seed", "bc_stand_mask"}
     reasons = []
     for var, value in (("KRABBY_BC_W", "1.0"), ("KRABBY_BC_BANK", "a.npz,b.npz"), ("KRABBY_BC_BATCH", "2048")):
         rc._check_knob(var, value, "t", whitelist, parsers, reasons, set())

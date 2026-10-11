@@ -45,6 +45,16 @@ the cam trim), the per-leg mean SIGNED ``mu - R`` of the hip (action cols 6..11)
 the max ``|.|`` over legs (``p2r_z2c_gate.py`` holds hip and cam to 0.05; Z2 read hip 0.13-0.18). The primary path's
 own HOLD-branch cam line (below) and every earlier output are unchanged.
 
+THE STAND-ROW INPUT MASK (NOTE(p2r Z2d, 2026-10-11); P2R_Z2D_PLAN.md step 1 "The gate"). ``--stand-mask`` scores
+the bank as a masked env feeds the policy: AFTER R is recomputed (R reads columns 3, 4, 18..34, none of them masked),
+every bank row goes through ``crab_hex_omni_restance.stand_mask_obs`` (the env's and the cloning bank loader's own
+function: last action 0, proxy -0.5, current step + the real history frames on a full-width row) before any path is
+scored. The JSON records ``masked``. Off (the default), nothing changes.
+
+``score_paths(..., by_branch=True)`` (NOTE(p2r Z2d, 2026-10-11); the gate's LIFT / HOME report) adds each path's
+``by_branch``: per R branch, the leg-rows in it and ``|mu - R|`` of that leg's cam / hip / knee (mean, median, p90)
+-- :func:`score`'s table, on that path.
+
 Exit codes: 0 = within the line; 3 = NOTIFY (the loaded-leg cam residual line); 2 = the bank has no HOLD-branch row
 (cannot judge); 1 = unreadable input / no R constants / the replica cross-check failed. ``--dry-run`` (the pre-launch
 run on GRAFT_S1 against the bank) computes everything and reports ``would_notify`` but exits 0 unless an input is
@@ -53,7 +63,7 @@ unreadable.
 CLI:
     p2r_z2_fidelity.py --bank p2r_stand_bank.npz --ckpt MODEL.pt [--agent-yaml PATH] [--priv estimator|true]
                        [--no-hist-encoding] [--restance K=V,... | --stored-target] [--xcheck-stamp DIR]
-                       [--xcheck-ckpt PATH] [--dry-run] [--json OUT]
+                       [--xcheck-ckpt PATH] [--stand-mask] [--dry-run] [--json OUT]
 """
 from __future__ import annotations
 
@@ -170,12 +180,11 @@ def _stats(x: torch.Tensor) -> dict:
             "p90": float(torch.quantile(x, 0.9))}
 
 
-def score(bank: dict, mu: torch.Tensor, rst, line: float = CAM_LINE) -> dict:
-    """The fidelity table and the line (pure): ``bank`` carries ``target`` (N, 18), ``branch`` (N, 6), ``s1_sigma``;
-    ``mu`` (N, 18) the checkpoint's eval-path mean on the bank's obs."""
-    tgt = torch.as_tensor(np.asarray(bank["target"]), dtype=torch.float32)
-    br = torch.as_tensor(np.asarray(bank["branch"]).astype(np.int64))
-    sigma = torch.as_tensor(np.asarray(bank["s1_sigma"]), dtype=torch.float32).clamp_min(1e-9)
+def branch_table(mu: torch.Tensor, target, branch, rst) -> dict:
+    """Per R branch (pure): the leg-rows in it and ``|mu - R|`` of that leg's cam / hip / knee (:func:`_stats`).
+    NOTE(p2r Z2d, 2026-10-11): factored out of :func:`score` (unchanged) so :func:`score_paths` reports it per path."""
+    tgt = torch.as_tensor(np.asarray(target), dtype=torch.float32)
+    br = torch.as_tensor(np.asarray(branch).astype(np.int64))
     d = mu - tgt
     cam, hip, knee = d[:, rst.CAM_ACT], d[:, rst.HIP_ACT], d[:, rst.KNEE_ACT]
     by_branch = {}
@@ -183,6 +192,18 @@ def score(bank: dict, mu: torch.Tensor, rst, line: float = CAM_LINE) -> dict:
         m = br == k
         by_branch[name] = {"leg_rows": int(m.sum()), "cam_abs": _stats(cam.abs()[m]), "hip_abs": _stats(hip.abs()[m]),
                            "knee_abs": _stats(knee.abs()[m])}
+    return by_branch
+
+
+def score(bank: dict, mu: torch.Tensor, rst, line: float = CAM_LINE) -> dict:
+    """The fidelity table and the line (pure): ``bank`` carries ``target`` (N, 18), ``branch`` (N, 6), ``s1_sigma``;
+    ``mu`` (N, 18) the checkpoint's eval-path mean on the bank's obs."""
+    tgt = torch.as_tensor(np.asarray(bank["target"]), dtype=torch.float32)
+    br = torch.as_tensor(np.asarray(bank["branch"]).astype(np.int64))
+    sigma = torch.as_tensor(np.asarray(bank["s1_sigma"]), dtype=torch.float32).clamp_min(1e-9)
+    d = mu - tgt
+    cam = d[:, rst.CAM_ACT]
+    by_branch = branch_table(mu, bank["target"], bank["branch"], rst)
     hold = br == rst.BRANCH_HOLD
     per_leg = []
     for i in range(len(rst.LEGS)):
@@ -260,6 +281,14 @@ def recompute_targets(bank: dict, rst, params) -> dict:
     return out
 
 
+def mask_bank(bank: dict, rst) -> dict:
+    """NOTE(p2r Z2d, 2026-10-11): ``bank`` with every obs row through ``rst.stand_mask_obs`` (the env's stand-row
+    mask; full width = current step + the real history frames). Called AFTER :func:`recompute_targets` (R reads none
+    of the masked columns, so the targets are the same either way)."""
+    obs = torch.as_tensor(np.asarray(bank["obs"]), dtype=torch.float32)
+    return dict(bank, obs=rst.stand_mask_obs(obs).numpy())
+
+
 def allhold_bias(mu: torch.Tensor, target, branch, rst) -> dict:
     """NOTE(p2r Z2c, 2026-10-10): the gate statistic (pure). On ALL-HOLD rows (every leg's branch == HOLD), per leg
     the mean SIGNED ``mu - target`` of cam / hip / knee, and per joint group the max ``|.|`` over legs."""
@@ -279,8 +308,9 @@ def allhold_bias(mu: torch.Tensor, target, branch, rst) -> dict:
     return out
 
 
-def score_paths(bank: dict, sd: dict, esd: dict, w: dict, rst, paths=tuple(PATHS)) -> dict:
-    """``{path: allhold_bias(...)}`` for each of :data:`PATHS` named in ``paths`` (+ the per-row prior on that path)."""
+def score_paths(bank: dict, sd: dict, esd: dict, w: dict, rst, paths=tuple(PATHS), by_branch: bool = False) -> dict:
+    """``{path: allhold_bias(...)}`` for each of :data:`PATHS` named in ``paths`` (+ the per-row prior on that path).
+    NOTE(p2r Z2d, 2026-10-11): ``by_branch`` adds each path's :func:`branch_table` (the gate's LIFT / HOME report)."""
     obs = torch.as_tensor(np.asarray(bank["obs"]), dtype=torch.float32)
     sigma = torch.as_tensor(np.asarray(bank["s1_sigma"]), dtype=torch.float32).clamp_min(1e-9) \
         if "s1_sigma" in bank else None
@@ -291,6 +321,8 @@ def score_paths(bank: dict, sd: dict, esd: dict, w: dict, rst, paths=tuple(PATHS
             mu = eval_mu(obs, sd, esd, w, hist_encoding=he, priv=pv)
         r = allhold_bias(mu, bank["target"], bank["branch"], rst)
         r.update(hist_encoding=he, priv=pv)
+        if by_branch:                              # NOTE(p2r Z2d, 2026-10-11)
+            r["by_branch"] = branch_table(mu, bank["target"], bank["branch"], rst)
         if sigma is not None:
             tgt = torch.as_tensor(np.asarray(bank["target"]), dtype=torch.float32)
             r["prior_per_row_mean"] = float((0.5 * ((mu - tgt) / sigma.reshape(1, -1)).square().sum(dim=1)).mean())
@@ -336,10 +368,11 @@ def xcheck(stamp: Path, sd: dict, esd: dict, w: dict, max_rows: int = 2000) -> d
 
 def run(bank_path: Path, ckpt: Path, agent_yaml: Path | None = None, *, hist_encoding: bool = True,
         priv: str = "estimator", line: float = CAM_LINE, restance: str | None = None,
-        stored_target: bool = False) -> dict:
+        stored_target: bool = False, stand_mask: bool = False) -> dict:
     """The full read. NOTE(p2r Z2c, 2026-10-10): R is RECOMPUTED on the bank's obs with ``restance`` or the run's
     ``params/agent.yaml`` ``algorithm.restance`` (ValueError when neither: refused), unless ``stored_target``; the
-    ``paths`` block scores both the eval and the training path with the all-HOLD statistic."""
+    ``paths`` block scores both the eval and the training path with the all-HOLD statistic. NOTE(p2r Z2d,
+    2026-10-11): ``stand_mask`` masks every bank row (:func:`mask_bank`) after R, before scoring."""
     rst = load_restance()
     ckpt = Path(ckpt)
     run_yaml = ckpt.parent / "params" / "agent.yaml"
@@ -353,6 +386,8 @@ def run(bank_path: Path, ckpt: Path, agent_yaml: Path | None = None, *, hist_enc
     else:
         params, src = resolve_restance(rst, restance, (agent_yaml, run_yaml))
         bank = recompute_targets(bank, rst, params)
+    if stand_mask:
+        bank = mask_bank(bank, rst)                # NOTE(p2r Z2d, 2026-10-11): after R, before any path
     sd, esd = load_ckpt(ckpt)
     with torch.no_grad():
         mu = eval_mu(torch.as_tensor(bank["obs"], dtype=torch.float32), sd, esd, w, hist_encoding=hist_encoding,
@@ -370,6 +405,8 @@ def run(bank_path: Path, ckpt: Path, agent_yaml: Path | None = None, *, hist_enc
                                          if "stored_branch" in bank else None)
     out["allhold"] = allhold_bias(mu, bank["target"], bank["branch"], rst)
     out["paths"] = score_paths(bank, sd, esd, w, rst)
+    if stand_mask:
+        out["masked"] = True                       # NOTE(p2r Z2d, 2026-10-11)
     return out
 
 
@@ -389,6 +426,8 @@ def main(argv=None) -> int:
                     help="read the bank's stored target / branch (the pre-Z2c behaviour) instead of recomputing R")
     ap.add_argument("--xcheck-stamp", type=Path, default=None)
     ap.add_argument("--xcheck-ckpt", type=Path, default=None)
+    ap.add_argument("--stand-mask", action="store_true",
+                    help="score the bank through the env's stand-row input mask (after R; NOTE(p2r Z2d, 2026-10-11))")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--json", type=Path)
     a = ap.parse_args(argv)
@@ -396,7 +435,7 @@ def main(argv=None) -> int:
         if a.stored_target and a.restance is not None:
             raise ValueError("--stored-target and --restance are exclusive")
         out = run(a.bank, a.ckpt, a.agent_yaml, hist_encoding=not a.no_hist_encoding, priv=a.priv, line=a.line,
-                  restance=a.restance, stored_target=a.stored_target)
+                  restance=a.restance, stored_target=a.stored_target, stand_mask=a.stand_mask)
         if a.xcheck_stamp is not None:
             xc_ckpt = a.xcheck_ckpt or a.ckpt
             sd, esd = load_ckpt(xc_ckpt)

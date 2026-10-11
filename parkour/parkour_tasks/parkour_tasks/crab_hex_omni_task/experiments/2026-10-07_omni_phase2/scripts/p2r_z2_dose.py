@@ -57,13 +57,22 @@ row (obs col 15 == 1, as the trainer refuses otherwise); the per-bank means, the
 recomputed-vs-stored target difference are reported under ``bc``. The actor's widths come from ``--agent-yaml``
 (default: the checkpoint's run dir, else the S1 run's).
 
+THE MASKED BC DOSE (NOTE(p2r Z2d, 2026-10-11); P2R_Z2D_PLAN.md step 3 "Dose"). ``--bc-stand-mask`` masks every bank
+row as the trainer's ``bc_stand_mask`` does (``crab_hex_omni_restance.stand_mask_obs``, full width, AFTER R --
+which reads none of the masked columns --, before the fork's forward), so ``bc_mb0_expected`` is the masked chain's
+first-minibatch value; the file records ``bc.stand_mask: true`` (absent when off: the Z2c file is unchanged). Z2d's
+dose lives in ITS OWN file (``p2r_z2d_dose.json``, ``p2_live``'s Z2D arm): ``--bc-stand-mask`` refuses to write the
+campaign's ``p2r_z2_dose.json`` (the Z2 / Z2c arms' file). ``--json`` / ``--md`` may name new files (their parent
+directories are created).
+
 Exit codes: 0 = ok; 2 = STOP: R's in-air homing branch ('home') is absent on the bank (P2R_Z2_PLAN step 4);
 (``RC_BAND`` = 3 is reserved; band exclusion is reported, not required -- CHARTER 12.1); 1 = unreadable input /
 rebuild cross-check failed.
 
 CLI:
     p2r_z2_dose.py [--raws STAMP] [--ckpt GRAFT.pt] [--restance K=V,...] [--labels stand] [--xcheck-stamp DIR|none]
-                   [--probe-stamp DIR ...] [--bc-bank NPZ ...] [--agent-yaml PATH] [--json OUT] [--md OUT]
+                   [--probe-stamp DIR ...] [--bc-bank NPZ ...] [--bc-stand-mask] [--agent-yaml PATH] [--json OUT]
+                   [--md OUT]
 """
 from __future__ import annotations
 
@@ -102,6 +111,8 @@ RC_OK, RC_ERROR, RC_STOP, RC_BAND = 0, 1, 2, 3
 #: NOTE(p2r Z2c, 2026-10-10): the stand-bit obs column every BC bank row must read 1 (the trainer's own refusal)
 STAND_BIT_COL = 15
 BC_CHUNK = 8192
+#: NOTE(p2r Z2d, 2026-10-11): the Z2 / Z2c arms' dose file, which a masked dose must never overwrite
+Z2_DOSE_JSON = HERE.parent / "p2r_z2_dose.json"
 
 
 # ================================================================================================ by-path loads
@@ -402,8 +413,9 @@ def dose(stamp: Path, ckpt: Path, params, labels=("stand",), rst=None, lk=None,
     return out
 
 
-def bc_dose(bank_paths, ckpt: Path, params, rst=None, agent_yaml: Path | None = None) -> dict:
-    """NOTE(p2r Z2c, 2026-10-10): the BC term's expected first-minibatch value (module docstring "THE BC DOSE")."""
+def bc_dose(bank_paths, ckpt: Path, params, rst=None, agent_yaml: Path | None = None, stand_mask: bool = False) -> dict:
+    """NOTE(p2r Z2c, 2026-10-10): the BC term's expected first-minibatch value (module docstring "THE BC DOSE").
+    NOTE(p2r Z2d, 2026-10-11): ``stand_mask`` masks each row after R, before the forward ("THE MASKED BC DOSE")."""
     import p2r_z2_fidelity as fid  # noqa: PLC0415  (same directory: the actor replica)
 
     rst = rst or load_restance()
@@ -432,8 +444,10 @@ def bc_dose(bank_paths, ckpt: Path, params, rst=None, agent_yaml: Path | None = 
         for i in range(0, obs.shape[0], BC_CHUNK):
             o = torch.as_tensor(obs[i:i + BC_CHUNK])
             with torch.no_grad():
-                mu = fid.eval_mu(o, sd, esd, w, hist_encoding=False, priv="true")
                 tgt, _br = rst.restance_target(o, params)
+                if stand_mask:                     # NOTE(p2r Z2d, 2026-10-11): the trainer's order: R, mask, forward
+                    o = rst.stand_mask_obs(o)
+                mu = fid.eval_mu(o, sd, esd, w, hist_encoding=False, priv="true")
             per.append(row_losses(mu, tgt, sigma))
             if stored is not None:
                 tdiff = max(tdiff, float((tgt - torch.as_tensor(stored[i:i + BC_CHUNK])).abs().max()))
@@ -449,9 +463,12 @@ def bc_dose(bank_paths, ckpt: Path, params, rst=None, agent_yaml: Path | None = 
     exp = pooled["mean"]
     if exp is None or not math.isfinite(exp) or not exp > 0:
         raise ValueError(f"the pooled BC loss per row {exp!r} is not a finite positive number")
-    return {"checkpoint": str(ckpt), "agent_yaml": str(aw), "path": "train (true priv, hist_encoding=False)",
-            "restance_knob": rst.format_restance(params), "banks": banks, "rows": int(sum(b["rows"] for b in banks)),
-            "per_row_pooled": pooled, "bc_mb0_expected": exp, "bc_mb0_band": [BAND[0] * exp, BAND[1] * exp]}
+    out = {"checkpoint": str(ckpt), "agent_yaml": str(aw), "path": "train (true priv, hist_encoding=False)",
+           "restance_knob": rst.format_restance(params), "banks": banks, "rows": int(sum(b["rows"] for b in banks)),
+           "per_row_pooled": pooled, "bc_mb0_expected": exp, "bc_mb0_band": [BAND[0] * exp, BAND[1] * exp]}
+    if stand_mask:
+        out["stand_mask"] = True                   # NOTE(p2r Z2d, 2026-10-11): the masked chain's dose
+    return out
 
 
 def markdown(out: dict) -> str:
@@ -483,6 +500,8 @@ def markdown(out: dict) -> str:
     if bc:                                         # NOTE(p2r Z2c, 2026-10-10)
         L += ["## BC dose (Z2c)", "",
               f"- fork `{bc['checkpoint']}`, training path; R = `{bc['restance_knob']}`; {bc['rows']} pooled rows",
+              *(["- bank rows through the stand-row input mask (Z2d, `--bc-stand-mask`)"] if bc.get("stand_mask")
+                else []),
               f"- **bc_mb0_expected {bc['bc_mb0_expected']:.4f}** (pooled SE {bc['per_row_pooled']['se']}); +200 band "
               f"[{bc['bc_mb0_band'][0]:.3f}, {bc['bc_mb0_band'][1]:.3f}]", "",
               "| bank | rows | BC loss per row | SE | R vs stored max abs |", "|---|---|---|---|---|"]
@@ -505,10 +524,21 @@ def main(argv=None) -> int:
     ap.add_argument("--max-episodes", type=int, default=None)
     ap.add_argument("--bc-bank", type=Path, action="append", default=[],
                     help="a BC training bank (repeatable): adds bc_mb0_expected (NOTE(p2r Z2c, 2026-10-10))")
+    ap.add_argument("--bc-stand-mask", action="store_true",
+                    help="mask the bank rows (the env's stand-row input mask) before the BC dose "
+                         "(NOTE(p2r Z2d, 2026-10-11); the file records bc.stand_mask)")
     ap.add_argument("--agent-yaml", type=Path, default=None, help="the fork's actor widths for the BC dose")
     ap.add_argument("--json", type=Path)
     ap.add_argument("--md", type=Path)
     a = ap.parse_args(argv)
+    # NOTE(p2r Z2d, 2026-10-11): a masked dose needs banks, and lives in its own file (never the Z2 / Z2c one)
+    if a.bc_stand_mask and not a.bc_bank:
+        print("p2r_z2_dose: --bc-stand-mask needs --bc-bank", file=sys.stderr)
+        return RC_ERROR
+    if a.bc_stand_mask and a.json is not None and Path(a.json).resolve() == Z2_DOSE_JSON.resolve():
+        print(f"p2r_z2_dose: --bc-stand-mask refuses to overwrite {Z2_DOSE_JSON.name} (the Z2 / Z2c dose file); "
+              "write the Z2d dose to p2r_z2d_dose.json", file=sys.stderr)
+        return RC_ERROR
     rst = load_restance()
     try:
         params = rst.parse_restance(a.restance if a.restance is not None else os.environ.get(rst.RESTANCE_VAR))
@@ -542,12 +572,16 @@ def main(argv=None) -> int:
     out["probe_branch_shares"] = {str(p): probe_branch_shares(p) for p in a.probe_stamp} or None
     if a.bc_bank:
         try:
-            out["bc"] = bc_dose(a.bc_bank, Path(ckpt), params, rst=rst, agent_yaml=a.agent_yaml)
+            out["bc"] = bc_dose(a.bc_bank, Path(ckpt), params, rst=rst, agent_yaml=a.agent_yaml,
+                                stand_mask=a.bc_stand_mask)
         except (OSError, KeyError, ValueError) as exc:
             print(f"p2r_z2_dose: the BC dose fails: {exc.__class__.__name__}: {exc}", file=sys.stderr)
             return RC_ERROR
         out["bc_mb0_expected"] = out["bc"]["bc_mb0_expected"]
     text = json.dumps(out, indent=1, default=str)
+    for dest in (a.json, a.md):                    # NOTE(p2r Z2d, 2026-10-11): a new file may name a new dir
+        if dest:
+            Path(dest).parent.mkdir(parents=True, exist_ok=True)
     if a.json:
         a.json.write_text(text)
     if a.md:

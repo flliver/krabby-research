@@ -51,6 +51,9 @@
 #                chain is REFUSED before launch without that file, or when it is one of the chain's KRABBY_BC_BANK):
 #                rc 3 = KILL (the same path below); rc 0 = PASS, logged; rc 2 (no checkpoint) = retried next poll;
 #                any other rc = one NOTIFY line, the run continues. Full JSON: $ARMS/<ref>_z2c_gate.json.
+#                NOTE(p2r Z2d, 2026-10-11): a Z2d chain (P2__Z2d*, P2R_Z2D_PLAN.md step 4; is_z2d) gets the same gate,
+#                the same launch refusal and the same rc-3 kill path (is_z2c answers 0 for it too); the gate reads the
+#                run's stand-row mask off its params/env.yaml and scores the bank masked.
 #      rc 2 = not enough telemetry (retried next poll, logged once); rc 3 = KILL: `systemctl --user stop` (never
 #      SIGKILL), touch $OUT/STOP_QUEUE, a NOTIFY line -- EVERY phase-2 kill stops the queue and asks. A reader crash
 #      (any other rc) is logged once and retried, never a kill. AUTO_KILL=0 only advises.
@@ -65,8 +68,8 @@
 #
 # Environment overrides: CODE_ROOT, PYTHONPATH_EVAL, CAMPAIGN_DIR, ACCEPT_WHY, AUTO_KILL (precedent meanings);
 # ARMS_DIR (records dir, default $OUT/arms); P2_REANCHOR (above); P2_PY / P2_CAP (the python and the eval memory-cap
-# prefix, for tests only); P2_Z2C_GATE_BANK (required for a Z2c chain) / P2_Z2C_GATE_CKPT / P2_Z2C_GATE_MIN_AGE (s,
-# default 60) for the Z2c fidelity gate.
+# prefix, for tests only); P2_Z2C_GATE_BANK (required for a Z2c / Z2d chain) / P2_Z2C_GATE_CKPT / P2_Z2C_GATE_MIN_AGE
+# (s, default 60) for the Z2c fidelity gate.
 # P2_RUN_ARM_LIB=1 + `source` defines the functions and returns before the command line is read (tests only).
 set -u
 R=/home/nickmagus/krabby/krabby-research
@@ -391,8 +394,12 @@ if gj_path.is_file():
 print(ck_path.parent)
 PY
 }
-is_z2c() {  # CHAIN -> 0 for a stage-p2r Z2c chain (P2__Z2c_s<seed>, a relaunch P2__Z2cR<j>_s<seed>)
-  case "$1" in P2__Z2c*) return 0 ;; *) return 1 ;; esac
+is_z2c() {  # CHAIN -> 0 for a stage-p2r Z2c chain (P2__Z2c_s<seed>, a relaunch P2__Z2cR<j>_s<seed>), or a Z2d one
+  # (NOTE(p2r Z2d, 2026-10-11): is_z2d -- the same fidelity gate, launch refusal and kill path)
+  case "$1" in P2__Z2c*) return 0 ;; *) is_z2d "$1" ;; esac
+}
+is_z2d() {  # CHAIN -> 0 for a stage-p2r Z2d chain (P2__Z2d_s<seed>, a relaunch P2__Z2dR<j>_s<seed>; NOTE(p2r Z2d, 2026-10-11))
+  case "$1" in P2__Z2d*) return 0 ;; *) return 1 ;; esac
 }
 z2c_gate_refusal() {  # CHAIN -> prints why a Z2c chain may not launch (nothing = ok): the gate bank (P2R_Z2C_PLAN
   # step 5, held-out walkstop es2) must be a readable file and NOT one of the chain's KRABBY_BC_BANK banks

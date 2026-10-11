@@ -24,13 +24,29 @@ must exist in the base; ``estimator_state_dict``, when present, overrides the es
 HELD OUT. When the run's ``params/agent.yaml`` names its BC banks (``algorithm.bc_bank``), a gate bank among them is
 refused (rc 1): the gate must read states BC never fit.
 
+THE STAND-ROW INPUT MASK (NOTE(p2r Z2d, 2026-10-11); P2R_Z2D_PLAN.md step 1 "The gate"). A Z2d run trains under
+``KRABBY_OMNI_STAND_MASK=1``, so its gate scores the bank as the masked env feeds the policy. The mask is read off
+the run: ``stand_mask: true`` in an omni obs term's params of ``<run dir>/params/env.yaml`` (else the checkpoint's own
+run dir's), as :func:`bc_banks_of` reads ``params/agent.yaml``; ``--stand-mask`` forces it (a control with no run
+dir: the GRAFT, an offline fit). When masked, every bank row goes through ``crab_hex_omni_restance.stand_mask_obs``
+(full width: the current step + the real history frames) AFTER R is recomputed (R reads columns 3, 4, 18..34, none
+masked) and BEFORE either path is scored. The JSON records ``masked`` and ``mask_source``. The kill clauses are
+unchanged (the all-HOLD hip / cam lines, eval path).
+
+REPORTED, never gating (NOTE(p2r Z2d, 2026-10-11); the plan's physical lines), on the eval path: the LIFT-branch
+hip mean ``|mu - R|`` against 0.30 (a leg must leave DOWN at -0.05) and the HOME-branch hip mean against 0.25 (a leg
+must reach UP at -0.0625) -- ``reported``; and each ``--report-bank`` (repeatable: the held-out Z2c walkstop crouch
+bank) scored the same way (R recomputed, the same mask, both paths' all-HOLD statistic and the two lines) --
+``report_banks``.
+
 Exit codes (``scripts/run_arm.sh``'s Z2c branch): 0 PASS; 3 FAIL (kill: ``systemctl --user stop``, STOP_QUEUE,
 NOTIFY); 2 WAIT (the checkpoint does not exist yet); 1 error (unreadable input, no R constants, no all-HOLD row, a
 non-held-out bank). The LAST stdout line is one JSON object (``--json OUT`` also writes it).
 
 CLI:
     p2r_z2c_gate.py --run-dir RUN [--ckpt MODEL.pt] [--bank BANK.npz] [--restance K=V,...] [--agent-yaml PATH]
-                    [--ckpt-state STATE.pt] [--hip-line 0.05] [--cam-line 0.05] [--json OUT]
+                    [--ckpt-state STATE.pt] [--hip-line 0.05] [--cam-line 0.05] [--stand-mask]
+                    [--report-bank NPZ ...] [--json OUT]
     (--bank defaults to $P2_Z2C_GATE_BANK)
 """
 from __future__ import annotations
@@ -55,6 +71,8 @@ HIP_LINE = 0.05
 CAM_LINE = 0.05
 BANK_ENV = "P2_Z2C_GATE_BANK"
 RC_PASS, RC_ERROR, RC_WAIT, RC_FAIL = 0, 1, 2, 3
+#: NOTE(p2r Z2d, 2026-10-11): the REPORTED physical lines, eval path: branch -> hip mean |mu - R| line
+REPORT_LINES = {"lift": 0.30, "home": 0.25}
 VERDICT = {RC_PASS: "PASS", RC_ERROR: "ERROR", RC_WAIT: "WAIT", RC_FAIL: "FAIL"}
 
 
@@ -118,6 +136,47 @@ def bc_banks_of(agent_yaml: Path | None) -> list[str]:
     return [resolved(str(x).strip()) for x in items if str(x).strip()]
 
 
+def _yaml_tolerant(path: Path):
+    import yaml  # noqa: PLC0415
+
+    class _L(yaml.SafeLoader):
+        pass
+
+    _L.add_multi_constructor("", lambda ld, suffix, node: None)
+    try:
+        return yaml.load(open(path), Loader=_L) or {}  # noqa: S506
+    except yaml.YAMLError as exc:                  # an unreadable dump is an error, never "unmasked"
+        raise ValueError(f"{path}: unreadable YAML ({exc.__class__.__name__})") from exc
+
+
+def stand_mask_of(env_yaml: Path | None) -> tuple[bool | None, str | None]:
+    """NOTE(p2r Z2d, 2026-10-11): ``(masked, where)`` from a run's ``params/env.yaml``: True when an
+    ``observations.<group>.<term>.params.stand_mask`` reads true (the omni obs term's knob param), False when the file
+    reads but carries none; ``(None, None)`` when there is no such file."""
+    if env_yaml is None or not Path(env_yaml).is_file():
+        return None, None
+    cfg = _yaml_tolerant(Path(env_yaml))
+    obs = cfg.get("observations") if isinstance(cfg, dict) else None
+    for group, terms in (obs or {}).items() if isinstance(obs, dict) else ():
+        for term, t in (terms or {}).items() if isinstance(terms, dict) else ():
+            params = t.get("params") if isinstance(t, dict) else None
+            if isinstance(params, dict) and params.get("stand_mask") is True:
+                return True, f"{env_yaml}: observations.{group}.{term}.params.stand_mask"
+    return False, f"{env_yaml}: no stand_mask"
+
+
+def report_lines(by_branch: dict, lines: dict = REPORT_LINES) -> dict:
+    """NOTE(p2r Z2d, 2026-10-11): ``{branch: {value, line, ok, leg_rows}}`` -- the branch's hip mean ``|mu - R|``
+    (:func:`p2r_z2_fidelity.branch_table`) against its physical line (pure; reported, never gated)."""
+    out = {}
+    for name, line in lines.items():
+        b = (by_branch or {}).get(name) or {}
+        v = (b.get("hip_abs") or {}).get("mean")
+        out[name] = {"hip_mean_abs": v, "line": line, "ok": (v <= line if v is not None else None),
+                     "leg_rows": b.get("leg_rows")}
+    return out
+
+
 def resolved(path) -> str:
     """A repo-relative path resolved against the repo root (as motion_knobs.resolve_anchor_ckpt), then made real."""
     p = Path(path)
@@ -126,8 +185,10 @@ def resolved(path) -> str:
 
 def gate(bank_path: Path, ckpt: Path, *, run_dir: Path | None = None, agent_yaml: Path | None = None,
          restance: str | None = None, ckpt_state: Path | None = None, hip_line: float = HIP_LINE,
-         cam_line: float = CAM_LINE) -> dict:
-    """The full gate read (IO): see the module docstring. Returns the JSON record, ``rc`` included."""
+         cam_line: float = CAM_LINE, stand_mask: bool = False, report_banks=()) -> dict:
+    """The full gate read (IO): see the module docstring. Returns the JSON record, ``rc`` included.
+    NOTE(p2r Z2d, 2026-10-11): ``stand_mask`` forces the mask (else it is read off the run's ``params/env.yaml``);
+    ``report_banks`` are scored the same way and reported."""
     out = {"ckpt": str(ckpt), "ckpt_state": (str(ckpt_state) if ckpt_state else None), "bank": str(bank_path),
            "run_dir": (str(run_dir) if run_dir else None), "lines": {"hip": hip_line, "cam": cam_line},
            "path": "eval (own-estimator priv_explicit, hist_encoding=True)"}
@@ -148,6 +209,17 @@ def gate(bank_path: Path, ckpt: Path, *, run_dir: Path | None = None, agent_yaml
     held = [b for y in (run_yaml, ck_yaml) for b in bc_banks_of(y)]
     out.update(agent_yaml=str(aw), restance_scored=rst.format_restance(params), restance_source=src,
                bc_banks_of_run=sorted(set(held)) or None)
+    # NOTE(p2r Z2d, 2026-10-11): the run's stand-row mask (forced, or read off params/env.yaml)
+    if stand_mask:
+        masked, mask_source = True, "--stand-mask"
+    else:
+        masked, mask_source = False, "no params/env.yaml"
+        for y in ((Path(run_dir) / "params" / "env.yaml") if run_dir else None, ckpt.parent / "params" / "env.yaml"):
+            m, where = stand_mask_of(y)
+            if m is not None:
+                masked, mask_source = m, where
+                break
+    out.update(masked=masked, mask_source=mask_source)
     if resolved(bank_path) in set(held):
         return dict(out, rc=RC_ERROR, why=f"the gate bank {bank_path} is one of the run's BC banks: not held out")
     bank = fid.recompute_targets(fid.load_bank(Path(bank_path)), rst, params)
@@ -160,14 +232,37 @@ def gate(bank_path: Path, ckpt: Path, *, run_dir: Path | None = None, agent_yaml
     if "stored_target" in bank:
         out["target_vs_stored_max_abs"] = float(np.abs(np.asarray(bank["target"], np.float32)
                                                        - np.asarray(bank["stored_target"], np.float32)).max())
+    if masked:
+        bank = fid.mask_bank(bank, rst)            # NOTE(p2r Z2d, 2026-10-11): after R, before both paths
     sd, esd = fid.load_ckpt(ckpt)
     if ckpt_state is not None:
         sd, esd = apply_state(sd, esd, Path(ckpt_state))
-    paths = fid.score_paths(bank, sd, esd, w, rst)
+    paths = fid.score_paths(bank, sd, esd, w, rst, by_branch=True)
     out["eval"], out["train_reported"] = paths["eval"], paths["train"]
+    out["reported"] = report_lines(paths["eval"]["by_branch"])            # NOTE(p2r Z2d, 2026-10-11)
+    if report_banks:
+        out["report_banks"] = [score_report_bank(Path(b), sd, esd, w, rst, params, masked, set(held))
+                               for b in report_banks]
     j = judge(paths["eval"], hip_line, cam_line)
     out.update(rc=j["rc"], fails=j["fails"], why=j["why"])
     return out
+
+
+def score_report_bank(bank_path: Path, sd: dict, esd: dict, w: dict, rst, params, masked: bool, held: set) -> dict:
+    """NOTE(p2r Z2d, 2026-10-11): one ``--report-bank`` scored as the gate bank is (R recomputed with the same
+    constants, the same mask), REPORTED: both paths' all-HOLD statistic, the eval path's LIFT / HOME lines, and
+    whether the bank is one of the run's BC banks (then it is not held out). An unreadable bank is recorded as
+    ``error``, never raised: a reported bank must not turn the gate's verdict into an error."""
+    try:
+        bank = fid.recompute_targets(fid.load_bank(bank_path), rst, params)
+    except (OSError, KeyError, ValueError) as exc:
+        return {"bank": str(bank_path), "error": f"{exc.__class__.__name__}: {exc}"}
+    if masked:
+        bank = fid.mask_bank(bank, rst)
+    paths = fid.score_paths(bank, sd, esd, w, rst, by_branch=True)
+    return {"bank": str(bank_path), "rows": int(np.asarray(bank["obs"]).shape[0]), "masked": masked,
+            "in_run_bc_banks": resolved(bank_path) in held, "eval": paths["eval"], "train_reported": paths["train"],
+            "reported": report_lines(paths["eval"]["by_branch"])}
 
 
 def main(argv=None) -> int:
@@ -180,6 +275,11 @@ def main(argv=None) -> int:
     ap.add_argument("--ckpt-state", type=Path, default=None)
     ap.add_argument("--hip-line", type=float, default=HIP_LINE)
     ap.add_argument("--cam-line", type=float, default=CAM_LINE)
+    # NOTE(p2r Z2d, 2026-10-11): force the stand-row mask (controls without a run dir); reported extra banks
+    ap.add_argument("--stand-mask", action="store_true",
+                    help="score through the stand-row input mask (default: read off <run dir>/params/env.yaml)")
+    ap.add_argument("--report-bank", type=Path, action="append", default=[],
+                    help="a bank scored the same way and REPORTED, never gated (repeatable)")
     ap.add_argument("--json", type=Path, default=None)
     a = ap.parse_args(argv)
     bank = a.bank or (Path(os.environ[BANK_ENV]) if os.environ.get(BANK_ENV) else None)
@@ -189,7 +289,8 @@ def main(argv=None) -> int:
     else:
         try:
             out = gate(bank, ckpt, run_dir=a.run_dir, agent_yaml=a.agent_yaml, restance=a.restance,
-                       ckpt_state=a.ckpt_state, hip_line=a.hip_line, cam_line=a.cam_line)
+                       ckpt_state=a.ckpt_state, hip_line=a.hip_line, cam_line=a.cam_line,
+                       stand_mask=a.stand_mask, report_banks=a.report_bank)
         except (OSError, KeyError, ValueError, RuntimeError) as exc:
             out = {"rc": RC_ERROR, "why": f"{exc.__class__.__name__}: {exc}", "ckpt": str(ckpt), "bank": str(bank)}
     out["verdict"] = VERDICT[int(out["rc"])]

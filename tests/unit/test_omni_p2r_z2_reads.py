@@ -509,8 +509,8 @@ def test_z2_invalid_widening(read, tmp_path, monkeypatch):
     off0 = _meta_stamp(tmp_path / "o", env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="0"))
     bad = _meta_stamp(tmp_path / "b", env=dict(ENV_Z2, KRABBY_OMNI_STAND_PROXY="hold"))   # the load-sensing obs
     monkeypatch.setattr(read, "z_raw_bit_reasons", lambda pt, lag=1: ([], 1))
-    assert read.z2_invalid_reasons({"name": "Z2", "stamps": {"suite@1": good, f"{WS}@1": off0}}) == []
-    r = read.z2_invalid_reasons({"name": "Z2", "stamps": {"suite@1": good, f"{WS}@1": bad}})
+    assert read.z2_invalid_reasons({"name": "P2__Z2_s18", "stamps": {"suite@1": good, f"{WS}@1": off0}}) == []
+    r = read.z2_invalid_reasons({"name": "P2__Z2_s18", "stamps": {"suite@1": good, f"{WS}@1": bad}})
     assert len(r) == 1 and "KRABBY_OMNI_STAND_PROXY" in r[0] and WS in r[0]
     # the ladder's verdict is overridden (as the clock rule does), PENDING is left alone
     pt = {"name": "P2__Z2_s18", "stamps": {"suite@1": bad}}
@@ -521,7 +521,7 @@ def test_z2_invalid_widening(read, tmp_path, monkeypatch):
     assert read.p2r_z2_verdicts({"heads": {"P2__Z2_s18": pt}})["P2__Z2_s18"]["verdict"] == "PENDING"
     # the raw bit is folded in
     monkeypatch.setattr(read, "z_raw_bit_reasons", lambda pt, lag=1: (["raw bit off"], 1))
-    assert read.z2_invalid_reasons({"name": "Z2", "stamps": {"suite@1": good}}) == ["raw bit off"]
+    assert read.z2_invalid_reasons({"name": "P2__Z2_s18", "stamps": {"suite@1": good}}) == ["raw bit off"]
 
 
 def test_p2r_z2_report_adoption_grade(read, monkeypatch):
@@ -533,7 +533,8 @@ def test_p2r_z2_report_adoption_grade(read, monkeypatch):
     monkeypatch.setattr(read, "p2r_z_verdicts", lambda res: {name: {"verdict": "STILL", "stand": {"outcome": "STILL"},
                                                                     "why": []}})
     monkeypatch.setattr(read, "z_raw_bit_reasons", lambda pt, lag=1: ([], 15))
-    monkeypatch.setattr(read, "z2_env_reasons", lambda pt, stamps=None: [])
+    # NOTE(p2r Z2d, 2026-10-11): z2_env_reasons grew want_mask (the stand-row mask rule)
+    monkeypatch.setattr(read, "z2_env_reasons", lambda pt, stamps=None, want_mask=None: [])
     monkeypatch.setattr(read, "p2s_attribution", lambda *a: {"status": "LEVER", "control": "C0R_s18"})
     monkeypatch.setattr(read, "z2_reads", lambda stamps: _z2(settle_median_s=2.0))
     monkeypatch.setattr(read, "fh400", lambda p: (0.84, 400))

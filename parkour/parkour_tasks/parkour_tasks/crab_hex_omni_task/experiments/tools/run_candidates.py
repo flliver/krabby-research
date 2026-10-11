@@ -1747,6 +1747,18 @@ def _stand_proxy_ok(txt: str, value) -> bool:
     return got == "true" and _grep_scalar(txt, "stand_bit_clock") == "true"
 
 
+def _stand_mask_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_STAND_MASK`` (NOTE(p2r Z2d, 2026-10-11)): ``1`` = ``stand_mask: true`` on the omni obs term with
+    ``stand_bit_clock: true`` beside it (the rows it masks) and no held proxy (both write columns 83-88); off = the
+    param absent or false."""
+    on = _motion().parse_stand_mask(value)
+    got = _grep_scalar(txt, "stand_mask")
+    if on is None:
+        return got in (None, "false")
+    return (got == "true" and _grep_scalar(txt, "stand_bit_clock") == "true"
+            and _grep_scalar(txt, "stand_proxy_hold") in (None, "false"))
+
+
 def _restance_dump(txt: str) -> dict | None:
     """The ``algorithm.restance`` mapping of an agent dump as ``{name: float}`` (None when absent / null)."""
     alg = _alg_block(txt)
@@ -2566,10 +2578,12 @@ def _check_restance_composition(env: dict, where: str, reasons: list) -> None:
     cams + hip-pitch positions). Inert while none of the three knobs is set; a malformed value is left to
     ``_check_knob``."""
     mk = _motion()
-    names = (mk.STAND_PROXY_VAR, *mk.RESTANCE_KNOBS)
+    # NOTE(p2r Z2d, 2026-10-11): + the stand-row mask (its clock-bit / held-proxy / lpf_obs rules)
+    names = (mk.STAND_PROXY_VAR, *mk.RESTANCE_KNOBS,
+             *((mk.STAND_MASK_VAR,) if hasattr(mk, "STAND_MASK_VAR") else ()))
     if not any(str(env.get(var) or "").strip() for var in names):
         return
-    for var in (*names, mk.STAND_OBS_VAR, mk.STAND_PRIOR_W_VAR):
+    for var in (*names, mk.STAND_OBS_VAR, mk.STAND_PRIOR_W_VAR, mk.ACTION_LPF_OBS_VAR):
         try:
             mk.MOTION_KNOB_PARSERS[var](env.get(var))
         except ValueError:
@@ -2787,6 +2801,9 @@ OVERLAY_DUMP_CHECKS = {
     # ---- p2r Z2 re-stance (P2R_Z2_PLAN step 1, 2026-10-10). Env side: the held proxy on the omni obs term;
     # runner side (AGENT_DUMP_KEYS): the prior's target and R's constants in the algorithm block.
     "KRABBY_OMNI_STAND_PROXY": lambda txt, v: _stand_proxy_ok(txt, v),
+    # p2r Z2d (P2R_Z2D_PLAN step 1, 2026-10-11). Env side: the stand-row input mask on the omni obs term (its
+    # algorithm.bc_stand_mask twin is audited in the training log, bc_log_checks).
+    "KRABBY_OMNI_STAND_MASK": lambda txt, v: _stand_mask_ok(txt, v),
     "KRABBY_STAND_PRIOR_TARGET": lambda txt, v: _stand_prior_target_ok(txt, v),
     "KRABBY_RESTANCE": lambda txt, v: _restance_ok(txt, v),
     # ---- p2r Z2c clean-state cloning (P2R_Z2C_PLAN step 1, 2026-10-10). Runner side (AGENT_DUMP_KEYS).
@@ -2913,7 +2930,9 @@ def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     mk = _motion()
     armed = []
     for key in (*getattr(mk, "STATUE_KNOBS", ()), *getattr(mk, "RESTANCE_KNOBS", ()),
-                *((mk.STAND_PROXY_VAR,) if hasattr(mk, "STAND_PROXY_VAR") else ())):
+                *((mk.STAND_PROXY_VAR,) if hasattr(mk, "STAND_PROXY_VAR") else ()),
+                # NOTE(p2r Z2d, 2026-10-11): the stand-row mask's consumed line
+                *((mk.STAND_MASK_VAR,) if hasattr(mk, "STAND_MASK_VAR") else ())):
         if key not in (env or {}):
             continue
         try:
@@ -2950,7 +2969,9 @@ def statue_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
 
 
 #: The ``PPOWithExtractor`` fields the p2r Z2c BC knobs write (``algorithm.*``; ``bc_seed`` stays at its default).
-BC_ALG_FIELDS = ("bc_coef", "bc_bank", "bc_batch_size", "bc_seed")
+BC_ALG_FIELDS = ("bc_coef", "bc_bank", "bc_batch_size", "bc_seed",
+                 # NOTE(p2r Z2d, 2026-10-11): the bank rows' stand-row mask (KRABBY_OMNI_STAND_MASK=1 beside BC)
+                 "bc_stand_mask")
 
 
 def bc_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
@@ -2960,7 +2981,8 @@ def bc_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     the overlay sets (``KRABBY_BC_BATCH`` only when non-blank), no runner warning dropping a BC field, the algorithm's
     own ``[PPO] construction:`` line naming ``bc_coef`` (equal to the knob), ``bc_bank_rows`` (> 0) and
     ``bc_batch_size`` (the knob, or ``motion_knobs.BC_BATCH_DEFAULT``), and ``Mean bc:`` / ``Mean bc_mb0:`` printed
-    (the term ran).
+    (the term ran). NOTE(p2r Z2d, 2026-10-11): with ``KRABBY_OMNI_STAND_MASK=1`` the same line names
+    ``bc_stand_mask=True`` (the bank rows masked on load).
     """
     mk = _motion()
     if not hasattr(mk, "BC_W_VAR") or mk.BC_W_VAR not in (env or {}):
@@ -2997,6 +3019,16 @@ def bc_log_checks(rec: dict, env: dict) -> list[tuple[str, bool]]:
     for key in ("bc", "bc_mb0"):
         out.append((f"log: Mean {key} printed (the BC term ran)",
                     re.search(rf"^\s*Mean {key}:", txt, re.M) is not None))
+    # NOTE(p2r Z2d, 2026-10-11): KRABBY_OMNI_STAND_MASK=1 beside BC -> the bank was masked on load (knob off: no
+    # extra check, the Z2c audit unchanged)
+    if hasattr(mk, "STAND_MASK_VAR"):
+        try:
+            masked = mk.parse_stand_mask(env.get(mk.STAND_MASK_VAR)) is not None
+        except Exception:                                               # noqa: BLE001
+            masked = False                # a bad value is the parser check's to report, not this one's
+        if masked:
+            out.append(("log: [PPO] construction names bc_stand_mask=True",
+                        re.search(r"\bbc_stand_mask=True\b", line or "") is not None))
     return out
 
 

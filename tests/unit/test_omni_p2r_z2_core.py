@@ -167,7 +167,8 @@ def test_columns_and_keys():
     assert mk.RESTANCE_KNOBS == ("KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE")
     assert set(mk.RESTANCE_KNOBS) <= set(mk.AGENT_KNOBS) and mk.STAND_PROXY_VAR not in mk.AGENT_KNOBS
     assert mk.STAND_PROXY_VAR in mk.EVAL_SEMANTIC_KNOBS and mk.KNOB_OFF_VALUES[mk.STAND_PROXY_VAR] == "0"
-    assert mk.EVAL_CARRY_EXTERNAL == (mk.STAND_PROXY_VAR,)
+    # NOTE(p2r Z2d, 2026-10-11): + the stand-row mask (pinned by test_omni_p2r_z2d_mask.py)
+    assert mk.EVAL_CARRY_EXTERNAL == (mk.STAND_PROXY_VAR, mk.STAND_MASK_VAR)
     # the runner-side pair is never carried into an eval (the probe reads KRABBY_RESTANCE on its own)
     assert not set(mk.RESTANCE_KNOBS) & set(mk.EVAL_SEMANTIC_KNOBS + mk.EVAL_STRUCTURE_KNOBS
                                             + mk.PPO_CONSTRUCTION_KNOBS + mk.STATUE_KNOBS)

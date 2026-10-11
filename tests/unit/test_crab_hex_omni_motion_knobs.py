@@ -82,7 +82,10 @@ PHASE2_KNOBS = ("KRABBY_STAND_STANCE_W", "KRABBY_POWER_JOINTS",
                 "KRABBY_OMNI_STAND_PROXY", "KRABBY_STAND_PRIOR_TARGET", "KRABBY_RESTANCE",
                 # + the p2r Z2c clean-state cloning knobs (P2R_Z2C_PLAN step 1, 2026-10-10; runner side), pinned by
                 # test_omni_p2r_z2c_bc.py
-                "KRABBY_BC_W", "KRABBY_BC_BANK", "KRABBY_BC_BATCH")
+                "KRABBY_BC_W", "KRABBY_BC_BANK", "KRABBY_BC_BATCH",
+                # + the p2r Z2d stand-row input mask (P2R_Z2D_PLAN step 1, 2026-10-11; env side), pinned by
+                # test_omni_p2r_z2d_mask.py
+                "KRABBY_OMNI_STAND_MASK")
 
 
 def _load(path: Path, name: str):

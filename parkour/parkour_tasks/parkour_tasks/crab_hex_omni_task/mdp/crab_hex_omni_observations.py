@@ -102,6 +102,17 @@ stay the raw live proxy (the push happens inside ``super().__call__`` before the
 one bitwise. Construction-time only; refused without ``stand_bit_clock`` (the stand rows are the bit's) and with
 ``lpf_obs`` (the appended head would move the proxy off columns 83-88 (the first, load-sensing R read them; the cams-only R of 2026-10-10 reads none)).
 
+THE STAND-ROW INPUT MASK (``params["stand_mask"]``, ``KRABBY_OMNI_STAND_MASK=1``; omni phase-2 stage p2r Z2d,
+``P2R_Z2D_PLAN.md`` step 1, 2026-10-11; DEFAULT OFF, WIDTH-PRESERVING). NOTE(p2r Z2d, 2026-10-11): on STAND rows
+(``command.stand_mask()``, the latched slot the column-15 bit carries) the RETURNED observation's last-action columns
+65-82 read 0 and its proxy columns 83-88 read -0.5 ("parked"), in the current step and in each of the 10 real
+history frames of the returned history block -- ``crab_hex_omni_restance.stand_mask_obs``, the one function the
+cloning bank loader also applies. Applied after the stand-bit / held-proxy patches; ``_obs_history_buffer`` is
+never written (the stored history keeps the raw rows), walking rows are untouched. At each reset the term logs
+``Metrics/stand_mask_frac`` into ``env.extras["log"]``: the share of rows masked since the last log (nothing while
+no row was seen). Construction-time only; refused without ``stand_bit_clock``, with ``stand_proxy_hold`` (both write
+columns 83-88) and with ``lpf_obs`` (the appended head would shift the layout the mask writes).
+
 ``ZERO_STEERING_HISTORY = False``: the forward task blanks dims 6-7 in the history copy so
 the policy cannot read the goal heading out of its own past (it is supposed to steer from
 what it sees). Here those dims ARE the command -- a facing error the policy must integrate
@@ -143,6 +154,7 @@ from parkour_tasks.crab_hex_forward_task.mdp.observations import (
     _CURRENT_SENSE_GATE_FRACTION,
     CrabHexParkourObservations,
 )
+from parkour_tasks.crab_hex_omni_task.mdp import crab_hex_omni_restance as restance
 
 #: The only two spellings :data:`CrabHexOmniParkourObservations.facing_obs_encoding` accepts.
 #: Must stay equal to ``omni_knobs.FACING_OBS_ENCODINGS`` (the knob validates at config build,
@@ -282,6 +294,13 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: Off unless ``params["stand_proxy_hold"]`` (``KRABBY_OMNI_STAND_PROXY=hold``); see the module docstring.
     stand_proxy_hold: bool = False
 
+    #: NOTE(p2r Z2d, 2026-10-11): the training-log key the stand-row mask writes at every reset (the share of rows
+    #: masked since the last log; see the module docstring).
+    STAND_MASK_FRAC_KEY = "Metrics/stand_mask_frac"
+
+    #: Off unless ``params["stand_mask"]`` (``KRABBY_OMNI_STAND_MASK=1``); see the module docstring.
+    stand_mask: bool = False
+
     @staticmethod
     def _check_clock_hide_ramp(ramp, clock_hide: bool) -> tuple[int, int] | None:
         """``None`` or ``(t0, t1)`` env steps, ``0 <= t0 < t1``; a ramp without the hide flag raises.
@@ -330,6 +349,23 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             raise ValueError("stand_proxy_hold and lpf_obs: the appended filtered-rod head would move the proxy "
                              "off columns 83-88, which the re-stance controller reads")
 
+    @staticmethod
+    def _check_stand_mask(stand_mask: bool, stand_bit_clock: bool, stand_proxy_hold: bool, lpf_obs: bool) -> None:
+        """NOTE(p2r Z2d, 2026-10-11): ``stand_mask`` needs ``stand_bit_clock`` (its stand rows are the bit's), and
+        refuses ``stand_proxy_hold`` (both write columns 83-88) and ``lpf_obs`` (the appended head would shift the
+        layout the mask writes); the knob parser refuses the same at config build, this guards the built cfg."""
+        if not stand_mask:
+            return
+        if not stand_bit_clock:
+            raise ValueError("stand_mask masks the stand-bit rows, which needs stand_bit_clock "
+                             "(KRABBY_OMNI_STAND_OBS=clock)")
+        if stand_proxy_hold:
+            raise ValueError("stand_mask and stand_proxy_hold both write the proxy columns 83-88 on stand rows; "
+                             "set one")
+        if lpf_obs:
+            raise ValueError("stand_mask and lpf_obs: the appended filtered-rod head would shift the obs layout "
+                             "the mask writes (columns 65-88 and the history frames)")
+
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         _check_omni()
         clip = None
@@ -362,6 +398,9 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             bool(params.get("stand_proxy_hold", False)) if isinstance(params, dict) else False
         )
         self._check_stand_proxy_hold(self.stand_proxy_hold, self.stand_bit_clock, self.lpf_obs)
+        # NOTE(p2r Z2d, 2026-10-11): the stand-row input mask (width unchanged).
+        self.stand_mask = bool(params.get("stand_mask", False)) if isinstance(params, dict) else False
+        self._check_stand_mask(self.stand_mask, self.stand_bit_clock, self.stand_proxy_hold, self.lpf_obs)
         super().__init__(cfg, env)
         # The per-episode latch (ramp mode). All-False before the first reset is the draw at
         # t = 0, where p(0) = 0 for every legal t0 >= 0; rows are forced hidden from t1 on anyway.
@@ -377,6 +416,12 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             self._stand_proxy_held = torch.full((self.num_envs, 6), self.STAND_PROXY_UNKNOWN, device=self.device)
             self._stand_proxy_n_live = torch.zeros((), dtype=torch.long, device=self.device)
             self._stand_proxy_n_total = torch.zeros((), dtype=torch.long, device=self.device)
+        # NOTE(p2r Z2d, 2026-10-11): the masked-row counters since the last log (device tensors: no sync per step);
+        # None while the knob is off.
+        self._stand_mask_n_masked = self._stand_mask_n_total = None
+        if self.stand_mask:
+            self._stand_mask_n_masked = torch.zeros((), dtype=torch.long, device=self.device)
+            self._stand_mask_n_total = torch.zeros((), dtype=torch.long, device=self.device)
 
     # ------------------------------------------------ the optional head extensions (default off)
     def _extra_head_dim(self) -> int:
@@ -433,6 +478,8 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         super().reset(env_ids)
         if self.stand_proxy_hold:
             self._reset_stand_proxy(env_ids)
+        if self.stand_mask:
+            self._log_stand_mask()
         if not self.clock_hide:
             return
         env = self._env
@@ -472,6 +519,28 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             extras.setdefault("log", {})[self.STAND_PROXY_LIVE_FRAC_KEY] = frac.float()
         self._stand_proxy_n_live.zero_()
         self._stand_proxy_n_total.zero_()
+
+    # ------------------------------------------------- the stand-row input mask (p2r Z2d, 2026-10-11)
+    def _log_stand_mask(self) -> None:
+        """Log the share of rows masked since the last log, then restart it. Nothing is logged while no row was
+        seen since the last log (as ``_reset_stand_proxy``: a share of nothing is not a 0.0)."""
+        total = int(self._stand_mask_n_total)
+        if total == 0:
+            return
+        frac = self._stand_mask_n_masked.double() / total
+        extras = getattr(self._env, "extras", None)
+        if isinstance(extras, dict):
+            extras.setdefault("log", {})[self.STAND_MASK_FRAC_KEY] = frac.float()
+        self._stand_mask_n_masked.zero_()
+        self._stand_mask_n_total.zero_()
+
+    def _mask_stand_rows(self, env: ParkourManagerBasedRLEnv, observations: torch.Tensor) -> None:
+        """The shared mask on the stand rows of the RETURNED observation, in place (``_obs_history_buffer`` is never
+        touched); counts the rows for the liveness log."""
+        rows = env.command_manager.get_term("base_velocity").stand_mask().bool()
+        restance.stand_mask_obs(observations, rows, inplace=True)
+        self._stand_mask_n_masked += rows.sum()
+        self._stand_mask_n_total += rows.numel()
 
     def _knee_gate_full(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor:
         """``(N, 6)`` bool: the leg's KNEE rod drive gate is full -- the forward proxy's ``gate_k``
@@ -565,6 +634,7 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         cmd_obs_scalar: bool = False,
         stand_bit_clock: bool = False,
         stand_proxy_hold: bool = False,
+        stand_mask: bool = False,
     ) -> torch.Tensor:
         # The observation manager validates the term's ``params`` against THIS signature and
         # passes them as keyword arguments, so the clip must be an optional parameter here
@@ -611,6 +681,11 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
                 "stand_proxy_hold changed after the observation term was built (built "
                 f"{self.stand_proxy_hold}, called {stand_proxy_hold}); it is construction-time only"
             )
+        if bool(stand_mask) != self.stand_mask:
+            raise ValueError(
+                "stand_mask changed after the observation term was built (built "
+                f"{self.stand_mask}, called {stand_mask}); it is construction-time only"
+            )
         observations = super().__call__(
             env, asset_cfg, sensor_cfg, parkour_name, history_length
         )
@@ -636,4 +711,8 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             # NOTE(p2r Z2, 2026-10-10): the held proxy on the CURRENT step's stand rows only; the row
             # ``super().__call__`` pushed onto the history carries the live proxy, and stays so.
             self._hold_stand_proxy(env, observations)
+        if self.stand_mask:
+            # NOTE(p2r Z2d, 2026-10-11): last action 0 / proxy -0.5 on the stand rows of the RETURNED observation
+            # (current step + its real history frames); the stored history keeps the raw rows.
+            self._mask_stand_rows(env, observations)
         return observations
