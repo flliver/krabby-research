@@ -209,14 +209,15 @@ def test_launcher_loads_the_one_restance_module(L, RST):
 
 
 # ===================================================================================== launcher: the mode wrapper
-def _mode(L, SB, n=4, params=None, mu_bias=None, stand_bank=False, bank_max=50):
+def _mode(L, SB, n=4, params=None, mu_bias=None, stand_bank=False, bank_max=50, observe=False):
     env = SB.StubEnv(n)
     ct = env.cmd
     L.arm_slot_latch(ct, n, "cpu")
     s1 = SB.StubActor()
     rst = L.load_restance()
     m = L.P2RMode("restance", ct, env.unwrapped, priv=(SB.P0, SB.P1), num_prop=SB.NUM_PROP, bank_max=bank_max,
-                  restance=(rst, params or rst.RestanceParams()), mu_bias=mu_bias, stand_bank=stand_bank)
+                  restance=(rst, params or rst.RestanceParams()), mu_bias=mu_bias, stand_bank=stand_bank,
+                  observe=observe)
     m.bind_s1(s1.act_inference, s1)
     return env, ct, s1, m, rst
 
@@ -310,6 +311,44 @@ def test_stand_bank_reservoir_alive_stand_rows_only(L, SB):
     tgt, br = rst.restance_target(obs, rst.RestanceParams())
     m._stand_bank_add(0, obs, torch.tensor([True, False, False, False]), tgt, br, obs[:, 83:89])
     assert m.sbank_seen == seen
+
+
+def test_observe_runs_the_policy_everywhere_and_banks_its_action(L, SB, tmp_path):
+    """NOTE(p2r Z2c diagnosis, 2026-10-10): --p2r-observe = the closed loop: the policy's own action on every row
+    (stand rows included), R / branch still recorded, and the stand bank carries the applied action ``mu``."""
+    n, T = 2, 6
+    env, ct, s1, m, rst = _mode(L, SB, n=n, stand_bank=True, bank_max=10, observe=True)
+    assert m.closed_loop and callable(m.observe)                  # the attribute never shadows observe()
+    env.unwrapped.episode_length_buf[:] = 3
+    ct.slot_id = torch.tensor([0, 1])                             # env 0 stands
+    _begin(m, n, T=T)
+    obs, _ = env.get_observations()
+    for _t in range(T):
+        m.observe(obs)
+        with torch.inference_mode():
+            a = m(obs, hist_encoding=True)
+        ref = s1.act_inference(obs, hist_encoding=True)
+        assert torch.equal(a, ref)                                # stand row 0 too: the policy acts
+        tgt, br = rst.restance_target(obs, rst.RestanceParams())
+        assert torch.equal(m._cur["rst"][L.RAW_TARGET][_t, 0], tgt[0])
+        obs = obs + 0.01
+    b = m.stand_bank_arrays()
+    assert bool(b["observe"]) and b["mu"].shape == (T, 18) and np.abs(b["mu"]).sum() > 0
+    t2, _ = rst.restance_target(torch.as_tensor(b["obs"]), rst.RestanceParams())
+    assert np.array_equal(t2.numpy(), b["target"])
+    # off by default: no mu / observe keys, R applied on stand rows
+    env2, ct2, s12, m2, _ = _mode(L, SB, n=1, stand_bank=True)
+    assert "mu" not in (m2.stand_bank_arrays() if m2.sbank else {})
+    with pytest.raises(ValueError):
+        _mode(L, SB, n=1, observe=True, mu_bias=[0.0] * 18)
+    env3 = SB.StubEnv(1)
+    with pytest.raises(ValueError):
+        L.P2RMode("hold", env3.cmd, env3.unwrapped, priv=(SB.P0, SB.P1), num_prop=SB.NUM_PROP, observe=True)
+    with pytest.raises(SystemExit):
+        _opts(L, ["--p2r-mode", "hold", "--p2r-observe"])
+    with pytest.raises(SystemExit):
+        _opts(L, ["--p2r-mode", "restance", "--p2r-observe", "--p2r-residual", str(_residual(tmp_path))],
+              environ={"KRABBY_OMNI_STAND_OBS": "clock", "KRABBY_RESTANCE": "default"})
 
 
 def test_reservoir_pick_matches_algorithm_r(L):
