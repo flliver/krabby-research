@@ -1863,3 +1863,13 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - p2_live: `P2R_Z2D_PRIOR_LIVE_FLOOR`. The Z2D judge replaces Z2c's in-band verdict for this one clause and notes a
     below-band value. Tests added. A replay on the killed X19 run now passes the clause with the note.
   - Candidates v18: `P2__Z2dR1_s18` = `P2__Z2d_s18` verbatim (fresh name). Preflight PASS.
+- 2026-10-11 09:13–09:29, **Z2dR1 relaunched (X20); +200 wiring PASS and model_20500 fidelity gate PASS.**
+  - **+200:** prior dose 0.9662 (bit-identical to X19, same seed), accepted under the Z2D liveness rule with its
+    note; mask live; cloning dose in band.
+  - **Gate** (`p2r_z2d_gate.json`): masked (auto-detected from the run's env.yaml); held-out walkstop es2 all-HOLD hip
+    0.007, cam 0.016.
+  - **Reported at +500** (`p2r_z2d_gatereport_20500.json`):
+    - LIFT hip 0.39 (line 0.30) and HOME hip 0.28 (line 0.25), not yet at the physical lines (Z2c's LIFT was 0.33 at
+      +500 with its last-action cue);
+    - Z2c crouch bank: HOLD 0.039 / 0.047;
+    - drift 0.017 (line 0.67); formed.
