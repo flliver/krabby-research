@@ -1737,3 +1737,38 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
   - **+1000 terrain check: PASS** (obstacle levels 1.08 → 5.58).
   - The first monitor filter ended in `cut` (block-buffered), so these events were read by hand at 19:32. No action
     was delayed: the gate is run_arm's.
+- 2026-10-10 21:26–22:22, **Z2c trained (X18 model_24993) and fully read: the stand FAILS (NO EFFECT); walking is
+  intact** (`p2r_z2c_read.json`; step 6 → STOP and ask).
+  - **Fit on held-out R-driven states** (final checkpoint, eval path, all-HOLD rows):
+    - walkstop es2: hip 0.007, cam 0.022;
+    - suite es2: hip 0.008, cam 0.022.
+    - The stepping branches fit more loosely: LIFT hip 0.18, HOME cam 0.18, SEAT cam 0.13 (Z2: 0.38 / 0.43 / 0.18).
+
+  | | suite es1 | suite es2 | walkstop es1 | walkstop es2 |
+  |---|---|---|---|---|
+  | steps / s | 1.58 | 1.42 | — | — |
+  | taps / s | 50.9 | 47.7 | — | — |
+  | KS | 0.52 | 0.52 | — | — |
+  | homed / settled | 0 / 0 % | 0 / 0 % | 0 / 1.3 % | 0 / 0.3 % |
+  | re-step lifts per stand | 19 | 17 | 28 | 27 |
+  | body height (probe 1.062–1.065) | 1.042 | 1.042 | 1.042 | 1.043 |
+  | stopped hip yaw mean / max | 1.85° / 5.1° | 1.83° / 6.5° | 1.80° / 16.9° | 1.82° / 18.2° |
+
+  - **Verdict:** NO EFFECT, NOT ATTRIBUTED; every Z2 stand gate fails except falls (0) and settle time. Not
+    adoption-grade.
+  - **Walking: no cost.** field_hard 0.8425 against Z1 0.83 (n = 400, SE 0.026) and C0R 0.785; no FLAT FAIL.
+  - **Closed-loop mechanism** (raw suite es1 episodes against the probe's, from an identical spawn):
+    - Z2c's hip outputs start at −0.01 to −0.03, as on the bank.
+    - By step 3–4 they jump to about −0.1 to −0.15 on every leg, after only about 0.015 rad of joint deviation, and
+      lock there. The body sinks from 1.068 to 1.044 and the feet chatter.
+    - On bank rows at the same steps (R-driven), the hip error is about 0.
+    - So the closed loop leaves the bank's state manifold within a few steps: BC fixed the fit ON the manifold, not
+      the dynamics off it.
+  - **Offline sensitivity checks rule out single-input causes:**
+    - own last action: gain about 0.25 (hips only);
+    - hip-position deviation: restoring;
+    - proxy flipped from parked −0.5 to live 0: hip −0.03 to −0.07;
+    - joint velocity, lin / ang velocity, attitude: ≤ 0.02.
+    - The history encoder is constant on this fork.
+  - **Next (diagnosis, before asking):** a closed-loop observe pass (`--p2r-observe`, 014447d7). Z2c acts; R, its
+    branch and the applied μ are banked on stand rows (P2R_OBSZ2c_s18 suite es1 + walkstop es1).
