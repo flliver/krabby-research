@@ -1800,3 +1800,14 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
 - 2026-10-10 ~23:05, **user decision: Z2d = stand-row input mask + fine-tune.** On stand rows only, last action
   → 0 and proxy → parked (−0.5); walking rows are untouched. Fine-tune with cloning on masked banks, so the stepping
   phase is learned from leg state, as R reads it. A plan comes next (plan mode, audit). Z1 stays the stand of record.
+- 2026-10-11 ~00:30, **Z2d plan approved** (`P2R_Z2D_PLAN.md`; audited 1 pass, the cap).
+  - **Premise probe** (`z2d_premise/`, CPU): an offline fit of the GRAFT actor to R on masked banks learns the
+    stepping phase from state.
+    - held-out walkstop es2 LIFT hip 0.204 at 12k steps (Z2c masked, no fine-tune: 0.467); HOLD 0.009 / 0.011.
+    - Adding Z2c's suite crouch bank brings the held-out walkstop crouch HOLD to 0.045.
+    - The probe's history mask used the actor's misaligned 75-wide view. The history latent is constant (μ moves
+      ≤ 4e-6), so the numbers stand.
+  - **Audit's blocking fix:** step 2b, a mask-only closed-loop control of Z2c before training. Every other
+    pre-training check is open-loop, and the 20500 HOLD gate is blind to the mask (Z2c 0.0204 / 0.0200).
+  - **Plan:** env-side stand-row mask (`KRABBY_OMNI_STAND_MASK`); cloning banks masked on load, plus Z2c's suite crouch
+    bank; explicit `Z2D` arm and gate wiring; INVALID rule for unmasked stamps. Budget about 4.6 GPU-h.

@@ -1,0 +1,332 @@
+{
+ "fit_lr0.0003": {
+  "0": {
+   "walkstop_es2": {
+    "allhold_n": 71707,
+    "allhold_hip_max": 0.5266,
+    "allhold_cam_max": 0.535,
+    "wait": {
+     "n": 26905,
+     "hip_abs": 0.783,
+     "cam_abs": 0.779,
+     "hip_signed": -0.299
+    },
+    "lift": {
+     "n": 6759,
+     "hip_abs": 0.998,
+     "cam_abs": 0.771,
+     "hip_signed": 0.774
+    },
+    "home": {
+     "n": 20934,
+     "hip_abs": 1.031,
+     "cam_abs": 0.399,
+     "hip_signed": 0.844
+    },
+    "seat": {
+     "n": 25387,
+     "hip_abs": 0.655,
+     "cam_abs": 0.384,
+     "hip_signed": 0.127
+    }
+   },
+   "suite_es2": {
+    "allhold_n": 100000,
+    "allhold_hip_max": 0.5598,
+    "allhold_cam_max": 0.5384
+   },
+   "obs_suite_Z2c": {
+    "allhold_n": 82447,
+    "allhold_hip_max": 0.4987,
+    "allhold_cam_max": 0.5262,
+    "home": {
+     "n": 9461,
+     "hip_abs": 0.532,
+     "cam_abs": 0.221,
+     "hip_signed": 0.482
+    },
+    "seat": {
+     "n": 11945,
+     "hip_abs": 0.257,
+     "cam_abs": 0.264,
+     "hip_signed": 0.03
+    }
+   },
+   "obs_walkstop_Z2c": {
+    "allhold_n": 63792,
+    "allhold_hip_max": 0.4933,
+    "allhold_cam_max": 0.5171,
+    "wait": {
+     "n": 19378,
+     "hip_abs": 0.703,
+     "cam_abs": 0.672,
+     "hip_signed": -0.267
+    },
+    "lift": {
+     "n": 13324,
+     "hip_abs": 0.59,
+     "cam_abs": 0.669,
+     "hip_signed": 0.396
+    },
+    "home": {
+     "n": 32996,
+     "hip_abs": 0.695,
+     "cam_abs": 0.237,
+     "hip_signed": 0.582
+    },
+    "seat": {
+     "n": 20611,
+     "hip_abs": 0.613,
+     "cam_abs": 0.388,
+     "hip_signed": -0.002
+    }
+   }
+  },
+  "4000": {
+   "walkstop_es2": {
+    "allhold_n": 71707,
+    "allhold_hip_max": 0.0114,
+    "allhold_cam_max": 0.0179,
+    "wait": {
+     "n": 26905,
+     "hip_abs": 0.05,
+     "cam_abs": 0.096,
+     "hip_signed": -0.034
+    },
+    "lift": {
+     "n": 6759,
+     "hip_abs": 0.264,
+     "cam_abs": 0.244,
+     "hip_signed": 0.262
+    },
+    "home": {
+     "n": 20934,
+     "hip_abs": 0.106,
+     "cam_abs": 0.206,
+     "hip_signed": 0.094
+    },
+    "seat": {
+     "n": 25387,
+     "hip_abs": 0.091,
+     "cam_abs": 0.136,
+     "hip_signed": -0.062
+    }
+   },
+   "suite_es2": {
+    "allhold_n": 100000,
+    "allhold_hip_max": 0.0091,
+    "allhold_cam_max": 0.0197
+   },
+   "obs_suite_Z2c": {
+    "allhold_n": 82447,
+    "allhold_hip_max": 0.0502,
+    "allhold_cam_max": 0.0234,
+    "home": {
+     "n": 9461,
+     "hip_abs": 0.414,
+     "cam_abs": 0.08,
+     "hip_signed": 0.414
+    },
+    "seat": {
+     "n": 11945,
+     "hip_abs": 0.049,
+     "cam_abs": 0.027,
+     "hip_signed": -0.047
+    }
+   },
+   "obs_walkstop_Z2c": {
+    "allhold_n": 63792,
+    "allhold_hip_max": 0.0526,
+    "allhold_cam_max": 0.0373,
+    "wait": {
+     "n": 19378,
+     "hip_abs": 0.066,
+     "cam_abs": 0.14,
+     "hip_signed": -0.055
+    },
+    "lift": {
+     "n": 13324,
+     "hip_abs": 0.429,
+     "cam_abs": 0.187,
+     "hip_signed": 0.429
+    },
+    "home": {
+     "n": 32996,
+     "hip_abs": 0.322,
+     "cam_abs": 0.166,
+     "hip_signed": 0.32
+    },
+    "seat": {
+     "n": 20611,
+     "hip_abs": 0.11,
+     "cam_abs": 0.203,
+     "hip_signed": -0.095
+    }
+   }
+  },
+  "8000": {
+   "walkstop_es2": {
+    "allhold_n": 71707,
+    "allhold_hip_max": 0.0173,
+    "allhold_cam_max": 0.0146,
+    "wait": {
+     "n": 26905,
+     "hip_abs": 0.049,
+     "cam_abs": 0.069,
+     "hip_signed": -0.035
+    },
+    "lift": {
+     "n": 6759,
+     "hip_abs": 0.223,
+     "cam_abs": 0.174,
+     "hip_signed": 0.215
+    },
+    "home": {
+     "n": 20934,
+     "hip_abs": 0.098,
+     "cam_abs": 0.152,
+     "hip_signed": 0.076
+    },
+    "seat": {
+     "n": 25387,
+     "hip_abs": 0.079,
+     "cam_abs": 0.108,
+     "hip_signed": -0.062
+    }
+   },
+   "suite_es2": {
+    "allhold_n": 100000,
+    "allhold_hip_max": 0.0148,
+    "allhold_cam_max": 0.0149
+   },
+   "obs_suite_Z2c": {
+    "allhold_n": 82447,
+    "allhold_hip_max": 0.0468,
+    "allhold_cam_max": 0.0192,
+    "home": {
+     "n": 9461,
+     "hip_abs": 0.393,
+     "cam_abs": 0.094,
+     "hip_signed": 0.393
+    },
+    "seat": {
+     "n": 11945,
+     "hip_abs": 0.034,
+     "cam_abs": 0.033,
+     "hip_signed": -0.031
+    }
+   },
+   "obs_walkstop_Z2c": {
+    "allhold_n": 63792,
+    "allhold_hip_max": 0.0533,
+    "allhold_cam_max": 0.0208,
+    "wait": {
+     "n": 19378,
+     "hip_abs": 0.076,
+     "cam_abs": 0.124,
+     "hip_signed": -0.069
+    },
+    "lift": {
+     "n": 13324,
+     "hip_abs": 0.384,
+     "cam_abs": 0.158,
+     "hip_signed": 0.384
+    },
+    "home": {
+     "n": 32996,
+     "hip_abs": 0.286,
+     "cam_abs": 0.137,
+     "hip_signed": 0.283
+    },
+    "seat": {
+     "n": 20611,
+     "hip_abs": 0.101,
+     "cam_abs": 0.179,
+     "hip_signed": -0.09
+    }
+   }
+  },
+  "12000": {
+   "walkstop_es2": {
+    "allhold_n": 71707,
+    "allhold_hip_max": 0.0077,
+    "allhold_cam_max": 0.017,
+    "wait": {
+     "n": 26905,
+     "hip_abs": 0.051,
+     "cam_abs": 0.058,
+     "hip_signed": -0.037
+    },
+    "lift": {
+     "n": 6759,
+     "hip_abs": 0.187,
+     "cam_abs": 0.124,
+     "hip_signed": 0.178
+    },
+    "home": {
+     "n": 20934,
+     "hip_abs": 0.086,
+     "cam_abs": 0.13,
+     "hip_signed": 0.057
+    },
+    "seat": {
+     "n": 25387,
+     "hip_abs": 0.072,
+     "cam_abs": 0.094,
+     "hip_signed": -0.058
+    }
+   },
+   "suite_es2": {
+    "allhold_n": 100000,
+    "allhold_hip_max": 0.0062,
+    "allhold_cam_max": 0.0174
+   },
+   "obs_suite_Z2c": {
+    "allhold_n": 82447,
+    "allhold_hip_max": 0.0376,
+    "allhold_cam_max": 0.0082,
+    "home": {
+     "n": 9461,
+     "hip_abs": 0.357,
+     "cam_abs": 0.091,
+     "hip_signed": 0.357
+    },
+    "seat": {
+     "n": 11945,
+     "hip_abs": 0.036,
+     "cam_abs": 0.035,
+     "hip_signed": -0.034
+    }
+   },
+   "obs_walkstop_Z2c": {
+    "allhold_n": 63792,
+    "allhold_hip_max": 0.0447,
+    "allhold_cam_max": 0.0168,
+    "wait": {
+     "n": 19378,
+     "hip_abs": 0.082,
+     "cam_abs": 0.106,
+     "hip_signed": -0.051
+    },
+    "lift": {
+     "n": 13324,
+     "hip_abs": 0.361,
+     "cam_abs": 0.136,
+     "hip_signed": 0.361
+    },
+    "home": {
+     "n": 32996,
+     "hip_abs": 0.283,
+     "cam_abs": 0.119,
+     "hip_signed": 0.28
+    },
+    "seat": {
+     "n": 20611,
+     "hip_abs": 0.096,
+     "cam_abs": 0.171,
+     "hip_signed": -0.076
+    }
+   }
+  }
+ }
+}
