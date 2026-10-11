@@ -1922,3 +1922,13 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     Z2d as statue (replicates) > a re-scoped Z2e. Z2e would need off-home HOLD banks, a trim-fidelity gate (slope on
     |c| 0.1–0.3 rows), onset-row oversampling and R re-validation: ≥ 4.6 GPU-h plus plan / audit.
   - **STOP: asked the user.**
+- 2026-10-11 ~13:40, **user decision: "Z2d as a better statue" → s16 / s17 replicates first, then the user decides the
+  bake.**
+  - Plan `P2R_Z2D_REP_PLAN.md`, audited 1 pass, approved: same recipe per seed, own graft; per-seed REFS / HOLD / DIAG
+    baselines; per-seed dose files; graft identity proven against REFS.
+  - **Pre-registered `replicate_grade` at each seed:**
+    - `ladder_ok` against `REFS_S1_s<seed>`;
+    - walkstop falls ≤ 1 / 300;
+    - walkstop hip-yaw mean ≤ 0.5 × the same-seed HOLD's;
+    - walkstop six-down > the same-seed HOLD's.
+  - Calibrated at s18: Z2d passes, Z1 fails. Budget about 10.4 GPU-h.
