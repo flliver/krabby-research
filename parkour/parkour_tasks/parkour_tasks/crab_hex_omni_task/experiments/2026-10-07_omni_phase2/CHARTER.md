@@ -1167,7 +1167,7 @@ verdict rules, replay gate, guards and budget are the pre-registration. This sec
     result, the new lever) and the PHASE2_REPORT lead line. The policy README was regenerated (`bundle_policy --sync`);
     `test_policy_of_record_omni` passes.
 
-## 12. Stage p2r: a stand regime (pre-registered 2026-10-09, before any p2r run)
+## 12. Stage p2r: a stand regime (pre-registered 2026-10-09, before any p2r run) -- CLOSED 2026-10-11
 
 The plan of record is `P2R_PLAN.md`: audited in 2 passes (the cap) and approved by the user on 2026-10-09. Its steps,
 stop rules, verdicts and budget are the pre-registration. This section logs the run.
@@ -1932,3 +1932,24 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - walkstop hip-yaw mean ≤ 0.5 × the same-seed HOLD's;
     - walkstop six-down > the same-seed HOLD's.
   - Calibrated at s18: Z2d passes, Z1 fails. Budget about 10.4 GPU-h.
+- 2026-10-11 16:25, **the user stopped the Z2d replicate queue.** The baseline script, the orchestrator and the running
+  eval were stopped via `systemctl --user stop` on the scope (SIGTERM, not SIGKILL).
+  - **Done:** REFS_S1_s16 (lr + 14 rows), DIAG_REFSAMP_s16, P2R_HOLD_s16 (suite / walkstop es1 + es2), GRAFT_S1_s16
+    (suite / field_turn / walkstop es1). A read-only `--p2r-graft-identity` PASSes; the stamps were not written to the
+    sidecar.
+  - **REFS_S1_s17:** done through field_suite es1. Walkstop es1 was interrupted, leaving the empty dir
+    `lr/REFS_S1_s17/walkstop__omni/seed001/2026-10-11_20-23-04`; es2 never started.
+  - **Never ran:** any replicate training. The v19 chains `P2__Z2d_s16/s17` were never launched. Graft S1_s17_c15 has
+    CPU identity only.
+- 2026-10-11 ~16:30, **the user CLOSED p2r and moved back to the pre-Z1 head.** "Close out the Z2 campaign. Move back
+  to the pre Z1 head (it still had the stepping in place). I will start a new campaign testing a task specific
+  standing network that trains separately from the omni-directional movement."
+  - **Nothing from p2r is baked.** Z1's "stand of record" label in this log was internal to the campaign and is
+    retired. The head of record stays S1 s18 = `policy/6_p2a_field/model_19994` (P2__S1_s18, X08, sha 968cc550),
+    unchanged since the 2026-10-08 bake; it still steps in place at stand.
+  - **Every p2r knob is default-off and set by no preset.** The REFH bridge (code 14301cd2, bitwise = REFS_S1_s18)
+    equals HEAD's code_sha; eval_sha 1d021625 is unchanged.
+  - **Close-out record:** `P2R_CLOSE.md`, including the handoff for the stand-network campaign (workflow
+    wf_d1ad077d-619: repo audit + sourced fact sheet + draft + a fable fact-check; 9 corrections applied).
+  - `policy/manifest.yaml` `followups.stand_march` and `PHASE2_REPORT.md` were updated, and `bundle_policy --sync` /
+    `--check` passes.

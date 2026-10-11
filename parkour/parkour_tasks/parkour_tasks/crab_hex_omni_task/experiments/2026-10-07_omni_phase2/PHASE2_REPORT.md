@@ -190,6 +190,10 @@ Other findings:
   - ~~**Lead:** TG's 2.83 → 1.08 steps/s~~ **Corrected 2026-10-09 (CHARTER §11):** TG's cut was a hover artefact.
     Its zero-step episodes hold a tripod up all hold, and its feet were off the ground more than REF's. Stage p2s then
     tried a stand-slot support income: it stopped the march but halved walking lift (field_hard 0.81 → 0.62).
+  - **Stage p2r (CHARTER §12, closed 2026-10-11, nothing baked):** an in-network statue (Z1: stand bit + statue
+    prior + walking anchor) was STILL at no walking cost but did not home its cams; distilling the scripted re-stance
+    controller R (Z2 / Z2c / Z2d) never homed closed-loop. R routed at the stand slot homes 97 % with 0 falls. Next: a
+    separately trained stand network (`P2R_CLOSE.md`).
 - **Back overshoot** of 1.087 at s18. Untested levers: a back-speed tracking re-weight, or a short fine-tune at a lower
   action_rate weight.
 - **The wall deficit remains.**
