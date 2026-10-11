@@ -749,7 +749,7 @@ def test_candidates_v14_z2_chain_is_z1_verbatim_plus_the_two_knobs():
     d = yaml.safe_load(open(CAMP / "candidates.yaml"))
     v12 = yaml.safe_load(open(CAMP / "scripts/candidates_v12.yaml"))
     v13 = yaml.safe_load(open(CAMP / "scripts/candidates_v13.yaml"))
-    assert (CAMP / "candidates.yaml").read_bytes() == (CAMP / "scripts/candidates_v16.yaml").read_bytes()
+    assert (CAMP / "candidates.yaml").read_bytes() == (CAMP / "scripts/candidates_v17.yaml").read_bytes()
     assert d["chains"]["P2__Z1_s18"] == v12["chains"]["P2__Z1_s18"]           # v12's Z1 untouched
     assert d["references"]["P2__Z2_s18"] == {"chain": "P2__Z2_s18", "seed": 18}
     z1, z2 = d["chains"]["P2__Z1_s18"], d["chains"]["P2__Z2_s18"]
@@ -772,10 +772,10 @@ def test_candidates_v14_z2_chain_is_z1_verbatim_plus_the_two_knobs():
     # everything else in the file is v13's (and so v12's)
     rest = {k: v for k, v in d.items() if k not in ("chains", "references")}
     assert rest == {k: v for k, v in v13.items() if k not in ("chains", "references")}
-    new = ("P2__Z2_s18", "P2__Z2c_s18")                                       # + v16's Z2c chain (P2R_Z2C_PLAN.md)
+    new = ("P2__Z2_s18", "P2__Z2c_s18", "P2__Z2d_s18")                        # + v16's Z2c + v17's Z2d chains
     assert {k: v for k, v in d["chains"].items() if k not in new} == \
         {k: v for k, v in v13["chains"].items() if k not in new} == v12["chains"]
-    assert {k: v for k, v in d["references"].items() if k != "P2__Z2c_s18"} == v13["references"]
+    assert {k: v for k, v in d["references"].items() if k not in ("P2__Z2c_s18", "P2__Z2d_s18")} == v13["references"]
 
 
 def test_candidates_v14_validator_dry_run(rc):

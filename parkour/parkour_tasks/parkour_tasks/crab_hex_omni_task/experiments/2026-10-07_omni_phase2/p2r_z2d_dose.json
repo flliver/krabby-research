@@ -1,0 +1,308 @@
+{
+ "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_REFSAMP_s18/suite__omni/seed001/2026-10-09_01-49-08",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt",
+ "labels": [
+  "stand"
+ ],
+ "actions": "sampled",
+ "debias_c": 9.0,
+ "sigma_A": [
+  1.255490779876709,
+  1.2851413488388062,
+  1.0208244323730469,
+  1.0235955715179443,
+  1.0960005521774292,
+  1.1667640209197998,
+  0.711197018623352,
+  0.7534115314483643,
+  0.6633875370025635,
+  0.6503607034683228,
+  0.6371210217475891,
+  0.6723113656044006,
+  0.6726819276809692,
+  0.644262969493866,
+  0.6438657641410828,
+  0.6190069317817688,
+  0.6321020722389221,
+  0.6053183674812317
+ ],
+ "sigma_sample": [
+  1.2554908990859985,
+  1.2851412296295166,
+  1.0208244323730469,
+  1.0235954523086548,
+  1.0960005521774292,
+  1.1667640209197998,
+  0.711197018623352,
+  0.753411591053009,
+  0.6633874773979187,
+  0.6503607630729675,
+  0.6371210217475891,
+  0.6723113656044006,
+  0.6726819276809692,
+  0.6442630290985107,
+  0.6438657641410828,
+  0.619006872177124,
+  0.6321020722389221,
+  0.6053183674812317
+ ],
+ "sigma_sample_equals_sigma_A": true,
+ "restance": {
+  "lift": -0.5,
+  "rho": 1.0,
+  "up_frac": 0.5,
+  "down_frac": 0.4,
+  "k_c": 2.0,
+  "k_h": 1.0,
+  "trim": 0.1,
+  "eps_c": 0.1,
+  "eps_air": 0.05,
+  "tilt_max": 0.1,
+  "eps_step": 0.3
+ },
+ "restance_knob": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+ "episodes": 100,
+ "rows": 60000,
+ "hip_default": [
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438,
+  0.027169998735189438
+ ],
+ "hip_default_source": "linkage.hip_default_rad",
+ "per_row": {
+  "restance": {
+   "mean": 16.70283949938615,
+   "se": 0.04178257957422631,
+   "n": 60000
+  },
+  "target0": {
+   "mean": 16.089157474811874,
+   "se": 0.040038089000763534,
+   "n": 60000
+  },
+  "restance_raw_mean": 25.702838897705078,
+  "target0_raw_mean": 25.08915901184082,
+  "restance_minus_target0": {
+   "mean": 0.6136820245862007,
+   "se": 0.010976082493494533,
+   "n": 60000
+  }
+ },
+ "branch_shares": {
+  "hold": 0.30925,
+  "wait": 0.13088055555555556,
+  "lift": 0.0107,
+  "home": 0.17001666666666668,
+  "seat": 0.3791527777777778
+ },
+ "restance_nonzero_share": 0.9998999834060669,
+ "leg_down_share": 0.4508305490016937,
+ "leg_up_share": 0.4689444303512573,
+ "mean_abs_target": [
+  0.15719372034072876,
+  0.4007091820240021,
+  0.17831161618232727,
+  0.2284313440322876,
+  0.14992015063762665,
+  0.3449413478374481,
+  0.036274999380111694,
+  0.14995832741260529,
+  0.12559999525547028,
+  0.04802500084042549,
+  0.03525000065565109,
+  0.1470416635274887,
+  0.036274999380111694,
+  0.14995832741260529,
+  0.12559999525547028,
+  0.04802500084042549,
+  0.03525000065565109,
+  0.1470416635274887
+ ],
+ "by_label": {
+  "stand": {
+   "rows": 60000,
+   "restance": {
+    "mean": 16.70283949938615,
+    "se": 0.04178257957422631,
+    "n": 60000
+   },
+   "target0": {
+    "mean": 16.089157474811874,
+    "se": 0.040038089000763534,
+    "n": 60000
+   },
+   "branch_shares": {
+    "hold": 0.30925,
+    "wait": 0.13088055555555556,
+    "lift": 0.0107,
+    "home": 0.17001666666666668,
+    "seat": 0.3791527777777778
+   }
+  }
+ },
+ "bands": {
+  "by_share": {
+   "0.12": {
+    "expected_restance": 2.004340739926338,
+    "expected_target0": 1.9306988969774248,
+    "band": [
+     1.0422571847616957,
+     4.008681479852676
+    ],
+    "excludes_own_target0": false,
+    "excludes_z1_realised": false
+   },
+   "0.16": {
+    "expected_restance": 2.6724543199017843,
+    "expected_target0": 2.5742651959699,
+    "band": [
+     1.3896762463489278,
+     5.344908639803569
+    ],
+    "excludes_own_target0": false,
+    "excludes_z1_realised": false
+   }
+  },
+  "union_band": [
+   1.0422571847616957,
+   5.344908639803569
+  ],
+  "target0_refs": {
+   "target0@0.12": 1.9306988969774248,
+   "target0@0.16": 2.5742651959699,
+   "z1_realised": 1.99
+  },
+  "union_excludes_every_target0": false,
+  "target0_inside_union": [
+   "target0@0.12",
+   "target0@0.16",
+   "z1_realised"
+  ]
+ },
+ "band_lo": 1.0422571847616957,
+ "band_hi": 5.344908639803569,
+ "band_basis": "union [0.52 x E(0.12), 2 x E(0.16)]",
+ "rc": 0,
+ "verdict": "band [1.0422571847616957, 5.344908639803569] does not exclude ['target0@0.12', 'target0@0.16', 'z1_realised'] (informational: S1's mu dominates both targets); home branch present",
+ "xcheck": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_PROBE_s18/walkstop__omni/seed001/2026-10-09_17-26-50",
+  "bank_rows": 5000,
+  "matched": 5000,
+  "hip_bitwise_share": 1.0,
+  "hip_max_abs_diff": 0.0,
+  "hip_default_source": "linkage.hip_default_rad",
+  "cams_bitwise": true,
+  "tol": 1e-05,
+  "ok": true
+ },
+ "noisy_statue_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/DIAG_NOISYSTATUE_s18/suite__omni/seed001/2026-10-09_01-56-31",
+ "probe_branch_shares": null,
+ "bc": {
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt",
+  "agent_yaml": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/params/agent.yaml",
+  "path": "train (true priv, hist_encoding=False)",
+  "restance_knob": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+  "banks": [
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/walkstop__omni/seed001/2026-10-10_22-18-27/p2r_stand_bank.npz",
+    "rows": 100000,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 8.893952599515915,
+     "se": 0.04673250133016989,
+     "n": 100000
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   },
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/suite__omni/seed001/2026-10-10_22-24-03/p2r_stand_bank.npz",
+    "rows": 100000,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 3.808293598382473,
+     "se": 0.003482708539498656,
+     "n": 100000
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   },
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/field_turn__omni/seed001/2026-10-10_22-38-42/p2r_stand_bank.npz",
+    "rows": 40000,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 19.74027728767991,
+     "se": 0.1211881652274978,
+     "n": 40000
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   },
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/field_hard__omni/seed001/2026-10-10_22-41-00/p2r_stand_bank.npz",
+    "rows": 47500,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 4.4583792230907235,
+     "se": 0.003557344371578658,
+     "n": 47500
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   },
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTresg_s18/walkstop__omni/seed001/2026-10-10_22-44-47/p2r_stand_bank.npz",
+    "rows": 100000,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 8.976423108592034,
+     "se": 0.04712349200372569,
+     "n": 100000
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   },
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTresg_s18/suite__omni/seed001/2026-10-10_22-47-41/p2r_stand_bank.npz",
+    "rows": 100000,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 4.118279942579269,
+     "se": 0.005199984058551789,
+     "n": 100000
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   },
+   {
+    "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_OBSZ2c_s18/suite__omni/seed001/2026-10-11_02-23-04/p2r_stand_bank.npz",
+    "rows": 100000,
+    "obs_width": 1149,
+    "per_row": {
+     "mean": 6.370500271279812,
+     "se": 0.011585539237140665,
+     "n": 100000
+    },
+    "stored_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+    "target_vs_stored_max_abs": 0.0
+   }
+  ],
+  "rows": 587500,
+  "per_row_pooled": {
+   "mean": 7.179794138959926,
+   "se": 0.01510240228377079,
+   "n": 587500
+  },
+  "bc_mb0_expected": 7.179794138959926,
+  "bc_mb0_band": [
+   3.7334929522591613,
+   14.359588277919851
+  ],
+  "stand_mask": true
+ },
+ "bc_mb0_expected": 7.179794138959926
+}

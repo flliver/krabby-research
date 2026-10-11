@@ -1811,3 +1811,36 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     pre-training check is open-loop, and the 20500 HOLD gate is blind to the mask (Z2c 0.0204 / 0.0200).
   - **Plan:** env-side stand-row mask (`KRABBY_OMNI_STAND_MASK`); cloning banks masked on load, plus Z2c's suite crouch
     bank; explicit `Z2D` arm and gate wiring; INVALID rule for unmasked stamps. Budget about 4.6 GPU-h.
+- 2026-10-11 00:30–01:10, **Z2d steps 1–3.**
+  - **Step 1, code** (bf33e8d2; workflow wf_541cf863-ee2; fable diff review PASS, nothing blocking):
+    - `KRABBY_OMNI_STAND_MASK=1`: on stand rows, last action → 0 and proxy → −0.5, current step + the 10 real history
+      frames, returned obs only; `Metrics/stand_mask_frac`.
+    - the shared `stand_mask_obs`; `bc_stand_mask`;
+    - gate / fidelity / dose / observe masking, with LIFT / HOME reported against their physical lines;
+    - an explicit Z2D arm; run_arm's gate for `P2__Z2d`;
+    - p2_read's masked-head INVALID rule, made fail-closed after the review's note.
+  - **Step 2, bridge PASS:** REFH_S1_s18 (knobs off) is bitwise = REFS on suite, field_hard es1 and walkstop
+    (1000 / 100 / 100 episodes). Pair appended (→ 14301cd2).
+  - **Step 2b, mask-only closed-loop control: CONTINUE** (`p2r_z2d_2b.json`). Z2c model_24993 + mask, observe pass
+    P2R_OBSZ2cM_s18.
+
+    | | Z2c unmasked | Z2c masked | probe (R) |
+    |---|---|---|---|
+    | suite steps / taps / KS | 1.58 / 50.9 / 0.52 | **0 / 0 / 0.10 (STILL)** | 0 / 0 / 0.10 |
+    | suite body height | 1.042 | **1.0643** | 1.0648 |
+    | closed-loop all-HOLD hip \|μ − R\| (suite / walkstop) | 0.115 / 0.114 | **0.010 / 0.009** | — |
+    | walkstop homed / settled / lifts | 0 / 1.3 % / 28 | 22 / 45 % / 4 | 97 / 97 % / 6 |
+
+    - The mask alone removes the crouch closed-loop: the two-input feedback is the whole loop.
+    - As predicted, it does not step. LIFT / HOME hip errors stay +0.48 / +0.49 on walkstop; homed 22 % is the
+      mask-only baseline Z2d must beat.
+    - Banked stand rows read the mask constants in every masked column (the mask was live).
+  - **Step 3, pre-launch:**
+    - **Gate controls through the exact gate path, mask forced** (`z2d_premise/gate_control_*.json`):
+      - GRAFT: FAIL, 0.53 / 0.54, LIFT 1.0, HOME 1.03;
+      - offline masked fit, 12k steps on the seven banks: PASS, 0.008 / 0.009, LIFT 0.22 / 0.30, HOME 0.09 / 0.25.
+      - Both record `masked: true`.
+    - **Dose** (`p2r_z2d_dose.json`): `bc_mb0_expected` 7.18, band [3.73, 14.36], `bc.stand_mask` true.
+    - **Candidates v17:** `P2__Z2d_s18` = `P2__Z2c_s18` + `KRABBY_OMNI_STAND_MASK=1` + the 7th bank (Z2c's suite
+      crouch bank).
+    - **Preflight:** PASS (arm Z2D).

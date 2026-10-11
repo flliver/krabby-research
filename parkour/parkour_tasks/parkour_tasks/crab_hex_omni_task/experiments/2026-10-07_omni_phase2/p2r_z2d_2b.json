@@ -1,0 +1,262 @@
+{
+ "name": "P2R_OBSZ2cM_s18",
+ "probe": "P2R_RSTg_s18",
+ "clauses": {
+  "STILL steps_per_s suite es1": [
+   0.0,
+   0.5,
+   true
+  ],
+  "STILL clearance_m suite es1": [
+   1e-05,
+   0.05,
+   true
+  ],
+  "STILL off_ground_share suite es1": [
+   0.0,
+   0.1,
+   true
+  ],
+  "STILL hover_episodes_per_100 suite es1": [
+   0.0,
+   5.0,
+   true
+  ],
+  "STILL taps_per_s suite es1": [
+   0.0,
+   1.0,
+   true
+  ],
+  "STILL ks_m_s suite es1": [
+   0.1017,
+   0.5,
+   true
+  ],
+  "suite es1 |body height - P2R_RSTg_s18| <= 0.01": [
+   0.00048000000000003595,
+   0.01,
+   true
+  ],
+  "observe banks read the mask constants on every stand row": [
+   true,
+   true,
+   true
+  ],
+  "observe suite es1 all-HOLD |mean hip mu - R| <= 0.02": [
+   0.009999999776482582,
+   0.02,
+   true
+  ],
+  "observe walkstop es1 all-HOLD |mean hip mu - R| <= 0.02": [
+   0.009399999864399433,
+   0.02,
+   true
+  ]
+ },
+ "reported": {
+  "homed walkstop es1": [
+   0.22333,
+   0.9,
+   false
+  ],
+  "walkstop stand falls per 300 es1 <= max(1, Z1)": [
+   0.0,
+   null,
+   false
+  ],
+  "settled walkstop es1": [
+   0.45,
+   0.9,
+   false
+  ],
+  "post_settle_steps_per_s walkstop es1": [
+   null,
+   0.5,
+   false
+  ],
+  "post_settle_taps_per_s walkstop es1": [
+   null,
+   1.0,
+   false
+  ],
+  "post_settle_ks_m_s walkstop es1": [
+   null,
+   0.5,
+   false
+  ],
+  "walkstop es1 mask-only baseline": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_OBSZ2cM_s18/walkstop__omni/seed001/2026-10-11_05-05-40",
+   "window": "last5",
+   "n_episodes": 100,
+   "cams_read": true,
+   "n": 300,
+   "six_down_stand_share": 0.43333,
+   "six_down_share_median": 0.0,
+   "homed_share": 0.22333,
+   "settled_share": 0.45,
+   "settle_median_s": 4.32,
+   "lifts_median": 4.0,
+   "lifts_mean": 5.10333,
+   "post_settle_steps_per_s": null,
+   "post_settle_taps_per_s": null,
+   "post_settle_ks_m_s": null,
+   "post_settle_steps_per_s_settled": 0.0,
+   "post_settle_taps_per_s_settled": 0.0,
+   "post_settle_ks_m_s_settled": 0.18426,
+   "falls": 0,
+   "falls_per_300": 0.0,
+   "body_height_m": 1.06217,
+   "hip_yaw_mean_deg": 2.08025,
+   "hip_yaw_max_deg": 13.17761,
+   "cam_max_last_rad_median": 0.13585,
+   "by_stand": {
+    "0": {
+     "n": 100,
+     "six_down_stand_share": 0.39,
+     "six_down_share_median": 0.002,
+     "homed_share": 0.23,
+     "settled_share": 0.37,
+     "settle_median_s": 5.8,
+     "lifts_median": 6.0,
+     "lifts_mean": 6.97,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "post_settle_steps_per_s_settled": 0.0,
+     "post_settle_taps_per_s_settled": 0.0,
+     "post_settle_ks_m_s_settled": 0.1689,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06234,
+     "hip_yaw_mean_deg": 2.14168,
+     "hip_yaw_max_deg": 8.31016,
+     "cam_max_last_rad_median": 0.1366
+    },
+    "1": {
+     "n": 100,
+     "six_down_stand_share": 0.46,
+     "six_down_share_median": 0.0,
+     "homed_share": 0.35,
+     "settled_share": 0.59,
+     "settle_median_s": 2.6,
+     "lifts_median": 2.0,
+     "lifts_mean": 3.0,
+     "post_settle_steps_per_s": 0.32828,
+     "post_settle_taps_per_s": 0.88444,
+     "post_settle_ks_m_s": 0.21916,
+     "post_settle_steps_per_s_settled": 0.0,
+     "post_settle_taps_per_s_settled": 0.0,
+     "post_settle_ks_m_s_settled": 0.17654,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06218,
+     "hip_yaw_mean_deg": 1.77986,
+     "hip_yaw_max_deg": 8.71156,
+     "cam_max_last_rad_median": 0.11524
+    },
+    "2": {
+     "n": 100,
+     "six_down_stand_share": 0.45,
+     "six_down_share_median": 0.0,
+     "homed_share": 0.09,
+     "settled_share": 0.39,
+     "settle_median_s": 4.18,
+     "lifts_median": 5.0,
+     "lifts_mean": 5.34,
+     "post_settle_steps_per_s": null,
+     "post_settle_taps_per_s": null,
+     "post_settle_ks_m_s": null,
+     "post_settle_steps_per_s_settled": 0.0,
+     "post_settle_taps_per_s_settled": 0.0,
+     "post_settle_ks_m_s_settled": 0.21467,
+     "falls": 0,
+     "falls_per_300": 0.0,
+     "body_height_m": 1.06198,
+     "hip_yaw_mean_deg": 2.30649,
+     "hip_yaw_max_deg": 13.17761,
+     "cam_max_last_rad_median": 0.16097
+    }
+   }
+  },
+  "observe suite by_branch": {
+   "hold": {
+    "leg_rows": 600000,
+    "cam_abs": 0.0299,
+    "cam_signed": -0.0249,
+    "hip_abs": 0.0049,
+    "hip_signed": -0.0024,
+    "knee_abs": 0.0057,
+    "knee_signed": 0.0046
+   }
+  },
+  "observe suite branch_leg_shares": {
+   "hold": 1.0,
+   "wait": 0.0,
+   "lift": 0.0,
+   "home": 0.0,
+   "seat": 0.0
+  },
+  "observe walkstop by_branch": {
+   "hold": {
+    "leg_rows": 544056,
+    "cam_abs": 0.0509,
+    "cam_signed": -0.0199,
+    "hip_abs": 0.0085,
+    "hip_signed": -0.0046,
+    "knee_abs": 0.0084,
+    "knee_signed": 0.0024
+   },
+   "wait": {
+    "leg_rows": 14927,
+    "cam_abs": 0.1016,
+    "cam_signed": -0.0314,
+    "hip_abs": 0.0295,
+    "hip_signed": -0.0134,
+    "knee_abs": 0.0291,
+    "knee_signed": 0.0101
+   },
+   "lift": {
+    "leg_rows": 19599,
+    "cam_abs": 0.0861,
+    "cam_signed": -0.0203,
+    "hip_abs": 0.4806,
+    "hip_signed": 0.4806,
+    "knee_abs": 0.4839,
+    "knee_signed": -0.0164
+   },
+   "home": {
+    "leg_rows": 5147,
+    "cam_abs": 0.1888,
+    "cam_signed": 0.0034,
+    "hip_abs": 0.4873,
+    "hip_signed": 0.4873,
+    "knee_abs": 0.4903,
+    "knee_signed": -0.0144
+   },
+   "seat": {
+    "leg_rows": 16271,
+    "cam_abs": 0.233,
+    "cam_signed": 0.0215,
+    "hip_abs": 0.0224,
+    "hip_signed": 0.0036,
+    "knee_abs": 0.0225,
+    "knee_signed": 0.0022
+   }
+  },
+  "observe walkstop branch_leg_shares": {
+   "hold": 0.90676,
+   "wait": 0.024878333333333332,
+   "lift": 0.032665,
+   "home": 0.008578333333333334,
+   "seat": 0.027118333333333335
+  }
+ },
+ "pending": [],
+ "body_height_m": {
+  "masked_Z2c": 1.0643,
+  "probe": 1.06478
+ },
+ "observe_rc": 0,
+ "failed": [],
+ "verdict": "CONTINUE"
+}
