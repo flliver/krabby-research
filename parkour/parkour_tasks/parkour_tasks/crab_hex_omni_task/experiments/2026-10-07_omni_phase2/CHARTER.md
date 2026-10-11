@@ -1902,3 +1902,23 @@ stop rules, verdicts and budget are the pre-registration. This section logs the 
     - Per-leg HOLD cam bias up to ±0.08 (open-loop held-out 0.02–0.03), so cams drift and are never re-stepped.
   - **Net:** Z2d is a STILL statue with cams nearer home than Z1 (0.7–2° mean vs 4–6°) and 2–3× Z1's six-down, but it
     does not home (the Z2 objective) and is behind the mask-only baseline on walkstop homing.
+- 2026-10-11 ~13:15, **Z2d fable·high check: verdict CONFIRMED** (not adoption-grade; Z1 stays). Read valid: all 15
+  stamps carry the mask; both observe banks read the constants. **The mechanism is sharpened, and a second cause
+  dominates homing:**
+  - **LIFT onset (confirmed):** on R's LIFT rows (|c| median 0.38), μ_hip −0.054, and only 1.9 % < −0.25. There is no
+    |c| at which Z2d starts a lift. It continues a lift already moving (hip moving up: −0.17) and holds a raised leg
+    (HOME rows: −0.27). Its phase cue is its own motion, not the cam crossing. Onset rows are 0.22–0.25 % of the R
+    banks.
+  - **HOLD cam trim is under-fit by about 10× (dominant):**
+    - R's slope is −1 (k_h 1, clip ±0.1); Z2d's per-leg fitted slope is −0.04…−0.12, giving fixed points at
+      0.1–0.3 rad.
+    - End of stand: suite 98.5 % of stands with all |c| ≤ 0.3 (R would never re-step) but only 21.8 % ≤ 0.1 (homed);
+      walkstop 93 % / 8 %. So homing fails in the trim, even where no re-step is needed.
+    - It went unseen because R-driven HOLD rows have |c| ≈ 0.0035 (the cloning never exercises the trim off-home), and
+      the gate's 0.05 cam line is half the trim's authority.
+  - **"Better statue" holds on like-for-like rows:** against Z1, six-down 0.33 / 0.55 vs 0.10 / 0.23; hip yaw mean
+    0.76° / 1.9° vs 4.2° / 5.9°; KS 0.135 vs 0.18. One seed; walkstop body 5 mm lower; yaw max 25° vs 24°.
+  - **Fable's option ranking:** hybrid (S1 walks, R stands; P2R_RSTg = exactly that, premise gate PASS) > keep Z1 >
+    Z2d as statue (replicates) > a re-scoped Z2e. Z2e would need off-home HOLD banks, a trim-fidelity gate (slope on
+    |c| 0.1–0.3 rows), onset-row oversampling and R re-validation: ≥ 4.6 GPU-h plus plan / audit.
+  - **STOP: asked the user.**
