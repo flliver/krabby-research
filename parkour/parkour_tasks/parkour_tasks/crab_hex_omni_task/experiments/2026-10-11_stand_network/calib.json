@@ -326,15 +326,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -356,15 +356,15 @@
        "short": "exit falls",
        "note": "no run_meta.p2r_mode: a single-network eval has no stand-mode exit"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -1227,15 +1227,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -1257,15 +1257,15 @@
        "short": "exit falls",
        "note": "0 falls in 200 exits (design 200, R 200); exits not made: 0 after a stand-mode fall (the stand-falls clause's), 0 otherwise"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -2259,15 +2259,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -2289,15 +2289,15 @@
        "short": "exit falls",
        "note": "0 falls in 200 exits (design 200, R 200); exits not made: 0 after a stand-mode fall (the stand-falls clause's), 0 otherwise"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -3304,15 +3304,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -3334,15 +3334,15 @@
        "short": "exit falls",
        "note": "no run_meta.p2r_mode: a single-network eval has no stand-mode exit"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -4185,15 +4185,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -4215,15 +4215,15 @@
        "short": "exit falls",
        "note": "no run_meta.p2r_mode: a single-network eval has no stand-mode exit"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -5070,15 +5070,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -5100,15 +5100,15 @@
        "short": "exit falls",
        "note": "0 falls in 200 exits (design 200, R 200); exits not made: 0 after a stand-mode fall (the stand-falls clause's), 0 otherwise"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -6136,15 +6136,15 @@
      "invalid": [],
      "verdict": "PASS",
      "clauses": {
-      "walkstop stand falls per 300 es1 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es1 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 1,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es1 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es1 == 0": {
        "value": 0,
@@ -6166,15 +6166,15 @@
        "short": "exit falls",
        "note": "no run_meta.p2r_mode: a single-network eval has no stand-mode exit"
       },
-      "walkstop stand falls per 300 es2 <= max(1, Z1)": {
-       "value": 0.0,
-       "line": 1.0,
+      "walkstop stand falls (count) es2 <= max(1, Z1's count)": {
+       "value": 0,
+       "line": 1,
        "ok": true,
        "state": "eval",
        "seed": 2,
        "partial": false,
-       "short": "ws falls/300",
-       "note": null
+       "short": "ws falls",
+       "note": "z2_stand_gates' own rate clause (reported): walkstop stand falls per 300 es2 <= max(1, Z1) = 0.0 vs 1.0"
       },
       "suite stand falls es2 == 0": {
        "value": 0,
@@ -7070,16 +7070,16 @@
    "known_bad_listed": [],
    "exercised_as_negative_control": false,
    "by_clause": {
-    "ws falls/300": {
-     "min": 0.0,
-     "max": 0.0,
+    "ws falls": {
+     "min": 0,
+     "max": 0,
      "n": 14,
      "tightest": {
       "role": "REFS",
-      "clause": "walkstop stand falls per 300 es1 <= max(1, Z1)",
-      "value": 0.0,
-      "line": 1.0,
-      "margin": 1.0
+      "clause": "walkstop stand falls (count) es1 <= max(1, Z1's count)",
+      "value": 0,
+      "line": 1,
+      "margin": 1
      }
     },
     "suite falls": {
@@ -7299,9 +7299,9 @@
   }
  ],
  "meta": {
-  "generated": "2026-10-12T00:01:57-04:00",
+  "generated": "2026-10-12T12:23:47-04:00",
   "tool": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/scripts/sn_calib.py",
-  "tool_sha256": "509c2f221d842ff727a901acc38600a328cb18a1768f43a952cec246dc9ec31b",
+  "tool_sha256": "b86e6b77be676133cc65adfa474d904b6fce5d4fd4a54dde1e8e8eaf0face4ee",
   "p2_read_sha256": "3f0159ad6aef7e66923fdaef30101d8b2754dca96abdef48116ff77cc0cedc09",
   "p2s_stand_sha256": "80211bc5d6bf9cdf1ef4ab016b884bd0520774764988292054aeb663834e241b",
   "p2_out": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2",
@@ -7315,15 +7315,15 @@
    "ST2M": "P2R_ST2M_s18",
    "C0R": "C0R_s18"
   },
-  "read_seconds": 20.6,
+  "read_seconds": 21.3,
   "per_reference_read_seconds": {
-   "REFS": 9.7,
-   "HOLD": 9.4,
-   "R": 9.0,
-   "Z1": 11.9,
-   "Z2d": 11.6,
-   "ST2M": 10.0,
-   "C0R": 9.7
+   "REFS": 10.0,
+   "HOLD": 9.8,
+   "R": 9.3,
+   "Z1": 12.4,
+   "Z2d": 12.0,
+   "ST2M": 10.3,
+   "C0R": 10.0
   },
   "sn_calib_log_tail": [
    "SNCAL START SN_RSTg_s18 rst=lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3 2026-10-11T23:19:12-04:00",

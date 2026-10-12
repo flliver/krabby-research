@@ -25,7 +25,7 @@ GATES (PLAN.md D6; es1 tune / es2 held out; field_hard pooled es1-4 n = 400; fie
   G2 HOMED     p2_read.z2_stand_gates (relative=True, probe = P2R_RSTg_s18): walkstop homed >= 0.90, settled >= 0.90,
                median settle <= probe's same-seed median + 1 s, post-settle steps / taps / KS -- its non-STILL,
                non-falls clauses, per seed.
-  G3 FALLS     z2_stand_gates' walkstop stand falls per 300 <= max(1, Z1's); suite stand falls (p2s head_summary) == 0;
+  G3 FALLS     walkstop stand falls (raw count per env seed) <= max(1, Z1's count) [CHARTER 2026-10-12]; suite stand falls (p2s head_summary) == 0;
                walkstop exit-handover falls within 2 s (p2_read.p2r_hold_reads handover_falls_by_entry_phase, summed
                over phases) <= max(1, R's), a RAW COUNT per env seed (200 exits per seed). p2r_hold_reads returns
                n_episodes 0 (not None) when no episode carries p2r_stand_mode: read here as None -> INVALID for a
@@ -123,6 +123,7 @@ NAMED_CLAUSE = {("G1", "REFS"): "steps_per_s", ("G1", "ST2M"): "taps_per_s"}
 STAND_OBS_VAR = "KRABBY_OMNI_STAND_OBS"
 STAND_NET_VARIANT = "stand_net"
 G3_EXIT_FLOOR = 1                   # exit-handover falls per env seed <= max(1, R's)
+G3_STAND_FALLS_FLOOR = 1  # CHARTER 2026-10-12: walkstop stand falls, raw count per env seed <= max(1, Z1 count)
 G5_STALL_FLOOR = 1                  # walkstop onset stalls per env seed <= REFS's same-seed count + 1
 #: the step-3 stand_net launcher's run_meta contract (PLAN step 3: "run_meta block with ckpt sha + mask"): the stand
 #: checkpoint's sha256 in the p2r launcher's second-network record (as st2's ``specialist``) and the --stand-mask flag
@@ -657,8 +658,16 @@ def z2_parts(rd: dict, probe: dict, z1: dict) -> dict:
             elif "stand falls" in name:
                 if not zw:
                     inv3 += _unreadable(z1, wk, f"Z1 walkstop es{s} Z2 read (the stand-falls line)")
-                g3[name] = _cl(v, t, ok, head_state if zw else "pending", s, short="ws falls/300",
-                               note=None if head_state == "pending" else _closed(ws, f"walkstop es{s} Z2 read"))
+                # CHARTER 2026-10-12 (user decision, before any trained head's gates were read): the clause is the
+                # RAW COUNT of walkstop stand falls <= max(1, Z1's count) per env seed, not z2_stand_gates' rate per
+                # reached stands (one fall that cuts an episode's later stands reads 300/298 = 1.0067 > 1).
+                vc = None if not ws else ws.get("falls")
+                tc = None if not zw or zw.get("falls") is None else max(G3_STAND_FALLS_FLOOR, zw["falls"])
+                okc = None if vc is None or tc is None else vc <= tc
+                g3[f"walkstop stand falls (count) es{s} <= max({G3_STAND_FALLS_FLOOR}, Z1's count)"] = _cl(
+                    vc, tc, okc, head_state if zw else "pending", s, short="ws falls",
+                    note=(None if head_state == "pending" else _closed(ws, f"walkstop es{s} Z2 read"))
+                    or f"z2_stand_gates' own rate clause (reported): {name} = {v} vs {t}")
             else:
                 line_missing = name.startswith("median settle") and (not pw or pw.get("settle_median_s") is None)
                 if line_missing:
@@ -1385,10 +1394,12 @@ def _syn_still(steps=0.0, taps=0.0, clear=0.0, og=0.0, hover=0.0, ks=0.10, heigh
             "hover_episodes_per_100": hover, "ks_m_s": ks, "body_height_m": height, "falls": falls, "n": n}
 
 
-def _syn_z2ws(homed=0.97, settled=0.97, settle=2.9, post=(0.11, 0.0, 0.15), falls300=0.0, height=1.062):
+def _syn_z2ws(homed=0.97, settled=0.97, settle=2.9, post=(0.11, 0.0, 0.15), falls300=0.0, height=1.062, falls=None):
+    # raw count (G3, CHARTER 2026-10-12): default = the rate's count on a full 300-stand set
+    falls = int(round(falls300)) if falls is None else falls
     return {"homed_share": homed, "settled_share": settled, "settle_median_s": settle,
             "post_settle_steps_per_s": post[0], "post_settle_taps_per_s": post[1], "post_settle_ks_m_s": post[2],
-            "falls_per_300": falls300, "body_height_m": height, "six_down_stand_share": 0.3,
+            "falls_per_300": falls300, "falls": falls, "body_height_m": height, "six_down_stand_share": 0.3,
             "hip_yaw_mean_deg": 0.3, "hip_yaw_max_deg": 2.0}
 
 
@@ -1536,6 +1547,9 @@ def _self_test() -> int:
     hd = _syn_reads("H", z2ws={s: _syn_z2ws(falls300=2.0) for s in SEEDS})
     check(gate_g3(hd, z2_parts(hd, probe, z1), z1, probe)["verdict"] == FAIL,
           "G3: walkstop falls 2/300 > max(1, Z1's 0)")
+    hd = _syn_reads("H", z2ws={s: _syn_z2ws(falls300=1.00671, falls=1) for s in SEEDS})
+    check(gate_g3(hd, z2_parts(hd, probe, z1), z1, probe)["verdict"] == PASS,
+          "G3 (CHARTER 2026-10-12): 1 walkstop fall that cut an episode (rate 300/298 = 1.0067) passes the count line 1")
     hd = _syn_reads("H", still={1: _syn_still(falls=1), 2: _syn_still()})
     check(gate_g3(hd, z2_parts(hd, probe, z1), z1, probe)["verdict"] == FAIL, "G3: one suite stand fall fails")
 

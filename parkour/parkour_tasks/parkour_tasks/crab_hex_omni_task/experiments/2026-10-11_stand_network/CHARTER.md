@@ -186,3 +186,15 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   1.04; stand falls 0.80 % vs 0.61 % (the mid-run fall gap closed as control counts grew); exit falls 8 / 15141 vs
   2 / 3489. Last 1000 its: 0.981 vs 0.943. Train-time only — the decisive read is closed-loop G1–G5 at step 9.
   Step 8 (A-full) and step-9 evals wait for the user.
+- 2026-10-12 ~12:40, **USER DECISION (before any trained head's gates were read): G3 walkstop stand falls = raw
+  count ≤ max(1, Z1's count) per env seed** (300 scheduled stands), not p2_read's rate per reached stands (300 ×
+  falls / reached ≤ 1.0, which one fall cutting an episode's later stands fails: 300/298 = 1.0067). Found by the
+  observe-reader build on the smoke ckpt SN_SMK_mask_s18; the pilot's walkstop stamps existed but no gate of a trained
+  head had been read. References unchanged (R, HOLD, Z1: 0 falls).
+- 2026-10-12, **observe reader built** (`scripts/sn_observe_read.py`, 21 CPU tests; verified by independent numpy
+  recomputation). Notes for step 9: suite stands start homed, so LIFT / launch numbers come from walkstop only; HOLD
+  cam-trim slope is compared with R's slope on the same rows or on the unsaturated band |c| ∈ [0.03, 0.1] (R = −1);
+  launch headline = first onset per stand-leg (R's tripod selection flickers LIFT/WAIT).
+  - G3 ruling implemented in `scripts/sn_calib.py` (clause `walkstop stand falls (count) es<k> <= max(1, Z1's count)`;
+    z2_stand_gates' rate clause kept as a reported note; selftest + a 300/298 case PASS); calibration re-run: still
+    **15 / 15 cells land**, 0 mismatches (references all 0 falls).

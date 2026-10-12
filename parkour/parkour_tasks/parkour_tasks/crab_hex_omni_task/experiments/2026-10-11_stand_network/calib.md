@@ -1,6 +1,6 @@
 # Stand network -- gate calibration (PLAN.md step 2)
 
-Generated 2026-10-12T00:01:57-04:00 by `scripts/sn_calib.py` (CPU, read-only; readers: phase-2 `p2_read.py` sha256 3f0159ad6aef, `p2s_stand.py` 80211bc5d6bf). Every number below is from an existing reader; the D5 validity rule and every other departure from p2_read's rules is listed under Deviations.
+Generated 2026-10-12T12:23:47-04:00 by `scripts/sn_calib.py` (CPU, read-only; readers: phase-2 `p2_read.py` sha256 3f0159ad6aef, `p2s_stand.py` 80211bc5d6bf). Every number below is from an existing reader; the D5 validity rule and every other departure from p2_read's rules is listed under Deviations.
 
 **Lands as listed: 15 / 15 expected cells yes, 0 mismatch(es), 0 pending.**
 
@@ -28,13 +28,13 @@ Values: es1/es2 suffix = env seed; bold = a failing clause (its line in brackets
 | G2 HOMED | Z2d | FAIL | FAIL | yes | **homed es1 0.01667 (line 0.9)**; **settled es1 0.1733 (line 0.9)**; settle med es1 2.78; **post steps es1 -- (line 0.5)**; **post taps es1 -- (line 1)**; **post KS es1 -- (line 0.5)**; **homed es2 0.02333 (line 0.9)**; **settled es2 0.1867 (line 0.9)**; settle med es2 2.2; **post steps es2 -- (line 0.5)**; **post taps es2 -- (line 1)**; **post KS es2 -- (line 0.5)** |
 | G2 HOMED | ST2M | -- | FAIL | reported | **homed es1 0 (line 0.9)**; **settled es1 0 (line 0.9)**; **settle med es1 -- (line 3.92)**; **post steps es1 -- (line 0.5)**; **post taps es1 -- (line 1)**; **post KS es1 -- (line 0.5)**; **homed es2 0 (line 0.9)**; **settled es2 0 (line 0.9)**; **settle med es2 -- (line 3.96)**; **post steps es2 -- (line 0.5)**; **post taps es2 -- (line 1)**; **post KS es2 -- (line 0.5)** |
 | G2 HOMED | C0R | -- | FAIL | reported | **homed es1 0 (line 0.9)**; **settled es1 0 (line 0.9)**; **settle med es1 -- (line 3.92)**; **post steps es1 -- (line 0.5)**; **post taps es1 -- (line 1)**; **post KS es1 -- (line 0.5)**; **homed es2 0 (line 0.9)**; **settled es2 0 (line 0.9)**; **settle med es2 -- (line 3.96)**; **post steps es2 -- (line 0.5)**; **post taps es2 -- (line 1)**; **post KS es2 -- (line 0.5)** |
-| G3 FALLS | REFS | -- | PASS | reported | ws falls/300 es1 0; suite falls es1 0; exit falls es1 n/a; ws falls/300 es2 0; suite falls es2 0; exit falls es2 n/a |
-| G3 FALLS | HOLD | PASS | PASS | yes | ws falls/300 es1 0; suite falls es1 0; exit falls es1 0; ws falls/300 es2 0; suite falls es2 0; exit falls es2 0 |
-| G3 FALLS | R | PASS | PASS | yes | ws falls/300 es1 0; suite falls es1 0; exit falls es1 0; ws falls/300 es2 0; suite falls es2 0; exit falls es2 0 |
-| G3 FALLS | Z1 | -- | PASS | reported | ws falls/300 es1 0; suite falls es1 0; exit falls es1 n/a; ws falls/300 es2 0; suite falls es2 0; exit falls es2 n/a |
-| G3 FALLS | Z2d | -- | PASS | reported | ws falls/300 es1 0; suite falls es1 0; exit falls es1 n/a; ws falls/300 es2 0; suite falls es2 0; exit falls es2 n/a |
-| G3 FALLS | ST2M | -- | PASS | reported | ws falls/300 es1 0; suite falls es1 0; exit falls es1 0; ws falls/300 es2 0; suite falls es2 0; exit falls es2 0 |
-| G3 FALLS | C0R | -- | PASS | reported | ws falls/300 es1 0; suite falls es1 0; exit falls es1 n/a; ws falls/300 es2 0; suite falls es2 0; exit falls es2 n/a |
+| G3 FALLS | REFS | -- | PASS | reported | ws falls es1 0; suite falls es1 0; exit falls es1 n/a; ws falls es2 0; suite falls es2 0; exit falls es2 n/a |
+| G3 FALLS | HOLD | PASS | PASS | yes | ws falls es1 0; suite falls es1 0; exit falls es1 0; ws falls es2 0; suite falls es2 0; exit falls es2 0 |
+| G3 FALLS | R | PASS | PASS | yes | ws falls es1 0; suite falls es1 0; exit falls es1 0; ws falls es2 0; suite falls es2 0; exit falls es2 0 |
+| G3 FALLS | Z1 | -- | PASS | reported | ws falls es1 0; suite falls es1 0; exit falls es1 n/a; ws falls es2 0; suite falls es2 0; exit falls es2 n/a |
+| G3 FALLS | Z2d | -- | PASS | reported | ws falls es1 0; suite falls es1 0; exit falls es1 n/a; ws falls es2 0; suite falls es2 0; exit falls es2 n/a |
+| G3 FALLS | ST2M | -- | PASS | reported | ws falls es1 0; suite falls es1 0; exit falls es1 0; ws falls es2 0; suite falls es2 0; exit falls es2 0 |
+| G3 FALLS | C0R | -- | PASS | reported | ws falls es1 0; suite falls es1 0; exit falls es1 n/a; ws falls es2 0; suite falls es2 0; exit falls es2 n/a |
 | G4 WALLS | REFS | -- | PASS | reported | field_hard 0.8125; field_turn es1 0.99; stand-fall FT es1 0; stand-fall FH 0 |
 | G4 WALLS | HOLD | PASS | PASS | yes | field_hard 0.81; field_turn es1 0.99; stand-fall FT es1 0; stand-fall FH 0 |
 | G4 WALLS | R | PASS | PASS | yes | field_hard 0.825; field_turn es1 1; stand-fall FT es1 0; stand-fall FH 0 |
@@ -77,7 +77,7 @@ A gate no reference fails is unexercised as a negative control: the calibration 
 - **G1 STILL**: failed by REFS, ST2M, C0R (D6 known-bad: REFS, ST2M)
 - **G2 HOMED**: failed by REFS, HOLD, Z1, Z2d, ST2M, C0R (D6 known-bad: HOLD, Z1, Z2d, REFS)
 - **G3 FALLS**: **no reference fails -- unexercised as a negative control** (D6 lists no known-bad)
-  - ws falls/300: references read 0 .. 0 over 14 clause reads; tightest pass REFS 0 vs line 1 (margin 1)
+  - ws falls: references read 0 .. 0 over 14 clause reads; tightest pass REFS 0 vs line 1 (margin 1)
   - suite falls: references read 0 .. 0 over 14 clause reads; tightest pass REFS 0 vs line 0 (margin 0)
   - exit falls: references read 0 .. 0 over 6 clause reads; tightest pass HOLD 0 vs line 1 (margin 1)
 - **G4 WALLS**: **no reference fails -- unexercised as a negative control** (D6 lists no known-bad)
