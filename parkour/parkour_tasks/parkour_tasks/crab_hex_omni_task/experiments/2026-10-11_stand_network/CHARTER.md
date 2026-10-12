@@ -173,3 +173,10 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   notify-only, at it ≈ 1333 (β → 0) and it 2000 (mid-run): student vs concurrent R-slice train-time homed share
   (σ = 0 stands > 4 s, first-draw scoring), window its 1334–2000 at mid-run; student < 0.5 × R → STOP and ask.
   **Judged checkpoint: model_4000.pt.**
+- 2026-10-12, **step 7 early checks (notify-only; train-time, σ = 0 stands > 4 s, first-draw scoring):**
+  - β → 0 (its 1000–1340): student homed 0.918 (n 2043) vs concurrent R control 0.952 (n 542) — ratio 0.96; stand
+    falls student 1.4 % (28), β-R 1.4 % (6 / 425), control 0.4 % (2); exit falls 0.
+  - **Mid-run (its 1334–2000), the pre-registered premise check: NO STOP.** Student homed **0.982** (n 4693) vs control
+    0.950 (n 1150) — ratio 1.03 (line 0.5). Stand falls student 1.0 % (48) vs control 0.35 % (4); exit falls 2 / 3669
+    vs 0 / 899 (`pilot_premise_mid.json`). Watch item for step 9: the student's train-time stand-fall share is ~3× the
+    control's (small control count); G3 gates falls at eval.
