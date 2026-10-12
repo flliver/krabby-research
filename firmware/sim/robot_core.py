@@ -93,7 +93,7 @@ class RobotCore:
             return None
         return self._wrench_body_indices
 
-    def step(self) -> Any:
+    def step(self, *, process_usb_serial: bool = False) -> Any:
         # Plant state is from the previous step's physics; refresh pots before firmware reads.
         sync_sensor_reads(
             self.bridge,
@@ -102,7 +102,10 @@ class RobotCore:
             wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
         )
         self.bridge.advance_millis(physics_step_ms(self.env))
-        self.bridge.update_all()
+        if process_usb_serial:
+            self.bridge.firmware_loop_once()
+        else:
+            self.bridge.update_all()
         for actuator in self.actuators:
             pwm_r, pwm_l, pin_en = actuator.slot.drive_pins
             self.pin_state.analog_write(pwm_r, self.bridge.pin_pwm(pwm_r))

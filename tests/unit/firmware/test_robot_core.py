@@ -55,6 +55,16 @@ class FakeHostBridge:
     def set_actuator_stops(self, actuator_name: str, min_stop: int, max_stop: int) -> None:
         self.calls.append(f"set_actuator_stops:{actuator_name}:{min_stop}:{max_stop}")
 
+    def set_hall_edges_per_full_travel(self, edges: int) -> None:
+        self.calls.append(f"set_hall_edges_per_full_travel:{edges}")
+
+    def firmware_setup(self) -> None:
+        self.calls.append("firmware_setup")
+
+    def firmware_loop_once(self) -> None:
+        self.update_all_calls += 1
+        self.calls.append("firmware_loop_once")
+
 
 def _fake_env(physics_dt_s: float = FIRMWARE_STEP_MS / 1000.0):
     """Minimal Isaac env stub so ``physics_step_ms`` matches production."""
