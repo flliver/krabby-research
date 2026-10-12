@@ -57,6 +57,22 @@ class SimulatedActuator:
         )
         return speed
 
+    def apply_velocity_from_command_pwm(
+        self,
+        command_pwm: int,
+        articulation: JointVelocityTarget,
+        *,
+        env_ids=None,
+    ) -> float:
+        """Drive from a named actuator's manager PWM (three-board sim path)."""
+        speed = (command_pwm / PWM_COMMAND_FULL_SCALE) * self.max_joint_speed
+        articulation.set_joint_velocity_target(
+            speed,
+            joint_ids=self.joint_index,
+            env_ids=env_ids,
+        )
+        return speed
+
 
 class RecordedArticulation:
     """Test double: records set_joint_velocity_target calls."""

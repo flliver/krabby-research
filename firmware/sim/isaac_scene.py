@@ -134,6 +134,19 @@ def resolve_front_board_joint_indices(
     return resolve_joint_indices_by_name(robot, cfg.isaac_joint_names())
 
 
+def resolve_eighteen_joint_indices(
+    robot: Articulation,
+    configs: "ThreeBoardSimConfigs | None" = None,
+) -> dict[str, int]:
+    """Resolve all 18 MCU joints (three boards) to articulation DOF indices."""
+    from firmware.sim.simulated_robot_config import ThreeBoardSimConfigs
+
+    cfg = configs or ThreeBoardSimConfigs.rev3()
+    cfg.validate_eighteen_distinct_joints()
+    joint_names = tuple(slot.isaac_joint_name for slot in cfg.all_slots())
+    return resolve_joint_indices_by_name(robot, joint_names)
+
+
 def configure_open_loop_velocity_drive(
     robot: Articulation,
     joint_indices: Sequence[int],

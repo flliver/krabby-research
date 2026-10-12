@@ -286,6 +286,32 @@ void threeBoardFirmwareResetLoopState()
     g_rightPartialPos = 0;
 }
 
+LinearActuator *findThreeBoardActuator(const char *name)
+{
+    if (name == nullptr) return nullptr;
+    for (LinearActuator *actuator : g_frontActs)
+    {
+        if (String(actuator->getName()) == name) return actuator;
+    }
+    for (LinearActuator *actuator : g_leftActs)
+    {
+        if (String(actuator->getName()) == name) return actuator;
+    }
+    for (LinearActuator *actuator : g_rightActs)
+    {
+        if (String(actuator->getName()) == name) return actuator;
+    }
+    return nullptr;
+}
+
+int threeBoardActuatorCommandPwm(const char *name)
+{
+    LinearActuator *actuator = findThreeBoardActuator(name);
+    if (actuator == nullptr) return 0;
+    if (digitalRead(actuator->pinEn) != HIGH) return 0;
+    return actuator->currentPwm;
+}
+
 }  // namespace host
 }  // namespace sim
 }  // namespace krabby

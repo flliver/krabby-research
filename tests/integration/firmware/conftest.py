@@ -99,6 +99,37 @@ def front_board_rig(crab_hex_play_env):
     return core, robot, config, indices
 
 
+@pytest.fixture(scope="session")
+def eighteen_joint_rig(crab_hex_play_env):
+    """Three-board ``ThreeBoardRobotCore`` on all 18 revolute DOFs."""
+    from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
+    from firmware.sim.isaac_scene import configure_open_loop_velocity_drive, resolve_eighteen_joint_indices
+    from firmware.sim.simulated_robot_config import ThreeBoardSimConfigs
+    from firmware.sim.three_board_coordinator import ThreeBoardRobotCore
+
+    try:
+        bridge = load_host_bridge()
+    except HostLibraryNotBuiltError as exc:
+        pytest.skip(f"{exc} (build on the host, it is mounted into the container)")
+
+    env, get_robot, _resolve_front = crab_hex_play_env
+    configs = ThreeBoardSimConfigs.rev3()
+    robot = get_robot(env)
+    indices = resolve_eighteen_joint_indices(robot, configs)
+    configure_open_loop_velocity_drive(robot, indices.values())
+
+    core = ThreeBoardRobotCore.eighteen_joints(
+        env=env,
+        articulation=robot,
+        joint_index_for_name=indices,
+        bridge=bridge,
+        configs=configs,
+        max_joint_speed=2.0,
+    )
+    core.reset()
+    return core, robot, configs, indices
+
+
 def park_at_default_pose(core, robot) -> None:
     """Undo a previous drive so each case starts from the same joint state."""
     import torch

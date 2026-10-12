@@ -11,6 +11,8 @@ void threeBoardFirmwareSetup();
 void threeBoardFirmwareLoopOnce();
 void threeBoardFirmwareResetLoopState();
 
+int threeBoardActuatorCommandPwm(const char *name);
+
 }  // namespace host
 }  // namespace sim
 }  // namespace krabby

@@ -268,6 +268,11 @@ extern "C" void krabby_host_enable_three_board_firmware_loop(int enabled)
     krabby::sim::host::setThreeBoardFirmwareLoopEnabled(enabled != 0);
 }
 
+extern "C" int krabby_host_three_board_actuator_command_pwm(const char *actuator_name)
+{
+    return krabby::sim::host::threeBoardActuatorCommandPwm(actuator_name);
+}
+
 extern "C" int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len)
 {
     if (board_id < 0 || board_id > 2 || buf == nullptr || buf_len <= 0) return -1;

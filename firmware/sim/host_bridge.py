@@ -122,6 +122,10 @@ class HostActuatorBridge:
         self._lib.krabby_host_board_usb_pop_tx_line.restype = ctypes.c_int
         self._lib.krabby_host_enable_three_board_firmware_loop.argtypes = [ctypes.c_int]
         self._lib.krabby_host_enable_three_board_firmware_loop.restype = None
+        self._lib.krabby_host_three_board_actuator_command_pwm.argtypes = [
+            ctypes.c_char_p,
+        ]
+        self._lib.krabby_host_three_board_actuator_command_pwm.restype = ctypes.c_int
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -232,6 +236,13 @@ class HostActuatorBridge:
 
     def enable_three_board_firmware_loop(self, enabled: bool = True) -> None:
         self._lib.krabby_host_enable_three_board_firmware_loop(1 if enabled else 0)
+
+    def three_board_actuator_command_pwm(self, actuator_name: str) -> int:
+        return int(
+            self._lib.krabby_host_three_board_actuator_command_pwm(
+                actuator_name.encode("ascii")
+            )
+        )
 
     def run_three_board_role_election(self) -> list[int]:
         roles = (ctypes.c_int32 * 3)()
