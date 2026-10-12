@@ -127,3 +127,22 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   - Known minor (watched by hand): a recover_probe run that ends interrupted still writes an A1 verdict on partial
     stands — read A1 only from a run whose status is complete. The phase-2 run_arm.sh `drivers_idle` uses plain
     `ps -eo args` (truncated under an exported COLUMNS); sn_eval_rows.sh works around it; not edited (phase-2 file).
+- 2026-10-12 03:24–03:54, **steps 3 + 6 GPU checks: all PASS** (`scripts/sn_queue_pre7.sh`, ≈ 0.5 GPU-h, serial).
+  - **Identity bridge (step 3): BITWISE.** S1 as the stand ckpt, mask 0 (`SN_ID_s18`) = REFS_S1_s18 on every raw key,
+    suite / walkstop / field_hard es1 (max |Δa| 0; 235k / 180k / 47.5k stand steps) — `bridge_identity.json`.
+  - **GPU swap-live:** S1 as the stand ckpt, mask 1 (`SN_IDM_s18`, walkstop es1): the stand-net action reaches all
+    180,000 stand steps, pre-entry rows = REFS — `bridge_swaplive.json`.
+  - **Smokes (step 6), 100 its each: PASS** (`smoke_{mask,full,A1}.json`). DAgger: stand-row share 0.492; 1351
+    handovers / 1401 exits; DART σ realised 0.1000 / 0.3 within 10 %; β schedule, control share 0.104; env + column
+    obs parity; in-process forward parity bitwise; S1 deterministic; reservoir 1.01 M rows = 4.0 GB cap; ckpt strict
+    load; terrain levels recorded. 1.54 s / it at 1024 envs (→ ≤ 4500 its fit the 2 GPU-h cap). A1 mode: shares
+    0.48 / 0.17 / 0.18 / 0.17; executed rows R-or-spoiler only (0 mismatches); no optimizer; σ 0; statue executes 0;
+    chatter σ 0.295–0.300 per channel; stuck-lift reached in 99 % of takeovers; last-row read exact; 485 scored stands /
+    100 its.
+  - **Smoke checkpoints in stand_net (walkstop es1):** load, estimator = S1's, action on every stand step
+    (`smoke_ckpt_{mask,full}.json`); offline trainer→StandNetMode parity CPU bitwise, CPU vs GPU capture 2.1e-6
+    (≤ atol 1e-5).
+- 2026-10-12 ~03:56, **step 6b (A1) launched:** `SN_A1_s18`, `--mode recover_probe --seed 18 --iterations 700`
+  (≈ 0.3 GPU-h; ≈ 3.4k scored stands expected). Rule as PLAN Amendment 1 (control homed ≥ 0.75; each spoiler ≥ 0.8 ×
+  control, fall share ≤ control + 0.01); read only from a run whose status is complete. PASS records and notifies;
+  step 7 waits for the user's go.
