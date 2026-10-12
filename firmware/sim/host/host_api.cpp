@@ -42,6 +42,12 @@ extern "C" void krabby_host_handle_jog(const char *actuator_name, int pwm)
     s_manager.handleJog(String(actuator_name), pwm);
 }
 
+extern "C" void krabby_host_update_all(void)
+{
+    ensure_initialized();
+    s_manager.updateAll();
+}
+
 extern "C" int krabby_host_pin_pwm(int pin)
 {
     return krabby::sim::pinState().pwmDuty(pin);
@@ -50,4 +56,14 @@ extern "C" int krabby_host_pin_pwm(int pin)
 extern "C" int krabby_host_pin_digital(int pin)
 {
     return krabby::sim::pinState().digitalRead(pin);
+}
+
+extern "C" void krabby_host_advance_millis(unsigned long delta_ms)
+{
+    krabby::sim::simClock().advance(delta_ms);
+}
+
+extern "C" unsigned long krabby_host_millis(void)
+{
+    return krabby::sim::simClock().nowMs();
 }

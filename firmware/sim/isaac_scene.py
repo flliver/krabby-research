@@ -134,6 +134,29 @@ def resolve_front_board_joint_indices(
     return resolve_joint_indices_by_name(robot, cfg.isaac_joint_names())
 
 
+def configure_open_loop_velocity_drive(
+    robot: Articulation,
+    joint_indices: Sequence[int],
+) -> None:
+    """Zero the position gain on firmware-driven joints so PWM velocity targets win."""
+    ids = sorted({int(i) for i in joint_indices})
+    robot.write_joint_stiffness_to_sim(0.0, joint_ids=ids)
+
+    # Explicit actuator models (ParkourDCMotor) compute torque from their own gain
+    # tensors, so the sim write above does not reach those groups.
+    wanted = set(ids)
+    for actuator in robot.actuators.values():
+        group_ids = getattr(actuator, "joint_indices", None)
+        stiffness = getattr(actuator, "stiffness", None)
+        if group_ids is None or stiffness is None:
+            continue
+        if isinstance(group_ids, slice):
+            group_ids = range(stiffness.shape[-1])
+        columns = [col for col, jid in enumerate(group_ids) if int(jid) in wanted]
+        if columns:
+            stiffness[:, columns] = 0.0
+
+
 def step_env_once(env: Any) -> tuple[Any, ...]:
     """Single zero-action physics step (headless smoke)."""
     import torch
@@ -142,3 +165,13 @@ def step_env_once(env: Any) -> tuple[Any, ...]:
     actions = torch.zeros(env.action_space.shape, device=device)
     with torch.inference_mode():
         return env.step(actions)
+
+
+def advance_sim(env: Any) -> None:
+    """Advance physics without the task's action manager, keeping caller-written targets."""
+    unwrapped = env.unwrapped
+    scene = unwrapped.scene
+    sim = unwrapped.sim
+    scene.write_data_to_sim()
+    sim.step(render=False)
+    scene.update(dt=sim.get_physics_dt())

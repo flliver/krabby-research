@@ -34,3 +34,26 @@ def test_handle_jog_negative_pwm_retracts(host):
     assert host.pin_digital(pin_en) == 1
     assert host.pin_pwm(pwm_r) == 0
     assert host.pin_pwm(pwm_l) == 80
+
+
+def test_update_all_keeps_jogged_pins_asserted(host):
+    """No position target is set, so updateAll must not override the jog."""
+    slot = SimulatedRobotConfig.front_board_rev3().slot_by_firmware_id("FRKL")
+    pwm_r, _, pin_en = slot.drive_pins
+
+    host.reset()
+    host.handle_jog("FRKL", 120)
+    host.update_all()
+
+    assert host.pin_digital(pin_en) == 1
+    assert host.pin_pwm(pwm_r) == 120
+
+
+def test_advance_millis_moves_the_sim_clock(host):
+    host.reset()
+    assert host.millis() == 0
+
+    host.advance_millis(10)
+    host.advance_millis(5)
+
+    assert host.millis() == 15

@@ -82,3 +82,51 @@ def test_crab_hex_scene_steps_once_and_resolves_front_joints(crab_hex_play_env):
     for name in config.isaac_joint_names():
         assert name in indices
         assert indices[name] >= 0
+
+
+def test_jog_drives_one_joint_and_advances_millis(crab_hex_play_env):
+    from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
+    from firmware.sim.isaac_scene import configure_open_loop_velocity_drive
+    from firmware.sim.robot_core import RobotCore
+    from firmware.sim.simulated_robot_config import SimulatedRobotConfig
+
+    try:
+        bridge = load_host_bridge()
+    except HostLibraryNotBuiltError as exc:
+        pytest.skip(f"{exc} (build on the host, it is mounted into the container)")
+
+    env, get_robot, resolve_front = crab_hex_play_env
+    config = SimulatedRobotConfig.front_board_rev3()
+    robot = get_robot(env)
+    indices = resolve_front(robot, config)
+    # Without this the stock position gains (16000 N·m/rad on the hip joints) hold the
+    # reset pose against any speed the firmware commands.
+    configure_open_loop_velocity_drive(robot, indices.values())
+
+    core = RobotCore.front_board(
+        env=env,
+        articulation=robot,
+        joint_index_for_name=indices,
+        bridge=bridge,
+        config=config,
+        max_joint_speed=2.0,
+    )
+    core.reset()
+
+    jogged_joint = config.slot_by_firmware_id("FLHL").isaac_joint_name
+    before = {name: robot.data.joint_pos[0, idx].item() for name, idx in indices.items()}
+
+    core.jog("FLHL", 255)
+    for _ in range(40):
+        core.step()
+
+    moved = {
+        name: robot.data.joint_pos[0, idx].item() - before[name]
+        for name, idx in indices.items()
+    }
+    assert core.millis() == 40 * core.firmware_step_ms
+    assert abs(moved[jogged_joint]) > 0.05, f"jogged joint did not move: {moved}"
+    # The rest of the FL leg swings with the driven joint; the FR leg has no command.
+    for name, delta in moved.items():
+        if name.startswith("FR_"):
+            assert abs(delta) < 0.01, f"{name} moved without a jog: {moved}"

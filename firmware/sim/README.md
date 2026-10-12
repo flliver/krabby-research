@@ -24,6 +24,7 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 ## Core layout
 
 - `simulated_robot_config.py` - FRONT-board pin and Isaac joint table in code.
+- `robot_core.py` - the loop: firmware step, pin readback, joint targets, sim advance.
 - `host/` - host `Arduino.h`, shipping `actuator_manager.h` build, `libkrabby_host`, and `host_bridge.py`.
 
 Build and test commands live in `firmware/Makefile` (`host-actuator`, `test-native`, `compile-firmware`).
