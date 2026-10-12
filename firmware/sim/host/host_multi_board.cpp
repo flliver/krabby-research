@@ -21,6 +21,7 @@ constexpr size_t kCmdBufSize = 18;
 constexpr size_t kTelemetryLineMax = 512;
 
 bool g_threeBoardLoop = false;
+bool g_singleLeaderEighteen = false;
 unsigned long g_lastTelemetryMs = 0;
 bool g_setupDone = false;
 
@@ -112,6 +113,23 @@ void relayCommandLine(LinkT &link, const char *prefix, const String &payload)
         link.print(" ");
     }
     link.println(payload);
+}
+
+ActuatorManager *managerForActuatorName(const String &name)
+{
+    for (LinearActuator *actuator : g_frontActs)
+    {
+        if (String(actuator->getName()) == name) return &g_frontManager;
+    }
+    for (LinearActuator *actuator : g_leftActs)
+    {
+        if (String(actuator->getName()) == name) return &g_leftManager;
+    }
+    for (LinearActuator *actuator : g_rightActs)
+    {
+        if (String(actuator->getName()) == name) return &g_rightManager;
+    }
+    return nullptr;
 }
 
 void processCommandStream(
@@ -219,6 +237,96 @@ void processCommandStream(
     }
 }
 
+void processSingleLeaderUsbCommands()
+{
+    BoardHardwareSerial &port = g_usb;
+    while (port.available())
+    {
+        const char cmdType = static_cast<char>(port.peek());
+        if (cmdType == 'T')
+        {
+            port.read();
+            const String payload = port.readStringUntil('\n');
+            const size_t cmdCount = parseCommands(payload, g_cmdBuf, kCmdBufSize);
+            for (size_t i = 0; i < cmdCount; i++)
+            {
+                ActuatorManager *manager = managerForActuatorName(g_cmdBuf[i].name);
+                if (manager != nullptr) manager->applyCommands(&g_cmdBuf[i], 1);
+            }
+        }
+        else if (cmdType == 'B')
+        {
+            port.read();
+            const String payload = port.readStringUntil('\n');
+            int i = 0;
+            const int len = payload.length();
+            while (true)
+            {
+                const String name = nextTok(payload, i, len);
+                const String pwm = nextTok(payload, i, len);
+                if (name.length() == 0 || pwm.length() == 0) break;
+                ActuatorManager *manager = managerForActuatorName(name);
+                if (manager != nullptr) manager->handleJog(name, pwm.toInt());
+            }
+        }
+        else if (cmdType == 'J')
+        {
+            port.read();
+            while (port.available() && port.peek() == ' ')
+            {
+                port.read();
+            }
+            const String name = port.readStringUntil(' ');
+            const int pwm = port.readStringUntil('\n').toInt();
+            ActuatorManager *manager = managerForActuatorName(name);
+            if (manager != nullptr) manager->handleJog(name, pwm);
+        }
+        else if (cmdType == 'C')
+        {
+            port.read();
+            port.readStringUntil('\n');
+            g_frontManager.startAutoCalibration();
+            g_leftManager.startAutoCalibration();
+            g_rightManager.startAutoCalibration();
+        }
+        else if (cmdType == 'H')
+        {
+            port.read();
+            port.readStringUntil('\n');
+            g_frontManager.holdAll();
+            g_leftManager.holdAll();
+            g_rightManager.holdAll();
+        }
+        else if (cmdType == 'V')
+        {
+            port.read();
+            port.readStringUntil('\n');
+            port.print("VER ");
+            port.print(KRABBY_FW_VERSION);
+            port.print("|");
+            port.print(KRABBY_FW_VERSION);
+            port.print("|");
+            port.print(KRABBY_FW_VERSION);
+            port.print(" ");
+            port.print(KRABBY_FW_BRANCH);
+            port.print("|");
+            port.print(KRABBY_FW_BRANCH);
+            port.print("|");
+            port.print(KRABBY_FW_BRANCH);
+            port.print(" ");
+            port.print(KRABBY_FW_COMMIT);
+            port.print("|");
+            port.print(KRABBY_FW_COMMIT);
+            port.print("|");
+            port.println(KRABBY_FW_COMMIT);
+        }
+        else
+        {
+            port.readStringUntil('\n');
+        }
+    }
+}
+
 void emitTelemetry(BoardRole role, ActuatorManager &manager, BoardHardwareSerial &port)
 {
     port.print(boardTelemetryRoleLabel(role));
@@ -233,6 +341,10 @@ void emitTelemetry(BoardRole role, ActuatorManager &manager, BoardHardwareSerial
 void setThreeBoardFirmwareLoopEnabled(const bool enabled) { g_threeBoardLoop = enabled; }
 
 bool threeBoardFirmwareLoopEnabled() { return g_threeBoardLoop; }
+
+void setSingleLeaderEighteenJointEnabled(const bool enabled) { g_singleLeaderEighteen = enabled; }
+
+bool singleLeaderEighteenJointEnabled() { return g_singleLeaderEighteen; }
 
 void threeBoardFirmwareSetup()
 {
@@ -276,6 +388,25 @@ void threeBoardFirmwareLoopOnce()
 
     forwardFullLines(&g_frontLeft, &g_usb, g_leftPartial, kTelemetryLineMax, &g_leftPartialPos);
     forwardFullLines(&g_frontRight, &g_usb, g_rightPartial, kTelemetryLineMax, &g_rightPartialPos);
+}
+
+void singleLeaderEighteenFirmwareLoopOnce()
+{
+    if (!g_setupDone) threeBoardFirmwareSetup();
+
+    processSingleLeaderUsbCommands();
+
+    g_frontManager.updateAll();
+    g_leftManager.updateAll();
+    g_rightManager.updateAll();
+
+    const unsigned long nowMs = millis();
+    if (nowMs - g_lastTelemetryMs < TELEMETRY_INTERVAL_MS) return;
+
+    g_lastTelemetryMs = nowMs;
+    emitTelemetry(ROLE_FRONT, g_frontManager, g_usb);
+    emitTelemetry(ROLE_LEFT, g_leftManager, g_usb);
+    emitTelemetry(ROLE_RIGHT, g_rightManager, g_usb);
 }
 
 void threeBoardFirmwareResetLoopState()

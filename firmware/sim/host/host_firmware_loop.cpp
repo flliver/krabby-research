@@ -122,6 +122,11 @@ extern "C" void krabby_host_firmware_setup(void)
 
 extern "C" void krabby_host_firmware_loop_once(void)
 {
+    if (krabby::sim::host::singleLeaderEighteenJointEnabled())
+    {
+        krabby::sim::host::singleLeaderEighteenFirmwareLoopOnce();
+        return;
+    }
     if (krabby::sim::host::threeBoardFirmwareLoopEnabled())
     {
         krabby::sim::host::threeBoardFirmwareLoopOnce();

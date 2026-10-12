@@ -68,6 +68,7 @@ extern "C" void krabby_host_reset(void)
     krabby::sim::resetHostSim();
     krabby_host_firmware_reset_loop_state();
     krabby::sim::host::setThreeBoardFirmwareLoopEnabled(false);
+    krabby::sim::host::setSingleLeaderEighteenJointEnabled(false);
     s_initialized = false;
     s_manager.calState = ActuatorManager::CAL_IDLE;
     s_manager.stateTimer = 0;
@@ -266,6 +267,11 @@ extern "C" int krabby_host_board_usb_tx_line_available(int board_id)
 extern "C" void krabby_host_enable_three_board_firmware_loop(int enabled)
 {
     krabby::sim::host::setThreeBoardFirmwareLoopEnabled(enabled != 0);
+}
+
+extern "C" void krabby_host_enable_single_leader_eighteen_joint(int enabled)
+{
+    krabby::sim::host::setSingleLeaderEighteenJointEnabled(enabled != 0);
 }
 
 extern "C" int krabby_host_three_board_actuator_command_pwm(const char *actuator_name)

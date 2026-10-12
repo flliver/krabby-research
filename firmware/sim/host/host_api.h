@@ -56,6 +56,11 @@ int krabby_host_board_usb_tx_line_available(int board_id);
 /** Copy one newline-delimited USB TX line; returns bytes written, 0 if none, -1 on error. */
 int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len);
 void krabby_host_enable_three_board_firmware_loop(int enabled);
+/**
+ * One USB leader owns all 18 joints and emits FRONT/LEFT/RIGHT telemetry (no election).
+ * Superseded by three-board election + relay for production sim paths.
+ */
+void krabby_host_enable_single_leader_eighteen_joint(int enabled);
 /** Signed PWM for a named actuator on FRONT/LEFT/RIGHT managers (-255..255). */
 int krabby_host_three_board_actuator_command_pwm(const char *actuator_name);
 

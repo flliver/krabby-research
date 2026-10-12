@@ -28,6 +28,20 @@ The single-board USB path (`host/host_firmware_loop.cpp`) still assumes an alrea
 
 With `enable_three_board_firmware_loop(True)`, the host runs `host_multi_board.cpp`: USB `T`/`B`/`J`/… commands apply on FRONT and relay to followers; follower telemetry on inter-board serial is forwarded to USB so the SDK sees `FRONT;`, `LEFT ;`, and `RIGHT;` each 50 ms tick.
 
+## Optional: single-leader 18-joint mode (stepping stone)
+
+For early `KrabbyMCUSDK` tests without booting three emulators or running SYNC election, enable **single-leader 18-joint** mode:
+
+| Switch | Effect |
+|--------|--------|
+| `KRABBY_SIM_SINGLE_LEADER_18=1` | `ThreeBoardRobotCore.reset()` skips election and uses one USB leader for all 18 joints. |
+| `HostActuatorBridge.enable_single_leader_eighteen_joint(True)` | Same host loop from Python/C tests. |
+| `SingleLeaderEighteenMcuHost` | PTY + background tick for SDK connect tests (`firmware/sim/single_leader_mcu_host.py`). |
+
+The host runs `singleLeaderEighteenFirmwareLoopOnce()`: commands route to the FRONT/LEFT/RIGHT actuator managers by joint name; USB emits all three role-prefixed telemetry lines each `TELEMETRY_INTERVAL_MS`. No inter-board serial relay.
+
+**Final acceptance** for Milestone 21 still uses three-instance election + relay (`ThreeBoardMcuHost`, items above). Single-leader mode is documented only as a shortcut superseded by that path.
+
 ## Tests
 
 Native coverage: `tests/native/firmware/arduino/test_host_board_role_election.cpp` (`make -C firmware test-native`).

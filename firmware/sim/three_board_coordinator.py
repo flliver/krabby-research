@@ -10,6 +10,7 @@ from firmware.sim.isaac_scene import advance_sim, physics_step_ms, resolve_eight
 from firmware.sim.pot_readback import sync_sensor_reads
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
 from firmware.sim.simulated_robot_config import ThreeBoardSimConfigs
+from firmware.sim.sim_mode import single_leader_eighteen_enabled
 from firmware.sim.three_board_boot import boot_three_board_emulators
 
 
@@ -53,8 +54,11 @@ class ThreeBoardRobotCore:
         )
 
     def reset(self) -> None:
-        boot_three_board_emulators(self.bridge)
-        self.bridge.enable_three_board_firmware_loop(True)
+        if single_leader_eighteen_enabled():
+            self.bridge.enable_single_leader_eighteen_joint(True)
+        else:
+            boot_three_board_emulators(self.bridge)
+            self.bridge.enable_three_board_firmware_loop(True)
         self.bridge.firmware_setup()
         self._wrench_body_indices = None
         for board_cfg in (self.configs.front, self.configs.left, self.configs.right):
