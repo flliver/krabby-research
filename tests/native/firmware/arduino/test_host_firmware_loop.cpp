@@ -1,7 +1,10 @@
 #include "unity.h"
 
+#include <cstring>
+
 #include "host_api.h"
 #include "sim_serial.hpp"
+#include "version.h"
 
 using krabby::sim::SerialPortId;
 using krabby::sim::serialPort;
@@ -16,6 +19,20 @@ static void drainUsbTxLines()
     {
         (void)serialPort(SerialPortId::kUsb).popTxLine();
     }
+}
+
+static void writeUsbWire(const char *wire)
+{
+    krabby_host_serial_usb_rx_write(
+        reinterpret_cast<const uint8_t *>(wire),
+        static_cast<int>(std::strlen(wire)));
+}
+
+static void runSetupDrainAndLoopOnce()
+{
+    krabby_host_firmware_setup();
+    drainUsbTxLines();
+    krabby_host_firmware_loop_once();
 }
 
 static void test_telemetry_emits_on_fifty_ms_interval()
@@ -33,23 +50,90 @@ static void test_telemetry_emits_on_fifty_ms_interval()
     TEST_ASSERT_TRUE(line.rfind("FRONT;", 0) == 0);
 }
 
-static void test_jog_command_reaches_actuator_via_loop()
+// Wire formats match firmware/krabby_mcu.py send_command_* emitters.
+struct McuJogWireCase
 {
-    const char cmd[] = "JFLHY 100\n";
-    krabby_host_serial_usb_rx_write(
-        reinterpret_cast<const uint8_t *>(cmd),
-        static_cast<int>(sizeof(cmd) - 1));
+    const char *wire;
+    int en_pin;
+    int expected_en;
+};
 
-    krabby_host_firmware_setup();
-    krabby_host_firmware_loop_once();
+static void test_mcu_wire_jog_commands_table()
+{
+    static const McuJogWireCase cases[] = {
+        {"JFLHY 100\n", 22, 1},
+        {"B FLHY -80 FRHL 50 \n", 22, 1},
+    };
 
+    for (const McuJogWireCase &entry : cases)
+    {
+        krabby_host_reset();
+        writeUsbWire(entry.wire);
+        runSetupDrainAndLoopOnce();
+        TEST_ASSERT_EQUAL_INT(entry.expected_en, krabby_host_pin_digital(entry.en_pin));
+    }
+}
+
+static void test_mcu_wire_joints_command()
+{
+    krabby_host_set_actuator_stops("FLHY", 100, 900);
+    krabby_host_set_analog_read(0, 100);
+    writeUsbWire("T FLHY 1.000\n");
+    runSetupDrainAndLoopOnce();
+    for (int i = 0; i < 8; ++i)
+    {
+        krabby_host_advance_millis(10);
+        krabby_host_firmware_loop_once();
+    }
     TEST_ASSERT_EQUAL_INT(1, krabby_host_pin_digital(22));
+}
+
+static void test_mcu_wire_calibrate_command()
+{
+    writeUsbWire("C\n");
+    runSetupDrainAndLoopOnce();
+    TEST_ASSERT_TRUE(serialPort(SerialPortId::kUsb).txLineAvailable());
+    const std::string line = serialPort(SerialPortId::kUsb).popTxLine();
+    TEST_ASSERT_NOT_NULL(std::strstr(line.c_str(), "Starting Auto-Calibration"));
+}
+
+static void test_mcu_wire_hold_command()
+{
+    writeUsbWire("JFLHY 100\n");
+    runSetupDrainAndLoopOnce();
+    TEST_ASSERT_EQUAL_INT(1, krabby_host_pin_digital(22));
+
+    writeUsbWire("H\n");
+    krabby_host_firmware_loop_once();
+    TEST_ASSERT_EQUAL_INT(0, krabby_host_pin_digital(22));
+}
+
+static void test_mcu_wire_version_command()
+{
+    writeUsbWire("V\n");
+    runSetupDrainAndLoopOnce();
+    TEST_ASSERT_TRUE(serialPort(SerialPortId::kUsb).txLineAvailable());
+    const std::string line = serialPort(SerialPortId::kUsb).popTxLine();
+
+    char expected[160];
+    std::snprintf(
+        expected,
+        sizeof(expected),
+        "VER %s|-|- %s|-|- %s|-|-",
+        KRABBY_FW_VERSION,
+        KRABBY_FW_BRANCH,
+        KRABBY_FW_COMMIT);
+    TEST_ASSERT_EQUAL_STRING(expected, line.c_str());
 }
 
 int main()
 {
     UNITY_BEGIN();
     RUN_TEST(test_telemetry_emits_on_fifty_ms_interval);
-    RUN_TEST(test_jog_command_reaches_actuator_via_loop);
+    RUN_TEST(test_mcu_wire_jog_commands_table);
+    RUN_TEST(test_mcu_wire_joints_command);
+    RUN_TEST(test_mcu_wire_calibrate_command);
+    RUN_TEST(test_mcu_wire_hold_command);
+    RUN_TEST(test_mcu_wire_version_command);
     return UNITY_END();
 }

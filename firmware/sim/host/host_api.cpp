@@ -64,6 +64,8 @@ extern "C" void krabby_host_reset(void)
     krabby::sim::resetHostSim();
     krabby_host_firmware_reset_loop_state();
     s_initialized = false;
+    s_manager.calState = ActuatorManager::CAL_IDLE;
+    s_manager.stateTimer = 0;
 }
 
 extern "C" void krabby_host_handle_jog(const char *actuator_name, int pwm)

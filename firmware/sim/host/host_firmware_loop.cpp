@@ -72,12 +72,19 @@ void drainUsbCommands()
         {
             Serial.read();
             Serial.readStringUntil('\n');
+            // Host USB path models FRONT leader: combined VER with |- placeholders for absent followers.
             Serial.print("VER ");
             Serial.print(KRABBY_FW_VERSION);
+            Serial.print("|-|");
+            Serial.print("-");
             Serial.print(" ");
             Serial.print(KRABBY_FW_BRANCH);
+            Serial.print("|-|");
+            Serial.print("-");
             Serial.print(" ");
-            Serial.println(KRABBY_FW_COMMIT);
+            Serial.print(KRABBY_FW_COMMIT);
+            Serial.print("|-|");
+            Serial.println("-");
         }
         else
         {
