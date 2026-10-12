@@ -33,13 +33,18 @@ static void test_analog_read_and_hall_stubs_are_available_at_link_time()
 static void test_get_raw_pos_follows_pot_analog_read()
 {
     LinearActuator actuator("FLHY", 2, 3, 22, 6, 0, 0);
-    actuator.minStop = 0;
-    actuator.maxStop = 1023;
+    actuator.minStop = 120;
+    actuator.maxStop = 880;
+    pinState().setAnalogInput(0, 120);
     actuator.init();
-    pinState().setAnalogInput(0, 512);
-    actuator.update();
-    TEST_ASSERT_EQUAL_INT(512, actuator.getRawPos());
-    TEST_ASSERT_FLOAT_WITHIN(0.02f, 0.5f, actuator.getPos());
+    for (int i = 0; i < 24; ++i)
+        actuator.update();
+    TEST_ASSERT_EQUAL_INT(120, actuator.getRawPos());
+    TEST_ASSERT_FLOAT_WITHIN(0.02f, 0.0f, actuator.getPos());
+    pinState().setAnalogInput(0, 880);
+    for (int i = 0; i < 40; ++i)
+        actuator.update();
+    TEST_ASSERT_FLOAT_WITHIN(0.03f, 1.0f, actuator.getPos());
 }
 
 static void test_telemetry_en_fields_match_digital_read()

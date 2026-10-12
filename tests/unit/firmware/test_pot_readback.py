@@ -41,5 +41,5 @@ def test_sync_pot_analog_reads_writes_expected_adc():
 
     sync_pot_analog_reads(bridge, actuators, articulation)
 
-    expected = joint_angle_to_pot_adc(0.0, -1.0, 1.0)
+    expected = joint_angle_to_pot_adc(0.0, -1.0, 1.0, band=flhy.pot_band)
     bridge.set_analog_read.assert_any_call(flhy.slot.pin_pot, expected)

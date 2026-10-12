@@ -32,5 +32,10 @@ def sync_pot_analog_reads(
         position = float(joint_pos[env_index][joint_index].item())
         lower = float(limits[env_index][joint_index][0].item())
         upper = float(limits[env_index][joint_index][1].item())
-        adc = joint_angle_to_pot_adc(position, lower, upper)
+        adc = joint_angle_to_pot_adc(
+            position,
+            lower,
+            upper,
+            band=actuator.pot_band,
+        )
         bridge.set_analog_read(actuator.slot.pin_pot, adc)

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from firmware.sim.pin_state import PinStateModel
+from firmware.sim.pot_calibration import PotCalibrationBand
 from firmware.sim.simulated_robot_config import SimulatedSlotConfig
 
 PWM_COMMAND_FULL_SCALE = 255
@@ -30,6 +31,7 @@ class SimulatedActuator:
     slot: SimulatedSlotConfig
     joint_index: int
     max_joint_speed: float = 1.0
+    pot_band: PotCalibrationBand | None = None
 
     def signed_pwm_command(self, pin_state: PinStateModel) -> int:
         pwm_r, pwm_l, pin_en = self.slot.drive_pins

@@ -12,13 +12,14 @@ pytestmark = pytest.mark.isaacsim
 SLOT = "FLHL"
 
 
-def _expected_adc(robot, joint_index: int) -> int:
+def _expected_adc(robot, joint_index: int, band) -> int:
     limits = robot.data.soft_joint_pos_limits[0, joint_index]
     position = robot.data.joint_pos[0, joint_index].item()
     return joint_angle_to_pot_adc(
         position,
         limits[0].item(),
         limits[1].item(),
+        band=band,
     )
 
 
@@ -26,11 +27,12 @@ def test_pot_adc_matches_joint_at_step(front_board_rig):
     core, robot, config, indices = front_board_rig
     slot = config.slot_by_firmware_id(SLOT)
     joint_index = indices[slot.isaac_joint_name]
+    band = config.pot_band_for_slot(slot.slot_index)
 
     park_at_default_pose(core, robot)
     core.step()
 
-    expected = _expected_adc(robot, joint_index)
+    expected = _expected_adc(robot, joint_index, band)
     actual = core.bridge.analog_read(slot.pin_pot)
     assert abs(actual - expected) <= 1
 
@@ -39,6 +41,7 @@ def test_pot_adc_changes_when_joint_moves(front_board_rig):
     core, robot, config, indices = front_board_rig
     slot = config.slot_by_firmware_id(SLOT)
     joint_index = indices[slot.isaac_joint_name]
+    band = config.pot_band_for_slot(slot.slot_index)
 
     park_at_default_pose(core, robot)
     core.step()
@@ -48,7 +51,7 @@ def test_pot_adc_changes_when_joint_moves(front_board_rig):
     for _ in range(40):
         core.step()
 
-    expected = _expected_adc(robot, joint_index)
+    expected = _expected_adc(robot, joint_index, band)
     actual = core.bridge.analog_read(slot.pin_pot)
     # Pot is synced at the start of each step from the prior physics state; allow one step of lag.
     assert abs(actual - expected) <= 12

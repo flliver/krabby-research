@@ -6,6 +6,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Sequence
 
+from firmware.sim.pot_calibration import (
+    DEFAULT_POT_CALIBRATION_SEED,
+    PotCalibrationBand,
+    draw_pot_calibration_bands,
+)
+
 # REV 3 drive + analog pins - keep in sync with firmware/arduino/board_pins.h (KRABBY_PIN_REV=3)
 # and ACT_LIST_FRONT wiring in firmware/arduino/arduino.ino.
 
@@ -52,14 +58,28 @@ class SimulatedRobotConfig:
     pin_revision_label: str
     board_role: str
     slots: tuple[SimulatedSlotConfig, ...]
+    pot_bands: tuple[PotCalibrationBand, ...]
 
     @classmethod
-    def front_board_rev3(cls) -> SimulatedRobotConfig:
+    def front_board_rev3(
+        cls,
+        *,
+        pot_calibration_seed: int = DEFAULT_POT_CALIBRATION_SEED,
+    ) -> SimulatedRobotConfig:
+        slots = _FRONT_BOARD_REV3_SLOTS
+        bands = draw_pot_calibration_bands(len(slots), pot_calibration_seed)
         return cls(
             pin_revision_label=PIN_REVISION_LABEL,
             board_role="FRONT",
-            slots=_FRONT_BOARD_REV3_SLOTS,
+            slots=slots,
+            pot_bands=bands,
         )
+
+    def pot_band_for_slot(self, slot_index: int) -> PotCalibrationBand:
+        for slot, band in zip(self.slots, self.pot_bands, strict=True):
+            if slot.slot_index == slot_index:
+                return band
+        raise KeyError(f"unknown slot index: {slot_index}")
 
     def isaac_joint_names(self) -> tuple[str, ...]:
         return tuple(s.isaac_joint_name for s in self.slots)
@@ -111,8 +131,9 @@ class SimulatedRobotConfig:
                 slot=slot,
                 joint_index=self._resolve_joint_index(slot.isaac_joint_name, joint_index_for_name),
                 max_joint_speed=max_joint_speed,
+                pot_band=band,
             )
-            for slot in self.slots
+            for slot, band in zip(self.slots, self.pot_bands, strict=True)
         )
 
     def actuators_by_firmware_id(
