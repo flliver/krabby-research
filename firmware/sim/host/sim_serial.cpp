@@ -13,11 +13,13 @@ void SimSerialPort::reset()
 {
     tx_partial_.clear();
     tx_lines_.clear();
+    tx_bytes_.clear();
     rx_.clear();
 }
 
 void SimSerialPort::txWrite(uint8_t byte)
 {
+    tx_bytes_.push_back(byte);
     if (byte == '\n')
     {
         flushTxLine();
@@ -33,6 +35,19 @@ void SimSerialPort::flushTxLine()
 {
     tx_lines_.push_back(tx_partial_);
     tx_partial_.clear();
+}
+
+int SimSerialPort::txBytesAvailable() const
+{
+    return static_cast<int>(tx_bytes_.size());
+}
+
+int SimSerialPort::popTxByte()
+{
+    if (tx_bytes_.empty()) return -1;
+    uint8_t byte = tx_bytes_.front();
+    tx_bytes_.pop_front();
+    return static_cast<int>(byte);
 }
 
 bool SimSerialPort::txLineAvailable() const { return !tx_lines_.empty(); }

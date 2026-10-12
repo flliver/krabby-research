@@ -23,6 +23,8 @@ public:
     void reset();
 
     void txWrite(uint8_t byte);
+    int txBytesAvailable() const;
+    int popTxByte();
     bool txLineAvailable() const;
     std::string popTxLine();
 
@@ -39,6 +41,7 @@ private:
 
     std::string tx_partial_;
     std::deque<std::string> tx_lines_;
+    std::deque<uint8_t> tx_bytes_;
     std::deque<uint8_t> rx_;
 };
 

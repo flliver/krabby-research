@@ -37,6 +37,13 @@ void krabby_host_load_calibration(void);
 int krabby_host_actuator_min_stop(const char *actuator_name);
 int krabby_host_actuator_max_stop(const char *actuator_name);
 
+void krabby_host_serial_usb_rx_write(const uint8_t *data, int length);
+int krabby_host_serial_usb_rx_available(void);
+int krabby_host_serial_usb_rx_read(void);
+int krabby_host_serial_usb_tx_available(void);
+int krabby_host_serial_usb_tx_read(void);
+void krabby_host_serial_usb_println(const char *text);
+
 #ifdef __cplusplus
 }
 #endif

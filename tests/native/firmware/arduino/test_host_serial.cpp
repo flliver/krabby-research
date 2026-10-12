@@ -49,6 +49,16 @@ static void test_reset_clears_tx_and_rx()
     TEST_ASSERT_FALSE(Serial.available());
 }
 
+static void test_tx_bytes_include_newline()
+{
+    Serial.print("A");
+    Serial.println("B");
+    TEST_ASSERT_EQUAL_INT(3, serialPort(SerialPortId::kUsb).txBytesAvailable());
+    TEST_ASSERT_EQUAL_INT('A', serialPort(SerialPortId::kUsb).popTxByte());
+    TEST_ASSERT_EQUAL_INT('B', serialPort(SerialPortId::kUsb).popTxByte());
+    TEST_ASSERT_EQUAL_INT('\n', serialPort(SerialPortId::kUsb).popTxByte());
+}
+
 int main()
 {
     UNITY_BEGIN();
@@ -56,5 +66,6 @@ int main()
     RUN_TEST(test_each_hardware_serial_port_has_separate_tx_lines);
     RUN_TEST(test_rx_read_string_until_newline);
     RUN_TEST(test_reset_clears_tx_and_rx);
+    RUN_TEST(test_tx_bytes_include_newline);
     return UNITY_END();
 }

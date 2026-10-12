@@ -85,6 +85,21 @@ class HostActuatorBridge:
         self._lib.krabby_host_actuator_min_stop.restype = ctypes.c_int
         self._lib.krabby_host_actuator_max_stop.argtypes = [ctypes.c_char_p]
         self._lib.krabby_host_actuator_max_stop.restype = ctypes.c_int
+        self._lib.krabby_host_serial_usb_rx_write.argtypes = [
+            ctypes.POINTER(ctypes.c_uint8),
+            ctypes.c_int,
+        ]
+        self._lib.krabby_host_serial_usb_rx_write.restype = None
+        self._lib.krabby_host_serial_usb_rx_available.argtypes = []
+        self._lib.krabby_host_serial_usb_rx_available.restype = ctypes.c_int
+        self._lib.krabby_host_serial_usb_rx_read.argtypes = []
+        self._lib.krabby_host_serial_usb_rx_read.restype = ctypes.c_int
+        self._lib.krabby_host_serial_usb_tx_available.argtypes = []
+        self._lib.krabby_host_serial_usb_tx_available.restype = ctypes.c_int
+        self._lib.krabby_host_serial_usb_tx_read.argtypes = []
+        self._lib.krabby_host_serial_usb_tx_read.restype = ctypes.c_int
+        self._lib.krabby_host_serial_usb_println.argtypes = [ctypes.c_char_p]
+        self._lib.krabby_host_serial_usb_println.restype = None
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -165,6 +180,27 @@ class HostActuatorBridge:
         return int(
             self._lib.krabby_host_actuator_max_stop(actuator_name.encode("ascii"))
         )
+
+    def serial_usb_rx_write(self, data: bytes) -> None:
+        if not data:
+            return
+        buf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
+        self._lib.krabby_host_serial_usb_rx_write(buf, len(data))
+
+    def serial_usb_rx_available(self) -> int:
+        return int(self._lib.krabby_host_serial_usb_rx_available())
+
+    def serial_usb_rx_read(self) -> int:
+        return int(self._lib.krabby_host_serial_usb_rx_read())
+
+    def serial_usb_tx_available(self) -> int:
+        return int(self._lib.krabby_host_serial_usb_tx_available())
+
+    def serial_usb_tx_read(self) -> int:
+        return int(self._lib.krabby_host_serial_usb_tx_read())
+
+    def serial_usb_println(self, text: str) -> None:
+        self._lib.krabby_host_serial_usb_println(text.encode("ascii"))
 
 
 def load_host_bridge() -> HostActuatorBridge:

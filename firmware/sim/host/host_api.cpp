@@ -5,6 +5,7 @@
 #include "hall_sim.hpp"
 #include "pin_state.hpp"
 #include "sim_clock.hpp"
+#include "sim_serial.hpp"
 
 namespace {
 
@@ -172,4 +173,37 @@ extern "C" int krabby_host_actuator_max_stop(const char *actuator_name)
 {
     LinearActuator *actuator = find_actuator(actuator_name);
     return actuator != nullptr ? actuator->maxStop : -1;
+}
+
+extern "C" void krabby_host_serial_usb_rx_write(const uint8_t *data, int length)
+{
+    if (data == nullptr || length <= 0) return;
+    krabby::sim::serialPort(krabby::sim::SerialPortId::kUsb)
+        .rxPush(data, static_cast<std::size_t>(length));
+}
+
+extern "C" int krabby_host_serial_usb_rx_available(void)
+{
+    return krabby::sim::serialPort(krabby::sim::SerialPortId::kUsb).rxAvailable();
+}
+
+extern "C" int krabby_host_serial_usb_rx_read(void)
+{
+    return krabby::sim::serialPort(krabby::sim::SerialPortId::kUsb).rxRead();
+}
+
+extern "C" int krabby_host_serial_usb_tx_available(void)
+{
+    return krabby::sim::serialPort(krabby::sim::SerialPortId::kUsb).txBytesAvailable();
+}
+
+extern "C" int krabby_host_serial_usb_tx_read(void)
+{
+    return krabby::sim::serialPort(krabby::sim::SerialPortId::kUsb).popTxByte();
+}
+
+extern "C" void krabby_host_serial_usb_println(const char *text)
+{
+    if (text == nullptr) return;
+    Serial.println(text);
 }
