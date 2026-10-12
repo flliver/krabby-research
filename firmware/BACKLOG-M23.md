@@ -61,8 +61,8 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 10 | F12 | friction | Artifact-health **locomotion-image** stage FAIL | was yes for green artifact-health | ~15–60 min once Actions log read | 4 | 1.5 | AI + Human | 37.0 | done |
 | 11 | F11 | friction | `docker/setup-qemu-action@v3` Node 20 deprecation warn | no until Node 20 removal | ~5 min when editing workflow | 4 | 1.5 | AI + Human | 41.0 | done |
 | 12 | K1 | known | Default branch `main` publishes nothing; workflows watch `mainline`/`release/**` | yes (silent no-ship) | every merge to `main`; hours of false confidence | 6 | — | Human decision + AI change/docs | 47.0 | open |
-| 13 | K5 | known | Isaac `contacvt_sensor` typo; contact never assigned | yes (sim contact path) | every contact/current read through Isaac HAL | 1 | — | AI; Human | 48.0 | open |
-| 14 | K13 | known | Firmware error branch silently swallowed (`arduino.ino`) | yes when hit | can burn a bring-up afternoon | 6 | — | AI + Hardware; Human | 54.0 | open |
+| 13 | K5 | known | Isaac `contacvt_sensor` typo; contact never assigned | yes (sim contact path) | every contact/current read through Isaac HAL | 1 | 0 | AI; Human | 48.0 | done — already fixed (`37738a17`) |
+| 14 | K13 | known | Firmware error branch silently swallowed (`arduino.ino`) | yes when hit | can burn a bring-up afternoon | 6 | 1 | AI + Hardware; Human | 54.0 | done |
 | 15 | K17 | known | Gamepad mapper assumes start joints; does not read state | no | wrong start-pose assumptions | 3 | — | AI + Hardware; Human | 57.0 | open |
 | 16 | F9 | friction | Mid-upload interrupt / hub enum: board “vanishes” (docs-only fix) | yes until reappears | ~15–45 min per stuck board | 2 | — | AI docs (App. B); Human | 59.0 | open |
 | 17 | F7 | friction | `KRABBY_MCU_PORT` not forwarded by `gamepad_cmd` / `krabby run` | no if auto-detect works; yes if operator trusts warn | ~5–15 min; every CH340/`ttyUSB*` | 4 | — | AI forward env; Human+HW | 63.0 | open |
