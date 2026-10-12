@@ -43,6 +43,8 @@ Isaac Sim tests are opt-in (`RUN_FIRMWARE_ISAAC=1`, `@pytest.mark.isaacsim`). Ru
 
 Pass/fail comes from `build/firmware-isaac-pytest/outcomes.jsonl` (see [images/isaacsim/README.md](../../images/isaacsim/README.md) — Firmware simulation tests).
 
+GUI **Cur** column over sim MCU: [firmware/gui/CURRENT_SENSE_SIM_DEMO.md](../gui/CURRENT_SENSE_SIM_DEMO.md) (`run_gui_sim_demo` + `python -m firmware.gui`).
+
 ## Current-sense tuning (manual)
 
 Tune wrench → `pinIS` breakpoints in `current_sense_mapping.py` (`CurrentSenseBreakpoints`: ADC levels 0 / ~2 / ~4 / ~30 and force thresholds). Run a **windowed** single-env viewer from the repo root (Isaac Lab + GPU; omit `--headless` on `AppLauncher` args to see the scene):
