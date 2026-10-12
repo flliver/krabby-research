@@ -80,11 +80,12 @@ endif
 
 host-actuator:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
-	$(CMAKE) --build "$(NATIVE_TEST_BUILD)" --target krabby_firmware_actuator_host
+	$(CMAKE) --build "$(NATIVE_TEST_BUILD)" --target krabby_firmware_actuator_host krabby_host
 
 test-native:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
 	$(CMAKE) --build "$(NATIVE_TEST_BUILD)"
+	$(CMAKE) --build "$(NATIVE_TEST_BUILD)" --target krabby_host
 	$(CTEST) --test-dir "$(NATIVE_TEST_BUILD)" --output-on-failure
 
 # The filter must name real files -- a filter matching
