@@ -1,5 +1,9 @@
 #include "EEPROM.h"
 
-FakeEEPROM EEPROM;
+HostEeprom EEPROM;
 
-void resetHostEeprom() { EEPROM.clear(); }
+void resetHostEeprom()
+{
+    EEPROM.clear();
+    EEPROM.setActiveBoard(krabby::sim::BoardId::kFront);
+}

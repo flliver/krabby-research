@@ -13,6 +13,12 @@ public:
     using std::string::string;
     String(const std::string &value) : std::string(value) {}
     String substring(int begin, int end) const { return substr(static_cast<size_t>(begin), static_cast<size_t>(end - begin)); }
+    int indexOf(const char *needle) const
+    {
+        if (needle == nullptr) return -1;
+        const size_t found = find(needle);
+        return found == npos ? -1 : static_cast<int>(found);
+    }
     float toFloat() const { return std::strtof(c_str(), nullptr); }
     int toInt() const { return static_cast<int>(std::strtol(c_str(), nullptr, 10)); }
 };

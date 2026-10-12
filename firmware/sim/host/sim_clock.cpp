@@ -3,6 +3,7 @@
 #include "EEPROM.h"
 #include "hall_sim.hpp"
 #include "pin_state.hpp"
+#include "host_board_role.hpp"
 #include "sim_serial.hpp"
 
 namespace krabby {
@@ -30,6 +31,7 @@ void resetHostSim()
     simClock().reset();
     resetHostEeprom();
     resetHallSim();
+    resetHostFrontImuPresence();
     resetHostSerial();
     wireDefaultThreeBoardSerialLinks();
 }

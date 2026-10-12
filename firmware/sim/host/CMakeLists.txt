@@ -9,9 +9,11 @@ add_library(krabby_sim_host STATIC
     hall_sim.cpp
     hall_hw_stub.cpp
     sim_serial.cpp
+    host_board_role.cpp
 )
 target_include_directories(krabby_sim_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(krabby_sim_host PRIVATE "${KRABBY_ARDUINO_DIR}")
+target_compile_definitions(krabby_sim_host PUBLIC KRABBY_HOST_FIRMWARE=1)
 # krabby_host links these statics into a .so, so they need PIC as well.
 set_target_properties(krabby_sim_host PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(MSVC)
