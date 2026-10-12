@@ -146,3 +146,22 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   (≈ 0.3 GPU-h; ≈ 3.4k scored stands expected). Rule as PLAN Amendment 1 (control homed ≥ 0.75; each spoiler ≥ 0.8 ×
   control, fall share ≤ control + 0.01); read only from a run whose status is complete. PASS records and notifies;
   step 7 waits for the user's go.
+- 2026-10-12 ~04:15, **step 6b (A1) read: verdict STOP — on one clause** (`a1.json`; run status done, 700 its, 1047 s,
+  ≈ 0.29 GPU-h; 6154 scored stands; scored on the first draw, scheduled ≥ 8 s, not timeout-cut).
+
+  | group | n | homed | line | stand-fall share | line | falls before takeover |
+  |---|---|---|---|---|---|---|
+  | control (R from clean handovers) | 2586 | **0.969** | ≥ 0.75 | 0.0039 | — | 0 |
+  | statue | 906 | 0.975 | ≥ 0.775 | 0.0044 | ≤ 0.0139 | 4 |
+  | chatter | 838 | 0.994 | ≥ 0.775 | 0.0048 | ≤ 0.0139 | 3 |
+  | stuck lift | 824 | 0.933 | ≥ 0.775 | **0.0534 FAIL** | ≤ 0.0139 | 28 |
+
+  - **R homes from every student-like state** (homed 0.93–0.99 against the control's 0.97; homed by R-time ≥ 4 s ≥ 0.96
+    in every group; trim-band legs at stand end ≈ 0), and the control clears the 0.75 floor in the training env
+    (pushes, terrain levels 0–9).
+  - **The failing clause is falls under the stuck-lift spoiler:** 44 / 824 — 28 during the spoiler window itself (one
+    leg held up with its cam driven to ±0.4 rad for up to 4 s), 16 after takeover, all within 0.82 s of it (none
+    later), on terrain levels 1–9 and mostly corner legs. Post-takeover share 16 / 796 = 0.020 vs control 0.004.
+    Descriptive reading (not a rule change): R does not add late falls; it cannot catch a robot already tipping when it
+    takes over. Statue and chatter fall shares are at the control's level; exit falls are 0 in every group.
+  - Per the pre-registered rule this is a **STOP and ask**; nothing further launched.
