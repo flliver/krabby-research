@@ -219,3 +219,18 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
 - 2026-10-12, **step 8 `SN_Afull_s18` early checks (notify-only):** β → 0 (its 1000–1340): student homed 0.954 vs
   control 0.948 (ratio 1.01), falls 1.2 % vs 0.7 %. **Mid-run (its 1334–2000): NO STOP** — student 0.985 (n 4771) vs
   control 0.950 (n 1095), ratio 1.04; falls 0.96 % vs 0.91 %; exit falls 0 / 3762 (`afull_premise_mid.json`).
+- 2026-10-12 ~15:05, **step 8 done + step 9 (second arm): `SN_Afull_s18` (model_4000 sha 1671fd55…, mask 0) FAILS G2
+  on one clause** (`head_SN_Afull_s18.{json,md}`, `observe_SN_Afull_s18.{json,md}`, `afull_premise_final.json`).
+  - Train-time (its 1334–4000): student homed 0.984 (n 18967) vs control 0.950, falls 0.66 % vs 0.69 %.
+  - G1 PASS (steps 0, taps 0, KS 0.096 / 0.103). **G2 FAIL: post-settle taps 1.139 / 1.143 per s (line 1)**; homed
+    0.997 / 1.000, settled 1.0 / 1.0, settle median 2.75 / 2.76 s, post-settle steps 0.35 / 0.43. G3 PASS (0 falls,
+    0 exit falls). G4 PASS: field_hard **0.815** (line 0.756), field_turn 0.99. G5 PASS (onset 0.12 s, 0 stalls,
+    height ≤ 0.0056 m).
+  - Observe: μ_hip on LIFT −0.479, launch 98.9 %; HOLD within-leg trim slope −0.029 (R −0.52) — the same trim
+    under-fit as A-mask.
+- **STEP 9 ARM RULE (pre-registered; decide-record-notify): chosen arm = `A-mask`** — the only arm passing all of
+  G1–G5 at es1 and es2 ("one passes → that one"). **A2 not triggered** (an arm passes all gates). Both arms share the
+  binding statistic: post-settle taps (A-mask 0.76 / 0.85, A-full 1.14 / 1.14 vs line 1.0), consistent with the cam
+  trim under-fit (homing by re-steps rather than trim). Walls: A-mask 0.7825 vs A-full 0.815 / REFS 0.8125 (inside
+  the ±0.04 process-state band; replicate reads will show whether it is real).
+- **STOP (user go): step 10 (A-mask replicates at s16 / s17) waits for the user.** GPU used so far ≈ 6.0 h.
