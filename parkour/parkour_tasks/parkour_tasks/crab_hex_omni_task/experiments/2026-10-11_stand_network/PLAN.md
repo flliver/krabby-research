@@ -140,7 +140,7 @@ three training seeds; 2/3 is reported as such. The user decides adoption.
    schedules, branch-balanced buffer, saves rsl_rl-format checkpoints loadable by step 3. Unit tests: R-label
    parity with `restance_target`, mask parity, checkpoint round-trip through `_load_extra`.
    → opus · high — new training loop; a wrong routing/label/mask would train quietly on the wrong thing
-5. Code review of steps 3–4 against this plan (routing on the latched slot, labels on visited states, mask after
+5. Code review of steps 3–4 (including the A1 mode) against this plan (routing on the latched slot, labels on visited states, mask after
    estimator, no shared-code edits, hashes unchanged).
    → opus · xhigh — fresh context; the training spend rests on it
    ✓ fable · high — independent check; every arm rests on the trainer
@@ -152,7 +152,11 @@ three training seeds; 2/3 is reported as such. The user decides adoption.
    `stand_net` from the same state agree; a trainer-captured obs row fed offline to the `stand_net` launcher's
    policy object returns the trainer's action bitwise (pins the D1 forward path); S1 runs deterministic
    `act_inference`; buffer memory projected to the final iteration count fits the cap; saved ckpt loads in
-   `stand_net` and runs one walkstop episode.
+   `stand_net` and runs one walkstop episode. **A1-mode smoke** (Amendment 1): assignment ≈ ½ control and ⅙ per
+   spoiler; executed stand rows are R or spoiler only and no optimizer step runs; DART σ = 0; the spoiler state is
+   reached at takeover (statue executes exactly 0; chatter's realised σ ≈ 0.3 per channel; on most stuck-lift stands
+   the held leg is up, hip ≤ R's up threshold, with |c| > 0.3); the stand-end value is read on the last stand row
+   before the exit; scored-stand filter per A1.
    → sonnet · high — assertions fail loudly
 7. **Pilot `A-mask` s18** (one job, no resume; cap 2 GPU-h; ckpts every 500). Early check at the β→0 point and
    midway, notify-only: train-time closed-loop homed share at stand end (|c| ≤ 0.1 all legs), restricted to σ = 0
@@ -166,7 +170,8 @@ three training seeds; 2/3 is reported as such. The user decides adoption.
    → main (opus) — same driver as 7
 9. Evaluate both arms (suite, walkstop es1+es2, field_hard es1–4, field_turn, observe pass), read G1–G5.
    **Arm rule:** both pass → higher pooled walkstop homed; within 3 pp → `A-mask`. One passes → that one. None →
-   STOP and ask (Later phases). Decide, record in CHARTER, notify.
+   if Amendment 1 A2's trigger holds, run `A-branch` (A2; decide-record-notify); otherwise STOP and ask (Later
+   phases). Decide, record in CHARTER, notify.
    → opus · high — applies a pre-registered rule; reads are the numbers the user acts on
 10. Replicates of the chosen arm at s16 and s17 (stand-net training seed only; the walking head stays S1 s18), same
     evals and reads.
@@ -176,8 +181,64 @@ three training seeds; 2/3 is reported as such. The user decides adoption.
     → opus · xhigh — the synthesis the user decides on
     ✓ fable · high — independent check of the verdict against the reads
 
-**Stop points (push-notify each):** step 2 calibration mismatch; step 0 contradicting the design; step 7 premise
-stop; step 9 no arm passes; step 11 adoption. Step-9 arm choice is decide-record-notify (rule pre-registered).
+**Stop points (push-notify each):** step 2 calibration mismatch; step 0 contradicting the design; step 6b
+recoverability stop (A1); step 7 premise stop; step 9 no arm passes and A2 not triggered; A-branch fails (A2); step 11
+adoption. Step-9 arm choice and the A2 trigger are decide-record-notify (rules pre-registered).
+
+## Amendment 1 (2026-10-12, user decision after step 0)
+
+> **Amendment 1 audit (1 pass, opus·xhigh, 2026-10-12): 6 blocking, all fixed.** A1 mode unsmoked/unreviewed → built
+> in step 4, reviewed in step 5, A1-mode smoke in step 6; scored-stand set undefined (falls / timeouts drift the
+> ratio to PASS) → scheduled ≥ 8 s, not timeout-cut, a fall scores homed 0, last stand row; DART on in the control →
+> σ = 0 in A1; no absolute floor → control homed ≥ 0.75 (user's number); A2 trigger too broad / mask from the wrong
+> arm → "only failing gate is G2", that arm's mask; A1 PASS no longer launches step 7. Left for implementation: fall
+> margin max(0.01, 2·SE(diff)) vs +0.01; stuck-lift knee held at −ρ·side·hip and cam by saturated P-law; A2 launcher
+> must satisfy sn_calib's `variant == stand_net` rule (write `stand_net` + `branch_head`, or extend the rule); per-stand
+> assignment carry-over to the next stand (report it).
+
+The step-0 lit review (`../lit-review-stand-network.md` §12) found nothing contradicting D1–D3 and proposed
+amendments. The user adopted two (recoverability pre-check, branch-gated third arm) and declined the rest (fast β,
+gated takeover, onset weighting, σ from residual); D1–D6 and steps 1–11 stand otherwise.
+
+**A1 — step 6b, recoverability pre-check (≈ 0.3 GPU-h; after the step-6 smoke, before step 7).**
+- *Premise tested:* DAgger beats offline BC only where the expert recovers from the states the student creates
+  (review §4); R was measured only from clean S1 handovers (P2R_RSTg_s18, 97 %).
+- *Run:* the step-4 trainer env, D2 config except DART σ = 0 throughout (pushes and DR stay), β = 1 on every stand
+  (R executes; no student, no update), one job. The A1 mode is built in step 4, reviewed in step 5 and smoked in
+  step 6 (A1 smoke below). **Scored stands:** scheduled length ≥ 8 s and not cut by the episode timeout; a stand
+  that falls scores fall = 1 and homed = 0 (falls before takeover reported separately); |c| is read on the last stand
+  row before the exit, never on a row after a reset. Half of them (random per stand) are **spoiled**: a spoiler acts for the first
+  U[1, 4] s after entry, then R takes over for the rest; the other half are R from entry (the concurrent control).
+  Spoilers, one third each: (a) **statue** — zero action (Z1 / HOLD-like: unhomed cams, five-foot stands);
+  (b) **chatter** — R's action + Gaussian noise σ = 0.3 on all 18 channels (ST2M-like taps); (c) **stuck lift** — one
+  random leg's hip held at R's lift (−0.5 rod) with its cam driven to ±0.4 rad, the other legs per R (hover, |c| > 0.3).
+- *Statistic:* the step-7 train-time homed share at stand end (|c| ≤ 0.1 rad, all legs), stand falls and exit falls,
+  per spoiler and for the control, same iterations and terrain levels. Also reported: homed by R-time bin (time R
+  had before stand end), and the share of loaded legs with |c| in (0.1, 0.3] rad at stand end (R's trim-only band).
+- *Rule (fixed before the read):* PASS if the control's homed share ≥ 0.75 (absolute floor, user decision
+  2026-10-12: R must label well in the env DAgger trains in; its 97 % is flat walkstop) and, for every spoiler,
+  homed ≥ 0.8 × the control's homed and stand-fall share
+  ≤ control's + 0.01; then record and notify — step 7 waits for the user's go. Otherwise **STOP and ask** (R strands a share of student-like states:
+  the DAgger premise is weak there; options are A-branch first, the RL fallback, or an R fix).
+- → main (opus) — a short run on the step-4 trainer; the read is a premise decision
+
+**A2 — `A-branch`, a pre-registered conditional third arm.**
+- *Trigger (read at step 9):* no arm passes all of G1–G5, and at least one arm's **only** failing gate is G2 (HOMED)
+  — G1, G3, G4 and G5 all pass at es1 and es2 — the Z2d pattern the review attributes to the flat MSE head (§7).
+  Otherwise A-branch is not run.
+- *Design:* D2 env and D3 DAgger unchanged; the mask setting of the qualifying arm (both qualify → the higher pooled
+  walkstop homed; tie → `A-mask`). Network: S1's trunk (warm start, D1 forward path), plus a per-leg branch classifier (6 legs × 5
+  branches HOLD / WAIT / LIFT / HOME / SEAT; class-balanced focal CE on R's branch label) and per-branch regression
+  heads (MSE only on rows of that branch). Deployed action per leg = the head of the argmax branch. A loader adapter is
+  needed: launcher variant `stand_net_branch` writing the same `p2r_mode` fields (`specialist.sha256`, `stand_mask`)
+  plus `branch_head: true`, under the D5 obs-parity rule and sn_calib's head-validity rule.
+- *Steps when triggered:* implement + review (opus·xhigh, ✓ fable·high) → smoke as step 6 → train s18 (one job,
+  ≤ 2 GPU-h, the step-7 premise stop against its concurrent R slice) → evaluate as step 9 → G1–G5. Passes all
+  gates → it is the chosen arm and step 10 replicates it; fails → **STOP and ask** (Later phases).
+- *Budget when triggered:* ≈ 3.1 GPU-h (smoke 0.3, train ≤ 2, eval 0.8); replicates come from step 10's budget.
+
+**Budget after Amendment 1:** ≈ 12.3 GPU-h planned (the original ≈ 12 + 0.3 for A1), + ≈ 3.1 conditional (A2).
+**User go (2026-10-12):** through step 6 (and 6b); stop before step 7.
 
 ## Budget, seeds
 

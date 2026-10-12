@@ -75,3 +75,10 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   6. exit only from R's SEAT state / post-exit crediting if G3's exit clause fails.
 - **STOP (decide-record-notify): steps 0 and 2 complete; step 3 (launcher variant) waits for the user's go and their
   call on the lit-review amendments.**
+- 2026-10-12, **USER DECISION at the step-0/2 stop:** adopt two lit-review amendments — the recoverability pre-check
+  (A1, step 6b) and the branch-gated conditional third arm (A2) — and decline fast β, gated takeover, onset weighting
+  and σ-from-residual. Go through step 6 (+ 6b); stop before step 7.
+  - PLAN.md "Amendment 1" written, audited 1 pass (opus·xhigh): 6 blocking, all fixed (trail in PLAN.md); one needed
+    the user's number: **control homed floor 0.75** for A1 (user decision 2026-10-12).
+  - Step 9's arm rule and the stop points now route to A2 when an arm's only failing gate is G2; A1 PASS records and
+    notifies, it does not launch step 7.
