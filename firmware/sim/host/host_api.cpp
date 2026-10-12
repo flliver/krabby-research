@@ -1,5 +1,6 @@
 #include "host_api.h"
 
+#include "EEPROM.h"
 #include "actuator_manager.h"
 #include "hall_sim.hpp"
 #include "pin_state.hpp"
@@ -26,6 +27,16 @@ void ensure_initialized()
     if (s_initialized) return;
     s_manager.initAll();
     s_initialized = true;
+}
+
+LinearActuator *find_actuator(const char *actuator_name)
+{
+    if (actuator_name == nullptr) return nullptr;
+    for (LinearActuator *actuator : s_actuators)
+    {
+        if (String(actuator->getName()) == actuator_name) return actuator;
+    }
+    return nullptr;
 }
 
 }  // namespace
@@ -127,4 +138,38 @@ extern "C" void krabby_host_sync_hall_joint(
 extern "C" int32_t krabby_host_hall_edge_count(uint8_t hall_slot)
 {
     return static_cast<int32_t>(krabby::sim::hallSimEdgeCount(hall_slot));
+}
+
+extern "C" uint8_t krabby_host_eeprom_read(int addr)
+{
+    return EEPROM.read(addr);
+}
+
+extern "C" void krabby_host_eeprom_update(int addr, uint8_t value)
+{
+    EEPROM.update(addr, value);
+}
+
+extern "C" void krabby_host_save_calibration(void)
+{
+    ensure_initialized();
+    s_manager.saveCalibration();
+}
+
+extern "C" void krabby_host_load_calibration(void)
+{
+    ensure_initialized();
+    s_manager.loadCalibration();
+}
+
+extern "C" int krabby_host_actuator_min_stop(const char *actuator_name)
+{
+    LinearActuator *actuator = find_actuator(actuator_name);
+    return actuator != nullptr ? actuator->minStop : -1;
+}
+
+extern "C" int krabby_host_actuator_max_stop(const char *actuator_name)
+{
+    LinearActuator *actuator = find_actuator(actuator_name);
+    return actuator != nullptr ? actuator->maxStop : -1;
 }

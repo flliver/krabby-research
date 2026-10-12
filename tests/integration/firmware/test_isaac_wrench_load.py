@@ -1,4 +1,4 @@
-"""``body_incoming_joint_wrench_b`` rises when a leg loads the terrain (TASK-2 §4)."""
+"""``body_incoming_joint_wrench_b`` rises when a leg loads the terrain."""
 
 from __future__ import annotations
 

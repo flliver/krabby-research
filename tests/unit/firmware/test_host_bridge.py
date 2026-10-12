@@ -57,3 +57,16 @@ def test_advance_millis_moves_the_sim_clock(host):
     host.advance_millis(5)
 
     assert host.millis() == 15
+
+
+def test_eeprom_and_calibration_round_trip_via_host_api(host):
+    host.reset()
+    host.eeprom_update(10, 0x12)
+    assert host.eeprom_read(10) == 0x12
+
+    host.set_actuator_stops("FLHY", 150, 850)
+    host.save_calibration()
+    host.set_actuator_stops("FLHY", 0, 1023)
+    host.load_calibration()
+    assert host.actuator_min_stop("FLHY") == 150
+    assert host.actuator_max_stop("FLHY") == 850

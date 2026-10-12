@@ -30,6 +30,13 @@ void krabby_host_sync_hall_joint(
     float upper_rad);
 int32_t krabby_host_hall_edge_count(uint8_t hall_slot);
 
+uint8_t krabby_host_eeprom_read(int addr);
+void krabby_host_eeprom_update(int addr, uint8_t value);
+void krabby_host_save_calibration(void);
+void krabby_host_load_calibration(void);
+int krabby_host_actuator_min_stop(const char *actuator_name);
+int krabby_host_actuator_max_stop(const char *actuator_name);
+
 #ifdef __cplusplus
 }
 #endif

@@ -1,4 +1,4 @@
-"""Wrench load -> ``pinIS`` ADC breakpoints (OVERVIEW 2f / 2g)."""
+"""Wrench load -> ``pinIS`` ADC breakpoints."""
 
 import pytest
 

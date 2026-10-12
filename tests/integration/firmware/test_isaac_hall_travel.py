@@ -1,4 +1,4 @@
-"""Host hall shim: ``saf`` edges track Isaac joint travel (OVERVIEW 2d)."""
+"""Host hall shim: ``saf`` edges track Isaac joint travel."""
 
 from __future__ import annotations
 

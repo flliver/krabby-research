@@ -73,6 +73,18 @@ class HostActuatorBridge:
         self._lib.krabby_host_sync_hall_joint.restype = None
         self._lib.krabby_host_hall_edge_count.argtypes = [ctypes.c_uint8]
         self._lib.krabby_host_hall_edge_count.restype = ctypes.c_int32
+        self._lib.krabby_host_eeprom_read.argtypes = [ctypes.c_int]
+        self._lib.krabby_host_eeprom_read.restype = ctypes.c_uint8
+        self._lib.krabby_host_eeprom_update.argtypes = [ctypes.c_int, ctypes.c_uint8]
+        self._lib.krabby_host_eeprom_update.restype = None
+        self._lib.krabby_host_save_calibration.argtypes = []
+        self._lib.krabby_host_save_calibration.restype = None
+        self._lib.krabby_host_load_calibration.argtypes = []
+        self._lib.krabby_host_load_calibration.restype = None
+        self._lib.krabby_host_actuator_min_stop.argtypes = [ctypes.c_char_p]
+        self._lib.krabby_host_actuator_min_stop.restype = ctypes.c_int
+        self._lib.krabby_host_actuator_max_stop.argtypes = [ctypes.c_char_p]
+        self._lib.krabby_host_actuator_max_stop.restype = ctypes.c_int
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -131,6 +143,28 @@ class HostActuatorBridge:
 
     def hall_edge_count(self, hall_slot: int) -> int:
         return int(self._lib.krabby_host_hall_edge_count(int(hall_slot)))
+
+    def eeprom_read(self, addr: int) -> int:
+        return int(self._lib.krabby_host_eeprom_read(int(addr)))
+
+    def eeprom_update(self, addr: int, value: int) -> None:
+        self._lib.krabby_host_eeprom_update(int(addr), int(value) & 0xFF)
+
+    def save_calibration(self) -> None:
+        self._lib.krabby_host_save_calibration()
+
+    def load_calibration(self) -> None:
+        self._lib.krabby_host_load_calibration()
+
+    def actuator_min_stop(self, actuator_name: str) -> int:
+        return int(
+            self._lib.krabby_host_actuator_min_stop(actuator_name.encode("ascii"))
+        )
+
+    def actuator_max_stop(self, actuator_name: str) -> int:
+        return int(
+            self._lib.krabby_host_actuator_max_stop(actuator_name.encode("ascii"))
+        )
 
 
 def load_host_bridge() -> HostActuatorBridge:
