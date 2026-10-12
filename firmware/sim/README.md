@@ -27,3 +27,14 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 - `host/` - host `Arduino.h`, shipping `actuator_manager.h` build, `libkrabby_host`, and `host_bridge.py`.
 
 Build and test commands live in `firmware/Makefile` (`host-actuator`, `test-native`, `compile-firmware`).
+
+## Isaac integration tests
+
+Isaac Sim tests are opt-in (`RUN_FIRMWARE_ISAAC=1`, `@pytest.mark.isaacsim`). Run them in the **`krabby-isaacsim`** Docker image (`make build-isaacsim-image` from repo root), not on host Python unless you have a full Isaac Lab + Sim install:
+
+```bash
+./images/isaacsim/run_firmware_isaac_pytest.sh
+# or: make -C firmware test-firmware-isaac
+```
+
+Pass/fail comes from `build/firmware-isaac-pytest/outcomes.jsonl` (see [images/isaacsim/README.md](../../images/isaacsim/README.md) — Firmware simulation tests).

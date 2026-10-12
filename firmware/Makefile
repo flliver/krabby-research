@@ -76,7 +76,7 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac
 
 host-actuator:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
@@ -108,6 +108,10 @@ test-native-coverage: test-native
 
 test-firmware: test-native
 	cd "$(REPO_ROOT)" && $(PYTEST) -q tests/unit/firmware
+
+# Isaac Sim smoke / integration (krabby-isaacsim image; see images/isaacsim/README.md).
+test-firmware-isaac:
+	"$(REPO_ROOT)/images/isaacsim/run_firmware_isaac_pytest.sh"
 
 # Pinned to the core version the bench-verified hex was built with; bump
 # deliberately, together with the CI cache key in publish-firmware.yml.
