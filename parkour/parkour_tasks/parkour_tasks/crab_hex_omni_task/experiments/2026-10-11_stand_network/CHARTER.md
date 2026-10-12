@@ -82,3 +82,48 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
     the user's number: **control homed floor 0.75** for A1 (user decision 2026-10-12).
   - Step 9's arm rule and the stop points now route to A2 when an arm's only failing gate is G2; A1 PASS records and
     notifies, it does not launch step 7.
+- 2026-10-12, **implementation decisions** (orchestrator; from `scripts/IMPLEMENTATION_MAP.md` §8, before any code):
+  - OPEN-1: the student trains the actor backbone only; scan encoder, history encoder and estimator stay frozen at S1's.
+  - OPEN-2: Adam lr 3e-4; 24 env steps per iteration; fixed gradient steps per iteration (builder sets ≤ 16
+    minibatches of ≤ 4096); reservoir buffer ≤ 4 GB GPU (smoke asserts the projection); num_envs 1024 (memory note:
+    more envs per process nearly free) unless the smoke shows otherwise.
+  - OPEN-3: branch balancing per leg — each leg's 3 action columns weighted by the inverse frequency of that leg's R
+    branch in the buffer; LIFT-onset rows (any leg entering LIFT this step) oversampled in row sampling.
+  - OPEN-4: the 10 % R-executed control is a per-episode draw (envs stay exchangeable; same terrain levels).
+  - OPEN-5: DART σ per episode ∈ {0: ½, 0.1: ¼, 0.3: ¼} on executed stand rows (student and β-R episodes); σ = 0 on
+    the control slice and throughout A1; labels always clean R.
+  - OPEN-6: `init_at_random_ep_len` on, from a private seeded generator.
+  - OPEN-7: a stand = a maximal run of stand-slot rows in an episode; scheduled end = entry + the current draw's
+    time_left, extended on each stand→stand resample merge; A1 scores stands with scheduled length ≥ 8 s and scheduled
+    end before the episode timeout; a fall before the scheduled end is scored (fall = 1, homed = 0).
+  - OPEN-8: A2 heads write `variant: stand_net` + `branch_head: true` (sn_calib's rule unchanged).
+  - OPEN-9: `stand_net` records R's target / branch on stand rows now (observe-ready; R is deterministic, no RNG).
+  - Identity-bridge miss rule (PLAN "left for implementation", stated before the run): the bridge must be bitwise =
+    REFS on every raw key; on a miss, PASS-with-note only if actions differ ≤ 1e-5 and every G1–G5 statistic is
+    identical, else STOP and ask. Trainer↔launcher action parity: same batch shape in one process, CPU `torch.equal`;
+    GPU atol 1e-5.
+- 2026-10-12, **steps 3–5 code landed (campaign-local + tests/unit; CPU only, nothing run on Kit).** Workflow
+  wf_456cfa24-68c: opus·xhigh builders (launcher, then trainer), opus·xhigh + fable·high reviews (2 blocking + 10
+  minor), opus·xhigh fix, fable·high re-review (both blocking fixed, nothing regressed). 195 CPU unit tests pass;
+  code_sha 14301cd2 / eval_sha 1d021625 unchanged, no dirty code paths.
+  - Files: `scripts/sn_common.py` (the one stand-net input function: estimate on the unmasked prop → new tensor →
+    `stand_mask_obs` iff mask), `scripts/sn_stand_net_eval_crab_hex_gait.py` (launcher variant `stand_net`; private
+    by-path P2L instance, StandNetMode with a full `__call__`), `scripts/sn_eval_rows.sh`, `scripts/sn_bridge_read.py`,
+    `scripts/sn_dagger.py` / `sn_dagger_core.py` / `sn_dagger_spec.py` / `sn_dagger.sh` / `sn_dagger_parity.py`
+    (DAgger trainer, modes `dagger` and `recover_probe`), `tests/unit/test_sn_*.py`, `scripts/IMPLEMENTATION_MAP.md`.
+  - Raw keys added by stand_net: `sn_stand_action`, `sn_s1_action`, `sn_r_target`, `sn_r_branch`; pre-Kit refusals:
+    STAND_OBS ≠ 0, ENV4 ≠ REFS, env-level STAND_MASK / PROXY, KRABBY_RESTANCE, STAND_HOLD / PARK set; post-Kit,
+    pre-episode refusals: stand-ckpt estimator ≠ S1's; a trainer checkpoint whose recorded `stand_mask` ≠
+    `--stand-mask` (review blocking 1); a non-trainer checkpoint that is not S1.
+  - **OPEN-7 amendment (review blocking 2, logged before any A1 / step-7 read):** A1 and step-7 scoring use each
+    stand's FIRST draw — its scheduled length, timeout cut, fall before its scheduled end, and homed / |c| / trim on its
+    last row. Merging stand→stand resamples extends only stands that survived their first draw, so a floor on the
+    merged length made inclusion outcome-dependent. Stands already in progress at run start are excluded.
+  - **Step-6 deviation:** the literal "cols 0–1148 of one stand row captured in the trainer and in stand_net from the
+    same state" check is replaced by env parity on every obs-affecting EVAL_CARRY knob vs the REFS stamp plus layout /
+    clock / stand-bit column checks on captured rows (eval stamps carry no obs cfg; Teacher vs Walk-Play share the obs
+    cfg class, map C5); the offline trainer→launcher action-parity check (same batch, CPU bitwise, GPU atol 1e-5)
+    pins the forward path.
+  - Known minor (watched by hand): a recover_probe run that ends interrupted still writes an A1 verdict on partial
+    stands — read A1 only from a run whose status is complete. The phase-2 run_arm.sh `drivers_idle` uses plain
+    `ps -eo args` (truncated under an exported COLUMNS); sn_eval_rows.sh works around it; not edited (phase-2 file).
