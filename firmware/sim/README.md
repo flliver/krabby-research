@@ -22,3 +22,7 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 **PWM semantics:** `LinearActuator::driveActuator` - extend = `PWM_R`, retract = `PWM_L`, motion gated by `EN` HIGH (`firmware/arduino/actuator_manager.h`).
 
 **Programmatic config:** `SimulatedRobotConfig.front_board_rev3()` in `simulated_robot_config.py` encodes this table for sim and unit tests.
+
+## Pin state (`pin_state.py`)
+
+The host Arduino shim calls `PinStateModel.pin_mode`, `digital_write`, and `analog_write` to record Mega pin state. Each pin stores mode (`INPUT` / `OUTPUT`), last digital level (`LOW` / `HIGH`), and PWM duty (0-255). Actuator code reads `signed_pwm_command(PWM_R, PWM_L, EN)` as `(EN high) * (PWM_R - PWM_L)`, matching `LinearActuator::driveActuator`.
