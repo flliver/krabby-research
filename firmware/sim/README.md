@@ -39,3 +39,16 @@ Isaac Sim tests are opt-in (`RUN_FIRMWARE_ISAAC=1`, `@pytest.mark.isaacsim`). Ru
 ```
 
 Pass/fail comes from `build/firmware-isaac-pytest/outcomes.jsonl` (see [images/isaacsim/README.md](../../images/isaacsim/README.md) — Firmware simulation tests).
+
+## Current-sense tuning (manual)
+
+Tune wrench → `pinIS` breakpoints in `current_sense_mapping.py` (`CurrentSenseBreakpoints`: ADC levels 0 / ~2 / ~4 / ~30 and force thresholds). Run a **windowed** single-env viewer from the repo root (Isaac Lab + GPU; omit `--headless` on `AppLauncher` args to see the scene):
+
+```bash
+make -C firmware host-actuator
+cd /path/to/krabby-research
+python -m firmware.sim.wrench_tuning_viewer
+# optional: --actuator FLHL --jog-pwm 200 --device cuda:0
+```
+
+Focus the terminal for keys: **e** / **r** jog extend/retract, **space** coast, **q** quit. Each printed line shows incoming wrench load (N), mapped ADC, host `analogRead` shim value, joint velocity, and EN — adjust constants until idle / swing / contact / lift match ~0, ~2, ~4, and ~30.
