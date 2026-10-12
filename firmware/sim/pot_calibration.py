@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-# TASK-2 section 3: min stop ADC roughly 80–220, max stop roughly 800–1000.
+# Manufacturer-style bands: min stop ADC roughly 80–220, max stop roughly 800–1000.
 POT_MIN_ADC_RANGE = (80, 220)
 POT_MAX_ADC_RANGE = (800, 1000)
 

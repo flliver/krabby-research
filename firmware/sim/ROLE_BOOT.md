@@ -40,7 +40,7 @@ For early `KrabbyMCUSDK` tests without booting three emulators or running SYNC e
 
 The host runs `singleLeaderEighteenFirmwareLoopOnce()`: commands route to the FRONT/LEFT/RIGHT actuator managers by joint name; USB emits all three role-prefixed telemetry lines each `TELEMETRY_INTERVAL_MS`. No inter-board serial relay.
 
-**Final acceptance** for Milestone 21 still uses three-instance election + relay (`ThreeBoardMcuHost`, items above). Single-leader mode is documented only as a shortcut superseded by that path.
+Production sim paths should use three-instance election + relay (`ThreeBoardMcuHost`). Single-leader mode is a shortcut for early SDK tests only.
 
 ## Tests
 

@@ -1,4 +1,4 @@
-"""Windowed viewer: jog one FRONT actuator, print wrench + mapped ``pinIS`` (TASK-2 §4).
+"""Windowed viewer: jog one FRONT actuator, print wrench + mapped ``pinIS``.
 
 Run from repo root after ``make -C firmware host-actuator``::
 

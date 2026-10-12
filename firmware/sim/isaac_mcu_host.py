@@ -11,7 +11,7 @@ from firmware.sim.serial_pty_bridge import SimMcuPtyBridge
 
 
 class IsaacMcuHost:
-    """Background physics/firmware loop; USB telemetry includes Task-2 current sense."""
+    """Background physics/firmware loop; USB telemetry includes physics-backed current sense."""
 
     def __init__(self, core: Any) -> None:
         self._core = core

@@ -12,7 +12,7 @@ struct PinRecord
     int mode = kPinModeUnset;
     int digital = 0;
     int pwm = 0;
-    int analog_adc = 512;  // host analogRead; IS pins stay at mid-scale until Task 2 maps them
+    int analog_adc = 512;  // host analogRead; IS pins updated by current_sense_readback each step
 };
 
 class PinStateModel

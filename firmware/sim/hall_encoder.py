@@ -4,7 +4,7 @@ from __future__ import annotations
 
 # Placeholder until a stop-to-stop ``saf`` delta is measured on hardware (fleet
 # telemetry while jogging one joint min→max) or supplied by the mechanical team.
-# TASK-2 §3 / M21 OVERVIEW 2d — replace with the measured average encoder triggers.
+# Replace with measured stop-to-stop encoder triggers when available.
 DEFAULT_HALL_EDGES_PER_FULL_TRAVEL = 3200
 
 

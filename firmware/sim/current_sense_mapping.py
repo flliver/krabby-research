@@ -1,4 +1,4 @@
-"""Map Isaac wrench load to ``analogRead(pinIS)`` (TASK-2 §4 breakpoints)."""
+"""Map Isaac wrench load to ``analogRead(pinIS)`` (piecewise breakpoints)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from firmware.sim.pot_position import ADC_FULL_SCALE
 from firmware.sim.wrench_readback import WrenchSample
 
-# Tunable output levels (of 1023) — tune by eye in the wrench viewer (TASK-2 §4).
+# Tunable output levels (of 1023) — tune by eye in ``wrench_tuning_viewer``.
 DEFAULT_IDLE_ADC = 0
 DEFAULT_MOVING_NO_CONTACT_ADC = 2
 DEFAULT_GROUND_CONTACT_ADC = 4
@@ -32,7 +32,7 @@ class CurrentSenseBreakpoints:
 
 
 def wrench_load_newtons(sample: WrenchSample) -> float:
-    """Scalar load from incoming wrench (force magnitude; primary TASK-2 signal)."""
+    """Scalar load from incoming wrench (force magnitude)."""
     return sample.force_magnitude()
 
 
