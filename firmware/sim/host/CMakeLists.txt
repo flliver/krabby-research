@@ -33,8 +33,14 @@ else()
     target_compile_options(krabby_firmware_actuator_host PRIVATE -Wall -Wextra -Werror -Wno-sign-compare)
 endif()
 
-add_library(krabby_host SHARED host_api.cpp)
+add_library(krabby_host SHARED host_api.cpp host_firmware_loop.cpp)
+target_sources(
+    krabby_host
+    PRIVATE
+        "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp"
+)
 target_link_libraries(krabby_host PRIVATE krabby_firmware_actuator_host)
+target_include_directories(krabby_host PRIVATE "${KRABBY_ARDUINO_DIR}")
 if(MSVC)
     target_compile_options(krabby_host PRIVATE /W4 /WX)
 else()

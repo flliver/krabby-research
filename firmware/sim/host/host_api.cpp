@@ -7,7 +7,9 @@
 #include "sim_clock.hpp"
 #include "sim_serial.hpp"
 
-namespace {
+namespace krabby {
+namespace sim {
+namespace host {
 
 LinearActuator s_flhy("FLHY", 2, 3, 22, 6, 0, 0);
 LinearActuator s_flhl("FLHL", 4, 5, 24, 7, 1, 1);
@@ -23,11 +25,17 @@ LinearActuator *s_actuators[] = {
 ActuatorManager s_manager(s_actuators, sizeof(s_actuators) / sizeof(s_actuators[0]));
 bool s_initialized = false;
 
-void ensure_initialized()
+void ensureActuatorsInitialized()
 {
     if (s_initialized) return;
     s_manager.initAll();
     s_initialized = true;
+}
+
+ActuatorManager &actuatorManager()
+{
+    ensureActuatorsInitialized();
+    return s_manager;
 }
 
 LinearActuator *find_actuator(const char *actuator_name)
@@ -40,25 +48,35 @@ LinearActuator *find_actuator(const char *actuator_name)
     return nullptr;
 }
 
-}  // namespace
+}  // namespace host
+}  // namespace sim
+}  // namespace krabby
+
+using krabby::sim::host::actuatorManager;
+using krabby::sim::host::ensureActuatorsInitialized;
+using krabby::sim::host::find_actuator;
+using krabby::sim::host::s_actuators;
+using krabby::sim::host::s_initialized;
+using krabby::sim::host::s_manager;
 
 extern "C" void krabby_host_reset(void)
 {
     krabby::sim::resetHostSim();
+    krabby_host_firmware_reset_loop_state();
     s_initialized = false;
 }
 
 extern "C" void krabby_host_handle_jog(const char *actuator_name, int pwm)
 {
     if (actuator_name == nullptr) return;
-    ensure_initialized();
+    ensureActuatorsInitialized();
     s_manager.handleJog(String(actuator_name), pwm);
 }
 
 extern "C" void krabby_host_set_target(const char *actuator_name, float position)
 {
     if (actuator_name == nullptr) return;
-    ensure_initialized();
+    ensureActuatorsInitialized();
     for (LinearActuator *actuator : s_actuators)
     {
         if (String(actuator->getName()) == actuator_name)
@@ -88,7 +106,7 @@ extern "C" void krabby_host_set_actuator_stops(
 
 extern "C" void krabby_host_update_all(void)
 {
-    ensure_initialized();
+    ensureActuatorsInitialized();
     s_manager.updateAll();
 }
 
@@ -153,13 +171,13 @@ extern "C" void krabby_host_eeprom_update(int addr, uint8_t value)
 
 extern "C" void krabby_host_save_calibration(void)
 {
-    ensure_initialized();
+    ensureActuatorsInitialized();
     s_manager.saveCalibration();
 }
 
 extern "C" void krabby_host_load_calibration(void)
 {
-    ensure_initialized();
+    ensureActuatorsInitialized();
     s_manager.loadCalibration();
 }
 

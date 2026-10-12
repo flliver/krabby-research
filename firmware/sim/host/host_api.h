@@ -44,6 +44,10 @@ int krabby_host_serial_usb_tx_available(void);
 int krabby_host_serial_usb_tx_read(void);
 void krabby_host_serial_usb_println(const char *text);
 
+void krabby_host_firmware_setup(void);
+void krabby_host_firmware_loop_once(void);
+void krabby_host_firmware_reset_loop_state(void);
+
 #ifdef __cplusplus
 }
 #endif

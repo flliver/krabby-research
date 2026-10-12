@@ -66,6 +66,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/test_host_arduino_shim
     arduino/test_host_eeprom
     arduino/test_host_serial
+    arduino/test_host_firmware_loop
     arduino/test_host_hall_scale
     arduino/test_host_actuator_link
     arduino/src/actuator/test_actuator_pot_tracker
@@ -87,6 +88,11 @@ target_include_directories(test_actuator_manager PRIVATE "${CMAKE_CURRENT_SOURCE
 target_link_libraries(test_host_arduino_shim PRIVATE krabby_sim_host)
 target_link_libraries(test_host_eeprom PRIVATE krabby_sim_host krabby_firmware_actuator_host)
 target_link_libraries(test_host_serial PRIVATE krabby_sim_host)
+target_link_libraries(test_host_firmware_loop PRIVATE krabby_host)
+target_include_directories(
+    test_host_firmware_loop
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
 target_link_libraries(test_host_hall_scale PRIVATE krabby_sim_host)
 target_link_libraries(test_host_actuator_link PRIVATE krabby_firmware_actuator_host)
 if(NOT MSVC)

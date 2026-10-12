@@ -14,6 +14,7 @@ public:
     String(const std::string &value) : std::string(value) {}
     String substring(int begin, int end) const { return substr(static_cast<size_t>(begin), static_cast<size_t>(end - begin)); }
     float toFloat() const { return std::strtof(c_str(), nullptr); }
+    int toInt() const { return static_cast<int>(std::strtol(c_str(), nullptr, 10)); }
 };
 
 class Print

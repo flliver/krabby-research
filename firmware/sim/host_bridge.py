@@ -100,9 +100,21 @@ class HostActuatorBridge:
         self._lib.krabby_host_serial_usb_tx_read.restype = ctypes.c_int
         self._lib.krabby_host_serial_usb_println.argtypes = [ctypes.c_char_p]
         self._lib.krabby_host_serial_usb_println.restype = None
+        self._lib.krabby_host_firmware_setup.argtypes = []
+        self._lib.krabby_host_firmware_setup.restype = None
+        self._lib.krabby_host_firmware_loop_once.argtypes = []
+        self._lib.krabby_host_firmware_loop_once.restype = None
+        self._lib.krabby_host_firmware_reset_loop_state.argtypes = []
+        self._lib.krabby_host_firmware_reset_loop_state.restype = None
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
+
+    def firmware_setup(self) -> None:
+        self._lib.krabby_host_firmware_setup()
+
+    def firmware_loop_once(self) -> None:
+        self._lib.krabby_host_firmware_loop_once()
 
     def handle_jog(self, actuator_name: str, pwm: int) -> None:
         self._lib.krabby_host_handle_jog(actuator_name.encode("ascii"), int(pwm))
