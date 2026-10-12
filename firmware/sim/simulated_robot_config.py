@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -38,6 +39,10 @@ _FRONT_BOARD_REV3_SLOTS: tuple[SimulatedSlotConfig, ...] = (
 )
 
 PIN_REVISION_LABEL = "PINS_REV3_UNO_V02"  # boardPinRevisionLabel() when KRABBY_PIN_REV=3
+KRABBY_PIN_REV = 3
+
+# Per-leg Isaac find_joints-style patterns (exclude CamShaft by using exact names from slots).
+ISAAC_LEG_JOINT_PATTERN = "{leg}_.*_RevoluteJoint"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +80,69 @@ class SimulatedRobotConfig:
         names = self.isaac_joint_names()
         if len(set(names)) != len(names):
             raise ValueError(f"duplicate Isaac joint names in config: {names!r}")
+
+    def validate_distinct_drive_pins(self) -> None:
+        drive_sets = [slot.drive_pins for slot in self.slots]
+        if len(set(drive_sets)) != len(drive_sets):
+            raise ValueError(f"duplicate drive pin sets in config: {drive_sets!r}")
+
+    @staticmethod
+    def _resolve_joint_index(
+        isaac_joint_name: str,
+        joint_index_for_name: Mapping[str, int] | Callable[[str], int],
+    ) -> int:
+        if callable(joint_index_for_name):
+            return int(joint_index_for_name(isaac_joint_name))
+        try:
+            return int(joint_index_for_name[isaac_joint_name])
+        except KeyError as exc:
+            raise KeyError(f"no Isaac joint index for {isaac_joint_name!r}") from exc
+
+    def actuators(
+        self,
+        joint_index_for_name: Mapping[str, int] | Callable[[str], int],
+        *,
+        max_joint_speed: float = 1.0,
+    ) -> tuple["SimulatedActuator", ...]:
+        from firmware.sim.simulated_actuator import SimulatedActuator
+
+        return tuple(
+            SimulatedActuator(
+                slot=slot,
+                joint_index=self._resolve_joint_index(slot.isaac_joint_name, joint_index_for_name),
+                max_joint_speed=max_joint_speed,
+            )
+            for slot in self.slots
+        )
+
+    def actuators_by_firmware_id(
+        self,
+        joint_index_for_name: Mapping[str, int] | Callable[[str], int],
+        *,
+        max_joint_speed: float = 1.0,
+    ) -> dict[str, "SimulatedActuator"]:
+        return {
+            actuator.slot.firmware_actuator_id: actuator
+            for actuator in self.actuators(
+                joint_index_for_name,
+                max_joint_speed=max_joint_speed,
+            )
+        }
+
+    def actuator_by_firmware_id(
+        self,
+        actuator_id: str,
+        joint_index_for_name: Mapping[str, int] | Callable[[str], int],
+        *,
+        max_joint_speed: float = 1.0,
+    ) -> "SimulatedActuator":
+        return self.actuators_by_firmware_id(
+            joint_index_for_name,
+            max_joint_speed=max_joint_speed,
+        )[actuator_id]
+
+    def isaac_joint_pattern(self, leg: str) -> str:
+        return ISAAC_LEG_JOINT_PATTERN.format(leg=leg)
 
 
 def front_board_rev3_slots() -> Sequence[SimulatedSlotConfig]:

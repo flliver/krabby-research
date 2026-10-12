@@ -2,6 +2,7 @@
 
 import pytest
 
+from firmware.sim.pin_state import PinStateModel
 from firmware.sim.simulated_robot_config import (
     PIN_REVISION_LABEL,
     SimulatedRobotConfig,
@@ -64,3 +65,44 @@ def test_slot_lookup_by_index_and_firmware_id(slot_index, firmware_id, isaac_joi
     by_id = config.slot_by_firmware_id(firmware_id)
     assert by_index is by_id
     assert by_index.isaac_joint_name == isaac_joint
+
+
+def _joint_indices_for_config(config: SimulatedRobotConfig) -> dict[str, int]:
+    return {name: index for index, name in enumerate(config.isaac_joint_names())}
+
+
+def test_actuators_yields_six_with_distinct_drive_pins():
+    config = SimulatedRobotConfig.front_board_rev3()
+    indices = _joint_indices_for_config(config)
+    actuators = config.actuators(indices)
+
+    assert len(actuators) == 6
+    config.validate_distinct_drive_pins()
+    assert len({a.slot.drive_pins for a in actuators}) == 6
+    assert tuple(a.slot.firmware_actuator_id for a in actuators) == _EXPECTED_FIRMWARE_IDS
+
+
+def test_actuator_by_firmware_id_wires_isaac_joint_index():
+    config = SimulatedRobotConfig.front_board_rev3()
+    indices = _joint_indices_for_config(config)
+    flhy = config.actuator_by_firmware_id("FLHY", indices)
+
+    assert flhy.joint_index == indices["FL_Body_Hip_RevoluteJoint"]
+    assert flhy.slot.isaac_joint_name == "FL_Body_Hip_RevoluteJoint"
+    assert flhy.slot.pin_pot == 0
+    assert flhy.slot.pin_is == 6
+
+
+@pytest.mark.parametrize("firmware_id", _EXPECTED_FIRMWARE_IDS)
+def test_drive_via_actuator_name_not_literal_pins(firmware_id):
+    config = SimulatedRobotConfig.front_board_rev3()
+    indices = _joint_indices_for_config(config)
+    actuator = config.actuator_by_firmware_id(firmware_id, indices)
+    pin_state = PinStateModel()
+
+    pwm_r, pwm_l, pin_en = actuator.slot.drive_pins
+    pin_state.digital_write(pin_en, 1)
+    pin_state.analog_write(pwm_r, 50)
+    pin_state.analog_write(pwm_l, 0)
+
+    assert actuator.signed_pwm_command(pin_state) == 50

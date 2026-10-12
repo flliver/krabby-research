@@ -28,8 +28,10 @@ MAX_SPEED = 2.5
 
 @pytest.fixture
 def flhy_actuator() -> SimulatedActuator:
-    slot = SimulatedRobotConfig.front_board_rev3().slot_by_firmware_id("FLHY")
-    return SimulatedActuator(slot=slot, joint_index=3, max_joint_speed=MAX_SPEED)
+    config = SimulatedRobotConfig.front_board_rev3()
+    names = config.isaac_joint_names()
+    indices = {name: index for index, name in enumerate(names)}
+    return config.actuator_by_firmware_id("FLHY", indices, max_joint_speed=MAX_SPEED)
 
 
 @pytest.fixture
