@@ -165,3 +165,11 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
     Descriptive reading (not a rule change): R does not add late falls; it cannot catch a robot already tipping when it
     takes over. Statue and chatter fall shares are at the control's level; exit falls are 0 in every group.
   - Per the pre-registered rule this is a **STOP and ask**; nothing further launched.
+- 2026-10-12, **USER DECISION at the A1 stop: proceed to the pilot** (accepting that R homes from every student-like
+  state and that the stuck-lift fall excess comes from the spoiler window and the first 0.8 s after takeover; G3 still
+  gates falls at eval). Go for step 7 only; step 8 (A-full) waits for the user after the pilot.
+- 2026-10-12, **step 7 launched: pilot `SN_Amask_s18`** — `--mode dagger --arm mask --seed 18 --iterations 4000`
+  (1.54 s / it → ≈ 1.7 GPU-h ≤ the 2 GPU-h cap; β → 0 at it 1333; ckpts every 500; one job, no resume). Early checks,
+  notify-only, at it ≈ 1333 (β → 0) and it 2000 (mid-run): student vs concurrent R-slice train-time homed share
+  (σ = 0 stands > 4 s, first-draw scoring), window its 1334–2000 at mid-run; student < 0.5 × R → STOP and ask.
+  **Judged checkpoint: model_4000.pt.**
