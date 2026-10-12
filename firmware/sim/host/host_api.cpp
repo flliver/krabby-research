@@ -56,6 +56,23 @@ extern "C" void krabby_host_set_target(const char *actuator_name, float position
     }
 }
 
+extern "C" void krabby_host_set_actuator_stops(
+    const char *actuator_name,
+    int min_stop,
+    int max_stop)
+{
+    if (actuator_name == nullptr) return;
+    for (LinearActuator *actuator : s_actuators)
+    {
+        if (String(actuator->getName()) == actuator_name)
+        {
+            actuator->minStop = min_stop;
+            actuator->maxStop = max_stop;
+            return;
+        }
+    }
+}
+
 extern "C" void krabby_host_update_all(void)
 {
     ensure_initialized();

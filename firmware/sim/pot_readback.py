@@ -1,4 +1,4 @@
-"""Push simulated joint positions onto host ``analogRead`` pot pins."""
+"""Articulation -> host sensor readback (pots now; current sense later)."""
 
 from __future__ import annotations
 
@@ -39,3 +39,19 @@ def sync_pot_analog_reads(
             band=actuator.pot_band,
         )
         bridge.set_analog_read(actuator.slot.pin_pot, adc)
+
+
+def sync_sensor_reads(
+    bridge: HostActuatorBridge,
+    actuators: Sequence[SimulatedActuator],
+    articulation: Any,
+    *,
+    env_index: int = 0,
+) -> None:
+    """Refresh shim ``analogRead`` inputs from the plant before ``updateAll()``."""
+    sync_pot_analog_reads(
+        bridge,
+        actuators,
+        articulation,
+        env_index=env_index,
+    )

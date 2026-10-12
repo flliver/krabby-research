@@ -1,4 +1,4 @@
-"""Drive-only loop: firmware step -> pin state -> config rows drive Isaac -> advance sim."""
+"""Firmware-in-Isaac loop: sensor readback, firmware step, drive pins, advance physics."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
-from firmware.sim.pot_readback import sync_pot_analog_reads
+from firmware.sim.pot_readback import sync_sensor_reads
 from firmware.sim.pin_state import PinStateModel
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
 from firmware.sim.simulated_robot_config import SimulatedRobotConfig
@@ -51,6 +51,12 @@ class RobotCore:
     def reset(self) -> None:
         self.bridge.reset()
         self.pin_state.reset()
+        for actuator in self.actuators:
+            band = actuator.pot_band
+            if band is None:
+                continue
+            slot_id = actuator.slot.firmware_actuator_id
+            self.bridge.set_actuator_stops(slot_id, band.min_adc, band.max_adc)
 
     def jog(self, actuator_id: str, pwm: int) -> None:
         """Open-loop jog; the drive pins reach Isaac on the next step."""
@@ -64,7 +70,8 @@ class RobotCore:
         return self.bridge.millis()
 
     def step(self) -> Any:
-        sync_pot_analog_reads(self.bridge, self.actuators, self.articulation)
+        # Plant state is from the previous step's physics; refresh pots before firmware reads.
+        sync_sensor_reads(self.bridge, self.actuators, self.articulation)
         self.bridge.advance_millis(physics_step_ms(self.env))
         self.bridge.update_all()
         for actuator in self.actuators:

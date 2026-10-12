@@ -52,6 +52,9 @@ class FakeHostBridge:
     def millis(self) -> int:
         return self.now_ms
 
+    def set_actuator_stops(self, actuator_name: str, min_stop: int, max_stop: int) -> None:
+        self.calls.append(f"set_actuator_stops:{actuator_name}:{min_stop}:{max_stop}")
+
 
 def _fake_env(physics_dt_s: float = FIRMWARE_STEP_MS / 1000.0):
     """Minimal Isaac env stub so ``physics_step_ms`` matches production."""
@@ -124,6 +127,18 @@ def test_firmware_step_runs_before_pins_are_read(core):
     first_pin_read = next(i for i, c in enumerate(loop.bridge.calls) if c.startswith("pin_"))
     assert loop.bridge.calls.index("advance_millis:10") < loop.bridge.calls.index("update_all")
     assert loop.bridge.calls.index("update_all") < first_pin_read
+
+
+def test_reset_applies_pot_band_stops_to_host(core):
+    loop, _, _ = core
+    band = loop.actuators[0].pot_band
+    assert band is not None
+
+    loop.reset()
+
+    assert (
+        f"set_actuator_stops:FLHY:{band.min_adc}:{band.max_adc}" in loop.bridge.calls
+    )
 
 
 def test_reset_clears_clock_and_pin_state(core):
