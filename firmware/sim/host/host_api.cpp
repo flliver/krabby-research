@@ -1,6 +1,7 @@
 #include "host_api.h"
 
 #include "actuator_manager.h"
+#include "hall_sim.hpp"
 #include "pin_state.hpp"
 #include "sim_clock.hpp"
 
@@ -107,4 +108,23 @@ extern "C" void krabby_host_advance_millis(unsigned long delta_ms)
 extern "C" unsigned long krabby_host_millis(void)
 {
     return krabby::sim::simClock().nowMs();
+}
+
+extern "C" void krabby_host_set_hall_edges_per_full_travel(uint32_t edges)
+{
+    krabby::sim::setHallEdgesPerFullTravel(edges);
+}
+
+extern "C" void krabby_host_sync_hall_joint(
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad)
+{
+    krabby::sim::hallSimSyncJointAngle(hall_slot, angle_rad, lower_rad, upper_rad);
+}
+
+extern "C" int32_t krabby_host_hall_edge_count(uint8_t hall_slot)
+{
+    return static_cast<int32_t>(krabby::sim::hallSimEdgeCount(hall_slot));
 }

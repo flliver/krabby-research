@@ -62,6 +62,17 @@ class HostActuatorBridge:
         self._lib.krabby_host_advance_millis.restype = None
         self._lib.krabby_host_millis.argtypes = []
         self._lib.krabby_host_millis.restype = ctypes.c_ulong
+        self._lib.krabby_host_set_hall_edges_per_full_travel.argtypes = [ctypes.c_uint32]
+        self._lib.krabby_host_set_hall_edges_per_full_travel.restype = None
+        self._lib.krabby_host_sync_hall_joint.argtypes = [
+            ctypes.c_uint8,
+            ctypes.c_float,
+            ctypes.c_float,
+            ctypes.c_float,
+        ]
+        self._lib.krabby_host_sync_hall_joint.restype = None
+        self._lib.krabby_host_hall_edge_count.argtypes = [ctypes.c_uint8]
+        self._lib.krabby_host_hall_edge_count.restype = ctypes.c_int32
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -100,6 +111,26 @@ class HostActuatorBridge:
 
     def millis(self) -> int:
         return int(self._lib.krabby_host_millis())
+
+    def set_hall_edges_per_full_travel(self, edges: int) -> None:
+        self._lib.krabby_host_set_hall_edges_per_full_travel(int(edges))
+
+    def sync_hall_joint(
+        self,
+        hall_slot: int,
+        angle_rad: float,
+        lower_rad: float,
+        upper_rad: float,
+    ) -> None:
+        self._lib.krabby_host_sync_hall_joint(
+            int(hall_slot),
+            float(angle_rad),
+            float(lower_rad),
+            float(upper_rad),
+        )
+
+    def hall_edge_count(self, hall_slot: int) -> int:
+        return int(self._lib.krabby_host_hall_edge_count(int(hall_slot)))
 
 
 def load_host_bridge() -> HostActuatorBridge:

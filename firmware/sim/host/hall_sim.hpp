@@ -7,6 +7,8 @@ namespace sim {
 
 void resetHallSim();
 
+void setHallEdgesPerFullTravel(uint32_t edges);
+
 // Accumulate hall edges from absolute joint-angle delta scaled by kHallEdgesPerFullTravel.
 void hallSimSyncJointAngle(uint8_t slot, float angleRad, float lowerRad, float upperRad);
 

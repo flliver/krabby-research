@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from firmware.sim.hall_readback import sync_hall_edge_counts
 from firmware.sim.host_bridge import HostActuatorBridge
 from firmware.sim.pot_position import joint_angle_to_pot_adc
 from firmware.sim.simulated_actuator import SimulatedActuator
@@ -50,6 +51,12 @@ def sync_sensor_reads(
 ) -> None:
     """Refresh shim ``analogRead`` inputs from the plant before ``updateAll()``."""
     sync_pot_analog_reads(
+        bridge,
+        actuators,
+        articulation,
+        env_index=env_index,
+    )
+    sync_hall_edge_counts(
         bridge,
         actuators,
         articulation,

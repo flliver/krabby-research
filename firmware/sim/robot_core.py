@@ -24,6 +24,7 @@ class RobotCore:
     actuators: tuple[SimulatedActuator, ...]
     articulation: JointVelocityTarget
     env: Any
+    config: SimulatedRobotConfig | None = None
     advance: Callable[[Any], Any] | None = None
     pin_state: PinStateModel = field(default_factory=PinStateModel)
 
@@ -45,12 +46,17 @@ class RobotCore:
             actuators=cfg.actuators(joint_index_for_name, max_joint_speed=max_joint_speed),
             articulation=articulation,
             env=env,
+            config=cfg,
             **kwargs,
         )
 
     def reset(self) -> None:
         self.bridge.reset()
         self.pin_state.reset()
+        if self.config is not None:
+            self.bridge.set_hall_edges_per_full_travel(
+                self.config.hall_edges_per_full_travel
+            )
         for actuator in self.actuators:
             band = actuator.pot_band
             if band is None:

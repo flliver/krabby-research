@@ -22,6 +22,14 @@ int krabby_host_analog_read(int pin);
 void krabby_host_advance_millis(unsigned long delta_ms);
 unsigned long krabby_host_millis(void);
 
+void krabby_host_set_hall_edges_per_full_travel(uint32_t edges);
+void krabby_host_sync_hall_joint(
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad);
+int32_t krabby_host_hall_edge_count(uint8_t hall_slot);
+
 #ifdef __cplusplus
 }
 #endif
