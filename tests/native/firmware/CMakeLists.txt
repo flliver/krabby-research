@@ -68,6 +68,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/test_host_serial
     arduino/test_inter_board_serial
     arduino/test_host_board_role_election
+    arduino/test_host_three_board_leader_relay
     arduino/test_host_firmware_loop
     arduino/test_host_hall_scale
     arduino/test_host_actuator_link
@@ -92,6 +93,11 @@ target_link_libraries(test_host_eeprom PRIVATE krabby_sim_host krabby_firmware_a
 target_link_libraries(test_host_serial PRIVATE krabby_sim_host)
 target_link_libraries(test_inter_board_serial PRIVATE krabby_sim_host)
 target_link_libraries(test_host_board_role_election PRIVATE krabby_sim_host)
+target_link_libraries(test_host_three_board_leader_relay PRIVATE krabby_host)
+target_include_directories(
+    test_host_three_board_leader_relay
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
 target_link_libraries(test_host_firmware_loop PRIVATE krabby_host)
 target_include_directories(
     test_host_firmware_loop

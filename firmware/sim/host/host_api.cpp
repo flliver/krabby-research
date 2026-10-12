@@ -8,6 +8,7 @@
 #include "pin_state.hpp"
 #include "sim_clock.hpp"
 #include "host_board_role.hpp"
+#include "host_multi_board.hpp"
 #include "sim_serial.hpp"
 
 namespace krabby {
@@ -66,6 +67,7 @@ extern "C" void krabby_host_reset(void)
 {
     krabby::sim::resetHostSim();
     krabby_host_firmware_reset_loop_state();
+    krabby::sim::host::setThreeBoardFirmwareLoopEnabled(false);
     s_initialized = false;
     s_manager.calState = ActuatorManager::CAL_IDLE;
     s_manager.stateTimer = 0;
@@ -259,6 +261,11 @@ extern "C" int krabby_host_board_usb_tx_line_available(int board_id)
                    .txLineAvailable()
         ? 1
         : 0;
+}
+
+extern "C" void krabby_host_enable_three_board_firmware_loop(int enabled)
+{
+    krabby::sim::host::setThreeBoardFirmwareLoopEnabled(enabled != 0);
 }
 
 extern "C" int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len)

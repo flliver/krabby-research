@@ -55,6 +55,7 @@ int krabby_host_leader_board_id(void);
 int krabby_host_board_usb_tx_line_available(int board_id);
 /** Copy one newline-delimited USB TX line; returns bytes written, 0 if none, -1 on error. */
 int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len);
+void krabby_host_enable_three_board_firmware_loop(int enabled);
 
 #ifdef __cplusplus
 }

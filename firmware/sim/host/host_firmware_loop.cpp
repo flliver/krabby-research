@@ -2,6 +2,7 @@
 
 #include "host_api.h"
 #include "host_firmware_internal.hpp"
+#include "host_multi_board.hpp"
 
 #include "Arduino.h"
 #include "command.h"
@@ -121,6 +122,11 @@ extern "C" void krabby_host_firmware_setup(void)
 
 extern "C" void krabby_host_firmware_loop_once(void)
 {
+    if (krabby::sim::host::threeBoardFirmwareLoopEnabled())
+    {
+        krabby::sim::host::threeBoardFirmwareLoopOnce();
+        return;
+    }
     if (!s_firmwareSetupDone) krabby_host_firmware_setup();
     drainUsbCommands();
     krabby::sim::host::actuatorManager().updateAll();
@@ -131,4 +137,5 @@ extern "C" void krabby_host_firmware_reset_loop_state(void)
 {
     s_lastTelemetryMs = 0;
     s_firmwareSetupDone = false;
+    krabby::sim::host::threeBoardFirmwareResetLoopState();
 }

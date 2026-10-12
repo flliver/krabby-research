@@ -35,6 +35,7 @@ class ThreeBoardMcuHost:
 
     def start(self) -> str:
         self.roles_by_board = boot_three_board_emulators(self._bridge)
+        self._bridge.enable_three_board_firmware_loop(True)
         self._bridge.firmware_setup()
         self.slave_path = self._pty.start()
         self._stop.clear()

@@ -56,7 +56,14 @@ public:
         print(value);
         write('\n');
     }
+    void println(const String &value) { println(value.c_str()); }
+    void println(int value)
+    {
+        print(value);
+        write('\n');
+    }
     void println() { write('\n'); }
+    void print(const String &value) { print(value.c_str()); }
 };
 
 inline void delayMicroseconds(unsigned int /*duration*/) {}

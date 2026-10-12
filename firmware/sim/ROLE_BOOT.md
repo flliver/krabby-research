@@ -26,6 +26,8 @@ The SDK host port (`krabby_host_serial_usb_*`) is always the **FRONT** board’s
 
 The single-board USB path (`host/host_firmware_loop.cpp`) still assumes an already-elected **FRONT** leader. Call `boot_three_board_emulators()` (or `ThreeBoardMcuHost.start()`) before connecting `KrabbyMCUSDK` when simulating three boards.
 
+With `enable_three_board_firmware_loop(True)`, the host runs `host_multi_board.cpp`: USB `T`/`B`/`J`/… commands apply on FRONT and relay to followers; follower telemetry on inter-board serial is forwarded to USB so the SDK sees `FRONT;`, `LEFT ;`, and `RIGHT;` each 50 ms tick.
+
 ## Tests
 
 Native coverage: `tests/native/firmware/arduino/test_host_board_role_election.cpp` (`make -C firmware test-native`).

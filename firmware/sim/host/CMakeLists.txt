@@ -36,7 +36,7 @@ else()
     target_compile_options(krabby_firmware_actuator_host PRIVATE -Wall -Wextra -Werror -Wno-sign-compare)
 endif()
 
-add_library(krabby_host SHARED host_api.cpp host_firmware_loop.cpp)
+add_library(krabby_host SHARED host_api.cpp host_firmware_loop.cpp host_multi_board.cpp)
 target_sources(
     krabby_host
     PRIVATE
