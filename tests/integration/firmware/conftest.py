@@ -1,4 +1,7 @@
-"""Firmware Isaac integration pytest hooks.
+"""Firmware Isaac integration fixtures and pytest hooks.
+
+Kit can only be booted once per process, so ``crab_hex_play_env`` is session scoped and
+shared by every test module here.
 
 When ``FIRMWARE_ISAAC_RESULTS_DIR`` is set (``run_firmware_isaac_pytest.sh`` in Docker),
 each completed test call phase is appended to ``outcomes.jsonl`` on disk. The host reads
@@ -8,8 +11,10 @@ can exit 0 before pytest prints its summary.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
+import sys
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,8 +22,96 @@ from typing import Any
 
 import pytest
 
+REPO = Path(__file__).resolve().parents[3]
+PARKOUR_TASKS = REPO / "parkour" / "parkour_tasks"
+if str(PARKOUR_TASKS) not in sys.path:
+    sys.path.insert(0, str(PARKOUR_TASKS))
+
 _RESULTS_DIR: Path | None = None
 _ISAAC_DEFERRED_TEARDOWN: list[Callable[[], None]] = []
+
+
+def skip_unless_firmware_isaac() -> None:
+    if os.environ.get("RUN_FIRMWARE_ISAAC", "").lower() not in ("1", "true", "yes"):
+        pytest.skip("Isaac firmware test (set RUN_FIRMWARE_ISAAC=1)")
+
+
+@pytest.fixture(scope="session")
+def crab_hex_play_env():
+    """One headless Kit boot for the whole session."""
+    skip_unless_firmware_isaac()
+    pytest.importorskip("isaaclab")
+    from isaaclab.app import AppLauncher
+
+    parser = argparse.ArgumentParser()
+    AppLauncher.add_app_launcher_args(parser)
+    device = os.environ.get("KRABBY_ISAAC_DEVICE", "cuda:0")
+    app_args = parser.parse_args(["--headless", f"--device={device}"])
+    app_launcher = AppLauncher(app_args)
+    simulation_app = app_launcher.app
+
+    from firmware.sim.isaac_scene import (
+        get_robot_articulation,
+        make_crab_hex_env,
+        resolve_front_board_joint_indices,
+    )
+
+    env = make_crab_hex_env(num_envs=1, device=device)
+    env.reset()
+
+    def _close_sim() -> None:
+        env.close()
+        simulation_app.close()
+
+    defer_isaac_teardown(_close_sim)
+    yield env, get_robot_articulation, resolve_front_board_joint_indices
+
+
+@pytest.fixture(scope="session")
+def front_board_rig(crab_hex_play_env):
+    """``RobotCore`` wired to the six FRONT joints, ready to jog."""
+    from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
+    from firmware.sim.isaac_scene import configure_open_loop_velocity_drive
+    from firmware.sim.robot_core import RobotCore
+    from firmware.sim.simulated_robot_config import SimulatedRobotConfig
+
+    try:
+        bridge = load_host_bridge()
+    except HostLibraryNotBuiltError as exc:
+        pytest.skip(f"{exc} (build on the host, it is mounted into the container)")
+
+    env, get_robot, resolve_front = crab_hex_play_env
+    config = SimulatedRobotConfig.front_board_rev3()
+    robot = get_robot(env)
+    indices = resolve_front(robot, config)
+    # Without this the stock position gains (16000 N·m/rad on the hip joints) hold the
+    # reset pose against any speed the firmware commands.
+    configure_open_loop_velocity_drive(robot, indices.values())
+
+    core = RobotCore.front_board(
+        env=env,
+        articulation=robot,
+        joint_index_for_name=indices,
+        bridge=bridge,
+        config=config,
+        max_joint_speed=2.0,
+    )
+    return core, robot, config, indices
+
+
+def park_at_default_pose(core, robot) -> None:
+    """Undo a previous drive so each case starts from the same joint state."""
+    import torch
+
+    # inference_mode: the articulation buffers were created inside it by the first env
+    # step, and in-place writes to inference tensors are rejected outside that context.
+    with torch.inference_mode():
+        pos = robot.data.default_joint_pos.clone()
+        vel = robot.data.default_joint_vel.clone()
+        robot.write_joint_state_to_sim(pos, vel)
+        robot.set_joint_velocity_target(vel)
+        robot.set_joint_position_target(pos)
+    core.reset()
 
 
 def defer_isaac_teardown(callback: Callable[[], None]) -> None:

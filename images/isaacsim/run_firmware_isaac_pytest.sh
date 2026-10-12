@@ -26,7 +26,7 @@ DEVICE="${KRABBY_ISAAC_DEVICE:-cuda:0}"
 RESULTS_DIR="${REPO_ROOT}/build/firmware-isaac-pytest"
 
 if [[ $# -eq 0 ]]; then
-  set -- tests/integration/firmware/test_isaac_crab_scene.py -v
+  set -- tests/integration/firmware -v
 fi
 
 mkdir -p "$RESULTS_DIR"
