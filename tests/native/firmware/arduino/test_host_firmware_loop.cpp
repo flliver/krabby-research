@@ -35,6 +35,20 @@ static void runSetupDrainAndLoopOnce()
     krabby_host_firmware_loop_once();
 }
 
+static void stageFrontBoardSensorsForGoldenTelemetry()
+{
+    static const char *kIds[] = {"FLHY", "FLHL", "FLKL", "FRHY", "FRHL", "FRKL"};
+    for (const char *id : kIds)
+    {
+        krabby_host_set_actuator_stops(id, 100, 900);
+    }
+    for (int potPin = 0; potPin < 6; ++potPin)
+    {
+        krabby_host_set_analog_read(potPin, 500);
+        krabby_host_set_analog_read(potPin + 6, 12);
+    }
+}
+
 static void test_telemetry_emits_on_fifty_ms_interval()
 {
     krabby_host_firmware_setup();
@@ -48,6 +62,26 @@ static void test_telemetry_emits_on_fifty_ms_interval()
     TEST_ASSERT_TRUE(serialPort(SerialPortId::kUsb).txLineAvailable());
     const std::string line = serialPort(SerialPortId::kUsb).popTxLine();
     TEST_ASSERT_TRUE(line.rfind("FRONT;", 0) == 0);
+}
+
+static void test_telemetry_golden_wire_format()
+{
+    static const char kGolden[] =
+        "FRONT; FLHY 0.500 500 12 0 0 0 0 0 0"
+        ";FLHL 0.500 500 12 0 0 0 0 0 0"
+        ";FLKL 0.500 500 12 0 0 0 0 0 0"
+        ";FRHY 0.500 500 12 0 0 0 0 0 0"
+        ";FRHL 0.500 500 12 0 0 0 0 0 0"
+        ";FRKL 0.500 500 12 0 0 0 0 0 0";
+
+    stageFrontBoardSensorsForGoldenTelemetry();
+    krabby_host_firmware_setup();
+    drainUsbTxLines();
+    krabby_host_advance_millis(50);
+    krabby_host_firmware_loop_once();
+    TEST_ASSERT_TRUE(serialPort(SerialPortId::kUsb).txLineAvailable());
+    const std::string line = serialPort(SerialPortId::kUsb).popTxLine();
+    TEST_ASSERT_EQUAL_STRING(kGolden, line.c_str());
 }
 
 // Wire formats match firmware/krabby_mcu.py send_command_* emitters.
@@ -130,6 +164,7 @@ int main()
 {
     UNITY_BEGIN();
     RUN_TEST(test_telemetry_emits_on_fifty_ms_interval);
+    RUN_TEST(test_telemetry_golden_wire_format);
     RUN_TEST(test_mcu_wire_jog_commands_table);
     RUN_TEST(test_mcu_wire_joints_command);
     RUN_TEST(test_mcu_wire_calibrate_command);
