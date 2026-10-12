@@ -11,6 +11,8 @@ add_library(krabby_sim_host STATIC
 )
 target_include_directories(krabby_sim_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(krabby_sim_host PRIVATE "${KRABBY_ARDUINO_DIR}")
+# krabby_host links these statics into a .so, so they need PIC as well.
+set_target_properties(krabby_sim_host PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(MSVC)
     target_compile_options(krabby_sim_host PRIVATE /W4 /WX)
 else()
@@ -23,6 +25,7 @@ target_include_directories(krabby_firmware_actuator_host BEFORE PUBLIC
 )
 target_include_directories(krabby_firmware_actuator_host PUBLIC "${KRABBY_ARDUINO_DIR}")
 target_link_libraries(krabby_firmware_actuator_host PUBLIC krabby_sim_host)
+set_target_properties(krabby_firmware_actuator_host PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(MSVC)
     target_compile_options(krabby_firmware_actuator_host PRIVATE /W4 /WX)
 else()
