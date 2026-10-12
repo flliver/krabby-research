@@ -21,4 +21,10 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 
 **PWM / drive:** `LinearActuator::driveActuator` - extend = `PWM_R`, retract = `PWM_L`, motion gated by `EN` HIGH. Signed motor command: `(EN high) * (PWM_R - PWM_L)` (`firmware/arduino/actuator_manager.h`).
 
-**Code:** `SimulatedRobotConfig.front_board_rev3()` in `simulated_robot_config.py` encodes this table. Python pin recording is in `pin_state.py`; the host C++ shim and link stubs are under `host/` (built as `krabby_sim_host`, exercised by `make -C firmware test-native`).
+## Core layout
+
+- `simulated_robot_config.py` - table above in code (`SimulatedRobotConfig.front_board_rev3()`).
+- `pin_state.py` - Python pin record and signed PWM from EN/PWM pins.
+- `host/` - C++ `Arduino.h` shim and host compile of shipping `actuator_manager.h`.
+
+Build and test commands live in `firmware/Makefile` (`host-actuator`, `test-native`, `compile-firmware`).

@@ -5,6 +5,7 @@
 #   make -C firmware upload-firmware PORT=COM5
 #   make -C firmware upload-firmware PIN_REV=1
 #   make -C firmware compile-firmware          # compile only, no upload
+#   make -C firmware host-actuator             # host library (actuator_manager.h + sim Arduino.h)
 #
 # Remote flashing (boards on another host you reach over SSH, e.g. a Jetson Orin
 # with the USB hub): compile here, copy the .hex over, run avrdude on the remote.
@@ -75,7 +76,11 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote test-native test-native-coverage test-firmware
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware
+
+host-actuator:
+	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
+	$(CMAKE) --build "$(NATIVE_TEST_BUILD)" --target krabby_firmware_actuator_host
 
 test-native:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"

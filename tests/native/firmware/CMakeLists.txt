@@ -82,10 +82,7 @@ endforeach()
 
 target_include_directories(test_actuator_manager PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/fakes")
 target_link_libraries(test_host_arduino_shim PRIVATE krabby_sim_host)
-target_include_directories(test_host_actuator_link BEFORE PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
-)
-target_link_libraries(test_host_actuator_link PRIVATE krabby_sim_host)
+target_link_libraries(test_host_actuator_link PRIVATE krabby_firmware_actuator_host)
 if(NOT MSVC)
     target_compile_options(test_host_actuator_link PRIVATE -Wno-sign-compare)
 endif()
