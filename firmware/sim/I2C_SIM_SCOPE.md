@@ -63,17 +63,17 @@ The health-screen preview lives under **`firmware/oled_sim/`** (`ssd1306.py`, `k
 
 | Component | State |
 |-----------|--------|
-| `Wire` / addressed slave model | **Not built** |
+| `Wire` / addressed slave model | **`sim_i2c` + host `Wire.h`** (probe + register read stub) |
 | `krabby_host` firmware loop | Actuators + USB; **no** `imuSetup()` / **no** `;IMU` append |
 | `host_multi_board.cpp` | Three-board relay; **no** leader IMU segment |
 | `firmware/oled_sim` | Standalone / browser viewer; **no** firmware-in-the-loop I2C |
 
 ---
 
-## Blockers before implementing `Wire` sim
+## Blockers before full I2C sensor sim
 
-1. **Host `Wire` shim** - `beginTransmission` / `requestFrom` / timeout flags for at
-   least **`0x6B`/`0x6A`**, **`0x3D`**, with NACK for absent devices.
+1. ~~**Host `Wire` shim**~~ - done: `firmware/sim/host/sim_i2c.*`, `Wire.h`; tests in
+   `test_host_i2c.cpp`.
 2. **Link IMU + display into host build** - compile `Lsm6dsoAdapter` / `Ssd1306Adapter`
    (or targeted stubs) under `KRABBY_HOST_FIRMWARE=1`, or split telemetry append without
    full driver until drivers compile on host.

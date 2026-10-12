@@ -5,6 +5,8 @@ set(KRABBY_ARDUINO_DIR "${CMAKE_CURRENT_LIST_DIR}/../../arduino")
 add_library(krabby_sim_host STATIC
     pin_state.cpp
     sim_clock.cpp
+    sim_i2c.cpp
+    Wire.cpp
     eeprom_stub.cpp
     hall_sim.cpp
     hall_hw_stub.cpp

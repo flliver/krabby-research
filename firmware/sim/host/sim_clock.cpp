@@ -4,6 +4,7 @@
 #include "hall_sim.hpp"
 #include "pin_state.hpp"
 #include "host_board_role.hpp"
+#include "sim_i2c.hpp"
 #include "sim_serial.hpp"
 
 namespace krabby {
@@ -33,6 +34,7 @@ void resetHostSim()
     resetHallSim();
     resetHostFrontImuPresence();
     resetHostSerial();
+    resetSimI2c();
     wireDefaultThreeBoardSerialLinks();
 }
 

@@ -8,6 +8,7 @@
 #include "read_stubs.hpp"
 #include "sim_clock.hpp"
 #include "sim_serial.hpp"
+#include "Wire.h"
 
 #include <cstdlib>
 
