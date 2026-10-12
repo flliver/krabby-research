@@ -31,6 +31,16 @@ static void test_pin_mode_and_pwm_writes_are_recorded()
     TEST_ASSERT_EQUAL_INT(0, pinState().pwmDuty(3));
 }
 
+static void test_digital_read_returns_last_digital_write()
+{
+    TEST_ASSERT_EQUAL_INT(LOW, digitalRead(22));
+    digitalWrite(22, HIGH);
+    TEST_ASSERT_EQUAL_INT(HIGH, digitalRead(22));
+    TEST_ASSERT_EQUAL_INT(HIGH, pinState().digitalRead(22));
+    digitalWrite(22, LOW);
+    TEST_ASSERT_EQUAL_INT(LOW, digitalRead(22));
+}
+
 static void test_analog_write_clamps_duty()
 {
     analogWrite(10, 300);
@@ -72,6 +82,7 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_millis_uses_sim_clock);
     RUN_TEST(test_pin_mode_and_pwm_writes_are_recorded);
+    RUN_TEST(test_digital_read_returns_last_digital_write);
     RUN_TEST(test_analog_write_clamps_duty);
     RUN_TEST(test_signed_pwm_matches_drive_actuator_pattern);
     RUN_TEST(test_constrain_and_abs_macros);

@@ -31,4 +31,6 @@ inline void pinMode(int pin, int mode) { krabby::sim::pinState().pinMode(pin, mo
 
 inline void digitalWrite(int pin, int value) { krabby::sim::pinState().digitalWrite(pin, value); }
 
+inline int digitalRead(int pin) { return krabby::sim::pinState().digitalRead(pin); }
+
 inline void analogWrite(int pin, int value) { krabby::sim::pinState().analogWrite(pin, value); }

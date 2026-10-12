@@ -13,6 +13,11 @@ def test_pin_mode_is_recorded():
     assert model.get_mode(99) is None
 
 
+def test_digital_read_defaults_low_before_write():
+    model = PinStateModel()
+    assert model.digital_read(22) == LOW
+
+
 def test_digital_write_records_level():
     model = PinStateModel()
     model.digital_write(22, LOW)
@@ -20,6 +25,17 @@ def test_digital_write_records_level():
     model.digital_write(22, HIGH)
     assert model.digital_read(22) == HIGH
     assert model.is_digital_high(22)
+
+
+def test_digital_read_tracks_en_on_every_front_slot():
+    model = PinStateModel()
+    config = SimulatedRobotConfig.front_board_rev3()
+    for slot in config.slots:
+        _, _, pin_en = slot.drive_pins
+        model.digital_write(pin_en, HIGH)
+        assert model.digital_read(pin_en) == HIGH
+        model.digital_write(pin_en, LOW)
+        assert model.digital_read(pin_en) == LOW
 
 
 def test_analog_write_records_pwm_and_clamps():
