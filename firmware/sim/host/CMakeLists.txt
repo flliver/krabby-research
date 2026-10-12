@@ -8,7 +8,7 @@ add_library(krabby_sim_host STATIC
     eeprom_stub.cpp
     hall_sim.cpp
     hall_hw_stub.cpp
-    serial_stub.cpp
+    sim_serial.cpp
 )
 target_include_directories(krabby_sim_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(krabby_sim_host PRIVATE "${KRABBY_ARDUINO_DIR}")

@@ -7,6 +7,7 @@
 #include "pin_state.hpp"
 #include "read_stubs.hpp"
 #include "sim_clock.hpp"
+#include "sim_serial.hpp"
 
 #include <cstdlib>
 

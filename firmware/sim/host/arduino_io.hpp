@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <sstream>
@@ -19,25 +20,36 @@ class Print
 {
 public:
     std::string output;
+
+    virtual ~Print() = default;
+
+    virtual void write(uint8_t byte) { output += static_cast<char>(byte); }
+
+    virtual void write(const uint8_t *buffer, std::size_t size)
+    {
+        output.append(reinterpret_cast<const char *>(buffer), size);
+    }
+
     template <typename T> void print(const T &value)
     {
         std::ostringstream stream;
         stream << value;
-        output += stream.str();
+        const std::string text = stream.str();
+        write(reinterpret_cast<const uint8_t *>(text.data()), text.size());
     }
     void print(float value, int precision)
     {
         std::ostringstream stream;
         stream << std::fixed << std::setprecision(precision) << value;
-        output += stream.str();
+        const std::string text = stream.str();
+        write(reinterpret_cast<const uint8_t *>(text.data()), text.size());
     }
     void println(const char *value)
     {
         print(value);
-        output += '\n';
+        write('\n');
     }
+    void println() { write('\n'); }
 };
-
-extern Print Serial;
 
 inline void delayMicroseconds(unsigned int /*duration*/) {}
