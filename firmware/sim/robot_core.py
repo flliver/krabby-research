@@ -27,6 +27,7 @@ class RobotCore:
     config: SimulatedRobotConfig | None = None
     advance: Callable[[Any], Any] | None = None
     pin_state: PinStateModel = field(default_factory=PinStateModel)
+    _wrench_body_indices: dict[str, int] | None = field(default=None, init=False, repr=False)
 
     @classmethod
     def front_board(
@@ -53,6 +54,7 @@ class RobotCore:
     def reset(self) -> None:
         self.bridge.reset()
         self.pin_state.reset()
+        self._wrench_body_indices = None
         if self.config is not None:
             self.bridge.set_hall_edges_per_full_travel(
                 self.config.hall_edges_per_full_travel
@@ -75,9 +77,30 @@ class RobotCore:
     def millis(self) -> int:
         return self.bridge.millis()
 
+    def _wrench_body_indices_cached(self) -> dict[str, int] | None:
+        if self.config is None:
+            return None
+        if self._wrench_body_indices is not None:
+            return self._wrench_body_indices
+        from firmware.sim.wrench_readback import resolve_wrench_body_indices
+
+        articulation = self.articulation
+        if not hasattr(articulation, "find_bodies"):
+            return None
+        try:
+            self._wrench_body_indices = resolve_wrench_body_indices(articulation, self.config)
+        except (AttributeError, KeyError, TypeError):
+            return None
+        return self._wrench_body_indices
+
     def step(self) -> Any:
         # Plant state is from the previous step's physics; refresh pots before firmware reads.
-        sync_sensor_reads(self.bridge, self.actuators, self.articulation)
+        sync_sensor_reads(
+            self.bridge,
+            self.actuators,
+            self.articulation,
+            wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
+        )
         self.bridge.advance_millis(physics_step_ms(self.env))
         self.bridge.update_all()
         for actuator in self.actuators:
