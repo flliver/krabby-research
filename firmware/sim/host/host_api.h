@@ -8,6 +8,7 @@ extern "C" {
 
 void krabby_host_reset(void);
 void krabby_host_handle_jog(const char *actuator_name, int pwm);
+void krabby_host_set_target(const char *actuator_name, float position);
 void krabby_host_update_all(void);
 int krabby_host_pin_pwm(int pin);
 int krabby_host_pin_digital(int pin);

@@ -1,5 +1,7 @@
 """Drive-only loop ordering: firmware step, pin readback, Isaac joint targets, env.step."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from firmware.sim.robot_core import FIRMWARE_STEP_MS, RobotCore
@@ -51,6 +53,12 @@ class FakeHostBridge:
         return self.now_ms
 
 
+def _fake_env(physics_dt_s: float = FIRMWARE_STEP_MS / 1000.0):
+    """Minimal Isaac env stub so ``physics_step_ms`` matches production."""
+    sim = SimpleNamespace(get_physics_dt=lambda: physics_dt_s)
+    return SimpleNamespace(unwrapped=SimpleNamespace(sim=sim))
+
+
 @pytest.fixture
 def core():
     config = SimulatedRobotConfig.front_board_rev3()
@@ -58,7 +66,7 @@ def core():
     steps: list[object] = []
     articulation = RecordedArticulation()
     loop = RobotCore.front_board(
-        env=object(),
+        env=_fake_env(),
         articulation=articulation,
         joint_index_for_name=joint_index_for_name,
         bridge=FakeHostBridge(),

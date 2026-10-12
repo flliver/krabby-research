@@ -175,3 +175,9 @@ def advance_sim(env: Any) -> None:
     scene.write_data_to_sim()
     sim.step(render=False)
     scene.update(dt=sim.get_physics_dt())
+
+
+def physics_step_ms(env: Any) -> int:
+    """Milliseconds for one Isaac physics substep (``sim.get_physics_dt()``)."""
+    dt_s = float(env.unwrapped.sim.get_physics_dt())
+    return int(round(dt_s * 1000.0))

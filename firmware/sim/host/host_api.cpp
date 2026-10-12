@@ -42,6 +42,20 @@ extern "C" void krabby_host_handle_jog(const char *actuator_name, int pwm)
     s_manager.handleJog(String(actuator_name), pwm);
 }
 
+extern "C" void krabby_host_set_target(const char *actuator_name, float position)
+{
+    if (actuator_name == nullptr) return;
+    ensure_initialized();
+    for (LinearActuator *actuator : s_actuators)
+    {
+        if (String(actuator->getName()) == actuator_name)
+        {
+            actuator->setTarget(position);
+            return;
+        }
+    }
+}
+
 extern "C" void krabby_host_update_all(void)
 {
     ensure_initialized();

@@ -7,12 +7,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
-from firmware.sim.isaac_scene import advance_sim
+from firmware.sim.isaac_scene import advance_sim, physics_step_ms
 from firmware.sim.pin_state import PinStateModel
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
 from firmware.sim.simulated_robot_config import SimulatedRobotConfig
 
-FIRMWARE_STEP_MS = 10  # arduino.ino main loop cadence, advanced on the host sim clock
+FIRMWARE_STEP_MS = 10  # arduino.ino main-loop cadence on hardware (sim clock uses physics dt)
 
 
 @dataclass
@@ -23,7 +23,6 @@ class RobotCore:
     actuators: tuple[SimulatedActuator, ...]
     articulation: JointVelocityTarget
     env: Any
-    firmware_step_ms: int = FIRMWARE_STEP_MS
     advance: Callable[[Any], Any] | None = None
     pin_state: PinStateModel = field(default_factory=PinStateModel)
 
@@ -56,11 +55,15 @@ class RobotCore:
         """Open-loop jog; the drive pins reach Isaac on the next step."""
         self.bridge.handle_jog(actuator_id, pwm)
 
+    def set_target(self, actuator_id: str, position: float) -> None:
+        """Closed-loop target in 0..1 (T command); ramps use ``millis()`` from physics time."""
+        self.bridge.set_target(actuator_id, position)
+
     def millis(self) -> int:
         return self.bridge.millis()
 
     def step(self) -> Any:
-        self.bridge.advance_millis(self.firmware_step_ms)
+        self.bridge.advance_millis(physics_step_ms(self.env))
         self.bridge.update_all()
         for actuator in self.actuators:
             pwm_r, pwm_l, pin_en = actuator.slot.drive_pins
