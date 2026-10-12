@@ -234,3 +234,6 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   trim under-fit (homing by re-steps rather than trim). Walls: A-mask 0.7825 vs A-full 0.815 / REFS 0.8125 (inside
   the ±0.04 process-state band; replicate reads will show whether it is real).
 - **STOP (user go): step 10 (A-mask replicates at s16 / s17) waits for the user.** GPU used so far ≈ 6.0 h.
+- 2026-10-12, **USER GO: step 10 (A-mask replicates s16 / s17) + step 11 report, then the adoption stop.** Launched
+  `scripts/sn_queue_step10.sh`: `SN_Amask_s16` then `SN_Amask_s17` (same config as the pilot, 4000 its, judged
+  model_4000; S1 s18 walks), each with the step-9 eval rows; mid-run premise checks (its 1334–2000) as for the pilot.
