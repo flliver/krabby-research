@@ -64,6 +64,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/actuator/test_actuator_identity
     arduino/test_board_pins
     arduino/test_host_arduino_shim
+    arduino/test_host_actuator_link
     arduino/src/actuator/test_actuator_pot_tracker
     arduino/src/controller/test_board_role
     arduino/src/controller/test_controller_freshness_tracker
@@ -81,6 +82,13 @@ endforeach()
 
 target_include_directories(test_actuator_manager PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/fakes")
 target_link_libraries(test_host_arduino_shim PRIVATE krabby_sim_host)
+target_include_directories(test_host_actuator_link BEFORE PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_actuator_link PRIVATE krabby_sim_host)
+if(NOT MSVC)
+    target_compile_options(test_host_actuator_link PRIVATE -Wno-sign-compare)
+endif()
 # Legacy calibration compares Arduino int fields with size_t and a magic literal.
 if(NOT MSVC)
     target_compile_options(test_actuator_manager PRIVATE -Wno-sign-compare)

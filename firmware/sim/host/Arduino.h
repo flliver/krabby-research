@@ -3,7 +3,9 @@
 // Host Arduino output shim for firmware-in-Isaac simulation.
 // Include this instead of AVR Arduino.h when compiling the actuator drive path on the host.
 
+#include "arduino_io.hpp"
 #include "pin_state.hpp"
+#include "read_stubs.hpp"
 #include "sim_clock.hpp"
 
 #include <cstdlib>

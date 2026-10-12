@@ -19,14 +19,6 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 
 **Isaac resolution:** Prefer exact USD names above (see `assets/crab_simple.usda`). Per-leg regex examples: `FL_.*_RevoluteJoint` returns three joints; exclude `*_Body_CamShaft_*` if a broad pattern is used - the table names are the driven DOFs aligned with `hal/server/robot_definition_krabby_hex.py` `mcu_joints` for FL/FR.
 
-**PWM semantics:** `LinearActuator::driveActuator` - extend = `PWM_R`, retract = `PWM_L`, motion gated by `EN` HIGH (`firmware/arduino/actuator_manager.h`).
+**PWM / drive:** `LinearActuator::driveActuator` - extend = `PWM_R`, retract = `PWM_L`, motion gated by `EN` HIGH. Signed motor command: `(EN high) * (PWM_R - PWM_L)` (`firmware/arduino/actuator_manager.h`).
 
-**Programmatic config:** `SimulatedRobotConfig.front_board_rev3()` in `simulated_robot_config.py` encodes this table for sim and unit tests.
-
-## Pin state (`pin_state.py`)
-
-The host Arduino shim calls `PinStateModel.pin_mode`, `digital_write`, and `analog_write` to record Mega pin state. Each pin stores mode (`INPUT` / `OUTPUT`), last digital level (`LOW` / `HIGH`), and PWM duty (0-255). Actuator code reads `signed_pwm_command(PWM_R, PWM_L, EN)` as `(EN high) * (PWM_R - PWM_L)`, matching `LinearActuator::driveActuator`.
-
-## Host `Arduino.h` (`firmware/sim/host/`)
-
-C++ output shim for host builds: `pinMode`, `digitalWrite`, `analogWrite`, and `millis` update `krabby::sim::PinStateModel` and `SimClock`. Also provides `constrain` and `abs` macros used by the actuator drive path. Build target `krabby_sim_host` is defined in `firmware/sim/host/CMakeLists.txt` (pulled in from native firmware tests and future host actuator builds). Native test `test_host_arduino_shim` links that library and includes this header instead of AVR `Arduino.h`.
+**Code:** `SimulatedRobotConfig.front_board_rev3()` in `simulated_robot_config.py` encodes this table. Python pin recording is in `pin_state.py`; the host C++ shim and link stubs are under `host/` (built as `krabby_sim_host`, exercised by `make -C firmware test-native`).
