@@ -314,7 +314,7 @@ class IsaacSimHalServer(HalServerBase):
         
         # Cache contact sensor if available
         if hasattr(self.scene, 'sensors') and 'contact_forces' in self.scene.sensors:
-            self.contacvt_sensor = self.scene.sensors['contact_forces']
+            self.contact_sensor = self.scene.sensors['contact_forces']
 
         # Verify we have required references
         if self.robot is None:

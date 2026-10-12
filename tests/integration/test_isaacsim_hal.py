@@ -154,6 +154,7 @@ def test_isaacsim_hal_server_initialization(mock_isaac_env, hal_server_config):
     assert hal_server.context is not None
     assert hal_server.observation_socket is not None
     assert hal_server.command_socket is not None
+    assert hal_server.contact_sensor is mock_isaac_env.scene.sensors["contact_forces"]
 
     hal_server.close()
 
