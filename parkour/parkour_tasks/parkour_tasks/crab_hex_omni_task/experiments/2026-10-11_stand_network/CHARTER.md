@@ -180,3 +180,9 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
     0.950 (n 1150) — ratio 1.03 (line 0.5). Stand falls student 1.0 % (48) vs control 0.35 % (4); exit falls 2 / 3669
     vs 0 / 899 (`pilot_premise_mid.json`). Watch item for step 9: the student's train-time stand-fall share is ~3× the
     control's (small control count); G3 gates falls at eval.
+- 2026-10-12, **step 7 pilot `SN_Amask_s18` DONE** (status done, 4000 its, ≈ 1.65 GPU-h, MSE 0.039 → 0.0038; judged
+  checkpoint `runs/SN_Amask_s18/model_4000.pt`, sha256 f7228a99…). End-of-run train-time read (`pilot_premise_final.json`,
+  its 1334–4000, σ = 0 stands > 4 s): student homed **0.982** (n 19255) vs concurrent R control 0.945 (n 4443), ratio
+  1.04; stand falls 0.80 % vs 0.61 % (the mid-run fall gap closed as control counts grew); exit falls 8 / 15141 vs
+  2 / 3489. Last 1000 its: 0.981 vs 0.943. Train-time only — the decisive read is closed-loop G1–G5 at step 9.
+  Step 8 (A-full) and step-9 evals wait for the user.
