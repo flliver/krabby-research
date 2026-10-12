@@ -202,6 +202,9 @@ static char leftPartial[TELEMETRY_LINE_MAX];
 static char rightPartial[TELEMETRY_LINE_MAX];
 static size_t leftPartialPos = 0;
 static size_t rightPartialPos = 0;
+// Rate-limit overflow reports so sustained garbage without '\n' cannot flood USB.
+static unsigned long lastFwdOverflowLogMs[BOARD_ROLE_COUNT] = {0};
+static constexpr unsigned long FWD_OVERFLOW_LOG_INTERVAL_MS = 1000;
 
 void updateActuatorStatusFromTelemetry(
     const char *line,
@@ -247,8 +250,19 @@ void forwardFullLines(
             partial[(*partialPos)++] = c;
         else
         {
-            // TODO: THIS SHOULD THROW SOME KIND OF BAD ERROR CONDITION
-            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck
+            // Buffer full before \n: discard rest of line so we don't forward a
+            // partial or get stuck, and report the drop on the uplink.
+            const unsigned long nowMs = millis();
+            if (static_cast<unsigned>(boardRole) < BOARD_ROLE_COUNT &&
+                (nowMs - lastFwdOverflowLogMs[boardRole]) >= FWD_OVERFLOW_LOG_INTERVAL_MS)
+            {
+                lastFwdOverflowLogMs[boardRole] = nowMs;
+                to->print(F("ERR FWD "));
+                to->print(boardRoleLabel(boardRole));
+                to->print(F(": line overflow (>"));
+                to->print(static_cast<unsigned>(cap - 1));
+                to->println(F(" B), discarded"));
+            }
             while (from->available())
             {
                 char d = (char)from->read();
