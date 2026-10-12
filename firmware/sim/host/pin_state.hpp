@@ -12,6 +12,7 @@ struct PinRecord
     int mode = kPinModeUnset;
     int digital = 0;
     int pwm = 0;
+    int analog_adc = 512;  // host analogRead; IS pins stay at mid-scale until Task 2 maps them
 };
 
 class PinStateModel
@@ -24,9 +25,11 @@ public:
     void pinMode(int pin, int mode);
     void digitalWrite(int pin, int value);
     void analogWrite(int pin, int duty);
+    void setAnalogInput(int pin, int value);
 
     int getMode(int pin) const;
     int digitalRead(int pin) const;
+    int analogInput(int pin) const;
     int pwmDuty(int pin) const;
     bool isDigitalHigh(int pin) const;
     int signedPwmCommand(int pinPwmR, int pinPwmL, int pinEn) const;

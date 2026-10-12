@@ -30,6 +30,18 @@ static void test_analog_read_and_hall_stubs_are_available_at_link_time()
     TEST_ASSERT_EQUAL_INT32(0, hallHwGetEdgeCount(0));
 }
 
+static void test_get_raw_pos_follows_pot_analog_read()
+{
+    LinearActuator actuator("FLHY", 2, 3, 22, 6, 0, 0);
+    actuator.minStop = 0;
+    actuator.maxStop = 1023;
+    actuator.init();
+    pinState().setAnalogInput(0, 512);
+    actuator.update();
+    TEST_ASSERT_EQUAL_INT(512, actuator.getRawPos());
+    TEST_ASSERT_FLOAT_WITHIN(0.02f, 0.5f, actuator.getPos());
+}
+
 static void test_telemetry_en_fields_match_digital_read()
 {
     LinearActuator actuator("FLHY", 2, 3, 22, 6, 0, 0);
@@ -53,6 +65,7 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_shipping_actuator_manual_drive_records_pins);
     RUN_TEST(test_analog_read_and_hall_stubs_are_available_at_link_time);
+    RUN_TEST(test_get_raw_pos_follows_pot_analog_read);
     RUN_TEST(test_telemetry_en_fields_match_digital_read);
     return UNITY_END();
 }

@@ -72,6 +72,16 @@ extern "C" int krabby_host_pin_digital(int pin)
     return krabby::sim::pinState().digitalRead(pin);
 }
 
+extern "C" void krabby_host_set_analog_read(int pin, int value)
+{
+    krabby::sim::pinState().setAnalogInput(pin, value);
+}
+
+extern "C" int krabby_host_analog_read(int pin)
+{
+    return krabby::sim::pinState().analogInput(pin);
+}
+
 extern "C" void krabby_host_advance_millis(unsigned long delta_ms)
 {
     krabby::sim::simClock().advance(delta_ms);

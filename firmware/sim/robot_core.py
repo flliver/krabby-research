@@ -8,6 +8,7 @@ from typing import Any
 
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
+from firmware.sim.pot_readback import sync_pot_analog_reads
 from firmware.sim.pin_state import PinStateModel
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
 from firmware.sim.simulated_robot_config import SimulatedRobotConfig
@@ -63,6 +64,7 @@ class RobotCore:
         return self.bridge.millis()
 
     def step(self) -> Any:
+        sync_pot_analog_reads(self.bridge, self.actuators, self.articulation)
         self.bridge.advance_millis(physics_step_ms(self.env))
         self.bridge.update_all()
         for actuator in self.actuators:

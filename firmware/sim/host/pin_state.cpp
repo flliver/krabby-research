@@ -42,6 +42,14 @@ void PinStateModel::analogWrite(int pin, int duty)
     record(pin).pwm = duty;
 }
 
+void PinStateModel::setAnalogInput(int pin, int value)
+{
+    if (!validPin(pin)) return;
+    if (value < 0) value = 0;
+    if (value > 1023) value = 1023;
+    record(pin).analog_adc = value;
+}
+
 int PinStateModel::getMode(int pin) const
 {
     if (!validPin(pin)) return kPinModeUnset;
@@ -52,6 +60,12 @@ int PinStateModel::digitalRead(int pin) const
 {
     if (!validPin(pin)) return 0;
     return record(pin).digital;
+}
+
+int PinStateModel::analogInput(int pin) const
+{
+    if (!validPin(pin)) return 512;
+    return record(pin).analog_adc;
 }
 
 int PinStateModel::pwmDuty(int pin) const

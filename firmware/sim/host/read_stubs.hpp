@@ -1,5 +1,3 @@
 #pragma once
 
-// Placeholder reads until sim feeds pot/IS from Isaac joint state.
-
-inline int analogRead(int /*pin*/) { return 512; }
+// analogRead is wired in Arduino.h via PinStateModel (pots fed from Isaac in RobotCore).

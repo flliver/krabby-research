@@ -48,6 +48,10 @@ class HostActuatorBridge:
         self._lib.krabby_host_pin_pwm.restype = ctypes.c_int
         self._lib.krabby_host_pin_digital.argtypes = [ctypes.c_int]
         self._lib.krabby_host_pin_digital.restype = ctypes.c_int
+        self._lib.krabby_host_set_analog_read.argtypes = [ctypes.c_int, ctypes.c_int]
+        self._lib.krabby_host_set_analog_read.restype = None
+        self._lib.krabby_host_analog_read.argtypes = [ctypes.c_int]
+        self._lib.krabby_host_analog_read.restype = ctypes.c_int
         self._lib.krabby_host_advance_millis.argtypes = [ctypes.c_ulong]
         self._lib.krabby_host_advance_millis.restype = None
         self._lib.krabby_host_millis.argtypes = []
@@ -71,6 +75,12 @@ class HostActuatorBridge:
 
     def pin_digital(self, pin: int) -> int:
         return int(self._lib.krabby_host_pin_digital(int(pin)))
+
+    def set_analog_read(self, pin: int, value: int) -> None:
+        self._lib.krabby_host_set_analog_read(int(pin), int(value))
+
+    def analog_read(self, pin: int) -> int:
+        return int(self._lib.krabby_host_analog_read(int(pin)))
 
     def advance_millis(self, delta_ms: int) -> None:
         self._lib.krabby_host_advance_millis(int(delta_ms))
