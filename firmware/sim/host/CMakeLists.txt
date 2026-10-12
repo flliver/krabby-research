@@ -6,6 +6,7 @@ add_library(krabby_sim_host STATIC
     pin_state.cpp
     sim_clock.cpp
     eeprom_stub.cpp
+    hall_sim.cpp
     hall_hw_stub.cpp
     serial_stub.cpp
 )

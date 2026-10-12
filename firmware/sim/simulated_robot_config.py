@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Sequence
 
+from firmware.sim.hall_encoder import DEFAULT_HALL_EDGES_PER_FULL_TRAVEL
 from firmware.sim.pot_calibration import (
     DEFAULT_POT_CALIBRATION_SEED,
     PotCalibrationBand,
@@ -59,12 +60,14 @@ class SimulatedRobotConfig:
     board_role: str
     slots: tuple[SimulatedSlotConfig, ...]
     pot_bands: tuple[PotCalibrationBand, ...]
+    hall_edges_per_full_travel: int = DEFAULT_HALL_EDGES_PER_FULL_TRAVEL
 
     @classmethod
     def front_board_rev3(
         cls,
         *,
         pot_calibration_seed: int = DEFAULT_POT_CALIBRATION_SEED,
+        hall_edges_per_full_travel: int = DEFAULT_HALL_EDGES_PER_FULL_TRAVEL,
     ) -> SimulatedRobotConfig:
         slots = _FRONT_BOARD_REV3_SLOTS
         bands = draw_pot_calibration_bands(len(slots), pot_calibration_seed)
@@ -73,6 +76,7 @@ class SimulatedRobotConfig:
             board_role="FRONT",
             slots=slots,
             pot_bands=bands,
+            hall_edges_per_full_travel=hall_edges_per_full_travel,
         )
 
     def pot_band_for_slot(self, slot_index: int) -> PotCalibrationBand:
