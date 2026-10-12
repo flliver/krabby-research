@@ -1,5 +1,6 @@
 #include "sim_clock.hpp"
 
+#include "EEPROM.h"
 #include "pin_state.hpp"
 
 namespace krabby {
@@ -25,6 +26,7 @@ void resetHostSim()
 {
     pinState().reset();
     simClock().reset();
+    resetHostEeprom();
 }
 
 }  // namespace sim
