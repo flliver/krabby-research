@@ -19,9 +19,12 @@ Shipping firmware uses real `hasFrontImu()` (LSM6DSO on I2C). On the sim:
 ## API entry points
 
 - Per-board step: `hostBoardRoleElectionBegin` / `hostBoardRoleElectionStep` (`host/host_board_role.hpp`).
-- Three instances together: `runThreeBoardRoleElectionCooperative()`.
+- Three instances together: `runThreeBoardRoleElectionCooperative()` (C: `krabby_host_run_three_board_role_election`).
+- Python: `boot_three_board_emulators()` in `three_board_boot.py`; PTY on leader USB via `ThreeBoardMcuHost` in `three_board_mcu_host.py`.
 
-The single-board USB path (`host/host_firmware_loop.cpp`) still assumes an already-elected **FRONT** leader. Full three-instance boot runs cooperative election first.
+The SDK host port (`krabby_host_serial_usb_*`) is always the **FRONT** board’s USB (`BoardId::kFront`). Followers do not expose USB to the host; they use inter-board serial only.
+
+The single-board USB path (`host/host_firmware_loop.cpp`) still assumes an already-elected **FRONT** leader. Call `boot_three_board_emulators()` (or `ThreeBoardMcuHost.start()`) before connecting `KrabbyMCUSDK` when simulating three boards.
 
 ## Tests
 

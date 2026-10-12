@@ -48,6 +48,14 @@ void krabby_host_firmware_setup(void);
 void krabby_host_firmware_loop_once(void);
 void krabby_host_firmware_reset_loop_state(void);
 
+/** Run cooperative SYNC election for FRONT/LEFT/RIGHT (board ids 0/1/2). */
+void krabby_host_run_three_board_role_election(int roles_out[3]);
+/** USB host port is always the FRONT board instance (id 0). */
+int krabby_host_leader_board_id(void);
+int krabby_host_board_usb_tx_line_available(int board_id);
+/** Copy one newline-delimited USB TX line; returns bytes written, 0 if none, -1 on error. */
+int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len);
+
 #ifdef __cplusplus
 }
 #endif

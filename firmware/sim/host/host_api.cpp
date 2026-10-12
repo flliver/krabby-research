@@ -1,10 +1,13 @@
 #include "host_api.h"
 
+#include <cstring>
+
 #include "EEPROM.h"
 #include "actuator_manager.h"
 #include "hall_sim.hpp"
 #include "pin_state.hpp"
 #include "sim_clock.hpp"
+#include "host_board_role.hpp"
 #include "sim_serial.hpp"
 
 namespace krabby {
@@ -226,4 +229,49 @@ extern "C" void krabby_host_serial_usb_println(const char *text)
 {
     if (text == nullptr) return;
     Serial.println(text);
+}
+
+extern "C" void krabby_host_run_three_board_role_election(int roles_out[3])
+{
+    if (roles_out == nullptr) return;
+    BoardRole roles[3] = {
+        ROLE_UNKNOWN,
+        ROLE_UNKNOWN,
+        ROLE_UNKNOWN,
+    };
+    krabby::sim::runThreeBoardRoleElectionCooperative(roles);
+    roles_out[0] = static_cast<int>(roles[0]);
+    roles_out[1] = static_cast<int>(roles[1]);
+    roles_out[2] = static_cast<int>(roles[2]);
+}
+
+extern "C" int krabby_host_leader_board_id(void)
+{
+    return static_cast<int>(krabby::sim::BoardId::kFront);
+}
+
+extern "C" int krabby_host_board_usb_tx_line_available(int board_id)
+{
+    if (board_id < 0 || board_id > 2) return 0;
+    return krabby::sim::serialPort(
+               static_cast<krabby::sim::BoardId>(board_id),
+               krabby::sim::SerialPortId::kUsb)
+                   .txLineAvailable()
+        ? 1
+        : 0;
+}
+
+extern "C" int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len)
+{
+    if (board_id < 0 || board_id > 2 || buf == nullptr || buf_len <= 0) return -1;
+    krabby::sim::SimSerialPort &port = krabby::sim::serialPort(
+        static_cast<krabby::sim::BoardId>(board_id),
+        krabby::sim::SerialPortId::kUsb);
+    if (!port.txLineAvailable()) return 0;
+    const std::string line = port.popTxLine();
+    const int copy_len = static_cast<int>(line.size());
+    if (copy_len >= buf_len) return -1;
+    std::memcpy(buf, line.data(), static_cast<std::size_t>(copy_len));
+    buf[copy_len] = '\0';
+    return copy_len;
 }

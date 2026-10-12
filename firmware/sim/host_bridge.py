@@ -106,6 +106,20 @@ class HostActuatorBridge:
         self._lib.krabby_host_firmware_loop_once.restype = None
         self._lib.krabby_host_firmware_reset_loop_state.argtypes = []
         self._lib.krabby_host_firmware_reset_loop_state.restype = None
+        self._lib.krabby_host_run_three_board_role_election.argtypes = [
+            ctypes.POINTER(ctypes.c_int32),
+        ]
+        self._lib.krabby_host_run_three_board_role_election.restype = None
+        self._lib.krabby_host_leader_board_id.argtypes = []
+        self._lib.krabby_host_leader_board_id.restype = ctypes.c_int
+        self._lib.krabby_host_board_usb_tx_line_available.argtypes = [ctypes.c_int]
+        self._lib.krabby_host_board_usb_tx_line_available.restype = ctypes.c_int
+        self._lib.krabby_host_board_usb_pop_tx_line.argtypes = [
+            ctypes.c_int,
+            ctypes.c_char_p,
+            ctypes.c_int,
+        ]
+        self._lib.krabby_host_board_usb_pop_tx_line.restype = ctypes.c_int
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -213,6 +227,36 @@ class HostActuatorBridge:
 
     def serial_usb_println(self, text: str) -> None:
         self._lib.krabby_host_serial_usb_println(text.encode("ascii"))
+
+    def run_three_board_role_election(self) -> list[int]:
+        roles = (ctypes.c_int32 * 3)()
+        self._lib.krabby_host_run_three_board_role_election(roles)
+        return [int(roles[i]) for i in range(3)]
+
+    def leader_board_id(self) -> int:
+        return int(self._lib.krabby_host_leader_board_id())
+
+    def board_usb_pop_tx_line(self, board_id: int) -> str | None:
+        buf = ctypes.create_string_buffer(512)
+        n = int(
+            self._lib.krabby_host_board_usb_pop_tx_line(
+                int(board_id),
+                buf,
+                len(buf),
+            )
+        )
+        if n <= 0:
+            return None
+        return buf.value.decode("ascii", errors="replace")
+
+    def drain_board_usb_lines(self, board_id: int) -> list[str]:
+        lines: list[str] = []
+        while True:
+            line = self.board_usb_pop_tx_line(board_id)
+            if line is None:
+                break
+            lines.append(line)
+        return lines
 
 
 def load_host_bridge() -> HostActuatorBridge:
