@@ -216,3 +216,6 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
     trim band on 60 % of its HOLD rows. Homing comes from re-steps, not the trim — consistent with the post-settle
     steps / taps near their lines.
   - The arm rule waits for `SN_Afull_s18` (training now). Not adoption-grade by itself (one arm, one seed).
+- 2026-10-12, **step 8 `SN_Afull_s18` early checks (notify-only):** β → 0 (its 1000–1340): student homed 0.954 vs
+  control 0.948 (ratio 1.01), falls 1.2 % vs 0.7 %. **Mid-run (its 1334–2000): NO STOP** — student 0.985 (n 4771) vs
+  control 0.950 (n 1095), ratio 1.04; falls 0.96 % vs 0.91 %; exit falls 0 / 3762 (`afull_premise_mid.json`).
