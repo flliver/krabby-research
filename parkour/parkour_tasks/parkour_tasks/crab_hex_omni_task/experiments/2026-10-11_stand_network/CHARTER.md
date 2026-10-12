@@ -239,3 +239,9 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   model_4000; S1 s18 walks), each with the step-9 eval rows; mid-run premise checks (its 1334–2000) as for the pilot.
 - 2026-10-12, **step 10 `SN_Amask_s16` mid-run premise (its 1334–2000): NO STOP** — student homed 0.983 (n 4778) vs
   control 0.942 (n 1107), ratio 1.04; falls 0.98 % vs 1.26 %; exit falls 1 / 3721 (`s16_premise_mid.json`).
+- 2026-10-12 ~18:00, **step 10 replicate `SN_Amask_s16` (model_4000) passes G1–G5 at es1 and es2**
+  (`head_SN_Amask_s16.{json,md}`, `observe_SN_Amask_s16.{json,md}`): G1 steps / taps 0, KS 0.104 / 0.107; G2 homed
+  **1.000 / 1.000**, settled 1.0 / 1.0, settle median 2.82 / 2.66 s, post-settle steps **0.47 / 0.43** (line 0.5),
+  taps 0.88 / 0.82 (line 1); G3 0 falls, 0 exit falls; G4 field_hard **0.810**, field_turn 0.97 (one field_turn stand
+  fall, inside HOLD + 2 SE); G5 onset 0.12 s, 0 stalls, height ≤ 0.0067 m. Observe: μ_hip on LIFT −0.472, launch
+  99.7 %, HOLD within-leg trim slope −0.029 (R −0.50) — the same trim under-fit.
