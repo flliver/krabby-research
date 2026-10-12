@@ -231,13 +231,54 @@ class TestMapperNoLegsSelected:
         self.mapper = _make_mapper()
 
     def test_no_legs_selected(self):
-        """Test that no legs selected results in all zeros."""
+        """Test that no legs selected results in all zeros without current state."""
         state = ControllerState()
         
         joint_cmd = self.mapper.map(state)
         
         # All positions should be zero
         assert all(v == 0.0 for v in joint_cmd.to_positions_dict().values())
+
+    def test_no_legs_selected_holds_current_joint_positions(self):
+        """Unselected command should hold observed joints, not snap to zero."""
+        current = np.linspace(-0.5, 0.5, 18, dtype=np.float32)
+        joint_cmd = self.mapper.map(ControllerState(), current_joint_positions=current)
+        positions = joint_cmd.to_positions_dict()
+        for i, name in enumerate(joint_cmd.joint_names):
+            assert positions[name] == pytest.approx(current[i])
+
+
+class TestMapperCurrentJointPositions:
+    """Test seeding commands from observed joint state."""
+
+    def setup_method(self):
+        self.mapper = _make_mapper()
+
+    def test_selected_leg_overwrites_only_that_leg(self):
+        current = np.full(18, 0.25, dtype=np.float32)
+        state = ControllerState(LT=True, LB=False, LY=-0.5, LX=-0.3, RY=0.2)
+        joint_cmd = self.mapper.map(state, current_joint_positions=current)
+        positions = joint_cmd.to_positions_dict()
+
+        hip_yaw_idx, hip_pitch_idx, knee_idx = LEG_TO_JOINT_INDICES[LegIdentifier.FRONT_LEFT]
+        assert positions[joint_cmd.joint_names[hip_yaw_idx]] == pytest.approx(0.2 * HIP_YAW_SCALE)
+        assert positions[joint_cmd.joint_names[hip_pitch_idx]] == pytest.approx(0.5 * HIP_SCALE)
+        assert positions[joint_cmd.joint_names[knee_idx]] == pytest.approx(-0.3 * KNEE_SCALE)
+
+        for i in range(18):
+            if i not in (hip_yaw_idx, hip_pitch_idx, knee_idx):
+                assert positions[joint_cmd.joint_names[i]] == pytest.approx(0.25)
+
+    def test_wrong_shape_raises(self):
+        with pytest.raises(ValueError, match="current_joint_positions must have shape"):
+            self.mapper.map(ControllerState(), current_joint_positions=np.zeros(12, dtype=np.float32))
+
+    def test_does_not_mutate_caller_array(self):
+        current = np.full(18, 0.1, dtype=np.float32)
+        original = current.copy()
+        state = ControllerState(LT=True, LB=False, LY=-1.0)
+        self.mapper.map(state, current_joint_positions=current)
+        np.testing.assert_array_equal(current, original)
 
 
 class TestMapperTimestamps:

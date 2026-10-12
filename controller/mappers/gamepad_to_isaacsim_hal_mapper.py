@@ -163,6 +163,7 @@ class GamepadToIsaacSimHALMapper:
         self,
         state: ControllerState,
         observation_timestamp_ns: Optional[int] = None,
+        current_joint_positions: Optional[np.ndarray] = None,
     ) -> JointCommand:
         """Map gamepad controller state to joint command.
         
@@ -173,12 +174,15 @@ class GamepadToIsaacSimHALMapper:
             state: ControllerState with button and stick values.
             observation_timestamp_ns: Optional timestamp of the observation this
                 command responds to. If None, uses current time.
+            current_joint_positions: Optional current robot joint positions
+                (length ``_n_joints``). Unselected legs keep these values so the
+                command does not snap them to zero. When None, starts from zeros.
                 
         Returns:
             JointCommand with absolute joint positions.
             
         Raises:
-            ValueError: If state is invalid.
+            ValueError: If state is invalid or current_joint_positions has the wrong shape.
         """
         if not isinstance(state, ControllerState):
             raise ValueError(f"state must be ControllerState, got {type(state)}")
@@ -189,9 +193,16 @@ class GamepadToIsaacSimHALMapper:
         # Map stick axes to control axes
         hip_up_down, knee_out_in, hip_yaw = self._map_axes(state)
 
-        # Start from neutral position (all joints at 0.0)
-        # TODO: In the future, starting joint positions will be available from the robot state/observations   
-        joint_positions = np.zeros(self._n_joints, dtype=np.float32)
+        if current_joint_positions is None:
+            joint_positions = np.zeros(self._n_joints, dtype=np.float32)
+        else:
+            positions = np.asarray(current_joint_positions, dtype=np.float32)
+            if positions.shape != (self._n_joints,):
+                raise ValueError(
+                    f"current_joint_positions must have shape ({self._n_joints},), "
+                    f"got {positions.shape}"
+                )
+            joint_positions = positions.copy()
         if selected_legs:
             for leg in selected_legs:
                 hip_yaw_idx, hip_pitch_idx, knee_idx = self._leg_to_indices[leg]
