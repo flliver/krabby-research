@@ -50,10 +50,11 @@ inline size_t parseCommands(const String &line, Command *cmds, size_t maxCmds)
     while (idx < maxCmds)
     {
         String name = nextTok(line, i, len);
+        if (name.length() == 0)
+            break;
         String valStr = nextTok(line, i, len);
-        if (name.length() == 0 || valStr.length() == 0)
+        if (valStr.length() == 0)
         {
-            // Problem parsing - clear and return
             clearCommands(cmds, maxCmds);
             return 0;
         }
