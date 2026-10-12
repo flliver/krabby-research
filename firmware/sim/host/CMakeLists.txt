@@ -21,6 +21,7 @@ else()
 endif()
 
 add_library(krabby_firmware_actuator_host STATIC actuator_manager_host.cpp)
+target_compile_definitions(krabby_firmware_actuator_host PUBLIC KRABBY_HOST_FIRMWARE=1)
 target_include_directories(krabby_firmware_actuator_host BEFORE PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
