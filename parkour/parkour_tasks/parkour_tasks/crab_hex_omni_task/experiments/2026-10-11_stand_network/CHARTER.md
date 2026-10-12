@@ -198,3 +198,21 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   - G3 ruling implemented in `scripts/sn_calib.py` (clause `walkstop stand falls (count) es<k> <= max(1, Z1's count)`;
     z2_stand_gates' rate clause kept as a reported note; selftest + a 300/298 case PASS); calibration re-run: still
     **15 / 15 cells land**, 0 mismatches (references all 0 falls).
+- 2026-10-12 12:40, **step 9 (first arm): pilot `SN_Amask_s18` (model_4000, mask 1) passes G1–G5 at es1 and es2**
+  (`head_SN_Amask_s18.{json,md}`; evals ≈ 0.6 GPU-h, suite / walkstop es1+es2, field_hard es1–4, field_turn es1;
+  head-validity rule PASS on every stamp).
+  - G1 STILL: steps 0 / 0, taps 0 / 0, clearance 2e-5 m, KS 0.097 / 0.108.
+  - G2 HOMED: homed **0.997 / 1.000**, settled 1.000 / 1.000, settle median **2.83 / 2.78 s** (R 2.92 / 2.96; lines
+    3.92 / 3.96); post-settle steps 0.44 / 0.46 per s (line 0.5; R 0.11), taps 0.76 / 0.85 per s (line 1; R 0),
+    KS 0.15 / 0.16 — **thin margins on post-settle steps / taps**.
+  - G3: walkstop stand falls 0 / 0, suite stand falls 0 / 0, exit-handover falls 0 / 0 (of 200 per seed).
+  - G4: field_hard **0.7825** (n 400; line 0.7557 = REFS 0.8125 − 0.057; REFS 0.8125, HOLD 0.810, R 0.825);
+    field_turn 0.99; stand falls 0 on both fields. Margin 0.027 — watch (within the ±0.04 process-state band).
+  - G5: onset 0.12 / 0.12 s (REFS 0.14), 0 stalls; body height within 0.0054 m of REFS.
+  - **Observe pass** (`observe_SN_Amask_s18.{json,md}`; walkstop 2064 LIFT onsets): μ_hip on LIFT rows **−0.479**
+    (R −0.5; Z2d −0.054), 99.5 % below −0.25; onset launch 99.6 % (first per stand-leg 99.7 %) — the p2r LIFT-onset
+    failure is gone. HOLD fit |μ − R| 0.015 cam / 0.015 hip. **The HOLD cam trim is still under-fit like Z2d:**
+    within-leg slope −0.032 vs R's −0.52 on the same rows (−0.077 vs −1 on the unsaturated band); leg MR sits in the
+    trim band on 60 % of its HOLD rows. Homing comes from re-steps, not the trim — consistent with the post-settle
+    steps / taps near their lines.
+  - The arm rule waits for `SN_Afull_s18` (training now). Not adoption-grade by itself (one arm, one seed).
