@@ -31,6 +31,11 @@ FetchContent_MakeAvailable(unity)
 set(KRABBY_ARDUINO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/arduino")
 set(KRABBY_OLED_SIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/oled_sim/native")
 
+add_subdirectory(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+    "${CMAKE_CURRENT_BINARY_DIR}/krabby_sim_host"
+)
+
 # Test paths mirror firmware/arduino; target names use the basename.
 function(add_firmware_native_test test_path)
     get_filename_component(test_name "${test_path}" NAME)
@@ -58,6 +63,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/actuator/test_actuator_status
     arduino/src/actuator/test_actuator_identity
     arduino/test_board_pins
+    arduino/test_host_arduino_shim
     arduino/src/actuator/test_actuator_pot_tracker
     arduino/src/controller/test_board_role
     arduino/src/controller/test_controller_freshness_tracker
@@ -74,6 +80,7 @@ foreach(test_path IN LISTS KRABBY_FIRMWARE_NATIVE_TESTS)
 endforeach()
 
 target_include_directories(test_actuator_manager PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/fakes")
+target_link_libraries(test_host_arduino_shim PRIVATE krabby_sim_host)
 # Legacy calibration compares Arduino int fields with size_t and a magic literal.
 if(NOT MSVC)
     target_compile_options(test_actuator_manager PRIVATE -Wno-sign-compare)

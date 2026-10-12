@@ -26,3 +26,7 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 ## Pin state (`pin_state.py`)
 
 The host Arduino shim calls `PinStateModel.pin_mode`, `digital_write`, and `analog_write` to record Mega pin state. Each pin stores mode (`INPUT` / `OUTPUT`), last digital level (`LOW` / `HIGH`), and PWM duty (0-255). Actuator code reads `signed_pwm_command(PWM_R, PWM_L, EN)` as `(EN high) * (PWM_R - PWM_L)`, matching `LinearActuator::driveActuator`.
+
+## Host `Arduino.h` (`firmware/sim/host/`)
+
+C++ output shim for host builds: `pinMode`, `digitalWrite`, `analogWrite`, and `millis` update `krabby::sim::PinStateModel` and `SimClock`. Also provides `constrain` and `abs` macros used by the actuator drive path. Build target `krabby_sim_host` is defined in `firmware/sim/host/CMakeLists.txt` (pulled in from native firmware tests and future host actuator builds). Native test `test_host_arduino_shim` links that library and includes this header instead of AVR `Arduino.h`.
