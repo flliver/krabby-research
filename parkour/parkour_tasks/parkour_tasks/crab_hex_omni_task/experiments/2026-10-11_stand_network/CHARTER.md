@@ -245,3 +245,5 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   taps 0.88 / 0.82 (line 1); G3 0 falls, 0 exit falls; G4 field_hard **0.810**, field_turn 0.97 (one field_turn stand
   fall, inside HOLD + 2 SE); G5 onset 0.12 s, 0 stalls, height ≤ 0.0067 m. Observe: μ_hip on LIFT −0.472, launch
   99.7 %, HOLD within-leg trim slope −0.029 (R −0.50) — the same trim under-fit.
+- 2026-10-12, **step 10 `SN_Amask_s17` mid-run premise (its 1334–2000): NO STOP** — student homed 0.981 (n 4873) vs
+  control 0.954 (n 1074), ratio 1.03; falls 1.0 % vs 0.56 %; exit falls 2 / 3785 vs 1 / 851 (`s17_premise_mid.json`).
