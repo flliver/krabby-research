@@ -237,3 +237,5 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
 - 2026-10-12, **USER GO: step 10 (A-mask replicates s16 / s17) + step 11 report, then the adoption stop.** Launched
   `scripts/sn_queue_step10.sh`: `SN_Amask_s16` then `SN_Amask_s17` (same config as the pilot, 4000 its, judged
   model_4000; S1 s18 walks), each with the step-9 eval rows; mid-run premise checks (its 1334–2000) as for the pilot.
+- 2026-10-12, **step 10 `SN_Amask_s16` mid-run premise (its 1334–2000): NO STOP** — student homed 0.983 (n 4778) vs
+  control 0.942 (n 1107), ratio 1.04; falls 0.98 % vs 1.26 %; exit falls 1 / 3721 (`s16_premise_mid.json`).
