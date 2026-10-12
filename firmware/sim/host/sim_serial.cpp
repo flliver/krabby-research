@@ -5,7 +5,12 @@ namespace sim {
 
 namespace {
 
-SimSerialPort g_ports[3];
+SimSerialPort g_board_ports[3][3];
+
+SimSerialPort &portAt(BoardId board, SerialPortId id)
+{
+    return g_board_ports[static_cast<int>(board)][static_cast<int>(id)];
+}
 
 }  // namespace
 
@@ -15,11 +20,16 @@ void SimSerialPort::reset()
     tx_lines_.clear();
     tx_bytes_.clear();
     rx_.clear();
+    peer_rx_ = nullptr;
 }
 
 void SimSerialPort::txWrite(uint8_t byte)
 {
     tx_bytes_.push_back(byte);
+    if (peer_rx_ != nullptr)
+    {
+        peer_rx_->rxPushByte(byte);
+    }
     if (byte == '\n')
     {
         flushTxLine();
@@ -108,14 +118,48 @@ String SimSerialPort::readStringUntil(char terminator)
 
 SimSerialPort &serialPort(SerialPortId id)
 {
-    return g_ports[static_cast<int>(id)];
+    return portAt(BoardId::kFront, id);
+}
+
+SimSerialPort &serialPort(BoardId board, SerialPortId id)
+{
+    return portAt(board, id);
+}
+
+void pairBoardSerialPorts(
+    BoardId board_a,
+    SerialPortId port_a,
+    BoardId board_b,
+    SerialPortId port_b)
+{
+    SimSerialPort &a = portAt(board_a, port_a);
+    SimSerialPort &b = portAt(board_b, port_b);
+    a.setPeerRx(&b);
+    b.setPeerRx(&a);
+}
+
+void wireDefaultThreeBoardSerialLinks()
+{
+    pairBoardSerialPorts(
+        BoardId::kFront,
+        SerialPortId::kSerial1,
+        BoardId::kLeft,
+        SerialPortId::kSerial1);
+    pairBoardSerialPorts(
+        BoardId::kFront,
+        SerialPortId::kSerial2,
+        BoardId::kRight,
+        SerialPortId::kSerial2);
 }
 
 void resetHostSerial()
 {
-    for (SimSerialPort &port : g_ports)
+    for (int board = 0; board < 3; ++board)
     {
-        port.reset();
+        for (int port = 0; port < 3; ++port)
+        {
+            g_board_ports[board][port].reset();
+        }
     }
 }
 
@@ -141,6 +185,38 @@ void HardwareSerial::write(uint8_t byte)
 }
 
 void HardwareSerial::write(const uint8_t *buffer, std::size_t size)
+{
+    for (std::size_t i = 0; i < size; ++i)
+    {
+        write(buffer[i]);
+    }
+}
+
+BoardHardwareSerial::BoardHardwareSerial(BoardId board, SerialPortId port)
+    : board_(board), port_(port)
+{
+}
+
+SimSerialPort &BoardHardwareSerial::port() { return serialPort(board_, port_); }
+
+int BoardHardwareSerial::available() { return port().rxAvailable(); }
+
+int BoardHardwareSerial::read() { return port().rxRead(); }
+
+int BoardHardwareSerial::peek() { return port().rxPeek(); }
+
+String BoardHardwareSerial::readStringUntil(char terminator)
+{
+    return port().readStringUntil(terminator);
+}
+
+void BoardHardwareSerial::write(uint8_t byte)
+{
+    port().txWrite(byte);
+    Print::write(byte);
+}
+
+void BoardHardwareSerial::write(const uint8_t *buffer, std::size_t size)
 {
     for (std::size_t i = 0; i < size; ++i)
     {

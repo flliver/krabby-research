@@ -31,6 +31,7 @@ void resetHostSim()
     resetHostEeprom();
     resetHallSim();
     resetHostSerial();
+    wireDefaultThreeBoardSerialLinks();
 }
 
 }  // namespace sim

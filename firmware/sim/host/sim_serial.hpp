@@ -17,6 +17,13 @@ enum class SerialPortId : int
     kSerial2 = 2,
 };
 
+enum class BoardId : int
+{
+    kFront = 0,
+    kLeft = 1,
+    kRight = 2,
+};
+
 class SimSerialPort
 {
 public:
@@ -36,6 +43,8 @@ public:
 
     String readStringUntil(char terminator);
 
+    void setPeerRx(SimSerialPort *peer) { peer_rx_ = peer; }
+
 private:
     void flushTxLine();
 
@@ -43,9 +52,17 @@ private:
     std::deque<std::string> tx_lines_;
     std::deque<uint8_t> tx_bytes_;
     std::deque<uint8_t> rx_;
+    SimSerialPort *peer_rx_ = nullptr;
 };
 
 SimSerialPort &serialPort(SerialPortId id);
+SimSerialPort &serialPort(BoardId board, SerialPortId id);
+void pairBoardSerialPorts(
+    BoardId board_a,
+    SerialPortId port_a,
+    BoardId board_b,
+    SerialPortId port_b);
+void wireDefaultThreeBoardSerialLinks();
 void resetHostSerial();
 
 class HardwareSerial : public Print
@@ -66,6 +83,25 @@ public:
 
 private:
     SerialPortId id_;
+    SimSerialPort &port();
+};
+
+class BoardHardwareSerial : public Print
+{
+public:
+    BoardHardwareSerial(BoardId board, SerialPortId port);
+
+    int available();
+    int read();
+    int peek();
+    String readStringUntil(char terminator);
+
+    void write(uint8_t byte) override;
+    void write(const uint8_t *buffer, std::size_t size) override;
+
+private:
+    BoardId board_;
+    SerialPortId port_;
     SimSerialPort &port();
 };
 
