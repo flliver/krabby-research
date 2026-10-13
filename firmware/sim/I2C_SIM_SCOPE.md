@@ -69,6 +69,13 @@ Instead the host path reuses shipping **`buildDisplayFrame`** + **`DisplayRender
 captures bytes in **`sim_ssd1306`**. On-device firmware still uses the adapters + libraries;
 host sim matches **layout and live state**, not byte-identical driver I2C init sequences.
 
+### Non-fatal sensor init (host)
+
+Leader **`setup()`** always completes: **`leaderImu`**, **`leaderBattery`**, and **`hostDisplaySetup`**
+probe **`Wire`** but never abort **`krabby_host_firmware_setup`**. Missing devices yield
+**`;IMU … valid=0`**, omit **`;BATT`**, or skip OLED draws; actuator USB commands and
+telemetry joints keep running. Tests: **`test_host_nonfatal_sensor_init.cpp`**.
+
 ---
 
 ## Host sim today (serial + Isaac paths)

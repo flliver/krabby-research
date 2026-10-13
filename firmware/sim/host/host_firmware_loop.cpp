@@ -125,6 +125,8 @@ extern "C" void krabby_host_firmware_setup(void)
 {
     if (s_firmwareSetupDone) return;
     hallHwInit();
+    // Sensor probes are best-effort: missing I2C devices must not block setup or the loop
+    // (IMU still appends with valid=0; BATT/OLED are skipped when offline).
     krabby::sim::host::leaderImu().setup();
     krabby::sim::host::leaderBattery().setup();
     krabby::sim::host::hostDisplaySetup();
