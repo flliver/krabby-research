@@ -7,13 +7,25 @@ baked 2026-10-06 as the phase-1 head, then the phase-2 wall-field stage 6_p2a_fi
 head that ships), one subfolder per stage,
 declared in ``policy/manifest.yaml`` (source run, sha256, campaign, overlay reference, per-category
 suite evals, observation contract, open follow-ups), plus the shared training assets the lineage
-depends on (``assets:`` -- the omni RSI reference bank every omni preset seeds resets from). It
-changes ONLY on a bake decision, which is the user's: edit the manifest, run ``--sync``, commit.
+depends on (``assets:`` -- the omni RSI reference bank every omni preset seeds resets from), plus -- optionally --
+the STAND NETWORK OF RECORD (``stand_network:``, adopted 2026-10-13: A-mask s17 of
+``experiments/2026-10-11_stand_network``). It changes ONLY on a bake / adoption decision, which is the user's: edit
+the manifest, run ``--sync``, commit.
 
-    python3 experiments/tools/bundle_policy.py --sync     # copy missing stage files (sha-verified),
+    python3 experiments/tools/bundle_policy.py --sync     # copy missing stage / asset / stand files (sha-verified),
                                                           #   verify present ones, regenerate README.md,
                                                           #   git add the produced files
     python3 experiments/tools/bundle_policy.py --check    # verify every stage file + sha + README (test hook)
+
+The ``stand_network:`` block is neither a stage (nothing resumes from it; no preset / overlay) nor a training asset:
+it is a second policy the controller routes on stand holds beside a walking stage (``walker.stage``, whose sha256 the
+block must repeat), under a routing contract (``deployment:``) recorded exactly as the campaign evaluated it. Its one
+file lives in its own folder (``dir``, which must not collide with a stage or asset dir); ``--sync`` copies it from
+``source`` sha-verified and ``git add``s it, ``--check`` verifies it like a stage (present, sha, no stray checkpoint
+in its folder), ``expected_files`` lists it, ``heads:`` may name its dir, and the README gains a "Stand network of
+record" section (what it is, file + sha, the deployment contract and env, the eval / video commands, the per-seed
+gate table, the selection and the caveats) plus one header line. A manifest WITHOUT the block behaves exactly as
+before (README byte-identical).
 
 Adapted from ``crab_hex_forward_task/experiments/tools/bundle_policy.py``. Differences:
 
@@ -35,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -56,6 +69,15 @@ RATIO_CATS = ("fwd", "side", "back", "diag", "move_turn")
 SUITE_ROW = "suite__omni"
 EVAL_SCRIPT = "parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py"
 OMNI_MANIFEST = "parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml"
+#: Keys every ``stand_network:`` block must carry (the rest -- architecture, evals, selection, caveats ... -- render
+#: when present).
+STAND_KEYS = ("dir", "file", "source", "sha256", "adopted", "arm", "stand_mask", "walker", "deployment")
+#: The stand-network readers the README's evaluate block names, with their arguments ({name} = the re-run's head name).
+STAND_READER_ARGS = {
+    "sn_bridge_read.py": "--head {name} --live",
+    "sn_calib.py": "--head {name} --json $OUT/head_{name}.json --md $OUT/head_{name}.md",
+    "sn_observe_read.py": "--head {name} --json $OUT/observe_{name}.json --md $OUT/observe_{name}.md",
+}
 
 
 def sha256_of(path: Path) -> str:
@@ -70,46 +92,79 @@ def expected_files(m: dict) -> set[str]:
     """Every file that may live under policy/, relative to policy/ (the layout test pins this set)."""
     files = {f"{s['dir']}/{s['file']}" for s in m["stages"]}
     files |= {f"{a['dir']}/{a['file']}" for a in m.get("assets", [])}
+    if m.get("stand_network"):
+        files.add(f"{m['stand_network']['dir']}/{m['stand_network']['file']}")
     files |= {"manifest.yaml", *GENERATED_DOCS}
     return files
 
 
-def load_manifest() -> dict:
-    m = yaml.safe_load(MANIFEST.read_text())
+def load_manifest(path: Path = MANIFEST) -> dict:
+    """The manifest at ``path`` (default ``policy/manifest.yaml``), validated; SystemExit names the first problem."""
+    m = yaml.safe_load(Path(path).read_text())
     for k in ("task", "plant", "current", "stages", "obs_contract"):
         if k not in m:
-            raise SystemExit(f"{MANIFEST}: missing key {k!r}")
+            raise SystemExit(f"{path}: missing key {k!r}")
     dirs = [s["dir"] for s in m["stages"]]
     if len(set(dirs)) != len(dirs):
-        raise SystemExit(f"{MANIFEST}: duplicate stage dirs")
+        raise SystemExit(f"{path}: duplicate stage dirs")
     if m["current"] not in dirs:
-        raise SystemExit(f"{MANIFEST}: current={m['current']!r} is not a stage dir")
+        raise SystemExit(f"{path}: current={m['current']!r} is not a stage dir")
     for s in m["stages"]:
         for k in ("dir", "phase", "stage", "task", "iterations", "source", "file", "sha256", "overlay_ref",
                   "obs_contract"):
             if k not in s:
-                raise SystemExit(f"{MANIFEST}: stage {s.get('dir')!r} missing {k!r}")
+                raise SystemExit(f"{path}: stage {s.get('dir')!r} missing {k!r}")
         if str(s["obs_contract"].get(HIDE_VAR)) not in ("0", "1"):
-            raise SystemExit(f"{MANIFEST}: stage {s['dir']!r} obs_contract.{HIDE_VAR} must be '0' or '1'")
+            raise SystemExit(f"{path}: stage {s['dir']!r} obs_contract.{HIDE_VAR} must be '0' or '1'")
     oc = m["obs_contract"]
     for k in ("width", "clock_columns", "eval_env"):
         if k not in oc:
-            raise SystemExit(f"{MANIFEST}: obs_contract missing {k!r}")
+            raise SystemExit(f"{path}: obs_contract missing {k!r}")
     if HIDE_VAR in (oc["eval_env"].get("carry") or {}) or HIDE_VAR in (oc["eval_env"].get("fixed") or {}):
-        raise SystemExit(f"{MANIFEST}: {HIDE_VAR} is per stage (stage obs_contract), not in obs_contract.eval_env")
+        raise SystemExit(f"{path}: {HIDE_VAR} is per stage (stage obs_contract), not in obs_contract.eval_env")
     m.setdefault("assets", [])
     for a in m["assets"]:
         for k in ("dir", "file", "source", "sha256"):
             if k not in a:
-                raise SystemExit(f"{MANIFEST}: asset {a.get('file')!r} missing {k!r}")
+                raise SystemExit(f"{path}: asset {a.get('file')!r} missing {k!r}")
         if a["dir"] in dirs:
-            raise SystemExit(f"{MANIFEST}: asset dir {a['dir']!r} collides with a stage dir")
+            raise SystemExit(f"{path}: asset dir {a['dir']!r} collides with a stage dir")
     m.setdefault("followups", [])
     for f in m["followups"]:
         for k in ("id", "headline"):
             if k not in f:
-                raise SystemExit(f"{MANIFEST}: followup {f.get('id')!r} missing {k!r}")
+                raise SystemExit(f"{path}: followup {f.get('id')!r} missing {k!r}")
+    sn = m.get("stand_network")
+    if sn is not None:
+        _validate_stand(m, sn, dirs, path)
+    for k, d in (m.get("heads") or {}).items():
+        if d not in dirs and not (sn and d == sn["dir"]):
+            raise SystemExit(f"{path}: heads.{k}={d!r} is neither a stage dir nor the stand_network dir")
     return m
+
+
+def _validate_stand(m: dict, sn, dirs: list[str], path) -> None:
+    """The optional ``stand_network:`` block: required keys, a full sha256, an int 0 / 1 mask, its own folder (no
+    stage / asset dir), and a ``walker`` that is a stage of this manifest with exactly that stage's sha256."""
+    if not isinstance(sn, dict):
+        raise SystemExit(f"{path}: stand_network must be a mapping")
+    for k in STAND_KEYS:
+        if k not in sn:
+            raise SystemExit(f"{path}: stand_network missing {k!r}")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(sn["sha256"])):
+        raise SystemExit(f"{path}: stand_network.sha256 must be a full lowercase sha256, got {sn['sha256']!r}")
+    if sn["dir"] in dirs:
+        raise SystemExit(f"{path}: stand_network dir {sn['dir']!r} collides with a stage dir")
+    if sn["dir"] in {a["dir"] for a in m["assets"]}:
+        raise SystemExit(f"{path}: stand_network dir {sn['dir']!r} collides with an asset dir")
+    if type(sn["stand_mask"]) is not int or sn["stand_mask"] not in (0, 1):
+        raise SystemExit(f"{path}: stand_network.stand_mask must be the int 0 or 1, got {sn['stand_mask']!r}")
+    w = sn["walker"]
+    if not isinstance(w, dict) or w.get("stage") not in dirs:
+        raise SystemExit(f"{path}: stand_network.walker.stage must name a stage dir, got {w!r}")
+    if w.get("sha256") != stage_by_dir(m, w["stage"])["sha256"]:
+        raise SystemExit(f"{path}: stand_network.walker.sha256 is not stage {w['stage']!r}'s sha256 (the stand net "
+                         "was trained and evaluated beside another walker)")
 
 
 def stage_by_dir(m: dict, d: str) -> dict:
@@ -122,6 +177,18 @@ def stage_path(s: dict) -> Path:
 
 def asset_path(a: dict) -> Path:
     return POLICY / a["dir"] / a["file"]
+
+
+def stand_path(sn: dict) -> Path:
+    return POLICY / sn["dir"] / sn["file"]
+
+
+def _head_file(m: dict, d: str) -> str:
+    """The file a ``heads:`` entry names: its stage's, or the stand network's when ``d`` is that block's dir."""
+    sn = m.get("stand_network")
+    if sn and d == sn["dir"]:
+        return sn["file"]
+    return stage_by_dir(m, d)["file"]
 
 
 def carry_env(m: dict, s: dict) -> dict[str, str]:
@@ -170,6 +237,18 @@ def check(m: dict) -> list[str]:
         got = sha256_of(p)
         if got != a["sha256"]:
             problems.append(f"{p.relative_to(REPO)}: sha256 {got[:12]} != manifest {a['sha256'][:12]}")
+    sn = m.get("stand_network")
+    if sn:
+        p = stand_path(sn)
+        if not p.exists():
+            problems.append(f"{p.relative_to(REPO)}: missing")
+        else:
+            got = sha256_of(p)
+            if got != sn["sha256"]:
+                problems.append(f"{p.relative_to(REPO)}: sha256 {got[:12]} != manifest {sn['sha256'][:12]}")
+            extra = [q for q in p.parent.glob("*.pt") if q.name != sn["file"]]
+            if extra:
+                problems.append(f"{p.parent.relative_to(REPO)}: stray checkpoints {[q.name for q in extra]}")
     readme = POLICY / "README.md"
     if not readme.exists() or readme.read_text() != readme_text(m):
         problems.append(f"{readme.relative_to(REPO)}: stale (bundle_policy.py --sync)")
@@ -202,6 +281,11 @@ def sync(m: dict, *, force: bool) -> list[Path]:
     for a in m["assets"]:
         dest = asset_path(a)
         _sync_one(dest, REPO / a["source"], a["sha256"], a["file"], force=force)
+        produced.append(dest)
+    sn = m.get("stand_network")
+    if sn:
+        dest = stand_path(sn)
+        _sync_one(dest, REPO / sn["source"], sn["sha256"], f"stand_network {sn['dir']}", force=force)
         produced.append(dest)
     readme = POLICY / "README.md"
     readme.write_text(readme_text(m))
@@ -243,6 +327,182 @@ def _env_lines(env: dict[str, str], indent: str = "  ") -> list[str]:
     return [f"{indent}{k}={env[k]} \\" for k in keys]
 
 
+# ------------------------------------------------------------------------------ the stand network's README section
+def _gv(v) -> str:
+    """A stand-gate value: — for None; ints and strings as is; 0 as 0; below 1e-3 as 1e-05; else up to four
+    decimals, never fewer than one (1.0, 0.8125, 0.0068)."""
+    if v is None:
+        return "—"
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return str(v)
+    if isinstance(v, int):
+        return str(v)
+    if v == 0:
+        return "0"
+    if abs(v) < 1e-3:
+        return f"{v:.0e}"
+    s = f"{float(v):.4f}".rstrip("0")
+    return s + "0" if s.endswith(".") else s
+
+
+def _gate_cell(v) -> str:
+    """A gate-table cell: ``es1 / es2`` for a list, the value otherwise; pipes escaped for the markdown table."""
+    s = " / ".join(_gv(x) for x in v) if isinstance(v, list) else _gv(v)
+    return s.replace("|", "\\|")
+
+
+def _md(s) -> str:
+    return str(s).replace("|", "\\|")
+
+
+def _flat(v) -> str:
+    """A manifest value on one line: a list joined by ``; ``, a mapping as ``k v`` pairs, else the string."""
+    if isinstance(v, list):
+        return "; ".join(_flat(x) for x in v)
+    if isinstance(v, dict):
+        return "; ".join(f"{k} {_flat(x)}" for k, x in v.items())
+    return str(v)
+
+
+#: deployment keys rendered as labelled bullets, in this order (env_required / env_off / caveat_* are rendered apart)
+STAND_DEPLOY_LABELS = (("switch", "Switch"), ("entry_exit", "Entry / exit"), ("input", "Stand-net input"),
+                       ("forward", "Forward"), ("reference_implementation", "Reference implementation"))
+
+
+def _stand_section(m: dict) -> list[str]:
+    """README lines for the ``stand_network:`` block (rendered only when the block exists)."""
+    sn = m["stand_network"]
+    w = stage_by_dir(m, sn["walker"]["stage"])
+    path = f"{sn['dir']}/{sn['file']}"
+    wpath = f"{w['dir']}/{w['file']}"
+    dep = sn["deployment"]
+    L = [
+        "## Stand network of record",
+        "",
+        f"**[`{path}`]({path})** -- {sn.get('what', '')}",
+        "",
+        f"**Adopted:** {sn['adopted']}",
+        "",
+        "It is **not** a lineage stage and **not** a training asset: nothing resumes from it and no preset builds it. "
+        f"It is a second policy that the controller routes on **stand holds** beside the walking head [`{wpath}`]"
+        f"({wpath}), which acts on every other hold and is unchanged by this adoption. Played or exported alone, the "
+        "walking head still marches in place at stand (follow-up `stand_march`).",
+        "",
+        f"- **Run:** `{sn.get('id', '—')}` -- arm {sn['arm']} (`stand_mask` {sn['stand_mask']}), training seed "
+        f"{sn.get('training_seed', '—')}, {sn.get('iterations', '—')} iterations",
+        f"- **Trained in:** {sn.get('trained_in', '—')}",
+        f"- **Walker:** `{w['dir']}/` (sha256 `{sn['walker']['sha256']}`) -- {sn['walker'].get('note', '')}",
+        f"- **Source run (not tracked):** `{sn['source']}`",
+        f"- **sha256:** `{sn['sha256']}`",
+    ]
+    arch = sn.get("architecture") or {}
+    if arch:
+        L.append("- **Architecture:**")
+        L += [f"  - **{k}:** {_flat(v)}" for k, v in arch.items()]
+    L += ["", "### Deployment contract (as evaluated)", ""]
+    known = {k for k, _ in STAND_DEPLOY_LABELS} | {"env_required", "env_off"}
+    for k, label in STAND_DEPLOY_LABELS:
+        if dep.get(k):
+            L.append(f"- **{label}:** {dep[k]}")
+    for k, v in dep.items():
+        if k not in known and not k.startswith("caveat"):
+            L.append(f"- **{k}:** {_flat(v)}")
+    hide = str(w["obs_contract"][HIDE_VAR])
+    req = {k: str(v) for k, v in (dep.get("env_required") or {}).items() if not (k == HIDE_VAR and str(v) == hide)}
+    env = (f"- **Environment (both networks, one process):** the walker's carry block (Observation contract above) "
+           f"with `{HIDE_VAR}={hide}`")
+    if req:
+        env += "; in particular " + ", ".join(f"`{k}={v}`" for k, v in req.items())
+    if dep.get("env_off"):
+        env += "; unset (or `''` / `0`): " + ", ".join(f"`{k}`" for k in dep["env_off"]) + " and any `P2R_*` variable"
+    L.append(env + ".")
+    for k, v in dep.items():
+        if k.startswith("caveat"):
+            L.append(f"- **CAVEAT ({k.removeprefix('caveat').strip('_').replace('_', ' ') or 'deployment'}):** {v}")
+    run = sn.get("evaluate") or {}
+    if run:
+        name, mask, rows = run.get("name", "NAME"), sn["stand_mask"], run.get("rows") or []
+        L += ["", "### Evaluate it / watch it", "",
+              "Re-run the gate rows against the bundled file, read them on the CPU, or record a video of the routed "
+              "pair (from `krabby-research/parkour/`; one Isaac process at a time):", "",
+              "```bash",
+              "P=parkour_tasks/parkour_tasks/crab_hex_omni_task",
+              f"S=$PWD/$P/{run['scripts']}",
+              f"CK=$PWD/$P/policy/{path}",
+              f"PY={run.get('python', 'python')}",
+              "OUT=$(mktemp -d)   # where the CPU reads write"]
+        if run.get("eval_rows"):
+            L += [f"bash $S/{run['eval_rows']} --dry-run {name} $CK {mask} {rows[0] if rows else ''}"
+                  "   # print the run_arm commands, no Isaac",
+                  f"bash $S/{run['eval_rows']} {name} $CK {mask} \\",
+                  "  " + " ".join(rows)]
+        for r in run.get("readers") or []:
+            L.append(f"$PY $S/{r} " + STAND_READER_ARGS.get(r, "--head {name}").format(name=name))
+        if run.get("video"):
+            L += [f"bash $S/{run['video']} --dry-run --prefix {name}_video -- --stand-ckpt $CK --stand-mask {mask}"
+                  "   # schedule + command only",
+                  f"bash $S/{run['video']} --prefix {name}_video -- --stand-ckpt $CK --stand-mask {mask}"
+                  "   # 180 s, detached, MemoryMax 24G"]
+        L += ["```", ""]
+        if run.get("notes"):
+            L += [run["notes"], ""]
+    else:
+        L.append("")
+    ev = sn.get("evals") or {}
+    gt = ev.get("gate_table") or {}
+    cols = gt.get("columns") or []
+    if gt.get("rows"):
+        L += ["### Gates G1-G5 per training seed", ""]
+        if ev.get("what"):
+            L += [ev["what"], ""]
+        L += ["| Gate | Statistic | Line | " + " | ".join(_md(c["label"]) for c in cols) + " |",
+              "|---|---|---|" + "---|" * len(cols)]
+        for r in gt["rows"]:
+            L.append(f"| {r['gate']} | {_md(r['stat'])} | {_md(r['line'])} | "
+                     + " | ".join(_gate_cell(r.get(c["id"])) for c in cols) + " |")
+        if gt.get("verdicts"):
+            L.append("| **Verdict** | | | " + " | ".join(_md(gt["verdicts"].get(c["id"], "—")) for c in cols) + " |")
+        L.append("")
+        if ev.get("references"):
+            L += ["References: " + "; ".join(f"**{k}** {v}" for k, v in ev["references"].items()) + ".", ""]
+    if ev.get("heads"):
+        L += ["Per head (eval stamps, not tracked, under `" + str(ev.get("stamps_root", "—")) + "`):", ""]
+        for h in ev["heads"]:
+            tag = " (**adopted**)" if h.get("adopted") else ""
+            line = (f"- **`{h['id']}`**{tag} -- sha256 `{h.get('sha256', '—')}`, `{h.get('source', '—')}`; "
+                    f"{h.get('gates', '—')}; field_hard line {h.get('field_hard_line', '—')}")
+            if h.get("worst_margin"):
+                line += "; worst G2 margins " + ", ".join(f"{k} {v}" for k, v in h["worst_margin"].items())
+            line += f"; read `{h.get('read', '—')}`"
+            if h.get("observe"):
+                line += f", observe `{h['observe']}`"
+            L.append(line)
+            if h.get("detail"):
+                L.append(f"  - **Detail:** {h['detail']}")
+            if h.get("train_time"):
+                L.append(f"  - **Train-time:** {h['train_time']}")
+            if h.get("stamps"):
+                L.append("  - **Stamps (not tracked):** " + ", ".join(f"{k} `{v}`" for k, v in h["stamps"].items()))
+            elif h.get("stamps_root"):
+                L.append(f"  - **Stamps (not tracked):** `{h['stamps_root']}`")
+        for h in ev.get("not_adopted") or []:
+            L.append(f"- _`{h['id']}` (not a candidate; sha256 {h.get('sha256', '—')}, `stand_mask` "
+                     f"{h.get('stand_mask', '—')})_ -- {h.get('summary', '')}")
+        L.append("")
+    sel = sn.get("selection") or {}
+    if sel:
+        L += ["### Selection", ""]
+        for k, label in (("rule", "Rule"), ("tie_break", "Tie-break"), ("user_decision", "User decision")):
+            if sel.get(k):
+                L.append(f"- **{label}:** {sel[k]}")
+        L.append("")
+    if sn.get("caveats"):
+        L += ["### Caveats", ""]
+        L += [f"- {c}" for c in sn["caveats"]]
+        L.append("")
+    return L
+
+
 def readme_text(m: dict) -> str:
     cur = stage_by_dir(m, m["current"])
     oc = m["obs_contract"]
@@ -262,9 +522,15 @@ def readme_text(m: dict) -> str:
         f"**Current head:** [`{cur_path}`]({cur_path}) -- {cur.get('what', '')}",
         "",
     ]
+    sn = m.get("stand_network")
+    if sn:
+        sn_path = f"{sn['dir']}/{sn['file']}"
+        L += [f"**Stand network of record:** [`{sn_path}`]({sn_path}) -- a second policy (not a stage) routed on stand "
+              f"holds beside `{sn['walker']['stage']}/`; contract, commands and gates in "
+              "[Stand network of record](#stand-network-of-record).", ""]
     if m.get("heads"):
         L += ["**Head of record per phase:** " + ", ".join(
-            f"{k} [`{d}/`]({d}/) (`{stage_by_dir(m, d)['file']}`)" for k, d in m["heads"].items()) + ".", ""]
+            f"{k} [`{d}/`]({d}/) (`{_head_file(m, d)}`)" for k, d in m["heads"].items()) + ".", ""]
     L += [
         f"**Baked:** {m.get('baked', '—')}",
         "",
@@ -321,6 +587,8 @@ def readme_text(m: dict) -> str:
         f"For a clock-held stage (`{HIDE_VAR}=0`) use the same commands with `{HIDE_VAR}=0`.",
         "",
     ]
+    if sn:
+        L += _stand_section(m)
     if m.get("followups"):
         L += ["## Open follow-ups", ""]
         for f in m["followups"]:
@@ -434,6 +702,15 @@ def readme_text(m: dict) -> str:
         "flags them as stray checkpoints), run `--sync`, commit.",
         "- New shared asset (e.g. a re-harvested RSI bank): add an `assets:` entry (dir, file, source, sha256, what, "
         "used_by), run `--sync`, commit.",
+    ]
+    if sn:
+        L.append(
+            f"- Stand network (`stand_network:`, folder `{sn['dir']}/`): `--sync` copies its file from `source` "
+            "sha-verified, `--check` verifies it like a stage (present, sha, no stray checkpoint). Required keys: "
+            + ", ".join(f"`{k}`" for k in STAND_KEYS) + "; `walker` must name a stage and repeat that stage's sha256, "
+            "so re-baking the walking head forces a decision on the stand network (it was trained and gated beside "
+            "that exact walker). Replace it: edit the block, `git rm` the old file, run `--sync`, commit.")
+    L += [
         "- No MDP pins: the omni lineage's stage recipes are overlays on a `KRABBY_OMNI_PHASE` preset (each "
         "stage's `phase`) recorded in campaign "
         "`candidates.yaml` files, not presets, so there is no `--pin-mdp` / `POLICY_SUMMARY.md` here (the forward "
@@ -451,16 +728,21 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="with --sync: recopy every stage file from its source")
     a = ap.parse_args()
     m = load_manifest()
+    sn = m.get("stand_network")
     if a.check:
         problems = check(m)
         for p in problems:
             print("PROBLEM", p)
-        print(f"policy of record: {len(m['stages'])} stages, current {m['current']}: {'OK' if not problems else 'FAILED'}")
+        stand = f" + stand network {sn['dir']}" if sn else ""
+        print(f"policy of record: {len(m['stages'])} stages{stand}, current {m['current']}: "
+              f"{'OK' if not problems else 'FAILED'}")
         return 1 if problems else 0
     sync(m, force=a.force)
     total = (sum(stage_path(s).stat().st_size for s in m["stages"])
-             + sum(asset_path(a).stat().st_size for a in m["assets"])) / 1e6
-    print(f"synced {len(m['stages'])} stages + {len(m['assets'])} assets ({total:.1f} MB), current {m['current']}")
+             + sum(asset_path(a).stat().st_size for a in m["assets"])
+             + (stand_path(sn).stat().st_size if sn else 0)) / 1e6
+    stand = " + stand network" if sn else ""
+    print(f"synced {len(m['stages'])} stages + {len(m['assets'])} assets{stand} ({total:.1f} MB), current {m['current']}")
     return 0
 
 

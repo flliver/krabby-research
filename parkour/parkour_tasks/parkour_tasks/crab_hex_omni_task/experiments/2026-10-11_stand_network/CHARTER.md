@@ -288,3 +288,15 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   - R for comparison: taps 0.13 per s (median force at the flicker 48 N — barely crossing the line), steps 0.19 per s.
   - **Implication for the gates:** G2's post-settle taps clause mostly counts sub-millimetre load flicker; A-full's
     G2 failure (1.14 vs 1.0) is therefore a load-flicker difference, not visible tapping. Recorded, no rule changed.
+- 2026-10-13, **USER DECISION: "Adopt A-mask s17 as the stand network of record."** Implemented in the omni policy
+  of record (workflow: opus·xhigh build, fable·high review, 1 minor fix): `policy/stand_net/model_4000.pt` (sha256
+  769cf253…, = `runs/SN_Amask_s17/model_4000.pt`), a new top-level `stand_network:` block in `policy/manifest.yaml`
+  (provenance, deployment contract as evaluated incl. the switch-keying caveat, per-seed G1–G5, selection, caveats),
+  `heads.stand: stand_net`, README section "Stand network of record", follow-ups `stand_switch_keying`,
+  `stand_trim_underfit`, `two_network_export` and a rewritten `stand_march`. `experiments/tools/bundle_policy.py`
+  gained optional `stand_network` support (validate / sync / check / render; unchanged output for manifests without
+  it); `tests/unit/test_policy_of_record_omni.py` pins it (37 policy tests pass; `--check` OK). The walking head of
+  record is unchanged (`current: 6_p2a_field`, S1 s18). code_sha 14301cd2 / eval_sha 1d021625 unchanged.
+  REPORT.md §7's trim-slope ranges corrected (A-full's values had been mixed into the A-mask range).
+- **Campaign CLOSED — ADOPTED.** Open items carried as policy follow-ups: explicit stand-command keying for any
+  deployment, the HOLD cam-trim under-fit, a two-network export / play path.

@@ -19,14 +19,19 @@
 # this bake and stay in git history).
 # 2026-10-08 bake: adds the phase-2 stage 6_p2a_field (P2__S1_s18, same seed-18 lineage) and makes it the
 # head of record; stages 1-5 are unchanged and 5_c6x_clockfree stays the phase-1 head (`heads:`).
+# 2026-10-13 adoption: adds the STAND NETWORK of record (`stand_network:` below, folder stand_net/, `heads.stand`) --
+# A-mask s17 (SN_Amask_s17 model_4000, experiments/2026-10-11_stand_network), a second policy the controller routes
+# on stand holds beside the walking head 6_p2a_field. It is NOT a lineage stage and NOT a training asset; stages 1-6,
+# `current` and the walking head of record are unchanged.
 task: crab_hex_omni_task
 plant: A15+B
 seed: 18
 current: 6_p2a_field
 heads:
-  # data only: the head of record per phase (the tool ships `current`)
+  # data only: the head of record per phase (the tool ships `current`); `stand` names the stand_network block's dir
   phase1: 5_c6x_clockfree
   phase2: 6_p2a_field
+  stand: stand_net
 baked: '2026-10-08 (user decision, CHARTER 9 of experiments/2026-10-07_omni_phase2: bake S1 s18 = chain
   P2__S1_s18 as the omni PHASE-2 head of record, stage 6_p2a_field, after the S1 s16-vs-s18 breakdown; stages
   1-5 unchanged, same seed-18 lineage. Selection: CHARTER 7 rule stated before judging (floors PASS-or-COST as a
@@ -526,6 +531,299 @@ stages:
       summary: 'fourth of four (PASS vs ANCW_s17): field_hard 0.725 at n=400 (0.69 / 0.77 / 0.71 / 0.73),
         field_light 0.985, ring_obst 1.000; turn fc 0.948 yp 0.145; move_turn survival 0.990; jitter 0.157; side
         |ratio - 1| 0.061 (anchor 0.033, within margin)'
+stand_network:
+  # The STAND NETWORK OF RECORD (adopted 2026-10-13). NOT a lineage stage (nothing resumes from it, no preset /
+  # overlay) and NOT a training asset: a second policy that the controller routes on stand holds beside the walking
+  # head `walker.stage`, under the `deployment:` contract below -- exactly as the campaign evaluated it. Read by
+  # bundle_policy.py (dir / file / source / sha256 synced and checked like a stage; README section rendered) and by
+  # tests/unit/test_policy_of_record_omni.py (checkpoint infos, walker pairing, gate table vs the campaign reads).
+  dir: stand_net
+  file: model_4000.pt
+  source: parkour/outputs/omni_plan/stand_network/runs/SN_Amask_s17/model_4000.pt
+  sha256: 769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff
+  adopted: '2026-10-13 (user decision, in chat: "Adopt A-mask s17 as the stand network of record"; campaign
+    experiments/2026-10-11_stand_network, REPORT.md + CHARTER.md)'
+  id: SN_Amask_s17
+  arm: A-mask
+  stand_mask: 1
+  training_seed: 17
+  iterations: 4000
+  what: 'the A-mask stand network, training seed 17 (SN_Amask_s17, model_4000): a copy of the walker''s actor
+    trained to imitate the scripted re-stance controller R, routed on every stand hold so the robot stands still
+    and re-homes its cams instead of marching in place; the walker acts on every other hold'
+  trained_in: 'experiments/2026-10-11_stand_network (CHARTER 3, PLAN D1-D6 + Amendment 1; step 10 replicate, queue
+    scripts/sn_queue_step10.sh), run name SN_Amask_s17 = scripts/sn_dagger.py --mode dagger --arm mask --seed 17
+    --iterations 4000 (status done, 4000 its, 64000 optimizer steps, 1.52 s / it, 6098 s). Online DAgger imitation of
+    the scripted re-stance controller R (mdp/crab_hex_omni_restance.py) with the validated constants
+    lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3
+    (sn_common.RESTANCE_D3 = infos.sn_dagger.r_knob; the P2R_RSTg_s18 / SN_RSTg_s18 probe constants), S1 s18
+    (6_p2a_field) frozen in the loop walking every non-stand hold, so every stand starts from a real handover.
+    Env: Isaac-Crab-Hex-Omni-Teacher-v0, preset 2a + the P2__S1_s18 overlay (wall field, terrain curriculum, pushes
+    +-0.5 m/s every 8 s, mass / CoM DR, 40-s episodes), stand pool share ~0.5 (resample draws 3-12 s),
+    KRABBY_OMNI_STAND_OBS=0. beta 1 -> 0 by it 1333, a fixed 10 % of episodes R-executed (concurrent control); DART
+    sigma per episode 0 / 0.1 / 0.3 at 1/2 / 1/4 / 1/4; 4 GB reservoir (1.01 M rows); MSE on the actor mean with
+    per-leg inverse-branch weights and LIFT-onset oversampling; Adam 3e-4, 1024 envs, 24 steps / it, 16 x 4096
+    minibatches. Warm start from S1 s18; ONLY actor.actor_backbone trains (scan / history / priv encoders, critic,
+    std_raw and the estimator stay S1''s -- the estimator is bitwise S1''s). code_sha 14301cd2 / eval_sha 1d021625
+    unchanged (campaign-local code only)'
+  walker:
+    # the walking head this stand net was trained beside and evaluated with (infos.sn_dagger.s1_sha256); it must stay a
+    # stage of this manifest with exactly this sha, or the pairing is unverified
+    stage: 6_p2a_field
+    sha256: 968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c
+    note: 'S1 s18 (P2__S1_s18 p2a model_19994), the walking head of record, UNCHANGED by this adoption. The stand nets
+      were never run beside any other walker (S1 s16 / s17, an earlier stage)'
+  architecture:
+    class: CrabHexActorCriticRMA (parkour/scripts/rsl_rl/modules/crab_actor_critic_with_encoder.py), soft std (std_raw)
+    obs: 1149
+    action: 18
+    obs_contract: 'the walker''s: obs_contract above (width 1149) with KRABBY_OMNI_CLOCK_HIDE=1 and
+      KRABBY_OMNI_STAND_OBS=0 (col 15 = 0) -- both networks read the SAME harness observation; the stand net''s input
+      differs only by the actor-side mask below, applied after its own estimate'
+    trained: actor.actor_backbone only (model_state_dict differs from the walker's in actor.actor_backbone.* alone)
+    frozen_at_walker: actor.scan_encoder, actor.history_encoder, actor.priv_encoder, critic, std_raw, estimator
+    estimator: estimator_state_dict == the walker's, bitwise (the launcher refuses a stand checkpoint whose estimator
+      differs from S1's)
+    checkpoint: 'rsl_rl format: model_state_dict (35 keys, same keys / shapes as the walker''s), estimator_state_dict,
+      optimizer_state_dict, iter 4000, infos.sn_dagger (arm mask, stand_mask 1, seed 17, s1_sha256, r_knob, forward,
+      trainable / frozen, code shas); loads strict into a runner built with KRABBY_STD_PARAM=soft'
+  deployment:
+    # the routing contract EXACTLY as evaluated (CHARTER 3 / PLAN D5); the reference implementation is the campaign's
+    # eval launcher, variant stand_net
+    switch: 'HARD switch, no blending, no debounce: the stand net acts on stand holds, the walker (S1) on every other
+      row; both networks run every step (sn_common.route_actions = torch.where(stand, a_stand, a_s1))'
+    entry_exit: 'entry on the FIRST stand step; exit on the step the command changes (a stand -> move / turn change
+      hands back to S1 on that step); turn holds (speed 0 with a facing change) stay S1''s; the latch is re-derived
+      on reset'
+    input: 'scripts/sn_common.py stand_net_input(obs, stand_estimator, p0, p1, num_prop, mask=1): the stand
+      checkpoint''s OWN estimator on the UNMASKED prop obs[:, :num_prop] -> a NEW tensor cat(obs[:, :p0], est,
+      obs[:, p1:]) -> stand_mask_obs (mdp/crab_hex_omni_restance.py) because stand_mask is 1: the current step''s
+      last-action block (cols 65-82) set to 0.0 and contact / current-sense proxy block (cols 83-88) set to -0.5, and
+      the same two blocks of each of the 10 history frames (cols 259 + 89 j + 65..88); the harness obs is never
+      written (S1 never sees a masked frame)'
+    forward: act_inference(stand_net_input(obs, stand_estimator, p0, p1, num_prop, mask=1), hist_encoding=True) --
+      the actor mean (the std never acts); p0 / p1 / num_prop from the estimator cfg, never hard-coded
+    reference_implementation: 'experiments/2026-10-11_stand_network/scripts/sn_stand_net_eval_crab_hex_gait.py
+      (launcher variant stand_net: StandNetMode.__call__, bind_s1 / trained_arm refusals) + scripts/sn_common.py
+      (stand_net_input, route_actions); the video recorder scripts/sn_record_video.py runs the same step
+      (sn_video_core.route_step)'
+    env_required:
+      # set exactly so for BOTH networks (they are the walker's carry values; sn_common.env_reasons refuses otherwise)
+      KRABBY_OMNI_CLOCK_HIDE: '1'
+      KRABBY_OMNI_STAND_OBS: '0'
+      KRABBY_OMNI_STAND_HOLD: '0'
+      KRABBY_OMNI_STAND_PARK: '0'
+      KRABBY_STD_PARAM: soft
+      KRABBY_OMNI_SPEED_ELLIPSE: '0.35:0.35:0.25'
+      KRABBY_OMNI_FACING_OBS_CLIP: '0.6'
+    env_off:
+      # unset, '' or '0' (the mask is applied actor-side by stand_net_input, never env-level; R lives in the
+      # trainer, not in an env knob); any P2R_* variable is refused by the launcher too
+      - KRABBY_OMNI_STAND_MASK
+      - KRABBY_OMNI_STAND_PROXY
+      - KRABBY_RESTANCE
+    caveat_switch_keying: 'the eval''s LATCHED stand slot keeps reading "turning" after any facing change until a new
+      facing target or a reset (CHARTER 3, 2026-10-13 video finding: on a random 180-s schedule it read TURN on 7 of 10
+      stands, every stand after the first facing change -- under the evaluated contract S1 would have marched through
+      them). No gate row puts a stand after a facing change, so the gates never saw it. A deployment must key the
+      switch on an EXPLICIT stand command (speed 0 and no facing change), as the video''s default --stand-rule
+      schedule does; --stand-rule slot reproduces the eval''s latch (followup stand_switch_keying)'
+  evaluate:
+    # how to re-run the gate rows / the video against the BUNDLED file (rendered as commands in the README)
+    scripts: experiments/2026-10-11_stand_network/scripts
+    eval_rows: sn_eval_rows.sh
+    video: sn_record_video.sh
+    readers: [sn_bridge_read.py, sn_calib.py, sn_observe_read.py]
+    name: SN_Amask_s17_re
+    rows: [suite__omni@1, suite__omni@2, walkstop__omni@1, walkstop__omni@2, field_hard__omni@1, field_hard__omni@2,
+      field_hard__omni@3, field_hard__omni@4, field_turn__omni@1]
+    python: /home/nickmagus/krabby/isaac_venv/bin/python
+    notes: 'sn_eval_rows.sh runs each row through the phase-2 run_arm.sh --row-eval path, one Isaac process at a time
+      (it waits while a trainer or eval runs): S1 from its source run file (6_p2a_field''s `source`, same sha256), the
+      REFS_S1_s18 suite es1
+      stamp''s env (STAND_OBS 0, CLOCK_HIDE 1, STD_PARAM soft, INIT_STD 0.8, ellipse 0.35:0.35:0.25), guard REFH_S1_s18.
+      P2_ENV_EXTRA must be empty and no P2R_* variable set; MASK must match the checkpoint (1; the launcher refuses a
+      mismatch). Use a FRESH name: the readers take the newest complete stamp per name and row, so re-running under
+      SN_Amask_s17 would supersede the recorded stamps. The video (VIDEO ONLY, read by no gate) is a detached Isaac
+      process under MemoryMax 24G; its default reference stamp is SN_Amask_s17 suite es1 and it refuses a stand
+      checkpoint whose sha differs from that stamp''s (the bundled file''s sha is the same); the default prefix
+      sn_random_s<seed> already exists for seed 20261013 (pass a new --seed or --prefix); mp4 under
+      parkour/logs/videos/sn_stand_network/ (untracked)'
+  evals:
+    what: 'closed-loop gates G1-G5 (PLAN D6, CHARTER 3 rulings), read by scripts/sn_calib.py --head <NAME> into
+      head_<NAME>.{md,json}; each head is a stand net at model_4000 routed beside S1 s18; rows suite__omni and
+      walkstop__omni at env seeds 1-2, field_hard__omni es1-4 (pooled n 400), field_turn__omni es1; per env seed
+      300 walkstop stands and 200 stand -> move exits. Cells es1 / es2 unless pooled (one value); — (null in the
+      manifest) = no settled stand to read (the clause fails closed); n/a = no stand-mode switch (REFS has no exit). The three A-mask heads
+      are the pre-registered adoption-grade read (every hard gate at both env seeds, at 3 / 3 training seeds)'
+    stamps_root: parkour/outputs/omni_plan/phase2/lr/<NAME>/<row>/seed00<k>/<stamp>
+    references:
+      # calib.md (step-2 calibration: 15 / 15 expected cells land); the reference columns of the gate table
+      REFS: 'REFS_S1_s18 -- S1 s18 alone (no stand net, STAND_OBS 0): marches at stand; FAILS G1 and G2 (known-bad)'
+      HOLD: 'P2R_HOLD_s18 -- S1 walks, a scripted statue hold on stands: STILL but cams unhomed; FAILS G2'
+      R: 'P2R_RSTg_s18 (field_hard: SN_RSTg_s18 es1-4) -- S1 walks, the scripted re-stance controller R stands (the
+        imitation target, D3 constants): PASSES G1-G5; the G2 settle line is R + 1.0 s per env seed'
+    gate_table:
+      columns:
+      - {id: REFS, label: REFS}
+      - {id: HOLD, label: HOLD}
+      - {id: R, label: R}
+      - {id: s18, label: A-mask s18}
+      - {id: s16, label: A-mask s16}
+      - {id: s17, label: A-mask s17 (adopted)}
+      rows:
+      - {key: g1_steps, gate: G1, stat: suite stand steps/s, line: '<= 0.5',
+         REFS: [2.833, 2.833], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g1_taps, gate: G1, stat: suite stand taps/s, line: '<= 1',
+         REFS: [2.833, 2.667], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g1_clearance, gate: G1, stat: suite stand lift clearance (m), line: '<= 0.05',
+         REFS: [0.135, 0.133], HOLD: [1.0e-5, 1.0e-5], R: [0, 0], s18: [2.0e-5, 2.0e-5], s16: [1.0e-5, 1.0e-5],
+         s17: [1.0e-5, 1.0e-5]}
+      - {key: g1_off_ground, gate: G1, stat: suite off-ground share, line: '<= 0.10',
+         REFS: [0.338, 0.334], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g1_hover, gate: G1, stat: suite hover episodes per 100, line: '<= 5',
+         REFS: [0, 0], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g1_ks, gate: G1, stat: suite stand KS (m/s), line: '<= 0.5',
+         REFS: [1.718, 1.716], HOLD: [0.098, 0.104], R: [0.098, 0.105], s18: [0.097, 0.108], s16: [0.104, 0.107],
+         s17: [0.108, 0.105]}
+      - {key: g2_homed, gate: G2, stat: walkstop homed, line: '>= 0.90',
+         REFS: [0, 0], HOLD: [0, 0], R: [0.97, 0.977], s18: [0.997, 1.0], s16: [1.0, 1.0], s17: [1.0, 1.0]}
+      - {key: g2_settled, gate: G2, stat: walkstop settled, line: '>= 0.90',
+         REFS: [0, 0], HOLD: [0, 0], R: [0.97, 0.977], s18: [1.0, 1.0], s16: [1.0, 1.0], s17: [1.0, 1.0]}
+      - {key: g2_settle_s, gate: G2, stat: walkstop median settle (s), line: '<= R + 1.0 s = 3.92 / 3.96',
+         REFS: [null, null], HOLD: [null, null], R: [2.92, 2.96], s18: [2.83, 2.78], s16: [2.82, 2.66],
+         s17: [2.68, 2.71]}
+      - {key: g2_post_steps, gate: G2, stat: post-settle steps/s, line: '<= 0.5',
+         REFS: [null, null], HOLD: [null, null], R: [0.113, 0.112], s18: [0.444, 0.458], s16: [0.466, 0.432],
+         s17: [0.407, 0.38]}
+      - {key: g2_post_taps, gate: G2, stat: post-settle taps/s, line: '<= 1',
+         REFS: [null, null], HOLD: [null, null], R: [0, 0], s18: [0.764, 0.855], s16: [0.882, 0.816],
+         s17: [0.743, 0.745]}
+      - {key: g2_post_ks, gate: G2, stat: post-settle KS (m/s), line: '<= 0.5',
+         REFS: [null, null], HOLD: [null, null], R: [0.149, 0.147], s18: [0.152, 0.159], s16: [0.162, 0.162],
+         s17: [0.155, 0.155]}
+      - {key: g3_walkstop_falls, gate: G3, stat: walkstop stand falls (count of 300), line: '<= max(1, Z1''s 0) = 1',
+         REFS: [0, 0], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g3_suite_falls, gate: G3, stat: suite stand falls, line: '== 0',
+         REFS: [0, 0], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g3_exit_falls, gate: G3, stat: exit-handover falls within 2 s (of 200 exits),
+         line: '<= max(1, R''s 0) = 1',
+         REFS: [n/a, n/a], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g4_field_hard, gate: G4, stat: field_hard es1-4 pooled (n 400),
+         line: '>= REFS - max(0.05, 2 SE) (0.756-0.758; per head below)',
+         REFS: 0.8125, HOLD: 0.81, R: 0.825, s18: 0.7825, s16: 0.81, s17: 0.805}
+      - {key: g4_field_turn, gate: G4, stat: field_turn es1 completion, line: '>= 0.94',
+         REFS: 0.99, HOLD: 0.99, R: 1.0, s18: 0.99, s16: 0.97, s17: 1.0}
+      - {key: g4_stand_falls, gate: G4, stat: 'stand-fall rate, field_turn es1 / field_hard es1-4',
+         line: '<= HOLD + 2 SE(diff)',
+         REFS: [0, 0], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0.01, 0], s17: [0, 0]}
+      - {key: g5_onset_s, gate: G5, stat: walkstop onset median (s), line: '<= REFS + max(0.3, band) = 0.44',
+         REFS: [0.14, 0.14], HOLD: [0.12, 0.12], R: [0.12, 0.12], s18: [0.12, 0.12], s16: [0.12, 0.12],
+         s17: [0.12, 0.12]}
+      - {key: g5_stalls, gate: G5, stat: walkstop onset stalls (of 200), line: '<= REFS + 1 = 1',
+         REFS: [0, 0], HOLD: [0, 0], R: [0, 0], s18: [0, 0], s16: [0, 0], s17: [0, 0]}
+      - {key: g5_height_m, gate: G5, stat: 'max |body height - REFS| (m), suite + walkstop', line: '<= 0.03',
+         REFS: 0, HOLD: 0.0046, R: 0.0067, s18: 0.0054, s16: 0.0067, s17: 0.0068}
+      verdicts: {REFS: 'FAIL G1, G2', HOLD: FAIL G2, R: PASS, s18: PASS all, s16: PASS all, s17: PASS all}
+    heads:
+    # the three A-mask heads (mask 1, model_4000, S1 s18 walking); `column` keys the gate table
+    - id: SN_Amask_s17
+      column: s17
+      adopted: true
+      seed: 17
+      sha256: 769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff
+      source: parkour/outputs/omni_plan/stand_network/runs/SN_Amask_s17/model_4000.pt
+      gates: PASS G1-G5 at es1 and es2
+      read: experiments/2026-10-11_stand_network/head_SN_Amask_s17.md
+      observe: experiments/2026-10-11_stand_network/observe_SN_Amask_s17.md
+      field_hard_line: 0.7569
+      worst_margin: {post_settle_steps: 0.093, post_settle_taps: 0.255}
+      detail: 'homed 1.000 / 1.000, settled 1.000 / 1.000, median settle 2.68 / 2.71 s (R 2.92 / 2.96), post-settle
+        steps 0.41 / 0.38 per s, taps 0.74 / 0.75 per s, KS 0.155 / 0.155; suite stand 0 steps / 0 taps per s, KS 0.108
+        / 0.105; 0 stand falls, 0 suite stand falls, 0 / 200 exit-handover falls per env seed; field_hard 0.805 (n 400,
+        line 0.7569; REFS 0.8125), field_turn 1.00 (es1), 0 field stand falls; walkstop onset 0.12 / 0.12 s (REFS 0.14),
+        0 stalls, body height within 0.0068 m of REFS. Observe pass: mu_hip on LIFT rows -0.491 (R -0.5), onset
+        launched within 0.3 s 99.3 %, HOLD within-leg cam-trim slope -0.028 (R -0.52). Reported only: six-down suite /
+        walkstop 0.16 / 0.24 (es1), 0.08 / 0.23 (es2); walkstop hip-yaw max 2.1 / 2.3 deg (R 10.3 / 17.2)'
+      train_time: 'its 1334-4000 (s17_premise_final.json): homed 0.979 (n 19228) vs the concurrent R slice 0.952 (n
+        4266), stand falls 0.89 % vs 0.66 %, exit falls 7 / 15000 vs 2 / 3331'
+      stamps:
+        suite__omni@1: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/suite__omni/seed001/2026-10-12_23-36-10
+        suite__omni@2: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/suite__omni/seed002/2026-10-12_23-43-16
+        walkstop__omni@1: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/walkstop__omni/seed001/2026-10-12_23-50-25
+        walkstop__omni@2: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/walkstop__omni/seed002/2026-10-12_23-53-04
+        field_hard__omni@1: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/field_hard__omni/seed001/2026-10-12_23-55-42
+        field_hard__omni@2: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/field_hard__omni/seed002/2026-10-12_23-59-27
+        field_hard__omni@3: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/field_hard__omni/seed003/2026-10-13_00-03-12
+        field_hard__omni@4: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/field_hard__omni/seed004/2026-10-13_00-06-56
+        field_turn__omni@1: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/field_turn__omni/seed001/2026-10-13_00-10-40
+    - id: SN_Amask_s18
+      column: s18
+      adopted: false
+      seed: 18
+      sha256: f7228a998c7594c5a44cda27c4437892545d46022cca198f594acc69f77c18c1
+      source: parkour/outputs/omni_plan/stand_network/runs/SN_Amask_s18/model_4000.pt
+      gates: PASS G1-G5 at es1 and es2 (the pilot)
+      read: experiments/2026-10-11_stand_network/head_SN_Amask_s18.md
+      observe: experiments/2026-10-11_stand_network/observe_SN_Amask_s18.md
+      field_hard_line: 0.7557
+      worst_margin: {post_settle_steps: 0.042, post_settle_taps: 0.145}
+      train_time: 'homed 0.982 (n 19255) vs R slice 0.945 (n 4443); stand falls 0.80 % vs 0.61 %; exit falls 8 / 15141
+        vs 2 / 3489'
+      stamps_root: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s18
+    - id: SN_Amask_s16
+      column: s16
+      adopted: false
+      seed: 16
+      sha256: b17c5b5a92572ddcd52b3c795bc5c1846e24c8e228b8086da83ecbe723a5b7ff
+      source: parkour/outputs/omni_plan/stand_network/runs/SN_Amask_s16/model_4000.pt
+      gates: PASS G1-G5 at es1 and es2 (one field_turn stand fall in 100, inside HOLD + 2 SE)
+      read: experiments/2026-10-11_stand_network/head_SN_Amask_s16.md
+      observe: experiments/2026-10-11_stand_network/observe_SN_Amask_s16.md
+      field_hard_line: 0.7572
+      worst_margin: {post_settle_steps: 0.034, post_settle_taps: 0.118}
+      train_time: 'homed 0.980 (n 19288) vs R slice 0.941 (n 4203); stand falls 0.85 % vs 0.79 %; exit falls 3 / 15101
+        vs 0 / 3230'
+      stamps_root: parkour/outputs/omni_plan/phase2/lr/SN_Amask_s16
+    not_adopted:
+      # data only: the screened sibling arm (CHARTER 3 step 9 arm rule), not a candidate
+      - id: SN_Afull_s18
+        sha256: 1671fd55 (prefix; runs/SN_Afull_s18/model_4000.pt)
+        stand_mask: 0
+        summary: 'A-full (unmasked input) FAILS G2 on one clause: post-settle taps 1.139 / 1.143 per s (line 1); every
+          other clause passes (homed 0.997 / 1.000, field_hard 0.815) -- the arm rule chose A-mask'
+  selection:
+    rule: 'pre-registered (PLAN L117-118 / CHARTER 3): an arm is adoption-grade when it passes every hard gate G1-G5
+      at both env seeds at all three training seeds; step 9 arm rule "one passes -> that one" chose A-mask (A-full
+      fails G2 post-settle taps); A-mask s18 / s16 / s17 all pass -> ADOPTION-GRADE (3 / 3)'
+    tie_break: 'post hoc (REPORT.md 10, proposed after the reads, NOT pre-registered): (1) the widest worst-case
+      margin on the clauses that bind -- G2 post-settle steps / taps, where A-full failed -- then (2) field_hard
+      closest to REFS. s17 leads (1) outright: worst steps margin 0.093 (s18 0.042, s16 0.034), worst taps margin
+      0.255 (s18 0.145, s16 0.118); on (2) it is second (0.805; s16 0.810, s18 0.7825). A walls-first tie-break would
+      pick s16. The margins come from one 300-stand eval per env seed, and every stand net rides the same S1 s18, so
+      the stand-net seed carries no lineage meaning'
+    user_decision: '2026-10-13, in chat: "Adopt A-mask s17 as the stand network of record" (the report''s
+      recommendation)'
+  caveats:
+  - 'HOLD cam trim under-fit -> homing by re-steps, not by trimming: within-leg HOLD cam-trim slope -0.028 vs R''s
+    -0.52 on the same rows (-0.083 vs -1 on the unsaturated band); post-settle steps 0.41 / 0.38 per s vs R''s 0.11
+    (followup stand_trim_underfit)'
+  - 'G2 post-settle "taps" are mostly sub-mm load flicker (tap_anatomy.json, CHARTER 3 2026-10-13): s17 taps median
+    duration 0.02 s, median foot lift 0.0 mm, 83 % < 1 mm, 97 % < 5 mm, none > 20 mm, hip command never lifts, R''s
+    branch HOLD on 99.8 % of them; "steps" median lift 1.4 mm, 68 % within 2 s of the settle point; visible re-steps
+    (> 5 mm) later than 2 s past settle ~1 per 40 stands (15 in 600). A-full''s G2 failure is a load-flicker
+    difference, not visible tapping'
+  - 'G3-G5 had no failing known-bad reference in the calibration (every reference passes them): the heads'' passes
+    read as "no harm seen at these resolutions", not as discriminating tests; field_turn is es1 only'
+  - 'no hardware: everything is Isaac, one plant (A15+B), one walker (S1 s18)'
+  - 'no pushes during a stand in eval: the pushed regime has train-time evidence only (stand falls 0.66-0.89 % per
+    head, at the R slice''s level)'
+  - 'the switch keys on the eval''s latched stand slot, which keeps "turning" after a facing change (deployment
+    caveat_switch_keying; followup stand_switch_keying)'
+  - 'two-network export / play path not built: scripts/rsl_rl/play.py and any jit / onnx export carry ONE network;
+    the switch and the A-mask input exist only in the campaign launcher, the trainer and the video recorder (followup
+    two_network_export)'
+  - 'stand-hold facing drift is listed "reported" in PLAN D6 but no head read carries it'
 superseded:
 # Data only (bundle_policy.py ignores it; the three closed-campaign dose-smoke launchers resolve W through it,
 # see the bake plan). W's five files LEFT policy/ at the 2026-10-06 bake (git rm); they stay in git history
@@ -625,9 +923,18 @@ followups:
     the 2a preset itself) still resume 1c, re-arm apex via KRABBY_PHASEOUT and show the clock unless overlaid the
     same way. Any fork must carry KRABBY_STD_PARAM=soft (the checkpoint will not load into a scalar-std runner).'
 - id: stand_march
-  recorded: '2026-10-08 (phase-2 bake)'
-  headline: The head still marches in place at stand.
-  detail: 'Stand hold: 2.83 steps/s at 0.135 m lift clearance, tripod 0.76 (suite medians; A1 sibling 3.67 steps/s,
+  recorded: '2026-10-08 (phase-2 bake); revised 2026-10-13 (stand network adopted)'
+  headline: The walking head still marches in place at stand -- resolved at the controller level by routing the stand
+    network of record.
+  detail: 'RESOLVED AT THE CONTROLLER LEVEL 2026-10-13 (user adoption of A-mask s17, `stand_network:` / stand_net/):
+    the walking head 6_p2a_field (S1 s18) is UNCHANGED and still marches when it is run alone at a stand (REFS_S1_s18:
+    2.83 steps/s, 0.135 m clearance, off-ground share 0.34, homed 0); a controller that routes stand holds to the
+    stand network under the `deployment:` contract stands still in the suite stand (0 steps/s, 0 taps/s, KS 0.11 m/s)
+    and homes 100 % of walkstop stands (s17 1.000 / 1.000, median settle 2.68 / 2.71 s) with 0 stand falls, 0 exit
+    falls, field_hard 0.805 (n 400, REFS 0.8125) and a 0.12-s walking onset (REFS 0.14) -- all five gates at both env
+    seeds at 3 / 3 training seeds. The routed pair is not yet exportable or playable as one policy, and its switch must
+    key on an explicit stand command (followups two_network_export, stand_switch_keying); homing is by re-steps
+    (stand_trim_underfit). HISTORY -- Stand hold: 2.83 steps/s at 0.135 m lift clearance, tripod 0.76 (suite medians; A1 sibling 3.67 steps/s,
     0.090 m) -- it never stands still. F1 (a stand-slot stance income, weight 0.9 by user overrule of a replay-gate
     FAIL) was dropped: lifts stayed full height (0.093 m, tripod 0.79). CORRECTED 2026-10-09 (p2s, CHARTER 11): the
     p2b tilt guard TG''s apparent stand cut (2.83 -> 1.08 steps/s) was a HOVER ARTEFACT -- its 9 zero-step episodes
@@ -651,12 +958,66 @@ followups:
   - experiments/2026-10-07_omni_phase2/p2s_mech_screen.json
   - 'experiments/2026-10-07_omni_phase2/CHARTER.md (12: p2r stand regime; P2R_*_PLAN.md)'
   - experiments/2026-10-07_omni_phase2/P2R_CLOSE.md
-  levers: 'a stand-only reward on the shared gait reshapes walking (low lift) at any exposure (p2s), and putting the
-    stand inside the shared network (p2r) gave at best a statue; the user''s next route (2026-10-11) is a NEW campaign:
-    a task-specific stand network trained separately from omni locomotion, so the two behaviours cannot interfere
-    (handoff in experiments/2026-10-07_omni_phase2/P2R_CLOSE.md). TG (orientation-upright on all tiles) is NOT a
-    stand lever (hover artefact). Stand reads must use p2s_stand.py (off-ground share, unloaded-and-raised hover,
-    taps), never steps/s alone.'
+  - experiments/2026-10-11_stand_network/REPORT.md
+  - 'experiments/2026-10-11_stand_network/CHARTER.md (3: steps 9-11, the 2026-10-13 video and tap-anatomy entries)'
+  levers: 'TAKEN 2026-10-13: the separate stand network (experiments/2026-10-11_stand_network, DAgger of R with S1
+    frozen in the loop) -- adopted as `stand_network:`; the walking head needs no stand fix while stand holds are
+    routed. Background: a stand-only reward on the shared gait reshapes walking (low lift) at any exposure (p2s), and
+    putting the stand inside the shared network (p2r) gave at best a statue (handoff in
+    experiments/2026-10-07_omni_phase2/P2R_CLOSE.md). TG (orientation-upright on all tiles) is NOT a stand lever
+    (hover artefact). Stand reads must use p2s_stand.py (off-ground share, unloaded-and-raised hover, taps), never
+    steps/s alone.'
+- id: stand_switch_keying
+  recorded: '2026-10-13 (stand network adoption)'
+  headline: The evaluated stand switch keys on a latched slot that keeps "turning" after a facing change.
+  detail: 'The gates routed the stand net on the eval command term''s LATCHED stand slot. That latch re-arms only on
+    a fresh facing target or a reset, so after any facing change it keeps reading TURN through later same-face moves
+    and stands: on the 2026-10-13 random 180-s schedule (9 commands, 10 stands) it read TURN on 7 of the 10 stands
+    -- under the evaluated contract S1 would have marched through them. No gate row puts a stand after a facing
+    change (suite / walkstop / field rows reset or walk straight first), so G1-G5 never saw it. The video routed by
+    the schedule''s explicit stand holds (speed 0, no facing change): 0 falls, 0 route mismatches, stand-net share
+    1.0 on every stand, 9 / 10 stands homed at their end (the 3.9-s stand ended before homing).'
+  evidence:
+  - 'experiments/2026-10-11_stand_network/CHARTER.md (3: 2026-10-13 video entry, "Deployment finding")'
+  - experiments/2026-10-11_stand_network/video_sn_random_s20261013_sanity.json
+  - experiments/2026-10-11_stand_network/scripts/sn_video_core.py (eval_slot_stand_flags, --stand-rule)
+  levers: 'a deployment keys the switch on an EXPLICIT stand command (the planner''s stand bit / speed 0 with no
+    facing change), as sn_record_video.py --stand-rule schedule does; to gate it, add a stand-after-turn row (turn,
+    then stand) and re-read G1-G5 under that rule (the existing rows route identically under it: no facing change
+    precedes their stands)'
+- id: stand_trim_underfit
+  recorded: '2026-10-13 (stand network adoption)'
+  headline: The stand network homes by re-stepping, not by trimming (HOLD cam trim under-fit).
+  detail: 'Observe pass at every A-mask seed: within-leg HOLD cam-trim slope -0.028 to -0.032 against R''s -0.50 to
+    -0.52 on the same rows (unsaturated band -0.077 to -0.116 vs -1); s17 post-settle steps 0.41 / 0.38 per s vs R''s
+    0.11, taps 0.74 / 0.75 vs R''s 0. The G2 post-settle clauses bind (worst margins at s16 es1: 0.034 steps/s,
+    0.118 taps/s; s17 0.093 / 0.255) and carry no SE (one 300-stand eval per env seed). Tap anatomy (s17): the
+    "taps" are sub-mm load flickers across the 50 N line (median lift 0.0 mm, 0.02 s), the "steps" mostly settling
+    tail (median lift 1.4 mm); visible re-steps after settle ~1 per 40 stands. The LIFT onset is learned (mu_hip on
+    LIFT rows -0.491 vs R -0.5), so this is the HOLD regime only.'
+  evidence:
+  - experiments/2026-10-11_stand_network/REPORT.md (7, 10)
+  - experiments/2026-10-11_stand_network/observe_SN_Amask_s17.md
+  - experiments/2026-10-11_stand_network/tap_anatomy.json
+  levers: 'untested (REPORT 10 option 3): the A2 branch-gated head (designed, ~3.1 GPU-h); onset / trim weighting
+    smoothed over |c| so HOLD-slope rows count (lit-review rec 3); DART sigma from the measured residual (rec 4); a
+    PPO fine-tune past R. Before any of them: repeat evals of stand_net/ to put an SE on the post-settle rates, and a
+    push-perturbed stand eval'
+- id: two_network_export
+  recorded: '2026-10-13 (stand network adoption)'
+  headline: The walker + stand-network pair has no export or play path yet.
+  detail: 'This bundle holds the stand checkpoint and its routing contract (`stand_network.deployment`) only. The
+    switch, the stand net''s own-estimator input and the A-mask exist only inside the campaign''s eval launcher
+    (sn_stand_net_eval_crab_hex_gait.py), the DAgger trainer and the video recorder (sn_record_video.py, a viewer --
+    the only way to watch the pair today). scripts/rsl_rl/play.py and any jit / onnx export carry ONE network: playing
+    6_p2a_field alone shows the march at stand. An exported controller must carry both actors, the stand net''s own
+    estimator, the mask (cols 65-88 + history frames), the switch keyed on an explicit stand command, and the
+    walker''s carry env (CLOCK_HIDE 1, STD_PARAM soft, STAND_OBS 0, ...).'
+  evidence:
+  - experiments/2026-10-11_stand_network/REPORT.md (10, option 2)
+  - experiments/2026-10-11_stand_network/PLAN.md (Later phases)
+  levers: 'a two-network export (both actors + estimators + mask + switch in one module, parity-tested against
+    StandNetMode on recorded stamps); a play path for the routed pair under the video-memory caps; hardware'
 - id: p2b_negative
   recorded: '2026-10-08 (phase-2 bake)'
   headline: p2b found no lever that beats continuation on walls.

@@ -219,8 +219,8 @@ in those files' headers. LIFT numbers come from walkstop only, because suite sta
   - The D3 recipe (labels on student-visited states, per-leg branch weights, onset oversampling) fixed this without
     the A2 branch head. Which component did the work is not isolated.
 - **The HOLD cam trim is still under-fit, as in Z2d.**
-  - The within-leg slope is −0.028 to −0.032, against R's −0.50 to −0.53 on the same rows. On the unsaturated band it
-    is −0.052 to −0.116, against −1.
+  - The within-leg slope is −0.028 to −0.032 on the three A-mask heads, against R's −0.50 to −0.52 on the same rows. On
+    the unsaturated band it is −0.077 to −0.116, against −1 (A-full: −0.029 vs −0.53; −0.052 on the band).
   - The per-leg spread varies by seed. At s18, leg MR sits in the band on 60 % of its HOLD rows; at s16 no leg exceeds
     4.6 %.
   - **The net homes by re-stepping, not by trimming.** Post-settle steps are 0.38–0.47 per s, against R's 0.11, and
