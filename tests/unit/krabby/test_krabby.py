@@ -517,6 +517,15 @@ class TestGamepadCmd:
         idx = cmd.index("KRABBY_MCU_PORT")
         assert cmd[idx - 1] == "-e"
 
+    def test_xdg_runtime_dir_set_for_sdl(self, monkeypatch):
+        # SDL/pygame print "XDG_RUNTIME_DIR is invalid or not set" without this.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = gamepad_cmd("myimage:tag", [])
+        assert "XDG_RUNTIME_DIR=/tmp/runtime-krabby" in cmd
+        script = cmd[cmd.index("-c") + 1]
+        assert "mkdir -p \"$XDG_RUNTIME_DIR\"" in script
+        assert "chmod 700 \"$XDG_RUNTIME_DIR\"" in script
+
 
 from krabby.run import cmd_run
 from krabby import __main__ as krabby_main

@@ -66,7 +66,7 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 15 | K17 | known | Gamepad mapper assumes start joints; does not read state | no | wrong start-pose assumptions | 3 | 2 | AI + Human (IsaacSim only; real robot uses jog) | 57.0 | done |
 | 16 | F9 | friction | Mid-upload interrupt / hub enum: board “vanishes” (docs-only fix) | yes until reappears | ~15–45 min per stuck board | 2 | 1 | AI docs; Human | 59.0 | done |
 | 17 | F7 | friction | `KRABBY_MCU_PORT` not forwarded by `gamepad_cmd` / `krabby run` | no if auto-detect works; yes if operator trusts warn | ~5–15 min; every CH340/`ttyUSB*` | 4 | 1 | AI forward env; Human+HW | 63.0 | done |
-| 18 | F8 | friction | `XDG_RUNTIME_DIR` error on `krabby run` (cosmetic) | no | ~0–1 min; every `krabby run` | 3 | — | AI container env; Human | **66.0** | open |
+| 18 | F8 | friction | `XDG_RUNTIME_DIR` error on `krabby run` (cosmetic) | no | ~0–1 min; every `krabby run` | 3 | 0.5 | AI container env; Human Orin verify optional | **66.0** | done |
 
 ### ——— cut line ———
 
