@@ -147,7 +147,7 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   control, fall share ≤ control + 0.01); read only from a run whose status is complete. PASS records and notifies;
   step 7 waits for the user's go.
 - 2026-10-12 ~04:15, **step 6b (A1) read: verdict STOP — on one clause** (`a1.json`; run status done, 700 its, 1047 s,
-  ≈ 0.29 GPU-h; 6154 scored stands; scored on the first draw, scheduled ≥ 8 s, not timeout-cut).
+  ≈ 0.29 GPU-h; 5154 scored stands [corrected 2026-10-12 from a typo "6154": 2586 + 906 + 838 + 824]; scored on the first draw, scheduled ≥ 8 s, not timeout-cut).
 
   | group | n | homed | line | stand-fall share | line | falls before takeover |
   |---|---|---|---|---|---|---|
@@ -257,3 +257,6 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
 - **ADOPTION-GRADE (pre-registered: all hard gates at both env seeds on the chosen arm at all three training seeds):
   A-mask MEETS IT — s18, s16, s17 each pass G1–G5 at es1 and es2.** Step 11 (report) next; adoption / bake are the
   user's. GPU used ≈ 10.6 h (plan ≈ 12.3).
+- 2026-10-12, **step 11 report written** (`REPORT.md`; opus·xhigh draft, fable·high independent check re-derived
+  every gate verdict and the adoption-grade rule — 5 minor wording / attribution fixes applied, no number changed).
+  **STOP for the user's adoption / bake decision.**
