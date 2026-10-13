@@ -247,3 +247,13 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   99.7 %, HOLD within-leg trim slope −0.029 (R −0.50) — the same trim under-fit.
 - 2026-10-12, **step 10 `SN_Amask_s17` mid-run premise (its 1334–2000): NO STOP** — student homed 0.981 (n 4873) vs
   control 0.954 (n 1074), ratio 1.03; falls 1.0 % vs 0.56 %; exit falls 2 / 3785 vs 1 / 851 (`s17_premise_mid.json`).
+- 2026-10-12 ~20:20, **step 10 replicate `SN_Amask_s17` (model_4000 sha 769cf253…) passes G1–G5 at es1 and es2**
+  (`head_SN_Amask_s17.{json,md}`, `observe_SN_Amask_s17.{json,md}`): G1 steps / taps 0, KS 0.108 / 0.105; G2 homed
+  **1.000 / 1.000**, settled 1.0 / 1.0, settle median 2.68 / 2.71 s, post-settle steps 0.41 / 0.38, taps 0.74 / 0.75;
+  G3 0 falls, 0 exit falls; G4 field_hard **0.805**, field_turn 1.00; G5 onset 0.12 s, 0 stalls, height ≤ 0.0068 m.
+  Observe: μ_hip on LIFT −0.491, launch 99.3 %, trim slope −0.028 (R −0.52).
+  - End-of-run train-time reads (its 1334–4000; `s16_premise_final.json`, `s17_premise_final.json`): s16 homed 0.980
+    vs control 0.941, falls 0.85 % vs 0.79 %; s17 0.979 vs 0.952, falls 0.89 % vs 0.66 %. s16 ckpt sha b17c5b5a….
+- **ADOPTION-GRADE (pre-registered: all hard gates at both env seeds on the chosen arm at all three training seeds):
+  A-mask MEETS IT — s18, s16, s17 each pass G1–G5 at es1 and es2.** Step 11 (report) next; adoption / bake are the
+  user's. GPU used ≈ 10.6 h (plan ≈ 12.3).
