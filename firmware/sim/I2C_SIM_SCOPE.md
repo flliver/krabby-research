@@ -89,13 +89,6 @@ telemetry joints keep running.
 
 ---
 
-## Remaining
-
-- **INA228 on Mega firmware** — host sim ACKs `0x40`/`0x41` and appends **`;BATT`**; the sketch has no pack driver yet.
-- **Optional: vendored SparkFun/Adafruit libs on host** — only for adapter-level I2C parity; the host path uses register models + **`DisplayRenderer`** instead (see Host OLED above).
-
----
-
 ## Verification
 
 ```bash
