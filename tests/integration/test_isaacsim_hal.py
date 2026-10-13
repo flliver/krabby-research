@@ -631,7 +631,7 @@ def test_isaacsim_hal_server_error_handling(mock_isaac_env, hal_server_config):
     # Apply command with no environment:
     # apply_command() now raises a RuntimeError when env is None (SDK not initialized).
     # The error message will be either "No environment set" or "IsaacSimMCUSDK not initialized"
-    with pytest.raises(RuntimeError, match="No environment set|IsaacSimMCUSDK not initialized"):
+    with pytest.raises(RuntimeError, match="No environment set|MCU SDK not initialized"):
         hal_server_no_env.apply_command()
 
     hal_server_no_env.close()

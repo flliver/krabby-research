@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Literal, Optional, Union
 
 from hal.server.robot_definition import RobotDefinition
 
@@ -201,6 +201,7 @@ class IsaacSimHalServer(HalServerBase):
         env=None,
         observation_dimensions=None,
         *,
+        command_backend: Literal["direct", "fullsim"] = "direct",
         command_timeout_s: Optional[float] = 1.0,
     ):
         """Initialize IsaacSim HAL server.
@@ -211,6 +212,8 @@ class IsaacSimHalServer(HalServerBase):
             env: IsaacSim environment. If provided, environment component
                 references will be cached via _cache_references().
             observation_dimensions: Observation dimensions from model definition. Used for history buffer calculations.
+            command_backend: ``direct`` uses ``IsaacSimMCUSDK``; ``fullsim`` attaches three-board
+                host firmware to this server's existing ``env`` (18-joint hex only).
             command_timeout_s: Max seconds to wait for a joint command in apply_command(). If None, wait forever
                 and log every 30s while waiting. Used in joystick mode so the server does not exit when no client is connected.
         
@@ -237,9 +240,10 @@ class IsaacSimHalServer(HalServerBase):
         # Track last published observation to detect duplicates
         self._last_published_obs_vals = None
         
+        self._command_backend = command_backend
         # Initialize IsaacSim MCU SDK for standardized command application
-        # Device will be set when environment is available
-        self._mcusdk: Optional[IsaacSimMCUSDK] = None
+        self._mcusdk: Optional[Union[IsaacSimMCUSDK, Any]] = None
+        self._three_board_core = None
         # GStreamer multi-sensor interface (synthetic sensors, same API as Jetson)
         self._sensor_interface: Optional[SensorInterface] = None
 
@@ -343,8 +347,35 @@ class IsaacSimHalServer(HalServerBase):
         """
         if self.env is None:
             return
-        
-        # Initialize SDK (takes JointCommand; order/timestamps from command)
+
+        if self._command_backend == "fullsim":
+            from hal.server.isaac.firmware_three_board_setup import (
+                attach_three_board_firmware_to_env,
+            )
+
+            unwrapped_env = (
+                self.env.unwrapped if hasattr(self.env, "unwrapped") else self.env
+            )
+            if self.robot is None:
+                raise RuntimeError("Robot reference required for fullsim command backend")
+            core, firmware_loop = attach_three_board_firmware_to_env(
+                self.env,
+                self.robot,
+                self.robot_definition,
+            )
+            self._three_board_core = core
+            from hal.server.isaac.isaacsim_firmware_mcusdk import IsaacSimFirmwareMCUSDK
+
+            self._mcusdk = IsaacSimFirmwareMCUSDK.from_robot_definition(
+                self.robot_definition,
+                device=unwrapped_env.device,
+                firmware_loop=firmware_loop,
+            )
+            logger.info(
+                "Initialized IsaacSimFirmwareMCUSDK with three-board firmware on existing env"
+            )
+            return
+
         self._mcusdk = IsaacSimMCUSDK()
         logger.info("Initialized IsaacSimMCUSDK")
 
@@ -679,7 +710,7 @@ class IsaacSimHalServer(HalServerBase):
             raise RuntimeError("No environment set, cannot apply command")
         
         if self._mcusdk is None:
-            raise RuntimeError("IsaacSimMCUSDK not initialized. Call _initialize_mcusdk() first.")
+            raise RuntimeError("MCU SDK not initialized. Call _initialize_mcusdk() first.")
 
         timeout_s = self._command_timeout_s
         poll_delay_s = 0.01  # 10ms between poll attempts
@@ -747,26 +778,24 @@ class IsaacSimHalServer(HalServerBase):
         unwrapped_env = self.env.unwrapped if hasattr(self.env, 'unwrapped') else self.env
         num_envs = unwrapped_env.num_envs
 
-        # SDK takes JointCommand and returns dict for array conversion
-        joint_names = self.robot_definition.get_joint_names()
-        action_dict = self._mcusdk.apply_command(command, num_envs=num_envs)
-
-        # Adapter: dict -> ordered array using get_joint_names() so indices stay in sync
-        action_dim = self.robot_definition.get_total_joint_count()
-        action_list = [action_dict[name] for name in joint_names[:action_dim]]
-        action_np = np.array(action_list, dtype=np.float32)
-
-        # Convert to torch tensor for compatibility with env.step() and calling code
+        sdk_result = self._mcusdk.apply_command(command, num_envs=num_envs)
         device = unwrapped_env.device
-        action = torch.from_numpy(action_np).to(device=device, dtype=torch.float32)
-        
-        # Add batch dimension if needed (env.step() expects (num_envs, action_dim))
+
+        if isinstance(sdk_result, torch.Tensor):
+            action = sdk_result.to(device=device, dtype=torch.float32)
+        else:
+            joint_names = self.robot_definition.get_joint_names()
+            action_dim = self.robot_definition.get_total_joint_count()
+            action_list = [sdk_result[name] for name in joint_names[:action_dim]]
+            action_np = np.array(action_list, dtype=np.float32)
+            action = torch.from_numpy(action_np).to(device=device, dtype=torch.float32)
+            if action.ndim == 1:
+                action = action.unsqueeze(0)
+
         if action.ndim == 1:
-            action = action.unsqueeze(0)  # Shape: (1, 12)
-        
-        # Expand to num_envs if needed
+            action = action.unsqueeze(0)
         if action.shape[0] == 1 and num_envs > 1:
-            action = action.expand(num_envs, -1)  # Shape: (num_envs, 12)
+            action = action.expand(num_envs, -1)
 
         return action
 
