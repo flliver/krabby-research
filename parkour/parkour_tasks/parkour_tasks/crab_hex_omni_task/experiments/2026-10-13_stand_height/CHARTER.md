@@ -43,3 +43,21 @@ the user's.**
   mechanics-governed range; varied starts incl. tables of various heights and the ground; retracted = knee folded;
   restore before hand-back; force cap = six-leg mean hip-rod force ≤ 2000 N, knee hold-only; K6 homing + stillness
   per height with stillness pooled per seed; restore steps are stand-network steps. Next: step 1 (facts, CPU).
+- 2026-10-13, **step 1 facts (CPU; `scripts/sh_kin.py`, `scripts/sh_facts.py`, `facts.json`, `facts.md`; opus·high,
+  independently re-derived by fable·high — all numbers confirmed): STOP on two of three flags.**
+  - Posture map: q(1.064) = (0, 0) exactly (tilted-pad rigid model, constant offset −0.0009 m); q monotone and smooth;
+    kinematic floor 0.670 m; **h_min = 0.719 m** (hip-room term binds; q(h_min) = (−2.748, +0.371)); constant-reach
+    top 1.552 m. Coupling sign unambiguous (finite differences match to 1e-10) — `stop_coupling_sign_ambiguous` false.
+  - Forces (≈ 264k settled ≥ 5-feet stand rows, A-mask s17 and R walkstop es1/es2, coupled conversion): six-leg mean
+    |F_hip| at walking height **2064 N measured** (worst leg up to 2580 N), |F_knee| 1161 N; the static model gives
+    1785 / 1423 N. Model misses the measured joint torques by −32 % (hip), −39 % (knee) → **`stop_model_error` true**.
+    With the model scaled to the measurement, h_max = 1.02 m (< walking height) → **`stop_h_max_low` true**.
+  - Why they disagree: τ_hip − τ_knee = 246.8 N·m on every stamp, while the measured foot loads imply ≈ 216 N·m; the
+    recorded `applied_torque` is the PD reading (16000·(target − q) − 600·v, residual ≈ 2 N·m); no leg contacts, leg
+    weight reduces it, creep friction is ≈ 3 N·m. An unexplained ≈ 14 % excess in the sim's joint torque.
+  - Unscaled curves: exploration model h_max 1.22 m; leg-weight model 1.342 m; measured-foot-load statics 1.346 m.
+  - Tables: top_min 0.412 m (knee_folded toes clear the floor), training top_max 0.756 m at h_max 1.02 (0.805 m by the
+    restore clearance otherwise); K3 tops 0.4572 / 0.635 / 0.6858 m (provisional). Ground: knee_folded rests on its toes
+    (root 0.561 m), rod_min on the hip plates (root 0.311 m, hip-contact clause fires at spawn); 81 % of random folds
+    start below h_min (q and limiter clamp).
+  - **STOP and ask** (step-1 stop rule).
