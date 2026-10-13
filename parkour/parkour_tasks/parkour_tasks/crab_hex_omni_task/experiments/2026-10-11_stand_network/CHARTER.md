@@ -300,3 +300,30 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
   REPORT.md §7's trim-slope ranges corrected (A-full's values had been mixed into the A-mask range).
 - **Campaign CLOSED — ADOPTED.** Open items carried as policy follow-ups: explicit stand-command keying for any
   deployment, the HOLD cam-trim under-fit, a two-network export / play path.
+- 2026-10-13, **user request: table stand-up test** (not a gate; out-of-distribution probe). Robot belly-down on a
+  0.9 × 0.7 m table, top 0.635 m (25 in), legs "fully retracted", stand command from t = 0, 15 s, 32 envs per cell
+  with ±3 cm / ±10° table jitter; user chose the small (body-sized) table and stand net + R reference. Built
+  campaign-locally (`scripts/sn_table_core.py`, `sn_table_test.{py,sh}`, `tests/unit/test_sn_table.py`, 39 tests;
+  opus·xhigh build, fable·high review, 4 minor fixes); facts in `table_test_facts.json`, results in
+  `table_test_summary.json` (videos under `parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/`, untracked).
+  - "Fully retracted" is ambiguous on this plant, so two poses ran: `rod_min` (both lead screws at minimum: hip at its
+    −44.5° stop, knee OPENED, shins near-horizontal outboard) and `knee_folded` (hip raised, knee folded inboard).
+    The policy cannot hold either pose (both lie outside the ±1 action window).
+  - STOOD = belly ≥ 0.10 m above the table top and ≥ 5 feet loaded on ≥ 95 % of the last 3 s, no tilt > 0.5 rad, no
+    fall off the table.
+
+    | pose | stand net | R | zero action | S1 alone |
+    |---|---|---|---|---|
+    | knee_folded | 22 / 32 (0 falls) | 28 / 32 | 28 / 32 | 0 / 32 (marches, 3 feet) |
+    | rod_min | 18 / 32 (**2 falls**) | 21 / 32 (0 falls) | 23 / 32 (0 falls) | 0 / 32 (marches) |
+
+  - Every controller lifts the body off the table (median lift-off 1.2 s knee_folded, 1.8–1.9 s rod_min) and reaches
+    full height (final belly gap 0.26–0.27 m): zero action already does it, because action 0 is the default pose and
+    the lead screws slew there. The stand-up itself is the actuator layer, not a learned skill.
+  - The non-STOOD envs that did not fall are almost all < 5 loaded feet (four-foot stances; zero action and R show
+    the same 4–11 / 32), i.e. the static-indeterminacy lottery, plus a few stand-net envs whose loaded-foot count
+    flickers below 5 (shares 0.4–0.9).
+  - **The 2 stand-net falls (rod_min envs 20, 26):** both stood up (root z ≈ 1.0 m, 5–6 feet at 3 s) with cams far
+    off home after the unfold (|cam| 0.6 rad at 2 s), then re-stepped (3 feet down at 4 s), tilted from ~3.5 s and
+    flipped (tilt > 0.5 rad at 4.3 / 4.8 s, ends upside down ~2 m away). R from the same starts did not fall. The eval
+    never saw a re-step from such a large cam offset (0 falls in 1800 eval stands).
