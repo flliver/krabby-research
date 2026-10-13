@@ -68,6 +68,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/test_host_serial
     arduino/test_host_i2c
     arduino/test_host_leader_imu
+    arduino/test_host_leader_battery
     arduino/test_inter_board_serial
     arduino/test_host_board_role_election
     arduino/test_host_three_board_leader_relay
@@ -102,6 +103,11 @@ target_include_directories(
 target_link_libraries(test_host_leader_imu PRIVATE krabby_sim_host)
 target_include_directories(
     test_host_leader_imu
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_leader_battery PRIVATE krabby_sim_host)
+target_include_directories(
+    test_host_leader_battery
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
 )
 target_link_libraries(test_inter_board_serial PRIVATE krabby_sim_host)

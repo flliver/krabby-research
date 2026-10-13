@@ -5,6 +5,7 @@
 #include "pin_state.hpp"
 #include "host_board_role.hpp"
 #include "sim_i2c.hpp"
+#include "sim_battery_model.hpp"
 #include "sim_imu_model.hpp"
 #include "sim_serial.hpp"
 
@@ -35,6 +36,7 @@ void resetHostSim()
     resetHallSim();
     resetHostFrontImuPresence();
     resetHostSerial();
+    resetSimBatteryModel();
     resetSimImuModel();
     resetSimI2c();
     wireDefaultThreeBoardSerialLinks();

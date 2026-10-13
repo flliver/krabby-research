@@ -32,11 +32,11 @@ static void test_shipping_imu_and_oled_addresses_ack_probe()
     TEST_ASSERT_TRUE(i2cAddressResponds(kI2cAddrSsd1306Alternate));
 }
 
-static void test_ina228_and_legacy_imu_addresses_nack()
+static void test_ina228_addresses_ack_and_legacy_imu_nack()
 {
     Wire.begin();
-    TEST_ASSERT_FALSE(i2cAddressResponds(kI2cAddrIna228Pack));
-    TEST_ASSERT_FALSE(i2cAddressResponds(kI2cAddrIna228Midpoint));
+    TEST_ASSERT_TRUE(i2cAddressResponds(kI2cAddrIna228Pack));
+    TEST_ASSERT_TRUE(i2cAddressResponds(kI2cAddrIna228Midpoint));
     TEST_ASSERT_FALSE(i2cAddressResponds(0x68));
     TEST_ASSERT_FALSE(i2cAddressResponds(0x69));
 }
@@ -94,7 +94,7 @@ int main()
 {
     UNITY_BEGIN();
     RUN_TEST(test_shipping_imu_and_oled_addresses_ack_probe);
-    RUN_TEST(test_ina228_and_legacy_imu_addresses_nack);
+    RUN_TEST(test_ina228_addresses_ack_and_legacy_imu_nack);
     RUN_TEST(test_missing_device_end_transmission_returns_nack_code);
     RUN_TEST(test_lsm6dso_register_read_burst_matches_adapter_pattern);
     RUN_TEST(test_request_from_absent_device_returns_zero);

@@ -35,8 +35,8 @@ void SimI2cBus::ensureDefaultDevices()
     setDefaultPresent(*this, kI2cAddrLsm6dsoAlternate, true);
     setDefaultPresent(*this, kI2cAddrSsd1306Primary, true);
     setDefaultPresent(*this, kI2cAddrSsd1306Alternate, true);
-    setDefaultPresent(*this, kI2cAddrIna228Pack, false);
-    setDefaultPresent(*this, kI2cAddrIna228Midpoint, false);
+    setDefaultPresent(*this, kI2cAddrIna228Pack, true);
+    setDefaultPresent(*this, kI2cAddrIna228Midpoint, true);
 }
 
 void SimI2cBus::setDevicePresent(uint8_t address, bool present)

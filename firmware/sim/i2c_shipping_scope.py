@@ -68,8 +68,8 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         leader_only=True,
         status=I2cSimStatus.NOT_WIRED,
         firmware_sources=(),
-        notes="Reserved address for pack monitor; no Adafruit_INA228 / Wire probe in tree yet.",
-        telemetry_segment=";BATT ... (documented schema — not emitted by shipping firmware)",
+        notes="Host sim probes 0x40; shipping Mega firmware does not include INA228 driver yet.",
+        telemetry_segment=";BATT <pack_v> <pack_i> <pack_w> <pack_charge> <batt_a_v> <batt_b_v> <div> <pwr>",
     ),
     I2cDeviceScope(
         name="Midpoint INA228",
@@ -78,7 +78,7 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         leader_only=True,
         status=I2cSimStatus.NOT_WIRED,
         firmware_sources=(),
-        notes="Reserved for per-battery sense; OLED bars use placeholder decivolts until wired.",
+        notes="Host sim probes 0x41 midpoint; OLED bars still use placeholders until firmware reads it.",
         telemetry_segment=None,
     ),
 )

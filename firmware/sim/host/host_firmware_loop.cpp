@@ -2,6 +2,7 @@
 
 #include "host_api.h"
 #include "host_firmware_internal.hpp"
+#include "host_battery_telemetry.hpp"
 #include "host_leader_imu.hpp"
 #include "host_multi_board.hpp"
 
@@ -109,6 +110,11 @@ void emitTelemetryIfDue()
     actuatorManager().printTelemetry(Serial);
     const ImuMeasurement measurement = krabby::sim::host::leaderImu().measure();
     appendImuMeasurement(Serial, measurement);
+    if (krabby::sim::host::leaderBattery().isOnline())
+    {
+        krabby::sim::host::appendBatteryTelemetry(
+            Serial, krabby::sim::host::leaderBattery().sample());
+    }
     Serial.println();
 }
 
@@ -119,6 +125,7 @@ extern "C" void krabby_host_firmware_setup(void)
     if (s_firmwareSetupDone) return;
     hallHwInit();
     krabby::sim::host::leaderImu().setup();
+    krabby::sim::host::leaderBattery().setup();
     krabby::sim::host::actuatorManager().loadCalibration();
     s_lastTelemetryMs = millis();
     s_firmwareSetupDone = true;

@@ -1,5 +1,6 @@
 // Three-board leader loop: USB command relay and follower telemetry forward (arduino.ino loop()).
 
+#include "host_battery_telemetry.hpp"
 #include "host_leader_imu.hpp"
 #include "host_multi_board.hpp"
 
@@ -338,6 +339,10 @@ void emitTelemetry(BoardRole role, ActuatorManager &manager, BoardHardwareSerial
     {
         const ImuMeasurement measurement = leaderImu().measure();
         appendImuMeasurement(port, measurement);
+        if (leaderBattery().isOnline())
+        {
+            krabby::sim::host::appendBatteryTelemetry(port, leaderBattery().sample());
+        }
     }
     port.println();
 }
@@ -363,6 +368,7 @@ void threeBoardFirmwareSetup()
     g_leftManager.loadCalibration();
     g_rightManager.loadCalibration();
     leaderImu().setup();
+    leaderBattery().setup();
     g_lastTelemetryMs = 0;
     g_setupDone = true;
 }

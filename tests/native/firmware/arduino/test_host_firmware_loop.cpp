@@ -73,7 +73,8 @@ static void test_telemetry_golden_wire_format()
         ";FRHY 0.500 500 12 0 0 0 0 0 0"
         ";FRHL 0.500 500 12 0 0 0 0 0 0"
         ";FRKL 0.500 500 12 0 0 0 0 0 0"
-        ";IMU 0.000 0.000 9.806 0.0000 0.0000 0.0000 25.0 1";
+        ";IMU 0.000 0.000 9.806 0.0000 0.0000 0.0000 25.0 1"
+        ";BATT 26.40 1.250 33.00 100000.0 13.20 13.20 0 0";
 
     stageFrontBoardSensorsForGoldenTelemetry();
     krabby_host_firmware_setup();

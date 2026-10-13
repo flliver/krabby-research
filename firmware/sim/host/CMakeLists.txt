@@ -7,8 +7,10 @@ add_library(krabby_sim_host STATIC
     sim_clock.cpp
     sim_i2c.cpp
     sim_imu_model.cpp
+    sim_battery_model.cpp
     Wire.cpp
     host_leader_imu.cpp
+    host_battery_telemetry.cpp
     eeprom_stub.cpp
     hall_sim.cpp
     hall_hw_stub.cpp

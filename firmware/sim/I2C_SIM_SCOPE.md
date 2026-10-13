@@ -30,8 +30,8 @@ Host role election treats FRONT as IMU-capable via `hostBoardHasFrontImu()` (see
 |--------|-------------------------|------------------------|------------|
 | IMU | Some docs describe **BMI270** `0x68` / `0x69` | SparkFun **LSM6DSO** **`0x6B` / `0x6A`** | **Simulate LSM6DSO** register map (`SparkFunLSM6DSO`) |
 | OLED | Qwiic 1.3" SSD1306 **`0x3D`** | Same address; **`Ssd1306Adapter`** + `SparkFun_Qwiic_OLED` | **Simulate SSD1306** I2C stream; pixel preview in [`firmware/oled_sim/`](../oled_sim/) |
-| Pack monitor | INA228 **`0x40`** | **Not implemented** | **Blocker** - no driver, no telemetry |
-| Midpoint INA228 | **`0x41`** | **Not implemented** | **Blocker** - OLED battery UI uses `BATTERY_DECIVOLTS_NO_SIGNAL` placeholders |
+| Pack monitor | INA228 **`0x40`** | **Not on Mega firmware** | **Host sim** ACK + `;BATT` from `sim_battery_model` |
+| Midpoint INA228 | **`0x41`** | **Not on Mega firmware** | **Host sim** ACK; midpoint V in `;BATT` |
 
 There is **no** central `sensors_config.h` in the tree; constants live in `imu_constants.h`,
 `display_constants.h`, and adapter headers.
@@ -44,7 +44,7 @@ There is **no** central `sensors_config.h` in the tree; constants live in `imu_c
 |---------|----------------------|----------|---------------|
 | Joints | `FRONT;` + 6 nine-token segments | `actuator_manager.h` | `joint_telemetry.py` |
 | IMU | `;IMU ax ay az gx gy gz temp valid` | `appendImuMeasurement()` in `telemetry.h` | `imu_telemetry.py`, `TelemetryFrame` |
-| BATT | `;BATT ...` (documented pack schema) | **Absent** | **Absent** |
+| BATT | `;BATT ...` (documented pack schema) | **Absent** | **`battery_telemetry.py` + host append** |
 
 IMU units on the wire: accel **m/s^2**, gyro **rad/s**, temp **deg C**, `valid` **0|1**.
 When init fails, firmware still appends IMU with zeros and `valid=0` (does not stall the loop).
@@ -79,8 +79,8 @@ The health-screen preview lives under **`firmware/oled_sim/`** (`ssd1306.py`, `k
    full driver until drivers compile on host.
 3. **Leader telemetry parity** - call `appendImuMeasurement()` on the host USB path when
    role is FRONT (match `arduino.ino` loop).
-4. **INA228 + `;BATT`** - defer until firmware probes pack/midpoint monitors; do not
-   simulate `0x40`/`0x41` until `arduino.ino` (or adapters) reference them.
+4. ~~**INA228 + `;BATT` on host**~~ - `sim_battery_model`, `host_battery_telemetry`,
+   default ACK at `0x40`/`0x41`. Mega firmware driver still TBD.
 5. **OLED E2E** - route sim `Wire` writes to `oled_sim` (or trace buffer) so
    `oledRenderer.render()` drives a visible krab screen in sim.
 
