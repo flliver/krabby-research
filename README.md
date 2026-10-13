@@ -69,7 +69,7 @@ All three boards should appear with their role (`front`, `left`, `right`) and ve
 krabby firmware update
 ```
 
-Run once per board — replug USB between boards. Boards are auto-detected from `/dev/ttyACM*` and `/dev/ttyUSB*`. See [firmware/SETUP.md](firmware/SETUP.md) for the full three-board procedure.
+Run once per board — replug USB between boards. Boards are auto-detected from `/dev/ttyACM*` and `/dev/ttyUSB*`. Do not interrupt mid-upload. If the board vanishes (`cannot open port`, no tty), see **Board vanishes during or after upload** in [firmware/SETUP.md](firmware/SETUP.md).
 
 ### 5. Wire the serial harness
 

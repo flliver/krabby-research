@@ -108,6 +108,40 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
 
 Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
 
+Today, **LEFT** and **RIGHT** must each have their **own USB** cable to the host (or hub) when you flash them — same as FRONT. Runtime control still only needs Orin USB to FRONT (followers use UART). **Planned:** a future update path will flash LEFT/RIGHT through the leader so updating FRONT also updates the followers, without plugging USB into LEFT/RIGHT for that step.
+
+#### Board vanishes during or after upload (port gone)
+
+An interrupted upload (Ctrl+C), a flaky hub, or a bad cable can drop USB enumeration so the Mega looks bricked even when the sketch is fine.
+
+**Symptoms**
+
+- `cannot open port` / avrdude `error -110` / serial `Input/output error`
+- `krabby firmware show` reports **No attached Mega**
+- No `/dev/ttyACM*` or `/dev/ttyUSB*` (or the node exists but every open fails)
+
+**Prevention**
+
+- Do **not** interrupt `upload-firmware` / `krabby firmware update` mid-flash
+- Prefer a **direct Orin USB port** over a powered hub when flashing
+- Use a known-good **data** USB cable (charge-only cables drop the serial device)
+
+**Recover**
+
+1. Unplug the Mega USB cable, wait a few seconds, plug it back in. Check `ls /dev/ttyUSB* /dev/ttyACM*`.
+2. If still missing: power-cycle the Mega (USB unplug is often enough; otherwise power-cycle the hub).
+3. If the port stays gone: reboot the Orin, then replug and check again.
+4. If an upload hangs with the port still present: press the Mega **RESET** button and retry once the port is back.
+5. When `/dev/ttyUSB*` or `/dev/ttyACM*` is back, re-run the upload (`PORT=` if needed). Do not chase a “bad sketch” until the serial device has reappeared.
+
+**Vanished port vs bad sketch**
+
+| Observation | Likely cause |
+| --- | --- |
+| No tty / open fails with I/O error | USB-serial enum (cable, hub, interrupted upload) — recover as above |
+| Port opens; boot prints nothing useful or wrong behavior | Sketch / pin rev / role — flash again once the port is stable |
+| Second Mega on the same cable path works | First board’s USB-serial path, not the Orin |
+
 #### Remote flashing over SSH (boards on another host)
 
 When the USB hub is plugged into a **different machine** than the one you build on — e.g. a Jetson Orin you reach over SSH — use **`flash-remote`**. It compiles locally (where the arduino-cli toolchain lives), copies the `.hex` to the remote, and runs **`avrdude`** there against the board's serial port. No S3 publish and no Docker image needed; it flashes your exact working-tree build.
@@ -244,12 +278,15 @@ krabby-firmware show
 # 2b. List one branch's full build history, newest-first (paged via $PAGER)
 krabby-firmware show release/0.2.0
 
-# 3. Flash all three boards in turn (replug USB between boards)
+# 3. Flash all three boards in turn (replug USB between boards —
+#    LEFT/RIGHT need USB for flash today; see note above about future leader-driven flash)
 krabby-firmware update                        # latest release/* build, auto-detects port
 krabby-firmware update release/0.2.0          # specific branch
 krabby-firmware update /dev/ttyACM1           # specific port, latest release
 krabby-firmware update release/0.2.0 /dev/ttyACM2  # specific branch + port
 ```
+
+Do not interrupt mid-update. If the serial device disappears afterward, follow **Board vanishes during or after upload** above before assuming the board is bricked.
 
 Downloaded HEX files are cached under `~/.cache/krabby-firmware/<branch>/<sha7>/firmware.hex` and reused on subsequent calls.
 

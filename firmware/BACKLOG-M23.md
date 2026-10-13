@@ -64,7 +64,7 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 13 | K5 | known | Isaac `contacvt_sensor` typo; contact never assigned | yes (sim contact path) | every contact/current read through Isaac HAL | 1 | 0 | AI; Human | 48.0 | done — already fixed (`37738a17`) |
 | 14 | K13 | known | Firmware error branch silently swallowed (`arduino.ino`) | yes when hit | can burn a bring-up afternoon | 6 | 2 | AI + Hardware; Human (Orin only has USB to FRONT, not the FRONT↔RIGHT UART, so overflow was forced by temporarily shrinking `TELEMETRY_LINE_MAX` so RIGHT telemetry overflows; USB prints `ERR FWD RIGHT: line overflow (>31 B), discarded`) | 54.0 | done |
 | 15 | K17 | known | Gamepad mapper assumes start joints; does not read state | no | wrong start-pose assumptions | 3 | 2 | AI + Human (IsaacSim only; real robot uses jog) | 57.0 | done |
-| 16 | F9 | friction | Mid-upload interrupt / hub enum: board “vanishes” (docs-only fix) | yes until reappears | ~15–45 min per stuck board | 2 | — | AI docs (App. B); Human | 59.0 | open |
+| 16 | F9 | friction | Mid-upload interrupt / hub enum: board “vanishes” (docs-only fix) | yes until reappears | ~15–45 min per stuck board | 2 | 1 | AI docs; Human | 59.0 | done |
 | 17 | F7 | friction | `KRABBY_MCU_PORT` not forwarded by `gamepad_cmd` / `krabby run` | no if auto-detect works; yes if operator trusts warn | ~5–15 min; every CH340/`ttyUSB*` | 4 | — | AI forward env; Human+HW | 63.0 | open |
 | 18 | F8 | friction | `XDG_RUNTIME_DIR` error on `krabby run` (cosmetic) | no | ~0–1 min; every `krabby run` | 3 | — | AI container env; Human | **66.0** | open |
 
