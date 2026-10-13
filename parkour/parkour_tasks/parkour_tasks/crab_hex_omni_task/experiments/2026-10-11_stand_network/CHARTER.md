@@ -275,3 +275,16 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
     field rows reset or walk straight first), so the gates did not see this. A deployed switch should key on an
     explicit stand command; the video routes by the schedule's stand holds (`--stand-rule slot` reproduces the eval's
     latch).
+- 2026-10-13, **what the post-settle "taps" / "steps" are physically** (user question after the video; CPU read of the
+  walkstop es1+es2 raws with p2s_stand's own settle and step_tap_runs definitions — `scripts/sn_tap_anatomy.py`,
+  `tap_anatomy.json`; 600 stands each). A "tap" = a foot's load < 50 N for 1–4 control steps; a "step" = ≥ 5 steps.
+  - A-mask s17 taps: 1.2 per s pooled; median duration one control step (0.02 s); median foot lift **0.0 mm**, 83 % lift
+    < 1 mm, 97 % < 5 mm, none > 20 mm; the hip command never lifts (0 % below −0.25); R's branch is HOLD on 99.8 %.
+    They are load flickers across the 50 N line (six feet are statically indeterminate; the net's small continuous
+    corrections shift load), not motion. s18: the same (0.0 mm median, 81 % < 1 mm).
+  - A-mask s17 "steps": 0.55 per s; median lift 1.4 mm, median 0.28 s; 68 % fall within 2 s of the settle point (the
+    tail of settling: "settled" = cams homed for 0.5 s, the last seat-downs come after it). Visible ones (> 5 mm) after
+    2 s past settle: 15 in 600 stands (≈ 1 per 40 stands).
+  - R for comparison: taps 0.13 per s (median force at the flicker 48 N — barely crossing the line), steps 0.19 per s.
+  - **Implication for the gates:** G2's post-settle taps clause mostly counts sub-millimetre load flicker; A-full's
+    G2 failure (1.14 vs 1.0) is therefore a load-flicker difference, not visible tapping. Recorded, no rule changed.
