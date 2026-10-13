@@ -1,5 +1,7 @@
 #include "sim_i2c.hpp"
 
+#include "sim_imu_model.hpp"
+
 namespace krabby {
 namespace sim {
 
@@ -106,16 +108,7 @@ uint8_t SimI2cBus::readRegisterByte(uint8_t address, uint8_t reg) const
 {
     if (address == kI2cAddrLsm6dsoPrimary || address == kI2cAddrLsm6dsoAlternate)
     {
-        // Plausible LSM6DSO burst window starting at 0x20 (gyro/accel/temp stub).
-        if (reg >= 0x20 && reg < 0x20 + 14)
-        {
-            const uint8_t offset = static_cast<uint8_t>(reg - 0x20);
-            return static_cast<uint8_t>(0x10 + offset);
-        }
-        if (reg == 0x0Fu)
-        {
-            return 0x6Cu;  // common LSM6DSO WHO_AM_I
-        }
+        return lsm6dsoRegisterByte(reg);
     }
     return 0;
 }

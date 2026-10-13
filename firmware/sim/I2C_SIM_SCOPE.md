@@ -64,8 +64,8 @@ The health-screen preview lives under **`firmware/oled_sim/`** (`ssd1306.py`, `k
 | Component | State |
 |-----------|--------|
 | `Wire` / addressed slave model | **`sim_i2c` + host `Wire.h`** (probe + register read stub) |
-| `krabby_host` firmware loop | Actuators + USB; **no** `imuSetup()` / **no** `;IMU` append |
-| `host_multi_board.cpp` | Three-board relay; **no** leader IMU segment |
+| `krabby_host` firmware loop | Leader **`;IMU`** via `host_leader_imu` + `sim_imu_model` |
+| `host_multi_board.cpp` | FRONT line appends **`;IMU`**; followers unchanged |
 | `firmware/oled_sim` | Standalone / browser viewer; **no** firmware-in-the-loop I2C |
 
 ---

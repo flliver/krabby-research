@@ -1,5 +1,6 @@
 // Three-board leader loop: USB command relay and follower telemetry forward (arduino.ino loop()).
 
+#include "host_leader_imu.hpp"
 #include "host_multi_board.hpp"
 
 #include "Arduino.h"
@@ -333,6 +334,11 @@ void emitTelemetry(BoardRole role, ActuatorManager &manager, BoardHardwareSerial
     port.print(TELEMETRY_SEGMENT_DELIMITER);
     port.print(TELEMETRY_FIELD_SEPARATOR);
     manager.printTelemetry(port);
+    if (role == ROLE_FRONT)
+    {
+        const ImuMeasurement measurement = leaderImu().measure();
+        appendImuMeasurement(port, measurement);
+    }
     port.println();
 }
 
@@ -356,6 +362,7 @@ void threeBoardFirmwareSetup()
     g_frontManager.loadCalibration();
     g_leftManager.loadCalibration();
     g_rightManager.loadCalibration();
+    leaderImu().setup();
     g_lastTelemetryMs = 0;
     g_setupDone = true;
 }

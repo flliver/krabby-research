@@ -6,7 +6,9 @@ add_library(krabby_sim_host STATIC
     pin_state.cpp
     sim_clock.cpp
     sim_i2c.cpp
+    sim_imu_model.cpp
     Wire.cpp
+    host_leader_imu.cpp
     eeprom_stub.cpp
     hall_sim.cpp
     hall_hw_stub.cpp

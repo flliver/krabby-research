@@ -61,12 +61,17 @@ static void test_lsm6dso_register_read_burst_matches_adapter_pattern()
         kNumBytes,
         Wire.requestFrom(kI2cAddrLsm6dsoPrimary, kNumBytes, static_cast<uint8_t>(true)));
 
+    uint8_t bytes[kNumBytes];
     for (uint8_t i = 0; i < kNumBytes; ++i)
     {
         TEST_ASSERT_TRUE(Wire.available() > 0);
-        TEST_ASSERT_EQUAL_INT(0x10 + i, Wire.read());
+        bytes[i] = static_cast<uint8_t>(Wire.read());
     }
     TEST_ASSERT_FALSE(Wire.available());
+
+    const int16_t rawAccelZ =
+        static_cast<int16_t>(bytes[12] | (static_cast<uint16_t>(bytes[13]) << 8));
+    TEST_ASSERT_INT16_WITHIN(2, 4098, rawAccelZ);
 }
 
 static void test_request_from_absent_device_returns_zero()
