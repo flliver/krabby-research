@@ -53,13 +53,8 @@ class ThreeBoardRobotCore:
             **kwargs,
         )
 
-    def reset(self) -> None:
-        if single_leader_eighteen_enabled():
-            self.bridge.enable_single_leader_eighteen_joint(True)
-        else:
-            boot_three_board_emulators(self.bridge)
-            self.bridge.enable_three_board_firmware_loop(True)
-        self.bridge.firmware_setup()
+    def configure_sensors_and_stops(self) -> None:
+        """Hall scaling and pot bands (safe after external three-board boot / PTY host)."""
         self._wrench_body_indices = None
         for board_cfg in (self.configs.front, self.configs.left, self.configs.right):
             self.bridge.set_hall_edges_per_full_travel(
@@ -71,6 +66,15 @@ class ThreeBoardRobotCore:
                 continue
             slot_id = actuator.slot.firmware_actuator_id
             self.bridge.set_actuator_stops(slot_id, band.min_adc, band.max_adc)
+
+    def reset(self) -> None:
+        if single_leader_eighteen_enabled():
+            self.bridge.enable_single_leader_eighteen_joint(True)
+        else:
+            boot_three_board_emulators(self.bridge)
+            self.bridge.enable_three_board_firmware_loop(True)
+        self.bridge.firmware_setup()
+        self.configure_sensors_and_stops()
 
     def jog(self, actuator_id: str, pwm: int) -> None:
         self.bridge.serial_usb_rx_write(f"J{actuator_id} {int(pwm)}\n".encode("ascii"))

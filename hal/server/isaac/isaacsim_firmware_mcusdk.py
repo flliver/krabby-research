@@ -110,9 +110,13 @@ class IsaacSimFirmwareMCUSDK:
             raise ValueError("command must be non-empty")
 
         jog_map = joint_radians_to_jog_pwm(cmd_dict, self._mcu_joint_names)
-        for firmware_id, pwm in jog_map.items():
-            self._firmware_loop.jog_actuator(firmware_id, pwm)
-        self._firmware_loop.tick_firmware()
+        apply_hal = getattr(self._firmware_loop, "apply_hal_command", None)
+        if callable(apply_hal):
+            apply_hal(command)
+        else:
+            for firmware_id, pwm in jog_map.items():
+                self._firmware_loop.jog_actuator(firmware_id, pwm)
+            self._firmware_loop.tick_firmware()
 
         action_dict = self._action_dict_from_firmware(jog_map.keys())
         return self._action_dict_to_tensor(action_dict, num_envs=num_envs)

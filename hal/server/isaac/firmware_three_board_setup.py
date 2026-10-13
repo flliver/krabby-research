@@ -7,11 +7,17 @@ from collections.abc import Mapping
 from typing import Any
 
 from hal.server.isaac.firmware_command_mapping import hal_joint_to_firmware_id
+from hal.server.isaac.firmware_serial_loop import (
+    FirmwareTransport,
+    FullsimFirmwareSession,
+    start_serial_sdk_session,
+)
 from hal.server.robot_definition import RobotDefinition
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "attach_fullsim_firmware_to_env",
     "attach_three_board_firmware_to_env",
     "log_firmware_joint_bindings",
 ]
@@ -45,19 +51,20 @@ def log_firmware_joint_bindings(
         )
 
 
-def attach_three_board_firmware_to_env(
+def attach_fullsim_firmware_to_env(
     env: Any,
     robot: Any,
     robot_definition: RobotDefinition,
     *,
     max_joint_speed: float = 2.0,
     bridge: Any | None = None,
-) -> tuple[Any, Any]:
+    firmware_transport: FirmwareTransport = "in_process",
+) -> FullsimFirmwareSession:
     """Construct ``ThreeBoardRobotCore`` on ``env`` / ``robot`` (no second scene).
 
-    Raises:
-        ValueError: Robot definition has no 18-joint MCU map.
-        HostLibraryNotBuiltError: Host firmware library was not built.
+    ``firmware_transport``:
+    - ``in_process``: host jog + ``tick_firmware_without_physics`` (default fallback).
+    - ``serial_sdk``: ``KrabbyMCUSDK`` over PTY + ``ThreeBoardMcuHost`` (Jetson wire protocol).
     """
     from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
     from firmware.sim.isaac_scene import (
@@ -91,7 +98,6 @@ def attach_three_board_firmware_to_env(
         configs=configs,
         max_joint_speed=max_joint_speed,
     )
-    core.reset()
 
     isaac_joint_for_fw = {
         slot.firmware_actuator_id: slot.isaac_joint_name for slot in configs.all_slots()
@@ -104,4 +110,37 @@ def attach_three_board_firmware_to_env(
         },
         isaac_joint_for_firmware_id=isaac_joint_for_fw,
     )
-    return core, ThreeBoardCommandLoop(core)
+
+    if firmware_transport == "serial_sdk":
+        loop, session = start_serial_sdk_session(core, robot_definition)
+        logger.info("Fullsim firmware transport: serial_sdk (KrabbyMCUSDK / PTY)")
+        return session
+
+    core.reset()
+    loop = ThreeBoardCommandLoop(core)
+    logger.info("Fullsim firmware transport: in_process (direct host jog)")
+    return FullsimFirmwareSession(
+        core=core,
+        firmware_loop=loop,
+        firmware_transport="in_process",
+    )
+
+
+def attach_three_board_firmware_to_env(
+    env: Any,
+    robot: Any,
+    robot_definition: RobotDefinition,
+    *,
+    max_joint_speed: float = 2.0,
+    bridge: Any | None = None,
+) -> tuple[Any, Any]:
+    """Backward-compatible wrapper returning ``(core, firmware_loop)``."""
+    session = attach_fullsim_firmware_to_env(
+        env,
+        robot,
+        robot_definition,
+        max_joint_speed=max_joint_speed,
+        bridge=bridge,
+        firmware_transport="in_process",
+    )
+    return session.core, session.firmware_loop

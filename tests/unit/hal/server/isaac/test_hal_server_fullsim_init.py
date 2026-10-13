@@ -12,11 +12,17 @@ from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 from tests.unit.hal.server.isaac.test_hal_server_mcusdk import MockEnv
 
 
-@patch("hal.server.isaac.firmware_three_board_setup.attach_three_board_firmware_to_env")
+@patch("hal.server.isaac.firmware_three_board_setup.attach_fullsim_firmware_to_env")
 def test_fullsim_initializes_firmware_mcusdk_on_existing_env(mock_attach):
+    from hal.server.isaac.firmware_serial_loop import FullsimFirmwareSession
+
     mock_core = MagicMock(name="ThreeBoardRobotCore")
     mock_loop = MagicMock(name="ThreeBoardCommandLoop")
-    mock_attach.return_value = (mock_core, mock_loop)
+    mock_attach.return_value = FullsimFirmwareSession(
+        core=mock_core,
+        firmware_loop=mock_loop,
+        firmware_transport="in_process",
+    )
 
     env = MockEnv(num_envs=1)
     config = HalServerConfig(

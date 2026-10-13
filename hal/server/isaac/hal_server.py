@@ -202,6 +202,7 @@ class IsaacSimHalServer(HalServerBase):
         observation_dimensions=None,
         *,
         command_backend: Literal["direct", "fullsim"] = "direct",
+        firmware_transport: Literal["in_process", "serial_sdk"] = "in_process",
         command_timeout_s: Optional[float] = 1.0,
     ):
         """Initialize IsaacSim HAL server.
@@ -214,6 +215,8 @@ class IsaacSimHalServer(HalServerBase):
             observation_dimensions: Observation dimensions from model definition. Used for history buffer calculations.
             command_backend: ``direct`` uses ``IsaacSimMCUSDK``; ``fullsim`` attaches three-board
                 host firmware to this server's existing ``env`` (18-joint hex only).
+            firmware_transport: When ``command_backend='fullsim'``, ``in_process`` uses direct host
+                jog; ``serial_sdk`` uses ``KrabbyMCUSDK`` over a PTY (same wire protocol as Jetson).
             command_timeout_s: Max seconds to wait for a joint command in apply_command(). If None, wait forever
                 and log every 30s while waiting. Used in joystick mode so the server does not exit when no client is connected.
         
@@ -241,9 +244,11 @@ class IsaacSimHalServer(HalServerBase):
         self._last_published_obs_vals = None
         
         self._command_backend = command_backend
+        self._firmware_transport = firmware_transport
         # Initialize IsaacSim MCU SDK for standardized command application
         self._mcusdk: Optional[Union[IsaacSimMCUSDK, Any]] = None
         self._three_board_core = None
+        self._fullsim_session = None
         # GStreamer multi-sensor interface (synthetic sensors, same API as Jetson)
         self._sensor_interface: Optional[SensorInterface] = None
 
@@ -350,7 +355,7 @@ class IsaacSimHalServer(HalServerBase):
 
         if self._command_backend == "fullsim":
             from hal.server.isaac.firmware_three_board_setup import (
-                attach_three_board_firmware_to_env,
+                attach_fullsim_firmware_to_env,
             )
 
             unwrapped_env = (
@@ -358,21 +363,25 @@ class IsaacSimHalServer(HalServerBase):
             )
             if self.robot is None:
                 raise RuntimeError("Robot reference required for fullsim command backend")
-            core, firmware_loop = attach_three_board_firmware_to_env(
+            session = attach_fullsim_firmware_to_env(
                 self.env,
                 self.robot,
                 self.robot_definition,
+                firmware_transport=self._firmware_transport,
             )
-            self._three_board_core = core
+            self._fullsim_session = session
+            self._three_board_core = session.core
             from hal.server.isaac.isaacsim_firmware_mcusdk import IsaacSimFirmwareMCUSDK
 
             self._mcusdk = IsaacSimFirmwareMCUSDK.from_robot_definition(
                 self.robot_definition,
                 device=unwrapped_env.device,
-                firmware_loop=firmware_loop,
+                firmware_loop=session.firmware_loop,
             )
             logger.info(
-                "Initialized IsaacSimFirmwareMCUSDK with three-board firmware on existing env"
+                "Initialized IsaacSimFirmwareMCUSDK with three-board firmware on existing env "
+                "(transport=%s)",
+                session.firmware_transport,
             )
             return
 
@@ -798,4 +807,10 @@ class IsaacSimHalServer(HalServerBase):
             action = action.expand(num_envs, -1)
 
         return action
+
+    def close(self) -> None:
+        if self._fullsim_session is not None:
+            self._fullsim_session.close()
+            self._fullsim_session = None
+        super().close()
 
