@@ -260,3 +260,18 @@ pre-registered rule, and an adoption-grade verdict. **Adoption, bake and push ar
 - 2026-10-12, **step 11 report written** (`REPORT.md`; opus·xhigh draft, fable·high independent check re-derived
   every gate verdict and the adoption-grade rule — 5 minor wording / attribution fixes applied, no number changed).
   **STOP for the user's adoption / bake decision.**
+- 2026-10-13, **user request: a 3-min video, random commands with a random-length stand between each.** Recorder
+  built campaign-locally (`scripts/sn_video_schedule.py`, `sn_video_core.py`, `sn_record_video.{py,sh}` — a copy of
+  `tools/record_categories.py` sequence mode with stand-net routing through `sn_common`; opus·xhigh build, fable·high
+  review, 3 minor fixes; 94 CPU tests). Smoke (20 s) then the full run: seed 20261013, 180 s, flat, 9 commands
+  (6 move 0.12–0.27 m/s, 2 turn, 1 move_turn) and 10 stands (2.6–11 s); S1 s18 walks, `SN_Amask_s17` (mask 1) on every
+  stand hold (schedule rule). Result (`video_sn_random_s20261013_sanity.json`; mp4 in
+  `parkour/logs/videos/sn_stand_network/`, untracked): 0 falls, 0 route mismatches, stand-net share 1.0 on every stand,
+  9 / 10 stands homed at their end (the 3.9-s stand ended before homing; settles 1.6–4.1 s), peak RSS 10.1 GB.
+  - **Deployment finding (not a gate, recorded for the adoption decision):** the eval's latched stand slot keeps
+    "turning" after any facing change until a new facing target or a reset, so on this schedule it reads TURN on 7 of
+    the 10 stands (every stand after the first facing change) — under the evaluated switch contract S1 would have
+    marched through those stands. The campaign's eval rows never put a stand after a facing change (suite / walkstop /
+    field rows reset or walk straight first), so the gates did not see this. A deployed switch should key on an
+    explicit stand command; the video routes by the schedule's stand holds (`--stand-rule slot` reproduces the eval's
+    latch).
