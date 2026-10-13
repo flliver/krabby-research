@@ -39,16 +39,27 @@
  },
  "frozen": {
   "h_min_m": 0.719,
-  "h_max_m": 1.02,
-  "h_max_rule": "exploration static model scaled by the pooled measured / model six-leg mean |F_hip| (x1.162), highest h with <= 2000 N",
-  "status": "PROVISIONAL -- step-1 STOP raised; the user decides before anything is frozen in the CHARTER",
+  "h_max_m": 1.346,
+  "h_max_rule": "USER DECISION 2026-10-13 at the step-1 stop: cap from the measured-foot-load statics (b_forces.curves F_hip_foot_load_model_N): highest h on a 1 mm grid whose six-leg mean |F_hip| <= 2000 N. The sim's PD-torque reading (2064 N at 1.064, an unexplained ~14 % excess) is reported alongside, not used for the cap.",
+  "status": "FROZEN 2026-10-13 (CHARTER log)",
   "top_min_m": 0.4123901406139288,
-  "top_max_train_m": 0.756,
+  "top_max_train_m": 0.805,
+  "top_max_rule": "min(restore clearance 0.805, h_max - 0.264 = 1.082)",
   "k3_eval_tops_m": [
    0.4572,
    0.635,
-   0.6858
-  ]
+   0.762
+  ],
+  "k3_eval_rule": "tops within [top_min, 0.805 - margin], h_cmd >= top + 0.31 <= h_max",
+  "previous_provisional": {
+   "h_max_m": 1.02,
+   "top_max_train_m": 0.756,
+   "k3_eval_tops_m": [
+    0.4572,
+    0.635,
+    0.6858
+   ]
+  }
  },
  "verification": {
   "defaults_vs_linkage": {

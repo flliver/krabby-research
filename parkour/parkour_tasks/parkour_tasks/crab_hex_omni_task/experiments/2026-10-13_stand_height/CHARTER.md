@@ -61,3 +61,10 @@ the user's.**
     (root 0.561 m), rod_min on the hip plates (root 0.311 m, hip-contact clause fires at spawn); 81 % of random folds
     start below h_min (q and limiter clamp).
   - **STOP and ask** (step-1 stop rule).
+- 2026-10-13, **USER DECISION at the step-1 stop: cap from the measured-foot-load statics.** h_max = **1.346 m**
+  (highest h whose six-leg mean |F_hip| from the measured foot loads through the linkage stays ≤ 2000 N); the sim's
+  PD-torque reading (2064 N at walking height, the unexplained ≈ 14 % excess) is reported alongside every height as an
+  open item, not used for the cap. Frozen (`facts.json` `frozen`): h_min 0.719 m, h_max 1.346 m, training table tops
+  0.412–0.805 m (restore clearance binds), K3 eval tops 0.4572 / 0.635 / 0.762 m with h_cmd ≥ top + 0.31 m.
+  - **Rule restated before its read (follows from the decision):** the step-4 h_max re-check uses the same statistic —
+    six-leg mean |F_hip| from R_h's measured foot loads through the linkage in its top height bin — not the PD torques.
