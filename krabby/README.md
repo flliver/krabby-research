@@ -104,9 +104,12 @@ process back if it exits.
 
 `krabby run` starts the **whole** gamepad stack in one container — the HAL server and
 the `krabby-uno` client/controller together — so a paired gamepad drives the robot with
-a single command. To run just the client (e.g. the two-process debug flow), use the
-`krabby-uno` console script from the controller package (`pip install krabby-controller`)
-against the server's TCP endpoints (`tcp://host:6001` / `:6002`).
+a single command. If the Mega is on `/dev/ttyUSB*` (e.g. CH340) rather than
+`/dev/ttyACM0`, pass `KRABBY_MCU_PORT=/dev/ttyUSB0 krabby run` so the MCU presence
+check uses that path (`krabby run` forwards the env into the container). To run just
+the client (e.g. the two-process debug flow), use the `krabby-uno` console script from
+the controller package (`pip install krabby-controller`) against the server's TCP
+endpoints (`tcp://host:6001` / `:6002`).
 
 ## Start on boot
 

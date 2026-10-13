@@ -208,6 +208,9 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
     mounts: list[str] = []
     for m in (extra_mounts or []):
         mounts += ["-v", m]
+    # Bare `-e KRABBY_MCU_PORT` forwards the host value only when it is set, so
+    # the launch script's MCU presence check uses the same override as
+    # `krabby firmware` (e.g. CH340 boards on /dev/ttyUSB*).
     return [
         "docker", "run", "--rm",
         "--name", "krabby",
@@ -216,6 +219,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
         "-v", "/dev:/dev",
         *mounts,
         *network_flags(),
+        "-e", "KRABBY_MCU_PORT",
         "--entrypoint", "bash",
         image_ref,
         "-c", _gamepad_launch_script(server_robot),

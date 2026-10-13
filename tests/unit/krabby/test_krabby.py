@@ -510,6 +510,13 @@ class TestGamepadCmd:
         assert "/opt/krabby-research/controller" in script
         assert "PYTHONPATH=" in script
 
+    def test_mcu_port_env_forwarded(self, monkeypatch):
+        # Same as firmware_cmd: host KRABBY_MCU_PORT must reach the launch script.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = gamepad_cmd("myimage:tag", [])
+        idx = cmd.index("KRABBY_MCU_PORT")
+        assert cmd[idx - 1] == "-e"
+
 
 from krabby.run import cmd_run
 from krabby import __main__ as krabby_main

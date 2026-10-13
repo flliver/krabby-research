@@ -88,6 +88,8 @@ sudo systemctl stop krabby-locomotion
 krabby run
 ```
 
+If the Mega shows up as `/dev/ttyUSB*` (common with CH340) instead of `/dev/ttyACM0`, set the port so the launch check matches the board: `KRABBY_MCU_PORT=/dev/ttyUSB0 krabby run`. A warning about ACM0 with `Connected to /dev/ttyUSB…` later usually means the HAL already found the board — you can keep going, or set `KRABBY_MCU_PORT` to silence the check.
+
 `krabby run` starts the whole gamepad stack — HAL server, `krabby-uno` client, and controller — in one container, so the paired controller drives the robot immediately. No second command. It clears any existing container named `krabby` first (same as the boot unit’s `ExecStartPre`), so you no longer need a manual `docker rm -f krabby`. The container starts with GPU, serial, and input device passthrough; logs stream to stdout and Ctrl+C stops it. To return to boot autostart afterward: `sudo systemctl start krabby-locomotion`.
 
 To drive from a *separate* client instead (e.g. a second terminal, or another host against a server-only run), use the `krabby-uno` console script from the controller package (`pip install krabby-controller`). See [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) for the full E2E and debug guide.
