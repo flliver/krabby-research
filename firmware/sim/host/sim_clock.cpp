@@ -6,6 +6,7 @@
 #include "host_board_role.hpp"
 #include "sim_i2c.hpp"
 #include "sim_battery_model.hpp"
+#include "sim_ssd1306.hpp"
 #include "sim_imu_model.hpp"
 #include "sim_serial.hpp"
 
@@ -36,6 +37,7 @@ void resetHostSim()
     resetHallSim();
     resetHostFrontImuPresence();
     resetHostSerial();
+    resetSimSsd1306();
     resetSimBatteryModel();
     resetSimImuModel();
     resetSimI2c();

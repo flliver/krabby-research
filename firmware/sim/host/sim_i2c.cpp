@@ -1,6 +1,7 @@
 #include "sim_i2c.hpp"
 
 #include "sim_imu_model.hpp"
+#include "sim_ssd1306.hpp"
 
 namespace krabby {
 namespace sim {
@@ -93,6 +94,11 @@ uint8_t SimI2cBus::endTransmission(bool /*sendStop*/)
     for (std::size_t i = 0; i < txBuffer_.size(); ++i)
     {
         device->writeLog.push_back(txBuffer_[i]);
+    }
+
+    if (txAddress_ == kI2cAddrSsd1306Primary || txAddress_ == kI2cAddrSsd1306Alternate)
+    {
+        simSsd1306().onI2cWrite(txAddress_, txBuffer_.data(), txBuffer_.size());
     }
 
     if (!txBuffer_.empty())

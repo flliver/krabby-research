@@ -54,8 +54,20 @@ When init fails, firmware still appends IMU with zeros and `valid=0` (does not s
 ## OLED simulator
 
 The health-screen preview lives under **`firmware/oled_sim/`** (`ssd1306.py`, `krab.py`,
-`viewer.py`, `RENDER_SPEC.md`). It renders from the same layout constants as
-`display_constants.h` but is **not yet** connected to a host `Wire` backend.
+`viewer.py`, `RENDER_SPEC.md`). Browser replay is optional; the in-loop host path is
+below.
+
+### Host OLED (no Arduino sensor libraries)
+
+Host sim **on purpose** does **not** link **`SparkFun_Qwiic_OLED`**, **`SparkFunLSM6DSO`**
+(Adafruit/SparkFun Arduino packages), or **`Ssd1306Adapter`** / **`Lsm6dsoAdapter`** into
+`krabby_host`. Those libraries are not vendored in this repo and would pull a large
+Arduino-only dependency graph into native CI.
+
+Instead the host path reuses shipping **`buildDisplayFrame`** + **`DisplayRenderer`**
+(`host_display.cpp`), flushes a GDDRAM image over **`Wire`** via **`HostOledCanvas`**, and
+captures bytes in **`sim_ssd1306`**. On-device firmware still uses the adapters + libraries;
+host sim matches **layout and live state**, not byte-identical driver I2C init sequences.
 
 ---
 
@@ -66,7 +78,7 @@ The health-screen preview lives under **`firmware/oled_sim/`** (`ssd1306.py`, `k
 | `Wire` / addressed slave model | **`sim_i2c` + host `Wire.h`** (probe + register read stub) |
 | `krabby_host` firmware loop | Leader **`;IMU`** via `host_leader_imu` + `sim_imu_model` |
 | `host_multi_board.cpp` | FRONT line appends **`;IMU`**; followers unchanged |
-| `firmware/oled_sim` | Standalone / browser viewer; **no** firmware-in-the-loop I2C |
+| `firmware/oled_sim` | Browser viewer; host **`DisplayRenderer` + `sim_ssd1306` Wire** path |
 
 ---
 
@@ -74,15 +86,13 @@ The health-screen preview lives under **`firmware/oled_sim/`** (`ssd1306.py`, `k
 
 1. ~~**Host `Wire` shim**~~ - done: `firmware/sim/host/sim_i2c.*`, `Wire.h`; tests in
    `test_host_i2c.cpp`.
-2. **Link IMU + display into host build** - compile `Lsm6dsoAdapter` / `Ssd1306Adapter`
-   (or targeted stubs) under `KRABBY_HOST_FIRMWARE=1`, or split telemetry append without
-   full driver until drivers compile on host.
-3. **Leader telemetry parity** - call `appendImuMeasurement()` on the host USB path when
-   role is FRONT (match `arduino.ino` loop).
+2. **Optional: vendor Arduino sensor libs on host** - only needed for driver-level I2C
+   parity; IMU/OLED **telemetry and renderer** paths already avoid adapters (see above).
+3. ~~**Leader telemetry parity (IMU)**~~ - host FRONT line appends **`;IMU`**.
 4. ~~**INA228 + `;BATT` on host**~~ - `sim_battery_model`, `host_battery_telemetry`,
    default ACK at `0x40`/`0x41`. Mega firmware driver still TBD.
-5. **OLED E2E** - route sim `Wire` writes to `oled_sim` (or trace buffer) so
-   `oledRenderer.render()` drives a visible krab screen in sim.
+5. ~~**OLED over sim Wire (host)**~~ - `host_display` + `sim_ssd1306` GDDRAM capture;
+   browser `oled_sim` replay remains optional.
 
 ---
 

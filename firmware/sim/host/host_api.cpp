@@ -8,6 +8,7 @@
 #include "pin_state.hpp"
 #include "sim_clock.hpp"
 #include "host_board_role.hpp"
+#include "host_display.hpp"
 #include "host_multi_board.hpp"
 #include "sim_serial.hpp"
 
@@ -67,6 +68,7 @@ extern "C" void krabby_host_reset(void)
 {
     krabby::sim::resetHostSim();
     krabby_host_firmware_reset_loop_state();
+    krabby::sim::host::hostDisplayReset();
     krabby::sim::host::setThreeBoardFirmwareLoopEnabled(false);
     krabby::sim::host::setSingleLeaderEighteenJointEnabled(false);
     s_initialized = false;

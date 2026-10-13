@@ -3,6 +3,7 @@
 #include "host_api.h"
 #include "host_firmware_internal.hpp"
 #include "host_battery_telemetry.hpp"
+#include "host_display.hpp"
 #include "host_leader_imu.hpp"
 #include "host_multi_board.hpp"
 
@@ -126,6 +127,7 @@ extern "C" void krabby_host_firmware_setup(void)
     hallHwInit();
     krabby::sim::host::leaderImu().setup();
     krabby::sim::host::leaderBattery().setup();
+    krabby::sim::host::hostDisplaySetup();
     krabby::sim::host::actuatorManager().loadCalibration();
     s_lastTelemetryMs = millis();
     s_firmwareSetupDone = true;
@@ -133,6 +135,7 @@ extern "C" void krabby_host_firmware_setup(void)
 
 extern "C" void krabby_host_firmware_loop_once(void)
 {
+    krabby::sim::host::hostDisplayStep(millis());
     if (krabby::sim::host::singleLeaderEighteenJointEnabled())
     {
         krabby::sim::host::singleLeaderEighteenFirmwareLoopOnce();

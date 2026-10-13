@@ -8,6 +8,7 @@ namespace host {
 
 ActuatorManager &actuatorManager();
 void ensureActuatorsInitialized();
+LinearActuator *find_actuator(const char *actuator_name);
 
 }  // namespace host
 }  // namespace sim

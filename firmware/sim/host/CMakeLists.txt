@@ -8,9 +8,11 @@ add_library(krabby_sim_host STATIC
     sim_i2c.cpp
     sim_imu_model.cpp
     sim_battery_model.cpp
+    sim_ssd1306.cpp
     Wire.cpp
     host_leader_imu.cpp
     host_battery_telemetry.cpp
+    host_oled_canvas.cpp
     eeprom_stub.cpp
     hall_sim.cpp
     hall_hw_stub.cpp
@@ -46,6 +48,8 @@ add_library(krabby_host SHARED host_api.cpp host_firmware_loop.cpp host_multi_bo
 target_sources(
     krabby_host
     PRIVATE
+        host_display.cpp
+        "${KRABBY_ARDUINO_DIR}/src/display/display_frame_model.cpp"
         "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp"
 )
 target_link_libraries(krabby_host PRIVATE krabby_firmware_actuator_host)
