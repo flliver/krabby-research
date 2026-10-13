@@ -93,8 +93,16 @@ class RobotCore:
             return None
         return self._wrench_body_indices
 
-    def step(self, *, process_usb_serial: bool = False) -> Any:
-        # Plant state is from the previous step's physics; refresh pots before firmware reads.
+    def record_drive_pins_to_pin_state(self) -> None:
+        """Snapshot host shim pin outputs into ``pin_state`` (for HAL action readback)."""
+        for actuator in self.actuators:
+            pwm_r, pwm_l, pin_en = actuator.slot.drive_pins
+            self.pin_state.analog_write(pwm_r, self.bridge.pin_pwm(pwm_r))
+            self.pin_state.analog_write(pwm_l, self.bridge.pin_pwm(pwm_l))
+            self.pin_state.digital_write(pin_en, self.bridge.pin_digital(pin_en))
+
+    def tick_firmware_without_physics(self, *, process_usb_serial: bool = False) -> None:
+        """Run one firmware control tick without advancing Isaac physics."""
         sync_sensor_reads(
             self.bridge,
             self.actuators,
@@ -106,11 +114,12 @@ class RobotCore:
             self.bridge.firmware_loop_once()
         else:
             self.bridge.update_all()
+        self.record_drive_pins_to_pin_state()
+
+    def step(self, *, process_usb_serial: bool = False) -> Any:
+        # Plant state is from the previous step's physics; refresh pots before firmware reads.
+        self.tick_firmware_without_physics(process_usb_serial=process_usb_serial)
         for actuator in self.actuators:
-            pwm_r, pwm_l, pin_en = actuator.slot.drive_pins
-            self.pin_state.analog_write(pwm_r, self.bridge.pin_pwm(pwm_r))
-            self.pin_state.analog_write(pwm_l, self.bridge.pin_pwm(pwm_l))
-            self.pin_state.digital_write(pin_en, self.bridge.pin_digital(pin_en))
             actuator.apply_velocity_target(self.pin_state, self.articulation)
         # Not env.step(): the task's RL action term rewrites joint position targets and
         # clears velocity targets every step, so a firmware-driven joint would never keep

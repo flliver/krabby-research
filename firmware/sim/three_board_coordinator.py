@@ -92,7 +92,8 @@ class ThreeBoardRobotCore:
             return None
         return self._wrench_body_indices
 
-    def step(self, *, process_usb_serial: bool = False) -> Any:
+    def tick_firmware_without_physics(self) -> None:
+        """Run one three-board firmware loop tick without advancing Isaac physics."""
         sync_sensor_reads(
             self.bridge,
             self.actuators,
@@ -101,6 +102,13 @@ class ThreeBoardRobotCore:
         )
         self.bridge.advance_millis(physics_step_ms(self.env))
         self.bridge.firmware_loop_once()
+
+    def command_pwm_for_actuator(self, firmware_actuator_id: str) -> int:
+        return int(self.bridge.three_board_actuator_command_pwm(firmware_actuator_id))
+
+    def step(self, *, process_usb_serial: bool = False) -> Any:
+        del process_usb_serial
+        self.tick_firmware_without_physics()
 
         for actuator in self.actuators:
             name = actuator.slot.firmware_actuator_id
