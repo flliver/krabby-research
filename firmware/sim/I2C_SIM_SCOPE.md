@@ -1,7 +1,7 @@
 # I2C simulation scope (shipping firmware)
 
 Host I2C simulation must mirror **what the host-built firmware actually probes**.
-This file is the inventory and blocker list before implementing a host `Wire` shim.
+This file is the inventory of bus, devices, telemetry, and host behavior.
 
 **Authoritative code:** `firmware/arduino/arduino.ino`, `src/imu/`, `src/display/`,
 `src/i2c/`. Machine-readable summary: [`i2c_shipping_scope.py`](i2c_shipping_scope.py).
@@ -74,7 +74,7 @@ host sim matches **layout and live state**, not byte-identical driver I2C init s
 Leader **`setup()`** always completes: **`leaderImu`**, **`leaderBattery`**, and **`hostDisplaySetup`**
 probe **`Wire`** but never abort **`krabby_host_firmware_setup`**. Missing devices yield
 **`;IMU … valid=0`**, omit **`;BATT`**, or skip OLED draws; actuator USB commands and
-telemetry joints keep running. Tests: **`test_host_nonfatal_sensor_init.cpp`**.
+telemetry joints keep running.
 
 ---
 
@@ -89,17 +89,10 @@ telemetry joints keep running. Tests: **`test_host_nonfatal_sensor_init.cpp`**.
 
 ---
 
-## Blockers before full I2C sensor sim
+## Remaining
 
-1. ~~**Host `Wire` shim**~~ - done: `firmware/sim/host/sim_i2c.*`, `Wire.h`; tests in
-   `test_host_i2c.cpp`.
-2. **Optional: vendor Arduino sensor libs on host** - only needed for driver-level I2C
-   parity; IMU/OLED **telemetry and renderer** paths already avoid adapters (see above).
-3. ~~**Leader telemetry parity (IMU)**~~ - host FRONT line appends **`;IMU`**.
-4. ~~**INA228 + `;BATT` on host**~~ - `sim_battery_model`, `host_battery_telemetry`,
-   default ACK at `0x40`/`0x41`. Mega firmware driver still TBD.
-5. ~~**OLED over sim Wire (host)**~~ - `host_display` + `sim_ssd1306` GDDRAM capture;
-   browser `oled_sim` replay remains optional.
+- **INA228 on Mega firmware** — host sim ACKs `0x40`/`0x41` and appends **`;BATT`**; the sketch has no pack driver yet.
+- **Optional: vendored SparkFun/Adafruit libs on host** — only for adapter-level I2C parity; the host path uses register models + **`DisplayRenderer`** instead (see Host OLED above).
 
 ---
 
@@ -109,5 +102,5 @@ telemetry joints keep running. Tests: **`test_host_nonfatal_sensor_init.cpp`**.
 pytest tests/unit/firmware/test_i2c_shipping_scope.py -v
 ```
 
-After the `Wire` shim exists, extend tests to probe each **shipping** address through the
-sim API; ignore `0x40`/`0x41` until firmware references them.
+Keeps Python inventory aligned with `imu_constants.h` / `display_constants.h`. Host `Wire`
+addresses include sim INA228 at `0x40`/`0x41` even though Mega sketch does not probe them yet.

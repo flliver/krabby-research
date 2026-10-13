@@ -10,7 +10,9 @@
 #include "host_board_role.hpp"
 #include "host_display.hpp"
 #include "host_multi_board.hpp"
+#include "sim_i2c.hpp"
 #include "sim_serial.hpp"
+#include "sim_ssd1306.hpp"
 
 namespace krabby {
 namespace sim {
@@ -66,6 +68,13 @@ using krabby::sim::host::s_manager;
 
 extern "C" void krabby_host_reset(void)
 {
+    if (s_initialized)
+    {
+        for (LinearActuator *actuator : s_actuators)
+        {
+            actuator->stopMotor();
+        }
+    }
     krabby::sim::resetHostSim();
     krabby_host_firmware_reset_loop_state();
     krabby::sim::host::hostDisplayReset();
@@ -294,4 +303,24 @@ extern "C" int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int bu
     std::memcpy(buf, line.data(), static_cast<std::size_t>(copy_len));
     buf[copy_len] = '\0';
     return copy_len;
+}
+
+extern "C" void krabby_host_i2c_set_device_present(uint8_t address, int present)
+{
+    krabby::sim::simI2cBus().setDevicePresent(address, present != 0);
+}
+
+extern "C" uint32_t krabby_host_oled_framebuffer_crc32(void)
+{
+    return krabby::sim::host::hostOledBufferCrc32();
+}
+
+extern "C" void krabby_host_oled_invalidate(void)
+{
+    krabby::sim::host::hostDisplayInvalidate();
+}
+
+extern "C" size_t krabby_host_oled_wire_data_bytes_received(void)
+{
+    return krabby::sim::simSsd1306().totalDataBytesReceived();
 }

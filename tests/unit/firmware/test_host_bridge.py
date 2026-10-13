@@ -14,6 +14,7 @@ def host():
 
 
 def test_handle_jog_drives_expected_pins(host):
+    host.reset()
     slot = SimulatedRobotConfig.front_board_rev3().slot_by_firmware_id("FLHY")
     pwm_r, pwm_l, pin_en = slot.drive_pins
 

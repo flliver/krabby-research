@@ -17,6 +17,8 @@ GOLDEN_FRONT_TELEMETRY_LINE = (
     ";FRHY 0.500 500 12 0 0 0 0 0 0"
     ";FRHL 0.500 500 12 0 0 0 0 0 0"
     ";FRKL 0.500 500 12 0 0 0 0 0 0"
+    ";IMU 0.000 0.000 9.806 0.0000 0.0000 0.0000 25.0 1"
+    ";BATT 26.40 1.250 33.00 100000.0 13.20 13.20 0 0"
 )
 
 # Shipping follower prefix uses a trailing space before ';' (see boardTelemetryRoleLabel).
@@ -86,10 +88,13 @@ def test_golden_front_line_parses_with_existing_telemetry_frame(host):
         "FRHL",
         "FRKL",
     ]
-    for segment in line.split(";")[1:]:
+    for segment in line.split(";")[1:7]:
         tokens = segment.split()
         assert len(tokens) == 10
         assert JointTelemetry.from_tokens(tokens) is not None
+    frame = TelemetryFrame.parse_line(line)
+    assert frame.imu is not None
+    assert frame.battery is not None
 
 
 def test_left_prefix_golden_line_parses_without_parser_changes():

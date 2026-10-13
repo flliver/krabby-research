@@ -130,6 +130,17 @@ class HostActuatorBridge:
             ctypes.c_char_p,
         ]
         self._lib.krabby_host_three_board_actuator_command_pwm.restype = ctypes.c_int
+        self._lib.krabby_host_i2c_set_device_present.argtypes = [
+            ctypes.c_uint8,
+            ctypes.c_int,
+        ]
+        self._lib.krabby_host_i2c_set_device_present.restype = None
+        self._lib.krabby_host_oled_framebuffer_crc32.argtypes = []
+        self._lib.krabby_host_oled_framebuffer_crc32.restype = ctypes.c_uint32
+        self._lib.krabby_host_oled_invalidate.argtypes = []
+        self._lib.krabby_host_oled_invalidate.restype = None
+        self._lib.krabby_host_oled_wire_data_bytes_received.argtypes = []
+        self._lib.krabby_host_oled_wire_data_bytes_received.restype = ctypes.c_size_t
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -250,6 +261,21 @@ class HostActuatorBridge:
                 actuator_name.encode("ascii")
             )
         )
+
+    def i2c_set_device_present(self, address: int, present: bool) -> None:
+        self._lib.krabby_host_i2c_set_device_present(
+            int(address) & 0xFF,
+            1 if present else 0,
+        )
+
+    def oled_framebuffer_crc32(self) -> int:
+        return int(self._lib.krabby_host_oled_framebuffer_crc32())
+
+    def oled_invalidate(self) -> None:
+        self._lib.krabby_host_oled_invalidate()
+
+    def oled_wire_data_bytes_received(self) -> int:
+        return int(self._lib.krabby_host_oled_wire_data_bytes_received())
 
     def run_three_board_role_election(self) -> list[int]:
         roles = (ctypes.c_int32 * 3)()

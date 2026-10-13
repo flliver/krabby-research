@@ -79,7 +79,7 @@ def test_mcu_emitter_jog_wires(host, wire_fn, joint, pwm, en_high):
 
 def test_mcu_emitter_joints_wire_drives_position_target(host):
     slot = SimulatedRobotConfig.front_board_rev3().slot_by_firmware_id("FLHY")
-    _, pwm_r, pin_en = slot.drive_pins
+    pwm_r, _pwm_l, pin_en = slot.drive_pins
     pot_pin = slot.pin_pot
 
     host.reset()

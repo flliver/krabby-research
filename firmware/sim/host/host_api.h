@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -63,6 +64,12 @@ void krabby_host_enable_three_board_firmware_loop(int enabled);
 void krabby_host_enable_single_leader_eighteen_joint(int enabled);
 /** Signed PWM for a named actuator on FRONT/LEFT/RIGHT managers (-255..255). */
 int krabby_host_three_board_actuator_command_pwm(const char *actuator_name);
+
+/** Test hooks: sim I2C presence and OLED framebuffer fingerprint (host I2C E2E tests). */
+void krabby_host_i2c_set_device_present(uint8_t address, int present);
+uint32_t krabby_host_oled_framebuffer_crc32(void);
+void krabby_host_oled_invalidate(void);
+size_t krabby_host_oled_wire_data_bytes_received(void);
 
 #ifdef __cplusplus
 }
