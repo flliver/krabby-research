@@ -68,3 +68,36 @@ the user's.**
   0.412–0.805 m (restore clearance binds), K3 eval tops 0.4572 / 0.635 / 0.762 m with h_cmd ≥ top + 0.31 m.
   - **Rule restated before its read (follows from the decision):** the step-4 h_max re-check uses the same statistic —
     six-leg mean |F_hip| from R_h's measured foot loads through the linkage in its top height bin — not the PD torques.
+- 2026-10-13, **steps 2–3 build + review (CPU; workflow wf_27292acb-ff1).** Core `scripts/sh_core.py` (posture map,
+  R_h, limiter, restore controller, router, stand-net input, zeroed-W warm start), then four parallel builds: eval
+  launcher (`sh_eval_crab_hex_gait.py`, `sh_eval_common.py`, `sh_eval_rows.sh`, `sh_bridge_read.py`,
+  `scenarios_sh.yaml`), DAgger trainer (`sh_dagger*.py/.sh`, `sh_starts.py`), table/ground test (`sh_table_*`),
+  readers (`sh_read.py` K1–K6, `sh_observe_read.py`). Reviews opus·xhigh + fable·high: 2 blocking + 11 minor; fix pass;
+  fable re-review clean (one minor residual, applied by me: the step-5 smoke also gates the R_h control slice's own
+  σ0 restore-timeout share ≤ 0.05, ≤ 1 timeout when < 20 ended). 227 CPU tests pass
+  (`tests/unit/test_sh_*.py`); code_sha / eval_sha unchanged (14301cd2 / 1d021625, no dirty paths).
+  **Implementation statistics pinned before any read (logged here per §Precedence):**
+  - **Restore completion rod tolerance δ = 4 mm** (PLAN's 2 mm example is below the PD sag); re-checked on R_h's
+    step-4 probe (restore-timeout share near 0).
+  - **K3 / train-time STOOD rise clause** = the ROOT rise above its spawn height ≥ 0.10 m on ≥ 95 % of the last-3-s
+    window (was: chassis lowest corner on every step — biased by tilt and floor relief at the top + 0.31 command
+    floor). Rise-only failures counted per cell. Hip-contact re-arm stays on the corner rise (trainer and K3 agree).
+  - **Estimator off-height inputs: accepted and reported.** On stand rows away from 1.064 the frozen estimator sees
+    q + residual beyond ±1 in its last-action block (and joint positions out of its walking range anyway); a ±1 clamp
+    of the block alone would not restore its distribution and would split the shared input function. Estimate ranges
+    are reported in the smoke and run_meta.
+  - **Step-5 restore assertion** gates the R_h-executed slices only (control σ0 completes, absolute share above;
+    β-R σ0 within the control line); the warm-start student's share is reported, gated at the step-6 premise.
+  - **Ground first command** bounded below at max(h_min, unclamped spawn height + 0.146 m) (the table test's rule) so
+    the "up" latch can fire on high random-fold spawns; never-up episodes counted. Table commands keep top + 0.264.
+  - **Ground spawn height** = the highest floor under the pose's 23 probe points (table-test rule).
+  - **h_max re-check:** the pre-registered top-bin [1.221, 1.346] foot-load statistic decides; the same statistic on
+    rows within 2 cm of 1.346 is reported and flagged (the bin mean sits near 1.29 m).
+  - **K4 completion** is decided by the launcher's recorded completion / timeout events; the reader's joint-space
+    re-derivation is a cross-check, a disagreement beyond ±1e-6 m marks the stamp INVALID.
+  - **K5 rows:** the rows script knows `field_turn__omni` on the shared manifest (zero command) so all nine K5 stamps
+    come from the new launcher; `scenarios_sh.yaml` unchanged for it.
+  - Table-test jobs: no `timeout -k` (no SIGKILL of Kit); the rows script waits on any Isaac process.
+  - **Deferred:** `sh_record_video.py` (step-8 raise/lower video) — its own build + review + GPU check before step 8.
+  GPU checks left for step 4: launcher/table/ground smoke, identity bridge bitwise with the restore armed, δ on the
+  R_h probe, h_meas vs raycast, trainer↔launcher parity, h_max re-check, the K4 cross-check on real stamps.
