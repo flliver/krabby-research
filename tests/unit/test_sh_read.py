@@ -402,7 +402,7 @@ def test_bins_percentile_and_share_line(R):
 def test_constants_follow_the_frozen_facts_the_core_and_the_contracts(R):
     fr = json.loads((CAMP / "facts.json").read_text())["frozen"]
     assert (R.H_MIN, R.H_MAX) == (fr["h_min_m"], fr["h_max_m"])
-    assert R.CORE.RESTORE_ROD_TOL_M == 0.004 and R.CORE.RESTORE_ENGAGE_M == 0.02
+    assert R.CORE.RESTORE_ROD_TOL_M == 0.008 and R.CORE.RESTORE_ENGAGE_M == 0.02
     assert R._P().Z2_POST["post_settle_steps_per_s"] == 0.5 and R._P().Z2_POST["post_settle_taps_per_s"] == 1.0
     assert (R.K1_WINDOW_S, R.K1_ARRIVAL_DELAY_S, R.K4_ONSET_EXTRA_S) == (2.0, 1.0, 1.5)
     assert R.row_gates({}) == {WALK_ROW: ("K1", "K4", "K6"), RAISE_ROW: ("K2", "K4")}
@@ -648,7 +648,7 @@ def test_k4_completion_is_the_recorded_event_and_the_rederivation_cross_checks(R
     t = h["handback_row"]
     # (a) the reader reads the hips differently from the controller: recorded complete, re-derived not -> INVALID
     jp = ep["joint_pos"].copy()
-    jp[t - 3, 12] += 0.05                                                # a hip-pitch joint (the simulator's col 12)
+    jp[t - 3, 12] += 0.10                                                # a hip-pitch joint (the simulator's col 12)
     bad = dict(ep, joint_pos=jp)
     r = R.read_episode(bad, R.Ctx(meta), 0)
     assert r["k4"][0]["status"] == "complete" and r["k4"][0]["complete_rederived"] is False

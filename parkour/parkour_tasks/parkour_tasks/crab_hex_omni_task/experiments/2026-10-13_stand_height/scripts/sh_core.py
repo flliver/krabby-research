@@ -45,7 +45,14 @@ WHAT IS HERE (each item is the plan's rule; the API list at the bottom of this d
    lies within ``q +- 1`` on hip / knee (lift 0.5) and R's cams are within +-1, so the clamped residual can express
    the teacher exactly.
 
-THE RESTORE ROD TOLERANCE (delta, H6; chosen here, PLAN left it open). ``RESTORE_ROD_TOL_M = 0.004`` m of hip rod on
+THE RESTORE ROD TOLERANCE (delta, H6; PLAN left it open). **Re-pinned at step 4 to ``RESTORE_ROD_TOL_M = 0.008``**
+(CHARTER section 3, 2026-10-13): the smallest whole mm >= the p99 of R's own settled walking-height stands' max-leg
+hip-rod deviation (best 0.2-s window per hold; P2R_RSTg_s18 walkstop es1 7.16 mm / es2 6.75 mm, max 8.02 mm). At 4 mm
+R_h's launcher smoke (hwalkstop es1) timed out 119 / 600 restores, every one settled in HOLD with one loaded leg at
+4.1-4.9 mm of PD sag; the 4-mm band sits inside R's normal sag (R > 4 mm on 16-20 % of settled walkstop holds), and
+the rod reading cannot tell a lifting leg from a planted one anyway (R_h LIFT rows: p50 2.9 mm). Replayed on the
+recorded smoke: 4 mm reproduces 481 / 119 exactly; 8 mm completes 600 / 600 (median 2.9 s). The original 4-mm note
+follows. ``RESTORE_ROD_TOL_M = 0.004`` m of hip rod on
 every leg, measured from the joint angle (``hip_len(default + obs[:, 29 + i])``) against ``hip_len(default)`` (=
 rod(q(1.064)) = 0.550 m). Why 4 mm and not the 2 mm the build brief suggested -- measured on the four walkstop stamps
 of the step-1 force facts (A-mask s17 es1, R = P2R_RSTg_s18 es1 / es2, 50 episodes each, stand rows held > 3 s at the
@@ -151,7 +158,7 @@ RESIDUAL_CLIP = 1.0          #: the stand net's residual a_net
 HARNESS_CLIP = 4.8           #: runtime ``env.clip_actions`` in the stand-net harnesses (no config edit)
 RESTORE_ENGAGE_M = 0.02      #: H6: a restore engages when the limited command is farther than this from H_SETTLED
 RESTORE_SETTLE_S = 0.2       #: H6: hip rods within RESTORE_ROD_TOL_M of rod(q(1.064)) this long (consecutive steps)
-RESTORE_ROD_TOL_M = 0.004    #: H6 delta, m of hip rod on every leg (see the module docstring for the measurement)
+RESTORE_ROD_TOL_M = 0.008    #: H6 delta, m of hip rod on every leg (re-pinned at step 4; see the module docstring)
 Q_GRID_STEP_M = 0.0005       #: q table node spacing; nodes at H_SETTLED + k * step
 Q_SNAP_M = 1.0e-6            #: |h - H_SETTLED| <= this maps to q = 0 exactly (float32 1.064 is 1.05e-8 off)
 LABEL_TOL = 1.0e-5           #: residual-label bound slack (float rounding of (q + r) - q)

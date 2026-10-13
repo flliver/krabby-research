@@ -458,8 +458,8 @@ def test_restore_engage_band(C, h_stand, engages):
 
 
 def test_restore_rod_tolerance_boundary(C):
-    inside = _hip_offset_for_rod_dev(C, -0.0039)
-    outside = _hip_offset_for_rod_dev(C, -0.0041)
+    inside = _hip_offset_for_rod_dev(C, -0.0079)
+    outside = _hip_offset_for_rod_dev(C, -0.0081)
     for off, completes in ((inside, True), (outside, False)):
         hc = C.HeightController(1, "cpu", dt=DT)
         hc.reset(None, "walk")
@@ -487,7 +487,7 @@ def test_restore_times_out_after_exactly_the_timeout_steps(C):
     hc = C.HeightController(1, "cpu", dt=DT)
     hc.reset(None, "walk")
     _drive(hc, _stand_then_leave(0.719, 400))
-    lifted = [-0.05] * 6                                         # ~5.8 mm of rod: never within delta
+    lifted = [-0.10] * 6                                         # ~11.7 mm of rod: never within delta
     walk = _drive(hc, [(False, None, lifted)] * 400)
     to = [i for i, s in enumerate(walk) if s.timed_out.item()]
     assert to == [hc.timeout_steps] == [266]
@@ -785,7 +785,7 @@ def test_records(C):
     pv = C.provenance()
     for k in ("sh_core_sha256", "sh_kin_sha256", "sn_common_sha256", "restance_sha256", "facts_json_sha256"):
         assert len(pv[k]) == 64
-    assert pv["h_min"] == 0.719 and pv["h_max"] == 1.346 and pv["restore_rod_tol_m"] == 0.004
+    assert pv["h_min"] == 0.719 and pv["h_max"] == 1.346 and pv["restore_rod_tol_m"] == 0.008
     assert pv["restance_d3"] == D3 and pv["clip"]["harness_clip_actions"] == 4.8
     rec = C.HeightController(4, "cpu", dt=DT).record()
     assert rec["timeout_steps"] == 266 and rec["settle_steps"] == 10

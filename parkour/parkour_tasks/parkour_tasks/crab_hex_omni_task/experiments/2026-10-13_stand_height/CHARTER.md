@@ -101,3 +101,19 @@ the user's.**
   - **Deferred:** `sh_record_video.py` (step-8 raise/lower video) — its own build + review + GPU check before step 8.
   GPU checks left for step 4: launcher/table/ground smoke, identity bridge bitwise with the restore armed, δ on the
   R_h probe, h_meas vs raycast, trainer↔launcher parity, h_max re-check, the K4 cross-check on real stamps.
+- 2026-10-13, **step 4 launcher smoke (R_h hwalkstop / hraise es1; GPU) → restore band δ re-pinned 4 → 8 mm before
+  any K4 read (decide-record-notify).** Every dose realised (each scheduled height arrives inside its hold,
+  1000 / 1000 on hraise; hip targets beyond ±1 on stand rows; R_h branches re-derive; h_meas at settled 1.064 stands
+  1.062 / 1.061 m). But **119 / 600 (hwalkstop) and 36 / 200 (hraise) restores timed out at δ = 4 mm**, every one
+  settled in HOLD with one loaded leg at 4.1–4.9 mm of hip-rod PD sag — not motion. The 4-mm band sits inside R's own
+  normal sag: on the predecessor's settled walking-height walkstop stands R (P2R_RSTg_s18) exceeds 4 mm on 20 % (es1)
+  / 16 % (es2) of holds (best 0.2-s window, max-leg; p99 7.16 / 6.75 mm, max 8.02 mm); A-mask s17 p99 3.6 / 3.9 mm.
+  The rod reading also cannot separate a lifting leg from a planted one (R_h LIFT rows p50 2.9 mm; HOME p50 14.6,
+  SEAT p50 9.3 mm), so the band's job is "posture at the walking pose, no HOME / SEAT in progress".
+  - **Rule (set from R's data, not R_h's restores):** δ = the smallest whole mm ≥ the p99 of R's settled walking-height
+    stands' max-leg hip-rod deviation (es1 7.16 mm) → **δ = 8 mm** (`sh_core.RESTORE_ROD_TOL_M = 0.008`; tests
+    updated; 224 pass + 3 skipped only because an Isaac process was running).
+  - Offline replay of the completion rule on the recorded smokes reproduces the record exactly at 4 mm (481 / 119;
+    164 / 36) and gives 600 / 600 and 200 / 200 completions at 8 mm (median 2.9 s / 4.0 s).
+  - Consequence: every stamp recorded at 4 mm reads INVALID (controller record ≠ sh_core) — R_h's es1 smoke rows are
+    re-run in the probe. SH_AMq hwalkstop es1 started after the edit (8 mm).
