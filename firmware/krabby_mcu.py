@@ -145,6 +145,9 @@ class KrabbyMCUSDK:
                     self.role_last_seen[role] = self.last_feedback_ts
                 elif line.startswith("VER "):
                     self._last_ver_line = line
+                elif line.startswith("ERR "):
+                    # Firmware error lines (e.g. ERR FWD LEFT: line overflow…).
+                    logger.error("[MCU] %s", line)
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
                     logger.info(f"[MCU] {line}")
 

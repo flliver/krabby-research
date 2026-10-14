@@ -27,6 +27,10 @@ from isaaclab.app import AppLauncher
 from data_collection.collector import start_collector_thread
 from data_collection.collector_settings import build_data_collector_config
 from data_collection.config import load_config
+from hal.server.isaac.command_backend_cli import (
+    add_command_backend_arguments,
+    validate_command_backend_args,
+)
 
 logger = logging.getLogger(__name__)
 CONTROL_RATE_HZ = 100.0
@@ -195,6 +199,7 @@ def main():
             "ICE/STUN from teleop/edge/robot_settings.py. Combine with --joystick for krabby-uno-sim on TCP."
         ),
     )
+    add_command_backend_arguments(parser)
 
     AppLauncher.add_app_launcher_args(parser)
     args = parser.parse_args()
@@ -212,6 +217,7 @@ def main():
         parser.error("--task required unless --usd is given")
     if args.teleop_ip and args.robot == "auto":
         parser.error("--teleop-ip requires --robot go2, quad, or hex (not auto)")
+    validate_command_backend_args(args, parser)
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
         logger.setLevel(logging.DEBUG)
@@ -389,6 +395,19 @@ def main():
             "Use --robot quad or --robot go2 for Go2/quad tasks; hexapod (18-joint) requires a hexapod task (not yet available)."
         )
 
+    if args.backend == "fullsim":
+        mcu_joints = robot_definition.get_mcu_joints()
+        if len(mcu_joints) != 18:
+            raise ValueError(
+                "--backend fullsim requires an 18-joint hex robot definition "
+                f"(got {len(mcu_joints)} mcu_joints for --robot {args.robot}). "
+                "Use --robot hex (e.g. Isaac-CrabHex-Joystick-v0 or --usd with crab USD)."
+            )
+        logger.info(
+            "Command backend fullsim (firmware_transport=%s)",
+            args.firmware_transport,
+        )
+
     model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
     observation_dimensions = model_definition.get_observation_dimensions(robot_definition)
     hal_server = IsaacSimHalServer(
@@ -396,6 +415,8 @@ def main():
         robot_definition,
         env=env,
         observation_dimensions=observation_dimensions,
+        command_backend=args.backend,
+        firmware_transport=args.firmware_transport,
         command_timeout_s=None if args.joystick else 1.0,
     )
     hal_server.initialize()

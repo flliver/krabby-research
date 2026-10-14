@@ -30,10 +30,10 @@ jobs:
       COGNITO_CI_PASSWORD: ${{ secrets.COGNITO_CI_PASSWORD }}
       FLEET_CI_SECRETS_PAT: ${{ secrets.FLEET_CI_SECRETS_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -65,7 +65,7 @@ jobs:
           exit "$missing"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.FLEET_CI_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}

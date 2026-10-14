@@ -11,6 +11,7 @@ static constexpr uint16_t TELEMETRY_INTERVAL_MS = 50;
 static constexpr char TELEMETRY_SEGMENT_DELIMITER = ';';
 static constexpr char TELEMETRY_FIELD_SEPARATOR = ' ';
 static constexpr char IMU_TELEMETRY_TAG[] = "IMU";
+static constexpr char BATT_TELEMETRY_TAG[] = "BATT";
 static constexpr size_t CONTROLLER_ACTUATOR_COUNT = 6;
 static constexpr size_t ACTUATOR_TELEMETRY_FIELD_COUNT = 9;
 static constexpr size_t ACTUATOR_TELEMETRY_MAX_FIELD_COUNT = 10;

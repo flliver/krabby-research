@@ -40,7 +40,7 @@ krabby firmware show <branch>  # list a branch's builds newest-first, paged
 krabby firmware update         # run krabby-firmware update inside the container
 krabby firmware <args>         # any krabby-firmware subcommand/flags
 
-krabby pair-pro                # pair Nintendo Switch Pro Controller (Bluetooth; usually under sudo)
+krabby pair-pro                # pair official Nintendo Pro (BT); third-party → USB / see CONNECT_PRO_CONTROLLER.md
 
 krabby enroll                        # one-time fleet onboarding (operator-run, needs sudo + AWS creds)
 krabby enroll --thing-name my-krab   # override the default MAC-derived thing name
@@ -64,8 +64,13 @@ enroll: [`fleet/ENROLL.md`](../fleet/ENROLL.md). One-source SSH:
 as a systemd service (`krabby-agent.service`, separate from
 `krabby-locomotion.service`).
 
+Before enroll, set the `krabby-enroll` IAM access key in the shell on the Orin
+as `AWS_*` environment variables (`sudo -E` below keeps them for the command).
+Enroll uses those variables only to provision the device and does not write AWS
+secrets to disk. Full flow: [`fleet/ENROLL.md`](../fleet/ENROLL.md).
+
 ```bash
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=<region>  # krabby-enroll keys
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=<region>
 sudo -E env PATH="$PATH" krabby enroll --thing-name <thing-name>
 ```
 
@@ -99,15 +104,31 @@ process back if it exits.
 
 `krabby run` starts the **whole** gamepad stack in one container — the HAL server and
 the `krabby-uno` client/controller together — so a paired gamepad drives the robot with
-a single command. To run just the client (e.g. the two-process debug flow), use the
-`krabby-uno` console script from the controller package (`pip install krabby-controller`)
-against the server's TCP endpoints (`tcp://host:6001` / `:6002`).
+a single command. If the Mega is on `/dev/ttyUSB*` (e.g. CH340) rather than
+`/dev/ttyACM0`, pass `KRABBY_MCU_PORT=/dev/ttyUSB0 krabby run` so the MCU presence
+check uses that path (`krabby run` forwards the env into the container). To run just
+the client (e.g. the two-process debug flow), use the `krabby-uno` console script from
+the controller package (`pip install krabby-controller`) against the server's TCP
+endpoints (`tcp://host:6001` / `:6002`).
 
 ## Start on boot
 
 `krabby install` installs a systemd unit (`krabby-locomotion.service`) that runs
 `krabby run` on boot — **enabled by default**. It runs as the invoking user, starts
 after `docker.service`, and retries if the MCU hasn't enumerated yet at boot.
+
+**Boot vs manual `krabby run`:** both use the fixed container name `krabby`. The unit
+clears that name in `ExecStartPre`; `krabby run` does the same before `docker run`, so
+a leftover or service-owned container no longer blocks a fresh start with a Docker
+Conflict error. For a **foreground** manual session while autostart is enabled, stop
+the unit first — otherwise `Restart=always` can reclaim the name after you clear it:
+
+```bash
+sudo systemctl stop krabby-locomotion
+krabby run
+# when done, restore boot ownership:
+sudo systemctl start krabby-locomotion
+```
 
 If `krabby-launcher` is in a user venv (recommended on Orin), activate that venv
 before install. Use the venv binary under `sudo` — `PATH="$PATH"` keeps the venv on

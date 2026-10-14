@@ -18,6 +18,7 @@
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
 #include "version.h"
+#include "src/controller/board_role_election.hpp"
 
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
 #define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
@@ -39,26 +40,10 @@ DisplayRenderer<Ssd1306Adapter> oledRenderer(oledDisplay);
 unsigned long lastOledDrawMilliseconds = 0;
 constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
 
-// EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
-// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
-#define EEPROM_ROLE_ADDR  32
-#define EEPROM_ROLE_MAGIC 0xAB
+// Role hint bytes: see BOARD_ROLE_EEPROM_* in board_role_election.hpp (CalData uses 0–25).
+static void saveRole(BoardRole r) { saveBoardRoleHintToEeprom(r); }
 
-static void saveRole(BoardRole r)
-{
-    EEPROM.update(EEPROM_ROLE_ADDR,     EEPROM_ROLE_MAGIC);
-    EEPROM.update(EEPROM_ROLE_ADDR + 1, (uint8_t)r);
-}
-
-static BoardRole loadRole()
-{
-    if (EEPROM.read(EEPROM_ROLE_ADDR) != EEPROM_ROLE_MAGIC)
-        return ROLE_UNKNOWN;
-    uint8_t r = EEPROM.read(EEPROM_ROLE_ADDR + 1);
-    if (r == ROLE_FRONT || r == ROLE_LEFT || r == ROLE_RIGHT)
-        return (BoardRole)r;
-    return ROLE_UNKNOWN;
-}
+static BoardRole loadRole() { return loadBoardRoleHintFromEeprom(); }
 
 static bool i2cAddressResponds(uint8_t address)
 {
@@ -217,6 +202,9 @@ static char leftPartial[TELEMETRY_LINE_MAX];
 static char rightPartial[TELEMETRY_LINE_MAX];
 static size_t leftPartialPos = 0;
 static size_t rightPartialPos = 0;
+// Rate-limit overflow reports so sustained garbage without '\n' cannot flood USB.
+static unsigned long lastFwdOverflowLogMs[BOARD_ROLE_COUNT] = {0};
+static constexpr unsigned long FWD_OVERFLOW_LOG_INTERVAL_MS = 1000;
 
 void updateActuatorStatusFromTelemetry(
     const char *line,
@@ -262,8 +250,19 @@ void forwardFullLines(
             partial[(*partialPos)++] = c;
         else
         {
-            // TODO: THIS SHOULD THROW SOME KIND OF BAD ERROR CONDITION
-            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck
+            // Buffer full before \n: discard rest of line so we don't forward a
+            // partial or get stuck, and report the drop on the uplink.
+            const unsigned long nowMs = millis();
+            if (static_cast<unsigned>(boardRole) < BOARD_ROLE_COUNT &&
+                (nowMs - lastFwdOverflowLogMs[boardRole]) >= FWD_OVERFLOW_LOG_INTERVAL_MS)
+            {
+                lastFwdOverflowLogMs[boardRole] = nowMs;
+                to->print(F("ERR FWD "));
+                to->print(boardRoleLabel(boardRole));
+                to->print(F(": line overflow (>"));
+                to->print(static_cast<unsigned>(cap - 1));
+                to->println(F(" B), discarded"));
+            }
             while (from->available())
             {
                 char d = (char)from->read();
@@ -276,98 +275,41 @@ void forwardFullLines(
 
 void determineRole()
 {
-    Serial.println("--- SYNC ---");
-
-    // Emit cached role before election so USB probe can label this port correctly
-    // even when the board is probed alone (and would otherwise appear as ROLE_UNKNOWN).
-    switch (loadRole())
-    {
-        case ROLE_FRONT: Serial.println("ROLE_HINT: FRONT"); break;
-        case ROLE_LEFT:  Serial.println("ROLE_HINT: LEFT");  break;
-        case ROLE_RIGHT: Serial.println("ROLE_HINT: RIGHT"); break;
-        default: break;
-    }
-
     pinMode(LED_BUILTIN, OUTPUT);
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
 
     const bool isI2cHost = hasFrontImu();
-    bool hasSyncFromLeft = false, hasSyncFromRight = false;
-    bool isLeftAssigned = false, isRightAssigned = false;
-    unsigned long start = millis();
-    unsigned long lastSync = 0;
+    BoardRoleElectionState electionState;
+    BoardRoleElectionStatus status = BoardRoleElectionStatus::InProgress;
 
-    do
+    while (status == BoardRoleElectionStatus::InProgress)
     {
-        // Everyone sends a SYNC_TOKEN every 10ms to see what serial lines are connected
-        if (millis() - lastSync >= 10)
-        {
-            lastSync = millis();
-            SERIAL_LEFT.println(SYNC_TOKEN);
-            SERIAL_RIGHT.println(SYNC_TOKEN);
-        }
-        // If the left serial line is available, we're either the left follower or the leader
-        if (SERIAL_LEFT.available())
-        {
-            String s = SERIAL_LEFT.readStringUntil('\n');
-            // If the leader has sent us an ASSIGN_LEFT command, we're the left follower
-            if (!isI2cHost &&
-                s.indexOf(ASSIGN_LEFT) >= 0)
-            {
-                currentRole = ROLE_LEFT;
-                actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
-                mainSerial = &SERIAL_LEFT;
-                saveRole(ROLE_LEFT);
-                Serial.println("ROLE: LEFT");
-                return;
-            }
-            if (s.indexOf(SYNC_TOKEN) >= 0) hasSyncFromLeft = true;
-        }
-        if (SERIAL_RIGHT.available())
-        {
-            String s = SERIAL_RIGHT.readStringUntil('\n');
-            // If the leader has sent us an ASSIGN_RIGHT command, we're the right follower
-            if (!isI2cHost &&
-                s.indexOf(ASSIGN_RIGHT) >= 0)
-            {
-                currentRole = ROLE_RIGHT;
-                actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
-                mainSerial = &SERIAL_RIGHT;
-                saveRole(ROLE_RIGHT);
-                Serial.println("ROLE: RIGHT");
-                return;
-            }
-            if (s.indexOf(SYNC_TOKEN) >= 0) hasSyncFromRight = true;
-        }
-
-        // The front controller assigns discovered followers.
-        if (isI2cHost || (hasSyncFromLeft && hasSyncFromRight))
-        {
-            if (hasSyncFromLeft && !isLeftAssigned)
-            {
-                SERIAL_LEFT.println(ASSIGN_LEFT);
-                isLeftAssigned = true;
-            }
-            if (hasSyncFromRight && !isRightAssigned)
-            {
-                SERIAL_RIGHT.println(ASSIGN_RIGHT);
-                isRightAssigned = true;
-            }
-        }
+        status = boardRoleElectionStepOnce(
+            electionState, isI2cHost, Serial, SERIAL_LEFT, SERIAL_RIGHT);
     }
-    while (millis() - start < 3000 && !(hasSyncFromLeft && hasSyncFromRight));
 
-    // The I2C host is the front controller.
-    if (isI2cHost || (hasSyncFromLeft && hasSyncFromRight))
+    if (status == BoardRoleElectionStatus::FollowerLeft)
+    {
+        currentRole = ROLE_LEFT;
+        actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
+        mainSerial = &SERIAL_LEFT;
+        return;
+    }
+    if (status == BoardRoleElectionStatus::FollowerRight)
+    {
+        currentRole = ROLE_RIGHT;
+        actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
+        mainSerial = &SERIAL_RIGHT;
+        return;
+    }
+    if (status == BoardRoleElectionStatus::LeaderFront)
     {
         currentRole = ROLE_FRONT;
         actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
         mainSerial = &Serial;
         leftSerial = &SERIAL_LEFT;
         rightSerial = &SERIAL_RIGHT;
-        saveRole(ROLE_FRONT);
-        Serial.println("ROLE: FRONT");
         return;
     }
 
@@ -375,9 +317,8 @@ void determineRole()
     currentRole = ROLE_UNKNOWN;
     actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
     mainSerial = &Serial;
-    leftSerial = hasSyncFromLeft ? &SERIAL_LEFT : nullptr;
-    rightSerial = hasSyncFromRight ? &SERIAL_RIGHT : nullptr;
-    Serial.println("ROLE: UNKNOWN (front actuators)");
+    leftSerial = electionState.hasSyncFromLeft ? &SERIAL_LEFT : nullptr;
+    rightSerial = electionState.hasSyncFromRight ? &SERIAL_RIGHT : nullptr;
 }
 
 void setup()

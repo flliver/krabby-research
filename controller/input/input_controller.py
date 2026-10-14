@@ -5,6 +5,9 @@ mapping, so behavior is consistent across macOS, Linux (e.g. Jetson Orin), and W
 SDL's controller mapping database normalizes different physical controllers to the same
 logical layout (left stick, right stick, triggers, shoulder buttons, stick clicks).
 
+After idle Bluetooth power-off (or USB unplug), the pad may reappear as a new SDL device.
+This class detects disconnect and reopens the controller without restarting the process.
+
 Testing:
 --------
 1. Install pygame: pip install pygame
@@ -34,6 +37,11 @@ logger = logging.getLogger(__name__)
 
 # SDL2 controller get_axis() returns int: sticks -32768..32767, triggers 0..32768
 _AXIS_SCALE = 32768.0
+
+# While disconnected, rescan the joystick subsystem this often (seconds).
+_RECONNECT_SCAN_INTERVAL_S = 1.0
+# Throttle "still waiting for controller" logs (seconds).
+_RECONNECT_LOG_INTERVAL_S = 5.0
 
 
 class InputController:
@@ -70,6 +78,7 @@ class InputController:
         self._callbacks: list[Callable[[ControllerState], None]] = []
         self._callback_lock = threading.Lock()
         self._controller: Optional[sdl2_controller.Controller] = None
+        self._controller_instance_id: Optional[int] = None
 
     @classmethod
     def get_instance(cls) -> "InputController":
@@ -131,13 +140,7 @@ class InputController:
             if self._thread.is_alive():
                 logger.warning("InputController thread did not stop cleanly")
 
-        # Clean up SDL2 controller
-        if self._controller is not None:
-            try:
-                self._controller.quit()
-            except Exception:
-                pass
-            self._controller = None
+        self._close_controller()
 
         logger.info("InputController stopped")
 
@@ -184,12 +187,142 @@ class InputController:
             if callback in self._callbacks:
                 self._callbacks.remove(callback)
 
+    def _close_controller(self) -> None:
+        """Quit and drop the open SDL2 controller handle."""
+        if self._controller is not None:
+            try:
+                self._controller.quit()
+            except Exception:
+                pass
+            self._controller = None
+        self._controller_instance_id = None
+
+    def _clear_state(self) -> None:
+        """Reset normalized state to zeros (safe after disconnect)."""
+        with self._state_lock:
+            self._state = ControllerState()
+
+    def _mark_disconnected(self, reason: str) -> None:
+        """Close controller, zero state, and log disconnect once per event."""
+        if self._controller is None:
+            return
+        logger.warning(
+            "Gamepad disconnected (%s); waiting to reopen (Home-wake / replug)",
+            reason,
+        )
+        self._close_controller()
+        self._clear_state()
+
+    def _read_instance_id(self, controller: sdl2_controller.Controller) -> Optional[int]:
+        """Return SDL instance id for an open controller, or None."""
+        try:
+            return controller.as_joystick().get_instance_id()
+        except Exception:
+            return None
+
+    def _refresh_joystick_subsystem(self) -> None:
+        """Rescan joysticks so newly appeared BT/USB nodes are visible to SDL."""
+        try:
+            if pygame.joystick.get_init():
+                pygame.joystick.quit()
+            pygame.joystick.init()
+            if not sdl2_controller.get_init():
+                sdl2_controller.init()
+        except Exception as e:
+            logger.debug("Joystick subsystem refresh failed: %s", e)
+
+    def _try_open_controller(self, device_index: Optional[int] = None) -> bool:
+        """Open a controller-capable device. Returns True on success.
+
+        Prefers ``device_index`` when given and valid; otherwise the configured
+        ``_device_id`` if still a controller; otherwise the first controller-capable
+        index (hotplug often renumbers devices).
+        """
+        try:
+            count = sdl2_controller.get_count()
+        except Exception as e:
+            logger.debug("get_count failed while reopening: %s", e)
+            return False
+
+        if count <= 0:
+            return False
+
+        candidates: list[int] = []
+        if device_index is not None:
+            candidates.append(device_index)
+        if self._device_id is not None:
+            candidates.append(self._device_id)
+        candidates.extend(range(count))
+
+        seen: set[int] = set()
+        for idx in candidates:
+            if idx in seen or idx < 0 or idx >= count:
+                continue
+            seen.add(idx)
+            try:
+                if not sdl2_controller.is_controller(idx):
+                    continue
+                controller = sdl2_controller.Controller(idx)
+            except Exception as e:
+                logger.debug("Failed to open controller index %s: %s", idx, e)
+                continue
+
+            self._controller = controller
+            self._device_id = idx
+            self._controller_instance_id = self._read_instance_id(controller)
+            name = sdl2_controller.name_forindex(idx) or "Unknown"
+            logger.info("Using SDL2 controller: %s (device_id=%s)", name, idx)
+            return True
+
+        return False
+
+    def _process_hotplug_events(self) -> None:
+        """Handle CONTROLLERDEVICEADDED / REMOVED from the pygame event queue."""
+        try:
+            events = pygame.event.get()
+        except Exception:
+            return
+
+        for event in events:
+            etype = getattr(event, "type", None)
+            if etype == pygame.CONTROLLERDEVICEREMOVED:
+                removed_id = getattr(event, "instance_id", None)
+                if (
+                    self._controller is not None
+                    and removed_id is not None
+                    and self._controller_instance_id is not None
+                    and removed_id == self._controller_instance_id
+                ):
+                    self._mark_disconnected("CONTROLLERDEVICEREMOVED")
+                elif self._controller is not None and removed_id is not None:
+                    # Unknown instance — still check attached() next tick.
+                    logger.debug(
+                        "CONTROLLERDEVICEREMOVED instance_id=%s (ours=%s)",
+                        removed_id,
+                        self._controller_instance_id,
+                    )
+            elif etype == pygame.CONTROLLERDEVICEADDED:
+                if self._controller is None:
+                    device_index = getattr(event, "device_index", None)
+                    if device_index is not None and self._try_open_controller(device_index):
+                        logger.info("Gamepad reconnected (CONTROLLERDEVICEADDED)")
+
+    def _controller_still_attached(self) -> bool:
+        """Return True if the open controller reports attached."""
+        if self._controller is None:
+            return False
+        try:
+            return bool(self._controller.attached())
+        except Exception:
+            return False
+
     def _event_loop(self) -> None:
         """Main event loop running in background thread.
 
         Uses pygame SDL2 Game Controller API. Initializes pygame and controller
         subsystem, opens the selected controller-capable device, and polls state
-        at fixed rate.
+        at fixed rate. On disconnect (idle BT sleep, unplug), zeros state and
+        reopens when the pad returns without requiring a process restart.
         """
         sleep_time = 1.0 / self._update_rate_hz
 
@@ -203,6 +336,11 @@ class InputController:
                 pygame.joystick.init()
             if not sdl2_controller.get_init():
                 sdl2_controller.init()
+            # Ensure controller hotplug events are delivered (pygame issue #4620).
+            try:
+                sdl2_controller.set_eventstate(True)
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"Failed to initialize pygame: {e}", exc_info=True)
             self._running = False
@@ -221,50 +359,46 @@ class InputController:
                 pygame.quit()
             return
 
-        # Resolve device_id: use first controller-capable device if selected one is not
-        if self._device_id >= device_count:
-            logger.warning(
-                f"Device ID {self._device_id} not available. Using device 0 instead."
-            )
-            self._device_id = 0
-
-        if not sdl2_controller.is_controller(self._device_id):
-            # Try device 0 if it is a controller
-            if sdl2_controller.is_controller(0):
-                logger.warning(
-                    f"Device {self._device_id} is not a supported game controller. "
-                    "Using device 0 instead."
-                )
-                self._device_id = 0
-            else:
-                logger.error(
-                    f"Device {self._device_id} is not a supported game controller. "
-                    "Use --list to see controller-capable devices."
-                )
-                self._running = False
-                if not pygame_was_initialized:
-                    pygame.quit()
-                return
-
-        try:
-            self._controller = sdl2_controller.Controller(self._device_id)
-            name = sdl2_controller.name_forindex(self._device_id) or "Unknown"
-            logger.info(f"Using SDL2 controller: {name}")
-        except Exception as e:
+        if not self._try_open_controller(self._device_id):
             logger.error(
-                f"Failed to initialize controller {self._device_id}: {e}",
-                exc_info=True,
+                "No supported game controller at device_id=%s. "
+                "Use --list to see controller-capable devices.",
+                self._device_id,
             )
             self._running = False
             if not pygame_was_initialized:
                 pygame.quit()
             return
 
+        last_scan_time = 0.0
+        last_wait_log_time = 0.0
+
         try:
             while self._running:
                 start_time = time.time()
 
-                self._update_state_controller(self._controller)
+                self._process_hotplug_events()
+
+                if self._controller is not None and not self._controller_still_attached():
+                    self._mark_disconnected("attached()=False")
+
+                if self._controller is not None:
+                    self._update_state_controller(self._controller)
+                else:
+                    now = time.time()
+                    if now - last_scan_time >= _RECONNECT_SCAN_INTERVAL_S:
+                        last_scan_time = now
+                        self._refresh_joystick_subsystem()
+                        if self._try_open_controller():
+                            logger.info("Gamepad reconnected after rescan")
+                        elif now - last_wait_log_time >= _RECONNECT_LOG_INTERVAL_S:
+                            last_wait_log_time = now
+                            logger.info(
+                                "Waiting for gamepad reconnect "
+                                "(press Home after idle sleep, or replug USB)…"
+                            )
+                    # Keep publishing zeros so mappers do not hold last stick values.
+                    self._clear_state()
 
                 state = self.get_state()
                 self._notify_callbacks(state)
@@ -278,12 +412,7 @@ class InputController:
             logger.error(f"InputController event loop error: {e}", exc_info=True)
             raise
         finally:
-            if self._controller is not None:
-                try:
-                    self._controller.quit()
-                except Exception:
-                    pass
-                self._controller = None
+            self._close_controller()
             if not pygame_was_initialized:
                 pygame.quit()
             self._running = False

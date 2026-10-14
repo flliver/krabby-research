@@ -5,6 +5,10 @@
 
 set -e
 
+# SDL/pygame need a private runtime dir; host /run/user/… is not in the container.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-krabby}"
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
 MCU_PORT="${KRABBY_MCU_PORT:-/dev/ttyACM0}"
 if [ ! -e "$MCU_PORT" ]; then
   echo "Error: MCU device not found at $MCU_PORT. Connect the Jetson HAL (MCU) before starting the container." >&2

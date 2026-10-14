@@ -130,6 +130,46 @@ make test-isaacsim
 - `test_isaacsim_hal_server_with_real_isaaclab` - Full integration with Isaac Lab environment
 - `test_inference_latency_requirement` - Performance test (< 15ms latency, requires checkpoint)
 
+### Firmware simulation tests (pytest)
+
+Firmware-in-Isaac work (`firmware/sim/`, scene loader, future closed-loop tests) is meant to run in this image: most dev machines do not have a native Isaac Lab + Sim install, while the container already bundles Isaac Lab, parkour tasks, and the Sim kit.
+
+**Build once** (from repo root):
+
+```bash
+make build-isaacsim-image
+```
+
+**Run the default smoke test** (single-env crab scene, one `env.step`, FRONT joint `find_joints` resolution):
+
+```bash
+./images/isaacsim/run_firmware_isaac_pytest.sh
+```
+
+**Run other firmware Isaac pytest paths** (same container setup):
+
+```bash
+./images/isaacsim/run_firmware_isaac_pytest.sh tests/integration/firmware/ -v
+./images/isaacsim/run_firmware_isaac_pytest.sh tests/unit/firmware/test_isaac_scene.py -v
+```
+
+The wrapper bind-mounts `firmware/`, `tests/`, `assets/`, and `parkour/` from your checkout so you can iterate without rebuilding the image (parkour must match the Isaac Lab version baked into the image). It sets `RUN_FIRMWARE_ISAAC=1`, activates `/workspace/testenv`, and invokes **`/isaac-sim/python.sh -m pytest`**. Plain `/workspace/testenv/bin/python` is not enough for `AppLauncher` (SimulationApp / omni modules must come from the kit Python — same rule as `run_test_runner.sh`).
+
+**Pass/fail verdict:** Do not trust the Docker process exit code alone — Kit teardown often returns 0 before pytest prints its summary. The wrapper writes artifacts under `build/firmware-isaac-pytest/` (`outcomes.jsonl`, `junit.xml`, `collected.json`) and then runs `summarize_firmware_isaac_results.py` on the host. That script prints `VERDICT: PASS` or `VERDICT: FAIL` and sets the wrapper’s exit code. Re-check after a run:
+
+```bash
+python3 images/isaacsim/summarize_firmware_isaac_results.py build/firmware-isaac-pytest
+```
+
+Optional environment variables:
+
+- `KRABBY_ISAACSIM_IMAGE` — override the Docker tag (default `krabby-isaacsim:latest`)
+- `KRABBY_ISAAC_DEVICE` — GPU device for the env cfg (default `cuda:0`)
+
+From `firmware/Makefile`, the same entry point is `make test-firmware-isaac` (repo root image must already exist).
+
+Unit tests under `tests/unit/firmware/` that do not need Sim still run on the host via `make -C firmware test-firmware`.
+
 ## Notes
 
 - Requires Isaac Sim license/access (NVIDIA NGC account)

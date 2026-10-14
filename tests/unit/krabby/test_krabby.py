@@ -503,6 +503,29 @@ class TestGamepadCmd:
         script = " ".join(gamepad_cmd("myimage:tag", ["--robot", "bogus"]))
         assert "--control-source gamepad --observation-bind" in script
 
+    def test_local_controller_tree_sets_pythonpath(self, monkeypatch):
+        # Mount clone at /opt/krabby-research so host InputController is used.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        script = gamepad_cmd("myimage:tag", [])[gamepad_cmd("myimage:tag", []).index("-c") + 1]
+        assert "/opt/krabby-research/controller" in script
+        assert "PYTHONPATH=" in script
+
+    def test_mcu_port_env_forwarded(self, monkeypatch):
+        # Same as firmware_cmd: host KRABBY_MCU_PORT must reach the launch script.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = gamepad_cmd("myimage:tag", [])
+        idx = cmd.index("KRABBY_MCU_PORT")
+        assert cmd[idx - 1] == "-e"
+
+    def test_xdg_runtime_dir_set_for_sdl(self, monkeypatch):
+        # SDL/pygame print "XDG_RUNTIME_DIR is invalid or not set" without this.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = gamepad_cmd("myimage:tag", [])
+        assert "XDG_RUNTIME_DIR=/tmp/runtime-krabby" in cmd
+        script = cmd[cmd.index("-c") + 1]
+        assert "mkdir -p \"$XDG_RUNTIME_DIR\"" in script
+        assert "chmod 700 \"$XDG_RUNTIME_DIR\"" in script
+
 
 from krabby.run import cmd_run
 from krabby import __main__ as krabby_main
@@ -515,7 +538,7 @@ class TestCmdRun:
         Returns ("gamepad"|"inference", captured_kwargs) so tests can assert which
         path ran and with what args.
         """
-        captured = {}
+        captured = {"subprocess_cmds": []}
 
         def fake_gamepad_cmd(ref, extra_args, extra_mounts=None):
             captured.update(mode="gamepad", ref=ref, extra_args=extra_args, extra_mounts=extra_mounts)
@@ -529,6 +552,10 @@ class TestCmdRun:
             captured.update(mode="fleet", ref=ref, hal_argv=hal_argv, extra_mounts=extra_mounts)
             return ["docker", "run", ref]
 
+        def fake_subprocess_run(cmd, **_kwargs):
+            captured["subprocess_cmds"].append(list(cmd))
+            return type("R", (), {"returncode": 0})()
+
         monkeypatch.setattr("krabby.run.gamepad_cmd", fake_gamepad_cmd)
         monkeypatch.setattr("krabby.run.run_cmd", fake_run_cmd)
         monkeypatch.setattr("krabby.run.fleet_hal_cmd", fake_fleet_hal_cmd)
@@ -536,10 +563,16 @@ class TestCmdRun:
         monkeypatch.setattr("krabby.run.build_hal_argv", lambda args: ["--control-source", "portal", "--teleop-ip", "127.0.0.1", "--robot", "hex"])
         monkeypatch.setattr("krabby.run.fleet_volume_mounts", lambda _cfg: [])
         monkeypatch.setattr("krabby.run.load_config", lambda: {})
-        monkeypatch.setattr("krabby.run.subprocess.run", lambda cmd: type("R", (), {"returncode": 0})())
+        monkeypatch.setattr("krabby.run.subprocess.run", fake_subprocess_run)
         monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
         cmd_run(**kwargs)
         return captured
+
+    def test_clears_krabby_container_before_docker_run(self, monkeypatch):
+        # Boot unit / prior run owns --name krabby; clear like ExecStartPre.
+        captured = self._run(monkeypatch, image_ref="img:tag")
+        assert captured["subprocess_cmds"][0] == ["docker", "rm", "-f", "krabby"]
+        assert captured["subprocess_cmds"][1][:2] == ["docker", "run"]
 
     def test_base_call_launches_gamepad_stack(self, monkeypatch):
         captured = self._run(monkeypatch, image_ref="img:tag")

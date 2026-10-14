@@ -163,6 +163,11 @@ def _opt_value(args: list[str], name: str) -> str | None:
     return None
 
 
+# In-container path for SDL/pygame (must exist and be mode 0700). Do not forward
+# the host's XDG_RUNTIME_DIR — `/run/user/…` is usually not mounted in the container.
+_XDG_RUNTIME_DIR = "/tmp/runtime-krabby"
+
+
 def _gamepad_launch_script(server_robot: str) -> str:
     """bash that brings up the HAL server + krabby-uno client/controller together.
 
@@ -173,10 +178,18 @@ def _gamepad_launch_script(server_robot: str) -> str:
     `krabby run` instead of looking like a clean shutdown.
     """
     return (
+        # SDL/pygame warn if XDG_RUNTIME_DIR is unset or not a private dir.
+        f'export XDG_RUNTIME_DIR="${{XDG_RUNTIME_DIR:-{_XDG_RUNTIME_DIR}}}"; '
+        'mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"; '
         'MCU_PORT="${KRABBY_MCU_PORT:-/dev/ttyACM0}"; '
         'if [ ! -e "$MCU_PORT" ]; then '
         'echo "warning: MCU device not found at $MCU_PORT — starting without MCU '
         '(mcu_present=false; set KRABBY_MCU_PORT if the board is elsewhere)." >&2; fi; '
+        # Local tree override: mount the clone at /opt/krabby-research
+        # (krabby run --mount "$PWD:/opt/krabby-research").
+        'if [ -d /opt/krabby-research/controller ]; then '
+        'export PYTHONPATH="/opt/krabby-research${PYTHONPATH:+:$PYTHONPATH}"; '
+        'echo "info: using host controller from /opt/krabby-research (PYTHONPATH)"; fi; '
         'krabby-hal-server-jetson --control-source gamepad' + server_robot + ' '
         '--observation-bind "tcp://*:6001" --command-bind "tcp://*:6002" & '
         'server_pid=$!; '
@@ -203,6 +216,10 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
     mounts: list[str] = []
     for m in (extra_mounts or []):
         mounts += ["-v", m]
+    # Bare `-e KRABBY_MCU_PORT` forwards the host value only when it is set, so
+    # the launch script's MCU presence check uses the same override as
+    # `krabby firmware` (e.g. CH340 boards on /dev/ttyUSB*).
+    # Explicit in-container XDG_RUNTIME_DIR so SDL/pygame do not warn at startup.
     return [
         "docker", "run", "--rm",
         "--name", "krabby",
@@ -211,6 +228,8 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
         "-v", "/dev:/dev",
         *mounts,
         *network_flags(),
+        "-e", "KRABBY_MCU_PORT",
+        "-e", f"XDG_RUNTIME_DIR={_XDG_RUNTIME_DIR}",
         "--entrypoint", "bash",
         image_ref,
         "-c", _gamepad_launch_script(server_robot),

@@ -52,7 +52,7 @@ Or with the pip-installed client: `krabby-uno` (defaults to `tcp://localhost:600
 - **Pro Controller** connected (USB or Bluetooth). Verify: `python -m controller.input --list`
 - **Jetson HAL (MCU)** connected (serial). **Firmware** package: `firmware.krabby_mcu` (see [firmware/](../../../firmware/)).
 - Server **exits with error** if firmware or MCU not available.
-- When using the helper scripts to start the container, the scripts check that the MCU device (default `/dev/ttyACM0`) exists before starting; if not, they exit with a clear error. For a different port, set `KRABBY_MCU_PORT` (e.g. `export KRABBY_MCU_PORT=/dev/ttyUSB0`).
+- MCU device check defaults to `/dev/ttyACM0`. For CH340 / other ports, set `KRABBY_MCU_PORT` (e.g. `export KRABBY_MCU_PORT=/dev/ttyUSB0`). `krabby run` and `krabby firmware` both forward that env into the container. Helper scripts that wrap `docker run` should pass `-e KRABBY_MCU_PORT` the same way; some older helpers exit if the default ACM0 path is missing.
 
 It is recommended to use a Python virtual environment to isolate dependencies: create with `python -m venv .venv`, then activate with `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows).
 

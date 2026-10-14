@@ -54,19 +54,19 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 3 | F2 | friction | `sudo krabby install` hits wrong/`No such command` binary | yes | ~10 min; every venv + sudo | 1 | 0.5 | AI docs; Human | 7.0 | done |
 | 4 | K28 | known | No top-level “read this for your intent” routing | yes (findability) | every new reader; cheapest high-impact doc fix | 1 | 0.5 | AI; Human | 8.0 | done |
 | 5 | K29 | known | Spoken `pip install krabby` ≠ `krabby-launcher` | yes (trap) | every new user who guesses the spoken name | 2 | — | AI docs loud; Human | 10.0 | open |
-| 6 | F3 | friction | GUI + Pro pair script not on PyPI; kit path needs clone | yes without clone (GUI/pair) | ~15–30 min; every kit-only bring-up | 2 | 3 | AI package/docs; Human PyPI/kit | 12.0 | done |
-| 7 | F6 | friction | Boot unit owns `/krabby`; manual `krabby run` conflicts | yes (fresh manual run) | ~2–5 min; every boot + manual run | 2 | — | AI docs/code; Human | 14.0 | open |
-| 8 | F5 | friction | Pro Controller `Paired: no` / Sync vs cache; warn blames `hid_nintendo` | yes (gamepad drive) | ~15–30 min; every first BT pair / bad reconnect | 3 | — | AI warn/docs; Human+HW | 17.0 | open |
-| 9 | F13 | friction | Pro Controller idle power-off → Home wake; HAL / `krabby run` does not reopen joystick | yes for drive after idle sleep | ~1–3 min restart; every Pro idle power-off mid-session | 16 | — | AI reopen/hotplug; Human+HW | 33.0 | open |
-| 10 | F12 | friction | Artifact-health **locomotion-image** stage FAIL | yes (green artifact-health) | ~15–60 min once Actions log read | 4 | — | AI workflow; Human Discord PASS | 37.0 | open |
-| 11 | F11 | friction | `docker/setup-qemu-action@v3` Node 20 deprecation warn | no until Node 20 removal | ~5 min when editing workflow | 4 | — | AI bump; Human CI green | 41.0 | open |
+| 6 | F3 | friction | GUI + Pro pair script not on PyPI; kit path needs clone | yes without clone (GUI/pair) | ~15–30 min; every kit-only bring-up | 2 | 3 | AI + Human package/docs; Human PyPI/kit | 12.0 | done |
+| 7 | F6 | friction | Boot unit owns `/krabby`; manual `krabby run` conflicts | was yes for fresh manual run | ~2–5 min; every boot + manual run | 2 | 3 | AI + Human docs/code; Human Orin verify | 14.0 | done |
+| 8 | F5 | friction | Pro Controller `Paired: no` / Sync vs cache; warn blames `hid_nintendo` | was yes for gamepad drive | ~15–30 min; every first BT pair / bad reconnect | 3 | 2 | AI + Human warn/script/docs; Human+HW Orin verify | 17.0 | done |
+| 9 | F13 | friction | Pro Controller idle power-off → Home wake; HAL / `krabby run` does not reopen joystick | was yes for drive after idle sleep | ~1–3 min restart; every Pro idle power-off mid-session | 16 | 10 | AI + Human reopen/hotplug; Human+HW Orin verify (incl. post-release) | 33.0 | done |
+| 10 | F12 | friction | Artifact-health **locomotion-image** stage FAIL | was yes for green artifact-health | ~15–60 min once Actions log read | 4 | 1.5 | AI + Human | 37.0 | done |
+| 11 | F11 | friction | `docker/setup-qemu-action@v3` Node 20 deprecation warn | no until Node 20 removal | ~5 min when editing workflow | 4 | 1.5 | AI + Human | 41.0 | done |
 | 12 | K1 | known | Default branch `main` publishes nothing; workflows watch `mainline`/`release/**` | yes (silent no-ship) | every merge to `main`; hours of false confidence | 6 | — | Human decision + AI change/docs | 47.0 | open |
-| 13 | K5 | known | Isaac `contacvt_sensor` typo; contact never assigned | yes (sim contact path) | every contact/current read through Isaac HAL | 1 | — | AI; Human | 48.0 | open |
-| 14 | K13 | known | Firmware error branch silently swallowed (`arduino.ino`) | yes when hit | can burn a bring-up afternoon | 6 | — | AI + Hardware; Human | 54.0 | open |
-| 15 | K17 | known | Gamepad mapper assumes start joints; does not read state | no | wrong start-pose assumptions | 3 | — | AI + Hardware; Human | 57.0 | open |
-| 16 | F9 | friction | Mid-upload interrupt / hub enum: board “vanishes” (docs-only fix) | yes until reappears | ~15–45 min per stuck board | 2 | — | AI docs (App. B); Human | 59.0 | open |
-| 17 | F7 | friction | `KRABBY_MCU_PORT` not forwarded by `gamepad_cmd` / `krabby run` | no if auto-detect works; yes if operator trusts warn | ~5–15 min; every CH340/`ttyUSB*` | 4 | — | AI forward env; Human+HW | 63.0 | open |
-| 18 | F8 | friction | `XDG_RUNTIME_DIR` error on `krabby run` (cosmetic) | no | ~0–1 min; every `krabby run` | 3 | — | AI container env; Human | **66.0** | open |
+| 13 | K5 | known | Isaac `contacvt_sensor` typo; contact never assigned | yes (sim contact path) | every contact/current read through Isaac HAL | 1 | 0 | AI; Human | 48.0 | done — already fixed (`37738a17`) |
+| 14 | K13 | known | Firmware error branch silently swallowed (`arduino.ino`) | yes when hit | can burn a bring-up afternoon | 6 | 2 | AI + Hardware; Human (Orin only has USB to FRONT, not the FRONT↔RIGHT UART, so overflow was forced by temporarily shrinking `TELEMETRY_LINE_MAX` so RIGHT telemetry overflows; USB prints `ERR FWD RIGHT: line overflow (>31 B), discarded`) | 54.0 | done |
+| 15 | K17 | known | Gamepad mapper assumes start joints; does not read state | no | wrong start-pose assumptions | 3 | 2 | AI + Human (IsaacSim only; real robot uses jog) | 57.0 | done |
+| 16 | F9 | friction | Mid-upload interrupt / hub enum: board “vanishes” (docs-only fix) | yes until reappears | ~15–45 min per stuck board | 2 | 1 | AI docs; Human | 59.0 | done |
+| 17 | F7 | friction | `KRABBY_MCU_PORT` not forwarded by `gamepad_cmd` / `krabby run` | no if auto-detect works; yes if operator trusts warn | ~5–15 min; every CH340/`ttyUSB*` | 4 | 1 | AI forward env; Human+HW | 63.0 | done |
+| 18 | F8 | friction | `XDG_RUNTIME_DIR` error on `krabby run` (cosmetic) | no | ~0–1 min; every `krabby run` | 3 | 0.5 | AI container env; Human Orin verify optional | **66.0** | done |
 
 ### ——— cut line ———
 
