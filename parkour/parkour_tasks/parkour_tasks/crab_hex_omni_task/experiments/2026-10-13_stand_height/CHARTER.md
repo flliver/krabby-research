@@ -323,3 +323,9 @@ the user's.**
     8.1–8.5 mm off (band 8 mm) while a leg seats — the same kind as R_h's own two (8.2 mm, h 1.070 / 1.071). 3 / 800 vs
     1 / 800 is well inside chance (two-proportion p ≈ 0.3); the CHARTER §2 statistics note anticipates such
     count-level misses of the `≤ max(1, R_h's)` lines.
+- 2026-10-14, **USER DECISION at the SH_T18 stop: accept the es2 K4 count miss as chance-level and run replicates.**
+  The miss stays in the record and the report. `SH_T18` = the seed-18 head of the final configuration (deadband 0.25 +
+  trim branch, `--trim-min 0.0999`). Replicates `SH_T16`, `SH_T17`: identical flags (`--mode dagger --arm mask
+  --iterations 5000 --deadband 0.25 --trim-branch --trim-min 0.0999`), judged `model_5000.pt`, mid-run premise its
+  1667–2500 with the step-6 STOP lines, then the same evals at deadband 0.25 (table test, height rows es1 + es2, the nine
+  K5 rows) and `sh_read` against the step-4b controls; chained in one serial queue (s16 then s17). Then step 8.
