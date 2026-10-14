@@ -1,0 +1,24 @@
+Notes for Leg Mark2 testing
+DKE - 10/14/2026
+
+Be aware that some choices were made that are not ideal for a production process, but represent compromises to facilitate this experiment.
+
+Some bolt placements absolutly have clearance issues that will prevent full motion. They are left here to facilitate assembly / glue up, but will need to be removed for operation (in the tibia below the knee & in the yaw straps). Alternate hardware such as flat head bolts or countersinking can be considered if testing proves them neccesary.
+
+With the exception of four metric bolts acting as pivots at the actuator ends, all bolts are specified as 1/4"-20 grade 2 commodity bolts. Grade 5 or 8 bolts here add no value as the wood will fail far before the grade 2 fasteners. Source as convienient, Tractor Supply sells them by the pound. Substitution with 6mm metric bolts should be ok with no changes to structural parts.
+
+Holes for structural bolts were drawn at 0.250 inches. Actual size depends on how the CNC will be cutting them. If they come out at exactly 0.250", assembly will be a pain. Hand drill to enlarge the holes during assembly may be neccesary.
+
+The hip assembly is drawn with way more bolts than needed. Expect early testing to reveal which of them can be left out of next revision.
+
+Plywood exact thickness is unknown. These parts are drawn for 11mm nominal (0.433") All the places where stack tollerances will matter have included a 3D printable plastic spacer. This allows for fast/easy revisions for this test, though production should have them replaced with alternate materials or removed entirely.
+
+The three principle pivot joints are 1" EMT conduit cut to length. (1.163" OD). The openings in the plywood parts are drawn to that exact size, realities of cutting may make this a "sand the plywood to fit" for this test. A small amount of greese on the plywood edge will be neccesary. A colorless lubricant such as Vasoline may be preferable if cleanliness/staining is a concern.
+
+Conduit sections are retained with a through bolt and a washer on each end. The conduit should be slightly over-length, this through bolt joint is not intended to clamp the axis of the pivot.
+Trivial 3D printed plastic "Spider" part was designed to keep the through bolt centered in the conduit during assembly. Alternalte retention such as cross-drill the conduit and cotter pin through would also be practical.
+
+The tab/slot connections in the hip will have fitment issues - the CNC cannot cut a perfectly square inside corner. There are ways to have the CNC cut a more complex geometry to clear these corners, but much depends on the specifics of software/machine/cutters. For this test, a few minutes with a hand file will square up the mating corners. 
+
+Analysis suggests the top pivot bolt for the femur actuator is the likely first failure point. That 12mm bolt spanning ~140mm will yield at about 3kN (~700 lb). The femur geometry presents a 5.1:1 lever (4.5" and 23" effective link lengths) that translates to about 140 lb at the knee. (assuming femur horizontal and tibia vertical) This is reasonable limitation for a test, but will not be acceptable for production.
+Worst case - full extension of tibia so ground contact at the toe is as far from body as possible - presents a lever ratio of ~12:1, deforming the upper hip actuator bolt with approximately 60 lb of load at the toe.
