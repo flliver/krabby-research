@@ -31,7 +31,9 @@ class ThreeBoardCommandLoop:
         self._core = core
 
     def jog_actuator(self, firmware_actuator_id: str, pwm: int) -> None:
+        # Each J line must be followed by a loop tick; one tick after 18 jogs drops commands.
         self._core.jog(firmware_actuator_id, pwm)
+        self._core.tick_firmware_without_physics()
 
     def tick_firmware(self) -> None:
         self._core.tick_firmware_without_physics()

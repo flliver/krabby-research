@@ -114,8 +114,12 @@ class IsaacSimFirmwareMCUSDK:
         if callable(apply_hal):
             apply_hal(command)
         else:
-            for firmware_id, pwm in jog_map.items():
-                self._firmware_loop.jog_actuator(firmware_id, pwm)
+            # Host three-board sim shares Arduino pin numbers across boards; jogging
+            # pwm=0 on LEFT/RIGHT clobbers FRONT drive pins. Only jog non-zero commands
+            # (matches typical teleop sparsity; real hardware has per-board pins).
+            active_fw_ids = [fw_id for fw_id, pwm in jog_map.items() if pwm != 0]
+            for firmware_id in active_fw_ids:
+                self._firmware_loop.jog_actuator(firmware_id, jog_map[firmware_id])
             self._firmware_loop.tick_firmware()
 
         action_dict = self._action_dict_from_firmware(jog_map.keys())

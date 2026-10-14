@@ -92,6 +92,8 @@ class TestIsaacSimFirmwareMCUSDKFirmwarePath:
 
         assert mock.tick_count == 1
         assert any(call[0] == "FLHL" and call[1] != 0 for call in mock.jog_calls)
+        assert all(pwm == 0 for _fw_id, pwm in mock.jog_calls if _fw_id != "FLHL")
+        assert len(mock.jog_calls) == 1
         fl_hl_idx = names.index("FL_hip_pitch")
         expected_pwm = rad_to_jog_pwm(0.2)
         assert action[0, fl_hl_idx].item() == pytest.approx(expected_pwm / 255.0)
