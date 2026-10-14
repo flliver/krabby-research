@@ -55,6 +55,7 @@ public:
     ActuatorCurrentTracker currentTracker;
     int stallLastPos = -1;
     unsigned long stallLastMoveTime = 0;
+    int stallLastAppliedPwm = 0;
 
     // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
     LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
@@ -219,6 +220,15 @@ public:
     {
         if (abs(currentPwm) < 50)
         { // Not trying to move
+            stallLastMoveTime = millis();
+            stallLastAppliedPwm = currentPwm;
+            return false;
+        }
+
+        if (currentPwm != stallLastAppliedPwm)
+        { // New drive command: do not inherit stall timing from the previous direction
+            stallLastAppliedPwm = currentPwm;
+            stallLastPos = getRawPos();
             stallLastMoveTime = millis();
             return false;
         }
