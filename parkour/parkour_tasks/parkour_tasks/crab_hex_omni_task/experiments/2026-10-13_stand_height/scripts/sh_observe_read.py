@@ -18,16 +18,20 @@ its pure statistics are reused unchanged -- ``Acc`` (stand runs, LIFT onsets, th
   to the posture the launcher recorded (``sh_q18``): "applied" = ``clip(sh_a_net, +-1)`` (the predecessor's
   clip(stand action, +-1)), "R" = ``sh_rh_target - sh_q18``. At 1.064 (q = 0, every zero-command row) this is the
   predecessor's read bit for bit; its self-checks hold in this frame (R_h's cams are R's; its LIFT hip residual is
-  ``lift``, float32 rounding <= 5e-7 < the 1e-6 check).
+  ``lift``, float32 rounding <= 5e-7 < the 1e-6 check). With a RECORDED residual deadband d > 0 (CHARTER 2026-10-14;
+  ``p2r_mode.stand_height.residual_deadband``, absent = 0) "applied" is the residual the stand net EXECUTED,
+  ``deadband(clip(sh_a_net, +-1), d)`` (``sh_core.apply_deadband_np``: hip / knee entries below d zeroed); at d = 0
+  nothing changes.
 * VALIDITY (per stamp, fail closed -> INVALID, exit 3): ``p2r_mode.variant == stand_height``; ``stand_mask`` an int
   0 / 1; ``specialist.sha256`` 64 hex; the stand_height block's ``control`` a NETWORK controller (stand_net /
   amask_old: an observe pass reads a network), its ``r_knob`` == the D3 constants, its ``command`` the row's (zero on
   walkstop / suite, manifest on the height rows); ``raw_series`` carries every raw read here;
-  ``sn_common.env_reasons`` on ``run_meta.env_vars``; six cam joints; ``dt`` > 0. Across the head's stamps: one stand
-  checkpoint sha, one mask, one S1 sha. Per episode (this wrapper's own routing check, the predecessor's is
+  ``sn_common.env_reasons`` on ``run_meta.env_vars``; six cam joints; ``dt`` > 0; a well-formed residual-deadband
+  record (absent = 0). Across the head's stamps: one stand checkpoint sha, one mask, one S1 sha, one residual
+  deadband. Per episode (this wrapper's own routing check, the predecessor's is
   satisfied by construction): the harness's recorded ``actions`` on stand rows == ``where(q != 0, a_net + q, a_net)``
   bitwise (the launcher's pre-clip record of a network controller) and ``sh_stand_action`` == ``q + clip(a_net)``
-  (rods clamped to +-4.8, cams +-1; <= 1e-6).
+  (with the recorded deadband on the clipped residual; rods clamped to +-4.8, cams +-1; <= 1e-6).
 
 CLI (CPU only; writes ONLY the two given paths)::
 
@@ -147,6 +151,10 @@ def meta_reasons(meta: dict | None, row: str) -> list[str]:
         want = "zero" if row in ZERO_ROWS else "manifest"
         if blk.get("command") != want:
             out.append(f"p2r_mode.{EC.BLOCK_KEY}.command {blk.get('command')!r} != {want!r} on a {row} row")
+        try:
+            EC.CORE.recorded_deadband(blk)
+        except ValueError as exc:
+            out.append(f"p2r_mode.{EC.BLOCK_KEY}.{EC.DEADBAND_KEY}: {exc}")
     rs = pm.get("raw_series") or []
     miss = [k for k in RAW_READ if k not in ("actions", "joint_pos") and k not in rs]
     if miss:
@@ -164,6 +172,16 @@ def meta_reasons(meta: dict | None, row: str) -> list[str]:
     return out
 
 
+def stamp_deadband(meta: dict | None):
+    """The residual deadband a stamp RECORDED (``sh_core.recorded_deadband`` on its stand_height block: absent = 0.0);
+    None when the record is malformed (``meta_reasons`` flags it)."""
+    pm = (meta or {}).get("p2r_mode") or {}
+    try:
+        return EC.CORE.recorded_deadband(pm.get(EC.BLOCK_KEY) if isinstance(pm, dict) else None)
+    except ValueError:
+        return None
+
+
 def arm_of(meta: dict | None) -> dict:
     pm = (meta or {}).get("p2r_mode") or {}
     blk = pm.get(EC.BLOCK_KEY) if isinstance(pm.get(EC.BLOCK_KEY), dict) else {}
@@ -171,15 +189,27 @@ def arm_of(meta: dict | None) -> dict:
     return {"specialist_sha256": sp.get("sha256"), "specialist_path": sp.get("path"),
             "stand_mask": pm.get(EC.MASK_KEY), "s1_checkpoint_sha256": pm.get("s1_checkpoint_sha256"),
             "stand_ckpt_kind": blk.get("stand_ckpt_kind"), "trained_stand_mask": blk.get("trained_stand_mask"),
-            "control": blk.get("control")}
+            "control": blk.get("control"), EC.DEADBAND_KEY: stamp_deadband(meta)}
+
+
+def deadband_consistency(arms: dict) -> list[str]:
+    """One residual deadband per head (this campaign's rule beside the predecessor's one checkpoint / mask / S1)."""
+    vals = sorted({str(a.get(EC.DEADBAND_KEY)) for a in arms.values()})
+    return ([f"the head's stamps mix {EC.DEADBAND_KEY}: {vals} (one residual deadband per head; absent = 0)"]
+            if len(vals) > 1 else [])
 
 
 # ============================================================================ episodes -> the predecessor's Acc
-def residual_episode(d: dict) -> tuple[dict, list[str]]:
+def residual_episode(d: dict, deadband: float = 0.0) -> tuple[dict, list[str]]:
     """One stand_height raw episode -> ``(the predecessor's episode dict in the residual frame, reasons)`` (pure).
-    reasons = this wrapper's routing / execution self-checks (module docstring)."""
+    reasons = this wrapper's routing / execution self-checks (module docstring). ``deadband`` (the stamp's recorded
+    value): > 0 -> the residual the stand net executed, ``deadband(clip(a_net, +-1))``, is the frame's "applied"; 0 ->
+    unchanged (the raw ``a_net``, which the predecessor clips itself)."""
     stand = np.asarray(d[RAW_STAND], dtype=bool)
     a_net = np.asarray(d[EC.RAW_A_NET], dtype=np.float32)
+    applied = a_net
+    if deadband:
+        applied = EC.CORE.apply_deadband_np(np.clip(a_net, np.float32(-1.0), np.float32(1.0)), deadband)
     q = np.asarray(d[EC.RAW_Q], dtype=np.float32)
     tgt = np.asarray(d[EC.RAW_RH_TARGET], dtype=np.float32)
     act = np.asarray(d["actions"], dtype=np.float32)
@@ -191,7 +221,7 @@ def residual_episode(d: dict) -> tuple[dict, list[str]]:
         if bad:
             reasons.append(f"the recorded actions differ from where(q != 0, a_net + q, a_net) on {bad} stand rows "
                            "(not the stand network's pre-clip record)")
-        want = q.astype(np.float64) + np.clip(a_net.astype(np.float64), -1.0, 1.0)
+        want = q.astype(np.float64) + np.clip(applied.astype(np.float64), -1.0, 1.0)
         want[:, 0:6] = np.clip(want[:, 0:6], -1.0, 1.0)
         want[:, 6:] = np.clip(want[:, 6:], -4.8, 4.8)
         err = float(np.abs(ex[stand].astype(np.float64) - want[stand]).max())
@@ -199,13 +229,13 @@ def residual_episode(d: dict) -> tuple[dict, list[str]]:
             reasons.append(f"{EC.RAW_STAND_ACTION} != q + clip(a_net, +-1) on stand rows (max |diff| {err:.3g})")
     z = np.zeros_like(a_net)
     out = {RAW_STAND: stand,
-           SN.RAW_STAND_ACTION: np.where(stand[:, None], a_net, z),
+           SN.RAW_STAND_ACTION: np.where(stand[:, None], applied, z),
            SN.RAW_R_TARGET: np.where(stand[:, None], tgt - q, z),
            SN.RAW_R_BRANCH: np.asarray(d[EC.RAW_RH_BRANCH]),
            SN.RAW_S1_ACTION: np.asarray(d[EC.RAW_S1_ACTION], dtype=np.float32),
            # the predecessor's routing check compares these on stand rows: satisfied by construction here (this
            # wrapper's own check above compares the harness record with the network's output)
-           "actions": np.where(stand[:, None], a_net, act),
+           "actions": np.where(stand[:, None], applied, act),
            "joint_pos": np.asarray(d["joint_pos"])}
     return out, reasons
 
@@ -219,6 +249,9 @@ def read_stamp(stamp: Path, meta: dict, params):
     files = sorted((Path(stamp) / "raw").glob("episode_*.npz"))
     if not files:
         return None, ["no raw/episode_*.npz"]
+    db = stamp_deadband(meta)
+    if db is None:
+        return None, [f"malformed {EC.DEADBAND_KEY} record"]
     acc = OBS.Acc()
     reasons = []
     for f in files:
@@ -227,7 +260,7 @@ def read_stamp(stamp: Path, meta: dict, params):
             if miss:
                 return None, [f"{f.name} lacks raw key(s) {miss}"]
             d = {k: z[k] for k in RAW_READ}
-        dd, why = residual_episode(d)
+        dd, why = residual_episode(d, db)
         reasons += [f"{f.name}: {w}" for w in why]
         acc.add_episode(dd, cams, window, params, rst.BRANCH_LIFT, rst.BRANCH_HOLD)
     return acc, reasons + OBS.check_reasons(acc)
@@ -260,7 +293,7 @@ def observe(head: str, rows: list[str], lr: Path) -> dict:
         metas[k] = OBS._json(st / "run_meta.json")
         out["rows"][k] = {"status": None, "stamp": str(st), "in_progress": newer}
     arms = {k: arm_of(metas[k]) for k in stamps}
-    cons = OBS.consistency_reasons(arms)
+    cons = OBS.consistency_reasons(arms) + deadband_consistency(arms)
     out["arm"] = next(iter(arms.values())) if arms and not cons else (arms or None)
     accs, dts = {}, {}
     for k, st in stamps.items():
@@ -276,6 +309,7 @@ def observe(head: str, rows: list[str], lr: Path) -> dict:
         dts[k] = float(metas[k]["dt"])
         accs[k] = acc
         out["rows"][k]["status"] = READ
+        out["rows"][k][EC.DEADBAND_KEY] = arms[k][EC.DEADBAND_KEY]
         out["rows"][k].update(OBS.summarize(acc, dts[k], params))
     fams = {f: [k for k in accs if parse_row(k)[0] in rws] for f, rws in FAMILIES.items()}
     fams["all"] = list(accs)
@@ -289,6 +323,10 @@ def observe(head: str, rows: list[str], lr: Path) -> dict:
         blk = OBS.summarize(OBS.Acc.pool([accs[k] for k in ks]), dt_set.pop(), params)
         blk["rows_included"] = ks
         out["pooled"][fam] = blk
+    dbs = sorted({arms[k][EC.DEADBAND_KEY] for k in accs})
+    out[EC.DEADBAND_KEY] = dbs[0] if len(dbs) == 1 else (dbs or None)
+    if dbs and dbs != [0.0]:
+        out["frame"] += f"; applied = deadband(clip(sh_a_net, +-1), {dbs}) (the recorded residual deadband)"
     out["status"] = "refused" if out["invalid"] else "partial" if out["pending"] else "complete"
     return out
 

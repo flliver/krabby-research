@@ -8,7 +8,8 @@ LAUNCH THROUGH ``sh_dagger.sh`` (process env composed before Python starts, a ``
 at a time -- it refuses while any runs).
 
     sh_dagger.py --mode dagger --arm mask --seed S --iterations N --out RUN_DIR [--num-envs 1024]
-                 [--smoke [--smoke-iters 100]] [--buffer-gb 4] [--headless --device cuda:0 ...AppLauncher args]
+                 [--smoke [--smoke-iters 100]] [--buffer-gb 4] [--deadband D]
+                 [--headless --device cuda:0 ...AppLauncher args]
     sh_dagger.py --emit-env                    # no Kit: the `export` / `unset` lines sh_dagger.sh evals
     sh_dagger.py --read RUN_DIR [--premise LO:HI]   # no Kit: the step-6 premise read (JSON)
 
@@ -31,6 +32,11 @@ every height semantic in ``sh_core.py``):
   ``episodes.jsonl``;
 * ``--smoke``: ``--smoke-iters`` iterations of the EXACT config; ``smoke.json`` with a verdict for every check of PLAN
   step 5 (``sh_dagger_spec.SMOKE_DAGGER``); exit code 6 when any fails.
+* ``--deadband D`` (default 0 = off: the run is bitwise the one without the option; CHARTER 2026-10-14 "train it in"):
+  the residual deadband (``sh_core.apply_deadband``) on the STUDENT-executed stand action only -- the labels stay R_h's
+  residuals and the R_h control / beta-R executors are untouched; recorded in run.json (``opts.deadband``,
+  ``sh_dagger.residual_deadband``, ``sh_dagger.clip``), status.json and the checkpoint infos; evaluate such a head with
+  the launcher's ``--sh-deadband D`` (forward parity at D is a smoke check).
 
 Exit codes: 0 done, 1 refused after Kit started or crashed, 2 refused before Kit, 4 interrupted (SIGTERM), 6 smoke FAIL.
 """
@@ -81,6 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--smoke", action="store_true", default=False)
     ap.add_argument("--smoke-iters", dest="smoke_iters", type=int, default=100)
     ap.add_argument("--buffer-gb", dest="buffer_gb", type=float, default=SPEC.BUFFER_GB)
+    ap.add_argument("--deadband", type=float, default=0.0)
     ap.add_argument("--emit-env", dest="emit_env", action="store_true", default=False)
     ap.add_argument("--read", default=None)
     ap.add_argument("--premise", default=None)
@@ -92,7 +99,7 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     ap = build_parser()
     o, rest = ap.parse_known_args(list(argv))
     stray = [a for a in rest if a.startswith(("--mode", "--arm", "--seed", "--iter", "--num", "--out", "--smoke",
-                                              "--buffer", "--emit", "--read", "--premise"))]
+                                              "--buffer", "--emit", "--read", "--premise", "--deadband"))]
     if stray:
         raise SystemExit(f"sh_dagger: malformed argument(s) {stray}")
     if o.emit_env or o.read:
@@ -103,6 +110,10 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         raise SystemExit("sh_dagger: --iterations / --num-envs / --buffer-gb must be > 0")
     if o.smoke and not 0 < o.smoke_iters <= o.iterations:
         raise SystemExit(f"sh_dagger: --smoke-iters {o.smoke_iters} must be in (0, --iterations]")
+    try:
+        o.deadband = SH.check_deadband(o.deadband)
+    except ValueError as exc:
+        raise SystemExit(f"sh_dagger: --deadband: {exc}") from exc
     bad = SPEC.path_reasons(o.out)
     if bad:
         raise SystemExit("sh_dagger: --out refused (the checkpoints go to an unquoted launcher argument): "
@@ -165,6 +176,21 @@ def emit_env(environ) -> str:
     return "\n".join(lines) + "\n"
 
 
+def run_deadband(run_dir) -> float:
+    """The residual deadband a run recorded (run.json ``sh_dagger`` block + its clip record, ``opts.deadband``); a
+    run.json without it (every run before the option: SH_SMOKE, SH_P18) or no run.json -> 0.0; disagreement ->
+    ValueError."""
+    p = Path(run_dir) / "run.json"
+    if not p.is_file():
+        return 0.0
+    run = json.loads(p.read_text())
+    d = SH.recorded_deadband(run.get("sh_dagger"))
+    opt = (run.get("opts") or {}).get("deadband")
+    if opt is not None and SH.check_deadband(opt) != d:
+        raise ValueError(f"{p}: opts.deadband {opt!r} != sh_dagger.{SH.RESIDUAL_DEADBAND_KEY} {d!r}")
+    return d
+
+
 def read_run(run_dir: str, premise: str | None) -> dict:
     d = Path(run_dir)
     recs = SPEC.read_stands(d / "stands.jsonl") if (d / "stands.jsonl").is_file() else []
@@ -180,14 +206,15 @@ def read_run(run_dir: str, premise: str | None) -> dict:
         g = [e for e in sel if e["kind"] == k and not e["run_start"]]
         by_kind[k] = {"episodes": len(g), "falls": sum(1 for e in g if e["end"] == "fall"),
                       "hip_ends": sum(1 for e in g if e["cause"] == "hip")}
-    return {"run": str(run_dir), "n_records": len(recs), "n_episodes": len(eps),
-            "premise": SPEC.premise_read(recs, log, lo, hi), "episodes_by_kind": by_kind}
+    return {"run": str(run_dir), "n_records": len(recs), "n_episodes": len(eps), SH.RESIDUAL_DEADBAND_KEY:
+            run_deadband(run_dir), "premise": SPEC.premise_read(recs, log, lo, hi), "episodes_by_kind": by_kind}
 
 
 # ===================================================================================== the Kit run
 def provenance(o, env_dump_sha: str) -> dict:
     from datetime import datetime, timezone  # noqa: PLC0415
 
+    db = SH.check_deadband(getattr(o, "deadband", 0.0))
     files = {"sh_dagger": _THIS, "sh_dagger_core": CORE_PATH, "sh_dagger_spec": SCRIPTS / "sh_dagger_spec.py",
              "sh_starts": STARTS_PATH, "sh_core": SCRIPTS / "sh_core.py", "sh_kin": SCRIPTS / "sh_kin.py",
              "sn_common": SH.SN_COMMON_PATH, "sn_dagger_spec_pred": SPEC.PRED_SCRIPTS / "sn_dagger_spec.py",
@@ -198,6 +225,7 @@ def provenance(o, env_dump_sha: str) -> dict:
             "sh_dagger": {
                 "task": SPEC.TASK_ID, "mode": o.mode, "arm": o.arm, "stand_mask": int(SPEC.STAND_MASK),
                 "seed": o.seed, "iterations": o.iterations, "smoke": bool(o.smoke), "num_envs": o.num_envs,
+                SH.RESIDUAL_DEADBAND_KEY: db,
                 "s1": str(SPEC.S1_CKPT), "s1_sha256": SPEC.S1_SHA256,
                 **{f"{k}_sha256": SN.sha256_file(p) for k, p in files.items()},
                 "r_knob": SN.RESTANCE_D3, "forward": "act_inference(sh_core.stand_net_input(obs, est, mask=1, "
@@ -216,7 +244,8 @@ def provenance(o, env_dump_sha: str) -> dict:
                 "first_stand_s": {"settle": SPEC.FIRST_STAND_SETTLE_S, "hold": SPEC.FIRST_STAND_HOLD_S,
                                   "margin": SPEC.FIRST_STAND_MARGIN_S},
                 "up_rise_m": SPEC.UP_RISE_M, "table_park_clear_m": SPEC.TABLE_PARK_CLEAR_M,
-                "core": SH.provenance(), "created": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
+                "core": SH.provenance(db),
+                "created": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
 
 
 def run_kit(o: argparse.Namespace, rest: list[str]) -> int:
@@ -316,9 +345,9 @@ def _run(o: argparse.Namespace, app_args) -> int:
             raise SystemExit("sh_dagger: S1's sha changed under the run")
         opts = core.RunOpts(mode=o.mode, arm=o.arm, seed=o.seed, iterations=o.iterations,
                             stop_after=(o.smoke_iters if o.smoke else o.iterations), num_envs=o.num_envs,
-                            buffer_gb=o.buffer_gb, smoke=o.smoke)
+                            buffer_gb=o.buffer_gb, smoke=o.smoke, deadband=o.deadband)
         infos = provenance(o, hashlib.sha256(dump.encode()).hexdigest())
-        infos["sh_dagger"]["clip"] = {**SH.clip_record(), "env_clip_actions": float(env.clip_actions),
+        infos["sh_dagger"]["clip"] = {**SH.clip_record(o.deadband), "env_clip_actions": float(env.clip_actions),
                                       "config_clip_actions": float(agent_cfg.clip_actions)}
         (out / "run.json").write_text(json.dumps({"opts": opts.to_dict(), **infos}, indent=1, sort_keys=True,
                                                  default=str))

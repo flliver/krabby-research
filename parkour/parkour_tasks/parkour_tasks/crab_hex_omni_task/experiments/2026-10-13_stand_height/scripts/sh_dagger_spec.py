@@ -450,6 +450,8 @@ SMOKE_DAGGER = (
     ("stand_hip_targets_below_minus1", "realised hip targets < -1 unit on stand rows"),
     ("harness_clip_4p8", "the wrapper clip realised at 4.8 (runtime), the config's 1.0 untouched"),
     ("forward_parity", "trainer <-> launcher forward parity (same device, same batch)"),
+    ("student_deadband_realised", "the residual deadband (CHARTER 2026-10-14; --deadband d > 0 only, else not "
+                                  "applied): no realised student hip / knee residual inside (0, d)"),
     ("warm_start_zeroed", "warm start = A-mask s17 (sha) with W[:, 15] zeroed"),
     ("handovers", "walk -> stand handovers and stand exits happen"),
     ("branch_shares_student_rows", "branch shares on student-visited rows"),

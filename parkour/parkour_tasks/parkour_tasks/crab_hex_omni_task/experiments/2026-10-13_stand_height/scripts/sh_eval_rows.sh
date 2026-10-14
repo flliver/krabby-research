@@ -26,13 +26,22 @@
 #     RESTORE     armed | off (off = hand back at height: the K4 known-bad)
 #   e.g. R_h on the height rows es1 + es2:  sh_eval_rows.sh SH_RH_ctl r_h manifest armed - - hwalkstop__omni@1
 #        hwalkstop__omni@2 hraise__omni@1 hraise__omni@2 ;  then sh_bridge_read.py --head SH_RH_ctl --smoke --rows ...
-# Guards: SH_ID_s18 is exactly the bridge (S1, mask 0, stand_net, zero, armed); S1 as the stand checkpoint only under an
-# SH_ID* name; a row's command must be its manifest's (zero on identity rows, manifest on height rows); P2_ENV_EXTRA
-# empty; no P2R_* / SH_* / SN_STAND_* variables in the environment (the launcher's fallbacks never set here).
+# Residual deadband (CHARTER section 3, 2026-10-14 "USER DECISION at the step-6 stop: probe a residual deadband"; off
+# by default): an optional leading --deadband X (0 < X < 1) before NAME adds `--sh-deadband X` to every row's launcher
+# args (sh_core.apply_deadband: hip / knee residual entries below X zeroed after the +-1 clamp, before + q; recorded in
+# run_meta p2r_mode.stand_height.residual_deadband). Network controllers only, never the identity bridge (no default
+# NAME, no SH_ID* name, never S1 as the stand checkpoint). Give the head its own NAME (e.g. SH_P18db): sh_read refuses
+# a head whose stamps mix deadbands. e.g. the step-6 probe's height rows:
+#   sh_eval_rows.sh --deadband 0.25 SH_P18db stand_net manifest armed .../runs/SH_P18/model_5000.pt 1 \
+#        hwalkstop__omni@1 hwalkstop__omni@2 hraise__omni@1 hraise__omni@2
+# Guards: SH_ID_s18 is exactly the bridge (S1, mask 0, stand_net, zero, armed, no deadband); S1 as the stand checkpoint
+# only under an SH_ID* name; a row's command must be its manifest's (zero on identity rows, manifest on height rows);
+# P2_ENV_EXTRA empty; no P2R_* / SH_* / SN_STAND_* variables in the environment (the launcher's fallbacks never set
+# here).
 # Log lines "SHROWS ..." in $LOG; a STOP_QUEUE file (phase-2 OUT or the stand_height output dir) stops before a row.
 #
 # usage: sh_eval_rows.sh [--dry-run]
-#        sh_eval_rows.sh [--dry-run] NAME CONTROLLER COMMAND RESTORE STAND_CKPT MASK [ROW@ES ...]
+#        sh_eval_rows.sh [--dry-run] [--deadband X] NAME CONTROLLER COMMAND RESTORE STAND_CKPT MASK [ROW@ES ...]
 set -u
 R=/home/nickmagus/krabby/krabby-research
 TASK=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task
@@ -47,9 +56,28 @@ SHOUT=$R/parkour/outputs/omni_plan/stand_height
 LOG=$SHOUT/sh_rows.log
 CK=$R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt
 ST=$OUT/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24
-DRY=0
-if [ "${1:-}" = "--dry-run" ]; then DRY=1; shift; fi
+DRY=0; DB=""
 die() { echo "sh_eval_rows: $*" >&2; exit 2; }
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY=1; shift ;;
+    --deadband|--deadband=*)
+      [ -z "$DB" ] || die "--deadband given twice"
+      if [ "$1" = --deadband ]; then
+        [ $# -ge 2 ] || die "--deadband needs a value X (0 < X < 1)"
+        DB=$2; shift 2
+      else
+        DB=${1#--deadband=}; shift
+      fi
+      [ -n "$DB" ] || die "--deadband needs a value X (0 < X < 1), got an empty one" ;;
+    *) break ;;
+  esac
+done
+if [ -n "$DB" ]; then
+  case "$DB" in *[!0-9.]*|.|*.*.*) die "--deadband X must be a plain decimal number (0 < X < 1), got '$DB'" ;; esac
+  awk -v x="$DB" 'BEGIN { exit !(x + 0 > 0 && x + 0 < 1) }' || die "--deadband X must satisfy 0 < X < 1 (omit it for 0), got '$DB'"
+  [ $# -gt 0 ] || die "--deadband needs an explicit NAME CONTROLLER ...: the default run is the identity bridge (no deadband)"
+fi
 IDROWS=(suite__omni@1 walkstop__omni@1 field_hard__omni@1)
 HROWS=(hwalkstop__omni@1 hraise__omni@1)
 if [ $# -eq 0 ]; then
@@ -93,8 +121,13 @@ else
   [ "$SCK" = - ] && [ "$MASK" = - ] || die "a scripted controller ($CTL) takes STAND_CKPT '-' and MASK '-', got '$SCK' '$MASK'"
 fi
 case "$LAUNCHER" in *[[:space:]*?\[\]]*) die "the launcher path contains whitespace / glob characters" ;; esac
-if [ "$NAME" = SH_ID_s18 ] && { [ "$IS_S1" != 1 ] || [ "$MASK" != 0 ] || [ "$CTL" != stand_net ] || [ "$CMD" != zero ] || [ "$RST" != armed ]; }; then
-  die "SH_ID_s18 is the identity bridge: S1 ($CK), MASK 0, stand_net, zero, armed only; got $SCK mask $MASK $CTL $CMD $RST"
+if [ "$NAME" = SH_ID_s18 ] && { [ "$IS_S1" != 1 ] || [ "$MASK" != 0 ] || [ "$CTL" != stand_net ] || [ "$CMD" != zero ] || [ "$RST" != armed ] || [ -n "$DB" ]; }; then
+  die "SH_ID_s18 is the identity bridge: S1 ($CK), MASK 0, stand_net, zero, armed, no --deadband only; got $SCK mask $MASK $CTL $CMD $RST deadband '${DB:-0}'"
+fi
+if [ -n "$DB" ]; then
+  [ "$NET" = 1 ] || die "--deadband acts on a stand network's residual: CONTROLLER must be stand_net / amask_old, got '$CTL'"
+  case "$NAME" in SH_ID*) die "--deadband is never the identity bridge (an SH_ID* name), got '$NAME'" ;; esac
+  [ "$IS_S1" = 0 ] || die "--deadband with S1 as the stand checkpoint (the identity bridge) is refused"
 fi
 case "$NAME" in SH_ID*) ;; *) [ "$IS_S1" = 0 ] || die "S1 as the stand checkpoint only under an SH_ID* head name, not '$NAME'" ;; esac
 [ -f "$CK" ] || die "no S1 checkpoint $CK"
@@ -112,6 +145,7 @@ for spec in "${ROWS[@]}"; do
 done
 EXTRA="--sh-controller $CTL --sh-command $CMD --sh-restore $RST"
 [ "$NET" = 1 ] && EXTRA="$EXTRA --stand-ckpt $SCK --stand-mask $MASK"
+[ -n "$DB" ] && EXTRA="$EXTRA --sh-deadband $DB"
 
 [ "$DRY" = 1 ] || mkdir -p "$SHOUT"
 say() { [ "$DRY" = 1 ] || echo "SHROWS $* $(date -Is)" >> "$LOG"; }
@@ -126,7 +160,7 @@ NONKIT_PAT='(s[hn]_dagger\.py .*--(read|emit-env)([ =]|$))|(s[hn]_table_test\.py
 TRAINER_PAT='s[hn]_dagger\.py'
 isaac_busy() { ps -ww -eo args | grep -E "$ISAAC_PAT" | grep -qvE "$NONKIT_PAT"; }
 trainer_busy() { ps -ww -eo args | grep -E "$ISAAC_PAT" | grep -vE "$NONKIT_PAT" | grep -qE "$TRAINER_PAT"; }
-say START "$NAME" controller="$CTL" command="$CMD" restore="$RST" stand_ckpt="$SCK" mask="$MASK" rows="${ROWS[*]}"
+say START "$NAME" controller="$CTL" command="$CMD" restore="$RST" stand_ckpt="$SCK" mask="$MASK" deadband="${DB:-0}" rows="${ROWS[*]}"
 for spec in "${ROWS[@]}"; do
   row=${spec%@*}; es=${spec##*@}; man=$(manifest "$row")
   if [ -f "$OUT/STOP_QUEUE" ] || [ -f "$SHOUT/STOP_QUEUE" ]; then say STOP STOP_QUEUE present; exit 4; fi

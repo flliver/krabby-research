@@ -12,13 +12,18 @@
 #       random fold, the reported ground rod_min; 2-s episodes, --smoke), then a 1-env 2-s r_h video job on the gated
 #       25-in table knee_folded (the render / memory-hazard path); --smoke-no-video drops the video job
 #   sh_table_test.sh [--seeds "1 2"] [--controllers "r_h stand_net posture_only s1 amask_old"] [--cells all]
-#                    [--envs-per-cell 100] [--split none|surface] [--stand-ckpt P] [--label L]
+#                    [--envs-per-cell 100] [--split none|surface] [--stand-ckpt P] [--label L] [--deadband X]
 #                    [--videos "r_h stand_net"] [--video-cells "table_0p635__knee_folded table_0p6985__random
 #                    table_0p762__knee_folded"] [--video-seed 1] [--dry-run] [--wait-idle] [--foreground]
 #       the FULL K3 run: per env seed, per controller one stats job holding every cell -- the 6 GATED cells (tops
 #       0.635 / 0.6985 / 0.762 x knee_folded / random) AND the 9 REPORTED ones (the 18-in table, every rod_min cell,
 #       the ground) (--split surface: one job per surface), --jitter, the pinned K3 episode; then the 1-env videos;
 #       then the merge (K3 vs r_h on the gated cells, the R_h floor per gated top; the reported cells listed apart)
+#       --deadband X (0 < X < 1; default off): the residual deadband (CHARTER 2026-10-14 probe) on the stand_net jobs
+#       ONLY (like --stand-ckpt / --label; sh_table_test.py --deadband refuses it elsewhere); every cell records it and
+#       the merge refuses a label mixing deadbands -- e.g. the step-6 probe:
+#         sh_table_test.sh --controllers stand_net --videos stand_net --stand-ckpt .../runs/SH_P18/model_5000.pt \
+#             --label SH_P18db --deadband 0.25
 #   sh_table_test.sh --run-queue STAMP_DIR     (internal: the detached queue runner)
 #
 # Every run gets a stamp dir $BASE/<date>_<smoke|full>/ (BASE = SH_TABLE_OUT, default parkour/logs/videos/sh_table):
@@ -110,6 +115,7 @@ fi
 
 # ------------------------------------------------------------------ the launcher
 DRY=0; WAIT=0; FG=0; SMOKE=0; SMOKE_VIDEO=1; SEEDS="1 2"; NENV=100; CELLS=all; SPLIT=none; STAND_CKPT=""; LABEL=""
+DEADBAND=""
 CTRLS="r_h stand_net posture_only s1 amask_old"; VIDS="r_h stand_net"; VSEED=1
 # the K3 surfaces (sh_table_core.SURFACES: gated tops 0.635 / 0.6985 / 0.762, the reported 18-in table, the ground)
 VCELLS="table_0p635__knee_folded table_0p6985__random table_0p762__knee_folded"
@@ -129,6 +135,8 @@ while [ $# -gt 0 ]; do
     --split) [ $# -ge 2 ] || die "--split needs a value"; SPLIT=$2; shift 2 ;;
     --stand-ckpt) [ $# -ge 2 ] || die "--stand-ckpt needs a value"; STAND_CKPT=$2; shift 2 ;;
     --label) [ $# -ge 2 ] || die "--label needs a value"; LABEL=$2; shift 2 ;;
+    --deadband) [ $# -ge 2 ] || die "--deadband needs a value"; [ -z "$DEADBAND" ] || die "--deadband given twice"
+                DEADBAND=$2; [ -n "$DEADBAND" ] || die "--deadband needs a value"; shift 2 ;;
     --videos) [ $# -ge 2 ] || die "--videos needs a value"; VIDS=$2; shift 2 ;;
     --video-cells) [ $# -ge 2 ] || die "--video-cells needs a value"; VCELLS=$2; shift 2 ;;
     --video-seed) [ $# -ge 2 ] || die "--video-seed needs a value"; VSEED=$2; shift 2 ;;
@@ -144,18 +152,24 @@ for c in $CTRLS $VIDS; do case "$c" in r_h|stand_net|posture_only|s1|amask_old) 
 case "$CELLS" in *[[:space:]]*) die "--cells is one comma list (no spaces), got '$CELLS'" ;; esac
 case "$STAND_CKPT" in *[[:space:]*?\[\]]*) die "--stand-ckpt has whitespace / glob characters: $STAND_CKPT" ;; esac
 case "$LABEL" in ''|*[!A-Za-z0-9_.-]*) [ -z "$LABEL" ] || die "--label must be [A-Za-z0-9_.-]+, got '$LABEL'" ;; esac
+if [ -n "$DEADBAND" ]; then
+  case "$DEADBAND" in *[!0-9.]*|.|*.*.*) die "--deadband X must be a plain decimal number (0 < X < 1), got '$DEADBAND'" ;; esac
+  awk -v x="$DEADBAND" 'BEGIN { exit !(x + 0 > 0 && x + 0 < 1) }' || die "--deadband X must satisfy 0 < X < 1 (omit it for 0), got '$DEADBAND'"
+  case " $CTRLS $VIDS " in *" stand_net "*) ;; *) die "--deadband acts on the stand_net jobs only, and none is queued" ;; esac
+fi
 case "$TMO" in ''|*[!0-9]*|0) die "SH_TABLE_TIMEOUT must be a positive integer of seconds, got '$TMO'" ;; esac
 case "$WAIT_MAX" in ''|*[!0-9]*|0) die "SH_TABLE_WAIT_MAX must be a positive integer of seconds, got '$WAIT_MAX'" ;; esac
 case "$BASE" in *[[:space:]*?\[\]]*) die "output base has whitespace / glob characters: $BASE" ;; esac
 [ -f "$SCRIPT" ] || die "missing $SCRIPT"
 [ -x "$PY" ] || die "no python at $PY"
 
-# per-controller extra args: the stand checkpoint and the label reach stand_net only
+# per-controller extra args: the stand checkpoint, the label and the residual deadband reach stand_net only
 xargs_for() {
   local c=$1 x=""
   if [ "$c" = stand_net ]; then
     [ -n "$STAND_CKPT" ] && x="$x --stand-ckpt $STAND_CKPT"
     [ -n "$LABEL" ] && x="$x --label $LABEL"
+    [ -n "$DEADBAND" ] && x="$x --deadband $DEADBAND"
   fi
   echo "$x"
 }
@@ -218,7 +232,7 @@ CUDA_VISIBLE_DEVICES="" "$PY" -B "$SCRIPT" --emit-facts --out "$STAMP" > "$STAMP
   || { cat "$STAMP/facts.log" >&2; die "--emit-facts failed (see $STAMP/facts.log); nothing launched"; }
 echo "$STAMP" > "$BASE/LATEST"
 QLOG=$STAMP/queue.log
-echo "[$(date -Is)] sh_table_test.sh mode=$MODE seeds='$SEEDS' cells=$CELLS envs_per_cell=$NENV split=$SPLIT controllers='$CTRLS' videos='$VIDS' video_cells='$VCELLS' stand_ckpt='${STAND_CKPT:-default}' DerivedDataCache=${G}GB" >> "$QLOG"
+echo "[$(date -Is)] sh_table_test.sh mode=$MODE seeds='$SEEDS' cells=$CELLS envs_per_cell=$NENV split=$SPLIT controllers='$CTRLS' videos='$VIDS' video_cells='$VCELLS' stand_ckpt='${STAND_CKPT:-default}' deadband='${DEADBAND:-0}' DerivedDataCache=${G}GB" >> "$QLOG"
 
 if [ "$FG" = 1 ]; then
   run_queue "$STAMP"

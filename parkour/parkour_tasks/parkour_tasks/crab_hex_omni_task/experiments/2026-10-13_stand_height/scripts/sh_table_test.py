@@ -18,7 +18,12 @@ The Isaac run (``--headless``; ``--enable_cameras`` with ``--video``)::
 
     sh_table_test.py --controller {r_h,stand_net,posture_only,s1,amask_old} [--cells all|<surface>|<cell>,...]
                      [--envs-per-cell 100] [--seed 1] [--jitter] [--h-cmd H] [--stand-ckpt P] [--stand-mask 1]
-                     [--label L] [--video] [--smoke [--episode-s S]] --out DIR [--prefix P] --headless ...
+                     [--deadband D] [--label L] [--video] [--smoke [--episode-s S]] --out DIR [--prefix P] --headless ...
+
+``--deadband D`` (``stand_net`` only; default 0 = off, the action path without it, bitwise): the router's residual
+deadband (``sh_core.apply_deadband``; CHARTER 2026-10-14 probe), recorded in the job summary and in every cell's meta
+(``residual_deadband``); the default label of a deadbanded run carries it (``stand_net_<sha8>_db0p25``), and the merge
+refuses a label whose cells mix deadbands.
 
 THE SETUP (what differs from the predecessor test; everything else is its setup, recorded in the summary):
 
@@ -122,6 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--s1-ckpt", dest="s1_ckpt", default=str(DEFAULT_S1))
     ap.add_argument("--stand-ckpt", dest="stand_ckpt", default=str(SH.STAND_NET_CKPT))
     ap.add_argument("--stand-mask", dest="stand_mask", type=int, choices=(0, 1), default=1)
+    ap.add_argument("--deadband", type=float, default=0.0)
     ap.add_argument("--friction", type=float, default=None)
     ap.add_argument("--cam-eye", dest="cam_eye", default="-4.5,-4.5,1.9")
     ap.add_argument("--cam-lookat", dest="cam_lookat", default="0.0,0.0,0.6")
@@ -134,17 +140,28 @@ def build_parser() -> argparse.ArgumentParser:
 
 _OWN = ("--controller", "--cells", "--envs-per-cell", "--seed", "--jitter", "--episode-s", "--h-cmd", "--label",
         "--video", "--out", "--prefix", "--overwrite", "--smoke", "--eval-run", "--s1-ckpt", "--stand-ckpt",
-        "--stand-mask", "--friction", "--cam-", "--quality", "--rss-", "--emit-facts", "--merge")
+        "--stand-mask", "--deadband", "--friction", "--cam-", "--quality", "--rss-", "--emit-facts", "--merge")
+
+
+def deadband_tag(d) -> str:
+    """``_db0p25`` for a residual deadband > 0 (label-safe), ``""`` for 0 or a malformed value (refused pre-Kit)."""
+    try:
+        d = SH.check_deadband(d)
+    except ValueError:
+        return ""
+    return f"_db{d:g}".replace(".", "p") if d else ""
 
 
 def default_label(o: argparse.Namespace) -> str | None:
     """The merge key: the controller, a stand checkpoint's sha prefix for ``stand_net`` (two checkpoints never
-    collide in one stamp dir)."""
+    collide in one stamp dir) and its residual deadband when > 0 (``_db0p25``: a deadbanded run never shares a label
+    with the plain one)."""
     if o.controller is None:
         return None
     if o.controller == "stand_net":
         p = Path(o.stand_ckpt)
-        return "stand_net_" + (SN.sha256_file(p)[:8] if p.is_file() else "missing")
+        return "stand_net_" + (SN.sha256_file(p)[:8] if p.is_file() else "missing") + deadband_tag(
+            getattr(o, "deadband", 0.0))
     return o.controller
 
 
@@ -202,6 +219,14 @@ def pre_kit_reasons(o: argparse.Namespace, rest: list[str]) -> list[str]:
                 out.append(f"{p} exists (pass --overwrite or a new --prefix)")
     if o.friction is not None and not o.friction > 0:
         out.append("--friction must be > 0")
+    try:
+        db = SH.check_deadband(o.deadband)
+    except ValueError as exc:
+        out.append(f"--deadband: {exc}")
+        db = 0.0
+    if db and o.controller != CORE.DEADBAND_CONTROLLER:
+        out.append(f"--deadband {db} runs on --controller {CORE.DEADBAND_CONTROLLER} only (a stand network's residual), "
+                   f"not {o.controller}")
     if cells and o.envs_per_cell >= 1:
         try:
             plan = CORE.plan_envs(cells, o.envs_per_cell, o.seed, jitter=o.jitter, h_cmd=o.h_cmd)
@@ -701,7 +726,8 @@ def _run(o, app_args, rm_path: Path, want: dict, dropped: list) -> int:  # noqa:
         h0_np, h_init_np = h0.detach().cpu().numpy(), h_init.detach().cpu().numpy()
         print(f"[SHT] spawn h_meas {h0_np.min():.3f}..{h0_np.max():.3f} m -> limiter init {h_init_np.min():.3f}.."
               f"{h_init_np.max():.3f} m; commands {h_cmd_t.min().item():.3f}..{h_cmd_t.max().item():.3f} m; "
-              f"{N} envs, {T} steps ({ep_s} s), controller {o.controller} ({o.label})", flush=True)
+              f"{N} envs, {T} steps ({ep_s} s), controller {o.controller} ({o.label}), residual deadband "
+              f"{float(o.deadband):g}", flush=True)
 
         # ---- buffers (device), entry t = the state after control step t
         f32 = dict(device=device)
@@ -770,7 +796,7 @@ def _run(o, app_args, rm_path: Path, want: dict, dropped: list) -> int:  # noqa:
                     hs = hc.step(stand, h_cmd_t, obs)
                     actions, extra = CORE.controller_actions(
                         o.controller, obs, stand, hs, s1=s1, s1_est=s1_est, p0=p0, p1=p1, num_prop=num_prop,
-                        st_pol=st, st_est=st_est, mask=int(o.stand_mask))
+                        st_pol=st, st_est=st_est, mask=int(o.stand_mask), deadband=float(o.deadband))
                     B["actions"][t] = actions.clamp(-SH.HARNESS_CLIP, SH.HARNESS_CLIP)    # the wrapper's clip
                     B["stand"][t], B["stand_eff"][t], B["restoring"][t] = stand, hs.stand_eff, hs.restoring
                     B["h_lim"][t] = hs.h_lim
@@ -901,23 +927,25 @@ def _run(o, app_args, rm_path: Path, want: dict, dropped: list) -> int:  # noqa:
             "s1_ckpt": str(o.s1_ckpt), "s1_sha256": SPEC.S1_SHA256,
             "stand_ckpt": str(o.stand_ckpt) if o.controller in CORE.STAND_CONTROLLERS else None,
             "stand_sha256": (stand_check or {}).get("sha256"), "stand_mask": int(o.stand_mask),
-            "stand_check": stand_check, "r_knob": SN.RESTANCE_D3, "crab_failure": fail,
+            SH.RESIDUAL_DEADBAND_KEY: float(o.deadband), "stand_check": stand_check, "r_knob": SN.RESTANCE_D3,
+            "crab_failure": fail,
             "eval_run_meta": str(rm_path), "env_vars": want, "krabby_dropped": dropped,
             "harness_overrides": {k: (v if isinstance(v, (int, float, str, bool, type(None))) else repr(v))
                                   for k, v in applied.items()},
-            "max_episode_length": int(unwrapped.max_episode_length), "clip": {**SH.clip_record(), "realised": float(
-                env.clip_actions), "agent_cfg": agent_clip},
+            "max_episode_length": int(unwrapped.max_episode_length),
+            "clip": {**SH.clip_record(float(o.deadband)), "realised": float(env.clip_actions), "agent_cfg": agent_clip},
             "observed_command_slots": {str(k): int(v) for k, v in observed_slots.items()},
             "latch_preexisting": bool(latch_pre), "joint_limits_sim": lim_rows, "start_state": start,
             "terrain_mesh": mesh_key, "table_pose_check": table_check, "plan_sha256": CORE.plan_digest(plan),
             "trace_sha256": trace.hexdigest(), "wall_s": time.time() - t_run,
             "peak_rss_gb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0 / 1024.0,
-            "shas": {k: SN.sha256_file(p) for k, p in files.items()}, "provenance": SH.provenance(),
+            "shas": {k: SN.sha256_file(p) for k, p in files.items()}, "provenance": SH.provenance(float(o.deadband)),
             "app_args": vars(app_args) if hasattr(app_args, "__dict__") else None,
         }
         cell_meta = {k: meta[k] for k in ("controller", "label", "seed", "jitter", "episode_s", "k3_episode_s", "dt",
                                           "steps", "smoke", "video", "mp4", "stand_sha256", "stand_mask", "r_knob",
-                                          "crab_failure", "plan_sha256", "trace_sha256", "envs_per_cell")}
+                                          "crab_failure", "plan_sha256", "trace_sha256", "envs_per_cell",
+                                          SH.RESIDUAL_DEADBAND_KEY)}
         cell_meta["kind"] = CORE.CELL_KIND
         cell_files, aggs = {}, {}
         for cell in cells:

@@ -25,7 +25,10 @@ Pinned here:
 * the action-clip check, the crab_failure read before it is disabled, the env composition (time-out only, DR off,
   ``sh_start`` LAST, the tall kinematic table);
 * the launcher: ``bash -n``, the busy pattern, ``--dry-run`` (smoke / full / split; nothing written), refusals, and the
-  queue with fake tools (facts first, serial jobs, the merge last, stop at the first failure, a failed merge is rc 6).
+  queue with fake tools (facts first, serial jobs, the merge last, stop at the first failure, a failed merge is rc 6);
+* the residual deadband (CHARTER 2026-10-14): ``--deadband`` on stand_net only (controller, pre-Kit, launcher jobs),
+  its default label suffix, the Kit path records it in the summary and every cell, the merge never pools two deadbands
+  under one label (absent = 0).
 """
 from __future__ import annotations
 
@@ -1307,3 +1310,141 @@ def test_launcher_failures(tmp_path):
     assert r.returncode == 6, (r.stdout, r.stderr)
     q = (Path((tmp_path / "b" / "out" / "LATEST").read_text().strip()) / "queue.log").read_text()
     assert "merge failed" in q and "SHTABLE QUEUE END rc=6" in q and "SHTABLE QUEUE END rc=0" not in q
+
+
+# ===================================================================================== the residual deadband
+# CHARTER section 3, 2026-10-14 "probe a residual deadband": --deadband D on stand_net only, recorded per cell, the
+# merge never pools two deadbands under one label.
+def test_controller_deadband_stand_net_only(C, SH):
+    n = 6
+    obs = _obs(n, 3)
+    s1_est, st_est = _Est(P1 - P0, 0.01), _Est(P1 - P0, -0.02)
+    s1 = _Net(lambda x: 1.7 * torch.tanh(3.0 * x[:, :18]))
+    st = _Net(lambda x: 0.4 * torch.tanh(x[:, 65:83] + x[:, P0:P0 + 1]))   # small residuals: many below 0.25
+    slot = torch.tensor([True, True, False, True, False, True])
+    h = torch.tensor([0.8, 1.2, 1.064, 1.064, 0.9, 1.3], dtype=torch.float64)
+    hc = SH.HeightController(n, "cpu", dt=DT)
+    hc.reset(None, "walk", h_cmd=h)
+    hs = hc.step(slot, h, obs)
+    harness = obs.clone()
+    harness[:, P0:P1] = s1_est.inference(harness[:, :NP])
+    a_s1 = s1.fn(harness)
+    kw = dict(s1=s1, s1_est=s1_est, p0=P0, p1=P1, num_prop=NP, st_pol=st, st_est=st_est, mask=1)
+    x = SH.stand_net_input(harness, st_est, p0=P0, p1=P1, num_prop=NP, mask=1, h_cmd_limited=hs.h_lim,
+                           restoring=hs.restoring)
+    a0, _ = C.controller_actions("stand_net", obs, slot, hs, **kw)
+    a00, _ = C.controller_actions("stand_net", obs, slot, hs, deadband=0.0, **kw)
+    a1, ex = C.controller_actions("stand_net", obs, slot, hs, deadband=0.25, **kw)
+    assert bitwise_equal(a0, a00) and bitwise_equal(a0, SH.router_actions(hs.stand_eff, st.fn(x), a_s1, hs.h_lim).actions)
+    assert bitwise_equal(a1, SH.router_actions(hs.stand_eff, st.fn(x), a_s1, hs.h_lim, deadband=0.25).actions)
+    assert not torch.equal(a1[slot], a0[slot]) and bitwise_equal(a1[~slot], a0[~slot])   # S1 rows untouched
+    assert torch.equal(ex["a_net"], st.fn(x))                                             # the raw output recorded
+    for ctl in ("r_h", "posture_only", "s1", "amask_old"):
+        with pytest.raises(ValueError, match="deadband"):
+            C.controller_actions(ctl, obs, slot, hs, deadband=0.25, **kw)
+        C.controller_actions(ctl, obs, slot, hs, deadband=0.0, **kw)                     # 0 = off: fine
+    assert C.DEADBAND_CONTROLLER == "stand_net"
+
+
+def test_parse_label_and_pre_kit_deadband(T, tmp_path):
+    assert (T.deadband_tag(0.25), T.deadband_tag(0.0), T.deadband_tag(0.1), T.deadband_tag(2.0)) == \
+        ("_db0p25", "", "_db0p1", "")
+    ck = tmp_path / "head.pt"
+    ck.write_bytes(b"head")
+    sha8 = T.SN.sha256_file(ck)[:8]
+    o, _ = T.parse(["--controller", "stand_net", "--out", "/tmp/x", "--stand-ckpt", str(ck), "--deadband", "0.25"])
+    assert o.deadband == 0.25 and o.label == f"stand_net_{sha8}_db0p25" and o.prefix == f"stand_net_{sha8}_db0p25_s1"
+    o, _ = T.parse(["--controller", "stand_net", "--out", "/tmp/x", "--stand-ckpt", str(ck)])
+    assert o.deadband == 0.0 and o.label == f"stand_net_{sha8}"                       # unchanged without it
+    o, _ = T.parse(["--controller", "stand_net", "--out", "/tmp/x", "--stand-ckpt", str(ck), "--deadband", "0.25",
+                    "--label", "SH_P18db"])
+    assert o.label == "SH_P18db"
+
+    def reasons(*args):
+        o, rest = T.parse(list(args))
+        return "\n".join(T.pre_kit_reasons(o, rest))
+
+    assert "stand_net only" in reasons("--controller", "r_h", "--out", str(tmp_path), "--deadband", "0.25")
+    assert "stand_net only" in reasons("--controller", "amask_old", "--out", str(tmp_path), "--deadband", "0.25")
+    r = reasons("--controller", "stand_net", "--out", str(tmp_path), "--stand-ckpt", str(ck), "--deadband", "1.5")
+    assert "--deadband:" in r
+    assert "deadband" not in reasons("--controller", "r_h", "--out", str(tmp_path))
+    with pytest.raises(SystemExit):
+        T.parse(["--controller", "stand_net", "--deadbandx", "0.2"])
+
+
+def test_kit_script_records_the_deadband_in_the_summary_and_every_cell():
+    """The Kit path (not runnable on CPU) passes --deadband to the controller and writes it into the job meta (+ its
+    clip / provenance) and every cell's meta, from which the merge and sh_read read it."""
+    src = TEST_PATH.read_text()
+    assert "st_pol=st, st_est=st_est, mask=int(o.stand_mask), deadband=float(o.deadband))" in src
+    assert "SH.RESIDUAL_DEADBAND_KEY: float(o.deadband)," in src
+    assert "SH.clip_record(float(o.deadband))" in src and "SH.provenance(float(o.deadband))" in src
+    cm = re.search(r"cell_meta = \{k: meta\[k\] for k in \(([^)]*)\)\}", src, flags=re.S)
+    assert cm and "SH.RESIDUAL_DEADBAND_KEY" in cm.group(1)
+
+
+def _db_cells(C, d: Path, label, seed, cells, deadband=None, controller="stand_net"):
+    _write_cells(C, d, label, seed, cells, stood=95, controller=controller)
+    if deadband is not None:
+        for cell in cells:
+            f = d / f"{label}_s{seed}__{cell}.json"
+            rec = json.loads(f.read_text())
+            rec["meta"]["residual_deadband"] = deadband
+            f.write_text(json.dumps(rec))
+
+
+def test_merge_never_pools_two_deadbands_under_one_label(C, tmp_path):
+    ok = tmp_path / "ok"
+    ok.mkdir()
+    _db_cells(C, ok, "r_h", 1, C.K3_CELLS, controller="r_h")                         # written before the option
+    _db_cells(C, ok, "SH_P18db", 1, C.K3_CELLS, deadband=0.25)
+    _db_cells(C, ok, "SH_P18", 1, C.K3_CELLS, deadband=0.0)
+    m = C.merge_cells(sorted(ok.glob("*.json")))
+    assert m["deadbands"] == {"r_h": 0.0, "SH_P18db": 0.25, "SH_P18": 0.0}
+    assert m["cells"]["1"]["SH_P18db"]["table_0p635__knee_folded"]["residual_deadband"] == 0.25
+    assert m["cells"]["1"]["r_h"]["table_0p635__knee_folded"]["residual_deadband"] == 0.0
+    assert m["k3"]["1"]["SH_P18db"]["tables"]["pass"] is True
+    txt = C.format_table(m)
+    assert "residual deadband" in txt and "SH_P18db 0.25" in txt
+    for name, writes in (
+            ("one_cell", [("X", 1, C.K3_CELLS[:1], 0.25), ("X", 1, C.K3_CELLS[1:], None)]),
+            ("two_seeds", [("X", 1, C.K3_CELLS, 0.25), ("X", 2, C.K3_CELLS, 0.0)]),
+            ("two_values", [("X", 1, C.K3_CELLS[:2], 0.25), ("X", 1, C.K3_CELLS[2:4], 0.3)])):
+        dd = tmp_path / name
+        dd.mkdir()
+        for label, seed, cells, db in writes:
+            _db_cells(C, dd, label, seed, cells, deadband=db)
+        with pytest.raises(ValueError, match="mixes residual deadbands"):
+            C.merge_cells(sorted(dd.glob("*.json")))
+    bad = tmp_path / "bad"
+    bad.mkdir()
+    _db_cells(C, bad, "X", 1, C.K3_CELLS[:1], deadband=True)
+    with pytest.raises(ValueError, match="residual deadband"):
+        C.merge_cells(sorted(bad.glob("*.json")))
+
+
+def test_launcher_passes_the_deadband_to_stand_net_jobs_only(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    marker = tmp_path / "LAUNCHED"
+    for tool in ("systemd-run", "setsid", "nohup"):
+        (fake_bin / tool).write_text(f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+        (fake_bin / tool).chmod(0o755)
+    out = tmp_path / "out"
+    env = dict(os.environ, PATH=f"{fake_bin}:{os.environ.get('PATH', '')}", SH_DDC=str(tmp_path / "ddc"),
+               SH_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="")
+    r, jobs = _dry(env, "--controllers", "r_h stand_net", "--videos", "r_h stand_net", "--stand-ckpt", "/abs/ck.pt",
+                   "--label", "SH_P18db", "--deadband", "0.25", "--seeds", "1 2")
+    assert r.returncode == 0, r.stderr
+    assert len(jobs) == 4 + 6
+    for j in jobs:
+        assert ("--stand-ckpt /abs/ck.pt --label SH_P18db --deadband 0.25" in j) == ("--controller stand_net" in j), j
+    r, jobs = _dry(env, "--controllers", "stand_net", "--videos", "stand_net")
+    assert r.returncode == 0 and jobs and not any("--deadband" in j for j in jobs)   # off unless asked
+    for bad in (["--deadband", "0"], ["--deadband", "1"], ["--deadband", "abc"], ["--deadband", ""],
+                ["--deadband", "0.2", "--deadband", "0.2"],
+                ["--controllers", "r_h", "--videos", "r_h", "--deadband", "0.25"]):
+        r, _ = _dry(env, *bad)
+        assert r.returncode == 5, (bad, r.stderr)
+    assert not marker.exists() and not out.exists()

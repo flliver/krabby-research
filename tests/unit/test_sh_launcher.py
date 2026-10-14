@@ -21,7 +21,11 @@ Pinned:
   and the wrapper clip is 4.8; a height row records every series and passes the reader's smoke; scripted controllers,
   restore off, the real A-mask s17 with W[:, 15] zeroed (stand_net == amask_old at a zero command); post-Kit refusals
   write no stamp and still close the app;
-* run_arm / rows script / reader (identity miss rule, live, smoke, doctored stamps).
+* run_arm / rows script / reader (identity miss rule, live, smoke, doctored stamps);
+* the residual deadband (CHARTER 2026-10-14): ``--sh-deadband`` parse / refusals (scripted controllers, the identity
+  bridge, bad values), the deadbanded executed action on a height row (restore rows included, S1 rows untouched, raws
+  keep a_net / q18), its records, the reader's re-derivation at the RECORDED value (absent = 0), the rows script's
+  ``--deadband`` and its guards.
 """
 from __future__ import annotations
 
@@ -911,7 +915,7 @@ def test_e2e_identity_executes_what_the_reference_executed(SHL, SB, real, tmp_pa
     assert all(torch.equal(a, b) for a, b in zip(ref_env.executed, sh_env.executed))
 
 
-def _height_run(SHL, SB, tmp_path, controller, *, restore="armed", ckpt=None, mask=None, out="h"):
+def _height_run(SHL, SB, tmp_path, controller, *, restore="armed", ckpt=None, mask=None, out="h", extra=()):
     SB.HIP_ZERO = True
     man = fake_manifest(tmp_path)
     envs = []
@@ -925,7 +929,7 @@ def _height_run(SHL, SB, tmp_path, controller, *, restore="armed", ckpt=None, ma
     try:
         run_sh(SHL, tmp_path, sh_args(controller, "manifest", restore=restore, ckpt=ckpt, mask=mask)
                + ["--checkpoint", ckpt_s1(SB, tmp_path), "--manifest", str(man), "--scenario", FAKE_ROW,
-                  "--out", str(tmp_path / out)])
+                  "--out", str(tmp_path / out)] + list(extra))
     finally:
         SB.StubEnv.__init__ = real_init
     return tmp_path / out / "stamp", envs[-1]
@@ -1366,3 +1370,192 @@ def test_rows_script_waits_for_every_isaac_process():
         assert not (pat.search(line) and not nonkit.search(line)), line
     for line in (f"{py} -m pytest -q tests/unit/test_sh_table.py", f"bash -c {py} /x/sh_table_test.py"):
         assert not pat.search(line), line
+
+
+# ===================================================================================== the residual deadband (CHARTER 2026-10-14)
+def test_parse_deadband_option_and_refusals(SHL, tmp_path):
+    ck, s1 = tmp_path / "st.pt", tmp_path / "s1.pt"
+    ck.write_bytes(b"x")
+    s1.write_bytes(b"s1")
+    man = ["--manifest", str(SCEN_SH), "--scenario", "hwalkstop__omni"]
+    net = sh_args("stand_net", "manifest", ckpt=ck, mask=1) + man
+    o, _ = SHL.parse_sh_args(net, good_env(SHL))
+    assert o.deadband == 0.0 and type(o.deadband) is float                       # default: off
+    o, rest = SHL.parse_sh_args(net + ["--sh-deadband", "0.25"], good_env(SHL))
+    assert o.deadband == 0.25 and "--sh-deadband" not in rest and "0.25" not in rest
+    assert SHL.parse_sh_args(net + ["--sh-deadband=0.25"], good_env(SHL))[0].deadband == 0.25
+    assert SHL.parse_sh_args(net, good_env(SHL, SH_DEADBAND="0.25"))[0].deadband == 0.25
+    assert SHL.parse_sh_args(sh_args("r_h", "manifest") + man + ["--sh-deadband", "0"], good_env(SHL))[0].deadband == 0
+    for argv, patch, needle in (
+            (net + ["--sh-deadband", "-0.1"], {}, "--sh-deadband"),
+            (net + ["--sh-deadband", "1"], {}, "--sh-deadband"),
+            (net + ["--sh-deadband", "nan"], {}, "--sh-deadband"),
+            (net + ["--sh-deadband", "abc"], {}, "--sh-deadband"),
+            (net + ["--sh-deadband", "0.25", "--sh-deadband", "0.25"], {}, "2 times"),
+            (net + ["--sh-deadband", "0.25"], {"SH_DEADBAND": "0.3"}, "disagree"),
+            (net + ["--sh-deadbandx", "0.25"], {}, "forbidden"),
+            (sh_args("r_h", "manifest") + man + ["--sh-deadband", "0.25"], {}, "stand network"),
+            (sh_args("posture_only", "manifest") + man, {"SH_DEADBAND": "0.25"}, "stand network"),
+            (sh_args("r_old", "zero") + ["--scenario", "x", "--sh-deadband", "0.25"], {}, "stand network"),
+            # the identity bridge (S1 as the stand checkpoint) never takes a deadband
+            (sh_args("stand_net", "zero", ckpt=s1, mask=0) + ["--checkpoint", str(s1), "--scenario", "x",
+                                                             "--sh-deadband", "0.25"], {}, "identity bridge")):
+        with pytest.raises(SystemExit) as ei:
+            SHL.parse_sh_args(argv, _apply(good_env(SHL), patch))
+        assert needle in str(ei.value), (argv, patch, str(ei.value))
+    EC = SHL.EC
+    assert EC.ckpt_kind_reasons(EC.CKPT_KIND_S1, controller="stand_net", command="zero", stand_mask=0) == []
+    assert EC.ckpt_kind_reasons(EC.CKPT_KIND_S1, controller="stand_net", command="zero", stand_mask=0,
+                                deadband=0.25)
+    assert EC.ckpt_kind_reasons(None, controller="stand_net", command="manifest", stand_mask=1, deadband=0.25) == []
+
+
+def test_e2e_height_row_stand_net_with_the_deadband(SHL, SB, CORE, RD, tmp_path):
+    """--sh-deadband 0.25 on a stand_net height row: recorded in the block (+ its clip), the raws keep a_net and q18
+    apart, sh_stand_action and the env's executed action are sh_core's deadbanded router (restore rows included; S1 rows
+    untouched); the bridge reader re-derives it at the RECORDED deadband (a record without the key reads as 0)."""
+    d = CORE.RESIDUAL_DEADBAND_PROBE
+    ck = stub_ckpts(SB, tmp_path)
+    stamp, env = _height_run(SHL, SB, tmp_path, "stand_net", ckpt=ck["st1"], mask=1, out="db",
+                             extra=["--sh-deadband", str(d)])
+    sh = meta(stamp)["p2r_mode"]["stand_height"]
+    assert sh["residual_deadband"] == d and sh["clip"]["residual_deadband"] == d
+    assert sh["core"]["clip"]["residual_deadband"] == d and CORE.recorded_deadband(sh) == d
+    assert sh["trained_residual_deadband"] == 0.0                     # the stub head's infos carry no deadband
+    assert sh["clip"] == {"wrapper_clip_before": 1.0, "wrapper_clip_realised": 4.8, **CORE.clip_record(d)}
+    eps = episodes(stamp)
+    acted = zeroed = 0
+    for e, ep in enumerate(eps):
+        mode = ep["p2r_stand_mode"]
+        a_net, q, sa, h = (torch.from_numpy(ep[k]) for k in ("sh_a_net", "sh_q18", "sh_stand_action", "sh_h_lim"))
+        want, wq = CORE.stand_action(a_net, h, deadband=d)
+        plain, _ = CORE.stand_action(a_net, h)
+        assert torch.equal(sa[mode], want[mode]) and torch.equal(q[mode], wq[mode])
+        acted += int((sa[mode] != plain[mode]).any(dim=1).sum())
+        rest = torch.from_numpy(ep["sh_restoring"])
+        assert rest.any() and torch.equal(sa[rest], want[rest])          # restore rows are stand rows: deadbanded
+        small = torch.zeros_like(a_net, dtype=torch.bool)
+        small[:, 6:] = a_net[:, 6:].clamp(-1, 1).abs() < d
+        sm = small & torch.from_numpy(mode)[:, None]
+        zeroed += int(sm.sum())
+        assert torch.equal(sa[sm], q[sm])                                # zeroed residual -> the posture itself
+        # the raws keep the network's raw output (not the deadbanded residual) and the recorded pre-clip actions
+        assert np.array_equal(ep["actions"][mode], np.where(ep["sh_q18"] != 0, ep["sh_a_net"] + ep["sh_q18"],
+                                                            ep["sh_a_net"])[mode])
+        exe = torch.stack([x[e] for x in env.executed]).numpy()
+        assert np.array_equal(exe, np.where(mode[:, None], ep["sh_stand_action"], np.clip(ep["actions"], -1, 1)))
+    assert acted > 0 and zeroed > 0
+    rd = RD.read_row(None, stamp, how="smoke")
+    assert rd["verdict"] == "PASS", (rd["meta_fails"], rd["raws"]["fails"])
+    assert rd["raws"]["residual_deadband"] == d
+    # trained at 0 (the stub's infos), evaluated at 0.25: both recorded, a NOTE (the probe's mismatch), never a FAIL
+    assert rd["trained_residual_deadband"] == 0.0 and len(rd["meta_notes"]) == 1, rd["meta_notes"]
+    assert "0.25" in rd["meta_notes"][0] and "trained at 0" in rd["meta_notes"][0]
+    # the reader re-derives at the RECORDED deadband: a wrong or missing record makes the executed action a FAIL
+    for name, fn, needle in (
+            ("missing", lambda b: [b.pop("residual_deadband"), b["clip"].pop("residual_deadband")], "not q + clamp"),
+            ("other", lambda b: [b.__setitem__("residual_deadband", 0.3),
+                                 b["clip"].__setitem__("residual_deadband", 0.3)], "not q + clamp"),
+            ("split", lambda b: b["clip"].__setitem__("residual_deadband", 0.3), "disagrees"),
+            ("trained_bad", lambda b: b.__setitem__("trained_residual_deadband", True), "trained_residual_deadband")):
+        dd = tmp_path / f"db_{name}"
+        shutil.copytree(stamp, dd)
+        m = meta(dd)
+        fn(m["p2r_mode"]["stand_height"])
+        (dd / "run_meta.json").write_text(json.dumps(m))
+        r = RD.read_row(None, dd, how="smoke")
+        assert r["verdict"] == "FAIL" and any(needle in f for f in r["meta_fails"] + r["raws"]["fails"]), (
+            name, r["meta_fails"], r["raws"]["fails"][:3])
+    # a stamp written before the option (no key anywhere) reads as deadband 0
+    plain_stamp, _ = _height_run(SHL, SB, tmp_path, "stand_net", ckpt=ck["st1"], mask=1, out="plain")
+    old = tmp_path / "old_stamp"
+    shutil.copytree(plain_stamp, old)
+    m = meta(old)
+    b = m["p2r_mode"]["stand_height"]
+    for rec in (b, b["clip"], b["core"]["clip"]):
+        rec.pop("residual_deadband", None)
+        rec.pop("residual_deadband_rule", None)
+    b.pop("trained_residual_deadband", None)
+    (old / "run_meta.json").write_text(json.dumps(m))
+    r = RD.read_row(None, old, how="smoke")
+    assert r["verdict"] == "PASS" and r["raws"]["residual_deadband"] == 0.0, (r["meta_fails"], r["raws"]["fails"])
+    assert r["meta_notes"] == [] and r["trained_residual_deadband"] is None          # nothing recorded: no note
+    rp = RD.read_row(None, plain_stamp, how="smoke")                               # trained 0, evaluated 0: no note
+    assert rp["verdict"] == "PASS" and rp["meta_notes"] == [] and rp["trained_residual_deadband"] == 0.0
+    # a head trained at 0.25 evaluated WITHOUT --sh-deadband (the config-parity break): PASS with the note
+    brk = tmp_path / "parity_break"
+    shutil.copytree(plain_stamp, brk)
+    m = meta(brk)
+    m["p2r_mode"]["stand_height"]["trained_residual_deadband"] = d
+    (brk / "run_meta.json").write_text(json.dumps(m))
+    r = RD.read_row(None, brk, how="smoke")
+    assert r["verdict"] == "PASS" and r["trained_residual_deadband"] == d and r["raws"]["residual_deadband"] == 0.0
+    assert len(r["meta_notes"]) == 1 and "trained at 0.25" in r["meta_notes"][0], r["meta_notes"]
+
+
+def test_e2e_scripted_controllers_and_the_bridge_refuse_a_deadband_post_kit(SHL, SB, RD, tmp_path):
+    """The mode refuses a deadband on a scripted controller even if handed one past the parser; the reader flags a
+    scripted or identity stamp that records one."""
+    p2r = SHL.SNL.load_p2r()
+    opts = argparse.Namespace(controller="r_h", command="zero", restore="armed", stand_ckpt=None, stand_mask=None,
+                              pre_kind=None, height_row=None, harness_manifest=None, harness_scenario=None,
+                              deadband=0.25)
+    cls = SHL.make_mode_class(p2r, opts)
+    env = SB.StubEnv(2)
+    with pytest.raises(ValueError, match="deadband"):
+        cls("hold", env.cmd, env.unwrapped, priv=(P0, P1), num_prop=NP)
+    stamp, _ = _height_run(SHL, SB, tmp_path, "r_h")
+    m = meta(stamp)
+    m["p2r_mode"]["stand_height"]["residual_deadband"] = 0.25
+    (stamp / "run_meta.json").write_text(json.dumps(m))
+    assert any("disagrees" in x for x in RD.meta_reasons(stamp))                 # block vs its clip record
+    m["p2r_mode"]["stand_height"]["clip"]["residual_deadband"] = 0.25
+    (stamp / "run_meta.json").write_text(json.dumps(m))
+    assert any("scripted" in x for x in RD.meta_reasons(stamp))
+
+
+@pytest.mark.skipif(not (SC.S1_CKPT.is_file() and (SC.REFS_SUITE1 / "run_meta.json").is_file()),
+                    reason="S1 checkpoint / REFS env stamp not on this machine")
+def test_rows_script_deadband_option_and_guards(EC, tmp_path):
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("P2R_", "P2_", "SH_", "SN_STAND_"))}
+    trained = tmp_path / "model_5000.pt"
+    trained.write_bytes(b"x")
+    s1_copy = tmp_path / "s1_copy.pt"
+    s1_copy.write_bytes(SC.S1_CKPT.read_bytes())
+    head = ["SH_P18db", "stand_net", "manifest", "armed", str(trained), "1"]
+    rows = ["hwalkstop__omni@1", "hwalkstop__omni@2", "hraise__omni@1", "hraise__omni@2"]
+    r = subprocess.run(["bash", str(ROWS_SH), "--dry-run", "--deadband", "0.25", *head, *rows], capture_output=True,
+                       text=True, timeout=60, env=env)
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.strip().splitlines()
+    assert len(lines) == 4
+    for line, spec in zip(lines, rows):
+        row, es = spec.split("@")
+        assert (f"--stand-ckpt\\ {trained}\\ --stand-mask\\ 1\\ --sh-deadband\\ 0.25 " in line
+                and f"--row-eval SH_P18db {SC.S1_CKPT} {SC.REFS_SUITE1} {SCEN_SH} {row} {es}" in line), line
+    r = subprocess.run(["bash", str(ROWS_SH), "--deadband=0.25", "--dry-run", "SH_P18dbz", "stand_net", "zero", "armed",
+                        str(trained), "1", *EC.K5_ROWS], capture_output=True, text=True, timeout=60, env=env)
+    assert r.returncode == 0 and len(r.stdout.strip().splitlines()) == len(EC.K5_ROWS), r.stderr
+    assert all("--sh-deadband\\ 0.25" in ln and "--sh-command\\ zero" in ln for ln in r.stdout.strip().splitlines())
+    r = subprocess.run(["bash", str(ROWS_SH), "--dry-run", *head], capture_output=True, text=True, timeout=60, env=env)
+    assert r.returncode == 0 and "--sh-deadband" not in r.stdout                  # off unless asked: the plain path
+    r = subprocess.run(["bash", str(ROWS_SH), "--dry-run"], capture_output=True, text=True, timeout=60, env=env)
+    assert r.returncode == 0 and "--sh-deadband" not in r.stdout                  # the identity bridge default
+    for args, needle in (
+            (["--deadband", "0.25"], "explicit NAME"),
+            (["--deadband", "0.25", "SH_ID_s18", "stand_net", "zero", "armed", str(SC.S1_CKPT), "0"], "identity bridge"),
+            (["--deadband", "0.25", "SH_ID_x", "stand_net", "zero", "armed", str(trained), "1"], "identity bridge"),
+            (["--deadband", "0.25", "SH_A", "stand_net", "zero", "armed", str(s1_copy), "0"],
+             "S1 as the stand checkpoint"),
+            (["--deadband", "0.25", "X", "r_h", "manifest", "armed", "-", "-"], "stand_net / amask_old"),
+            (["--deadband", "0", *head], "0 < X < 1"),
+            (["--deadband", "1", *head], "0 < X < 1"),
+            (["--deadband", "1.5", *head], "0 < X < 1"),
+            (["--deadband", "abc", *head], "plain decimal"),
+            (["--deadband", "0.2.5", *head], "plain decimal"),
+            (["--deadband", "", *head], "empty"),
+            (["--deadband", "0.25", "--deadband", "0.25", *head], "twice"),
+            (["--deadband"], "needs a value")):
+        r = subprocess.run(["bash", str(ROWS_SH), "--dry-run"] + args, capture_output=True, text=True, timeout=60,
+                           env=env)
+        assert r.returncode == 2 and not r.stdout and needle in r.stderr, (args, r.stdout, r.stderr)

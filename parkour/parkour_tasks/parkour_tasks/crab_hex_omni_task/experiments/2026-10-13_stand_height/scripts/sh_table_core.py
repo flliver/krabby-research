@@ -58,7 +58,11 @@ with the limiter at clamp(measured h_meas) -- the table / ground start rule):
 * ``stand_net`` -- a stand-height checkpoint on ``sh_core.stand_net_input`` (col 15 = the limited command) routed by
   ``sh_core.router_actions`` = q(h_lim) + clamp(a_net, +-1); default checkpoint = A-mask s17 with W[:, 15] zeroed (the
   "A-mask s17 + q" control); a predecessor-tagged (``infos.sn_dagger``) checkpoint is always loaded with W[:, 15] zeroed
-  (its column-15 weights are leftovers), a campaign-trained one (``infos.sh_dagger``) as saved;
+  (its column-15 weights are leftovers), a campaign-trained one (``infos.sh_dagger``) as saved; ``--deadband d``
+  (``stand_net`` ONLY; default 0 = off, bitwise the path without it; CHARTER 2026-10-14 probe): the router's residual
+  deadband (``sh_core.apply_deadband``: hip / knee residual entries below d zeroed after the clamp, before + q),
+  recorded in every cell's meta as ``residual_deadband`` (absent = 0); the merge refuses a label whose cells mix
+  deadbands (:func:`merge_cells`);
 * ``posture_only`` -- zero residual: q(h_lim) (``sh_core.stand_action`` of zeros);
 * ``s1`` -- S1 alone on every row, clamp(S1, +-1) (known-bad: marches);
 * ``amask_old`` -- A-mask s17 (W[:, 15] zeroed) on the OLD +-1 path: the predecessor's ``sn_common.stand_net_input``
@@ -143,6 +147,8 @@ FIXED_POSES = ("knee_folded", "rod_min")
 CONTROLLERS = ("r_h", "stand_net", "posture_only", "s1", "amask_old")
 #: controllers that run a stand checkpoint (``--stand-ckpt``)
 STAND_CONTROLLERS = ("stand_net", "amask_old")
+#: the one controller a residual deadband (--deadband) may run on (CHARTER 2026-10-14 probe)
+DEADBAND_CONTROLLER = "stand_net"
 REF_CONTROLLER = "r_h"
 #: the GATED K3 tops (CHARTER-frozen, re-scoped at the step-4 stop: 0.635 / 0.6985 / 0.762)
 K3_TOPS_M = tuple(float(t) for t in SH.FROZEN["k3_eval_tops_m"])
@@ -734,17 +740,20 @@ def sh_start(env, env_ids, joint_pos, start_code, root_rel, table_top_rel, table
 
 # ===================================================================================== controllers (Kit; sh_core only)
 def controller_actions(controller: str, obs, stand_slot, hs, *, s1, s1_est, p0: int, p1: int, num_prop: int,
-                       st_pol=None, st_est=None, mask: int = 1):
+                       st_pol=None, st_est=None, mask: int = 1, deadband: float = 0.0):
     """One control step's actions -> ``(actions, extra)``. ``hs`` = this step's ``sh_core.HeightController.step``
     (called BEFORE this, on the same obs). The harness's S1 path first, always: S1's own estimate on a COPY ``h`` of
     the env obs (the env obs is never written), ``a_s1 = s1.act_inference(h, hist_encoding=True)``. Then (module
     docstring): ``r_h`` / ``stand_net`` / ``posture_only`` on ``hs.stand_eff`` with ``hs.h_lim``; ``s1``;
     ``amask_old`` on ``stand_slot``. ``extra``: ``a_s1``, and per controller ``a_net``, ``q18``, ``r_target`` /
-    ``r_branch`` / ``r_label_excess`` (device scalar)."""
+    ``r_branch`` / ``r_label_excess`` (device scalar). ``deadband``: the residual deadband of ``stand_net`` (0 = off;
+    any other controller refuses one > 0)."""
     import torch  # noqa: PLC0415
 
     if controller not in CONTROLLERS:
         raise ValueError(f"controller must be one of {CONTROLLERS}, got {controller!r}")
+    if SH.check_deadband(deadband) and controller != DEADBAND_CONTROLLER:
+        raise ValueError(f"a residual deadband ({deadband}) runs on {DEADBAND_CONTROLLER} only, not {controller}")
     h = obs.clone()
     h[:, p0:p1] = s1_est.inference(h[:, :num_prop])
     a_s1 = s1.act_inference(h, hist_encoding=True)
@@ -765,7 +774,7 @@ def controller_actions(controller: str, obs, stand_slot, hs, *, s1, s1_est, p0: 
         x = SH.stand_net_input(h, st_est, p0=p0, p1=p1, num_prop=num_prop, mask=mask, h_cmd_limited=hs.h_lim,
                                restoring=hs.restoring)
         a_net = st_pol.act_inference(x, hist_encoding=True).to(a_s1.dtype)
-        out = SH.router_actions(hs.stand_eff, a_net, a_s1, hs.h_lim)
+        out = SH.router_actions(hs.stand_eff, a_net, a_s1, hs.h_lim, deadband=deadband)    # 0: no op
         extra.update(a_net=a_net, q18=out.q18)
         return out.actions, extra
     # amask_old: the predecessor's input (no column-15 write), clamp(a_net, +-1) with no posture, the latched slot
@@ -1153,29 +1162,43 @@ def rh_floor(pv: dict) -> dict:
 
 
 def merge_cells(paths) -> dict:
-    """``{"cells": {seed: {label: {cell: aggregate + run}}}, "pooled", "k3", "rh_floor", "videos"}`` from per-cell
-    JSONs (video runs listed apart; a duplicate (seed, label, cell) is refused)."""
+    """``{"cells": {seed: {label: {cell: aggregate + run}}}, "pooled", "k3", "rh_floor", "videos", "deadbands"}`` from
+    per-cell JSONs (video runs listed apart; a duplicate (seed, label, cell) is refused; a label whose cells -- any seed,
+    videos included -- record different residual deadbands (``sh_core.recorded_deadband``: absent = 0) is refused: one
+    controller label never pools two action paths)."""
     cells: dict = {}
     videos = []
+    deadbands: dict = {}
     for p in sorted(Path(x) for x in paths):
         d = json.loads(Path(p).read_text())
         if d.get("kind") != CELL_KIND:
             continue
         m = d.get("meta") or {}
+        try:
+            db = SH.recorded_deadband(m)
+        except ValueError as exc:
+            raise ValueError(f"merge_cells: {p}: {exc}") from exc
+        deadbands.setdefault(m.get("label"), {}).setdefault(db, []).append(str(p))
+        if len(deadbands[m.get("label")]) > 1:
+            got = {k: v[:2] for k, v in sorted(deadbands[m.get("label")].items())}
+            raise ValueError(f"merge_cells: label {m.get('label')!r} mixes residual deadbands {sorted(got)} ({got}); "
+                             "give each deadband its own --label")
         if m.get("video"):
             videos.append({"label": m.get("label"), "cell": m.get("cell"), "seed": m.get("seed"), "mp4": m.get("mp4"),
-                           "env0": (d.get("per_env") or [{}])[0], "run": str(p)})
+                           "env0": (d.get("per_env") or [{}])[0], "run": str(p), SH.RESIDUAL_DEADBAND_KEY: db})
             continue
         seed, label, cell = str(m.get("seed")), m.get("label"), m.get("cell")
         slot = cells.setdefault(seed, {}).setdefault(label, {})
         if cell in slot:
             raise ValueError(f"merge_cells: duplicate {seed} / {label} / {cell} ({slot[cell]['run']} and {p})")
         slot[cell] = {**d["aggregate"], "run": str(p), "smoke": bool(m.get("smoke")), "episode_s": m.get("episode_s"),
-                      "controller": m.get("controller"), "stand_sha256": m.get("stand_sha256")}
+                      "controller": m.get("controller"), "stand_sha256": m.get("stand_sha256"),
+                      SH.RESIDUAL_DEADBAND_KEY: db}
     pooled = {s: {lab: pooled_views(c) for lab, c in labs.items()} for s, labs in cells.items()}
     floor = {s: rh_floor(labs[REF_CONTROLLER]) for s, labs in pooled.items() if REF_CONTROLLER in labs}
     return {"cells": cells, "pooled": pooled, "k3": k3_read(pooled), "rh_floor": floor, "videos": videos,
-            "stood_definition": STOOD_DEFINITION, "k3_episode_s": k3_episode_s(), "gating": gating_record()}
+            "stood_definition": STOOD_DEFINITION, "k3_episode_s": k3_episode_s(), "gating": gating_record(),
+            "deadbands": {str(lab): next(iter(v)) for lab, v in deadbands.items()}}
 
 
 def gating_record() -> dict:
@@ -1202,6 +1225,10 @@ def format_table(merged: dict) -> str:
              f"{'seed':4s} {'label':22s} {'cell':28s} {'gate':8s} {'envs':>4s} {'STOOD':>8s} {'5dn':>4s} {'6dn':>4s} "
              f"{'|dh| med':>8s} {'p90':>6s} {'falls':>5s} {'tilt':>4s} {'hip':>4s} {'off':>4s} {'homed':>5s} "
              f"{'rise-only':>9s}"]
+    dbs = {lab: d for lab, d in (merged.get("deadbands") or {}).items() if d}
+    if dbs:
+        lines.insert(2, "residual deadband (sh_core.apply_deadband; every other label 0): "
+                     + ", ".join(f"{lab} {d:g}" for lab, d in sorted(dbs.items())))
     for seed in sorted(merged.get("cells", {})):
         for label in sorted(merged["cells"][seed]):
             for cell in K3_CELLS:

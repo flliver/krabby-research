@@ -17,7 +17,8 @@ the gates whose row they break, missing stamps read PENDING; restore-arming / co
 lines and R_h premise; the zero-command K5 check; one checkpoint per head; the force table (foot-load statics vs the PD
 reading, cross-checked against sh_kin) and the h_max re-check; the CLI writes only where told and refuses the
 predecessor / phase-2 dirs; the module imports torch- / numpy- / yaml-free; nothing writes bytecode next to campaign /
-predecessor / phase-2 files.
+predecessor / phase-2 files; one residual deadband per head (CHARTER 2026-10-14: absent = 0, a mix across height
+stamps / gated cells / K5 stamps = every gate INVALID, a malformed record INVALIDates its stamp, the value recorded).
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ import copy
 import importlib.util
 import json
 import math
+import shutil
 import subprocess
 import sys
 import types
@@ -882,3 +884,166 @@ def test_cli_writes_json_and_md_only_where_told(R, world, tmp_path):
 def test_no_bytecode_next_to_campaign_predecessor_or_phase2_files(world):
     assert not (SCRIPTS / "__pycache__").exists()
     assert _pyc_snapshot() == _PYC_BEFORE
+
+
+# ===================================================================================== the residual deadband
+# CHARTER section 3, 2026-10-14: a head's stamps / table cells must share ONE residual deadband (absent = 0); a mix is
+# INVALID for every gate of that head (the one-checkpoint rule's shape); the head's output records the value.
+EC_BLOCK = "stand_height"
+
+
+def _set_deadband(stamps_root: Path, value, *, clip: bool = True):
+    for f in Path(stamps_root).rglob("run_meta.json"):
+        m = json.loads(f.read_text())
+        b = m["p2r_mode"][EC_BLOCK]
+        b["residual_deadband"] = value
+        if clip:
+            b["clip"] = {"residual_deadband": value}
+        f.write_text(json.dumps(m))
+
+
+def _set_cell_deadband(cell_dir: Path, value):
+    for f in Path(cell_dir).glob("*.json"):
+        rec = json.loads(f.read_text())
+        rec["meta"]["residual_deadband"] = value
+        f.write_text(json.dumps(rec))
+
+
+def test_old_stamps_and_cells_read_as_deadband_zero(R, world):
+    """Every synthetic stamp / cell of the world was written without the key: the clean head reads 0 and passes."""
+    h = world["out"]["heads"]["HEAD"]
+    assert h["residual_deadband"] == 0.0 and h["all_pass"]
+    assert world["out"]["reads"]["HEAD"]["es1"][WALK_ROW]["residual_deadband"] == 0.0
+    assert world["out"]["tables"]["HEAD"]["es1"]["residual_deadband"] == [0.0]
+    assert "one value per head" in R.constants()["residual_deadband"]
+
+
+def test_one_residual_deadband_per_head(R, world, tmp_path):
+    lr = tmp_path / "lr"
+    shutil.copytree(world["lr"], lr)
+    roles = {k: copy.deepcopy(v) for k, v in world["spec"]["roles"].items() if k in ("R_h", "HEAD")}
+    # (a) the head's table cells ran at 0.25, its height stamps without the key (0) -> a mix: every gate INVALID
+    cells = tmp_path / "cells"
+    tbl = {}
+    for s in (1, 2):
+        d = write_cells(R, cells, "HEAD", s, "stand_net", {"good": 99, "fall": 1}, sha=HEAD_SHA["HEAD"])
+        _set_cell_deadband(d, 0.25)
+        tbl[str(s)] = [str(d)]
+    roles["HEAD"]["table"] = tbl
+    spec = dict(world["spec"], lr_root=str(lr), roles=roles)
+    out = R.run(spec, k5=False, forces=False)
+    h = out["heads"]["HEAD"]
+    assert set(h["verdicts"].values()) == {"INVALID"} and h["residual_deadband"] == [0.0, 0.25]
+    inv = out["gates"]["K1"]["HEAD"]["invalid"]
+    assert any("mix residual deadbands" in x for x in inv), inv
+    assert out["heads"]["HEAD"]["stand_sha256"] == [HEAD_SHA["HEAD"]]          # one checkpoint: not the reason
+    assert out["gates"]["K1"]["R_h"]["verdict"] == "PASS"                      # controls are not held to it
+    # (b) every height stamp at 0.25 too: one deadband -> the head reads as before (K5 not read here), value recorded
+    _set_deadband(lr / "SYN_HEAD", 0.25)
+    out = R.run(spec, k5=False, forces=False)
+    h = out["heads"]["HEAD"]
+    assert h["residual_deadband"] == 0.25
+    assert {g: v for g, v in h["verdicts"].items() if g != "K5"} == {g: "PASS" for g in ("K1", "K2", "K3", "K4", "K6")}
+    assert out["reads"]["HEAD"]["es2"][RAISE_ROW]["residual_deadband"] == 0.25
+    md = R.markdown(dict(out, meta={"generated": "t", "tool_sha256": "0" * 64, "exit_code": 2}))
+    assert "- HEAD: residual deadband 0.25" in md
+    # (c) one height stamp at another value -> a mix again
+    one = lr / "SYN_HEAD" / WALK_ROW / "seed002"
+    _set_deadband(one, 0.3)
+    out = R.run(spec, k5=False, forces=False)
+    assert set(out["heads"]["HEAD"]["verdicts"].values()) == {"INVALID"}
+    assert out["heads"]["HEAD"]["residual_deadband"] == [0.25, 0.3]
+    # (d) a malformed record (block vs its clip, or not a number) makes that stamp INVALID on its own
+    _set_deadband(one, 0.25)
+    f = next(one.rglob("run_meta.json"))
+    m = json.loads(f.read_text())
+    m["p2r_mode"][EC_BLOCK]["clip"] = {"residual_deadband": 0.3}
+    f.write_text(json.dumps(m))
+    r = R.read_height_stamp(str(f.parent), row=WALK_ROW, gates=world["rg"][WALK_ROW], rule=R.role_rule("HEAD", True))
+    assert r["status"] == "invalid" and any("residual_deadband" in x for x in r["reasons"])
+    m["p2r_mode"][EC_BLOCK]["residual_deadband"] = True
+    m["p2r_mode"][EC_BLOCK].pop("clip")
+    f.write_text(json.dumps(m))
+    r = R.read_height_stamp(str(f.parent), row=WALK_ROW, gates=world["rg"][WALK_ROW], rule=R.role_rule("HEAD", True))
+    assert r["status"] == "invalid" and any("residual_deadband" in x for x in r["reasons"])
+
+
+def test_k5_stamps_join_the_one_deadband_rule(R, world, tmp_path):
+    lr = tmp_path / "lr"
+    shutil.copytree(world["lr"], lr)
+    zst = {name: {k: v.replace(str(world["lr"]), str(lr)) for k, v in by.items()} for name, by in world["zst"].items()}
+    roles = {k: copy.deepcopy(v) for k, v in world["spec"]["roles"].items() if k in ("R_h", "HEAD")}
+    spec = dict(world["spec"], lr_root=str(lr), roles=roles)
+    _set_deadband(lr / "SYN_HEAD_z0", 0.25)                     # the zero-command stamps at 0.25, the rest at 0
+    out = R.run(spec, k5=True, forces=False, snc=fake_snc(R, zst))
+    assert out["k5"]["head_residual_deadband"]["HEAD"] == [0.25]
+    assert set(out["heads"]["HEAD"]["verdicts"].values()) == {"INVALID"}
+    assert out["heads"]["HEAD"]["residual_deadband"] == [0.0, 0.25]
+
+
+# the deadband a head's checkpoint was TRAINED with vs the one it was evaluated at (review of the 2026-10-14 option):
+# recorded per stamp by the launcher; a difference is a NOTE on the head (both values kept), never a refusal
+def _set_trained_deadband(stamps_root: Path, value):
+    for f in Path(stamps_root).rglob("run_meta.json"):
+        m = json.loads(f.read_text())
+        m["p2r_mode"][EC_BLOCK]["trained_residual_deadband"] = value
+        f.write_text(json.dumps(m))
+
+
+def test_trained_vs_evaluated_deadband_is_a_head_note_not_a_refusal(R, world, tmp_path):
+    h0 = world["out"]["heads"]["HEAD"]
+    assert h0["trained_residual_deadband"] is None and h0["deadband_notes"] == []          # old stamps: none recorded
+    lr = tmp_path / "lr"
+    shutil.copytree(world["lr"], lr)
+    roles = {k: copy.deepcopy(v) for k, v in world["spec"]["roles"].items() if k in ("R_h", "HEAD")}
+    spec = dict(world["spec"], lr_root=str(lr), roles=roles)
+    base = R.run(spec, k5=False, forces=False)
+    # (a) trained at 0.25, evaluated without the record (0): the parity break is NOTED, the verdicts do not move
+    _set_trained_deadband(lr / "SYN_HEAD", 0.25)
+    out = R.run(spec, k5=False, forces=False)
+    h = out["heads"]["HEAD"]
+    assert h["verdicts"] == base["heads"]["HEAD"]["verdicts"] and h["residual_deadband"] == 0.0
+    assert h["trained_residual_deadband"] == 0.25 and len(h["deadband_notes"]) == 1, h["deadband_notes"]
+    assert "(0.0, 0.25)" in h["deadband_notes"][0] and "not a refusal" in h["deadband_notes"][0]
+    assert out["reads"]["HEAD"]["es1"][WALK_ROW]["trained_residual_deadband"] == 0.25
+    assert set(out["heads"]) == {"HEAD"}                                                  # controls carry no note
+    md = R.markdown(dict(out, meta={"generated": "t", "tool_sha256": "0" * 64, "exit_code": 2}))
+    assert "trained at 0.25" in md and "**NOTE** [HEAD]" in md
+    # (b) trained and evaluated equal on every stamp (both 0.25): no note (the table cells, still at 0, make the
+    # one-deadband mix -- that rule, not this note, reads them)
+    _set_deadband(lr / "SYN_HEAD", 0.25)
+    out = R.run(spec, k5=False, forces=False)
+    h = out["heads"]["HEAD"]
+    assert h["trained_residual_deadband"] == 0.25 and h["deadband_notes"] == []
+    assert out["reads"]["HEAD"]["es2"][RAISE_ROW]["residual_deadband"] == 0.25
+    # (c) a null trained value (not a campaign-trained checkpoint) is "not recorded": no note
+    _set_trained_deadband(lr / "SYN_HEAD", None)
+    assert R.run(spec, k5=False, forces=False)["heads"]["HEAD"]["deadband_notes"] == []
+    # (d) a malformed trained value makes that stamp INVALID on its own
+    f = next((lr / "SYN_HEAD" / WALK_ROW / "seed002").rglob("run_meta.json"))
+    m = json.loads(f.read_text())
+    m["p2r_mode"][EC_BLOCK]["trained_residual_deadband"] = True
+    f.write_text(json.dumps(m))
+    r = R.read_height_stamp(str(f.parent), row=WALK_ROW, gates=world["rg"][WALK_ROW], rule=R.role_rule("HEAD", True))
+    assert r["status"] == "invalid" and any("trained_residual_deadband" in x for x in r["reasons"]), r["reasons"]
+
+
+def test_k5_stamps_join_the_trained_deadband_note(R, world, tmp_path):
+    lr = tmp_path / "lr"
+    shutil.copytree(world["lr"], lr)
+    zst = {name: {k: v.replace(str(world["lr"]), str(lr)) for k, v in by.items()} for name, by in world["zst"].items()}
+    roles = {k: copy.deepcopy(v) for k, v in world["spec"]["roles"].items() if k in ("R_h", "HEAD")}
+    spec = dict(world["spec"], lr_root=str(lr), roles=roles)
+    _set_trained_deadband(lr / "SYN_HEAD_z0", 0.25)             # only the zero-command stamps record a trained 0.25
+    base = R.run(dict(world["spec"], lr_root=str(world["lr"]), roles=roles), k5=True, forces=False,
+                 snc=fake_snc(R, world["zst"]))
+    out = R.run(spec, k5=True, forces=False, snc=fake_snc(R, zst))
+    par = out["k5"]["head_deadband_parity"]["HEAD"]
+    assert par and {(x["evaluated"], x["trained"]) for x in par} == {(0.0, 0.25)}
+    h = out["heads"]["HEAD"]
+    assert h["verdicts"] == base["heads"]["HEAD"]["verdicts"] and h["trained_residual_deadband"] == 0.25
+    assert len(h["deadband_notes"]) == 1 and f"{len(par)} of " in h["deadband_notes"][0]
+    _set_trained_deadband(lr / "SYN_HEAD_z0", "x")              # malformed on a K5 stamp: a K5 reason (INVALID)
+    out = R.run(spec, k5=True, forces=False, snc=fake_snc(R, zst))
+    assert out["heads"]["HEAD"]["verdicts"]["K5"] == "INVALID"
+    assert any("trained_residual_deadband" in x for x in out["k5"]["campaign_reasons"]["HEAD"])

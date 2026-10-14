@@ -6,6 +6,7 @@
 #   sh_dagger.sh [--dry-run] [--detach] [--wait-idle] NAME -- <sh_dagger.py args>
 #     NAME            [A-Za-z0-9_]+ ; the run dir is $RUNS/NAME (must not exist / be empty: one job, no resume)
 #     <args>          --mode dagger [--arm mask] --seed S --iterations N [--num-envs 1024] [--smoke [--smoke-iters 100]]
+#                     [--deadband D] (the student-executed residual deadband, CHARTER 2026-10-14; default 0 = off)
 #                     (--out is the script's; --headless is added; AppLauncher args such as --device pass through)
 #     --dry-run       print the environment lines and the command, launch nothing
 #     --detach        setsid nohup; returns once the trainer python is VISIBLE to the busy checks (ps), so an eval

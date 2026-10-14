@@ -253,3 +253,13 @@ the user's.**
     action (labels unchanged, R_h / β-R executors untouched), and all three seeds (18, 16, 17) are retrained with the
     pinned 5000 iterations and evaluated in full (config parity; the deadband-free pilot is not one of them). K3 or K6
     still failing, or any other gate newly failing → STOP and ask with the read.
+- 2026-10-14, **deadband build + review (CPU; workflow wf_2a15333e-90a: opus·xhigh build, fable·high review — PASS, no
+  blocking defect; 1 minor fixed: readers note a trained-vs-evaluated deadband difference, never refuse on it).**
+  One definition in `sh_core` (hip / knee columns 6–17 only, after the ±1 clamp, before q; hard; at 0 the input tensor
+  is returned unchanged); launcher `--sh-deadband`, rows script `--deadband X` (network controllers only; refused for
+  the identity bridge, S1 and scripted controllers); table test `--deadband` (stand_net only; a label mixing deadbands
+  refuses to merge); trainer `--deadband` on student-executed stand rows only (labels and R_h / β-R executors
+  untouched; smoke check `student_deadband_realised`); `sh_read` one deadband per head (a mix → INVALID), recorded in the
+  head's output. Existing stamps re-read identically (pilot read exit 4 with 0 differences; identity bridge BITWISE).
+  266 CPU tests; code_sha / eval_sha unchanged. Probe heads: `SH_P18db` (height rows), `SH_P18dbz` (K5 rows), table
+  label `SH_P18db`.

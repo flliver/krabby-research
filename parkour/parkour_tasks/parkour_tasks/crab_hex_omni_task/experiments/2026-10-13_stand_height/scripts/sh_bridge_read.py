@@ -17,6 +17,11 @@ Per row, from the stamps alone:
   trained mask == the stamp's); the D3 knob; the CLIP: wrapper 1.0 -> realised 4.8, S1 / residual / cam clamps 1, rods
   4.8, every policy call's action swapped at env.step, executed |S1 rows| <= 1, |stand rods| <= 4.8, |cams| <= 1; the
   restore record (``controller`` = HeightController.record() + restore, == sh_core's constants and the run's dt);
+  the residual deadband (``residual_deadband``, sh_core.recorded_deadband: absent = 0, the stamps written before the
+  option; well formed, equal to its clip record's, 0 on scripted controllers and on the identity bridge); the deadband
+  the stand checkpoint was TRAINED with (``trained_residual_deadband``, recorded by the launcher; absent / null = not
+  recorded) well formed, and a NOTE (``meta_notes``, never a FAIL: the step-6 probe evaluates a head trained at 0 with
+  0.25 on purpose) when it differs from the evaluated one (``sh_core.deadband_parity``);
   ``hold_heights`` one entry per hold (a manifest row: its ``height_row`` record == the manifest file NOW, no drift, and
   its labels == the stamp's; a zero command: 1.064 on "stand" holds, null elsewhere, no height_row); the D5 env
   (``sn_common.env_reasons``); h_meas valid on manifest rows.
@@ -24,7 +29,8 @@ Per row, from the stamps alone:
   ``p2r_stand_mode == sh_stand_slot | sh_restoring``; off-stand series clean; R_h branch on
   every stand row; the RECORDED ``actions`` on stand rows == the controller's pre-clamp value (network
   ``where(q != 0, a_net + q, a_net)``, scripted its executed target); the EXECUTED stand action == sh_core's composition
-  ``q + clamp(a_net, +-1)`` with rods +-4.8 / cams +-1, re-derived from ``sh_a_net`` and ``sh_q18`` (network controllers);
+  ``q + deadband(clamp(a_net, +-1))`` with rods +-4.8 / cams +-1, re-derived from ``sh_a_net`` and ``sh_q18`` at the
+  stamp's RECORDED deadband (``sh_core.apply_deadband_np``; absent = 0 = no deadband) (network controllers);
   the limited command in [h_min, h_max] moving <= 0.08 m/s; the restore lifecycle (engage -> complete / time out /
   merge, never twice open; restore rows == open restores; armed: engaged == leave-off-height; off: none); the per-step
   raw command == the row's per-hold map (``height_table`` of ``hold_heights``) or 1.064 (zero command).
@@ -120,6 +126,17 @@ def meta_reasons(sh_stamp, refs_stamp=None, *, identity: bool = False) -> list[s
     mask = blk.get(EC.MASK_KEY)
     sp = (blk.get("specialist") or {}).get("sha256") if isinstance(blk.get("specialist"), dict) else None
     kind = sh.get("stand_ckpt_kind")
+    try:
+        db = CORE.recorded_deadband(sh)                      # absent = 0 (stamps written before the option)
+    except ValueError as exc:
+        out.append(f"{EC.DEADBAND_KEY}: {exc}")
+        db = 0.0
+    if db and not net:
+        out.append(f"a residual deadband {db} on the scripted {ctl} controller")
+    try:
+        CORE.recorded_trained_deadband(sh)                   # recorded only; a difference is a note (meta_notes)
+    except ValueError as exc:
+        out.append(f"{CORE.TRAINED_DEADBAND_KEY}: {exc}")
     if net:
         if isinstance(mask, bool) or mask not in (0, 1) or sh.get("stand_mask") != mask:
             out.append(f"p2r_mode.{EC.MASK_KEY} {mask!r} is not an int 0 / 1 equal to the block's "
@@ -147,7 +164,7 @@ def meta_reasons(sh_stamp, refs_stamp=None, *, identity: bool = False) -> list[s
             out.append(f"stand_ckpt_kind {kind!r} but the hashes say {expect!r}")
         out += [f"checkpoint pairing: {r}" for r in EC.ckpt_kind_reasons(
             kind if kind != EC.CKPT_KIND_TRAINED else None, controller=ctl, command=cmd,
-            stand_mask=mask if not isinstance(mask, bool) else None)]
+            stand_mask=mask if not isinstance(mask, bool) else None, deadband=db)]
     else:
         if blk.get("specialist") is not None or blk.get(EC.MASK_KEY) is not None:
             out.append(f"a scripted controller ({ctl}) with a stand checkpoint / mask in run_meta")
@@ -213,14 +230,33 @@ def meta_reasons(sh_stamp, refs_stamp=None, *, identity: bool = False) -> list[s
     else:
         out += [f"env: {r}" for r in SN.env_reasons(sm["env_vars"])]
     if identity:
-        if ctl != "stand_net" or kind != EC.CKPT_KIND_S1 or cmd != "zero" or rst != "armed" or mask != 0:
-            out.append(f"identity: want stand_net / s1_identity / zero / armed / mask 0, got {ctl} / {kind} / {cmd} / "
-                       f"{rst} / {mask!r}")
+        if ctl != "stand_net" or kind != EC.CKPT_KIND_S1 or cmd != "zero" or rst != "armed" or mask != 0 or db:
+            out.append(f"identity: want stand_net / s1_identity / zero / armed / mask 0 / deadband 0, got {ctl} / "
+                       f"{kind} / {cmd} / {rst} / {mask!r} / {db!r}")
         if (sh.get("events_alive") or {}).get("engaged") != 0:
             out.append(f"identity: restores engaged {(sh.get('events_alive') or {}).get('engaged')!r}")
         if st.get("stand_rows_differ_from_s1") != 0:
             out.append(f"identity: {st.get('stand_rows_differ_from_s1')!r} stand rows differ from clamp(S1)")
     return out
+
+
+def meta_notes(sh_stamp) -> list[str]:
+    """Notes, never FAILs: the evaluated vs the TRAINED residual deadband (``sh_core.deadband_parity``) when a trained
+    value is recorded and differs (the step-6 probe's mismatch is intended; outside a probe it is a config-parity
+    break). A malformed record is :func:`meta_reasons`' FAIL, not a note."""
+    sh = ((_meta(sh_stamp).get("p2r_mode") or {}).get(EC.BLOCK_KEY))
+    try:
+        note = CORE.deadband_parity(sh)["note"]
+    except ValueError:
+        return []
+    return [note] if note else []
+
+
+def _trained_deadband(sh_stamp):
+    try:
+        return CORE.recorded_trained_deadband((_meta(sh_stamp).get("p2r_mode") or {}).get(EC.BLOCK_KEY))
+    except ValueError:
+        return None                                          # meta_reasons FAILs it
 
 
 # ===================================================================================== raws
@@ -248,11 +284,13 @@ def _restore_lifecycle(restoring, engaged, completed, timed_out, merged):
     return fails, int(is_open), counts
 
 
-def _stand_exec(a_net, q):
-    """sh_core.stand_action re-derived in numpy float32 (bitwise for the same float32 inputs)."""
+def _stand_exec(a_net, q, deadband: float = 0.0):
+    """sh_core.stand_action re-derived in numpy float32 (bitwise for the same float32 inputs), at ``deadband``
+    (``sh_core.apply_deadband_np``; 0 = no op)."""
     import numpy as np  # noqa: PLC0415
 
     a = np.clip(a_net, np.float32(-CORE.RESIDUAL_CLIP), np.float32(CORE.RESIDUAL_CLIP))
+    a = CORE.apply_deadband_np(a, deadband)
     s = np.where(q != 0, a + q, a).astype(np.float32)
     s[..., CORE.CAM_ACT] = np.clip(s[..., CORE.CAM_ACT], np.float32(-CORE.CAM_CLIP), np.float32(CORE.CAM_CLIP))
     s[..., CORE.HIP_ACT.start:] = np.clip(s[..., CORE.HIP_ACT.start:], np.float32(-CORE.RAW_CLIP),
@@ -270,10 +308,14 @@ def raw_read(sh_stamp, *, identity: bool = False, live: bool = False, smoke: boo
     ctl, cmd, rst = sh.get("control"), sh.get("command"), sh.get("restore")
     net = ctl in EC.NET_CONTROLLERS
     old = ctl in EC.OLD_PATH_CONTROLLERS
+    try:
+        db = CORE.recorded_deadband(sh)                      # the meta check reports a malformed record
+    except ValueError:
+        db = 0.0
     hh = list(sh.get("hold_heights") or []) if cmd == "manifest" else None
     labels = list(sm.get("hold_labels") or [])
     lift = float(CORE.r_params().lift)
-    out = {"episodes": 0, "stand_steps": 0, "restore_steps": 0, "stand_steps_differ_from_s1": 0,
+    out = {"episodes": 0, "stand_steps": 0, "restore_steps": 0, "stand_steps_differ_from_s1": 0, EC.DEADBAND_KEY: db,
            "pre_entry_episodes_checked": 0, "restores": {"engaged": 0, "completed": 0, "timed_out": 0, "merged": 0,
                                                          "open_at_end": 0},
            "leave_off_height": 0, "hip_beyond_1_steps": 0, "q_max_abs_diff": 0.0, "rh_hip_max_abs_diff": 0.0,
@@ -313,8 +355,9 @@ def raw_read(sh_stamp, *, identity: bool = False, live: bool = False, smoke: boo
             want = np.where(q != 0, a_net + q, a_net).astype(acts.dtype) if net else sa.astype(acts.dtype)
             if not np.array_equal(acts[mode], want[mode]):
                 fails.append(f"{name}: recorded stand-row actions are not the controller's pre-clamp value")
-            if net and not np.array_equal(sa[mode], _stand_exec(a_net[mode], q[mode])):
-                fails.append(f"{name}: the executed stand action is not q + clamp(a_net, +-1) (rods 4.8, cams 1)")
+            if net and not np.array_equal(sa[mode], _stand_exec(a_net[mode], q[mode], db)):
+                fails.append(f"{name}: the executed stand action is not q + clamp(a_net, +-1) (the recorded residual "
+                             f"deadband {db} on hip / knee; rods 4.8, cams 1)")
             out["stand_steps_differ_from_s1"] += int((sa[mode] != s1a[mode]).any(axis=-1).sum())
             out["hip_beyond_1_steps"] += int((np.abs(sa[mode][:, CORE.HIP_ACT]) > 1.0).any(axis=-1).sum())
         if (h_lim < CORE.H_MIN - 1e-12).any() or (h_lim > CORE.H_MAX + 1e-12).any():
@@ -442,7 +485,8 @@ def read_row(refs_stamp, sh_stamp, *, how: str) -> dict:
         return {"verdict": MISSING, "refs_stamp": refs_stamp, "sh_stamp": sh_stamp}
     identity = how == "identity"
     res = {"refs_stamp": (str(refs_stamp) if refs_stamp else None), "sh_stamp": str(sh_stamp), "how": how,
-           "meta_fails": meta_reasons(sh_stamp, refs_stamp, identity=identity),
+           "meta_fails": meta_reasons(sh_stamp, refs_stamp, identity=identity), "meta_notes": meta_notes(sh_stamp),
+           CORE.TRAINED_DEADBAND_KEY: _trained_deadband(sh_stamp),
            "raws": raw_read(sh_stamp, identity=identity, live=how == "live", smoke=how == "smoke",
                             refs_stamp=refs_stamp)}
     bad = bool(res["meta_fails"] or res["raws"]["fails"])
@@ -502,12 +546,16 @@ def main(argv=None) -> int:
         rw = r.get("raws") or {}
         br = r.get("bridge") or {}
         print(f"{k}: {r['verdict']}  bridge={br.get('verdict')} max|da|={br.get('max_action_diff')} "
-              f"stand_steps={rw.get('stand_steps')} differ={rw.get('stand_steps_differ_from_s1')} "
+              f"deadband={rw.get(EC.DEADBAND_KEY)} trained_deadband={r.get(CORE.TRAINED_DEADBAND_KEY)} "
+              f"stand_steps={rw.get('stand_steps')} "
+              f"differ={rw.get('stand_steps_differ_from_s1')} "
               f"restores={rw.get('restores')} hip>1={rw.get('hip_beyond_1_steps')} "
               f"arrived={rw.get('stand_holds_arrived')}/{rw.get('stand_holds')} "
               f"h_meas@1.064={rw.get('h_meas_median_at_1064')} pre_entry_checked={rw.get('pre_entry_episodes_checked')}")
         for why in (r.get("meta_fails") or []) + (rw.get("fails") or [])[:10] + (br.get("first_mismatches") or [])[:5]:
             print(f"    - {why}")
+        for note in r.get("meta_notes") or []:
+            print(f"    note: {note}")
     if a.json:
         Path(a.json).write_text(json.dumps(rows, indent=1, sort_keys=True, default=str))
     rc = exit_code(rows)

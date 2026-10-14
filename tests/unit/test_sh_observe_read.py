@@ -4,7 +4,9 @@
 Pinned: the residual frame (applied = clip(a_net), R = R_h - q) reproduces the predecessor's read bit for bit at
 1.064 and keeps its self-checks at other heights; stand rows = p2r_stand_mode (who acted); validity fails closed
 (variant, network controller, command per row, routing / execution record, one checkpoint per head); PENDING rows;
-the CLI writes only its two paths; no bytecode.
+the CLI writes only its two paths; no bytecode; the residual deadband (CHARTER 2026-10-14): a stamp's RECORDED
+deadband defines "applied" (absent = 0 = the read above bit for bit), a head mixing deadbands or a malformed record is
+INVALID.
 """
 from __future__ import annotations
 
@@ -234,3 +236,81 @@ def test_cli_writes_only_its_two_paths_and_exit_codes(O, tmp_path, capsys):
 def test_no_bytecode_next_to_campaign_or_predecessor_files(O):
     assert _pyc() == _PYC_BEFORE
     assert math.isfinite(O.EXEC_TOL)
+
+
+# ===================================================================================== the residual deadband
+# CHARTER section 3, 2026-10-14: a stamp that RECORDS a residual deadband d executed q + deadband(clip(a_net), d); the
+# residual frame's "applied" is that deadbanded residual (absent record = 0 = the read above, unchanged).
+def episode_db(O, d, **kw):
+    ep = episode(O, **kw)
+    C = O.EC.CORE
+    stand = ep[O.EC.RAW_STAND_MODE]
+    r = C.apply_deadband_np(np.clip(ep[O.EC.RAW_A_NET], np.float32(-1), np.float32(1)), d)
+    ex = ep[O.EC.RAW_Q].astype(np.float64) + r.astype(np.float64)
+    ex[:, 0:6] = np.clip(ex[:, 0:6], -1, 1)
+    ex[:, 6:] = np.clip(ex[:, 6:], -4.8, 4.8)
+    return dict(ep, **{O.EC.RAW_STAND_ACTION: np.where(stand[:, None], ex, 0.0).astype(np.float32)})
+
+
+def meta_db(O, d, command="manifest", **kw):
+    m = meta(O, command, **kw)
+    m["p2r_mode"][O.EC.BLOCK_KEY]["residual_deadband"] = d
+    m["p2r_mode"][O.EC.BLOCK_KEY]["clip"] = O.EC.CORE.clip_record(d)
+    return m
+
+
+def test_residual_frame_uses_the_recorded_deadband(O, tmp_path):
+    d = 0.25
+    OBS, SN = O.OBS, O.SN
+    ep = episode_db(O, d, h_stand=(0.90, 1.25), seed=4)
+    stand = ep[O.EC.RAW_STAND_MODE]
+    dd, why = O.residual_episode(ep, d)
+    assert why == []
+    applied = dd[SN.RAW_STAND_ACTION][stand]
+    want = O.EC.CORE.apply_deadband_np(np.clip(ep[O.EC.RAW_A_NET], -1, 1).astype(np.float32), d)[stand]
+    assert np.array_equal(applied, want) and np.array_equal(dd["actions"][stand], want)
+    hk = applied[:, 6:]
+    assert ((hk == 0) | (np.abs(hk) >= d)).all() and (hk == 0).any()
+    assert np.array_equal(applied[:, :6], np.clip(ep[O.EC.RAW_A_NET], -1, 1)[stand][:, :6])   # cams untouched
+    # read without the deadband, the same raws fail the execution self-check (the record decides the frame)
+    assert any(O.EC.RAW_STAND_ACTION in x for x in O.residual_episode(ep)[1])
+    # deadband 0 is the read without the option, bit for bit
+    e0 = episode(O, seed=5)
+    a0, w0 = O.residual_episode(e0)
+    b0, v0 = O.residual_episode(e0, 0.0)
+    assert w0 == v0 and all(np.array_equal(a0[k], b0[k]) for k in a0)
+    lr = tmp_path / "lr"
+    write(lr, "DB", "hwalkstop", 1, [episode_db(O, d, h_stand=(0.90, 1.25), seed=s) for s in (0, 1)], meta_db(O, d))
+    write(lr, "DB", "walkstop", 1, [episode_db(O, d, h_stand=(1.064, 1.064), seed=s) for s in (0, 1)],
+          meta_db(O, d, "zero"))
+    out = O.observe("DB", ["walkstop@1", "hwalkstop@1"], lr)
+    assert out["status"] == "complete" and not out["invalid"], out["invalid"]
+    assert out["residual_deadband"] == d and all(r["residual_deadband"] == d for r in out["rows"].values())
+    assert "deadband" in out["frame"] and out["arm"]["residual_deadband"] == d
+    # the hold-branch hip error is read on the executed (deadbanded) residual
+    acc = OBS.Acc()
+    w = int(round(OBS.LAUNCH_WINDOW_S / DT))
+    rst, p = SN.load_rst(), SN.r_params()
+    for s in (0, 1):
+        acc.add_episode(O.residual_episode(episode_db(O, d, h_stand=(0.90, 1.25), seed=s), d)[0], CAM_J, w, p,
+                        rst.BRANCH_LIFT, rst.BRANCH_HOLD)
+    assert out["rows"]["hwalkstop@1"]["by_branch"] == OBS.summarize(acc, DT, p)["by_branch"]
+    # an old stamp (no key) reads at 0, as before
+    lr0 = tmp_path / "lr0"
+    head(O, lr0)
+    out0 = O.observe("HEAD", ["walkstop@1", "hwalkstop@1"], lr0)
+    assert out0["status"] == "complete" and out0["residual_deadband"] == 0.0 and "deadband" not in out0["frame"]
+
+
+def test_a_head_mixing_deadbands_or_a_malformed_record_is_invalid(O, tmp_path):
+    lr = tmp_path / "lr"
+    write(lr, "M", "walkstop", 1, [episode(O, h_stand=(1.064, 1.064))], meta(O, "zero"))
+    write(lr, "M", "hwalkstop", 1, [episode_db(O, 0.25)], meta_db(O, 0.25))
+    out = O.observe("M", ["walkstop@1", "hwalkstop@1"], lr)
+    assert set(out["invalid"]) == {"walkstop@1", "hwalkstop@1"}
+    assert all(any("mix residual_deadband" in x for x in v) for v in out["invalid"].values())
+    bad = meta_db(O, 0.25)
+    bad["p2r_mode"][O.EC.BLOCK_KEY]["clip"] = O.EC.CORE.clip_record(0.3)
+    write(lr, "B", "hwalkstop", 1, [episode_db(O, 0.25)], bad)
+    out = O.observe("B", ["hwalkstop@1"], lr)
+    assert any("residual_deadband" in x for x in out["invalid"]["hwalkstop@1"])

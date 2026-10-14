@@ -24,6 +24,14 @@ WHAT CHANGED (PLAN H1-H6; every height semantic is ``sh_core``'s, imported, neve
   (``sh_core.route``); the env wrapper clips at ``sh_core.HARNESS_CLIP`` = 4.8 (runtime, no config edit);
 * the stand-net input is ``sh_core.stand_net_input(obs, est, mask=1, h_cmd_limited=h_lim, restoring=...)``; the MSE
   fits the unclipped mean to the residual label on that input;
+* ``--deadband d`` (``RunOpts.deadband``; default 0 = off, every output bitwise the run without the option; CHARTER
+  2026-10-14 "probe a residual deadband" -> "train it in"): the STUDENT-executed stand action only (student episodes,
+  any DART sigma, restore rows included) is ``sh_core.stand_action(a_res, h_lim, deadband=d)`` -- the clamped residual's
+  hip / knee entries below d zeroed before ``+ q``; the labels stay R_h's residuals, the R_h control slice and the
+  beta-R episodes execute exactly as without it; recorded in run.json (``opts.deadband``,
+  ``sh_dagger.residual_deadband`` + its clip record), status.json, the checkpoint infos (``infos.sh_dagger``) and the
+  smoke (``student_deadband_realised``: no realised student hip / knee residual inside (0, d); forward parity with the
+  launcher's ``--sh-deadband d``);
 * warm start: A-mask s17 with ``W[:, 15]`` zeroed (``sh_core.load_warm_start``; its estimator must equal S1's);
 * the env side is ``sh_starts.StartState`` (start modes, h_cmd draws, forced first stands, table, pushes, hip-contact);
   the trainer reads its per-env fields after every ``env.step`` and a probe (root z, chassis lowest point, ``h_meas``,
@@ -225,25 +233,26 @@ def student_mean(student, x):
     return student.act_inference(x, hist_encoding=True)
 
 
-def trainer_actions(obs, stand_eff, restoring, h_lim, nets: Nets):
+def trainer_actions(obs, stand_eff, restoring, h_lim, nets: Nets, *, deadband: float = 0.0):
     """The routed actions of a STUDENT-executed, sigma-0 step (the parity function): ``router_actions(stand_eff,
-    student(stand_input), S1, h_lim)``."""
+    student(stand_input), S1, h_lim, deadband=deadband)`` (the run's deadband: student rows execute it)."""
     a_s1 = s1_actions(obs, nets)
     mu = student_mean(nets.student, stand_input(obs, nets, h_lim, restoring)).to(a_s1.dtype)
-    return SH.router_actions(stand_eff, mu, a_s1, h_lim).actions
+    return SH.router_actions(stand_eff, mu, a_s1, h_lim, deadband=deadband).actions
 
 
-def launcher_actions(obs, stand_eff, restoring, h_lim, s1, s1_est, st_pol, st_est, *, p0, p1, num_prop):
+def launcher_actions(obs, stand_eff, restoring, h_lim, s1, s1_est, st_pol, st_est, *, p0, p1, num_prop,
+                     deadband: float = 0.0):
     """What a stand-height launcher computes for the same obs / controller state: the harness writes S1's estimate in
     place on ITS obs, S1 acts on it, the stand net acts on ``sh_core.stand_net_input(harness obs, its own estimator,
-    mask 1, h_lim, restoring)``, ``sh_core.router_actions``."""
+    mask 1, h_lim, restoring)``, ``sh_core.router_actions`` (at the launcher's ``--sh-deadband``)."""
     h = obs.clone()
     h[:, p0:p1] = s1_est.inference(h[:, :num_prop])
     a_s1 = s1.act_inference(h, hist_encoding=True)
     x = SH.stand_net_input(h, st_est, p0=p0, p1=p1, num_prop=num_prop, mask=SPEC.STAND_MASK, h_cmd_limited=h_lim,
                            restoring=restoring)
     a_net = st_pol.act_inference(x, hist_encoding=True).to(a_s1.dtype)
-    return SH.router_actions(stand_eff, a_net, a_s1, h_lim).actions
+    return SH.router_actions(stand_eff, a_net, a_s1, h_lim, deadband=deadband).actions
 
 
 # ===================================================================================== labels, onsets, weights (copied)
@@ -751,7 +760,8 @@ class RunOpts:
                  steps_per_iter=SPEC.STEPS_PER_ITER, lr=SPEC.LR, minibatches=SPEC.MINIBATCHES,
                  minibatch=SPEC.MINIBATCH, buffer_gb=SPEC.BUFFER_GB, buffer_rows=None, onset_share=SPEC.ONSET_SHARE,
                  w_max=SPEC.W_MAX, max_grad_norm=SPEC.MAX_GRAD_NORM, ckpt_every=SPEC.CKPT_EVERY,
-                 control_share=SPEC.CONTROL_SHARE, init_random_ep_len=True, smoke=False, log_every=10):
+                 control_share=SPEC.CONTROL_SHARE, init_random_ep_len=True, smoke=False, log_every=10,
+                 deadband=0.0):
         if mode not in SPEC.MODES:
             raise ValueError(f"mode {mode!r}: this trainer runs {SPEC.MODES} only")
         if arm not in SPEC.ARMS:
@@ -768,6 +778,8 @@ class RunOpts:
         self.onset_share, self.w_max, self.max_grad_norm = float(onset_share), float(w_max), float(max_grad_norm)
         self.ckpt_every, self.control_share = int(ckpt_every), float(control_share)
         self.init_random_ep_len, self.smoke, self.log_every = bool(init_random_ep_len), bool(smoke), int(log_every)
+        #: the residual deadband of the STUDENT-executed stand action (0 = off; labels / R executors never get it)
+        self.deadband = SH.check_deadband(deadband)
 
     def to_dict(self) -> dict:
         return dict(vars(self))
@@ -864,7 +876,8 @@ class Trainer:
                 "est_absmax_off_height": z(max(1, self.nets.p1 - self.nets.p0)),
                 "est_absmax_s1_rows": z(max(1, self.nets.p1 - self.nets.p0)), "est_rows_off_height": z(),
                 "table_top_err_max": z(), "table_top_n": z(), "spawn_h_err_max": z(N_KINDS), "spawn_h_n": z(N_KINDS),
-                "spawn_below_hmin": z(N_KINDS)}
+                "spawn_below_hmin": z(N_KINDS), "db_rows": z(), "db_viol_rows": z(), "db_zero_entries": z(),
+                "db_kept_entries": z(), "db_entries": z()}
 
     # ---------------------------------------------------------------- episode draws (per episode, private)
     def _episode_draws(self, new_ep, it: int):
@@ -940,6 +953,10 @@ class Trainer:
         clean = torch.where(use_r[:, None], label, mu)
         a_res = torch.where((sig > 0)[:, None], clean + sig[:, None] * noise, clean)
         a_st, _q = SH.stand_action(a_res, h_lim)
+        if o.deadband > 0.0:
+            # the residual deadband on the STUDENT-executed rows only (labels and the R executors unchanged)
+            a_db, _ = SH.stand_action(a_res, h_lim, deadband=o.deadband)
+            a_st = torch.where(use_r[:, None], a_st, a_db)
         r_exact = use_r & (sig == 0)
         a_stand = torch.where(r_exact[:, None], tgt, a_st)
         actions = SH.route(eff, a_stand, a_s1)
@@ -1048,6 +1065,18 @@ class Trainer:
             cams = app[:, SH.CAM_ACT]
             acc["eff_cam_absmax"] = torch.maximum(acc["eff_cam_absmax"], torch.where(
                 el[:, None], cams.abs(), torch.zeros_like(cams)).max().double())
+            if o.deadband > 0.0:
+                # REALISED: the applied hip / knee action minus the posture on live student-executed stand rows must
+                # be 0 or >= the deadband (DEADBAND_TOL: float32 rounding of (q + r) - q)
+                sl = el & ~use_r
+                res = (app[:, SH.DEADBAND_ACT] - _q[:, SH.DEADBAND_ACT].to(app.dtype)).abs()
+                inside = (res > DEADBAND_TOL) & (res < o.deadband - DEADBAND_TOL)
+                slm = sl[:, None]
+                acc["db_rows"] += sl.sum().double()
+                acc["db_viol_rows"] += (sl & inside.any(dim=1)).sum().double()
+                acc["db_zero_entries"] += (slm & (res <= DEADBAND_TOL)).sum().double()
+                acc["db_kept_entries"] += (slm & (res >= o.deadband - DEADBAND_TOL)).sum().double()
+                acc["db_entries"] += sl.sum().double() * res.shape[1]
         timeout = dones & (ep_len + 1 >= self.max_ep)
         final = self.tracker.post(dones, fell, slot_next, it, timeout=timeout)
         eps = self._episode_ends(dones, fell, timeout, ep_len, it) if bool(dones.any()) else []
@@ -1185,6 +1214,7 @@ class Trainer:
                "iterations_schedule": o.iterations, "checkpoints": list(self.ckpts),
                "final_checkpoint": self.ckpts[-1] if self.ckpts else None, "opt_steps": self.opt_steps,
                "student_forwards": self.student_forwards, "wall_s": time.time() - t_start,
+               SH.RESIDUAL_DEADBAND_KEY: o.deadband,
                "s_per_iter": (time.time() - t_start) / max(1, last_it + 1)}
         self.paths["status"].write_text(json.dumps(res, indent=1, sort_keys=True))
         return res
@@ -1211,6 +1241,7 @@ class Trainer:
                   label="R_h residual: sh_core.rh_label(obs, h_lim).label = R_h - q18(h_lim)",
                   start_shares=dict(zip(SPEC.START_KINDS, SPEC.START_SHARES)),
                   pose_shares=dict(zip(SPEC.POSES, SPEC.POSE_SHARES)), iterations_done=int(done_its))
+        sh[SH.RESIDUAL_DEADBAND_KEY] = self.o.deadband      # the student-executed action's deadband (0 = off)
         infos["sn_dagger"], infos["sh_dagger"] = sn, sh
         return infos
 
@@ -1282,6 +1313,8 @@ def obs_layout_reasons(obs) -> list[str]:
 
 
 PARITY_GPU_ATOL = 1e-5
+#: the realised-deadband smoke check's float slack on (q + r) - q (float32 rounding, ~5e-7 at |q| <= 4.8)
+DEADBAND_TOL = 1e-5
 
 
 def forward_parity(tr: "Trainer", ckpt_path) -> dict:
@@ -1292,10 +1325,11 @@ def forward_parity(tr: "Trainer", ckpt_path) -> dict:
         return {"equal": False, "why": "no captured stand batch", "pass": False}
     pol, est, _ = load_strict(ckpt_path, tr.policy_cls, tr.est_cls, tr.train_cfg, tr.device)
     n = tr.nets
+    db = tr.o.deadband
     with torch.inference_mode():
-        a_tr = trainer_actions(cap["obs"], cap["stand_eff"], cap["restoring"], cap["h_lim"], n)
+        a_tr = trainer_actions(cap["obs"], cap["stand_eff"], cap["restoring"], cap["h_lim"], n, deadband=db)
         a_l = launcher_actions(cap["obs"], cap["stand_eff"], cap["restoring"], cap["h_lim"], n.s1, n.est, pol, est,
-                               p0=n.p0, p1=n.p1, num_prop=n.num_prop)
+                               p0=n.p0, p1=n.p1, num_prop=n.num_prop, deadband=db)
     eq = bool(torch.equal(a_tr, a_l))
     diff = float((a_tr - a_l).abs().max().item())
     on_gpu = torch.device(tr.device).type == "cuda"
@@ -1304,12 +1338,13 @@ def forward_parity(tr: "Trainer", ckpt_path) -> dict:
                 "stand_eff": cap["stand_eff"].cpu(), "restoring": cap["restoring"].cpu(), "h_lim": cap["h_lim"].cpu(),
                 "actions_trainer": a_tr.detach().cpu(), "stand_mask": int(SPEC.STAND_MASK), "ckpt": str(ckpt_path),
                 "ckpt_sha256": sha256_file(ckpt_path), "s1": n.s1_path, "s1_sha256": n.s1_sha,
-                "device": str(tr.device), "it": cap["it"], "priv": [n.p0, n.p1], "num_prop": n.num_prop},
+                "device": str(tr.device), "it": cap["it"], "priv": [n.p0, n.p1], "num_prop": n.num_prop,
+                SH.RESIDUAL_DEADBAND_KEY: db},
                str(out))
     ok = eq or (on_gpu and diff <= PARITY_GPU_ATOL)
     return {"equal": eq, "max_abs_diff": diff, "device": str(tr.device), "rule": "CPU torch.equal; GPU atol 1e-5",
             "pass": bool(ok), "rows": int(cap["obs"].shape[0]), "stand_rows": int(cap["stand_eff"].sum()),
-            "restore_rows": int(cap["restoring"].sum()), "capture": str(out)}
+            "restore_rows": int(cap["restoring"].sum()), "capture": str(out), SH.RESIDUAL_DEADBAND_KEY: db}
 
 
 def _share_check(counts: list[float], want: tuple, names: tuple) -> tuple[dict, bool]:
@@ -1569,15 +1604,27 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
     v = {"env_clip_actions": env_clip, "config_clip_actions": tr.config_clip, "clip_mismatch_rows": a["clip_mismatch"],
          "applied_rows_live": a["applied_rows_live"], "applied_rows_reset_skipped": a["applied_rows_reset_skipped"],
          "stand_rod_absmax": a["eff_rod_absmax"], "stand_cam_absmax": a["eff_cam_absmax"],
-         "record": SH.clip_record()}
+         "record": SH.clip_record(o.deadband)}
     checks.append(_chk("harness_clip_4p8", v, "wrapper clip 4.8 at runtime with the config's 1.0 untouched; applied == "
                        "clamp(routed, +-4.8) on every row that did not reset this step (a reset row's applied action "
                        "is zeroed by ActionManager.reset); stand rods beyond +-1 occur, stand cams within +-1",
                        float(env_clip) == SH.HARNESS_CLIP and tr.config_clip == 1.0 and a["clip_mismatch"] == 0
                        and a["applied_rows_live"] > 0 and a["eff_rod_absmax"] > 1.0 and a["eff_cam_absmax"] <= 1.0))
     par = forward_parity(tr, ckpt)
-    checks.append(_chk("forward_parity", par, "same device, same batch: CPU torch.equal, GPU atol 1e-5",
-                       par.get("pass") is True))
+    checks.append(_chk("forward_parity", par, "same device, same batch: CPU torch.equal, GPU atol 1e-5 (both at the "
+                       "run's residual deadband)", par.get("pass") is True))
+    if o.deadband > 0.0:
+        v = {SH.RESIDUAL_DEADBAND_KEY: o.deadband, "student_rows_live": a["db_rows"],
+             "rows_with_residual_inside_0_d": a["db_viol_rows"], "hip_knee_entries": a["db_entries"],
+             "entries_zero": a["db_zero_entries"], "entries_kept_ge_d": a["db_kept_entries"],
+             "tol": DEADBAND_TOL, "student_rows_executor": SPEC.EXECUTORS[SPEC.EX_STUDENT]}
+        ok = a["db_rows"] > 0 and a["db_viol_rows"] == 0 and a["db_zero_entries"] > 0
+    else:
+        v = {SH.RESIDUAL_DEADBAND_KEY: 0.0, "note": "deadband 0: not applied (the action path without the option)"}
+        ok = True
+    checks.append(_chk("student_deadband_realised", v, "deadband d > 0: on live student-executed stand rows the "
+                       "applied hip / knee action minus q(h_lim) is 0 or >= d (never inside (0, d); 1e-5 float "
+                       "slack), some entries zeroed; d = 0: not applied", ok))
     w = tr.nets.warm or {}
     checks.append(_chk("warm_start_zeroed", {"w15_zero_at_start": tr.w15_zero_at_start, "record": w},
                        "student W[:, 15] == 0 at the start; the warm start's sha is the pinned A-mask s17",

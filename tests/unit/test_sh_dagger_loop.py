@@ -14,7 +14,11 @@ Pinned:
   (infos: stand_mask 1, the height channel, the h range);
 * the step-5 smoke list: every check present and boolean, the dose checks pass on the fake, forward parity bitwise;
   guards that must be able to fail (a router that drops the S1 clamp, a stand-net input that ignores the restore rows,
-  a wrong label).
+  a wrong label);
+* the residual deadband (CHARTER 2026-10-14): at 0 the step is the composition without the option (bitwise) and a run
+  replays the default run; at 0.25 only student-executed rows (restore rows included) are deadbanded, labels and the R
+  executors untouched; records (status, checkpoint infos), forward parity, the realised smoke check (and a trainer that
+  ignores its deadband is caught).
 """
 from __future__ import annotations
 
@@ -894,3 +898,172 @@ def test_runopts_one_arm_one_mode(CORE):
     with pytest.raises(ValueError):
         CORE.RunOpts(seed=1, iterations=5, stop_after=6)
     assert CORE.RunOpts(seed=1, iterations=5).stand_mask == 1
+
+
+# ===================================================================================== the residual deadband
+# CHARTER section 3, 2026-10-14: "train it in" executes the deadbanded STUDENT action (labels unchanged = R_h's
+# residuals, the R_h control and beta-R executors untouched); --deadband 0 is the trainer without the option.
+def _today_stand_action(SH, a_net, h):
+    """The stand composition as it stood before the deadband option (verbatim, sh_core at e629b579)."""
+    n = int(a_net.shape[0])
+    a = torch.clamp(a_net, -SH.RESIDUAL_CLIP, SH.RESIDUAL_CLIP)
+    q = SH.q18(SH._vec(h, n, a.device, name="h_cmd_limited"), dtype=a.dtype, device=a.device)
+    s = torch.where(q != 0, a + q, a)
+    return torch.cat([s[:, SH.CAM_ACT].clamp(-SH.CAM_CLIP, SH.CAM_CLIP),
+                      s[:, SH.HIP_ACT.start:].clamp(-SH.RAW_CLIP, SH.RAW_CLIP)], dim=1)
+
+
+def _one_step(CORE, classes, cfg, nets_proto, bank, stance, out, **opts):
+    """One trainer step on 8 hand-set rows: 0 control sigma 0, 1 beta-R sigma 0, 2 student, 3 student sigma 0.3,
+    4 beta-R sigma 0.1, 5 student, 6 walking (S1), 7 a STUDENT restore row (left a 0.85 stand one step ago)."""
+    nets = make_nets(nets_proto)
+    gens = CORE.make_generators(5, "cpu")
+    env = FakeEnv(CORE.STARTS, gens, bank=bank, stance=stance, n=8, seed=1)
+    o = CORE.RunOpts(seed=5, iterations=30, num_envs=8, buffer_rows=100, log_every=0, **opts)
+    tr = CORE.Trainer(env, nets, o, out, state=env.state, probe=env.probe, gens=gens, train_cfg=cfg,
+                      policy_cls=classes[0], est_cls=classes[1])
+    obs, _ = env.get_observations()
+    tr.meas = env.probe()
+    env.cmd.slot_id[:] = torch.tensor([0, 0, 0, 0, 0, 0, 1, 1])
+    env.state.h_cmd[:] = torch.tensor([0.80, 1.064, 1.25, 0.90, 1.10, 1.30, 1.064, 1.064], dtype=torch.float64)
+    tr.ctrl.limiter.state[:] = torch.tensor([0.80, 1.064, 1.25, 0.90, 1.10, 1.30, 1.064, 0.85], dtype=torch.float64)
+    tr.ctrl.prev_slot[:] = torch.tensor([1, 1, 1, 1, 1, 1, 0, 1], dtype=torch.bool)
+    tr.ep_kind = torch.tensor([2, 1, 0, 0, 1, 0, 0, 0])
+    tr.ep_sigma = torch.tensor([0.0, 0.0, 0.0, 0.3, 0.1, 0.0, 0.0, 0.0])
+    dart = torch.Generator().set_state(tr.gens["dart"].get_state())
+    slot = env.cmd.stand_mask().clone()
+    with torch.inference_mode():
+        hs = copy.deepcopy(tr.ctrl).step(slot, env.state.h_cmd, obs)
+        tr._step(obs, slot, torch.zeros(8, dtype=torch.bool), 0)
+        lab = CORE.SH.rh_label(obs, hs.h_lim, check=True)
+        mu = CORE.student_mean(nets.student, CORE.stand_input(obs, nets, hs.h_lim, hs.restoring))
+        a_s1 = CORE.s1_actions(obs, nets)
+    noise = torch.randn(8, 18, generator=dart)
+    return tr, env, hs, lab, mu, a_s1, noise
+
+
+def test_deadband_zero_trainer_step_is_the_path_without_the_option(CORE, classes, cfg, nets_proto, bank, stance,
+                                                                    tmp_path):
+    SH = CORE.SH
+    for kw in ({}, {"deadband": 0.0}):
+        tr, env, hs, lab, mu, a_s1, noise = _one_step(CORE, classes, cfg, nets_proto, bank, stance,
+                                                      tmp_path / f"z{len(kw)}", **kw)
+        a, _ = env.seen[-1]
+        h = hs.h_lim
+        assert tr.o.deadband == 0.0 and hs.restoring.tolist() == [False] * 7 + [True]
+        for r in (2, 5, 7):
+            assert torch.equal(a[r], _today_stand_action(SH, mu[r:r + 1], h[r:r + 1])[0]), r
+        assert torch.equal(a[3], _today_stand_action(SH, mu[3:4] + 0.3 * noise[3:4], h[3:4])[0])
+        assert torch.equal(a[4], _today_stand_action(SH, lab.label[4:5] + 0.1 * noise[4:5], h[4:5])[0])
+        for r in (0, 1):
+            assert torch.equal(a[r], lab.target[r]), r
+        assert torch.equal(a[6], a_s1[6].clamp(-1, 1))
+        assert tr.acc["db_rows"] == 0 and tr.acc["db_entries"] == 0          # the realised check never runs at 0
+
+
+def test_deadband_trainer_step_student_rows_only_labels_unchanged(CORE, classes, cfg, nets_proto, bank, stance,
+                                                                   tmp_path):
+    SH = CORE.SH
+    d = SH.RESIDUAL_DEADBAND_PROBE
+    tr, env, hs, lab, mu, a_s1, noise = _one_step(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "d",
+                                                  deadband=d)
+    a, _ = env.seen[-1]
+    h = hs.h_lim
+    assert tr.o.deadband == d and tr.o.to_dict()["deadband"] == d
+    # student rows (2, 5, the restore row 7, and the DART row 3): q + deadband(clamp(residual))
+    for r in (2, 5, 7):
+        want, _ = SH.stand_action(mu[r:r + 1], h[r:r + 1], deadband=d)
+        assert torch.equal(a[r], want[0]), r
+    w3, _ = SH.stand_action(mu[3:4] + 0.3 * noise[3:4], h[3:4], deadband=d)
+    assert torch.equal(a[3], w3[0])
+    small = (mu[[2, 3, 5, 7]][:, 6:].clamp(-1, 1).abs() < d)
+    assert small.any()                                                    # non-vacuous: the deadband acted
+    assert not torch.equal(a[[2, 5, 7]], _today_stand_action(SH, mu[[2, 5, 7]], h[[2, 5, 7]]))
+    # R executors untouched: control / beta-R at sigma 0 = R_h's target, beta-R with sigma = q + clamp(label + noise)
+    for r in (0, 1):
+        assert torch.equal(a[r], lab.target[r]), r
+    assert torch.equal(a[4], _today_stand_action(SH, lab.label[4:5] + 0.1 * noise[4:5], h[4:5])[0])
+    assert torch.equal(a[6], a_s1[6].clamp(-1, 1))                         # S1 row
+    # labels unchanged: every effective stand row enters the reservoir with R_h's residual
+    eff = hs.stand_eff
+    assert torch.equal(tr.buf.tgt[:int(eff.sum())], lab.label[eff].float())
+    # the realised student residual (applied - q) on hip / knee: 0 or >= d
+    assert tr.acc["db_rows"] > 0 and tr.acc["db_viol_rows"] == 0 and tr.acc["db_zero_entries"] > 0
+
+
+def test_deadband_run_records_parity_and_the_realised_smoke_check(CORE, classes, cfg, nets_proto, bank, stance,
+                                                                   tmp_path):
+    d = CORE.SH.RESIDUAL_DEADBAND_PROBE
+    tr, env, res = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "db", stop_after=4,
+                              smoke=True, n=64, deadband=d)
+    assert res[CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    assert json.loads((tmp_path / "db/status.json").read_text())[CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    ck = torch.load(res["final_checkpoint"], weights_only=False)
+    assert ck["infos"]["sh_dagger"][CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    assert CORE.SH.recorded_deadband(ck["infos"]["sh_dagger"]) == d
+    by = {c["name"]: c for c in CORE.smoke_checks(tr, env_parity=[], ckpt=res["final_checkpoint"],
+                                                 env_clip=env.clip_actions)}
+    assert set(by) == {n for n, _ in CORE.SPEC.SMOKE_DAGGER}
+    c = by["student_deadband_realised"]
+    assert c["pass"] is True, c
+    assert c["value"]["student_rows_live"] > 0 and c["value"]["rows_with_residual_inside_0_d"] == 0
+    assert c["value"]["entries_zero"] > 0 and c["value"]["entries_kept_ge_d"] > 0
+    fp = by["forward_parity"]["value"]
+    assert by["forward_parity"]["pass"] is True and fp["equal"] is True and fp[CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    assert torch.load(fp["capture"], weights_only=False)[CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    assert by["harness_clip_4p8"]["value"]["record"][CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    # a plain run reports the check as not applied (and passes): the default smoke list is unchanged in meaning
+    tr0, env0, res0 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "plain", stop_after=3,
+                                 smoke=True)
+    by0 = {c["name"]: c for c in CORE.smoke_checks(tr0, env_parity=[], ckpt=res0["final_checkpoint"],
+                                                  env_clip=env0.clip_actions)}
+    assert by0["student_deadband_realised"]["pass"] is True and res0[CORE.SH.RESIDUAL_DEADBAND_KEY] == 0.0
+    assert torch.load(res0["final_checkpoint"], weights_only=False)["infos"]["sh_dagger"][
+        CORE.SH.RESIDUAL_DEADBAND_KEY] == 0.0
+
+
+def test_deadband_zero_run_replays_the_default_run_bitwise(CORE, classes, cfg, nets_proto, bank, stance, tmp_path):
+    # iterations 3: beta reaches 0 at it 1, so the episodes drawn from then on are student-executed
+    kw = dict(stop_after=3, iterations=3, smoke=False, n=64)
+    _, _, r1 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "x", **kw)
+    _, _, r2 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "y", deadband=0.0, **kw)
+    _, _, r3 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "z", deadband=0.25, **kw)
+    for f in ("stands.jsonl", "episodes.jsonl"):
+        assert (tmp_path / "x" / f).read_text() == (tmp_path / "y" / f).read_text()
+    a, b, c = (torch.load(r["final_checkpoint"], weights_only=False)["model_state_dict"] for r in (r1, r2, r3))
+    assert CORE.SN.state_dicts_equal(a, b)[0]
+    assert not CORE.SN.state_dicts_equal(a, c)[0]                         # the deadband changes what is visited
+
+
+def test_a_trainer_that_ignores_its_deadband_is_caught(CORE, classes, cfg, nets_proto, bank, stance, tmp_path,
+                                                       monkeypatch):
+    real = CORE.SH.stand_action
+    monkeypatch.setattr(CORE.SH, "stand_action", lambda a_net, h, *, deadband=0.0: real(a_net, h))
+    tr, env, res = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "ign", stop_after=3,
+                              iterations=3, smoke=True, n=64, deadband=0.25)
+    monkeypatch.setattr(CORE.SH, "stand_action", real)
+    by = {c["name"]: c for c in CORE.smoke_checks(tr, env_parity=[], ckpt=res["final_checkpoint"],
+                                                 env_clip=env.clip_actions)}
+    assert by["student_deadband_realised"]["pass"] is False
+    assert by["student_deadband_realised"]["value"]["rows_with_residual_inside_0_d"] > 0
+
+
+def test_forward_parity_with_the_deadband(CORE, nets_proto):
+    n = make_nets(nets_proto)
+    obs = SC.obs_batch(24, seed=12)
+    eff = torch.tensor([True, False] * 12)
+    rest = torch.tensor([True, False, False, False] * 6) & eff
+    h = torch.linspace(0.719, 1.346, 24, dtype=torch.float64)
+    with torch.inference_mode():
+        a = CORE.trainer_actions(obs, eff, rest, h, n, deadband=0.25)
+        b = CORE.launcher_actions(obs, eff, rest, h, n.s1, n.est, n.student, n.est, p0=n.p0, p1=n.p1,
+                                  num_prop=n.num_prop, deadband=0.25)
+        a0 = CORE.trainer_actions(obs, eff, rest, h, n)
+        b0 = CORE.launcher_actions(obs, eff, rest, h, n.s1, n.est, n.student, n.est, p0=n.p0, p1=n.p1,
+                                   num_prop=n.num_prop, deadband=0.0)
+        a_s1 = CORE.s1_actions(obs, n)
+    assert torch.equal(a, b) and torch.equal(a0, b0) and not torch.equal(a, a0)
+    assert torch.equal(a[~eff], a_s1[~eff].clamp(-1, 1)) and torch.equal(a[~eff], a0[~eff])
+    with pytest.raises(ValueError):
+        CORE.RunOpts(seed=1, iterations=5, deadband=1.0)
+    assert CORE.RunOpts(seed=1, iterations=5).deadband == 0.0

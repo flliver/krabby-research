@@ -11,7 +11,9 @@ sn_stand_net_eval_crab_hex_gait.py``, SNL) is loaded BY PATH into a private inst
 Nothing of either file is edited. The height semantics are ``sh_core``'s, imported, never re-implemented: the posture
 map ``q18``, ``R_h`` (``rh_target``), the H6 :class:`sh_core.HeightController` (limiter + restore, the ONE per-step
 order), ``stand_net_input`` (column 15 = the limited command, restore rows show a stand), the router
-(``stand_action`` / ``route``: S1 rows ``clamp(S1, +-1)``, stand rows ``q + clamp(a_net, +-1)``, rods +-4.8).
+(``stand_action`` / ``route``: S1 rows ``clamp(S1, +-1)``, stand rows ``q + clamp(a_net, +-1)``, rods +-4.8; with
+``--sh-deadband d`` > 0 the clamped residual's hip / knee entries below ``d`` are zeroed before ``+ q`` --
+``sh_core.apply_deadband``, the CHARTER 2026-10-14 probe; network controllers only).
 
 PER STEP (``StandHeightMode.__call__``; the latched slot as P2L): (1) the command term's latched stand slot, re-derived
 on reset rows; (2) episode resets -> ``HeightController.reset(rows, "walk", h_cmd)`` (every eval start is a walk
@@ -60,10 +62,15 @@ CLI (``run_arm.sh --row-eval`` with ``P2_EVAL=<this file>``; every harness flag 
     --sh-command {zero, manifest}                                         (SH_COMMAND)
     --sh-restore {armed, off}     default armed; off = hand back at height (SH_RESTORE)
     --stand-ckpt PATH --stand-mask 0|1    network controllers only        (SH_STAND_CKPT / SH_STAND_MASK)
+    --sh-deadband D               default 0 (off: today's action path, bitwise); D in [0, 1); network controllers
+                                  only, never with S1 as the stand checkpoint (the identity bridge) (SH_DEADBAND);
+                                  recorded as p2r_mode.stand_height.residual_deadband (+ its clip record); the raws
+                                  keep a_net and q18 separately, sh_stand_action is the deadbanded executed action
 
 REFUSED BEFORE KIT (SystemExit; the harness is never imported): a missing / unknown controller or command; a network
 controller without, or a scripted one with, a stand checkpoint / mask; a malformed / relative / spaced / globbed /
-missing checkpoint path; a repeated flag; CLI-env disagreement; leftover ``--sh*`` / ``--stand*`` / ``--sn*`` /
+missing checkpoint path; a deadband that is not a number in [0, 1), or > 0 on a scripted controller or with S1 as the
+stand checkpoint; a repeated flag; CLI-env disagreement; leftover ``--sh*`` / ``--stand*`` / ``--sn*`` /
 ``--p2r*``; any ``P2R_*`` variable; the predecessor's ``SN_STAND_CKPT`` / ``SN_STAND_MASK``; the D5 env rule
 (``sn_common.env_reasons``: STAND_OBS exactly 0, no env-level mask / proxy / KRABBY_RESTANCE / stand hold / park, ENV4);
 a checkpoint kind that does not pair with the controller / command / mask (A-mask s17 needs mask 1; S1 only as the
@@ -116,9 +123,9 @@ SNL = _load_by_path(SN_LAUNCHER, "_sh_eval_sn_launcher")
 
 VARIANT = EC.VARIANT
 FLAGS = {"controller": "--sh-controller", "command": "--sh-command", "restore": "--sh-restore",
-         "stand_ckpt": "--stand-ckpt", "stand_mask": "--stand-mask"}
+         "stand_ckpt": "--stand-ckpt", "stand_mask": "--stand-mask", "deadband": "--sh-deadband"}
 ENV_KEYS = {"controller": "SH_CONTROLLER", "command": "SH_COMMAND", "restore": "SH_RESTORE",
-            "stand_ckpt": "SH_STAND_CKPT", "stand_mask": "SH_STAND_MASK"}
+            "stand_ckpt": "SH_STAND_CKPT", "stand_mask": "SH_STAND_MASK", "deadband": "SH_DEADBAND"}
 STRAY_PREFIXES = ("--sh", "--stand", "--sn", "--p2r")
 #: the predecessor launcher's env fallbacks: never read here, so refused (a leftover would look like a setting)
 FOREIGN_ENV = ("SN_STAND_CKPT", "SN_STAND_MASK")
@@ -179,6 +186,13 @@ def parse_sh_args(argv: list[str], environ=None) -> tuple[argparse.Namespace, li
         raise SystemExit(f"sh: --sh-restore must be one of {EC.RESTORES}, got {rst!r}")
     ctl, cmd = str(ctl).strip(), str(cmd).strip()
     net = ctl in EC.NET_CONTROLLERS
+    try:
+        db = 0.0 if v["deadband"] is None else CORE.check_deadband(str(v["deadband"]).strip())
+    except ValueError as exc:
+        raise SystemExit(f"sh: --sh-deadband: {exc}") from exc
+    if db and not net:
+        raise SystemExit(f"sh: --sh-deadband {db!r} with --sh-controller {ctl}: the residual deadband acts on a stand "
+                         f"network's residual only ({EC.NET_CONTROLLERS}); refused")
     ck, mk = v["stand_ckpt"], v["stand_mask"]
     if net:
         if ck is None:
@@ -208,7 +222,7 @@ def parse_sh_args(argv: list[str], environ=None) -> tuple[argparse.Namespace, li
         s1 = hx["checkpoint"]
         s1_sha = EC.sha256_file(s1) if s1 and Path(s1).is_file() else None
         kind = EC.ckpt_kind(EC.sha256_file(ck), s1_sha)
-        why = EC.ckpt_kind_reasons(kind, controller=ctl, command=cmd, stand_mask=mk)
+        why = EC.ckpt_kind_reasons(kind, controller=ctl, command=cmd, stand_mask=mk, deadband=db)
         if why:
             raise SystemExit("sh: stand checkpoint refused:\n  " + "\n  ".join(why))
     row = None
@@ -221,7 +235,7 @@ def parse_sh_args(argv: list[str], environ=None) -> tuple[argparse.Namespace, li
             raise SystemExit(f"sh: --sh-command manifest: {exc}") from exc
     return argparse.Namespace(controller=ctl, command=cmd, restore=rst, stand_ckpt=(ck if net else None),
                               stand_mask=(mk if net else None), pre_kind=kind, height_row=row,
-                              harness_manifest=hx["manifest"], harness_scenario=hx["scenario"]), rest
+                              harness_manifest=hx["manifest"], harness_scenario=hx["scenario"], deadband=db), rest
 
 
 # ===================================================================================== the mode
@@ -241,6 +255,10 @@ class _HeightMixin:
         self.variant = VARIANT
         self.controller, self.command, self.restore = sh.controller, sh.command, sh.restore
         self.net = sh.controller in EC.NET_CONTROLLERS
+        self.deadband = CORE.check_deadband(getattr(sh, "deadband", 0.0))
+        if self.deadband and not self.net:
+            raise ValueError(f"sh: a residual deadband ({self.deadband}) on the scripted {sh.controller} controller")
+        self.trained_deadband = None
         self.old_path = sh.controller in EC.OLD_PATH_CONTROLLERS
         self.height_row = sh.height_row
         if not self.net:
@@ -286,7 +304,8 @@ class _HeightMixin:
         if not s1_sha or not sp:
             raise RuntimeError("sh: S1's / the stand checkpoint's sha256 was never recorded by P2L")
         kind = EC.ckpt_kind(sp, s1_sha)
-        why = EC.ckpt_kind_reasons(kind, controller=self.controller, command=self.command, stand_mask=self.stand_mask)
+        why = EC.ckpt_kind_reasons(kind, controller=self.controller, command=self.command, stand_mask=self.stand_mask,
+                                   deadband=self.deadband)
         if why:
             raise SystemExit("sh: stand checkpoint refused before the first step:\n  " + "\n  ".join(why))
         if kind == EC.CKPT_KIND_AMASK:
@@ -310,6 +329,11 @@ class _HeightMixin:
             raise SystemExit(f"sh: --stand-mask {self.stand_mask} but the checkpoint was trained with stand_mask {tm}; "
                              "refused before the first step (an arm is evaluated with the mask it was trained with)")
         self.trained_infos_keys = sorted(str(k) for k in sd)
+        try:                                   # RECORDED only (the deadband the head was TRAINED with; missing = 0)
+            self.trained_deadband = CORE.recorded_deadband(sd)
+        except ValueError as exc:
+            raise SystemExit(f"sh: infos.{EC.CKPT_INFOS_KEY} carries a malformed residual deadband ({exc}); refused "
+                             "before the first step") from exc
         return int(tm), EC.CKPT_KIND_TRAINED
 
     def bind_s1(self, s1_policy, s1_module) -> None:
@@ -466,7 +490,7 @@ class _HeightMixin:
             a_net = st_policy(x, hist_encoding=True).to(a_s1.dtype)       # the D1 forward path (L11)
             est = x[:, self.p0:self.p1].abs().float()
             off = stand & self.alive & (hs.h_lim != CORE.H_SETTLED) if not self.old_path else None
-            a_stand, q = CORE.stand_action(a_net, h_x)
+            a_stand, q = CORE.stand_action(a_net, h_x, deadband=self.deadband)   # deadband 0: no op
             pre = torch.where(q != 0, a_net + q, a_net)
         elif self.controller == "r_h":
             a_stand, q = rh_t.to(a_s1.dtype), q_lim
@@ -573,8 +597,9 @@ class _HeightMixin:
             "common": str(COMMON_PATH), "common_sha256": EC.sha256_file(COMMON_PATH),
             "sn_launcher": str(SN_LAUNCHER), "sn_launcher_sha256": EC.sha256_file(SN_LAUNCHER),
             "p2r_launcher": str(p2r_file), "p2r_launcher_sha256": EC.sha256_file(p2r_file),
-            "core": CORE.provenance(),
+            "core": CORE.provenance(self.deadband),
             "control": self.controller, "command": self.command, "restore": self.restore,
+            EC.DEADBAND_KEY: self.deadband, CORE.TRAINED_DEADBAND_KEY: self.trained_deadband,
             "inner_mode": self.INNER, "old_path": bool(self.old_path), "executor": EC.EXECUTORS[self.controller],
             "stand_ckpt": self.stand_ckpt, "stand_ckpt_kind": self.stand_ckpt_kind,
             "stand_mask": (int(self.stand_mask) if self.net else None),
@@ -585,7 +610,7 @@ class _HeightMixin:
             "hist_encoding": True, "mask_fn": SN.MASK_FN, "mask_rows": SN.MASK_ROWS, "mask_after_estimate": True,
             "clip": {"wrapper_clip_before": self.clip_before,
                      "wrapper_clip_realised": (float(clip_env.clip_actions) if clip_env is not None else None),
-                     **CORE.clip_record()},
+                     **CORE.clip_record(self.deadband)},
             "recorded_actions": EC.RECORDED_ACTIONS,
             "hold_heights": (list(self.height_row["hold_heights"]) if self.height_row is not None
                              else EC.zero_hold_heights(self.hold_labels_seen or [])),
@@ -611,7 +636,7 @@ def make_mode_class(p2r, opts: argparse.Namespace):
     net = opts.controller in EC.NET_CONTROLLERS
     base = SNL.make_mode_class(p2r, int(opts.stand_mask), opts.stand_ckpt) if net else p2r.P2RMode
     snap = argparse.Namespace(controller=opts.controller, command=opts.command, restore=opts.restore,
-                              height_row=opts.height_row)
+                              height_row=opts.height_row, deadband=getattr(opts, "deadband", 0.0))
 
     class StandHeightMode(_HeightMixin, base):
         """The harness's ``policy`` for the stand_height variant (see the module docstring)."""
@@ -704,6 +729,7 @@ def install(p2r, opts: argparse.Namespace):
         b["raw_series"] = have + [k for k in EC.RAW_KEYS if k not in have]
         blk = b[EC.BLOCK_KEY]
         print(f"[SH] stand_height controller={mode.controller} command={mode.command} restore={mode.restore} "
+              f"deadband={mode.deadband} "
               f"ckpt_kind={mode.stand_ckpt_kind} clip {blk['clip']['wrapper_clip_before']}->"
               f"{blk['clip']['wrapper_clip_realised']} events={blk['events_alive']} "
               f"stand_rows_alive={blk['stats'].get('stand_rows_alive')} "
@@ -726,7 +752,8 @@ def main(argv: list[str] | None = None, *, harness: Path | str | None = None, en
     mode_cls = install(p2r, opts)
     net = opts.controller in EC.NET_CONTROLLERS
     print(f"[SH] variant={VARIANT} controller={opts.controller} command={opts.command} restore={opts.restore} "
-          f"stand_ckpt={opts.stand_ckpt} stand_mask={opts.stand_mask} kind(pre)={opts.pre_kind} "
+          f"stand_ckpt={opts.stand_ckpt} stand_mask={opts.stand_mask} deadband={opts.deadband} "
+          f"kind(pre)={opts.pre_kind} "
           f"row={(opts.height_row or {}).get('scenario')} inner={mode_cls.INNER} r_knob={SN.RESTANCE_D3}", flush=True)
     inner = ["--p2r-mode", mode_cls.INNER] + (["--p2r-stand-ckpt", opts.stand_ckpt] if net else [])
     p2r.main([argv[0]] + inner + rest, harness=(p2r.HARNESS if harness is None else harness), environ=environ)

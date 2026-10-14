@@ -34,6 +34,16 @@ WHAT IS HERE (each item is the plan's rule; the API list at the bottom of this d
 6. **Router** (H1): ``a_s1 = clamp(S1, +-1)`` (the runtime wrapper clip is 4.8 in the stand-net harnesses, so S1's
    +-1 is explicit here); ``a_stand = q(h_cmd_limited) + clamp(a_net, +-1)``, rods clamped to the env's raw +-4.8,
    cams to +-1 (q has 0 cams); rows select by the EFFECTIVE stand vector ``stand_slot | restoring``.
+   **Residual deadband** (CHARTER section 3, 2026-10-14 "USER DECISION at the step-6 stop: probe a residual
+   deadband"; OFF by default): ``stand_action(..., deadband=d)`` -- after the +-1 clamp and before ``+ q``, on the 6 hip
+   and 6 knee columns only (cams never), ``r <- r if |r| >= d else 0`` (hard, compared in the residual's dtype).
+   ``d = 0`` skips the op: the action path is bitwise the one without the option. It acts on every row the stand
+   action composes, so restore rows (stand rows, H6) get it too; S1's rows never do. Records carry the value under
+   :data:`RESIDUAL_DEADBAND_KEY`; a record without it ran at 0 (:func:`recorded_deadband`). The step-6 probe value is
+   :data:`RESIDUAL_DEADBAND_PROBE` = 0.25 (the midpoint of R_h's binary 0 / 0.5 hip / knee labels). An eval record also
+   carries the deadband its stand checkpoint was TRAINED with (:data:`TRAINED_DEADBAND_KEY`); the readers compare the
+   two (:func:`deadband_parity`) and NOTE a difference, never refuse it (the step-6 probe evaluates a head trained at 0
+   with 0.25 on purpose; a head trained at d and evaluated without it is the config-parity break the note surfaces).
 7. **H6 restore state machine** (:class:`HeightController`, terrain-independent): engage when the slot leaves stand
    while the limited command is > 2 cm from 1.064; drive the command to 1.064 through the same limiter; complete when
    the limiter has reached 1.064 AND every hip rod (from the MEASURED hip angle, joint space) is within
@@ -72,7 +82,8 @@ API (what the builders import; tensor functions take / return device tensors and
 
 constants  H_SETTLED, H_MIN, H_MAX, FROZEN, HEIGHT_OBS_SCALE, HEIGHT_RATE_M_S, HEIGHT_COL, RESTORE_ZERO_COLS,
            RAW_CLIP, CAM_CLIP, S1_CLIP, RESIDUAL_CLIP, HARNESS_CLIP, RESTORE_ENGAGE_M, RESTORE_SETTLE_S,
-           RESTORE_ROD_TOL_M, RESTORE_TIMEOUT_S, START_KINDS, STAND_NET_CKPT, STAND_NET_SHA256, SN (sn_common)
+           RESTORE_ROD_TOL_M, RESTORE_TIMEOUT_S, START_KINDS, STAND_NET_CKPT, STAND_NET_SHA256, SN (sn_common),
+           RESIDUAL_DEADBAND_PROBE, RESIDUAL_DEADBAND_KEY, DEADBAND_ACT
 q-map      clamp_h(h) / q_map(h, *, dtype, device) -> (q_hip, q_knee_left) / q18(h, *, dtype, device) -> (N, 18) /
            q_table() -> (grid, q_hip, q_knee_left) float64 numpy / encode_height(h, *, dtype, device)
 R_h        rh_target(obs, h_cmd_limited, params=None, *, clip=RAW_CLIP) -> (target (N, 18), branch (N, 6))
@@ -81,14 +92,18 @@ R_h        rh_target(obs, h_cmd_limited, params=None, *, clip=RAW_CLIP) -> (targ
 limiter    HeightLimiter(n, device, *, dt, ...)  .state  .reset(rows, value)  .step(target) -> state
 h_meas     h_meas(root_z, terrain_z6) / terrain_z_under_feet(foot_pos_w, mesh, raycast_fn)
 input      stand_net_input(obs, estimator, *, p0, p1, num_prop, mask, h_cmd_limited, restoring=None) -> x
-router     s1_clamp(a) / stand_action(a_net, h_cmd_limited) -> (a_stand, q18) / route(stand_eff, a_stand, a_s1) /
-           router_actions(stand_eff, a_net, a_s1, h_cmd_limited) -> RouterOut
+router     s1_clamp(a) / stand_action(a_net, h_cmd_limited, *, deadband=0.0) -> (a_stand, q18) /
+           route(stand_eff, a_stand, a_s1) / router_actions(stand_eff, a_net, a_s1, h_cmd_limited, *, deadband=0.0)
+           -> RouterOut
+deadband   check_deadband(d) -> float / apply_deadband(r, d) (torch) / apply_deadband_np(r, d) (numpy twin) /
+           recorded_deadband(record) -> float (missing = 0.0) / recorded_trained_deadband(record) -> float | None /
+           deadband_parity(record) -> {"evaluated", "trained", "note"}
 restore    HeightController(n, device, *, dt, ...)  .reset(rows, start, *, h_cmd=None, h_meas=None) -> cut mask
            .force_restore(rows)  .step(stand_slot, h_cmd, obs) -> HeightStep  .counts() -> dict
            hip_rod_dev(obs) -> (N, 6) m / hip_rods_ok(obs, tol) -> (N,) bool
 warm start zero_height_column(model_state_dict) -> (new_sd, norm_before) / warm_start_state(path, *, sha256) -> dict
            / load_warm_start(policy, path, *, sha256) -> record
-records    clip_record() / provenance() -> dict (shas + constants for run_meta)
+records    clip_record(deadband=0.0) / provenance(deadband=0.0) -> dict (shas + constants for run_meta)
 """
 from __future__ import annotations
 
@@ -156,6 +171,16 @@ CAM_CLIP = 1.0               #: the action term's cam clip
 S1_CLIP = 1.0                #: S1's rows, clamped explicitly by the router (its +-1 is load-bearing)
 RESIDUAL_CLIP = 1.0          #: the stand net's residual a_net
 HARNESS_CLIP = 4.8           #: runtime ``env.clip_actions`` in the stand-net harnesses (no config edit)
+#: the step-6 residual-deadband probe (CHARTER 2026-10-14): the midpoint of R_h's binary hip / knee labels (0 / 0.5)
+RESIDUAL_DEADBAND_PROBE = 0.25
+#: the record key every run / stamp / cell writes the deadband under (absent = 0: written before the option existed)
+RESIDUAL_DEADBAND_KEY = "residual_deadband"
+#: the key an eval record writes the deadband its stand checkpoint was TRAINED with under (the launcher's
+#: run_meta stand_height block, from infos.sh_dagger; null when the checkpoint is not a campaign-trained one, absent on
+#: records written before the option). Recorded and compared (:func:`deadband_parity`), never refused.
+TRAINED_DEADBAND_KEY = "trained_residual_deadband"
+#: the residual columns the deadband acts on: the 6 hips and the 6 knees (cams 0-5 never)
+DEADBAND_ACT = slice(HIP_ACT.start, KNEE_ACT.stop)
 RESTORE_ENGAGE_M = 0.02      #: H6: a restore engages when the limited command is farther than this from H_SETTLED
 RESTORE_SETTLE_S = 0.2       #: H6: hip rods within RESTORE_ROD_TOL_M of rod(q(1.064)) this long (consecutive steps)
 RESTORE_ROD_TOL_M = 0.008    #: H6 delta, m of hip rod on every leg (re-pinned at step 4; see the module docstring)
@@ -518,13 +543,93 @@ def s1_clamp(a_s1):
     return torch.clamp(a_s1, -S1_CLIP, S1_CLIP)
 
 
-def stand_action(a_net, h_cmd_limited):
+def check_deadband(deadband) -> float:
+    """The residual deadband as a python float in [0, RESIDUAL_CLIP) (ValueError otherwise: a bool, None, a non-number,
+    non-finite, negative, or >= 1 -- which would zero every residual short of the clamp)."""
+    if isinstance(deadband, bool) or deadband is None:
+        raise ValueError(f"residual deadband {deadband!r} is not a number")
+    try:
+        d = float(deadband)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"residual deadband {deadband!r} is not a number") from exc
+    if not math.isfinite(d) or not 0.0 <= d < RESIDUAL_CLIP:
+        raise ValueError(f"residual deadband {d!r} must be in [0, {RESIDUAL_CLIP})")
+    return d
+
+
+def apply_deadband(r, deadband=0.0):
+    """The residual deadband on an (N, 18) CLAMPED residual: hip / knee entries (:data:`DEADBAND_ACT`) with
+    ``|r| < deadband`` become +0.0, every other entry (cams, and hip / knee entries ``>= deadband``) is ``r``'s own
+    value. ``deadband == 0`` returns ``r`` itself (no op at all). The comparison runs in ``r``'s dtype."""
+    d = check_deadband(deadband)
+    if d == 0.0:
+        return r
+    import torch  # noqa: PLC0415
+
+    hk = r[:, DEADBAND_ACT]
+    hk = torch.where(hk.abs() < d, torch.zeros_like(hk), hk)
+    return torch.cat([r[:, :DEADBAND_ACT.start], hk], dim=1)
+
+
+def apply_deadband_np(r, deadband=0.0):
+    """:func:`apply_deadband` in numpy on ``(..., 18)`` (a new array; bitwise the torch op for the same float32 input:
+    the threshold is cast to ``r``'s dtype). ``deadband == 0`` returns ``r`` unchanged."""
+    d = check_deadband(deadband)
+    if d == 0.0:
+        return r
+    import numpy as np  # noqa: PLC0415
+
+    out = np.array(r, copy=True)
+    hk = out[..., DEADBAND_ACT]
+    out[..., DEADBAND_ACT] = np.where(np.abs(hk) < np.asarray(d, dtype=out.dtype), np.zeros((), dtype=out.dtype), hk)
+    return out
+
+
+def recorded_deadband(record) -> float:
+    """The deadband a record ran with: ``record[RESIDUAL_DEADBAND_KEY]`` and / or ``record["clip"][...]`` (the run_meta
+    stand_height block, a table cell's meta, a trainer run.json / infos block). Neither present (every record written
+    before the option existed, or no record) -> 0.0. Malformed, or the two present and different -> ValueError."""
+    if not isinstance(record, dict):
+        return 0.0
+    vals = []
+    if RESIDUAL_DEADBAND_KEY in record:
+        vals.append(check_deadband(record[RESIDUAL_DEADBAND_KEY]))
+    clip = record.get("clip")
+    if isinstance(clip, dict) and RESIDUAL_DEADBAND_KEY in clip:
+        vals.append(check_deadband(clip[RESIDUAL_DEADBAND_KEY]))
+    if len(set(vals)) > 1:
+        raise ValueError(f"recorded residual deadband disagrees with its clip record: {vals}")
+    return vals[0] if vals else 0.0
+
+
+def recorded_trained_deadband(record) -> float | None:
+    """The deadband an eval record says its stand checkpoint was TRAINED with (``record[TRAINED_DEADBAND_KEY]``,
+    checked by :func:`check_deadband`); None when the record carries none (no record, key absent -- written before the
+    option -- or null: not a campaign-trained checkpoint). Malformed -> ValueError."""
+    if not isinstance(record, dict) or record.get(TRAINED_DEADBAND_KEY) is None:
+        return None
+    return check_deadband(record[TRAINED_DEADBAND_KEY])
+
+
+def deadband_parity(record) -> dict:
+    """``{"evaluated": recorded_deadband(record), "trained": recorded_trained_deadband(record), "note": str | None}``:
+    ``note`` says the two differ when a trained value is recorded and is not the evaluated one (None otherwise). A
+    NOTE, never a refusal (the step-6 probe's mismatch is intended). Malformed -> ValueError (either value)."""
+    ev, tr = recorded_deadband(record), recorded_trained_deadband(record)
+    note = (None if tr is None or tr == ev else
+            f"evaluated at residual deadband {ev:g} but the stand checkpoint was trained at {tr:g} (config parity: "
+            "intended only for a probe)")
+    return {"evaluated": ev, "trained": tr, "note": note}
+
+
+def stand_action(a_net, h_cmd_limited, *, deadband: float = 0.0):
     """``(a_stand, q18)``: ``q18(h) + clamp(a_net, +-1)`` (an exactly-zero posture is not added: at 1.064 the result is
-    ``clamp(a_net, +-1)`` bit for bit), rods clamped to the raw +-4.8, cams to +-1."""
+    ``clamp(a_net, +-1)`` bit for bit), rods clamped to the raw +-4.8, cams to +-1. ``deadband`` > 0: the clamped
+    residual's hip / knee entries below it are zeroed BEFORE ``+ q`` (:func:`apply_deadband`); 0 = no op."""
     import torch  # noqa: PLC0415
 
     n = int(a_net.shape[0])
-    a = torch.clamp(a_net, -RESIDUAL_CLIP, RESIDUAL_CLIP)
+    a = apply_deadband(torch.clamp(a_net, -RESIDUAL_CLIP, RESIDUAL_CLIP), deadband)
     q = q18(_vec(h_cmd_limited, n, a.device, name="h_cmd_limited"), dtype=a.dtype, device=a.device)
     s = torch.where(q != 0, a + q, a)
     s = torch.cat([s[:, CAM_ACT].clamp(-CAM_CLIP, CAM_CLIP), s[:, HIP_ACT.start:].clamp(-RAW_CLIP, RAW_CLIP)], dim=1)
@@ -547,10 +652,11 @@ def route(stand_eff, a_stand, a_s1):
 RouterOut = collections.namedtuple("RouterOut", ("actions", "a_stand", "q18", "a_s1"))
 
 
-def router_actions(stand_eff, a_net, a_s1, h_cmd_limited) -> RouterOut:
-    """One call: ``a_stand, q = stand_action(a_net, h)``, ``actions = route(stand_eff, a_stand, a_s1)``; returns
-    ``RouterOut(actions, a_stand, q18, clamp(a_s1, +-1))`` (raws record ``a_net`` and ``q18`` separately)."""
-    a_stand, q = stand_action(a_net, h_cmd_limited)
+def router_actions(stand_eff, a_net, a_s1, h_cmd_limited, *, deadband: float = 0.0) -> RouterOut:
+    """One call: ``a_stand, q = stand_action(a_net, h, deadband=deadband)``, ``actions = route(stand_eff, a_stand,
+    a_s1)``; returns ``RouterOut(actions, a_stand, q18, clamp(a_s1, +-1))`` (raws record ``a_net`` and ``q18``
+    separately). The deadband acts on the stand action only: S1's rows are ``clamp(S1, +-1)`` whatever it is."""
+    a_stand, q = stand_action(a_net, h_cmd_limited, deadband=deadband)
     return RouterOut(route(stand_eff, a_stand, a_s1), a_stand, q, s1_clamp(a_s1))
 
 
@@ -771,16 +877,22 @@ def load_warm_start(policy, path=STAND_NET_CKPT, *, sha256: str | None = STAND_N
 
 
 # ===================================================================================== records
-def clip_record() -> dict:
-    """The realised clip semantics (run_meta; step-5 asserts read it)."""
+def clip_record(deadband: float = 0.0) -> dict:
+    """The realised clip semantics (run_meta; step-5 asserts read it), with the run's residual deadband
+    (:data:`RESIDUAL_DEADBAND_KEY`; 0 = off, the action path without the option)."""
+    d = check_deadband(deadband)
     return {"harness_clip_actions": HARNESS_CLIP, "s1_clamp": S1_CLIP, "residual_clamp": RESIDUAL_CLIP,
             "stand_rod_clamp": RAW_CLIP, "stand_cam_clamp": CAM_CLIP,
-            "stand_action": "q18(h_lim) + clamp(a_net, +-1), rods +-4.8, cams +-1",
-            "s1_action": "clamp(S1, +-1)"}
+            "stand_action": ("q18(h_lim) + clamp(a_net, +-1), rods +-4.8, cams +-1" if d == 0.0 else
+                             f"q18(h_lim) + deadband(clamp(a_net, +-1), {d!r} on hip / knee), rods +-4.8, cams +-1"),
+            "s1_action": "clamp(S1, +-1)", RESIDUAL_DEADBAND_KEY: d,
+            "residual_deadband_rule": "after the +-1 clamp, before + q, hip / knee columns 6-17 only (cams never): "
+                                      "r <- r if |r| >= deadband else 0 (hard); 0 = off"}
 
 
-def provenance() -> dict:
-    """Shas + constants for run_meta: this module, sh_kin, sn_common, R's module, facts.json, the warm start."""
+def provenance(deadband: float = 0.0) -> dict:
+    """Shas + constants for run_meta: this module, sh_kin, sn_common, R's module, facts.json, the warm start; ``clip``
+    = :func:`clip_record` at the run's deadband."""
     return {"sh_core_sha256": _sha256(Path(__file__).resolve()), "sh_kin_sha256": _sha256(SH_KIN_PATH),
             "sn_common_sha256": _sha256(SN_COMMON_PATH), "restance_sha256": _sha256(SN.RESTANCE_MODULE),
             "facts_json_sha256": _sha256(FACTS_JSON), "stand_net_ckpt": str(STAND_NET_CKPT),
@@ -789,4 +901,5 @@ def provenance() -> dict:
             "height_col": HEIGHT_COL, "rate_m_s": HEIGHT_RATE_M_S, "restore_zero_cols": list(RESTORE_ZERO_COLS),
             "restore_engage_m": RESTORE_ENGAGE_M, "restore_rod_tol_m": RESTORE_ROD_TOL_M,
             "restore_settle_s": RESTORE_SETTLE_S, "restore_timeout_s": RESTORE_TIMEOUT_S,
-            "q_grid_step_m": Q_GRID_STEP_M, "q_snap_m": Q_SNAP_M, "clip": clip_record()}
+            "q_grid_step_m": Q_GRID_STEP_M, "q_snap_m": Q_SNAP_M, "clip": clip_record(deadband),
+            "residual_deadband_probe": RESIDUAL_DEADBAND_PROBE}

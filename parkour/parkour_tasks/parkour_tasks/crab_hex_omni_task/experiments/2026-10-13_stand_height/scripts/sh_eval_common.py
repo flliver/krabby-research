@@ -102,6 +102,9 @@ EXECUTORS = {
 COMMANDS = ("zero", "manifest")
 #: --sh-restore: ``armed`` = the H6 restore; ``off`` = hand back at height (the K4 known-bad), engage band infinite
 RESTORES = ("armed", "off")
+#: --sh-deadband: the residual deadband (sh_core.apply_deadband; network controllers only, never the identity bridge),
+#: recorded as ``p2r_mode.stand_height.<DEADBAND_KEY>`` (and in its ``clip``); a stamp without it ran at 0
+DEADBAND_KEY = CORE.RESIDUAL_DEADBAND_KEY
 #: the inner P2L mode a controller runs on (st2: S1 + the stand network as P2L's extra runner; hold: S1 only)
 INNER_MODE = {c: ("st2" if c in NET_CONTROLLERS else "hold") for c in CONTROLLERS}
 
@@ -125,8 +128,11 @@ def ckpt_kind(stand_sha: str | None, s1_sha: str | None) -> str | None:
     return None
 
 
-def ckpt_kind_reasons(kind: str | None, *, controller: str, command: str, stand_mask: int | None) -> list[str]:
-    """The pairing rules of a checkpoint kind (``None`` = a trainer checkpoint, its infos checked post-Kit)."""
+def ckpt_kind_reasons(kind: str | None, *, controller: str, command: str, stand_mask: int | None,
+                      deadband: float = 0.0) -> list[str]:
+    """The pairing rules of a checkpoint kind (``None`` = a trainer checkpoint, its infos checked post-Kit). The
+    residual deadband (``--sh-deadband``) never pairs with S1 as the stand checkpoint (the identity bridge is the
+    action path without it)."""
     out = []
     if controller not in NET_CONTROLLERS:
         return out
@@ -137,6 +143,8 @@ def ckpt_kind_reasons(kind: str | None, *, controller: str, command: str, stand_
         if controller != "stand_net" or command != "zero":
             out.append(f"S1 as the stand checkpoint is the identity bridge only (--sh-controller stand_net "
                        f"--sh-command zero), got {controller} / {command}")
+        if deadband:
+            out.append(f"S1 as the stand checkpoint is the identity bridge: --sh-deadband must be 0, got {deadband!r}")
     if controller == "amask_old" and kind != CKPT_KIND_AMASK:
         out.append("--sh-controller amask_old evaluates the A-mask s17 checkpoint (policy/stand_net/model_4000.pt) only")
     return out

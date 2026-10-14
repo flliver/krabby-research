@@ -19,7 +19,9 @@ Pinned:
   signature the IsaacLab manager checks, the cfg composition and its fail-closed reasons, the Kit probe's h_meas;
 * ``sh_dagger.py``: every pre-Kit refusal is exit code 2, ``--emit-env`` composes an accepted env, ``--read``;
   ``sh_dagger.sh``: the dry-run command (memory cap, SIGTERM timeout), refusals, the busy pattern (both campaigns'
-  trainers and table tests count; the Kit-free calls do not), ``--detach`` returns only once the trainer is visible.
+  trainers and table tests count; the Kit-free calls do not), ``--detach`` returns only once the trainer is visible;
+* the residual deadband (CHARTER 2026-10-14): ``--deadband`` reaches RunOpts and the provenance, bad values are refused
+  pre-Kit, ``--read`` reports a run's recorded value (a run.json without it = 0), ``sh_dagger.sh`` passes it through.
 """
 from __future__ import annotations
 
@@ -1042,3 +1044,54 @@ def test_sh_detach_returns_only_once_the_trainer_is_visible(tmp_path):
     r2 = _sh(["--detach", "SH_DET2", "--", "--mode", "dagger", "--seed", "1", "--iterations", "3"], tmp_path,
              {**extra, "FAKE_SDR_FAIL": "1"})
     assert r2.returncode == 7 and "ended before it became visible" in r2.stderr and "rc=9" in r2.stderr, r2.stderr
+
+
+# ===================================================================================== the residual deadband (entry)
+def test_entry_deadband_option_records_and_read(ENT, SPEC, tmp_path, monkeypatch, capsys):
+    """CHARTER 2026-10-14: ``--deadband D`` (default 0) reaches RunOpts and every run record; bad values are refused
+    before Kit; ``--read`` reports the run's recorded deadband (a run.json without it -- SH_SMOKE / SH_P18 -- is 0)."""
+    called = []
+    monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append((o, rest)) or 0)
+    good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})
+    out = tmp_path / "run"
+    assert ENT.main([str(ENTRY)] + _good_args(out) + ["--deadband", "0.25", "--headless"], environ=good_env) == 0
+    assert called[-1][0].deadband == 0.25 and called[-1][1] == ["--headless"]
+    assert ENT.main([str(ENTRY)] + _good_args(out) + ["--deadband=0.25"], environ=good_env) == 0
+    assert called[-1][0].deadband == 0.25
+    assert ENT.main([str(ENTRY)] + _good_args(out), environ=good_env) == 0
+    assert called[-1][0].deadband == 0.0 and type(called[-1][0].deadband) is float
+    n = len(called)
+    capsys.readouterr()
+    for bad in ("-0.1", "1", "1.5", "nan", "inf"):
+        assert ENT.main([str(ENTRY)] + _good_args(out) + ["--deadband", bad], environ=good_env) == ENT.REFUSED_RC
+        assert "--deadband" in capsys.readouterr().err, bad
+    assert ENT.main([str(ENTRY)] + _good_args(out) + ["--deadbandx", "0.2"], environ=good_env) == ENT.REFUSED_RC
+    assert len(called) == n
+    o = types.SimpleNamespace(mode="dagger", arm="mask", seed=18, iterations=5000, smoke=False, num_envs=1024,
+                              buffer_gb=4.0, deadband=0.25)
+    p = ENT.provenance(o, "ab" * 32)["sh_dagger"]
+    assert p["residual_deadband"] == 0.25 and p["core"]["clip"]["residual_deadband"] == 0.25
+    assert ENT.SH.recorded_deadband({**p, "clip": ENT.SH.clip_record(0.25)}) == 0.25
+    o.deadband = 0.0
+    assert ENT.provenance(o, "ab" * 32)["sh_dagger"]["residual_deadband"] == 0.0
+    # --read: the run's recorded deadband (no run.json / no key -> 0)
+    d = tmp_path / "rr"
+    d.mkdir()
+    (d / "train_log.jsonl").write_text(json.dumps({"it": 5, "restore": {}}) + "\n")
+    (d / "episodes.jsonl").write_text("")
+    assert ENT.read_run(str(d), None)["residual_deadband"] == 0.0
+    (d / "run.json").write_text(json.dumps({"opts": {"seed": 18}, "sh_dagger": {"clip": {"harness_clip_actions": 4.8}}}))
+    assert ENT.read_run(str(d), None)["residual_deadband"] == 0.0                       # a run before the option
+    (d / "run.json").write_text(json.dumps({"opts": {"deadband": 0.25}, "sh_dagger": {
+        "residual_deadband": 0.25, "clip": ENT.SH.clip_record(0.25)}}))
+    assert ENT.read_run(str(d), None)["residual_deadband"] == 0.25
+    (d / "run.json").write_text(json.dumps({"opts": {"deadband": 0.0}, "sh_dagger": {"residual_deadband": 0.25}}))
+    with pytest.raises(ValueError):
+        ENT.read_run(str(d), None)
+
+
+def test_sh_dry_run_passes_the_deadband_through(tmp_path):
+    r = _sh(["--dry-run", "SH_DB_s18", "--", "--mode", "dagger", "--seed", "18", "--iterations", "5000",
+             "--deadband", "0.25"], tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert f"{ENTRY} --headless --mode dagger --seed 18 --iterations 5000 --deadband 0.25 --out " in r.stdout

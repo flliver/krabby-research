@@ -36,8 +36,16 @@ labels == run_meta.hold_labels, the same hold_heights, ``gates`` == the manifest
 runs with the restore off); ``h_meas.valid`` (the raycast mesh, not the harness's ``root_z - 1.05`` fallback); a flat
 row (no row env block, no KRABBY_FLAT_TERRAIN_MODE); every episode carries :data:`HEIGHT_RAW_REQUIRED` and its raw
 command on every stand-slot row of a stand hold equals that hold's height. A head's stamps (height rows, K5 rows, table
-cells) must all name ONE stand checkpoint. The launcher's full audit (clip, swaps, R_h branches, restore lifecycle,
-manifest drift, ``sh_stand_eff == p2r_stand_mode | sh_restoring``) is ``sh_bridge_read.py``'s, not repeated here.
+cells) must all name ONE stand checkpoint AND ONE residual deadband (CHARTER 2026-10-14 probe; ``sh_core.
+recorded_deadband``: a stamp / cell written without the key ran at 0; a malformed record makes its stamp INVALID; a mix
+across a head's ok height stamps, gated table cells and K5 stamps makes every gate of that head INVALID, like the
+one-checkpoint rule; the value is recorded in the head's output -- controls are not held to it). The deadband the
+stand checkpoint was TRAINED with (``trained_residual_deadband``, recorded by the launcher; absent / null = not
+recorded; malformed = the stamp INVALID) is compared per stamp (``sh_core.deadband_parity``): a difference is a NOTE in
+the head's output (``deadband_notes``, with both values), never a refusal (the step-6 probe's mismatch is intended;
+outside a probe it is a config-parity break). The launcher's full
+audit (clip, swaps, R_h branches, restore lifecycle, manifest drift, ``sh_stand_eff == p2r_stand_mode |
+sh_restoring``, the executed action at the recorded deadband) is ``sh_bridge_read.py``'s, not repeated here.
 Raws: the latched stand SLOT and the effective stand vector (who acted) under the contract in force
 (:func:`raw_slot_eff_keys`); the reader uses stand_eff = slot | ``sh_restoring`` and refuses a disagreeing record.
 
@@ -518,6 +526,14 @@ def meta_reasons(meta: dict | None, *, row: str | None = None, gates=None, rule:
                 out.append(f"controller.{k} {got!r} != the campaign's {v} (sh_core)")
         if restore is False and rec.get("engage_m") is not None:
             out.append(f"restore off but controller.engage_m {rec.get('engage_m')!r} (want null)")
+    try:
+        CORE.recorded_deadband(blk)
+    except ValueError as exc:
+        out.append(f"{EC.DEADBAND_KEY}: {exc} (a malformed residual-deadband record)")
+    try:
+        CORE.recorded_trained_deadband(blk)
+    except ValueError as exc:
+        out.append(f"{CORE.TRAINED_DEADBAND_KEY}: {exc} (a malformed trained-deadband record)")
     if not (blk.get("h_meas") or {}).get("valid") or meta.get("terrain_source") != "raycast_mesh":
         out.append(f"h_meas not valid (terrain_source {meta.get('terrain_source')!r}, record "
                    f"{(blk.get('h_meas') or {}).get('reason')!r}): the harness's root_z - 1.05 fallback")
@@ -839,7 +855,8 @@ def read_height_stamp(stamp: str | None, *, row: str | None = None, gates=None, 
     return dict(base, status="ok", schedule={"hold_labels": ctx.labels, "hold_heights": ctx.heights,
                                              "hold_speeds": ctx.speeds}, dt=ctx.dt,
                 controller=blk.get("control"), restore=restore_armed(blk),
-                stand_ckpt_kind=blk.get("stand_ckpt_kind"),
+                stand_ckpt_kind=blk.get("stand_ckpt_kind"), residual_deadband=CORE.recorded_deadband(blk),
+                trained_residual_deadband=CORE.recorded_trained_deadband(blk),
                 stand_sha256=((mode.get("specialist") or {}).get("sha256")
                               if isinstance(mode.get("specialist"), dict) else None),
                 k2_falls=sum(1 for e in eps if e["k2_fall"]), episodes_fell=sum(1 for e in eps if e["fell"]),
@@ -1169,6 +1186,7 @@ def read_table_cells(items, seed: int, *, controller: str | None = None, amask: 
     a REPORTED cell's contract problem is a note -- it never decides, so it never invalidates)."""
     TC = _tc()
     cells, rep, reasons, notes, shas, rep_shas = {}, {}, [], [], set(), set()
+    dbs, rep_dbs = set(), set()
     for p in _cell_paths(items):
         d = _json(p)
         if d is None:
@@ -1203,6 +1221,10 @@ def read_table_cells(items, seed: int, *, controller: str | None = None, amask: 
             flag(f"{p}: controller {m.get('controller')!r}, this role is {controller!r}")
         if m.get("stand_sha256"):                  # the head's one-checkpoint rule reads the GATED cells' shas
             (shas if gated else rep_shas).add(m["stand_sha256"])
+        try:                                       # ... and its one-deadband rule too (absent = 0)
+            (dbs if gated else rep_dbs).add(CORE.recorded_deadband(m))
+        except ValueError as exc:
+            flag(f"{p}: {EC.DEADBAND_KEY}: {exc}")
         if amask and m.get("stand_sha256") != CORE.STAND_NET_SHA256:
             flag(f"{p}: stand checkpoint {str(m.get('stand_sha256'))[:12]} is not the A-mask s17 file")
         if cell in cells:
@@ -1228,7 +1250,11 @@ def read_table_cells(items, seed: int, *, controller: str | None = None, amask: 
     if rep_shas - shas and shas:
         notes.append(f"[reported cells, not gated] stand checkpoints {[x[:12] for x in sorted(rep_shas - shas)]} "
                      "differ from the gated cells'")
+    if rep_dbs - dbs and dbs:
+        notes.append(f"[reported cells, not gated] residual deadbands {sorted(rep_dbs - dbs)} differ from the gated "
+                     "cells'")
     return {"cells": cells, "per_cell": rep, "stand_sha256": sorted(shas), "stand_sha256_reported": sorted(rep_shas),
+            "residual_deadband": sorted(dbs), "residual_deadband_reported": sorted(rep_dbs),
             "reasons": reasons, "notes": notes}
 
 
@@ -1406,7 +1432,7 @@ def k5_read(spec: dict, heads: dict, *, snc=None) -> dict:
     out = snc.calibrate(reads, None, heads=names)
     refs_sha = (((snc.valid_only_point(snc.NAMES["REFS"]) or {}).get("valid") or {}).get("suite@1") or {}).get(
         "ckpt_sha")
-    extra, head_shas = {}, {}
+    extra, head_shas, head_dbs, head_par = {}, {}, {}, {}
     for role, name in heads.items():
         stamps = {k: v for k, v in (((out.get("rows") or {}).get(name) or {}).get("stamps") or {}).items() if v}
         rs = [x for st in stamps.values() for x in zero_command_reasons(st)]
@@ -1420,10 +1446,26 @@ def k5_read(spec: dict, heads: dict, *, snc=None) -> dict:
         extra[role] = rs
         head_shas[role] = sorted({(m.get("specialist") or {}).get("sha256") for m in modes.values()
                                   if isinstance(m, dict) and isinstance(m.get("specialist"), dict)} - {None})
+        dbs, par = set(), []
+        for k, m in modes.items():
+            blk = (m or {}).get(EC.BLOCK_KEY)
+            try:
+                ev = CORE.recorded_deadband(blk)
+            except ValueError as exc:
+                rs.append(f"{name} {k}: {EC.DEADBAND_KEY}: {exc}")
+                continue
+            dbs.add(ev)
+            try:                                   # evaluated vs trained: a note in run(), never a reason
+                par.append({"stamp": f"{name} {k}", "evaluated": ev, "trained": CORE.recorded_trained_deadband(blk)})
+            except ValueError as exc:
+                rs.append(f"{name} {k}: {CORE.TRAINED_DEADBAND_KEY}: {exc}")
+        head_dbs[role] = sorted(dbs)
+        head_par[role] = par
     rows = {"R_h": SN_CALIB_R_ROW, "Amask": amask, **heads}
     return {"gates": k5_from_calib(out, rows, extra), "sn_calib_mismatches": out.get("mismatches"),
             "sn_calib_summary": out.get("summary"), "rows": rows, "campaign_reasons": extra,
-            "head_stand_sha256": head_shas, "refs_s1_sha256": refs_sha}
+            "head_stand_sha256": head_shas, "head_residual_deadband": head_dbs, "head_deadband_parity": head_par,
+            "refs_s1_sha256": refs_sha}
 
 
 # ===================================================================================== forces per height (reported)
@@ -1647,6 +1689,33 @@ def run(spec: dict, *, k5: bool = True, forces: bool = True, snc=None) -> dict:
             for g in GATES:
                 if h in res[g]:
                     res[g][h] = _force_invalid(res[g][h], why)
+    # one residual deadband per head (CHARTER 2026-10-14; absent = 0): ok height stamps, gated table cells, K5 stamps
+    head_db = {}
+    for h in heads:
+        dbs = {p.get("residual_deadband", 0.0) for s in seeds for p in reads[h][s].values() if p.get("status") == "ok"}
+        dbs |= {x for t in tables[h].values() for x in t.get("residual_deadband", [])}
+        dbs |= set(((k5_out or {}).get("head_residual_deadband") or {}).get(h) or [])
+        head_db[h] = sorted(dbs)
+        if len(dbs) > 1:
+            why = [f"[{h}] its stamps / cells mix residual deadbands {sorted(dbs)} (one deadband per head; a stamp or "
+                   "cell without the record ran at 0)"]
+            for g in GATES:
+                if h in res[g]:
+                    res[g][h] = _force_invalid(res[g][h], why)
+    # the deadband each head's checkpoint was TRAINED with vs the one it was evaluated at (per stamp; height + K5
+    # stamps carry both): a difference is a NOTE, never a refusal (the step-6 probe evaluates a 0-trained head at 0.25)
+    head_trained, head_db_notes = {}, {}
+    for h in heads:
+        par = [{"stamp": f"es{s} {row}", "evaluated": p.get("residual_deadband", 0.0),
+                "trained": p.get("trained_residual_deadband")}
+               for s in seeds for row, p in reads[h][s].items() if p.get("status") == "ok"]
+        par += list(((k5_out or {}).get("head_deadband_parity") or {}).get(h) or [])
+        head_trained[h] = sorted({x["trained"] for x in par if x["trained"] is not None})
+        off = [x for x in par if x["trained"] is not None and x["trained"] != x["evaluated"]]
+        pairs = sorted({(x["evaluated"], x["trained"]) for x in off})
+        head_db_notes[h] = ([f"[{h}] {len(off)} of {len(par)} stamps were evaluated at a residual deadband other than "
+                             f"the one their stand checkpoint was trained at ((evaluated, trained) {pairs}; e.g. "
+                             f"{off[0]['stamp']}) -- a note, not a refusal: intended only for a probe"] if off else [])
     for (g, r) in EXPECT:
         if r not in res[g]:
             res[g][r] = {"verdict": PENDING, "clauses": {}, "failed": [], "pending": ["role not in the spec"],
@@ -1667,7 +1736,12 @@ def run(spec: dict, *, k5: bool = True, forces: bool = True, snc=None) -> dict:
         head_out[h] = {"verdicts": v, "all_pass": all(x == PASS for x in v.values()),
                        "failed": [g for g, x in v.items() if x in (FAIL, INVALID)],
                        "pending": [g for g, x in v.items() if x in (PENDING, PARTIAL)],
-                       "stand_sha256": head_ckpt.get(h)}
+                       "stand_sha256": head_ckpt.get(h),
+                       "residual_deadband": (head_db[h][0] if len(head_db.get(h) or []) == 1 else
+                                             (head_db.get(h) or None)),
+                       "trained_residual_deadband": (head_trained[h][0] if len(head_trained[h]) == 1 else
+                                                     (head_trained[h] or None)),
+                       "deadband_notes": head_db_notes[h]}
     premise = k3_premise(tables, seeds)
     frc, hmax = {}, {"state": "not read"}
     if forces:
@@ -1693,7 +1767,7 @@ def run(spec: dict, *, k5: bool = True, forces: bool = True, snc=None) -> dict:
         hmax = (h_max_recheck(rows_by_role.get("R_h") or [], errs.get("R_h") or ()) if "R_h" in roles
                 else {"state": "pending", "note": "no R_h role"})
     keep = ("stamp", "status", "reasons", "n_episodes", "controller", "restore", "stand_ckpt_kind", "stand_sha256",
-            "k2_falls", "episodes_fell", "dose")
+            "k2_falls", "episodes_fell", "dose", "residual_deadband", "trained_residual_deadband")
     return {"gates": res, "control_table": table, "mismatches": mism, "pending": pend, "heads": head_out,
             "premise_rh_standup": premise, "forces": frc, "h_max_recheck": hmax, "refs_onset": refs_on,
             "row_gates": {r: list(g) for r, g in rg.items()},
@@ -1702,7 +1776,9 @@ def run(spec: dict, *, k5: bool = True, forces: bool = True, snc=None) -> dict:
                           for s, by in reads[r].items()} for r in roles},
             "tables": {r: {f"es{s}": {"reasons": t["reasons"], "notes": t["notes"], "cells": sorted(t["cells"]),
                                       "stand_sha256": t.get("stand_sha256", []),
-                                      "stand_sha256_reported": t.get("stand_sha256_reported", [])}
+                                      "stand_sha256_reported": t.get("stand_sha256_reported", []),
+                                      "residual_deadband": t.get("residual_deadband", []),
+                                      "residual_deadband_reported": t.get("residual_deadband_reported", [])}
                            for s, t in v.items()} for r, v in tables.items()},
             "seeds": list(seeds)}
 
@@ -1796,6 +1872,11 @@ def markdown(out: dict) -> str:
         for h, v in out["heads"].items():
             L.append(f"| {h} | " + " | ".join(v["verdicts"][g] for g in GATES) + f" | {v['all_pass']} |")
         L.append("")
+        for h, v in out["heads"].items():
+            L.append(f"- {h}: residual deadband {v.get('residual_deadband')!r} (one per head; absent record = 0); "
+                     f"trained at {v.get('trained_residual_deadband')!r} (null = not recorded)")
+            L += [f"  - **NOTE** {x}" for x in v.get("deadband_notes") or []]
+        L.append("")
     L += ["## Gates", "", "| gate | role | expected | observed | lands | values |", "|---|---|---|---|---|---|"]
     for g in GATES:
         for r, res in out["gates"][g].items():
@@ -1847,6 +1928,12 @@ def constants() -> dict:
             "k5": {"head_validity_kind": K5_HEAD_KIND, "r_row": SN_CALIB_R_ROW, "amask_head": SN_AMASK_HEAD},
             "k6": {"share_pp": SHARE_PP, "se_k": SHARE_SE_K}, "force_cap_n": FORCE_CAP_N,
             "at_h_max_tol_m": AT_HMAX_TOL_M,
+            "residual_deadband": "one value per head over its ok height stamps, gated table cells and K5 stamps "
+                                 "(sh_core.recorded_deadband: absent = 0); a mix = every gate of the head INVALID; "
+                                 "controls not held to it",
+            "trained_residual_deadband": "per stamp (height + K5), sh_core.deadband_parity: a trained value recorded "
+                                         "and different from the evaluated one = a head NOTE (deadband_notes), never "
+                                         "a refusal; malformed = the stamp INVALID",
             "raw_keys": {"slot": RAW_SLOT, "stand_eff": RAW_EFF, "h_cmd": RAW_H_CMD, "h_lim": RAW_H_LIM,
                          "restoring": RAW_RESTORING, "q": RAW_Q, "a_net": RAW_A_NET},
             "expect": {f"{g} {r}": v for (g, r), v in EXPECT.items()},

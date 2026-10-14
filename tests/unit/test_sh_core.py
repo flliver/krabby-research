@@ -21,7 +21,11 @@ Pinned here (PLAN.md H1-H6 and the step-2 identities):
   routed row is clamp(S1, +-1) bitwise;
 * the warm start: only W[:, 15] of the actor backbone changes (norm 1.74 before), the sha is checked; with the REAL
   A-mask s17 networks a NONZERO column-15 command separates the zeroed and unzeroed nets, a zero command does not, and
-  the zeroed net ignores column 15.
+  the zeroed net ignores column 15;
+* the residual deadband (CHARTER 2026-10-14): d = 0 is the composition without the option BITWISE on random inputs
+  (stand_action, router_actions; the op is skipped); d = 0.25 zeroes hip / knee residual entries below 0.25 (cams and
+  entries >= 0.25 -- the 0.5 lift -- bitwise untouched), S1 rows untouched, restore rows (stand rows) get it; the numpy
+  twin is bitwise; validation; records (absent key = 0, clip / provenance carry the value).
 """
 from __future__ import annotations
 
@@ -789,3 +793,174 @@ def test_records(C):
     assert pv["restance_d3"] == D3 and pv["clip"]["harness_clip_actions"] == 4.8
     rec = C.HeightController(4, "cpu", dt=DT).record()
     assert rec["timeout_steps"] == 266 and rec["settle_steps"] == 10
+
+
+# ===================================================================================== the residual deadband
+# CHARTER section 3, 2026-10-14 "USER DECISION at the step-6 stop: probe a residual deadband": on the hip / knee residual
+# channels, after the +-1 clamp and before + q(h), r <- r if |r| >= d else 0 (hard); d = 0 is the path without it.
+def _today_stand_action(C, a_net, h):
+    """The stand composition as it stood before the deadband option (copied verbatim from sh_core at e629b579)."""
+    n = int(a_net.shape[0])
+    a = torch.clamp(a_net, -C.RESIDUAL_CLIP, C.RESIDUAL_CLIP)
+    q = C.q18(C._vec(h, n, a.device, name="h_cmd_limited"), dtype=a.dtype, device=a.device)
+    s = torch.where(q != 0, a + q, a)
+    s = torch.cat([s[:, C.CAM_ACT].clamp(-C.CAM_CLIP, C.CAM_CLIP),
+                   s[:, C.HIP_ACT.start:].clamp(-C.RAW_CLIP, C.RAW_CLIP)], dim=1)
+    return s, q
+
+
+C_H_RANGE = (0.719, 1.346)
+
+
+def _deadband_inputs(n=4096, seed=21):
+    g = torch.Generator().manual_seed(seed)
+    a_net = torch.randn(n, 18, generator=g) * 0.6
+    # every boundary case on random rows: exact zeros (both signs), just below / at / above 0.25, the 0.5 lift, beyond 1
+    special = torch.tensor([0.0, -0.0, 0.1, -0.2, 0.24999999, -0.24999999, 0.25, -0.25, 0.2500001, 0.5, -0.5, 1.0,
+                            -1.0, 1.7, -3.0, 0.01, -0.01, 0.9])
+    pick = torch.randint(0, special.numel(), (n, 18), generator=g)
+    mask = torch.rand(n, 18, generator=g) < 0.3
+    a_net = torch.where(mask, special[pick], a_net)
+    h = C_H_RANGE[0] + (C_H_RANGE[1] - C_H_RANGE[0]) * torch.rand(n, generator=g, dtype=torch.float64)
+    h[: n // 8] = 1.064                                               # walking height rows (q = 0 exactly)
+    return a_net, h
+
+
+def test_deadband_zero_is_the_path_without_the_option_bitwise(C):
+    a_net, h = _deadband_inputs()
+    want, wq = _today_stand_action(C, a_net, h)
+    for kw in ({}, {"deadband": 0.0}, {"deadband": 0}, {"deadband": -0.0}):
+        got, q = C.stand_action(a_net, h, **kw)
+        assert bitwise_equal(got, want) and bitwise_equal(q, wq), kw
+    g = torch.Generator().manual_seed(4)
+    a_s1 = torch.randn(a_net.shape[0], 18, generator=g) * 2.0
+    eff = torch.rand(a_net.shape[0], generator=g) < 0.6
+    base = C.router_actions(eff, a_net, a_s1, h)
+    for d in (0.0, 0):
+        out = C.router_actions(eff, a_net, a_s1, h, deadband=d)
+        for x, y in zip(out, base):
+            assert bitwise_equal(x, y)
+    assert bitwise_equal(base.actions, C.route(eff, want, a_s1))
+    r = a_net.clamp(-1, 1)
+    assert C.apply_deadband(r, 0.0) is r                                   # d = 0: no op at all
+    rn = r.numpy()
+    assert C.apply_deadband_np(rn, 0.0) is rn
+
+
+def test_deadband_0p25_zeroes_small_hip_knee_residuals_only(C):
+    d = C.RESIDUAL_DEADBAND_PROBE
+    assert d == 0.25 and C.DEADBAND_ACT == slice(6, 18)
+    a_net, h = _deadband_inputs(seed=22)
+    got, q = C.stand_action(a_net, h, deadband=d)
+    plain, _ = C.stand_action(a_net, h)
+    r = a_net.clamp(-1, 1)
+    small = torch.zeros_like(r, dtype=torch.bool)
+    small[:, 6:] = r[:, 6:].abs() < d
+    assert small.any() and (~small[:, 6:]).any()
+    # entries at or above the deadband (the 0.5 lift included) and every cam: bitwise the path without it
+    assert torch.equal(bits(got)[~small], bits(plain)[~small])
+    assert bitwise_equal(got[:, :6], plain[:, :6])
+    # entries below it: the residual is exactly zero, so the executed value is the posture itself (+0.0 at q = 0)
+    qz = torch.where(q == 0, torch.zeros_like(q), q)
+    assert bitwise_equal(got[small], qz[small])
+    for v, kept in ((0.24999999, False), (-0.24999999, False), (0.0, False), (0.1, False), (0.25, True),
+                    (-0.25, True), (0.5, True), (-0.5, True), (1.7, True)):
+        a = torch.zeros(1, 18)
+        a[0, :] = v
+        s, _ = C.stand_action(a, 1.064, deadband=d)
+        want_hk = min(max(v, -1.0), 1.0) if kept else 0.0
+        assert torch.all(s[0, 6:] == torch.tensor(want_hk, dtype=torch.float32)), v
+        assert torch.all(s[0, :6] == torch.tensor(min(max(v, -1.0), 1.0), dtype=torch.float32)), v   # cams untouched
+    # the realised residual (executed - q) on hip / knee is 0 or >= d -- never inside (0, d)
+    res = (got[:, 6:] - q[:, 6:]).abs()
+    assert not ((res > 1e-5) & (res < d - 1e-5)).any()
+
+
+def test_deadband_in_the_router_s1_rows_untouched_restore_rows_get_it(C):
+    d = C.RESIDUAL_DEADBAND_PROBE
+    n = 512
+    g = torch.Generator().manual_seed(31)
+    a_net = torch.randn(n, 18, generator=g) * 0.3
+    a_s1 = torch.randn(n, 18, generator=g) * 0.2                          # small: a deadband would zero many of them
+    obs = obs_batch(n, 32)
+    hc = C.HeightController(n, "cpu", dt=DT)
+    h = torch.full((n,), 0.9, dtype=torch.float64)
+    hc.reset(None, "walk", h_cmd=h)
+    slot = torch.ones(n, dtype=torch.bool)
+    for _ in range(3):
+        st = hc.step(slot, h, obs)
+    leave = torch.rand(n, generator=g) < 0.5
+    st = hc.step(slot & ~leave, h, obs)                                    # half the rows leave the stand off 1.064
+    assert st.restoring.any() and (st.restoring == leave).all() and (st.stand_eff == slot).all()
+    out = C.router_actions(st.stand_eff, a_net, a_s1, st.h_lim, deadband=d)
+    want_stand, _ = C.stand_action(a_net, st.h_lim, deadband=d)
+    rest = st.restoring
+    assert bitwise_equal(out.actions[rest], want_stand[rest])              # restore rows are stand rows: deadbanded
+    assert bitwise_equal(out.actions, C.route(st.stand_eff, want_stand, a_s1))
+    plain = C.router_actions(st.stand_eff, a_net, a_s1, st.h_lim)
+    assert not torch.equal(out.actions[rest], plain.actions[rest])
+    eff = torch.rand(n, generator=g) < 0.5
+    out2 = C.router_actions(eff, a_net, a_s1, st.h_lim, deadband=d)
+    assert bitwise_equal(out2.actions[~eff], a_s1.clamp(-1, 1)[~eff])      # S1 rows: clamp(S1, +-1), no deadband
+    assert bitwise_equal(out2.a_s1, a_s1.clamp(-1, 1))
+
+
+def test_deadband_numpy_twin_is_bitwise(C):
+    a_net, h = _deadband_inputs(seed=23)
+    for d in (0.25, 0.1, 0.3333):
+        r = a_net.clamp(-1, 1)
+        t = C.apply_deadband(r, d)
+        nm = C.apply_deadband_np(r.numpy(), d)
+        assert nm.dtype == r.numpy().dtype and torch.equal(bits(t), bits(torch.from_numpy(nm)))
+        assert torch.equal(r, a_net.clamp(-1, 1))                         # the input is never written
+
+
+def test_deadband_validation_and_records(C):
+    for bad in (-0.1, 1.0, 1.5, float("nan"), float("inf"), True, None, "x", [0.2]):
+        with pytest.raises(ValueError):
+            C.check_deadband(bad)
+        with pytest.raises(ValueError):
+            C.stand_action(torch.zeros(2, 18), 1.064, deadband=bad)
+    assert C.check_deadband("0.25") == 0.25 and C.check_deadband(0) == 0.0
+    K = C.RESIDUAL_DEADBAND_KEY
+    assert K == "residual_deadband"
+    old_clip = {k: v for k, v in C.clip_record().items() if k not in (K, "residual_deadband_rule")}
+    for rec in (None, {}, {"control": "stand_net"}, {"clip": old_clip}, {"clip": None}):
+        assert C.recorded_deadband(rec) == 0.0                            # written before the option: 0
+    assert C.recorded_deadband({K: 0.25}) == 0.25
+    assert C.recorded_deadband({"clip": {K: 0.25}}) == 0.25
+    assert C.recorded_deadband({K: 0.25, "clip": C.clip_record(0.25)}) == 0.25
+    for rec in ({K: 0.25, "clip": C.clip_record(0.0)}, {K: True}, {K: None}, {K: -1}, {"clip": {K: "x"}}):
+        with pytest.raises(ValueError):
+            C.recorded_deadband(rec)
+    c0, c1 = C.clip_record(), C.clip_record(0.25)
+    assert c0 == C.clip_record(0.0) and c0[K] == 0.0 and c1[K] == 0.25
+    assert c0["stand_action"] == "q18(h_lim) + clamp(a_net, +-1), rods +-4.8, cams +-1"
+    assert "deadband" in c1["stand_action"] and {k: v for k, v in c0.items() if k not in (K, "stand_action")} == \
+        {k: v for k, v in c1.items() if k not in (K, "stand_action")}
+    assert C.provenance()["clip"] == c0 and C.provenance(0.25)["clip"] == c1
+    assert C.provenance()["residual_deadband_probe"] == 0.25
+
+
+def test_trained_vs_evaluated_deadband_is_a_note_not_a_refusal(C):
+    """The deadband a checkpoint was TRAINED with (recorded beside the evaluated one): absent / null = not recorded
+    (None, no note); equal = no note; different = a note (both values kept); malformed = ValueError."""
+    K, T = C.RESIDUAL_DEADBAND_KEY, C.TRAINED_DEADBAND_KEY
+    assert T == "trained_residual_deadband"
+    for rec in (None, {}, {K: 0.25}, {T: None}, {K: 0.25, T: None}):
+        assert C.recorded_trained_deadband(rec) is None
+        assert C.deadband_parity(rec)["note"] is None
+    assert C.recorded_trained_deadband({T: 0}) == 0.0 and C.recorded_trained_deadband({T: "0.25"}) == 0.25
+    assert C.deadband_parity({K: 0.25, T: 0.25}) == {"evaluated": 0.25, "trained": 0.25, "note": None}
+    assert C.deadband_parity({T: 0.0}) == {"evaluated": 0.0, "trained": 0.0, "note": None}   # pre-option eval, 0-trained
+    for rec, ev, tr in (({K: 0.25, T: 0.0}, 0.25, 0.0), ({T: 0.25}, 0.0, 0.25),                # the probe / a parity break
+                        ({"clip": {K: 0.25}, T: 0.3}, 0.25, 0.3)):
+        p = C.deadband_parity(rec)
+        assert (p["evaluated"], p["trained"]) == (ev, tr) and p["note"] and f"{ev:g}" in p["note"] and f"{tr:g}" in \
+            p["note"], (rec, p)
+    for rec in ({T: True}, {T: -0.1}, {T: 1.0}, {T: "x"}, {K: True, T: 0.0}):
+        with pytest.raises(ValueError):
+            C.deadband_parity(rec)
+    for rec in ({T: True}, {T: -0.1}, {T: [0.2]}):
+        with pytest.raises(ValueError):
+            C.recorded_trained_deadband(rec)
