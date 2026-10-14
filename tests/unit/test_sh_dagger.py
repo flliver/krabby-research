@@ -21,7 +21,12 @@ Pinned:
   ``sh_dagger.sh``: the dry-run command (memory cap, SIGTERM timeout), refusals, the busy pattern (both campaigns'
   trainers and table tests count; the Kit-free calls do not), ``--detach`` returns only once the trainer is visible;
 * the residual deadband (CHARTER 2026-10-14): ``--deadband`` reaches RunOpts and the provenance, bad values are refused
-  pre-Kit, ``--read`` reports a run's recorded value (a run.json without it = 0), ``sh_dagger.sh`` passes it through.
+  pre-Kit, ``--read`` reports a run's recorded value (a run.json without it = 0), ``sh_dagger.sh`` passes it through;
+* the trim branch (CHARTER 2026-10-14, "retrain the pilot with a trim weight"): ``--trim-branch`` (+ ``--trim-min``
+  only with it) reaches RunOpts and the provenance, bad values are refused pre-Kit, ``--read`` reports the recorded
+  option (absent = off) and the trim DIAGNOSTIC (the executed cam command vs R_h's label on in-band loaded HOLD legs:
+  median ratio, pooled and per 500-iteration block; a log without it = not recorded), ``sh_dagger.sh`` passes the flag
+  through; the KitProbe's per-foot loaded flags.
 """
 from __future__ import annotations
 
@@ -817,6 +822,10 @@ def test_kit_probe_with_stubs(ST):
     m = p()
     assert torch.allclose(m["h_meas"], pos[:, 2].double() - 0.02)
     assert m["feet_loaded"].tolist() == [4, 4, 4]            # one foot unloaded (5 N), one too high above the floor
+    # the per-foot flags (the trainer's trim diagnostic, CHARTER 2026-10-14): leg order, summing to the count
+    assert m["foot_loaded"].dtype == torch.bool and m["foot_loaded"].tolist() == [[True, True, True, False, False,
+                                                                                    True]] * n
+    assert torch.equal(m["foot_loaded"].sum(dim=1), m["feet_loaded"])
     assert torch.allclose(m["table_top_w"], torch.full((n,), 0.6, dtype=torch.float64))
     assert torch.allclose(m["lowest_z"], pos[:, 2].double() - 0.15875)
     with pytest.raises(RuntimeError, match="mesh"):
@@ -1095,3 +1104,131 @@ def test_sh_dry_run_passes_the_deadband_through(tmp_path):
              "--deadband", "0.25"], tmp_path)
     assert r.returncode == 0, r.stderr
     assert f"{ENTRY} --headless --mode dagger --seed 18 --iterations 5000 --deadband 0.25 --out " in r.stdout
+
+
+# ===================================================================================== the trim branch (entry / spec)
+def _trim_row(it, exec_bins, rh_bins):
+    """A train_log row with a trim_diag block: ``{bin: count}`` histograms (bin centre = -1 + k x 0.001)."""
+    return {"it": it, "restore": {}, "trim_diag": {"n": sum(exec_bins.values()),
+                                                   "exec": {str(k): v for k, v in exec_bins.items()},
+                                                   "rh": {str(k): v for k, v in rh_bins.items()}}}
+
+
+def test_trim_diag_read_computes_the_ratio_on_synthetic_rows(SPEC):
+    """CHARTER 2026-10-14: the student's executed cam command vs R_h's in-band trim (toward home), median ratio; pooled
+    and per 500-iteration block; reported in the premise JSON (never a check / STOP)."""
+    assert SPEC.TRIM_DIAG_NB == 2001 and SPEC.TRIM_DIAG_BIN == 0.001 and SPEC.TRIM_DIAG_WINDOW == 500
+    assert tuple(SPEC.TRIM_BAND) == (0.1, 0.3) and SPEC.TRIM_LABEL_MIN == 1e-6
+    b = lambda u: int(round((u + 1.0) / 0.001))                                       # noqa: E731
+    assert SPEC.trim_diag_center(b(0.1)) == pytest.approx(0.1) and SPEC.trim_diag_center(b(-0.002)) == \
+        pytest.approx(-0.002)
+    # its 0-499: the pilot's picture (student ~ -0.002 .. 0.004, median 0.002 = 2 % of R_h's 0.1); its 500-999: learnt
+    early = [_trim_row(i, {b(-0.002): 2, b(0.002): 5, b(0.004): 3}, {b(0.1): 10}) for i in range(0, 500, 50)]
+    late = [_trim_row(i, {b(0.07): 1, b(0.08): 6, b(0.09): 3}, {b(0.1): 10}) for i in range(500, 1000, 50)]
+    rows = early + late + [{"it": 1000, "restore": {}}]                  # a row without the block is skipped
+    r = SPEC.trim_diag_read(rows)
+    assert r["recorded"] is True and r["trim_band"] == [0.1, 0.3] and r["window_its"] == 500
+    pooled = r["pooled"]
+    assert pooled["n"] == 200 and pooled["iterations"] == 20
+    assert pooled["rh_toward_home"]["median"] == pytest.approx(0.1)
+    w = r["by_window"]
+    assert [x["window"] for x in w] == [[0, 500], [500, 1000]] and [x["n"] for x in w] == [100, 100]
+    assert w[0]["exec_toward_home"]["median"] == pytest.approx(0.002) and w[0]["ratio"] == pytest.approx(0.02)
+    assert w[0]["exec_toward_home"]["p25"] == pytest.approx(0.002) and w[0]["exec_toward_home"]["p75"] == \
+        pytest.approx(0.004)
+    assert w[1]["exec_toward_home"]["median"] == pytest.approx(0.08) and w[1]["ratio"] == pytest.approx(0.8)
+    # a window: only the late block, clipped to it
+    r2 = SPEC.trim_diag_read(rows, 700, 900)
+    assert [x["window"] for x in r2["by_window"]] == [[700, 900]] and r2["pooled"]["n"] == 40
+    assert r2["pooled"]["ratio"] == pytest.approx(0.8)
+    # empty / absent: not recorded (a run before the diagnostic), and an empty R_h side gives no ratio
+    assert SPEC.trim_diag_read([{"it": 3, "restore": {}}])["recorded"] is False
+    assert SPEC.trim_diag_read(rows, 2000, 3000)["recorded"] is False
+    none = SPEC.trim_diag_pool([_trim_row(1, {}, {})])
+    assert none["n"] == 0 and none["ratio"] is None and none["exec_toward_home"]["median"] is None
+    # the premise JSON carries it, reported only: the checks are unchanged
+    pr = SPEC.premise_read([], rows, 500, 1000)
+    assert pr["trim_diag"]["pooled"]["ratio"] == pytest.approx(0.8) and len(pr["checks"]) == 5
+    assert not any("trim" in c["check"] for c in pr["checks"])
+
+
+def test_check_trim_min(SPEC):
+    assert SPEC.check_trim_min(1e-6) == 1e-6 and SPEC.check_trim_min("0.0999") == 0.0999
+    assert SPEC.check_trim_min(0) == 0.0
+    for bad in (-0.1, 1.0, 2, float("nan"), float("inf"), "x", None, True):
+        with pytest.raises(ValueError):
+            SPEC.check_trim_min(bad)
+
+
+def test_entry_trim_branch_option_records_and_read(ENT, SPEC, tmp_path, monkeypatch, capsys):
+    """``--trim-branch`` (default off) reaches RunOpts and the provenance; ``--trim-min`` only with it; bad values are
+    refused before Kit; ``--read`` reports the run's recorded option (a run.json without it -- SH_SMOKE / SH_P18 -- is
+    off) and the trim diagnostic inside the premise JSON."""
+    called = []
+    monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append((o, rest)) or 0)
+    good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})
+    out = tmp_path / "run"
+    assert ENT.main([str(ENTRY)] + _good_args(out) + ["--deadband", "0.25", "--trim-branch", "--headless"],
+                    environ=good_env) == 0
+    o = called[-1][0]
+    assert o.trim_branch is True and o.trim_min is None and o.deadband == 0.25 and called[-1][1] == ["--headless"]
+    assert ENT.main([str(ENTRY)] + _good_args(out) + ["--trim-branch", "--trim-min", "0.0999"], environ=good_env) == 0
+    assert called[-1][0].trim_branch is True and called[-1][0].trim_min == 0.0999
+    assert ENT.main([str(ENTRY)] + _good_args(out), environ=good_env) == 0
+    assert called[-1][0].trim_branch is False and called[-1][0].trim_min is None
+    n = len(called)
+    capsys.readouterr()
+    for extra, needle in ((["--trim-min", "0.1"], "needs --trim-branch"),
+                          (["--trim-branch", "--trim-min", "1.5"], "--trim-min"),
+                          (["--trim-branch", "--trim-min", "nan"], "--trim-min"),
+                          (["--trim-branchx"], "malformed")):
+        assert ENT.main([str(ENTRY)] + _good_args(out) + extra, environ=good_env) == ENT.REFUSED_RC, extra
+        assert needle in capsys.readouterr().err, extra
+    assert len(called) == n
+    # provenance: off by default (an object without the attributes too), on with the default / given threshold
+    base = dict(mode="dagger", arm="mask", seed=18, iterations=5000, smoke=False, num_envs=1024, buffer_gb=4.0,
+                deadband=0.25)
+    p = ENT.provenance(types.SimpleNamespace(**base), "ab" * 32)["sh_dagger"]
+    assert p["trim_branch"] is False and p["trim_min"] is None
+    p = ENT.provenance(types.SimpleNamespace(**base, trim_branch=True, trim_min=None), "ab" * 32)["sh_dagger"]
+    assert p["trim_branch"] is True and p["trim_min"] == SPEC.TRIM_LABEL_MIN
+    p = ENT.provenance(types.SimpleNamespace(**base, trim_branch=True, trim_min=0.0999), "ab" * 32)["sh_dagger"]
+    assert p["trim_min"] == 0.0999
+    # --read: the recorded option (absent = off) and the diagnostic
+    d = tmp_path / "rr"
+    d.mkdir()
+    b = lambda u: int(round((u + 1.0) / 0.001))                                       # noqa: E731
+    rows = [_trim_row(i, {b(0.002): 4}, {b(0.1): 4}) for i in range(0, 1000, 100)]
+    (d / "train_log.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (d / "episodes.jsonl").write_text("")
+    r = ENT.read_run(str(d), "0:600")
+    assert r["trim_branch"] is False and r["trim_min"] is None                      # no run.json
+    assert r["premise"]["trim_diag"]["pooled"]["n"] == 24 and r["premise"]["trim_diag"]["pooled"]["ratio"] == \
+        pytest.approx(0.02)
+    (d / "run.json").write_text(json.dumps({"opts": {"seed": 18}, "sh_dagger": {"residual_deadband": 0.0}}))
+    assert ENT.read_run(str(d), None)["trim_branch"] is False                       # a run before the option
+    (d / "run.json").write_text(json.dumps({"opts": {"trim_branch": True, "trim_min": 1e-6},
+                                            "sh_dagger": {"trim_branch": True, "trim_min": 1e-6}}))
+    r = ENT.read_run(str(d), None)
+    assert r["trim_branch"] is True and r["trim_min"] == 1e-6
+    assert ENT.main([str(ENTRY), "--read", str(d), "--premise", "0:500"]) == 0
+    got = json.loads(capsys.readouterr().out)
+    assert got["trim_branch"] is True and got["premise"]["trim_diag"]["recorded"] is True
+    (d / "run.json").write_text(json.dumps({"opts": {"trim_branch": True, "trim_min": 1e-6},
+                                            "sh_dagger": {"trim_branch": False, "trim_min": None}}))
+    with pytest.raises(ValueError):
+        ENT.read_run(str(d), None)
+
+
+def test_sh_dry_run_passes_the_trim_branch_through(tmp_path):
+    r = _sh(["--dry-run", "SH_T18", "--", "--mode", "dagger", "--seed", "18", "--iterations", "5000",
+             "--deadband", "0.25", "--trim-branch"], tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert (f"{ENTRY} --headless --mode dagger --seed 18 --iterations 5000 --deadband 0.25 --trim-branch --out "
+            in r.stdout)
+    assert "timeout --signal=TERM 14400 " in r.stdout
+    s = _sh(["--dry-run", "SH_T18_SMOKE", "--", "--mode", "dagger", "--seed", "18", "--iterations", "5000",
+             "--smoke", "--smoke-iters", "100", "--deadband", "0.25", "--trim-branch"], tmp_path)
+    assert s.returncode == 0, s.stderr
+    assert "--smoke --smoke-iters 100 --deadband 0.25 --trim-branch --out " in s.stdout
+    assert "timeout --signal=TERM 3600 " in s.stdout

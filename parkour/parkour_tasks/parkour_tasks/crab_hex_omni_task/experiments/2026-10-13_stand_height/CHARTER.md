@@ -290,3 +290,14 @@ the user's.**
     against the step-4b controls.
   - **Decision rule:** K1–K6 all PASS at both env seeds → replicates s16 / s17 with the same config, then step 8. Any
     gate failing → STOP and ask with the read.
+- 2026-10-14, **trim-branch build + review (CPU; workflow wf_c696bc61-e02: opus·xhigh build, fable·high review — PASS,
+  no blocking defect; 278 CPU tests; hashes unchanged). Rule CORRECTED before any run (my transcription):** R's D3
+  trim acts on the whole HOLD band (cam label = −clip(k_h c, ±0.1), k_h = 1), so "cam label non-zero" would move ≈ 99 %
+  of HOLD legs into "trim" and invert the weighting (trim 0.18 < today's HOLD 0.22; exact-zero HOLD legs at the cap). The
+  decision the user chose was "in-band HOLD: cam off home inside the step band, R_h trimming" = the SATURATED trim
+  label, |label| ≥ 0.0999 ⇔ |c| ≥ 0.1 rad (the probe's 0.1–0.3 rad band) → **`--trim-min 0.0999`**; reconstructed
+  weights: trim 5.1–15.5 vs HOLD 0.19. Other build notes: `--trim-min` recorded in run.json / status / checkpoint
+  infos; a per-iteration `trim_diag` (student executed cam command vs R_h's label on loaded in-band HOLD legs, σ-0
+  student rows, signed toward home) in `train_log.jsonl` and the `--read` premise JSON (reported, never a STOP);
+  `KitProbe` gained per-foot `foot_loaded`. Launch: smoke `SH_T18_SMOKE` (100 its) → pilot `SH_T18` (5000 its) →
+  table test, height rows, K5 rows (deadband 0.25), chained; the pilot runs only if the smoke passes.

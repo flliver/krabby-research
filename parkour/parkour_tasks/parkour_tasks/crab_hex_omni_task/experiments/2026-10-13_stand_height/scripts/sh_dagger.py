@@ -8,7 +8,7 @@ LAUNCH THROUGH ``sh_dagger.sh`` (process env composed before Python starts, a ``
 at a time -- it refuses while any runs).
 
     sh_dagger.py --mode dagger --arm mask --seed S --iterations N --out RUN_DIR [--num-envs 1024]
-                 [--smoke [--smoke-iters 100]] [--buffer-gb 4] [--deadband D]
+                 [--smoke [--smoke-iters 100]] [--buffer-gb 4] [--deadband D] [--trim-branch [--trim-min X]]
                  [--headless --device cuda:0 ...AppLauncher args]
     sh_dagger.py --emit-env                    # no Kit: the `export` / `unset` lines sh_dagger.sh evals
     sh_dagger.py --read RUN_DIR [--premise LO:HI]   # no Kit: the step-6 premise read (JSON)
@@ -37,6 +37,16 @@ every height semantic in ``sh_core.py``):
   residuals and the R_h control / beta-R executors are untouched; recorded in run.json (``opts.deadband``,
   ``sh_dagger.residual_deadband``, ``sh_dagger.clip``), status.json and the checkpoint infos; evaluate such a head with
   the launcher's ``--sh-deadband D`` (forward parity at D is a smoke check).
+* ``--trim-branch`` (default off: the run is bitwise the one without the option; CHARTER 2026-10-14 "retrain the pilot
+  with a trim weight + the deadband in the loop"): a stand-row leg whose R_h branch is HOLD and whose R_h cam label is
+  non-zero (``|label| > 1e-6``, ``sh_dagger_spec.TRIM_LABEL_MIN``; ``--trim-min X`` overrides it, only together with
+  ``--trim-branch``) is a 6th category ("trim") of the per-leg inverse-branch-frequency weights (cap W_MAX unchanged);
+  nothing else changes. Recorded in run.json (``opts.trim_branch`` / ``opts.trim_min``, ``sh_dagger.trim_branch`` /
+  ``sh_dagger.trim_min``), status.json and the checkpoint infos; smoke check ``trim_branch_weights``.
+* ``--read`` also reports the run's trim branch and the trim DIAGNOSTIC (every run with the diagnostic, on or off; inside
+  ``premise.trim_diag``): on student-executed sigma-0 stand rows, legs R_h HOLDs with the cam in TRIM_BAND and the foot
+  loaded, the median executed cam command vs R_h's label (toward home; ratio), pooled over the premise window and per
+  500-iteration block.
 
 Exit codes: 0 done, 1 refused after Kit started or crashed, 2 refused before Kit, 4 interrupted (SIGTERM), 6 smoke FAIL.
 """
@@ -88,6 +98,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--smoke-iters", dest="smoke_iters", type=int, default=100)
     ap.add_argument("--buffer-gb", dest="buffer_gb", type=float, default=SPEC.BUFFER_GB)
     ap.add_argument("--deadband", type=float, default=0.0)
+    ap.add_argument("--trim-branch", dest="trim_branch", action="store_true", default=False)
+    ap.add_argument("--trim-min", dest="trim_min", type=float, default=None)
     ap.add_argument("--emit-env", dest="emit_env", action="store_true", default=False)
     ap.add_argument("--read", default=None)
     ap.add_argument("--premise", default=None)
@@ -99,7 +111,8 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     ap = build_parser()
     o, rest = ap.parse_known_args(list(argv))
     stray = [a for a in rest if a.startswith(("--mode", "--arm", "--seed", "--iter", "--num", "--out", "--smoke",
-                                              "--buffer", "--emit", "--read", "--premise", "--deadband"))]
+                                              "--buffer", "--emit", "--read", "--premise", "--deadband",
+                                              "--trim"))]
     if stray:
         raise SystemExit(f"sh_dagger: malformed argument(s) {stray}")
     if o.emit_env or o.read:
@@ -114,6 +127,13 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
         o.deadband = SH.check_deadband(o.deadband)
     except ValueError as exc:
         raise SystemExit(f"sh_dagger: --deadband: {exc}") from exc
+    if o.trim_min is not None:
+        if not o.trim_branch:
+            raise SystemExit("sh_dagger: --trim-min needs --trim-branch (it would not be applied)")
+        try:
+            o.trim_min = SPEC.check_trim_min(o.trim_min)
+        except ValueError as exc:
+            raise SystemExit(f"sh_dagger: --trim-min: {exc}") from exc
     bad = SPEC.path_reasons(o.out)
     if bad:
         raise SystemExit("sh_dagger: --out refused (the checkpoints go to an unquoted launcher argument): "
@@ -191,6 +211,20 @@ def run_deadband(run_dir) -> float:
     return d
 
 
+def run_trim_branch(run_dir) -> dict:
+    """The trim branch a run recorded (run.json ``opts`` + ``sh_dagger``); a run.json without it (every run before the
+    option: SH_SMOKE, SH_P18 ...) or no run.json -> off; disagreement -> ValueError."""
+    p = Path(run_dir) / "run.json"
+    if not p.is_file():
+        return {"trim_branch": False, "trim_min": None}
+    run = json.loads(p.read_text())
+    opt, sh = run.get("opts") or {}, run.get("sh_dagger") or {}
+    got = [(bool(d.get("trim_branch", False)), d.get("trim_min")) for d in (opt, sh)]
+    if got[0] != got[1]:
+        raise ValueError(f"{p}: opts trim_branch / trim_min {got[0]} != sh_dagger's {got[1]}")
+    return {"trim_branch": got[0][0], "trim_min": got[0][1]}
+
+
 def read_run(run_dir: str, premise: str | None) -> dict:
     d = Path(run_dir)
     recs = SPEC.read_stands(d / "stands.jsonl") if (d / "stands.jsonl").is_file() else []
@@ -207,7 +241,8 @@ def read_run(run_dir: str, premise: str | None) -> dict:
         by_kind[k] = {"episodes": len(g), "falls": sum(1 for e in g if e["end"] == "fall"),
                       "hip_ends": sum(1 for e in g if e["cause"] == "hip")}
     return {"run": str(run_dir), "n_records": len(recs), "n_episodes": len(eps), SH.RESIDUAL_DEADBAND_KEY:
-            run_deadband(run_dir), "premise": SPEC.premise_read(recs, log, lo, hi), "episodes_by_kind": by_kind}
+            run_deadband(run_dir), **run_trim_branch(run_dir), "premise": SPEC.premise_read(recs, log, lo, hi),
+            "episodes_by_kind": by_kind}
 
 
 # ===================================================================================== the Kit run
@@ -215,6 +250,9 @@ def provenance(o, env_dump_sha: str) -> dict:
     from datetime import datetime, timezone  # noqa: PLC0415
 
     db = SH.check_deadband(getattr(o, "deadband", 0.0))
+    trim = bool(getattr(o, "trim_branch", False))
+    trim_min = (SPEC.check_trim_min(SPEC.TRIM_LABEL_MIN if getattr(o, "trim_min", None) is None else o.trim_min)
+                if trim else None)
     files = {"sh_dagger": _THIS, "sh_dagger_core": CORE_PATH, "sh_dagger_spec": SCRIPTS / "sh_dagger_spec.py",
              "sh_starts": STARTS_PATH, "sh_core": SCRIPTS / "sh_core.py", "sh_kin": SCRIPTS / "sh_kin.py",
              "sn_common": SH.SN_COMMON_PATH, "sn_dagger_spec_pred": SPEC.PRED_SCRIPTS / "sn_dagger_spec.py",
@@ -225,7 +263,7 @@ def provenance(o, env_dump_sha: str) -> dict:
             "sh_dagger": {
                 "task": SPEC.TASK_ID, "mode": o.mode, "arm": o.arm, "stand_mask": int(SPEC.STAND_MASK),
                 "seed": o.seed, "iterations": o.iterations, "smoke": bool(o.smoke), "num_envs": o.num_envs,
-                SH.RESIDUAL_DEADBAND_KEY: db,
+                SH.RESIDUAL_DEADBAND_KEY: db, "trim_branch": trim, "trim_min": trim_min,
                 "s1": str(SPEC.S1_CKPT), "s1_sha256": SPEC.S1_SHA256,
                 **{f"{k}_sha256": SN.sha256_file(p) for k, p in files.items()},
                 "r_knob": SN.RESTANCE_D3, "forward": "act_inference(sh_core.stand_net_input(obs, est, mask=1, "
@@ -345,7 +383,8 @@ def _run(o: argparse.Namespace, app_args) -> int:
             raise SystemExit("sh_dagger: S1's sha changed under the run")
         opts = core.RunOpts(mode=o.mode, arm=o.arm, seed=o.seed, iterations=o.iterations,
                             stop_after=(o.smoke_iters if o.smoke else o.iterations), num_envs=o.num_envs,
-                            buffer_gb=o.buffer_gb, smoke=o.smoke, deadband=o.deadband)
+                            buffer_gb=o.buffer_gb, smoke=o.smoke, deadband=o.deadband,
+                            trim_branch=o.trim_branch, trim_min=o.trim_min)
         infos = provenance(o, hashlib.sha256(dump.encode()).hexdigest())
         infos["sh_dagger"]["clip"] = {**SH.clip_record(o.deadband), "env_clip_actions": float(env.clip_actions),
                                       "config_clip_actions": float(agent_cfg.clip_actions)}

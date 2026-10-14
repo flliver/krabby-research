@@ -48,7 +48,9 @@ TRAIN-TIME READS (the step-6 premise; not a gate): per DRAWN start kind (share >
 share-0 ground kind is not read, its records -- none expected -- only counted) x executor (student / beta-R / the 10 %
 R_h control slice) -- homed share and |h_meas - h_cmd| on height holds, the STOOD (>= 4 feet) share on the first stand
 of table starts (its rise clause as K3's: the ROOT risen >= 0.10 m above its spawn root z on >= 95 % of the window),
-falls, restore completions / timeouts (from the per-iteration counts).
+falls, restore completions / timeouts (from the per-iteration counts). REPORTED beside them, never a STOP (CHARTER
+2026-10-14): the trim diagnostic (:func:`trim_diag_read`, ``premise.trim_diag``) -- the student's executed cam command
+vs R_h's in-band trim on loaded HOLD legs with the cam in TRIM_BAND, pooled and per 500-iteration block.
 """
 from __future__ import annotations
 
@@ -176,6 +178,106 @@ FOOT_FLOOR_M = 0.15
 HOLD_READ_AFTER_RAMP_S = 2.0
 #: step 6 (PLAN): fall / restore-timeout stop margins
 PREMISE_FALL_FACTOR, PREMISE_FALL_ADD = 2.0, 0.01
+
+# ===================================================================================== the trim branch (CHARTER 2026-10-14)
+#: ``--trim-branch`` (CHARTER section 3, "retrain the pilot with a trim weight + the deadband in the loop"): a stand-row
+#: leg whose R_h branch is HOLD and whose R_h cam label is non-zero (``|label| > TRIM_LABEL_MIN``, a float tolerance --
+#: "the in-band trim acting") is its own category in the per-leg inverse-branch-frequency weights (same estimator, cap
+#: W_MAX, normalisation; HOLD's frequency then counts only the non-trim HOLD entries). ``--trim-min X`` overrides the
+#: threshold (only with ``--trim-branch``; default this value).
+TRIM_LABEL_MIN = 1e-6
+#: the trim diagnostic (reported, never a gate; ``train_log.jsonl`` ``trim_diag`` on every iteration row): on
+#: STUDENT-executed sigma-0 stand rows, legs whose R_h branch is HOLD with ``|c|`` in :data:`TRIM_BAND` (the deadband
+#: probe's "cam 0.1-0.3 rad off home") and loaded (the probe's per-foot flag), histograms of the executed cam command
+#: and of R_h's cam label, both signed TOWARD HOME (``-sign(c) x value``: R_h's in-band trim reads +0.1 there), on bins
+#: of TRIM_DIAG_BIN centred on ``-1 + k x TRIM_DIAG_BIN``, k = 0 .. TRIM_DIAG_NB - 1 (values clamped to +-1)
+TRIM_DIAG_BIN = 0.001
+TRIM_DIAG_NB = 2001
+#: the --read breakdown: one diagnostic per this many iterations (the checkpoint cadence)
+TRIM_DIAG_WINDOW = CKPT_EVERY
+
+
+def check_trim_min(v) -> float:
+    """The trim branch's cam-label threshold: a finite float in [0, 1) (R_h's cam labels are within +-1)."""
+    if isinstance(v, bool):
+        raise ValueError(f"trim_min {v!r} is not a number")
+    try:
+        f = float(v)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"trim_min {v!r} is not a number") from exc
+    if not math.isfinite(f) or not 0.0 <= f < 1.0:
+        raise ValueError(f"trim_min {v!r} must be in [0, 1)")
+    return f
+
+
+def trim_diag_center(k) -> float:
+    """The centre of trim-diagnostic bin ``k``."""
+    return -1.0 + int(k) * TRIM_DIAG_BIN
+
+
+def _hist_quant(hist: dict, q: float):
+    """The q-quantile of a ``{bin: count}`` histogram (the centre of the first bin whose cumulative count reaches
+    ``q x n``); None when empty."""
+    n = float(sum(hist.values()))
+    if n <= 0:
+        return None
+    need, cum = float(q) * n, 0.0
+    for k in sorted(hist):
+        cum += float(hist[k])
+        if cum >= need - 1e-9:
+            return trim_diag_center(k)
+    return trim_diag_center(max(hist))  # pragma: no cover  (float slack)
+
+
+def trim_diag_pool(log_rows: list[dict], it_lo: int = 0, it_hi: int | None = None) -> dict:
+    """The trim diagnostic pooled over iterations ``[it_lo, it_hi)``: leg-steps ``n``, the executed cam command's p25 /
+    median / p75 and R_h's median label (both toward home), and ``ratio`` = executed median / R_h median (the deadband
+    probe read 0.02 on es1: the student's -0.002 vs R_h's -0.100). Rows without a ``trim_diag`` block are skipped."""
+    ex, rh, n, its = {}, {}, 0, 0
+    for row in log_rows:
+        it = int(row.get("it", -1))
+        d = row.get("trim_diag")
+        if d is None or it < int(it_lo) or (it_hi is not None and it >= int(it_hi)):
+            continue
+        its += 1
+        n += int(d.get("n", 0))
+        for src, dst in ((d.get("exec") or {}, ex), (d.get("rh") or {}, rh)):
+            for k, c in src.items():
+                dst[int(k)] = dst.get(int(k), 0.0) + float(c)
+    m_e, m_r = _hist_quant(ex, 0.5), _hist_quant(rh, 0.5)
+    return {"window": [int(it_lo), None if it_hi is None else int(it_hi)], "iterations": its, "n": n,
+            "exec_toward_home": {"p25": _hist_quant(ex, 0.25), "median": m_e, "p75": _hist_quant(ex, 0.75)},
+            "rh_toward_home": {"median": m_r},
+            "ratio": (m_e / m_r) if (m_e is not None and m_r) else None}
+
+
+def trim_diag_read(log_rows: list[dict], it_lo: int = 0, it_hi: int | None = None,
+                   window: int = TRIM_DIAG_WINDOW) -> dict:
+    """The REPORTED trim diagnostic of a run (CHARTER 2026-10-14; never a STOP): pooled over ``[it_lo, it_hi)`` and per
+    ``window``-iteration block inside it (so the trim can be seen being learned). A log without ``trim_diag`` rows (a
+    run before the diagnostic: SH_SMOKE, SH_P18) -> ``recorded`` False."""
+    sel = [r for r in log_rows if int(r.get("it", -1)) >= int(it_lo) and (it_hi is None or int(r["it"]) < int(it_hi))]
+    rec = [r for r in sel if r.get("trim_diag") is not None]
+    out = {"recorded": bool(rec), "definition": (
+        "student-executed sigma-0 stand rows; legs with R_h branch HOLD, |c| in TRIM_BAND (0.1, 0.3] and the foot "
+        "loaded; executed cam command vs R_h's cam label, both signed toward home (-sign(c) x value); ratio = median "
+        "executed / median R_h"), "trim_band": list(TRIM_BAND), "bin": TRIM_DIAG_BIN, "window_its": int(window)}
+    if not rec:
+        out["note"] = "no trim_diag rows in this window (a run before the diagnostic, or an empty window)"
+        return out
+    out["pooled"] = trim_diag_pool(rec, it_lo, it_hi)
+    its = sorted(int(r["it"]) for r in rec)
+    w = int(window)
+    blocks = []
+    start = (its[0] // w) * w
+    while start <= its[-1]:
+        lo, hi = max(start, int(it_lo)), start + w
+        if it_hi is not None:
+            hi = min(hi, int(it_hi))
+        blocks.append(trim_diag_pool(rec, lo, hi))
+        start += w
+    out["by_window"] = blocks
+    return out
 
 
 def first_stand_seconds(h_cmd: float, h_init: float, *, margin: bool = True) -> float:
@@ -408,6 +510,8 @@ def premise_read(records: list[dict], log_rows: list[dict] | None = None, it_lo:
                    "control": tc,
                    "stop": None if None in (ts, tc) else bool(ts > PREMISE_FALL_FACTOR * tc + PREMISE_FALL_ADD)})
     reasons = [c["check"] for c in checks if c["stop"]]
+    #: REPORTED, never a STOP (CHARTER 2026-10-14): is the student learning R_h's in-band cam trim?
+    out["trim_diag"] = trim_diag_read(log_rows or [], it_lo, it_hi)
     out["checks"] = checks
     out["stop"] = bool(reasons) if any(c["stop"] is not None for c in checks) else None
     out["stop_reasons"] = reasons
@@ -452,6 +556,9 @@ SMOKE_DAGGER = (
     ("forward_parity", "trainer <-> launcher forward parity (same device, same batch)"),
     ("student_deadband_realised", "the residual deadband (CHARTER 2026-10-14; --deadband d > 0 only, else not "
                                   "applied): no realised student hip / knee residual inside (0, d)"),
+    ("trim_branch_weights", "the trim branch (CHARTER 2026-10-14; --trim-branch only, else not applied): trim "
+                            "entries in the reservoir, their mean weight above the non-trim HOLD weight, the weight "
+                            "table reports trim"),
     ("warm_start_zeroed", "warm start = A-mask s17 (sha) with W[:, 15] zeroed"),
     ("handovers", "walk -> stand handovers and stand exits happen"),
     ("branch_shares_student_rows", "branch shares on student-visited rows"),

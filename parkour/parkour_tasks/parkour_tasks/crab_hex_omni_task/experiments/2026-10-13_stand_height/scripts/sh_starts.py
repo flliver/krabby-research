@@ -835,8 +835,9 @@ def composition_reasons(env_cfg) -> list[str]:
 class KitProbe:
     """Per-step measurements the trainer reads after every ``env.step`` (and once at the start): root z, the
     chassis' lowest point, ``h_meas`` (``sh_core.h_meas`` with the harness's raycast into the terrain mesh), feet loaded
-    (contact >= 20 N and footpad <= 0.15 m above the floor under it), the table's realised top, the action the env
-    received (post wrapper clip)."""
+    (contact >= 20 N and footpad <= 0.15 m above the floor under it: the count ``feet_loaded`` and, for the trainer's trim
+    diagnostic -- CHARTER 2026-10-14 -- the per-foot flags ``foot_loaded`` (N, 6) in leg order), the table's realised
+    top, the action the env received (post wrapper clip)."""
 
     def __init__(self, env, *, mesh, raycast_fn, table_name: str = TABLE_NAME):
         u = env.unwrapped
@@ -863,8 +864,9 @@ class KitProbe:
         tz = SH.terrain_z_under_feet(fpos, self.mesh, self.raycast_fn)
         hm = SH.h_meas(pos[:, 2], tz)
         f = self.contact.data.net_forces_w[:, self.foot_sid].norm(dim=-1)
-        loaded = ((f >= SPEC.FOOT_LOADED_N) & ((fpos[..., 2] - tz) <= SPEC.FOOT_FLOOR_M)).sum(dim=1)
+        foot = (f >= SPEC.FOOT_LOADED_N) & ((fpos[..., 2] - tz) <= SPEC.FOOT_FLOOR_M)
+        loaded = foot.sum(dim=1)
         tp = self.table.data.root_pos_w[:, 2].double() + 0.5 * SPEC.TABLE_SIZE_M[2]
         return {"root_z": pos[:, 2].double(), "lowest_z": low.double(), "h_meas": hm, "feet_loaded": loaded.long(),
-                "table_top_w": tp, "applied_action": self.u.action_manager.action.detach().clone(),
-                "terrain_z6": tz.double()}
+                "foot_loaded": foot, "table_top_w": tp,
+                "applied_action": self.u.action_manager.action.detach().clone(), "terrain_z6": tz.double()}

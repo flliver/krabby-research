@@ -32,6 +32,17 @@ WHAT CHANGED (PLAN H1-H6; every height semantic is ``sh_core``'s, imported, neve
   ``sh_dagger.residual_deadband`` + its clip record), status.json, the checkpoint infos (``infos.sh_dagger``) and the
   smoke (``student_deadband_realised``: no realised student hip / knee residual inside (0, d); forward parity with the
   launcher's ``--sh-deadband d``);
+* ``--trim-branch`` (``RunOpts.trim_branch``; default off = the weights over R_h's 5 branches, every output bitwise the
+  run without the option; CHARTER 2026-10-14 "retrain the pilot with a trim weight"): every effective stand-row leg
+  (restore rows included) whose R_h branch is HOLD and whose R_h cam label ``|.| > trim_min`` (``SPEC.TRIM_LABEL_MIN``
+  1e-6 unless ``--trim-min``) enters the reservoir with the code :data:`BRANCH_TRIM`, a 6th category of the SAME per-leg
+  inverse-branch-frequency weights (``branch_weight_table``, cap W_MAX; HOLD's frequency then counts the non-trim HOLD
+  entries only); labels, LIFT onsets (R_h's codes), sampling and the loss are unchanged; recorded in run.json
+  (``opts.trim_branch`` / ``opts.trim_min``, ``sh_dagger.trim_branch``), status.json, the checkpoint infos and the smoke
+  (``trim_branch_weights``; the student branch shares report 'trim');
+* the trim DIAGNOSTIC (reported, every run; ``Trainer._trim_diag``): per iteration, on student-executed sigma-0 stand
+  rows, the legs R_h HOLDs with ``|c|`` in TRIM_BAND and the foot loaded -- histograms of the executed cam command and
+  of R_h's label, toward home (``train_log.jsonl`` ``trim_diag``; read by ``SPEC.trim_diag_read`` in ``--read``);
 * warm start: A-mask s17 with ``W[:, 15]`` zeroed (``sh_core.load_warm_start``; its estimator must equal S1's);
 * the env side is ``sh_starts.StartState`` (start modes, h_cmd draws, forced first stands, table, pushes, hip-contact);
   the trainer reads its per-env fields after every ``env.step`` and a probe (root z, chassis lowest point, ``h_meas``,
@@ -82,8 +93,15 @@ NUM_OBS, NUM_ACT, NUM_LEGS = 1149, 18, 6
 CAM_COLS = tuple(18 + 2 * i for i in range(NUM_LEGS))
 HIP_COLS = tuple(29 + i for i in range(NUM_LEGS))
 SIDE = (1.0, -1.0, 1.0, -1.0, 1.0, -1.0)
+BRANCH_HOLD = 0
 BRANCH_LIFT = 2
 N_BRANCH = 5
+#: the trim branch (CHARTER 2026-10-14 "retrain the pilot with a trim weight"; ``RunOpts.trim_branch``): a 6th WEIGHT
+#: category, never one of R's codes -- stored in the reservoir's branch column only when the option is on
+BRANCH_TRIM = 5
+N_BRANCH_TRIM = 6
+BRANCH_NAMES = ("hold", "wait", "lift", "home", "seat")
+BRANCH_NAMES_TRIM = BRANCH_NAMES + ("trim",)
 GEN_NAMES = ("episode", "dart", "reservoir", "minibatch", "init_len", "starts", "hcmd")
 ENTRY_KINDS = ("spawn", "handover", "run_start")
 N_KINDS = len(SPEC.START_KINDS)
@@ -264,14 +282,28 @@ def lift_onset(branch, prev_branch, prev_valid):
     return prev_valid & (lift & ~was).any(dim=1)
 
 
-def branch_weight_table(branch, w_max: float = SPEC.W_MAX):
-    """``(6, 5)``: leg l's weight for branch b = 1 / (K_l f_lb) over the K_l branches present on leg l, capped."""
+def weight_branch(branch, label, trim_min=None):
+    """The per-leg code the inverse-branch-frequency weights read (CHARTER 2026-10-14, ``--trim-branch``). ``trim_min``
+    None (the option off): ``branch`` itself, unchanged. Otherwise a leg whose R_h branch is HOLD and whose R_h cam
+    label ``|label[:, leg]|`` (residual cam column = R_h's cam command, q's cams are 0) exceeds ``trim_min`` -- the
+    in-band trim acting -- is :data:`BRANCH_TRIM`; every other leg keeps R_h's code. Labels, LIFT onsets and the
+    executors never read this code: only the weights do."""
+    if trim_min is None:
+        return branch
+    cam = label[:, SH.CAM_ACT].abs() > float(trim_min)
+    return torch.where((branch.long() == BRANCH_HOLD) & cam, torch.full_like(branch, BRANCH_TRIM), branch)
+
+
+def branch_weight_table(branch, w_max: float = SPEC.W_MAX, n_branch: int = N_BRANCH):
+    """``(6, n_branch)``: leg l's weight for branch b = 1 / (K_l f_lb) over the K_l branches present on leg l, capped.
+    ``n_branch`` 5 = R_h's branches (the default; the table without the trim option, bitwise); 6 = + the trim branch
+    (:data:`BRANCH_TRIM`: HOLD's frequency then counts only the non-trim HOLD entries)."""
     b = branch.long()
     n = int(b.shape[0])
-    counts = torch.stack([torch.bincount(b[:, leg], minlength=N_BRANCH)[:N_BRANCH] for leg in range(NUM_LEGS)])
+    counts = torch.stack([torch.bincount(b[:, leg], minlength=n_branch)[:n_branch] for leg in range(NUM_LEGS)])
     counts = counts.to(torch.float64)
     if n == 0:
-        return torch.zeros(NUM_LEGS, N_BRANCH, dtype=torch.float32, device=branch.device)
+        return torch.zeros(NUM_LEGS, n_branch, dtype=torch.float32, device=branch.device)
     f = counts / n
     present = counts > 0
     k = present.sum(dim=1, keepdim=True).clamp_min(1).to(torch.float64)
@@ -376,11 +408,12 @@ class Reservoir:
 
 
 def train_iteration(student, opt, buf: Reservoir, gens: dict, *, minibatches: int, minibatch: int,
-                    onset_share: float, w_max: float, max_grad_norm: float) -> dict:
-    """Fixed gradient steps per iteration: ``minibatches`` x Adam on ``min(minibatch, size)``-row samples."""
+                    onset_share: float, w_max: float, max_grad_norm: float, n_branch: int = N_BRANCH) -> dict:
+    """Fixed gradient steps per iteration: ``minibatches`` x Adam on ``min(minibatch, size)``-row samples.
+    ``n_branch``: the weight categories in the reservoir's branch column (5; 6 with the trim branch)."""
     if buf.size == 0:
         return {"steps": 0}
-    table = branch_weight_table(buf.branch[:buf.size], w_max)
+    table = branch_weight_table(buf.branch[:buf.size], w_max, n_branch)
     params = trainable_params(student)
     b = min(int(minibatch), buf.size)
     on = buf.onset_index()
@@ -753,6 +786,9 @@ class StandTracker:
 
 
 # ===================================================================================== the run loop
+check_trim_min = SPEC.check_trim_min
+
+
 class RunOpts:
     """Plain options (no argparse objects inside the core)."""
 
@@ -761,7 +797,7 @@ class RunOpts:
                  minibatch=SPEC.MINIBATCH, buffer_gb=SPEC.BUFFER_GB, buffer_rows=None, onset_share=SPEC.ONSET_SHARE,
                  w_max=SPEC.W_MAX, max_grad_norm=SPEC.MAX_GRAD_NORM, ckpt_every=SPEC.CKPT_EVERY,
                  control_share=SPEC.CONTROL_SHARE, init_random_ep_len=True, smoke=False, log_every=10,
-                 deadband=0.0):
+                 deadband=0.0, trim_branch=False, trim_min=None):
         if mode not in SPEC.MODES:
             raise ValueError(f"mode {mode!r}: this trainer runs {SPEC.MODES} only")
         if arm not in SPEC.ARMS:
@@ -780,6 +816,19 @@ class RunOpts:
         self.init_random_ep_len, self.smoke, self.log_every = bool(init_random_ep_len), bool(smoke), int(log_every)
         #: the residual deadband of the STUDENT-executed stand action (0 = off; labels / R executors never get it)
         self.deadband = SH.check_deadband(deadband)
+        #: the trim branch (CHARTER 2026-10-14): off = the weights without the option, bitwise; on = HOLD legs whose
+        #: R_h cam label |.| > trim_min are a 6th weight category (``weight_branch``)
+        if not isinstance(trim_branch, bool):
+            raise ValueError(f"trim_branch must be a bool, got {trim_branch!r}")
+        self.trim_branch = trim_branch
+        if not trim_branch and trim_min is not None:
+            raise ValueError("trim_min is set but trim_branch is off (it would not be applied)")
+        self.trim_min = check_trim_min(SPEC.TRIM_LABEL_MIN if trim_min is None else trim_min) if trim_branch else None
+
+    @property
+    def n_branch(self) -> int:
+        """The weight categories: R_h's 5 branches (+ the trim branch when on)."""
+        return N_BRANCH_TRIM if self.trim_branch else N_BRANCH
 
     def to_dict(self) -> dict:
         return dict(vars(self))
@@ -848,6 +897,10 @@ class Trainer:
         self.episodes: list[dict] = []
         self.acc = self._new_acc()
         self.restore_it = torch.zeros(N_EX, N_SG, N_KINDS, N_EV, dtype=torch.float64, device=self.device)
+        #: the trim diagnostic's per-iteration histograms (row 0 the executed cam command, row 1 R_h's cam label, both
+        #: toward home; SPEC.TRIM_DIAG_*), written to every train_log row and zeroed
+        self.trim_it = torch.zeros(2, SPEC.TRIM_DIAG_NB, dtype=torch.float64, device=self.device)
+        self.trim_loaded = None
         self.capture = None
         self.restore_capture = None
         self.s1_det = None
@@ -862,7 +915,7 @@ class Trainer:
         d = self.device
         z = lambda *s, dt=torch.float64, v=0.0: torch.full(s, v, dtype=dt, device=d)  # noqa: E731
         return {"rows": z(), "eff_rows": z(), "slot_rows": z(), "restore_rows": z(), "rows_by_kind": z(3),
-                "eff_rows_by_start": z(N_KINDS), "branch_student": z(NUM_LEGS, N_BRANCH),
+                "eff_rows_by_start": z(N_KINDS), "branch_student": z(NUM_LEGS, self.o.n_branch),
                 "dart_n": z(3), "dart_ss_pre": z(3), "dart_ss_post": z(3), "sigma0_maxdev": z(),
                 "onset_rows": z(), "onset_rows_student": z(), "lastrow_mismatch": z(),
                 "ep_new": z(), "ep_ctrl": z(), "ep_beta_r": z(), "ep_beta_sum": z(), "ep_noncontrol": z(),
@@ -963,7 +1016,10 @@ class Trainer:
         # 3) the reservoir: every effective stand row (restore rows included), R_h's residual on the visited state
         onset = lift_onset(lab.branch, self.prev_branch, self.prev_eff & eff)
         rows = torch.nonzero(eff).flatten()
-        self.buf.add(x[rows], label[rows], lab.branch[rows], onset[rows])
+        # the weight category (--trim-branch: HOLD legs whose R_h cam label is non-zero -> BRANCH_TRIM; off: R_h's
+        # branch itself, the same tensor) -- the onsets above and the labels never read it
+        wb = weight_branch(lab.branch, label, o.trim_min)
+        self.buf.add(x[rows], label[rows], wb[rows], onset[rows])
         self.prev_branch = lab.branch.long()
         # 4) accumulators
         effd = eff.to(torch.float64)
@@ -978,8 +1034,9 @@ class Trainer:
         stu = eff & (kind == SPEC.EX_STUDENT)
         acc["onset_rows"] += (onset & eff).sum()
         acc["onset_rows_student"] += (onset & stu).sum()
-        oh = torch.nn.functional.one_hot(lab.branch.long(), N_BRANCH).to(torch.float64)
+        oh = torch.nn.functional.one_hot(wb.long(), o.n_branch).to(torch.float64)
         acc["branch_student"] += (oh * stu.to(torch.float64)[:, None, None]).sum(0)
+        self._trim_diag(obs, m, lab.branch, label, a_stand, stu & (self.ep_sigma == 0))
         dev_pre = (a_res - clean).double()
         dev_post = (a_res.clamp(-1, 1) - clean.clamp(-1, 1)).double()
         for k, s in enumerate((0.1, 0.3)):
@@ -1097,6 +1154,30 @@ class Trainer:
         self.meas = m_next
         return obs_next, slot_next, dones, final, eps
 
+    def _trim_diag(self, obs, m, branch, label, a_stand, rows) -> None:
+        """The REPORTED trim diagnostic (CHARTER 2026-10-14; ``SPEC.TRIM_DIAG_*``): on ``rows`` (student-executed
+        sigma-0 stand rows) the legs whose R_h branch is HOLD with ``|c|`` in ``SPEC.TRIM_BAND`` and the foot loaded
+        (the probe's per-foot ``foot_loaded``, measured on the state ``obs`` describes; a probe without it -> HOLD's
+        own "down" only, recorded): histograms of the executed cam command and R_h's cam label, toward home. No host
+        sync, no RNG: the training is the same with or without it."""
+        c = obs[:, list(CAM_COLS)].to(torch.float64)
+        ac = c.abs()
+        lo, hi = SPEC.TRIM_BAND
+        sel = rows[:, None] & (branch.long() == BRANCH_HOLD) & (ac > lo) & (ac <= hi)
+        fl = m.get("foot_loaded") if m is not None else None
+        if self.trim_loaded is None:
+            self.trim_loaded = ("probe foot_loaded (contact >= FOOT_LOADED_N, footpad <= FOOT_FLOOR_M above the floor)"
+                                if fl is not None else "no per-foot flag from the probe: R_h's HOLD (leg down) only")
+        if fl is not None:
+            sel = sel & fl.to(sel.device).bool().reshape(sel.shape)
+        w = sel.reshape(-1).to(torch.float64)
+        toward = -torch.sign(c)
+        nb = SPEC.TRIM_DIAG_NB
+        for j, v in enumerate((a_stand[:, SH.CAM_ACT], label[:, SH.CAM_ACT])):
+            u = (toward * v.to(torch.float64)).clamp(-1.0, 1.0)
+            k = torch.round((u + 1.0) / SPEC.TRIM_DIAG_BIN).long().clamp(0, nb - 1)
+            self.trim_it[j] += torch.bincount(k.reshape(-1), weights=w, minlength=nb)[:nb]
+
     def _reset_checks(self, dones, m, it: int) -> None:
         """Realised doses on the reset rows: the limiter init rule, the measured spawn height vs the analytic one, the
         realised (PhysX) table top vs its draw; the per-env episode buffers."""
@@ -1188,7 +1269,7 @@ class Trainer:
             t1 = time.time()
             tr = train_iteration(self.nets.student, self.opt, self.buf, self.gens, minibatches=o.minibatches,
                                  minibatch=o.minibatch, onset_share=o.onset_share, w_max=o.w_max,
-                                 max_grad_norm=o.max_grad_norm)
+                                 max_grad_norm=o.max_grad_norm, n_branch=o.n_branch)
             self.opt_steps += int(tr.get("steps", 0))
             if tr.get("steps"):
                 self.mb_onset.append(tr["onset"])
@@ -1214,7 +1295,8 @@ class Trainer:
                "iterations_schedule": o.iterations, "checkpoints": list(self.ckpts),
                "final_checkpoint": self.ckpts[-1] if self.ckpts else None, "opt_steps": self.opt_steps,
                "student_forwards": self.student_forwards, "wall_s": time.time() - t_start,
-               SH.RESIDUAL_DEADBAND_KEY: o.deadband,
+               SH.RESIDUAL_DEADBAND_KEY: o.deadband, "trim_branch": o.trim_branch, "trim_min": o.trim_min,
+               "trim_diag_loaded": self.trim_loaded,
                "s_per_iter": (time.time() - t_start) / max(1, last_it + 1)}
         self.paths["status"].write_text(json.dumps(res, indent=1, sort_keys=True))
         return res
@@ -1242,6 +1324,7 @@ class Trainer:
                   start_shares=dict(zip(SPEC.START_KINDS, SPEC.START_SHARES)),
                   pose_shares=dict(zip(SPEC.POSES, SPEC.POSE_SHARES)), iterations_done=int(done_its))
         sh[SH.RESIDUAL_DEADBAND_KEY] = self.o.deadband      # the student-executed action's deadband (0 = off)
+        sh["trim_branch"], sh["trim_min"] = self.o.trim_branch, self.o.trim_min   # the weights' trim category
         infos["sn_dagger"], infos["sh_dagger"] = sn, sh
         return infos
 
@@ -1260,6 +1343,11 @@ class Trainer:
                                     for b, k in enumerate(SPEC.START_KINDS)} for g, sg in enumerate(SPEC.RESTORE_SIGMA)}
                           for a, ex in enumerate(SPEC.EXECUTORS)}
         self.restore_it.zero_()
+        ti = self.trim_it.cpu().tolist()
+        row["trim_diag"] = {"n": int(round(sum(ti[0]))),
+                            "exec": {str(k): int(round(v)) for k, v in enumerate(ti[0]) if v},
+                            "rh": {str(k): int(round(v)) for k, v in enumerate(ti[1]) if v}}
+        self.trim_it.zero_()
         for kind in SPEC.START_KINDS:
             for ex in SPEC.EXECUTORS:
                 g = [r for r in final if r["kind"] == ex and r.get("start_kind") == kind]
@@ -1379,6 +1467,39 @@ def first_stand_ok(r: dict) -> tuple[bool, float]:
     3 s (a reset entry holds the draw - dt: one dt of slack)."""
     need = SPEC.first_stand_seconds(r["h_cmd0"], r["h_init0"], margin=False)
     return bool(float(r["sched_len0_s"]) + float(r["dt"]) >= need - 1e-6), float(r["sched_len0_s"]) - need
+
+
+def trim_branch_check(tr: "Trainer") -> tuple[dict, bool]:
+    """The ``trim_branch_weights`` smoke check (CHARTER 2026-10-14): with ``--trim-branch``, on the reservoir as the
+    last iteration trained on it -- the weight table (``branch_weight_table`` over the 6 categories, cap W_MAX), the
+    leg-entry counts and shares per category, and the mean weight over the trim entries vs over the non-trim HOLD
+    entries. PASS: trim entries present, non-trim HOLD entries present, trim's mean weight > HOLD's, the table has the
+    trim column. Off: "not applied" (pass)."""
+    o = tr.o
+    if not o.trim_branch:
+        return {"trim_branch": False, "note": "trim branch off: not applied (the weights over R_h's 5 branches)"}, True
+    b = tr.buf.branch[:tr.buf.size].long()
+    table = branch_weight_table(b, o.w_max, o.n_branch)
+    w = table[torch.arange(NUM_LEGS, device=table.device)[None, :], b].double()
+    n = int(b.numel())
+    counts = {name: int((b == k).sum()) for k, name in enumerate(BRANCH_NAMES_TRIM)}
+
+    def mean_w(code):
+        m = b == code
+        k = int(m.sum())
+        return (float((w * m.double()).sum()) / k) if k else None
+
+    wt, wh = mean_w(BRANCH_TRIM), mean_w(BRANCH_HOLD)
+    tab = table.cpu().tolist()
+    v = {"trim_branch": True, "trim_min": o.trim_min, "w_max": o.w_max, "reservoir_rows": int(tr.buf.size),
+         "leg_entries": n, "entries": counts,
+         "shares": {k: (c / n if n else None) for k, c in counts.items()},
+         "mean_weight_trim": wt, "mean_weight_hold_non_trim": wh,
+         "weight_table": {f"leg{leg}": dict(zip(BRANCH_NAMES_TRIM, tab[leg])) for leg in range(NUM_LEGS)},
+         "weight_table_columns": list(BRANCH_NAMES_TRIM)}
+    ok = (counts["trim"] > 0 and counts["hold"] > 0 and wt is not None and wh is not None and wt > wh
+          and len(tab[0]) == N_BRANCH_TRIM)
+    return v, ok
 
 
 def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: float) -> list[dict]:
@@ -1625,6 +1746,10 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
     checks.append(_chk("student_deadband_realised", v, "deadband d > 0: on live student-executed stand rows the "
                        "applied hip / knee action minus q(h_lim) is 0 or >= d (never inside (0, d); 1e-5 float "
                        "slack), some entries zeroed; d = 0: not applied", ok))
+    v, ok = trim_branch_check(tr)
+    checks.append(_chk("trim_branch_weights", v, "--trim-branch: trim entries (HOLD legs with a non-zero R_h cam "
+                       "label) in the reservoir, their mean weight > the non-trim HOLD entries' mean weight (both "
+                       "present), the weight table reports a trim column; off: not applied", ok))
     w = tr.nets.warm or {}
     checks.append(_chk("warm_start_zeroed", {"w15_zero_at_start": tr.w15_zero_at_start, "record": w},
                        "student W[:, 15] == 0 at the start; the warm start's sha is the pinned A-mask s17",
@@ -1642,11 +1767,13 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
                        a["entries_handover"] > 0 and tr.tracker.counts["exits"] > 0))
     bs = a["branch_student"]
     tot = sum(sum(r) for r in bs)
-    shares_b = ({name: sum(bs[l][k] for l in range(NUM_LEGS)) / tot for k, name in enumerate(
-        ("hold", "wait", "lift", "home", "seat"))} if tot else None)
-    checks.append(_chk("branch_shares_student_rows", shares_b, "student-executed stand rows exist (shares reported)",
+    names_b = BRANCH_NAMES_TRIM if o.trim_branch else BRANCH_NAMES
+    shares_b = ({name: sum(bs[l][k] for l in range(NUM_LEGS)) / tot for k, name in enumerate(names_b)}
+                if tot else None)
+    checks.append(_chk("branch_shares_student_rows", shares_b, "student-executed stand rows exist (shares reported; "
+                       "with --trim-branch 'hold' is the non-trim HOLD and 'trim' its own share)",
                        tot > 0, student_rows=a["rows_by_kind"][SPEC.EX_STUDENT],
-                       rows_by_executor=dict(zip(SPEC.EXECUTORS, a["rows_by_kind"]))))
+                       rows_by_executor=dict(zip(SPEC.EXECUTORS, a["rows_by_kind"])), trim_branch=o.trim_branch))
     mb = (sum(tr.mb_onset) / len(tr.mb_onset)) if tr.mb_onset else None
     mbw = (sum(tr.mb_onset_w) / len(tr.mb_onset_w)) if tr.mb_onset_w else None
     stu_rows = a["rows_by_kind"][SPEC.EX_STUDENT]

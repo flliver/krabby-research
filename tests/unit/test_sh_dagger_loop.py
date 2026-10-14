@@ -18,7 +18,13 @@ Pinned:
 * the residual deadband (CHARTER 2026-10-14): at 0 the step is the composition without the option (bitwise) and a run
   replays the default run; at 0.25 only student-executed rows (restore rows included) are deadbanded, labels and the R
   executors untouched; records (status, checkpoint infos), forward parity, the realised smoke check (and a trainer that
-  ignores its deadband is caught).
+  ignores its deadband is caught);
+* the trim branch (CHARTER 2026-10-14, "retrain the pilot with a trim weight"): off = today's weights (a verbatim copy
+  of the pre-option estimator) on a synthetic batch and a run that replays the default run bitwise; on = HOLD legs with
+  a non-zero R_h cam label split from HOLD into a 6th category, the inverse-frequency weights recomputed with the cap, a
+  HOLD leg with a zero cam label stays HOLD, nothing else (labels, onsets, actions) changes; records; the
+  ``trim_branch_weights`` smoke check passes / fails on hand-built reservoirs, reads "not applied" off, and runs beside
+  the deadband check; the trim DIAGNOSTIC's per-iteration histograms on a hand-set step.
 """
 from __future__ import annotations
 
@@ -373,7 +379,8 @@ class FakeEnv:
         low = z - 0.15875
         base = torch.where(st.table_active, st.top_w, torch.zeros_like(z))
         feet = torch.where(low > base + 0.05, 6, 3)
-        return {"root_z": z, "lowest_z": low, "h_meas": z.clone(), "feet_loaded": feet.long(),
+        foot = torch.arange(6)[None, :] < feet[:, None]                  # per-foot flags: the first `feet` legs
+        return {"root_z": z, "lowest_z": low, "h_meas": z.clone(), "feet_loaded": feet.long(), "foot_loaded": foot,
                 "table_top_w": self.table.data.root_link_pose_w[:, 2].double() + 1.0,
                 "applied_action": self.applied.clone()}
 
@@ -913,15 +920,18 @@ def _today_stand_action(SH, a_net, h):
                       s[:, SH.HIP_ACT.start:].clamp(-SH.RAW_CLIP, SH.RAW_CLIP)], dim=1)
 
 
-def _one_step(CORE, classes, cfg, nets_proto, bank, stance, out, **opts):
+def _one_step(CORE, classes, cfg, nets_proto, bank, stance, out, pre=None, **opts):
     """One trainer step on 8 hand-set rows: 0 control sigma 0, 1 beta-R sigma 0, 2 student, 3 student sigma 0.3,
-    4 beta-R sigma 0.1, 5 student, 6 walking (S1), 7 a STUDENT restore row (left a 0.85 stand one step ago)."""
+    4 beta-R sigma 0.1, 5 student, 6 walking (S1), 7 a STUDENT restore row (left a 0.85 stand one step ago).
+    ``pre(env)`` (optional) edits the fake's state before the observation is read."""
     nets = make_nets(nets_proto)
     gens = CORE.make_generators(5, "cpu")
     env = FakeEnv(CORE.STARTS, gens, bank=bank, stance=stance, n=8, seed=1)
     o = CORE.RunOpts(seed=5, iterations=30, num_envs=8, buffer_rows=100, log_every=0, **opts)
     tr = CORE.Trainer(env, nets, o, out, state=env.state, probe=env.probe, gens=gens, train_cfg=cfg,
                       policy_cls=classes[0], est_cls=classes[1])
+    if pre is not None:
+        pre(env)
     obs, _ = env.get_observations()
     tr.meas = env.probe()
     env.cmd.slot_id[:] = torch.tensor([0, 0, 0, 0, 0, 0, 1, 1])
@@ -1067,3 +1077,265 @@ def test_forward_parity_with_the_deadband(CORE, nets_proto):
     with pytest.raises(ValueError):
         CORE.RunOpts(seed=1, iterations=5, deadband=1.0)
     assert CORE.RunOpts(seed=1, iterations=5).deadband == 0.0
+
+
+# ===================================================================================== the trim branch
+# CHARTER section 3, 2026-10-14 "retrain the pilot with a trim weight + the deadband in the loop": a stand-row leg whose
+# R_h branch is HOLD and whose R_h cam label is non-zero is its own category ("trim") in the per-leg inverse-branch-
+# frequency weights (cap W_MAX unchanged); off by default (--trim-branch), the run without it bitwise.
+def _today_branch_weight_table(branch, w_max=20.0):
+    """The per-leg weight estimator as it stood before the trim option (verbatim, sh_dagger_core at 7cbdd37e)."""
+    b = branch.long()
+    n = int(b.shape[0])
+    counts = torch.stack([torch.bincount(b[:, leg], minlength=5)[:5] for leg in range(6)])
+    counts = counts.to(torch.float64)
+    if n == 0:
+        return torch.zeros(6, 5, dtype=torch.float32, device=branch.device)
+    f = counts / n
+    present = counts > 0
+    k = present.sum(dim=1, keepdim=True).clamp_min(1).to(torch.float64)
+    w = torch.where(present, 1.0 / (k * f.clamp_min(1e-300)), torch.zeros_like(f))
+    return w.clamp(max=float(w_max)).to(torch.float32)
+
+
+def _synthetic_batch(n=4000, seed=3):
+    g = torch.Generator().manual_seed(seed)
+    p = torch.tensor([0.80, 0.07, 0.02, 0.05, 0.06])
+    branch = torch.multinomial(p, n * 6, replacement=True, generator=g).reshape(n, 6)
+    branch[:, 5] = torch.where(branch[:, 5] == 2, torch.zeros_like(branch[:, 5]), branch[:, 5])   # leg 5: no LIFT
+    label = 0.05 * torch.randn(n, 18, generator=g)
+    label[: n // 10, :6] = 0.0                                                       # some zero cam labels
+    return branch, label
+
+
+def test_trim_off_weights_are_todays_on_a_synthetic_batch(CORE):
+    branch, label = _synthetic_batch()
+    assert CORE.weight_branch(branch, label, None) is branch                       # off: R_h's code, the same tensor
+    want = _today_branch_weight_table(branch)
+    for got in (CORE.branch_weight_table(branch), CORE.branch_weight_table(branch, 20.0),
+                CORE.branch_weight_table(branch, CORE.SPEC.W_MAX, CORE.N_BRANCH)):
+        assert got.shape == (6, 5) and torch.equal(got, want)
+    assert torch.equal(CORE.branch_weight_table(branch[:0]), _today_branch_weight_table(branch[:0]))
+    assert torch.equal(CORE.element_weights(want, branch), CORE.element_weights(CORE.branch_weight_table(branch),
+                                                                                branch))
+    o = CORE.RunOpts(seed=1, iterations=5)
+    assert o.trim_branch is False and o.trim_min is None and o.n_branch == 5 == CORE.N_BRANCH
+    assert o.to_dict()["trim_branch"] is False and o.to_dict()["trim_min"] is None
+    assert CORE.SPEC.W_MAX == 20 and inspect_default(CORE.train_iteration, "n_branch") == CORE.N_BRANCH
+
+
+def inspect_default(fn, name):
+    import inspect  # noqa: PLC0415
+
+    return inspect.signature(fn).parameters[name].default
+
+
+def test_trim_on_splits_hold_and_recomputes_capped_weights(CORE):
+    n = 100
+    branch = torch.zeros(n, 6, dtype=torch.long)
+    label = torch.zeros(n, 18)
+    # leg 0: 30 HOLD (cam label 0), 60 HOLD with a trim (alternating sign), 10 LIFT (cam label non-zero: not trim)
+    label[30:90, 0] = torch.tensor([0.1, -0.1] * 30)
+    branch[90:, 0] = CORE.BRANCH_LIFT
+    label[90:, 0] = 0.3
+    # leg 1: 1 HOLD, 99 trim -> the rare non-trim HOLD hits the cap
+    label[1:, 1] = -0.02
+    # leg 2: every entry HOLD with a zero CAM label (its hip / knee labels non-zero): stays HOLD
+    label[:, 8] = 0.5
+    label[:, 14] = -0.5
+    # leg 3: WAIT with a non-zero cam label: stays WAIT
+    branch[:, 3] = 1
+    label[:, 3] = 0.07
+    # leg 4: |label| exactly at the threshold stays HOLD, just above is trim (50 / 50)
+    label[:50, 4] = 1e-6
+    label[50:, 4] = -1.5e-6
+    # leg 5: SEAT, zero cam label
+    branch[:, 5] = 4
+    wb = CORE.weight_branch(branch, label, CORE.SPEC.TRIM_LABEL_MIN)
+    T, H = CORE.BRANCH_TRIM, CORE.BRANCH_HOLD
+    assert wb.dtype == branch.dtype and wb.shape == branch.shape
+    assert (wb[:30, 0] == H).all() and (wb[30:90, 0] == T).all() and (wb[90:, 0] == CORE.BRANCH_LIFT).all()
+    assert wb[0, 1] == H and (wb[1:, 1] == T).all()
+    assert (wb[:, 2] == H).all() and (wb[:, 3] == 1).all() and (wb[:, 5] == 4).all()
+    assert (wb[:50, 4] == H).all() and (wb[50:, 4] == T).all()
+    assert torch.equal(CORE.weight_branch(branch, label, None), branch)
+    t = CORE.branch_weight_table(wb, 20.0, CORE.N_BRANCH_TRIM).double()
+    assert t.shape == (6, 6)
+    # leg 0: K = 3 (hold 0.3, lift 0.1, trim 0.6): 1 / (K f)
+    assert t[0].tolist() == pytest.approx([1 / 0.9, 0, 1 / 0.3, 0, 0, 1 / 1.8], rel=1e-6)
+    # leg 1: K = 2; HOLD 1 / (2 x 0.01) = 50 capped at W_MAX = 20; trim 1 / (2 x 0.99)
+    assert t[1, H] == 20.0 and t[1, T].item() == pytest.approx(1 / 1.98, rel=1e-6)
+    assert t[2].tolist() == [1.0, 0, 0, 0, 0, 0] and t[3].tolist() == [0, 1.0, 0, 0, 0, 0]
+    assert t[4].tolist() == pytest.approx([1.0, 0, 0, 0, 0, 1.0]) and t[5].tolist() == [0, 0, 0, 0, 1.0, 0]
+    # HOLD's frequency counts only the non-trim HOLD entries: the off table weighs leg 0's 90 HOLD at 1 / (2 x 0.9)
+    off = CORE.branch_weight_table(branch)
+    assert off[0, H].item() == pytest.approx(1 / 1.8, rel=1e-6) and off.shape == (6, 5)
+    # the same cap, the same element layout (cams / hips / knees share the leg's weight)
+    e = CORE.element_weights(t.float(), wb)
+    assert e.shape == (n, 18) and torch.equal(e[:, 0:6], e[:, 6:12]) and torch.equal(e[:, 0:6], e[:, 12:18])
+    assert e[35, 0].item() == pytest.approx(1 / 1.8, rel=1e-6) and e[0, 1].item() == 20.0
+    # the threshold override
+    wb2 = CORE.weight_branch(branch, label, 0.05)
+    assert (wb2[30:90, 0] == T).all() and (wb2[1:, 1] == H).all() and (wb2[:, 4] == H).all()
+    o = CORE.RunOpts(seed=1, iterations=5, trim_branch=True)
+    assert o.n_branch == 6 and o.trim_min == CORE.SPEC.TRIM_LABEL_MIN
+    assert CORE.RunOpts(seed=1, iterations=5, trim_branch=True, trim_min=0.0999).trim_min == 0.0999
+    for bad in (dict(trim_min=0.1), dict(trim_branch=True, trim_min=1.0), dict(trim_branch=1)):
+        with pytest.raises(ValueError):
+            CORE.RunOpts(seed=1, iterations=5, **bad)
+
+
+def test_hold_leg_with_a_zero_cam_label_stays_hold(CORE):
+    branch = torch.zeros(5, 6, dtype=torch.long)
+    label = torch.zeros(5, 18)
+    label[:, 6:] = 0.5                                     # hip / knee labels never make a trim leg
+    assert torch.equal(CORE.weight_branch(branch, label, CORE.SPEC.TRIM_LABEL_MIN), branch)
+    label[2, 3] = -0.1                                     # one leg's cam trim acting
+    wb = CORE.weight_branch(branch, label, CORE.SPEC.TRIM_LABEL_MIN)
+    assert wb[2, 3] == CORE.BRANCH_TRIM and int((wb == CORE.BRANCH_TRIM).sum()) == 1
+
+
+def _stub_trainer(CORE, codes, trim=True):
+    t = torch.tensor(codes, dtype=torch.int8)
+    buf = types.SimpleNamespace(branch=t.reshape(-1, 1).expand(-1, 6).clone(), size=len(codes))
+    return types.SimpleNamespace(o=CORE.RunOpts(seed=1, iterations=5, trim_branch=trim), buf=buf)
+
+
+def test_trim_branch_smoke_check_passes_and_fails(CORE):
+    H, T, L_ = CORE.BRANCH_HOLD, CORE.BRANCH_TRIM, CORE.BRANCH_LIFT
+    v, ok = CORE.trim_branch_check(_stub_trainer(CORE, [H] * 85 + [T] * 5 + [L_] * 10))
+    assert ok is True and v["entries"]["trim"] == 30 and v["entries"]["hold"] == 510
+    assert v["mean_weight_trim"] == pytest.approx(1 / 0.15) and v["mean_weight_hold_non_trim"] == pytest.approx(
+        1 / 2.55)
+    assert v["weight_table_columns"][-1] == "trim" and set(v["weight_table"]["leg0"]) == set(CORE.BRANCH_NAMES_TRIM)
+    assert v["shares"]["trim"] == pytest.approx(0.05) and v["w_max"] == 20
+    # a threshold that puts almost all of HOLD in "trim" (the rare non-trim HOLD capped at 20): trim's mean weight is
+    # BELOW HOLD's -> FAIL (the check exists to catch exactly this)
+    v, ok = CORE.trim_branch_check(_stub_trainer(CORE, [H] * 1 + [T] * 89 + [L_] * 10))
+    assert ok is False and v["mean_weight_hold_non_trim"] == 20.0 and v["mean_weight_trim"] < 1
+    assert CORE.trim_branch_check(_stub_trainer(CORE, [H] * 90 + [L_] * 10))[1] is False       # no trim entries
+    assert CORE.trim_branch_check(_stub_trainer(CORE, [T] * 90 + [L_] * 10))[1] is False       # no non-trim HOLD
+    v, ok = CORE.trim_branch_check(_stub_trainer(CORE, [H] * 90 + [L_] * 10, trim=False))
+    assert ok is True and v["trim_branch"] is False and "not applied" in v["note"]
+
+
+def test_trim_branch_trainer_step_changes_only_the_weight_code(CORE, classes, cfg, nets_proto, bank, stance,
+                                                                tmp_path):
+    def pre(env):                                   # cams off home on four legs (two in-band trims), two at home
+        env.c[:] = torch.tensor([0.05, -0.2, 0.0, 0.12, 0.0, -0.01])
+
+    tr0, env0, hs0, lab0, *_ = _one_step(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "off", pre=pre)
+    tr1, env1, hs1, lab1, *_ = _one_step(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "on", pre=pre,
+                                         trim_branch=True, deadband=0.25)
+    tr2, env2, *_ = _one_step(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "db", pre=pre, deadband=0.25)
+    eff = hs1.stand_eff
+    k = int(eff.sum())
+    assert torch.equal(env1.seen[-1][0], env2.seen[-1][0])                 # the executed actions: the trim never acts
+    assert torch.equal(tr0.buf.tgt[:k], tr1.buf.tgt[:k]) and torch.equal(tr0.buf.x[:k], tr1.buf.x[:k])
+    assert torch.equal(tr0.buf.onset[:k], tr1.buf.onset[:k]) and torch.equal(tr0.prev_branch, tr1.prev_branch)
+    assert torch.equal(tr0.buf.branch[:k].long(), lab0.branch[eff])                         # off: R_h's code
+    want = CORE.weight_branch(lab1.branch, lab1.label.to(torch.float32), CORE.SPEC.TRIM_LABEL_MIN)[eff]
+    assert torch.equal(tr1.buf.branch[:k].long(), want)
+    assert int((want == CORE.BRANCH_TRIM).sum()) > 0                                       # non-vacuous
+    hold0 = lab1.branch[eff] == CORE.BRANCH_HOLD
+    assert torch.equal(want == CORE.BRANCH_TRIM, hold0 & (lab1.label[eff][:, :6].abs() > 1e-6))
+    assert bool((hold0 & (want == CORE.BRANCH_HOLD)).any())                  # zero-cam HOLD legs stay HOLD
+    assert tr0.acc["branch_student"].shape == (6, 5) and tr1.acc["branch_student"].shape == (6, 6)
+    assert tr1.acc["branch_student"].sum() == tr0.acc["branch_student"].sum()
+
+
+def test_trim_off_run_replays_the_default_run_bitwise(CORE, classes, cfg, nets_proto, bank, stance, tmp_path):
+    kw = dict(stop_after=3, iterations=3, smoke=False, n=64)
+    _, _, r1 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "x", **kw)
+    _, _, r2 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "y", trim_branch=False, **kw)
+    _, _, r3 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "z", trim_branch=True, **kw)
+    for f in ("stands.jsonl", "episodes.jsonl"):
+        assert (tmp_path / "x" / f).read_text() == (tmp_path / "y" / f).read_text()
+    a, b, c = (torch.load(r["final_checkpoint"], weights_only=False)["model_state_dict"] for r in (r1, r2, r3))
+    assert CORE.SN.state_dicts_equal(a, b)[0]
+    assert not CORE.SN.state_dicts_equal(a, c)[0]                         # the trim weights change the gradient
+    strip = lambda rows: [{k: v for k, v in r.items() if not k.startswith("t_")} for r in rows]   # noqa: E731
+    la, lb = (CORE.SPEC.read_jsonl(tmp_path / d / "train_log.jsonl") for d in ("x", "y"))
+    assert strip(la) == strip(lb) and all("trim_diag" in r for r in la)
+    assert r1["trim_branch"] is False and r1["trim_min"] is None and r3["trim_branch"] is True
+
+
+def test_trim_branch_run_records_and_smoke_beside_the_deadband(CORE, classes, cfg, nets_proto, bank, stance,
+                                                               tmp_path):
+    d = CORE.SH.RESIDUAL_DEADBAND_PROBE
+    tr, env, res = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "t", stop_after=4,
+                              smoke=True, n=64, deadband=d, trim_branch=True)
+    assert res["trim_branch"] is True and res["trim_min"] == CORE.SPEC.TRIM_LABEL_MIN
+    st = json.loads((tmp_path / "t/status.json").read_text())
+    assert st["trim_branch"] is True and st[CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    assert st["trim_diag_loaded"].startswith("probe foot_loaded")          # the fake's probe gives per-foot flags
+    ck = torch.load(res["final_checkpoint"], weights_only=False)["infos"]["sh_dagger"]
+    assert ck["trim_branch"] is True and ck["trim_min"] == CORE.SPEC.TRIM_LABEL_MIN
+    assert ck[CORE.SH.RESIDUAL_DEADBAND_KEY] == d
+    assert tr.o.to_dict()["trim_branch"] is True
+    checks = CORE.smoke_checks(tr, env_parity=[], ckpt=res["final_checkpoint"], env_clip=env.clip_actions)
+    by = {c["name"]: c for c in checks}
+    assert set(by) == {n for n, _ in CORE.SPEC.SMOKE_DAGGER} and CORE.SPEC.smoke_verdict(checks)["problems"] == []
+    assert by["student_deadband_realised"]["pass"] is True                  # the deadband check works beside it
+    c = by["trim_branch_weights"]
+    v = c["value"]
+    assert v["trim_branch"] is True and v["weight_table_columns"] == list(CORE.BRANCH_NAMES_TRIM)
+    assert v["entries"]["trim"] > 0 and sum(v["entries"].values()) == v["leg_entries"] == 6 * tr.buf.size
+    assert c["pass"] is (v["entries"]["hold"] > 0 and v["mean_weight_hold_non_trim"] is not None
+                         and v["mean_weight_trim"] > v["mean_weight_hold_non_trim"])
+    sh = by["branch_shares_student_rows"]
+    assert set(sh["value"]) == set(CORE.BRANCH_NAMES_TRIM) and sh["trim_branch"] is True
+    assert sum(sh["value"].values()) == pytest.approx(1.0)
+    log = CORE.SPEC.read_jsonl(tmp_path / "t/train_log.jsonl")
+    assert len(log) == 4 and all(set(r["trim_diag"]) == {"n", "exec", "rh"} for r in log)
+    # a plain run: the check reads "not applied" (pass) and the branch shares are R_h's five
+    tr0, env0, res0 = run_dagger(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "p", stop_after=3,
+                                 iterations=3, smoke=True, n=64)
+    by0 = {c["name"]: c for c in CORE.smoke_checks(tr0, env_parity=[], ckpt=res0["final_checkpoint"],
+                                                  env_clip=env0.clip_actions)}
+    assert by0["trim_branch_weights"]["pass"] is True and "not applied" in by0["trim_branch_weights"]["value"]["note"]
+    assert set(by0["branch_shares_student_rows"]["value"]) == set(CORE.BRANCH_NAMES)
+    ck0 = torch.load(res0["final_checkpoint"], weights_only=False)["infos"]["sh_dagger"]
+    assert ck0["trim_branch"] is False and ck0["trim_min"] is None
+
+
+def test_trim_diagnostic_histograms_on_a_hand_set_step(CORE, classes, cfg, nets_proto, bank, stance, tmp_path):
+    """Student-executed sigma-0 stand rows (2, 5, the restore row 7; not the sigma-0.3 row 3, not the R rows), legs
+    R_h HOLDs with |c| in (0.1, 0.3] and the foot loaded: the executed cam command and R_h's cam label toward home."""
+    cams = torch.tensor([0.15, -0.20, 0.25, -0.12, 0.05, 0.30])          # leg 4 below the band; leg 5 on its edge
+    seen = {}
+
+    def pre(env):
+        env.c[:] = cams
+        env.p[:] = 0.0                                                     # every leg down (R's HOLD band)
+        seen["m"] = env.probe()
+
+    tr, env, hs, lab, mu, a_s1, noise = _one_step(CORE, classes, cfg, nets_proto, bank, stance, tmp_path / "td",
+                                                  pre=pre, deadband=0.25, trim_branch=True)
+    a, _ = env.seen[-1]
+    rows = torch.zeros(8, dtype=torch.bool)
+    rows[[2, 5, 7]] = True
+    rows &= hs.stand_eff
+    ac = cams.double().abs()                       # the band in float64 as the trainer (and the stand tracker) read it:
+    band = (ac > 0.1) & (ac <= 0.3)                # float32 0.30 = 0.3000000119 is OUTSIDE (0.1, 0.3]
+    assert band.tolist() == [True, True, True, True, False, False]
+    sel = rows[:, None] & (lab.branch == 0) & band[None, :] & seen["m"]["foot_loaded"]
+    assert int(sel.sum()) > 0                                              # non-vacuous
+    toward = -torch.sign(cams.double())[None, :]
+    nb = CORE.SPEC.TRIM_DIAG_NB
+    for j, v in enumerate((a[:, :6], lab.label[:, :6])):
+        u = (toward * v.double()).clamp(-1, 1)
+        k = torch.round((u + 1.0) / 0.001).long()
+        want = torch.bincount(k[sel], minlength=nb).double()
+        assert torch.equal(tr.trim_it[j], want), j
+    # R_h's in-band trim is saturated: +0.1 toward home on every selected leg
+    assert torch.equal(tr.trim_it[1].nonzero().flatten(), torch.tensor([1100]))
+    assert CORE.SPEC.trim_diag_center(1100) == pytest.approx(0.1)
+    # the log row carries the histograms (sparse, keyed by bin) and the accumulator is zeroed
+    row = tr._log_row(0, [], [], {"steps": 0}, 0.0, 0.0)
+    assert row["trim_diag"]["n"] == int(sel.sum()) and row["trim_diag"]["rh"] == {"1100": int(sel.sum())}
+    assert sum(row["trim_diag"]["exec"].values()) == int(sel.sum()) and float(tr.trim_it.abs().sum()) == 0.0
+    r = CORE.SPEC.trim_diag_pool([dict(row, it=0)])
+    assert r["rh_toward_home"]["median"] == pytest.approx(0.1) and r["ratio"] == pytest.approx(
+        r["exec_toward_home"]["median"] / 0.1)
+    assert tr.trim_loaded.startswith("probe foot_loaded")
