@@ -301,3 +301,9 @@ the user's.**
   student rows, signed toward home) in `train_log.jsonl` and the `--read` premise JSON (reported, never a STOP);
   `KitProbe` gained per-foot `foot_loaded`. Launch: smoke `SH_T18_SMOKE` (100 its) → pilot `SH_T18` (5000 its) →
   table test, height rows, K5 rows (deadband 0.25), chained; the pilot runs only if the smoke passes.
+- 2026-10-14, **`SH_T18_SMOKE` PASS** (every check; trim legs 7.7 % of the reservoir at mean weight 2.16 vs non-trim HOLD
+  0.24; deadband realised on every student row; forward parity bitwise; 1.73 s / it). **`SH_T18` mid-run premise (its
+  1667–2500; `t18_premise_mid.json`): NO STOP** — table STOOD 0.917 vs R_h 0.931 (ratio 0.99; the first pilot 0.673
+  in the same window); walk homed 0.974 vs 0.962; random homed 0.980 vs 0.985; falls 0.61 % vs 0.58 %; restore
+  timeouts 0.20 % vs 0.28 %. **Trim diagnostic:** the student's executed cam command toward home on loaded in-band
+  HOLD legs, median 0.022 → 0.025 units vs R_h's 0.100 (ratio 0.22 → 0.25; the first pilot ≈ 0.02).
