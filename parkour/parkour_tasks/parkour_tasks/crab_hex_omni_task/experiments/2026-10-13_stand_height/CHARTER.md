@@ -263,3 +263,16 @@ the user's.**
   head's output. Existing stamps re-read identically (pilot read exit 4 with 0 differences; identity bridge BITWISE).
   266 CPU tests; code_sha / eval_sha unchanged. Probe heads: `SH_P18db` (height rows), `SH_P18dbz` (K5 rows), table
   label `SH_P18db`.
+- 2026-10-14, **deadband probe read `SH_P18db` (model_5000 at deadband 0.25; `head_SH_P18db.md/.json`): K1, K2, K3, K4
+  PASS; K6 stillness now PASSES; K6 homing and K5 (G2) now FAIL → STOP and ask (pinned decision rule).**
+  - K3 gated tables 593 / 600 and 590 / 600 STOOD (0.988 / 0.983; R_h 0.983 / 0.978), falls 0.67 / 0 per 100.
+  - K6 stillness steps 0.14 / 0.13 per s, taps 0.13 / 0.12 per s (R_h 0.17 / 0.15; pilot 0.6 / 2.8). **Homing per bin
+    0.655–0.97 vs lines 0.83–0.95** (pilot 0.955–1.0); K5 G2 FAIL at 1.064.
+  - **Mechanism:** 47 / 420 hwalkstop holds end with a cam 0.1–0.3 rad off home (pilot 1 / 420, R_h 4 / 420), the leg
+    planted and R_h's branch HOLD (inside its step band). There R_h commands the in-band cam trim (median −0.100 units
+    toward home); **the student commands ≈ 0 (median −0.002, 2 % of R_h) with or without the deadband** — it never
+    learned the trim. The pilot reached home anyway through its frequent small re-steps (the steps / taps K6 counted);
+    the deadband removed those, exposing the missing trim. R_h's hip / knee labels are strictly binary (0 / 0.5; none
+    between in 3.6 M entries), so the deadband removes nothing R_h does on those channels.
+  - Likely cause: the trainer's per-leg inverse-branch-frequency weights (cap 20) treat in-band HOLD as HOLD, the most
+    frequent branch, so the 0.1-unit trim label carries little loss.
