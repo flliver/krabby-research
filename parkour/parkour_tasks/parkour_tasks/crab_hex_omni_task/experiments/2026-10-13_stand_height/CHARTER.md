@@ -215,3 +215,13 @@ the user's.**
   (line 2.25 %); σ-0 restore timeouts 0.03 % vs 0.28 %. Height error on holds: student median 2.5 mm / p90 6.6–7.5 mm
   vs R_h 1.6–2.1 / 4.0–5.1 mm. **Watch item:** table stand-up trails R_h by 26 pp mid-run; K3's line is R_h's rate
   − max(5 pp, 2 SE) (≈ 0.93 at step 4b), so the pilot passes K3 only if this closes by its 5000.
+- 2026-10-14, **pilot `SH_P18` DONE** (5000 its, 2.44 GPU-h, 1.75 s / it; train MSE 0.0033; judged checkpoint
+  `runs/SH_P18/model_5000.pt`). **End-of-run premise (its 3334–5000, `pilot_premise_final.json`): no STOP** — walk
+  homed 0.968 vs 0.950, random homed 0.985 vs 0.978, falls 0.50 % vs 0.60 %, restore timeouts 0.01 % vs 0.13 %; **table
+  STOOD 0.769 vs 0.923** (ratio 0.83). Train-time table STOOD by window: 0.673 → 0.758 → 0.769 → 0.768 (plateau from
+  its ≈ 3300; R_h 0.92–0.93 throughout).
+  - **What the student's table failures are (its ≥ 3334, 816 of 3821 first stands):** almost all the four-feet clause
+    alone — height right (median |dh| 2–3 mm), homed (811 / 816), R's DOWN test 6 / 6 legs in 704; ≥ 4 feet loaded on
+    a median 87 % of the last-3-s window (quartiles 75 / 87 / 92 %) against the 95 % line; 4–6 feet loaded at the end in
+    83 %. Not stepping or falling: uneven load leaves one or two feet under the loaded threshold part of the time (the
+    sub-mm load flicker the predecessor's tap anatomy found). R_h has the same failure in 53 / 848 (6 %).
