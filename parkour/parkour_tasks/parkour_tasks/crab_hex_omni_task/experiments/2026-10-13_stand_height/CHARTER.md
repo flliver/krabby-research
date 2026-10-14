@@ -312,3 +312,14 @@ the user's.**
   homed 0.980 vs 0.972; falls 0.66 % vs 0.70 %; restore timeouts 0.15 % vs 0.13 %; trim ratio 0.30 → 0.33 → 0.35 →
   0.37 by window (still rising). Table test (deadband 0.25): gated tables 594 / 600 and 587 / 600 STOOD, falls 0.50 /
   0.33 per 100, homed at the end 98–100 % per cell.
+- 2026-10-14, **`SH_T18` read (deadband 0.25 trained and evaluated; `head_SH_T18.md/.json`; control table 14 / 14):
+  K1, K2, K3, K5, K6 PASS; K4 FAILS on one count clause → STOP and ask (pinned rule: any gate failing).**
+  - K1 median 1.4–2.4 mm per bin; K2 every command ≥ 1.16 s inside its allowance, 0 falls; K3 0.990 / 0.978 STOOD,
+    falls 0.50 / 0.33; K5 G1–G5 PASS at 1.064; **K6 PASS: homed / settled 0.98–1.0 per bin, stillness steps
+    0.14 / 0.14, taps 0.16 / 0.16 per s** (R_h 0.17 / 0.15).
+  - **K4:** es1 799 / 800 restores complete (1 miss = R_h's 1) PASS; **es2 797 / 800 (3 misses vs line max(1, R_h's 1)
+    = 1) FAIL.** Exit falls 0 / 0; onset excess p90 −1.3 s; hand-back |h − 1.064| median 1.6 mm, max 18.7 mm.
+  - **The misses:** all restore TIMEOUTS with the robot already at walking height (h 1.063–1.066 m), one leg's hip rod
+    8.1–8.5 mm off (band 8 mm) while a leg seats — the same kind as R_h's own two (8.2 mm, h 1.070 / 1.071). 3 / 800 vs
+    1 / 800 is well inside chance (two-proportion p ≈ 0.3); the CHARTER §2 statistics note anticipates such
+    count-level misses of the `≤ max(1, R_h's)` lines.
