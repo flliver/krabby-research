@@ -1313,14 +1313,25 @@ def forward_parity(tr: "Trainer", ckpt_path) -> dict:
 
 
 def _share_check(counts: list[float], want: tuple, names: tuple) -> tuple[dict, bool]:
+    """Every share within max(0.05, 3 SE) of its expected value; a share-0 entry (never drawn: the step-4 decision's
+    ground starts / rod_min poses) is asserted ABSENT -- exactly 0 draws, no tolerance."""
     n = float(sum(counts))
     out, ok = {"n": n}, n > 0
     for c, p, name in zip(counts, want, names):
         got = c / n if n else None
+        if float(p) == 0.0:
+            out[name] = {"k": c, "share": got, "expected": 0.0, "tol": 0.0, "asserted_absent": True}
+            ok = ok and float(c) == 0.0
+            continue
         tol = SPEC.share_tol(p, int(n)) if n else None
         out[name] = {"k": c, "share": got, "expected": p, "tol": tol}
         ok = ok and got is not None and abs(got - p) <= tol
     return out, ok
+
+
+def _kind_drawn(kind: str) -> bool:
+    """A start kind with share > 0 (``SPEC.DRAWN_START_KINDS``); a share-0 kind is asserted absent by the smoke."""
+    return kind in SPEC.DRAWN_START_KINDS
 
 
 def first_stand_rows(tr: "Trainer", kind: str) -> list[dict]:
@@ -1344,12 +1355,16 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
     # -- start modes, poses, tops, spawns
     ep = [sc[f"episodes_{k}"] for k in SPEC.START_KINDS]
     v, ok = _share_check(ep, SPEC.START_SHARES, SPEC.START_KINDS)
-    checks.append(_chk("start_mode_shares", v, "every share within max(0.05, 3 SE) of (0.50, 0.25, 0.15, 0.10)", ok))
+    checks.append(_chk("start_mode_shares", v, f"every share within max(0.05, 3 SE) of {SPEC.START_SHARES} "
+                       "(walk / table / ground / random); a share-0 kind (ground, step-4 decision) asserted ABSENT: "
+                       "0 draws", ok))
     pz = [x + y for x, y in zip(sc["poses_table"], sc["poses_ground"])]
     v, ok = _share_check(pz, SPEC.POSE_SHARES, SPEC.POSES)
     v["fold_fallbacks"] = sc["fold_fallbacks"]
-    checks.append(_chk("retracted_pose_shares", v, "table + ground pose shares within max(0.05, 3 SE) of (0.6, 0.2, "
-                       "0.2) (a random fold no cell allows falls back to knee_folded, counted)", ok))
+    checks.append(_chk("retracted_pose_shares", v, f"table + ground pose shares within max(0.05, 3 SE) of "
+                       f"{SPEC.POSE_SHARES} (knee_folded / rod_min / random fold); a share-0 pose (rod_min, step-4 "
+                       "decision) asserted ABSENT: 0 draws (a random fold no cell allows falls back to knee_folded, "
+                       "counted)", ok))
     n_top = sc["top_n"]
     mean = sc["top_sum"] / n_top if n_top else None
     mid = 0.5 * (SPEC.TOP_MIN_M + SPEC.TOP_MAX_M)
@@ -1363,11 +1378,14 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
                        "realised (PhysX) top within 1 cm of the draw on every table reset", ok))
     sk = {SPEC.START_KINDS[c]: {"n": a["spawn_h_n"][c], "h_meas_vs_analytic_err_max_m": a["spawn_h_err_max"][c],
                                 "below_h_min": a["spawn_below_hmin"][c]} for c in range(1, N_KINDS)}
-    v = {"by_kind": sk, "floor_fallbacks": sc["floor_fallbacks"]}
-    ok = (a["spawn_h_n"][SPEC.SK_GROUND] > 0 and all(x["n"] == 0 or x["h_meas_vs_analytic_err_max_m"] <= 0.03
-                                                       for x in sk.values()) and sc["floor_fallbacks"] == 0)
-    checks.append(_chk("ground_spawns", v, "ground (and table / random) resets: measured h_meas within 3 cm of the "
-                       "analytic spawn height; every floor from the raycast", ok))
+    absent = [k for k in sk if not _kind_drawn(k)]
+    v = {"by_kind": sk, "floor_fallbacks": sc["floor_fallbacks"], "asserted_absent": absent}
+    ok = (a["spawn_h_n"][SPEC.SK_TABLE] > 0 and all(sk[k]["n"] == 0 for k in absent)
+          and all(x["n"] == 0 or x["h_meas_vs_analytic_err_max_m"] <= 0.03 for x in sk.values())
+          and sc["floor_fallbacks"] == 0)
+    checks.append(_chk("ground_spawns", v, "table (and random) resets: measured h_meas within 3 cm of the analytic "
+                       "spawn height, >= 1 table spawn measured; every floor from the raycast; a share-0 kind (ground, "
+                       "step-4 decision) asserted ABSENT: 0 spawns", ok))
     # -- commands, limiter, labels
     nf, na = sc["hcmd_free_n"], sc["hcmd_free_atom"]
     nn = nf - na
@@ -1468,10 +1486,13 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
              "min_slack_s": min((first_stand_ok(r)[1] for r in rs_), default=None),
              "forced": sc[f"forced_{k}"], "episodes": sc[f"episodes_{k}"]} for k, rs_ in gr.items()}
     v["forced_walk"] = sc["forced_walk"]
-    ok = (all(v[k]["first_stands"] > 0 and v[k]["too_short"] == 0 and v[k]["forced"] == v[k]["episodes"]
+    v["asserted_absent"] = [k for k in gr if not _kind_drawn(k)]
+    ok = (all((v[k]["first_stands"] > 0 and v[k]["too_short"] == 0 and v[k]["forced"] == v[k]["episodes"])
+              if _kind_drawn(k) else (v[k]["first_stands"] == 0 and v[k]["forced"] == 0 and v[k]["episodes"] == 0)
               for k in gr) and sc["forced_walk"] == 0)
     checks.append(_chk("forced_first_stand_ground_random", v, "every ground / random-height first stand scheduled >= "
-                       "ramp + settle + 3 s, one forced stand per episode, none on walk episodes", ok))
+                       "ramp + settle + 3 s, one forced stand per episode, none on walk episodes; a share-0 kind "
+                       "(ground, step-4 decision) asserted ABSENT: 0 episodes, 0 forced / first stands", ok))
     v = {"parks": sc["parks"], "first_checks": sc["first_checks"], "clear_at_first_check": sc["first_checks_clear"],
          "parks_before_change": sc["parks_before_change"], "parks_not_clear": sc["parks_not_clear"],
          "clear_first_not_parked": sc["clear_first_not_parked"], "delay_steps_min": sc["park_delay_min"],
@@ -1495,13 +1516,21 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
          "rearms": sc["rearms"], "ground_episodes_ended": len(g_eps), "ended_before_first_stand": len(early),
          "ended_before_first_stand_by_a_fall": sum(1 for e in early if e["end"] != "timeout" and e["cause"] != "hip"),
          "ended_before_first_stand_by_hip_or_timeout": len(early_bad), "hip_ends_before_rearm": len(hip_before),
-         "ground_first_stands_reached": sum(1 for r in g_first if r["end0"] == "reached")}
+         "ground_first_stands_reached": sum(1 for r in g_first if r["end0"] == "reached"),
+         "episodes_ground": sc["episodes_ground"], "ground_first_stands": len(g_first),
+         "ground_asserted_absent": not _kind_drawn("ground")}
+    if _kind_drawn("ground"):
+        ok = (sc["hip_term_disarmed"] == 0 and not early_bad and not hip_before
+              and v["ground_first_stands_reached"] > 0)
+    else:   # share 0 (step-4 decision): no ground episode at all, so no disarmed hip clause either
+        ok = (sc["hip_term_disarmed"] == 0 and sc["episodes_ground"] == 0 and not g_eps and not g_first
+              and sc["rearms"] == 0)
     checks.append(_chk("ground_episodes_hip_rearm", v, "0 hip-contact terminations before re-arm (wrapper output and "
                        "episode records); a ground episode ends before its first stand only by a fall (never the hip clause / a "
                        "time-out); >= 1 "
-                       "ground first stand reached its end",
-                       sc["hip_term_disarmed"] == 0 and not early_bad and not hip_before
-                       and v["ground_first_stands_reached"] > 0))
+                       "ground first stand reached its end; with the ground share 0 (step-4 decision): ground ASSERTED "
+                       "ABSENT (0 ground episodes / records / first stands, 0 re-arms, 0 disarmed hip terminations)",
+                       ok))
     # -- restore rows on the stand-net path
     v = {"restore_rows": a["restore_rows"], "zeroed_col_violations": a["restore_zero_viol"],
          "col15_violations": a["col15_viol"],

@@ -254,7 +254,9 @@ def emit_facts(out_dir: Path, cells=None) -> dict:
 
 def print_facts(facts: dict) -> None:
     print(f"[SHT] K3 cells {len(facts['k3_cells'])} x {facts['envs_per_cell']} envs; episode {facts['k3_episode_s']} s; "
-          f"h range [{facts['h_min']}, {facts['h_max']}]; tops {facts['k3_tops_m']}", flush=True)
+          f"h range [{facts['h_min']}, {facts['h_max']}]; gated tops {facts['k3_tops_m']} (gated cells "
+          f"{len(facts['k3_gated_cells'])}), reported tops {facts['k3_reported_tops_m']} + ground (reported cells "
+          f"{len(facts['k3_reported_cells'])})", flush=True)
     for p, v in facts["poses"].items():
         if p == "random":
             print(f"[SHT] random: hips {v['hip_grid_deg'][0]:.1f}..{v['hip_grid_deg'][-1]:.1f} deg "

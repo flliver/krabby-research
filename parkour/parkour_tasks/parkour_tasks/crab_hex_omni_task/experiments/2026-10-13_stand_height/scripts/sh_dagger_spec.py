@@ -16,13 +16,16 @@ only at import (map risk L6). It loads two torch-free modules by path (no byteco
 
 DECISIONS RECORDED HERE (PLAN H5 leaves the number to the builder; log in CHARTER section 3 before any read):
 
-* start-mode shares (H5 "~"): walk 0.50 / table 0.25 / ground 0.15 / random-height 0.10, one draw per episode from a
-  private generator at the reset event;
-* retracted poses on table / ground starts: knee_folded 0.60, rod_min 0.20, a random fold 0.20 (the facts.json
-  ``random_fold_family`` 9 x 9 grid, uniform over its cells; on a table only cells whose legs clear the floor by
-  2 cm at that top -- facts.json "rule_for_tables" -- with knee_folded as the fallback, counted);
-* table tops U[top_min, top_max] = U[0.4124, 0.805] (facts.json ``frozen``; top_max = min(frozen, h_max - 0.264), so
-  an h_max re-freeze drops it -- :func:`top_max_for`);
+* start-mode shares (H5 "~"; re-scoped at the step-4 stop, CHARTER section 3 "narrow stand-up to tall tables"): walk
+  0.50 / table 0.40 / ground 0 / random-height 0.10, one draw per episode from a private generator at the reset event
+  (the ground's 15 % went to table starts, so the stand-up dose is unchanged; "ground" stays a start kind code so the
+  indices do not shift -- a share of 0 is never drawn, and the smoke asserts it ABSENT);
+* retracted poses on table starts: knee_folded 0.75, rod_min 0, a random fold 0.25 (the plan's 0.60 / 0.20 / 0.20
+  renormalised without rod_min; the facts.json ``random_fold_family`` 9 x 9 grid, uniform over its cells; on a table
+  only cells whose legs clear the floor by 2 cm at that top -- facts.json "rule_for_tables" -- with knee_folded as the
+  fallback, counted);
+* table tops U[top_min, top_max] = U[0.635, 0.805] (facts.json ``frozen``: top_min re-frozen 0.412 -> 0.635 at the
+  step-4 stop; top_max = min(frozen, h_max - 0.264), so an h_max re-freeze drops it -- :func:`top_max_for`);
 * h_cmd per stand draw (every command resample, so a stand->stand merge redraws): 1.064 with probability 0.35, else
   U[h_min, h_max]; while the table is under the robot (not yet parked) the lower bound is max(h_min, top + 0.264) and
   the 1.064 atom applies only when 1.064 >= that bound; a GROUND episode's first (forced) command is bounded below by
@@ -41,9 +44,10 @@ DECISIONS RECORDED HERE (PLAN H5 leaves the number to the builder; log in CHARTE
 * the table is parked (moved 20 m below the floor) at the first check after its forced first command expired, once
   the chassis' lowest point is >= 0.05 m above the table top (PLAN "park only once the belly is clear").
 
-TRAIN-TIME READS (the step-6 premise; not a gate): per start kind x executor (student / beta-R / the 10 % R_h control
-slice) -- homed share and |h_meas - h_cmd| on height holds, the STOOD (>= 4 feet) share on the first stand of table /
-ground starts (its rise clause as K3's: the ROOT risen >= 0.10 m above its spawn root z on >= 95 % of the window),
+TRAIN-TIME READS (the step-6 premise; not a gate): per DRAWN start kind (share > 0: walk / table / random-height; the
+share-0 ground kind is not read, its records -- none expected -- only counted) x executor (student / beta-R / the 10 %
+R_h control slice) -- homed share and |h_meas - h_cmd| on height holds, the STOOD (>= 4 feet) share on the first stand
+of table starts (its rise clause as K3's: the ROOT risen >= 0.10 m above its spawn root z on >= 95 % of the window),
 falls, restore completions / timeouts (from the per-iteration counts).
 """
 from __future__ import annotations
@@ -137,10 +141,16 @@ H_CMD_ATOM_P = 0.35
 # ===================================================================================== start modes (H5)
 START_KINDS = SH.START_KINDS                       # ("walk", "table", "ground", "random"); index = int code
 SK_WALK, SK_TABLE, SK_GROUND, SK_RANDOM = 0, 1, 2, 3
-START_SHARES = (0.50, 0.25, 0.15, 0.10)
-#: retracted poses (table / ground starts): index 0 knee_folded, 1 rod_min, 2 a random fold of the facts grid
+#: CHARTER section 3, step-4 decision: ground starts removed (share 0, never drawn; the kind code stays so the indices
+#: do not shift), their 15 % to table starts
+START_SHARES = (0.50, 0.40, 0.0, 0.10)
+#: retracted poses (table / ground starts): index 0 knee_folded, 1 rod_min, 2 a random fold of the facts grid; rod_min
+#: share 0 (never drawn) since the step-4 decision
 POSES = ("knee_folded", "rod_min", "random_fold")
-POSE_SHARES = (0.60, 0.20, 0.20)
+POSE_SHARES = (0.75, 0.0, 0.25)
+#: the start kinds / poses that are drawn (share > 0); a share-0 one is asserted ABSENT by the smoke
+DRAWN_START_KINDS = tuple(k for k, p in zip(START_KINDS, START_SHARES) if p > 0)
+DRAWN_POSES = tuple(k for k, p in zip(POSES, POSE_SHARES) if p > 0)
 RANDOM_FOLD_GRID = 9                               #: facts.json random_fold_family: a 9 x 9 grid
 RANDOM_FOLD_HIP_MAX_DEG = -30.0                    #: the family's least-raised femur (facts.json definition)
 FIRST_STAND_SETTLE_S = 4.0
@@ -337,6 +347,10 @@ def timeout_share(ev: dict) -> dict:
     return _share(int(ev["timed_out"]), int(ev["timed_out"]) + int(ev["completed"]))
 
 
+#: the step-6 premise's per-kind checks (a kind not drawn -- share 0 -- has no check)
+PREMISE_KIND_STATS = (("walk", "homed"), ("random", "homed"), ("table", "stood"), ("ground", "stood"))
+
+
 def premise_read(records: list[dict], log_rows: list[dict] | None = None, it_lo: int = 0,
                  it_hi: int | None = None) -> dict:
     """PLAN step 6 mid-run premise read (train-time, closed loop), student vs the concurrent R_h control slice (same
@@ -344,10 +358,14 @@ def premise_read(records: list[dict], log_rows: list[dict] | None = None, it_lo:
     the student is < 0.5 x R_h on the homed share (walk / random-height holds) or on the STOOD share (table / ground
     first stands), its fall share > 2 x R_h's + 0.01 (sigma-0 stands, every start kind pooled), or its restore-timeout
     share > 2 x R_h's + 0.01 (sigma-0 episodes, every start kind pooled; :data:`RESTORE_SIGMA`). A ratio with an empty side is
-    None (no verdict from it)."""
+    None (no verdict from it). Only the DRAWN start kinds (:data:`DRAWN_START_KINDS`, share > 0) are read and checked:
+    since the step-4 decision there is no ground start type (share 0); records of a share-0 kind (none expected; the
+    smoke asserts the kind absent) are counted in ``absent_kinds``, never read, never a STOP."""
     sel = [r for r in records if int(r["it_end"]) >= int(it_lo) and (it_hi is None or int(r["it_end"]) < int(it_hi))]
-    out: dict = {"window": [int(it_lo), None if it_hi is None else int(it_hi)], "by_kind": {}}
-    for kind in START_KINDS:
+    out: dict = {"window": [int(it_lo), None if it_hi is None else int(it_hi)], "by_kind": {},
+                 "absent_kinds": {k: {"share": p, "records": sum(1 for r in sel if r.get("start_kind") == k)}
+                                  for k, p in zip(START_KINDS, START_SHARES) if k not in DRAWN_START_KINDS}}
+    for kind in DRAWN_START_KINDS:
         blk = {}
         for ex in EXECUTORS:
             g = [r for r in sel if r.get("start_kind") == kind and r["kind"] == ex]
@@ -371,14 +389,16 @@ def premise_read(records: list[dict], log_rows: list[dict] | None = None, it_lo:
     def ratio(s, c):
         return (s / c) if (s is not None and c) else None
 
-    for kind, stat in (("walk", "homed"), ("random", "homed"), ("table", "stood"), ("ground", "stood")):
+    for kind, stat in PREMISE_KIND_STATS:
+        if kind not in DRAWN_START_KINDS:
+            continue
         s = out["by_kind"][kind]["student"][stat]["p"]
         c = out["by_kind"][kind]["control"][stat]["p"]
         r = ratio(s, c)
         checks.append({"check": f"{kind} {stat} student >= 0.5 x R_h", "student": s, "control": c, "ratio": r,
                        "stop": None if r is None else bool(r < PREMISE_RATIO)})
-    fs = [sum(out["by_kind"][k][ex]["fall"]["k"] for k in START_KINDS) for ex in ("student", "control")]
-    fn = [sum(out["by_kind"][k][ex]["fall"]["n"] for k in START_KINDS) for ex in ("student", "control")]
+    fs = [sum(out["by_kind"][k][ex]["fall"]["k"] for k in DRAWN_START_KINDS) for ex in ("student", "control")]
+    fn = [sum(out["by_kind"][k][ex]["fall"]["n"] for k in DRAWN_START_KINDS) for ex in ("student", "control")]
     pf = [(k / n) if n else None for k, n in zip(fs, fn)]
     checks.append({"check": "fall share student <= 2 x R_h + 0.01", "student": pf[0], "control": pf[1],
                    "stop": None if None in pf else bool(pf[0] > PREMISE_FALL_FACTOR * pf[1] + PREMISE_FALL_ADD)})
@@ -404,21 +424,26 @@ def read_jsonl(path) -> list[dict]:
 # ===================================================================================== the step-5 smoke list
 #: PLAN step 5 (each with the PLAN text it asserts) + the predecessor's generic checks that still apply
 SMOKE_DAGGER = (
-    ("start_mode_shares", "start-mode shares (walk 0.50 / table 0.25 / ground 0.15 / random-height 0.10)"),
-    ("retracted_pose_shares", "retracted poses: knee_folded mostly, plus rod_min and random folds"),
+    ("start_mode_shares", "start-mode shares (walk 0.50 / table 0.40 / random-height 0.10; ground share 0 since the "
+                          "step-4 decision: asserted ABSENT, 0 draws)"),
+    ("retracted_pose_shares", "retracted poses: knee_folded mostly, plus random folds (rod_min share 0 since the "
+                              "step-4 decision: asserted ABSENT, 0 draws)"),
     ("table_tops", "table tops U[top_min, top_max] and the realised (PhysX) top at its draw"),
-    ("ground_spawns", "ground spawns: measured spawn height = the analytic one; below h_min clamps"),
+    ("ground_spawns", "non-walk spawns (table / random; ground share 0: asserted ABSENT): measured spawn height = "
+                      "the analytic one; below h_min clamps"),
     ("h_cmd_distribution", "h_cmd ~ U[h_min, h_max] with 35 % mass at 1.064; table starts >= top + 0.264"),
     ("limiter", "the 0.08 m/s limiter: per-step change, range, init per start kind (walk 1.064, else clamp(h_meas))"),
     ("residual_labels_within_1", "residual labels |R_h - q| <= 1"),
     ("restores_complete", "restores complete (the R_h control slice); timeouts relative to the R_h slice (left for "
                           "implementation): the beta-R slice gated, the student reported (gated at step 6)"),
     ("table_first_stand", "table first stand >= ramp + settle + 3 s with h_cmd >= top + 0.264 m"),
-    ("forced_first_stand_ground_random", "ground / random-height first stand >= ramp + settle + 3 s"),
+    ("forced_first_stand_ground_random", "random-height first stand >= ramp + settle + 3 s (ground share 0: "
+                                         "asserted ABSENT)"),
     ("table_parked_at_slot_change", "table parked at the slot change, only once the belly is clear"),
     ("pushes_off_until_up", "pushes off until the robot is up"),
     ("ground_episodes_hip_rearm", "ground episodes last >= ramp + settle + 3 s with 0 hip-contact terminations "
-                                  "before re-arm"),
+                                  "before re-arm (ground share 0 since the step-4 decision: 0 ground episodes, 0 "
+                                  "disarmed hip terminations)"),
     ("restore_rows_stand_net_inputs", "restore rows carry zeroed command columns (5, 8-10) and col 15 = h_lim"),
     ("restore_rows_in_reservoir_with_rh_labels", "restore rows enter the reservoir with R_h labels"),
     ("s1_rows_pm1", "S1 rows at +-1"),

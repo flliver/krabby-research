@@ -8,15 +8,17 @@
 # check, MemoryMax, the streaming recorder, no `pgrep -f` self-match).
 #
 #   sh_table_test.sh --smoke [--smoke-no-video] [--stand-ckpt P] [--dry-run] [--wait-idle] [--foreground]
-#       2 stats jobs (r_h and stand_net, 2 envs on each of 3 cells: a 25-in table knee_folded, the ground rod_min, an
-#       18-in table random fold; 2-s episodes, --smoke), then a 1-env 2-s r_h video job on ground knee_folded (the
-#       render / memory-hazard path); --smoke-no-video drops the video job
+#       2 stats jobs (r_h and stand_net, 2 envs on each of 3 cells: the gated 25-in table knee_folded and 27.5-in table
+#       random fold, the reported ground rod_min; 2-s episodes, --smoke), then a 1-env 2-s r_h video job on the gated
+#       25-in table knee_folded (the render / memory-hazard path); --smoke-no-video drops the video job
 #   sh_table_test.sh [--seeds "1 2"] [--controllers "r_h stand_net posture_only s1 amask_old"] [--cells all]
 #                    [--envs-per-cell 100] [--split none|surface] [--stand-ckpt P] [--label L]
-#                    [--videos "r_h stand_net"] [--video-cells "table_0p635__knee_folded ground__knee_folded
-#                    ground__rod_min"] [--video-seed 1] [--dry-run] [--wait-idle] [--foreground]
-#       the FULL K3 run: per env seed, per controller one stats job holding every cell (--split surface: one job per
-#       surface), --jitter, the pinned K3 episode; then the 1-env videos; then the merge (K3 vs r_h, the R_h floor)
+#                    [--videos "r_h stand_net"] [--video-cells "table_0p635__knee_folded table_0p6985__random
+#                    table_0p762__knee_folded"] [--video-seed 1] [--dry-run] [--wait-idle] [--foreground]
+#       the FULL K3 run: per env seed, per controller one stats job holding every cell -- the 6 GATED cells (tops
+#       0.635 / 0.6985 / 0.762 x knee_folded / random) AND the 9 REPORTED ones (the 18-in table, every rod_min cell,
+#       the ground) (--split surface: one job per surface), --jitter, the pinned K3 episode; then the 1-env videos;
+#       then the merge (K3 vs r_h on the gated cells, the R_h floor per gated top; the reported cells listed apart)
 #   sh_table_test.sh --run-queue STAMP_DIR     (internal: the detached queue runner)
 #
 # Every run gets a stamp dir $BASE/<date>_<smoke|full>/ (BASE = SH_TABLE_OUT, default parkour/logs/videos/sh_table):
@@ -109,8 +111,9 @@ fi
 # ------------------------------------------------------------------ the launcher
 DRY=0; WAIT=0; FG=0; SMOKE=0; SMOKE_VIDEO=1; SEEDS="1 2"; NENV=100; CELLS=all; SPLIT=none; STAND_CKPT=""; LABEL=""
 CTRLS="r_h stand_net posture_only s1 amask_old"; VIDS="r_h stand_net"; VSEED=1
-VCELLS="table_0p635__knee_folded ground__knee_folded ground__rod_min"
-SURFACES="table_0p4572 table_0p635 table_0p762 ground"
+# the K3 surfaces (sh_table_core.SURFACES: gated tops 0.635 / 0.6985 / 0.762, the reported 18-in table, the ground)
+VCELLS="table_0p635__knee_folded table_0p6985__random table_0p762__knee_folded"
+SURFACES="table_0p4572 table_0p635 table_0p6985 table_0p762 ground"
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift ;;
@@ -160,11 +163,11 @@ xargs_for() {
 JOBS=()
 if [ "$SMOKE" = 1 ]; then
   MODE=smoke
-  SC="table_0p635__knee_folded,ground__rod_min,table_0p4572__random"
+  SC="table_0p635__knee_folded,ground__rod_min,table_0p6985__random"
   for c in r_h stand_net; do
     JOBS+=("smoke_${c}|0|--controller $c --cells $SC --envs-per-cell 2 --episode-s 2 --seed 1 --jitter --smoke$(xargs_for $c)")
   done
-  [ "$SMOKE_VIDEO" = 1 ] && JOBS+=("smoke_video_r_h_ground__knee_folded|1|--controller r_h --cells ground__knee_folded --envs-per-cell 1 --episode-s 2 --seed 1 --video --smoke")
+  [ "$SMOKE_VIDEO" = 1 ] && JOBS+=("smoke_video_r_h_table_0p635__knee_folded|1|--controller r_h --cells table_0p635__knee_folded --envs-per-cell 1 --episode-s 2 --seed 1 --video --smoke")
 else
   MODE=full
   if [ "$SPLIT" = surface ]; then

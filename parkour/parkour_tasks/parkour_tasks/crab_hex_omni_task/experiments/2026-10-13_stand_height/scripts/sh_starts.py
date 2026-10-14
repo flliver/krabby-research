@@ -12,8 +12,10 @@ piece with stubs).
 WHAT A RESET DOES (:meth:`StartState.on_reset`, the reset event ``sh_start`` appended LAST to the reset terms, so it
 runs after the ring spawn and the joint reset; draws from the private ``starts`` generator, a FIXED count per call):
 
-* kind ~ (walk 0.50, table 0.25, ground 0.15, random-height 0.10); table / ground poses ~ (knee_folded 0.60, rod_min
-  0.20, a random fold 0.20); top ~ U[top_min, top_max]; the random-height h ~ U[h_min, h_max];
+* kind ~ ``SPEC.START_SHARES`` (walk 0.50, table 0.40, ground 0, random-height 0.10 since the step-4 decision; a
+  share-0 kind is never drawn: ``searchsorted(cumsum, u, right=True)`` gives an empty interval); table / ground poses
+  ~ ``SPEC.POSE_SHARES`` (knee_folded 0.75, rod_min 0, a random fold 0.25); top ~ U[top_min, top_max] = U[0.635,
+  0.805]; the random-height h ~ U[h_min, h_max];
 * the floor: one downward raycast at the root and at the six default toe positions (spawn xy / yaw of the ring spawn),
   plus one under each of the drawn pose's own probe points (:func:`pose_probe_points`: every leg's pivot / knee / toe
   and the body corners / centre -- ``sh_table_core.probe_points_body``, the K3 test's points);

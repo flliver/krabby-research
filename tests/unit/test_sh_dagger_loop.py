@@ -523,7 +523,8 @@ def test_start_modes_forced_stands_and_limiter_init(CORE, classes, cfg, nets_pro
     st = env.state
     c = st.counts()
     total = sum(c[f"episodes_{k}"] for k in CORE.SPEC.START_KINDS)
-    assert total >= 64 and all(c[f"episodes_{k}"] > 0 for k in CORE.SPEC.START_KINDS)
+    assert total >= 64 and all(c[f"episodes_{k}"] > 0 for k in CORE.SPEC.DRAWN_START_KINDS)
+    assert c["episodes_ground"] == 0 and c["poses_table"][1] == 0          # share 0 since the step-4 decision
     # one forced first stand per non-walk episode, none on walk episodes
     assert c["forced_walk"] == 0
     for k in ("table", "ground", "random"):
@@ -617,7 +618,7 @@ def test_premise_read_on_the_run_files(CORE, smoke_run):
     recs = CORE.SPEC.read_stands(out / "stands.jsonl")
     log = CORE.SPEC.read_jsonl(out / "train_log.jsonl")
     pr = CORE.SPEC.premise_read(recs, log)
-    assert set(pr["by_kind"]) == set(CORE.SPEC.START_KINDS)
+    assert set(pr["by_kind"]) == set(CORE.SPEC.DRAWN_START_KINDS) and pr["absent_kinds"]["ground"]["records"] == 0
     pooled = pr["restore_pooled_all_sigma"]
     assert sum(pooled[ex]["completed"] for ex in pooled) > 0
     # the per-iteration counts sum to the run's accumulator (no event lost between the log and the smoke)
@@ -628,7 +629,7 @@ def test_premise_read_on_the_run_files(CORE, smoke_run):
             for b, k in enumerate(CORE.SPEC.START_KINDS):
                 for j, e in enumerate(CORE.SPEC.RESTORE_EVENTS):
                     assert tot[ex][sg][k][e] == acc[i][g][b][j]
-    assert pr["stop"] in (True, False, None) and len(pr["checks"]) == 6
+    assert pr["stop"] in (True, False, None) and len(pr["checks"]) == 5         # no ground start type (step 4)
 
 
 def test_fake_env_zeroes_the_applied_action_on_reset_rows(CORE, bank, stance):
@@ -785,6 +786,31 @@ def test_smoke_guards_can_fail(CORE, smoke_run):
     finally:
         for k, v in old.items():
             c[k] = v
+    # a share-0 kind / pose that shows up (one ground episode, one rod_min pose) fails its ABSENT assertion
+    old = {k: c[k].clone() for k in ("episodes_ground", "forced_ground", "poses_table")}
+    try:
+        c["episodes_ground"] = c["episodes_ground"] + 1
+        c["forced_ground"] = c["forced_ground"] + 1
+        pt = c["poses_table"].clone()
+        pt[1] += 1
+        c["poses_table"] = pt
+        by = run_checks()
+        for name in ("start_mode_shares", "retracted_pose_shares", "forced_first_stand_ground_random",
+                     "ground_episodes_hip_rearm"):
+            assert by[name]["pass"] is False, name
+        assert by["start_mode_shares"]["value"]["ground"]["asserted_absent"] is True
+    finally:
+        for k, v in old.items():
+            c[k] = v
+    saved = {k: v.clone() for k, v in a.items()}
+    try:
+        sn = a["spawn_h_n"].clone()
+        sn[CORE.SPEC.SK_GROUND] += 1
+        a["spawn_h_n"] = sn
+        assert run_checks()["ground_spawns"]["pass"] is False
+    finally:
+        for k, v in saved.items():
+            a[k] = v
     assert all(run_checks()[n]["pass"] is True for n in MUST_PASS if n != "forward_parity")
 
 

@@ -746,6 +746,15 @@ def coupling_share_1064() -> float:
 
 
 # ===================================================================================== main
+def _existing_frozen() -> dict | None:
+    """The CHARTER-frozen block of the current ``facts.json`` (status ``FROZEN ...``), or None (no file / not frozen)."""
+    try:
+        fr = json.loads((CAMPAIGN / "facts.json").read_text()).get("frozen")
+    except (OSError, ValueError):
+        return None
+    return fr if isinstance(fr, dict) and str(fr.get("status", "")).startswith("FROZEN") else None
+
+
 def main() -> dict:
     now = _dt.datetime.now().astimezone().isoformat(timespec="seconds")
     ver = verify_kin()
@@ -836,6 +845,17 @@ def main() -> dict:
             "coupling_zero_crossing_h_m": h_coup_zero,
         },
     }
+    derived_frozen = {"h_min_m": h_min, "h_max_m": h_max_primary,
+                      "h_max_rule": "exploration static model scaled by the pooled measured / model six-leg mean "
+                                    "|F_hip| (x%.3f), highest h with <= 2000 N" % ff["scale_factors"]["exploration_model_hip"],
+                      "status": "PROVISIONAL -- step-1 STOP raised; the user decides before anything is frozen in the "
+                                "CHARTER",
+                      "top_min_m": tg["table_range"]["primary"]["top_min_m"],
+                      "top_max_train_m": tg["table_range"]["primary"]["top_max_train_m"],
+                      "k3_eval_tops_m": tg["table_range"]["k3_eval_tops_m"]}
+    # a re-run never overwrites the CHARTER-frozen block (the user decisions at the step-1 and step-4 stops): an existing
+    # FROZEN block is carried over verbatim and this run's derivation is written beside it (``frozen_rederived``)
+    kept = _existing_frozen()
     facts = {
         "campaign": "2026-10-13_stand_height", "step": "1 (facts and premises)", "generated": now,
         "generator": {"script": str(Path(__file__).relative_to(REPO)), "sha256": _sha(Path(__file__)),
@@ -848,13 +868,8 @@ def main() -> dict:
                       "run": "CUDA_VISIBLE_DEVICES='' isaac_venv python scripts/sh_facts.py (CPU, no Kit)"},
         "stop": {k: v["value"] for k, v in stops.items()},
         "stop_evidence": stops,
-        "frozen": {"h_min_m": h_min, "h_max_m": h_max_primary,
-                   "h_max_rule": "exploration static model scaled by the pooled measured / model six-leg mean |F_hip| "
-                                 "(x%.3f), highest h with <= 2000 N" % ff["scale_factors"]["exploration_model_hip"],
-                   "status": "PROVISIONAL -- step-1 STOP raised; the user decides before anything is frozen in the CHARTER",
-                   "top_min_m": tg["table_range"]["primary"]["top_min_m"],
-                   "top_max_train_m": tg["table_range"]["primary"]["top_max_train_m"],
-                   "k3_eval_tops_m": tg["table_range"]["k3_eval_tops_m"]},
+        "frozen": derived_frozen if kept is None else kept,
+        **({} if kept is None else {"frozen_rederived": derived_frozen}),
         "verification": ver,
         "a_posture": post,
         "b_forces": ff,

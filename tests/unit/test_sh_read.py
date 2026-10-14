@@ -408,7 +408,10 @@ def test_constants_follow_the_frozen_facts_the_core_and_the_contracts(R):
     assert R.row_gates({}) == {WALK_ROW: ("K1", "K4", "K6"), RAISE_ROW: ("K2", "K4")}
     TC = R._tc()
     assert [t for t in TC.K3_TOPS_M] == fr["k3_eval_tops_m"] and TC.CMD_MARGIN_EVAL_M == 0.31
-    assert len(TC.K3_CELLS) == 12 and TC.ENVS_PER_CELL == 100
+    assert len(TC.K3_CELLS) == 15 and TC.ENVS_PER_CELL == 100
+    assert TC.K3_GATED_CELLS == tuple(f"{s}__{p}" for s in ("table_0p635", "table_0p6985", "table_0p762")
+                                      for p in ("knee_folded", "random"))
+    assert list(TC.K3_REPORTED_TOPS_M) == fr["k3_reported_tops_m"] and list(TC.K3_GATED_POSES) == fr["k3_gated_poses"]
     # the reader's slot / effective keys are the contract's, and the effective vector is re-derived
     assert R.RAW_SLOT != R.RAW_EFF and {R.RAW_SLOT, R.RAW_EFF} <= {getattr(R.EC, "RAW_STAND_SLOT", None),
                                                                    R.EC.RAW_STAND_MODE,
@@ -577,11 +580,96 @@ def test_k3_lines_and_premise(R, tmp_path):
     assert pm["misses"] == []
     bad = R.read_table_cells([str(write_cells(R, tmp_path, "RB", 1, "r_h", {"good": 100},
                                               overrides={"ground__rod_min": {"good": 85, "march": 15}}))], 1)
-    assert R.k3_premise({"R_h": {1: bad}}, seeds=(1,))["misses"] == ["es1 ground rod_min"]
+    assert R.k3_premise({"R_h": {1: bad}}, seeds=(1,))["misses"] == []          # ground: reported, never a miss
+    bad = R.read_table_cells([str(write_cells(R, tmp_path, "RG", 1, "r_h", {"good": 100},
+                                              overrides={"table_0p6985__knee_folded": {"good": 70, "march": 30}}))], 1)
+    pm = R.k3_premise({"R_h": {1: bad}}, seeds=(1,))                             # 170 / 200 on that gated top
+    assert pm["misses"] == ["es1 top table_0p6985"] and pm["gated_cells"] == list(TC.K3_GATED_CELLS)
+    assert pm["seeds"]["es1"]["top table_0p6985"]["n_envs"] == 200
     short = R.read_table_cells([str(write_cells(R, tmp_path, "SH", 1, "x", {"good": 60}))], 1)
     assert R.gate_k3("SH", {"SH": {1: short}, "R_h": {1: rh}}, seeds=(1,))["verdict"] == "PENDING"
     part = R.read_table_cells([str(write_cells(R, tmp_path, "PA", 1, "x", {"good": 100}, cells=TC.K3_CELLS[:6]))], 1)
     assert R.gate_k3("PA", {"PA": {1: part}, "R_h": {1: rh}}, seeds=(1,))["verdict"] == "PENDING"
+
+
+def test_k3_reads_the_gated_cells_only(R, tmp_path):
+    """Step-4 re-scope: the 6 gated cells decide K3 and the R_h premise; a reported cell (the 18-in table, every rod_min
+    cell, every ground cell) is read when present, never required, and never flips a line, the premise or the verdict
+    -- even a terrible one, or one whose file breaks the contract (a note, not INVALID)."""
+    TC = R._tc()
+    rh = R.read_table_cells([str(write_cells(R, tmp_path, "R_h", 1, "r_h", {"good": 100}))], 1)
+    hd = R.read_table_cells([str(write_cells(R, tmp_path, "HD", 1, "x", {"good": 100}))], 1)
+    base = R.gate_k3("HD", {"HD": {1: hd}, "R_h": {1: rh}}, seeds=(1,))
+    assert base["verdict"] == "PASS" and set(base["clauses"]) == {
+        "STOOD rate tables es1 >= R_h's - max(0.05, 2 SE)", "falls/100 tables es1 <= max(1, R_h's)"}
+    assert base["gated_cells"] == list(TC.K3_GATED_CELLS) and "6 GATED cells" in base["statistic"]
+    rep = base["reported"]["es1"]
+    assert rep["gated_cells_present"] == list(TC.K3_GATED_CELLS) and len(rep["reported_cells_present"]) == 9
+    assert rep["per_cell"]["ground__rod_min"]["gated"] is False and rep["per_cell"]["table_0p635__random"]["gated"]
+    assert rep["reported_lines"]["ground"]["gated"] is False and rep["reported_lines"]["ground"]["pass"] is True
+    terrible = {c: {"march": 100} for c in TC.K3_REPORTED_CELLS}
+    for role, ov in (("HT", terrible), ("RT", terrible)):
+        write_cells(R, tmp_path, role, 1, "x" if role == "HT" else "r_h", {"good": 100}, overrides=ov)
+    ht = R.read_table_cells([str(tmp_path / "tables" / "HT" / "es1")], 1)
+    rt = R.read_table_cells([str(tmp_path / "tables" / "RT" / "es1")], 1)
+    for subj, ref in ((ht, rh), (hd, rt), (ht, rt)):
+        g = R.gate_k3("X", {"X": {1: subj}, "R_h": {1: ref}}, seeds=(1,))
+        assert g["verdict"] == base["verdict"] and g["clauses"] == base["clauses"]
+    assert R.k3_premise({"R_h": {1: rt}}, seeds=(1,))["misses"] == []
+    assert ht["per_cell"]["ground__knee_folded"]["stood_share"] == 0.0                 # still read and reported
+    # reported cells absent: never PENDING; a gated cell absent: PENDING
+    only = R.read_table_cells([str(write_cells(R, tmp_path, "OG", 1, "x", {"good": 100}, cells=TC.K3_GATED_CELLS))], 1)
+    assert R.gate_k3("OG", {"OG": {1: only}, "R_h": {1: rh}}, seeds=(1,))["verdict"] == "PASS"
+    assert R.k3_premise({"R_h": {1: only}}, seeds=(1,))["misses"] == []
+    five = R.read_table_cells([str(write_cells(R, tmp_path, "G5", 1, "x", {"good": 100},
+                                               cells=TC.K3_GATED_CELLS[:5]))], 1)
+    assert R.gate_k3("G5", {"G5": {1: five}, "R_h": {1: rh}}, seeds=(1,))["verdict"] == "PENDING"
+    assert R.k3_premise({"R_h": {1: five}}, seeds=(1,))["seeds"]["es1"]["state"] == "pending"
+    # a reported cell's contract problem is a note; a gated cell's is INVALID
+    d = tmp_path / "tables" / "HD" / "es1"
+    for cell, want in (("ground__rod_min", "PASS"), ("table_0p762__knee_folded", "INVALID")):
+        f = d / f"HD_s1__{cell}.json"
+        keep = f.read_text()
+        rec = json.loads(keep)
+        rec["aggregate"]["n_stood"] -= 1
+        f.write_text(json.dumps(rec))
+        t = R.read_table_cells([str(d)], 1)
+        assert R.gate_k3("HD", {"HD": {1: t}, "R_h": {1: rh}}, seeds=(1,))["verdict"] == want, cell
+        if want == "PASS":
+            assert not t["reasons"] and any("[reported cell, not gated]" in x and "disagrees" in x for x in t["notes"])
+        f.write_text(keep)
+    # the head's one-checkpoint rule reads the gated cells' shas; a reported cell from another file is a note
+    write_cells(R, tmp_path, "SA", 1, "x", {"good": 100}, sha="a" * 64, cells=TC.K3_GATED_CELLS)
+    write_cells(R, tmp_path, "SA", 1, "x", {"good": 100}, sha="b" * 64, cells=TC.K3_REPORTED_CELLS)
+    t = R.read_table_cells([str(tmp_path / "tables" / "SA" / "es1")], 1)
+    assert t["stand_sha256"] == ["a" * 64] and t["stand_sha256_reported"] == ["b" * 64] and not t["reasons"]
+    assert any("[reported cells, not gated] stand checkpoints" in x for x in t["notes"])
+
+
+def test_markdown_says_pending_premise_and_shows_reported_checkpoints(R, world, tmp_path):
+    """Review fixes: a pending R_h premise (a gated cell missing / short) reads "pending (...)" in the markdown, not
+    "no miss read"; the reported cells' stand checkpoints are recorded and printed beside the gated cells'."""
+    TC = R._tc()
+    meta = {"generated": "t", "tool_sha256": "0" * 64, "exit_code": 2}
+    out = copy.deepcopy(world["out"])
+    assert "no miss read" in R.markdown(dict(out, meta=meta))
+    five = R.read_table_cells([str(write_cells(R, tmp_path, "R5", 1, "r_h", {"good": 100},
+                                               cells=TC.K3_GATED_CELLS[:5]))], 1)
+    pm = R.k3_premise({"R_h": {1: five}}, seeds=(1,))
+    assert pm["misses"] == [] and pm["seeds"]["es1"]["state"] == "pending"
+    md = R.markdown(dict(out, premise_rh_standup=pm, meta=meta))
+    line = next(ln for ln in md.splitlines() if ln.startswith("**R_h stand-up premise"))
+    assert "pending (es1: " in line and TC.K3_GATED_CELLS[5] in line and "no miss read" not in line
+    # the stand checkpoints: the run record carries both lists; the markdown flags a reported-only checkpoint
+    assert out["tables"]["HEAD"]["es1"]["stand_sha256"] == [HEAD_SHA["HEAD"]]
+    assert out["tables"]["HEAD"]["es1"]["stand_sha256_reported"] == [HEAD_SHA["HEAD"]]
+    assert out["gates"]["K3"]["HEAD"]["reported"]["es1"]["stand_sha256_reported"] == [HEAD_SHA["HEAD"]]
+    md = R.markdown(dict(out, meta=meta))
+    assert "**K3 stand checkpoints" in md and "another checkpoint" not in md
+    out["tables"]["HEAD"]["es1"]["stand_sha256_reported"] = ["9" * 64]
+    md = R.markdown(dict(out, meta=meta))
+    row = next(ln for ln in md.splitlines() if ln.startswith("- HEAD es1: gated cells' stand checkpoint"))
+    assert "9" * 12 in row and "reported cells ran another checkpoint" in row
 
 
 # ===================================================================================== contract + K4 + forces

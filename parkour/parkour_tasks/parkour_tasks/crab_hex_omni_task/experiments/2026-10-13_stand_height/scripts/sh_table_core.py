@@ -11,10 +11,15 @@ TORCH- / NUMPY-FREE AT IMPORT (the launcher rule L6): the Kit script loads this 
 reads only the stdlib, ``sh_core`` (stdlib + the frozen facts + the predecessor's torch-free ``sn_common``) and the
 predecessor's ``sn_table_core`` (torch-free at import); torch, numpy, ``sh_kin`` and the linkage load inside functions.
 
-THE K3 CELLS (pre-registered here; PLAN H7 K3 + the audit's "pin ... K3 poses per cell"):
+THE K3 CELLS (pre-registered here; PLAN H7 K3 + the audit's "pin ... K3 poses per cell"; re-scoped at the step-4 stop,
+CHARTER section 3 "USER DECISION at the step-4 stop: narrow stand-up to tall tables"):
 
-* SURFACES: ``table_0p4572`` / ``table_0p635`` / ``table_0p762`` (the CHARTER-frozen K3 eval tops, ``facts.json``
-  ``frozen.k3_eval_tops_m``) and ``ground``.
+* SURFACES: ``table_0p4572`` / ``table_0p635`` / ``table_0p6985`` / ``table_0p762`` (the CHARTER-frozen gated K3 tops
+  ``facts.json`` ``frozen.k3_eval_tops_m`` = 0.635 / 0.6985 / 0.762 and the reported 18-in table
+  ``frozen.k3_reported_tops_m`` = 0.4572, sorted by height) and ``ground``.
+* GATED vs REPORTED (:data:`K3_GATED_CELLS`): the 6 cells gated tops x gated poses (``frozen.k3_gated_poses`` =
+  knee_folded / random) decide every K3 line, the R_h floor and its STOP; every other cell (the 18-in table, every
+  rod_min cell, every ground cell: :data:`K3_REPORTED_CELLS`) is run, read and reported, never gated.
 * POSES (every surface): ``knee_folded`` (the real retracted pose, user), ``rod_min`` (both lead screws at their minimum)
   -- both the predecessor's :func:`sn_table_core.retracted_pose` -- and ``random`` folds: per env, hip uniform on a
   0.5-deg grid in [-44.5, -30] deg, knee uniform in [max(knee at the knee-rod minimum, knee stop + 0.5 deg), the largest
@@ -23,7 +28,8 @@ THE K3 CELLS (pre-registered here; PLAN H7 K3 + the audit's "pin ... K3 poses pe
   pose on all six legs, Body_Hip / cams 0. On a table a random fold is drawn only if every leg part stays >= 2 cm above
   the floor at spawn and no tibia point below the table-top plane reaches the table's worst jittered corner (rejection
   sampling; the facts' "rule_for_tables").
-* 12 cells = 4 surfaces x 3 poses, :data:`ENVS_PER_CELL` = 100 envs each (batched; one Isaac process can hold them all).
+* 15 cells = 5 surfaces x 3 poses (6 gated + 9 reported), :data:`ENVS_PER_CELL` = 100 envs each (batched; one Isaac
+  process can hold them all, ``--split surface`` otherwise).
 * COMMANDS (per env, constant for the episode): a table cell draws ``h_cmd`` in [top + 0.31, h_max] (the CHARTER-frozen
   eval margin); a ground cell in [max(h_min, spawn height + 0.14625), h_max] -- the same rise margin the table rule gives
   (0.31 - belly 0.15875 - spawn clearance 0.005), so a ground start's command also clears the 0.10-m belly-rise clause
@@ -82,11 +88,12 @@ arrival, the first time |h - h_cmd| <= 2 cm (K2-style), lift-off (belly risen > 
 final h_meas, max tilt, falls by cause, HOMED (p2s_stand Z2: every cam within 0.10 rad over the last 5 s = homed at the
 end), settled (homed held 0.5 s), cams homed on the final step.
 
-K3 READ (PLAN H7; :func:`k3_read`): per env seed, per start type -- ``tables`` (the 9 table cells pooled over tops and
-poses) and ``ground`` (the 3 ground cells pooled) -- a controller passes iff its STOOD rate >= R_h's - max(5 pp, 2 SE
-of the difference) and its falls per 100 <= max(1, R_h's). Every table top and every ground pose is reported. The
-step-4 R_h FLOOR premise (:func:`rh_floor`): R_h STOOD >= 0.90 and falls <= 1 per 100 on each table top (pooled over
-poses), ground knee_folded and ground rod_min (ground random: reported).
+K3 READ (PLAN H7; :func:`k3_read`; re-scoped at the step-4 stop): per env seed, the GATED start type ``tables`` (the 6
+gated cells pooled) -- a controller passes iff its STOOD rate >= R_h's - max(5 pp, 2 SE of the difference) and its
+falls per 100 <= max(1, R_h's). ``ground`` (the 3 ground cells pooled) is the same line REPORTED (``gated`` False);
+every cell, every top (gated poses and all poses) and every ground pose is reported. The step-4 R_h FLOOR premise
+(:func:`rh_floor`): R_h STOOD >= 0.90 and falls <= 1 per 100 on each GATED top pooled over the gated poses; every
+reported cell is listed beside it (rates, falls, 5 / 6-down, homed), never part of the floor or its STOP.
 """
 from __future__ import annotations
 
@@ -137,9 +144,17 @@ CONTROLLERS = ("r_h", "stand_net", "posture_only", "s1", "amask_old")
 #: controllers that run a stand checkpoint (``--stand-ckpt``)
 STAND_CONTROLLERS = ("stand_net", "amask_old")
 REF_CONTROLLER = "r_h"
+#: the GATED K3 tops (CHARTER-frozen, re-scoped at the step-4 stop: 0.635 / 0.6985 / 0.762)
 K3_TOPS_M = tuple(float(t) for t in SH.FROZEN["k3_eval_tops_m"])
+#: tops run and read but never gated (the 18-in table)
+K3_REPORTED_TOPS_M = tuple(float(t) for t in SH.FROZEN["k3_reported_tops_m"])
+#: the poses whose cells on the gated tops are gated (knee_folded, random); rod_min cells are reported only
+K3_GATED_POSES = tuple(str(p) for p in SH.FROZEN["k3_gated_poses"])
 TOP_MIN_M = float(SH.FROZEN["top_min_m"])
 TOP_MAX_TRAIN_M = float(SH.FROZEN["top_max_train_m"])
+if not set(K3_GATED_POSES) <= set(POSES) or set(K3_TOPS_M) & set(K3_REPORTED_TOPS_M):
+    raise RuntimeError(f"sh_table_core: frozen K3 cells inconsistent (gated poses {K3_GATED_POSES} vs {POSES}; "
+                       f"tops {K3_TOPS_M} / reported {K3_REPORTED_TOPS_M})")
 
 
 def surface_id(top) -> str:
@@ -147,12 +162,24 @@ def surface_id(top) -> str:
     return "ground" if top is None else "table_" + f"{float(top):g}".replace(".", "p")
 
 
-SURFACES = tuple(surface_id(t) for t in K3_TOPS_M) + ("ground",)
-SURFACE_TOP = {surface_id(t): t for t in K3_TOPS_M}
+SURFACES = tuple(surface_id(t) for t in sorted(K3_TOPS_M + K3_REPORTED_TOPS_M)) + ("ground",)
+SURFACE_TOP = {surface_id(t): t for t in K3_TOPS_M + K3_REPORTED_TOPS_M}
 SURFACE_TOP["ground"] = None
 CELL_SEP = "__"
 K3_CELLS = tuple(f"{s}{CELL_SEP}{p}" for s in SURFACES for p in POSES)
+K3_GATED_SURFACES = tuple(surface_id(t) for t in K3_TOPS_M)
+#: THE GATED SET (CHARTER step-4 decision): gated tops x gated poses -- every K3 line, the R_h floor and its STOP
+K3_GATED_CELLS = tuple(f"{s}{CELL_SEP}{p}" for s in K3_GATED_SURFACES for p in K3_GATED_POSES)
+#: run, read and reported, never gated: the 18-in table, every rod_min cell, every ground cell
+K3_REPORTED_CELLS = tuple(c for c in K3_CELLS if c not in K3_GATED_CELLS)
 ENVS_PER_CELL = 100
+
+
+def cell_gated(cell: str) -> bool:
+    """True iff ``cell`` is one of the 6 gated K3 cells."""
+    return str(cell) in K3_GATED_CELLS
+
+
 START_TABLE, START_GROUND = "table", "ground"
 #: sh_core.START_KINDS index per start (HeightController.reset)
 START_CODE = {START_TABLE: SH.START_KINDS.index("table"), START_GROUND: SH.START_KINDS.index("ground")}
@@ -206,7 +233,9 @@ K3_SE_K = 2.0
 K3_FALLS_FLOOR_PER100 = 1.0
 RH_FLOOR_STOOD = 0.90
 RH_FLOOR_FALLS_PER100 = 1.0
-START_TYPES = ("tables", "ground")
+#: the GATED start type (the 6 gated cells pooled) and the REPORTED one (the ground cells pooled; never gated)
+START_TYPES = ("tables",)
+REPORTED_START_TYPES = ("ground",)
 
 STOOD_DEFINITION = (
     "K3 STOOD iff, over the last 3.0 s (150 control steps): (1) the ROOT risen >= 0.10 m above its realised spawn root "
@@ -251,7 +280,8 @@ def parse_cell(cell: str) -> tuple[str, str]:
 
 
 def parse_cells(text: str) -> list[str]:
-    """``all`` (the 12 K3 cells), or a comma list of cell ids / surfaces (a surface expands to its 3 poses)."""
+    """``all`` (the 15 K3 cells, gated and reported), or a comma list of cell ids / surfaces (a surface expands to its 3
+    poses)."""
     t = str(text).strip()
     if t in ("", "all"):
         return list(K3_CELLS)
@@ -493,9 +523,10 @@ def plan_episode_s(plan) -> float:
 
 @functools.lru_cache(maxsize=1)
 def k3_episode_s() -> float:
-    """THE K3 suite episode (every cell, every controller): the slowest env of the 12 cells at the worst command
-    (h_max), the random family's slowest fold included (the rod slew is monotone in the knee rod, so the knee range's
-    ends bound it; a ground start's limiter is bounded from h_min) -- computed from the geometry, not from a seed."""
+    """THE K3 suite episode (every cell, every controller): the slowest env of the 15 cells (gated and reported) at
+    the worst command (h_max), the random family's slowest fold included (the rod slew is monotone in the knee rod, so
+    the knee range's ends bound it; a ground start's limiter is bounded from h_min) -- computed from the geometry, not
+    from a seed."""
     worst = 0.0
     for cell in K3_CELLS:
         surface, pose = parse_cell(cell)
@@ -994,7 +1025,8 @@ def cell_record(meta: dict, cell: str, plan_rows: list, per_env: list) -> dict:
     """The per-cell JSON (``<prefix>__<cell>.json``)."""
     surface, pose = parse_cell(cell)
     return {"kind": CELL_KIND, "meta": {**meta, "cell": cell, "surface": surface, "pose": pose,
-                                        "top_m": SURFACE_TOP[surface], "start": start_kind(surface)},
+                                        "top_m": SURFACE_TOP[surface], "start": start_kind(surface),
+                                        "gated": cell_gated(cell)},
             "aggregate": aggregate(per_env), "plan": plan_rows, "per_env": per_env,
             "stood_definition": STOOD_DEFINITION}
 
@@ -1012,21 +1044,36 @@ def _pool(rows: list) -> dict:
 
 
 def pooled_views(cells: dict) -> dict:
-    """``cells`` = {cell: aggregate} of one (seed, label) -> pooled ``tables`` / ``ground``, ``per_top`` (pooled over
-    poses), ``ground_per_pose``."""
-    out = {"tables": None, "ground": None, "per_top": {}, "ground_per_pose": {}}
-    tab = [a for c, a in cells.items() if parse_cell(c)[0] != "ground"]
-    gnd = [a for c, a in cells.items() if parse_cell(c)[0] == "ground"]
-    out["tables"] = _pool(tab) if tab else None
-    out["ground"] = _pool(gnd) if gnd else None
+    """``cells`` = {cell: aggregate} of one (seed, label) -> GATED ``tables`` (the gated cells present, pooled) and
+    ``per_top`` (each gated top pooled over the gated poses); REPORTED ``ground`` (ground cells pooled),
+    ``per_top_all_poses`` (every table top pooled over every pose present), ``ground_per_pose`` and ``cells`` (every
+    cell present, with its ``gated`` flag); the gated / reported / missing-gated cell lists."""
+    for c in cells:
+        parse_cell(c)
+    out = {"tables": None, "ground": None, "per_top": {}, "per_top_all_poses": {}, "ground_per_pose": {},
+           "cells": {}, "gated_cells": [c for c in K3_GATED_CELLS if c in cells],
+           "reported_cells": [c for c in K3_CELLS if c in cells and not cell_gated(c)],
+           "missing_gated_cells": [c for c in K3_GATED_CELLS if c not in cells]}
+    tab_ids = [c for c in K3_CELLS if c in cells and cell_gated(c)]
+    gnd_ids = [c for c in K3_CELLS if c in cells and parse_cell(c)[0] == "ground"]
+    # ``cell_ids``: which cells a pooled start type holds (k3_read compares cell SETS, not counts)
+    out["tables"] = dict(_pool([cells[c] for c in tab_ids]), cell_ids=tab_ids) if tab_ids else None
+    out["ground"] = dict(_pool([cells[c] for c in gnd_ids]), cell_ids=gnd_ids) if gnd_ids else None
+    for s in K3_GATED_SURFACES:
+        rows = [a for c, a in cells.items() if cell_gated(c) and parse_cell(c)[0] == s]
+        if rows:
+            out["per_top"][s] = _pool(rows)
     for s in SURFACES[:-1]:
         rows = [a for c, a in cells.items() if parse_cell(c)[0] == s]
         if rows:
-            out["per_top"][s] = _pool(rows)
-    for c, a in cells.items():
+            out["per_top_all_poses"][s] = _pool(rows)
+    for c in K3_CELLS:
+        if c not in cells:
+            continue
         s, p = parse_cell(c)
         if s == "ground":
-            out["ground_per_pose"][p] = _pool([a])
+            out["ground_per_pose"][p] = _pool([cells[c]])
+        out["cells"][c] = dict(_pool([cells[c]]), gated=cell_gated(c))
     return out
 
 
@@ -1048,7 +1095,9 @@ def k3_line(subj: dict, ref: dict) -> dict:
 
 def k3_read(pooled: dict, ref_label: str = REF_CONTROLLER) -> dict:
     """``pooled`` = {seed: {label: pooled_views}} -> {seed: {label: {start type: k3_line vs ref}}}; the reference's own
-    line is omitted. A start type whose cell sets differ from the reference's is refused (``pass`` None)."""
+    line is omitted. A start type whose cell SET (``cell_ids``) differs from the reference's is refused (``pass``
+    None); the gated ``tables`` line is also refused unless both sides hold exactly :data:`K3_GATED_CELLS`. Every row
+    carries ``gated``: ``tables`` (the 6 gated cells) decides; ``ground`` is the same line REPORTED, never a verdict."""
     out: dict = {}
     for seed, labels in pooled.items():
         ref = labels.get(ref_label)
@@ -1057,31 +1106,49 @@ def k3_read(pooled: dict, ref_label: str = REF_CONTROLLER) -> dict:
             if label == ref_label:
                 continue
             row = {}
-            for st in START_TYPES:
+            for st in START_TYPES + REPORTED_START_TYPES:
                 s, r = pv.get(st), (ref or {}).get(st)
+                gap = ([] if s is None or r is None or st not in START_TYPES else
+                       [f"{who} missing {sorted(set(K3_GATED_CELLS) - set(x.get('cell_ids') or []))}"
+                        for who, x in (("subject", s), ("ref", r))
+                        if sorted(x.get("cell_ids") or []) != sorted(K3_GATED_CELLS)])
                 if s is None or r is None:
                     row[st] = {"pass": None, "why": f"missing {'reference' if r is None else 'subject'} cells"}
-                elif s["cells"] != r["cells"]:
-                    row[st] = {"pass": None, "why": f"cell counts differ ({s['cells']} vs ref {r['cells']})"}
+                elif gap:
+                    row[st] = {"pass": None, "why": "gated cell set incomplete (" + "; ".join(gap) + ")"}
+                elif s.get("cell_ids", s["cells"]) != r.get("cell_ids", r["cells"]):
+                    row[st] = {"pass": None, "why": f"cell sets differ ({s.get('cell_ids', s['cells'])} vs ref "
+                                                    f"{r.get('cell_ids', r['cells'])})"}
                 else:
                     row[st] = k3_line(s, r)
+                row[st]["gated"] = st in START_TYPES
             out[seed][label] = row
     return out
 
 
+def _floor_ok(v: dict) -> bool:
+    return bool(v["stood_share"] is not None and v["stood_share"] >= RH_FLOOR_STOOD - _EPS
+                and v["falls_per100"] <= RH_FLOOR_FALLS_PER100 + _EPS)
+
+
 def rh_floor(pv: dict) -> dict:
-    """The step-4 R_h stand-up floor (PLAN step 4): STOOD >= 0.90 and falls <= 1 per 100 on each table top (pooled
-    over poses), ground knee_folded and ground rod_min; ground random reported. ``pv`` = R_h's pooled_views."""
-    rows = {f"top {s}": v for s, v in (pv.get("per_top") or {}).items()}
-    for p, v in (pv.get("ground_per_pose") or {}).items():
-        rows[f"ground {p}"] = v
+    """The step-4 R_h stand-up floor (PLAN step 4, re-scoped at the step-4 stop): STOOD >= 0.90 and falls <= 1 per 100
+    on each GATED top pooled over the gated poses (``top <surface>``, ``gated`` True). Every reported cell present is
+    listed beside it (``cell <cell>``, ``gated`` False, its floor read for information only). ``_all_gated_pass``:
+    every gated cell present and every gated top passes; ``_complete`` / ``_missing_gated_cells`` say whether the
+    gated set was whole. ``pv`` = R_h's pooled_views."""
     out = {}
-    for name, v in rows.items():
-        gated = name != "ground random"
-        ok = (v["stood_share"] is not None and v["stood_share"] >= RH_FLOOR_STOOD - _EPS
-              and v["falls_per100"] <= RH_FLOOR_FALLS_PER100 + _EPS)
-        out[name] = {**v, "floor_pass": bool(ok), "gated": gated}
-    out["_all_gated_pass"] = all(v["floor_pass"] for k, v in out.items() if not k.startswith("_") and v["gated"])
+    for s, v in (pv.get("per_top") or {}).items():
+        out[f"top {s}"] = {**v, "floor_pass": _floor_ok(v), "gated": True,
+                           "poses": [p for p in K3_GATED_POSES if f"{s}{CELL_SEP}{p}" in (pv.get("cells") or {})]}
+    for c, v in (pv.get("cells") or {}).items():
+        if not v.get("gated"):
+            out[f"cell {c}"] = {**v, "floor_pass": _floor_ok(v), "gated": False}
+    missing = list(pv.get("missing_gated_cells", K3_GATED_CELLS))
+    out["_complete"] = not missing
+    out["_missing_gated_cells"] = missing
+    out["_all_gated_pass"] = bool(not missing and all(
+        v["floor_pass"] for k, v in out.items() if not k.startswith("_") and v["gated"]))
     return out
 
 
@@ -1108,7 +1175,19 @@ def merge_cells(paths) -> dict:
     pooled = {s: {lab: pooled_views(c) for lab, c in labs.items()} for s, labs in cells.items()}
     floor = {s: rh_floor(labs[REF_CONTROLLER]) for s, labs in pooled.items() if REF_CONTROLLER in labs}
     return {"cells": cells, "pooled": pooled, "k3": k3_read(pooled), "rh_floor": floor, "videos": videos,
-            "stood_definition": STOOD_DEFINITION, "k3_episode_s": k3_episode_s()}
+            "stood_definition": STOOD_DEFINITION, "k3_episode_s": k3_episode_s(), "gating": gating_record()}
+
+
+def gating_record() -> dict:
+    """Which K3 cells decide and which are reported (the merge summary and the facts record carry it)."""
+    return {"gated_cells": list(K3_GATED_CELLS), "reported_cells": list(K3_REPORTED_CELLS),
+            "gated_tops_m": list(K3_TOPS_M), "gated_poses": list(K3_GATED_POSES),
+            "reported_tops_m": list(K3_REPORTED_TOPS_M), "gated_start_types": list(START_TYPES),
+            "reported_start_types": list(REPORTED_START_TYPES),
+            "rule": "CHARTER section 3, USER DECISION at the step-4 stop (narrow stand-up to tall tables): the K3 line "
+                    "(tables pooled over the 6 gated cells per env seed) and the R_h floor (per gated top pooled over "
+                    "the gated poses) read the gated cells only; the reported cells (the 18-in table, every rod_min "
+                    "cell, every ground cell) are run and read, never gated"}
 
 
 def _f(v, spec: str, width: int) -> str:
@@ -1116,7 +1195,11 @@ def _f(v, spec: str, width: int) -> str:
 
 
 def format_table(merged: dict) -> str:
-    lines = [f"{'seed':4s} {'label':22s} {'cell':28s} {'envs':>4s} {'STOOD':>8s} {'5dn':>4s} {'6dn':>4s} "
+    lines = [f"K3 GATED cells ({len(K3_GATED_CELLS)}; decide the K3 line, the R_h floor and its STOP): "
+             + ", ".join(K3_GATED_CELLS),
+             f"K3 REPORTED cells ({len(K3_REPORTED_CELLS)}; run and read, never gated): " + ", ".join(K3_REPORTED_CELLS),
+             "",
+             f"{'seed':4s} {'label':22s} {'cell':28s} {'gate':8s} {'envs':>4s} {'STOOD':>8s} {'5dn':>4s} {'6dn':>4s} "
              f"{'|dh| med':>8s} {'p90':>6s} {'falls':>5s} {'tilt':>4s} {'hip':>4s} {'off':>4s} {'homed':>5s} "
              f"{'rise-only':>9s}"]
     for seed in sorted(merged.get("cells", {})):
@@ -1126,32 +1209,47 @@ def format_table(merged: dict) -> str:
                 if r is None:
                     continue
                 lines.append(
-                    f"{seed:4s} {label:22s} {cell:28s} {r['n_envs']:4d} {r['n_stood']:3d}/{r['n_envs']:<4d} "
+                    f"{seed:4s} {label:22s} {cell:28s} {'GATED' if cell_gated(cell) else 'reported':8s} "
+                    f"{r['n_envs']:4d} {r['n_stood']:3d}/{r['n_envs']:<4d} "
                     f"{r['n_stood_5down']:4d} {r['n_stood_6down']:4d} "
                     f"{_f(r['h_err_window_median_m']['median'], '.3f', 8)} "
                     f"{_f(r['h_err_window_p90_m']['p90'], '.3f', 6)} {r['falls']:5d} {r['falls_tilt']:4d} "
                     f"{r['falls_hip_contact']:4d} {r['fell_off_table']:4d} {r['homed']:5d} "
                     f"{r.get('n_fail_rise_only', 0):9d}")
     lines.append("")
-    lines.append(f"{'seed':4s} {'label':22s} {'start':8s} {'STOOD':>12s} {'falls/100':>9s} {'K3 vs r_h':>10s} "
-                 f"{'line':>6s} {'falls line':>10s}")
+    lines.append(f"{'seed':4s} {'label':22s} {'start':8s} {'gate':8s} {'STOOD':>12s} {'falls/100':>9s} "
+                 f"{'K3 vs r_h':>10s} {'line':>6s} {'falls line':>10s}")
     for seed in sorted(merged.get("pooled", {})):
         for label, pv in sorted(merged["pooled"][seed].items()):
-            for st in START_TYPES:
+            for st in START_TYPES + REPORTED_START_TYPES:
                 v = pv.get(st)
                 if v is None:
                     continue
                 k = ((merged.get("k3") or {}).get(seed) or {}).get(label, {}).get(st) or {}
+                gated = st in START_TYPES
                 verdict = "ref" if label == REF_CONTROLLER else {True: "PASS", False: "FAIL", None: "-"}[k.get("pass")]
-                lines.append(f"{seed:4s} {label:22s} {st:8s} {v['n_stood']:5d}/{v['n_envs']:<6d} "
+                if not gated and label != REF_CONTROLLER:
+                    verdict = verdict.lower()                      # a reported line is never a verdict
+                lines.append(f"{seed:4s} {label:22s} {st:8s} {'GATED' if gated else 'reported':8s} "
+                             f"{v['n_stood']:5d}/{v['n_envs']:<6d} "
                              f"{_f(v['falls_per100'], '.2f', 9)} {verdict:>10s} {_f(k.get('rate_line'), '.3f', 6)} "
                              f"{_f(k.get('falls_line_per100'), '.2f', 10)}")
     for seed, fl in sorted((merged.get("rh_floor") or {}).items()):
-        lines.append(f"R_h floor es{seed}: " + ", ".join(
-            f"{k} {v['n_stood']}/{v['n_envs']} falls {v['falls']} rise-only {v.get('n_fail_rise_only', 0)}"
-            f"{'' if v['gated'] else ' (reported)'} {'ok' if v['floor_pass'] else 'MISS'}"
-            for k, v in fl.items() if not k.startswith("_"))
-            + f" -> {'PASS' if fl.get('_all_gated_pass') else 'STOP (step-4 premise)'}")
+        rows = [(k, v) for k, v in fl.items() if not k.startswith("_")]
+        if fl.get("_all_gated_pass"):
+            end = "PASS"
+        elif not fl.get("_complete", True):
+            end = f"INCOMPLETE (gated cells missing: {', '.join(fl.get('_missing_gated_cells') or [])})"
+        else:
+            end = "STOP (step-4 premise)"
+        lines.append(f"R_h floor es{seed} (GATED: each gated top pooled over {'/'.join(K3_GATED_POSES)}): " + ", ".join(
+            f"{k} {v['n_stood']}/{v['n_envs']} falls {v['falls']} rise-only {v.get('n_fail_rise_only', 0)} "
+            f"{'ok' if v['floor_pass'] else 'MISS'}" for k, v in rows if v["gated"]) + f" -> {end}")
+        rep = [(k, v) for k, v in rows if not v["gated"]]
+        if rep:
+            lines.append(f"R_h reported es{seed} (never gated): " + ", ".join(
+                f"{k} {v['n_stood']}/{v['n_envs']} falls {v['falls']} 5dn {v.get('n_stood_5down', 0)} "
+                f"6dn {v.get('n_stood_6down', 0)} homed {v.get('homed', 0)}" for k, v in rep))
     return "\n".join(lines)
 
 
@@ -1177,14 +1275,18 @@ def build_facts(cells=None) -> dict:
     surf = {}
     for s in SURFACES:
         top = SURFACE_TOP[s]
-        surf[s] = {"top_m": top, "start": start_kind(s), "table_center_above_floor_m": table_center_z(top),
+        surf[s] = {"top_m": top, "start": start_kind(s), "gated_poses": [p for p in POSES if
+                                                                           cell_gated(f"{s}{CELL_SEP}{p}")],
+                   "table_center_above_floor_m": table_center_z(top),
                    "spawn_root_above_floor_m": None if top is None else table_spawn_root_z(top),
                    "cmd_rule": (f"[top + {CMD_MARGIN_EVAL_M}, h_max]" if top is not None else
                                 f"[max(h_min, spawn + {GROUND_CMD_RISE_M:.5f}), h_max]"),
                    "cmd_lo_m": None if top is None else top + CMD_MARGIN_EVAL_M}
     return {"cells": cells, "k3_cells": list(K3_CELLS), "envs_per_cell": ENVS_PER_CELL, "surfaces": surf,
             "poses": poses, "controllers": list(CONTROLLERS), "h_min": SH.H_MIN, "h_max": SH.H_MAX,
-            "k3_tops_m": list(K3_TOPS_M), "train_top_range_m": [TOP_MIN_M, TOP_MAX_TRAIN_M],
+            "k3_tops_m": list(K3_TOPS_M), "k3_reported_tops_m": list(K3_REPORTED_TOPS_M),
+            "k3_gated_cells": list(K3_GATED_CELLS), "k3_reported_cells": list(K3_REPORTED_CELLS),
+            "gating": gating_record(), "train_top_range_m": [TOP_MIN_M, TOP_MAX_TRAIN_M],
             "k3_episode_s": k3_episode_s(),
             "floor_rule": "floor reference = the highest terrain point under the pose's pivot / knee / toe points and "
                           "the body corners / centre (raycast at spawn); table top and root z are above it",

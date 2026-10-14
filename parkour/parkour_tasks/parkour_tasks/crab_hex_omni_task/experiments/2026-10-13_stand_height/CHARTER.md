@@ -169,3 +169,16 @@ the user's.**
   - Next: build + review of the re-scope (facts, `sh_table_core` cells / floor / pooling, `sh_read` K3, trainer start
     and pose shares, smoke checks, `sh_table_test.sh` surfaces, tests), then re-run the K3 calibration on the new
     surface list (R_h, S1, posture only, A-mask; es1 + es2), then step 5.
+- 2026-10-13, **re-scope build + review (CPU; workflow wf_502100f0-7bd: opus·xhigh build, fable·high review —
+  APPROVE, no blocking defect; 4 minor fixes applied).** `facts.json` frozen (old values under
+  `previous_frozen_step4`); `sh_facts.py` now keeps an existing FROZEN block on a re-run (it would have overwritten
+  both user decisions); `sh_table_core` 5 surfaces × 3 poses = 15 cells, `K3_GATED_CELLS` = the 6, the floor per gated
+  top (INCOMPLETE if a gated cell is missing), reported cells never decide a line / floor / STOP (a contract problem in
+  a reported cell is a note, not INVALID); `sh_read` K3 PENDING unless the 6 gated cells have n ≥ 100 per seed; trainer
+  shares as pinned with 0-share kinds / poses asserted ABSENT in the smoke and skipped by the premise read. 236 CPU
+  tests pass; code_sha / eval_sha unchanged.
+  - **Floor read rule on the K3 re-run (pinned before it runs):** the R_h floor is read as coded (STOOD ≥ 0.90,
+    falls ≤ 1 / 100 per gated top). A fall-clause miss made only of hip-contact events with the robot upright
+    (tilt < 0.5 rad throughout) and standing at the end — the kind accepted above — is accepted under the same
+    argument and recorded with its counts. Any tilt fall, any STOOD < 0.90 on a gated top, or a miss of any other kind
+    → STOP and ask.

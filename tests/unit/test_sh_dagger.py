@@ -6,7 +6,10 @@ wrappers, the Kit probe) driven with stubs, the entry point (``sh_dagger.py``, p
 Pinned:
 
 * torch-free imports (rule L6) and no bytecode; the process env is the predecessor trainer's, verbatim (reused, not
-  re-stated); the constants agree with facts.json / PLAN H5 (top_max follows an h_max re-freeze);
+  re-stated); the constants agree with facts.json / PLAN H5 (top_max follows an h_max re-freeze) and the step-4
+  re-scope (CHARTER section 3: start shares 0.50 / 0.40 / 0 / 0.10, poses 0.75 / 0 / 0.25, tops U[0.635, 0.805]); the
+  frozen block loads identically into sh_core / sh_table_core / sh_dagger_spec / sh_starts; the trainer never draws a
+  ground start or a rod_min pose and draws every top in [0.635, 0.805];
 * the cfg asserts (raw +-4.8 rod clip, scales, the wrapped terms present, compose once);
 * the step-6 premise read (homed / STOOD ratios, falls, sigma-0 restore timeouts) and the smoke verdict (fail closed);
 * the pose bank == facts.json's retracted poses and random-fold family; the start event's geometry per kind (table top
@@ -132,12 +135,15 @@ def test_process_env_is_the_predecessor_trainers_verbatim(SPEC):
 def test_constants_follow_facts_and_plan(SPEC):
     fr = json.loads((CAMP / "facts.json").read_text())["frozen"]
     assert (SPEC.H_MIN, SPEC.H_MAX) == (0.719, 1.346) == (fr["h_min_m"], fr["h_max_m"])
-    assert SPEC.TOP_MIN_M == fr["top_min_m"] and SPEC.TOP_MAX_M == pytest.approx(0.805)
+    assert SPEC.TOP_MIN_M == fr["top_min_m"] == 0.635 and SPEC.TOP_MAX_M == pytest.approx(0.805)
     assert SPEC.top_max_for(1.02, 0.805) == pytest.approx(0.756)          # an h_max re-freeze drops the tops
     assert SPEC.top_max_for(1.346, 0.805) == 0.805
     assert SPEC.START_KINDS == ("walk", "table", "ground", "random") == SPEC.SH.START_KINDS
     assert sum(SPEC.START_SHARES) == pytest.approx(1.0) and sum(SPEC.POSE_SHARES) == pytest.approx(1.0)
-    assert SPEC.START_SHARES == (0.50, 0.25, 0.15, 0.10)
+    assert SPEC.START_SHARES == (0.50, 0.40, 0.0, 0.10)                   # CHARTER step-4 decision: no ground starts
+    assert SPEC.POSES == ("knee_folded", "rod_min", "random_fold") and SPEC.POSE_SHARES == (0.75, 0.0, 0.25)
+    assert SPEC.DRAWN_START_KINDS == ("walk", "table", "random") and SPEC.DRAWN_POSES == ("knee_folded", "random_fold")
+    assert (SPEC.SK_WALK, SPEC.SK_TABLE, SPEC.SK_GROUND, SPEC.SK_RANDOM) == (0, 1, 2, 3)   # the codes did not shift
     assert SPEC.TABLE_CMD_MARGIN_M == 0.264 and SPEC.H_CMD_ATOM == 1.064 and SPEC.H_CMD_ATOM_P == 0.35
     assert SPEC.first_stand_seconds(1.064, 0.719, margin=False) == pytest.approx(0.345 / 0.08 + 7.0)
     assert SPEC.first_stand_seconds(1.0, 1.0) == pytest.approx(7.5)
@@ -214,7 +220,7 @@ def test_premise_read_rules(SPEC):
     recs = ([_rec("walk", "control") for _ in range(10)] + [_rec("walk", "student", homed=i < 3) for i in range(10)]
             + [_rec("table", "control", first=True, stood=True) for _ in range(10)]
             + [_rec("table", "student", first=True, stood=i < 8) for i in range(10)]
-            + [_rec("ground", "student", first=True, stood=True, sigma=0.3) for _ in range(5)])  # sigma: not scored
+            + [_rec("ground", "student", first=True, stood=True, sigma=0.0) for _ in range(5)])  # an absent kind
     log = [{"it": 5, "restore": {
         "control": {"sigma0": {"walk": {"engaged": 10, "completed": 10, "timed_out": 0, "merged": 0, "reset_cut": 0}}},
         "student": {"sigma0": {"walk": {"engaged": 10, "completed": 9, "timed_out": 1, "merged": 0, "reset_cut": 0}},
@@ -225,11 +231,14 @@ def test_premise_read_rules(SPEC):
     assert w["control"]["homed"]["p"] == 1.0 and w["student"]["homed"]["p"] == 0.3
     t = pr["by_kind"]["table"]
     assert t["student"]["stood"]["p"] == 0.8 and t["control"]["stood"]["p"] == 1.0
-    assert pr["by_kind"]["ground"]["student"]["stood"]["n"] == 0             # sigma > 0 stands are not scored
+    # the step-4 decision: no ground start type (share 0) -- its records are counted, never read, never a STOP
+    assert set(pr["by_kind"]) == {"walk", "table", "random"} and "ground" not in pr["by_kind"]
+    assert pr["absent_kinds"] == {"ground": {"share": 0.0, "records": 5}}
     by = {c["check"]: c for c in pr["checks"]}
     assert by["walk homed student >= 0.5 x R_h"]["stop"] is True
     assert by["table stood student >= 0.5 x R_h"]["stop"] is False
-    assert by["ground stood student >= 0.5 x R_h"]["stop"] is None
+    assert not any(c["check"].startswith("ground") for c in pr["checks"]) and len(pr["checks"]) == 5
+    assert SPEC.premise_read([r for r in recs if r["start_kind"] == "ground"], log)["stop"] in (True, False, None)
     r = by["restore-timeout share (sigma-0 episodes) student <= 2 x R_h + 0.01"]
     assert r["student"] == pytest.approx(0.1) and r["control"] == 0.0 and r["stop"] is True   # sigma_pos ignored
     assert pr["restore_pooled_all_sigma"]["student"]["timed_out"] == 51
@@ -331,7 +340,7 @@ def test_start_event_geometry_per_kind(L, ST, bank, stance):
     env = _env(L, ST, bank, stance, n=200)
     st, rd, td = env.state, env.robot.data, env.table.data
     kind = st.kind
-    assert set(kind.tolist()) == {0, 1, 2, 3}
+    assert set(kind.tolist()) == {0, 1, 3}                                 # ground share 0: never drawn (step 4)
     z = rd.root_link_pose_w[:, 2].double()
     bidx = torch.where(st.pose == 2, 2 + st.fold, st.pose)
     walk, table, ground, rand = (kind == 0), (kind == 1), (kind == 2), (kind == 3)
@@ -450,20 +459,81 @@ def test_fold_rule_and_fallback_on_tables(L, ST, stance):
     kf, rm = S.retracted_pose("knee_folded"), S.retracted_pose("rod_min")
     rows = [ST.pose_row("knee_folded", kf["hip_rad"], kf["knee_left_rad"]),
             ST.pose_row("rod_min", rm["hip_rad"], rm["knee_left_rad"])]
-    for tmin in (0.55, 0.65, 0.75):                                      # synthetic folds with chosen floor bounds
-        rows.append(dict(rows[0], name="random_fold", table_top_min=tmin))
+    for tmin in (0.67, 0.71, 0.75):                                      # synthetic folds with chosen floor bounds
+        rows.append(dict(rows[0], name="random_fold", table_top_min=tmin))  # (inside the tops U[0.635, 0.805])
     env = _env(L, ST, rows, stance, n=300, seed=4, shares=(0.0, 1.0, 0.0, 0.0), pose_shares=(0.0, 0.0, 1.0))
     st = env.state
     assert torch.all(st.kind == 1)
-    low = st.top < 0.55
+    low = st.top < 0.67
+    assert low.any() and (~low).any()
     assert torch.all(st.pose[low] == 0)                                  # no fold allowed -> knee_folded, counted
     assert st.counts()["fold_fallbacks"] == float(low.sum())
     hi = ~low
     assert torch.all(st.pose[hi] == 2)
-    tmins = torch.tensor([0.55, 0.65, 0.75], dtype=torch.float64)
+    tmins = torch.tensor([0.67, 0.71, 0.75], dtype=torch.float64)
     assert torch.all(tmins[st.fold[hi]] <= st.top[hi] + 1e-12)
     top_hi = st.top > 0.75
     assert len(set(st.fold[top_hi].tolist())) == 3                       # uniform over the allowed cells
+
+
+def test_trainer_never_draws_ground_or_rod_min_and_tops_are_tall(L, ST, bank, stance):
+    """CHARTER step-4 decision: the start event (the trainer's real StartState) never draws a ground start or a rod_min
+    pose (share 0: an empty searchsorted interval), draws every table top in [0.635, 0.805], and keeps the table /
+    knee_folded / random-fold shares (0.40 / 0.75 / 0.25)."""
+    env = _env(L, ST, bank, stance, n=2000, seed=31)
+    st = env.state
+    kinds, poses, tops = [st.kind.clone()], [st.pose.clone()], [st.top.clone()]
+    for _ in range(4):
+        env._reset(torch.arange(2000))
+        kinds.append(st.kind.clone())
+        poses.append(st.pose.clone())
+        tops.append(st.top.clone())
+    kind, pose, top = torch.cat(kinds), torch.cat(poses), torch.cat(tops)
+    n = kind.numel()
+    assert not bool((kind == ST.SPEC.SK_GROUND).any()) and not bool((pose == 1).any())          # never drawn
+    c = st.counts()
+    assert c["episodes_ground"] == 0 and sum(c["poses_ground"]) == 0 and c["poses_table"][1] == 0
+    table = kind == ST.SPEC.SK_TABLE
+    assert abs(float(table.double().mean()) - 0.40) < 0.02 and abs(float((kind == 0).double().mean()) - 0.50) < 0.02
+    t = top[table]
+    assert float(t.min()) >= 0.635 - 1e-12 and float(t.max()) <= 0.805 + 1e-12 and float(t.min()) < 0.65
+    assert float(t.max()) > 0.79 and torch.isnan(top[~table]).all()
+    tp = pose[table]
+    assert set(tp.tolist()) == {0, 2} and abs(float((tp == 0).double().mean()) - 0.75) < 0.03
+    assert torch.all(pose[~table] == -1) and c["fold_fallbacks"] == 0      # every top >= 0.635 admits a fold
+    assert not st.hip_disarmed.any()                                       # no ground start: the clause stays armed
+    # the categorical rule itself: the u values at and around the empty intervals
+    cum = torch.cumsum(torch.tensor(ST.SPEC.START_SHARES, dtype=torch.float64), 0)
+    u = torch.tensor([0.0, 0.4999999, 0.5, 0.8999999, 0.9, 0.9000001, 0.9999999], dtype=torch.float64)
+    assert torch.searchsorted(cum, u, right=True).clamp(max=3).tolist() == [0, 0, 1, 1, 3, 3, 3]
+    cp = torch.cumsum(torch.tensor(ST.SPEC.POSE_SHARES, dtype=torch.float64), 0)
+    u = torch.tensor([0.0, 0.7499999, 0.75, 0.9999999], dtype=torch.float64)
+    assert torch.searchsorted(cp, u, right=True).clamp(max=2).tolist() == [0, 0, 2, 2]
+
+
+def test_frozen_facts_load_consistently_into_every_module(SPEC, ST):
+    """facts.json ``frozen`` (re-scoped at the step-4 stop) is the ONE source: sh_core / sh_table_core / sh_dagger_spec
+    / sh_starts load the same block and derive the same table range and K3 tops."""
+    fr = json.loads((CAMP / "facts.json").read_text())["frozen"]
+    TC = _load(SCRIPTS / "sh_table_core.py", "_t_sh_dagger_tc_frozen")
+    SHC = _load(SCRIPTS / "sh_core.py", "_t_sh_dagger_core_frozen")
+    for mod in (SHC, TC.SH, SPEC.SH, ST.SPEC.SH):
+        assert mod.FROZEN == fr and (mod.H_MIN, mod.H_MAX) == (fr["h_min_m"], fr["h_max_m"]) == (0.719, 1.346)
+    assert str(fr["status"]).startswith("FROZEN")
+    assert fr["top_min_m"] == 0.635 and fr["top_max_train_m"] == 0.805
+    assert fr["k3_eval_tops_m"] == [0.635, 0.6985, 0.762] and fr["k3_reported_tops_m"] == [0.4572]
+    assert fr["k3_gated_poses"] == ["knee_folded", "random"]
+    old = fr["previous_frozen_step4"]
+    assert old["top_min_m"] == pytest.approx(0.41239, abs=1e-5) and old["k3_eval_tops_m"] == [0.4572, 0.635, 0.762]
+    assert "step-4" in old["reason"] and "CHARTER" in old["reason"]
+    assert SPEC.TOP_MIN_M == ST.SPEC.TOP_MIN_M == TC.TOP_MIN_M == fr["top_min_m"]
+    assert SPEC.TOP_MAX_M == ST.SPEC.TOP_MAX_M == TC.TOP_MAX_TRAIN_M == fr["top_max_train_m"]
+    assert list(TC.K3_TOPS_M) == fr["k3_eval_tops_m"] and list(TC.K3_REPORTED_TOPS_M) == fr["k3_reported_tops_m"]
+    assert list(TC.K3_GATED_POSES) == fr["k3_gated_poses"]
+    assert all(TC.TOP_MIN_M <= t <= TC.TOP_MAX_TRAIN_M for t in TC.K3_TOPS_M)   # every gated top is a trained top
+    # sh_facts never overwrites the frozen block on a re-run (it carries an existing FROZEN block over)
+    FA = _load(SCRIPTS / "sh_facts.py", "_t_sh_dagger_facts_frozen")
+    assert FA._existing_frozen() == fr
 
 
 def test_h_cmd_draw_distribution_and_table_bound(ST, bank, stance):

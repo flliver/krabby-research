@@ -55,14 +55,16 @@ THE GATES (PLAN H7; statistics pinned here per the audit's "left for implementat
            reaching = "short" (excluded, reported). Per seed: p90(excess) <= 0 (the pinned p90 aggregate). Falls:
            episodes with crab_failure on a stand-slot row, a raw count per seed <= max(1, R_h's) on R_h's episode count
            and schedule (INVALID otherwise).
-  K3       ``sh_table_core`` on the test's cell JSON: the 12 pinned cells (3 frozen tops x knee_folded / rod_min /
-           random + ground x the same), every cell present with n >= ``ENVS_PER_CELL`` (else PENDING); per seed
-           per start type (tables pooled over tops and poses; ground pooled over poses): ``k3_line`` = STOOD rate >=
-           R_h's - max(5 pp, 2 SE of the difference) AND falls per 100 <= max(1, R_h's). A cell's stored aggregate
-           must agree with its per-env records, table commands >= top + 0.31 m. Reported per top / pose: rate,
-           falls, 5- / 6-down, homed.
-           R_h premise (step-4 STOP): ``rh_floor`` (STOOD >= 0.90, falls <= 1 / 100 on each top, ground knee_folded,
-           ground rod_min).
+  K3       ``sh_table_core`` on the test's cell JSON (re-scoped at the step-4 stop, CHARTER section 3 "narrow stand-up
+           to tall tables"): the 6 GATED cells ``K3_GATED_CELLS`` (tops 0.635 / 0.6985 / 0.762 x knee_folded /
+           random), every one present with n >= ``ENVS_PER_CELL`` per seed (else PENDING); per seed the gated start
+           type ``tables`` (the 6 cells pooled): ``k3_line`` = STOOD rate >= R_h's - max(5 pp, 2 SE of the
+           difference) AND falls per 100 <= max(1, R_h's). A gated cell's stored aggregate must agree with its
+           per-env records, table commands >= top + 0.31 m (else INVALID). REPORTED cells (the 18-in table, every
+           rod_min cell, every ground cell) are read when present, never required, never a clause (their contract
+           problems are notes): per cell / top / ground pose rate, falls, 5- / 6-down, homed, and the ground line.
+           R_h premise (step-4 STOP): ``rh_floor`` on the gated cells only (STOOD >= 0.90, falls <= 1 / 100 on each
+           gated top pooled over the gated poses).
   K4       over the K4 rows: hand-back = the first S1 row (stand_eff = slot | restoring false) at or after a
            slot exit and before the next stand entry (none: a fall, a stand -> stand MERGE, or a cut); RESTORE-REQUIRED
            when the last stand row's limited command is > 0.02 m from 1.064. MISS = a restore-required hand-back whose
@@ -1163,9 +1165,10 @@ def _cell_paths(items) -> list[Path]:
 
 def read_table_cells(items, seed: int, *, controller: str | None = None, amask: bool = False) -> dict:
     """``{"cells": {cell: aggregate}, "per_cell": {cell: report}, "stand_sha256": [...], "reasons", "notes"}`` from
-    the table test's per-cell JSON (files / dirs / globs) of one role and env seed (IO; fail closed)."""
+    the table test's per-cell JSON (files / dirs / globs) of one role and env seed (IO; fail closed on the GATED cells:
+    a REPORTED cell's contract problem is a note -- it never decides, so it never invalidates)."""
     TC = _tc()
-    cells, rep, reasons, notes, shas = {}, {}, [], [], set()
+    cells, rep, reasons, notes, shas, rep_shas = {}, {}, [], [], set(), set()
     for p in _cell_paths(items):
         d = _json(p)
         if d is None:
@@ -1178,53 +1181,76 @@ def read_table_cells(items, seed: int, *, controller: str | None = None, amask: 
         if m.get("smoke") or m.get("video"):
             notes.append(f"{p}: smoke / video run, not counted")
             continue
+        gated = TC.cell_gated(m.get("cell"))
+
+        def flag(msg, gated=gated):
+            (reasons if gated else notes).append(msg if gated else f"[reported cell, not gated] {msg}")
+
         try:
-            if int(m.get("seed")) != int(seed):
-                reasons.append(f"{p}: meta.seed {m.get('seed')!r} != env seed {seed}")
-                continue
             surface, _pose = TC.parse_cell(m.get("cell"))
         except (TypeError, ValueError) as exc:
             reasons.append(f"{p}: {exc}")
             continue
+        try:
+            seed_ok = int(m.get("seed")) == int(seed)
+        except (TypeError, ValueError):
+            seed_ok = False
+        if not seed_ok:
+            flag(f"{p}: meta.seed {m.get('seed')!r} != env seed {seed}")
+            continue
         cell = m["cell"]
         if controller is not None and m.get("controller") != controller:
-            reasons.append(f"{p}: controller {m.get('controller')!r}, this role is {controller!r}")
-        if m.get("stand_sha256"):
-            shas.add(m["stand_sha256"])
+            flag(f"{p}: controller {m.get('controller')!r}, this role is {controller!r}")
+        if m.get("stand_sha256"):                  # the head's one-checkpoint rule reads the GATED cells' shas
+            (shas if gated else rep_shas).add(m["stand_sha256"])
         if amask and m.get("stand_sha256") != CORE.STAND_NET_SHA256:
-            reasons.append(f"{p}: stand checkpoint {str(m.get('stand_sha256'))[:12]} is not the A-mask s17 file")
+            flag(f"{p}: stand checkpoint {str(m.get('stand_sha256'))[:12]} is not the A-mask s17 file")
         if cell in cells:
-            reasons.append(f"{p}: duplicate cell {cell} ({rep[cell]['run']})")
+            flag(f"{p}: duplicate cell {cell} ({rep[cell]['run']})")
             continue
         a, pe = d.get("aggregate") or {}, d.get("per_env") or []
         if (a.get("n_envs") != len(pe) or a.get("n_stood") != sum(1 for r in pe if r.get("stood"))
                 or a.get("falls") != sum(1 for r in pe if r.get("fall"))):
-            reasons.append(f"{p}: aggregate (n {a.get('n_envs')}, stood {a.get('n_stood')}, falls {a.get('falls')}) "
-                           "disagrees with its per-env records")
+            flag(f"{p}: aggregate (n {a.get('n_envs')}, stood {a.get('n_stood')}, falls {a.get('falls')}) "
+                 "disagrees with its per-env records")
         top = TC.SURFACE_TOP.get(surface)
         if top is not None:
             low = [r.get("h_cmd_m") for r in pe if r.get("h_cmd_m") is None
                    or float(r["h_cmd_m"]) < top + TC.CMD_MARGIN_EVAL_M - 1e-6]
             if low:
-                reasons.append(f"{p}: {len(low)} envs command < top {top} + {TC.CMD_MARGIN_EVAL_M} m")
+                flag(f"{p}: {len(low)} envs command < top {top} + {TC.CMD_MARGIN_EVAL_M} m")
         cells[cell] = a
-        rep[cell] = {"run": str(p), "n": a.get("n_envs"), "stood_share": a.get("stood_share"),
+        rep[cell] = {"run": str(p), "gated": gated, "n": a.get("n_envs"), "stood_share": a.get("stood_share"),
                      "falls_per100": a.get("falls_per100"), "n_stood_5down": a.get("n_stood_5down"),
                      "n_stood_6down": a.get("n_stood_6down"), "homed": a.get("homed"),
                      "homed_share": a.get("homed_share"), "episode_s": m.get("episode_s"),
                      "k3_episode_s": m.get("k3_episode_s")}
-    return {"cells": cells, "per_cell": rep, "stand_sha256": sorted(shas), "reasons": reasons, "notes": notes}
+    if rep_shas - shas and shas:
+        notes.append(f"[reported cells, not gated] stand checkpoints {[x[:12] for x in sorted(rep_shas - shas)]} "
+                     "differ from the gated cells'")
+    return {"cells": cells, "per_cell": rep, "stand_sha256": sorted(shas), "stand_sha256_reported": sorted(rep_shas),
+            "reasons": reasons, "notes": notes}
 
 
 def _k3_complete(t: dict | None) -> list[str]:
-    """Missing / short cells (every pinned cell, n >= ENVS_PER_CELL)."""
+    """Missing / short GATED cells (each of ``K3_GATED_CELLS`` present, n >= ENVS_PER_CELL); reported cells are never
+    required."""
     TC = _tc()
     if t is None:
         return ["no table / ground JSON"]
-    out = [f"{c} missing" for c in TC.K3_CELLS if c not in t["cells"]]
-    out += [f"{c} n {t['cells'][c].get('n_envs')} < {TC.ENVS_PER_CELL}" for c in TC.K3_CELLS
+    out = [f"{c} missing" for c in TC.K3_GATED_CELLS if c not in t["cells"]]
+    out += [f"{c} n {t['cells'][c].get('n_envs')} < {TC.ENVS_PER_CELL}" for c in TC.K3_GATED_CELLS
             if c in t["cells"] and int(t["cells"][c].get("n_envs") or 0) < TC.ENVS_PER_CELL]
     return out
+
+
+def _k3_reported_line(pa, pr, stt: str):
+    """The K3 line on a REPORTED start type (never a clause): None when a side lacks it or the cell sets differ."""
+    TC = _tc()
+    s, r = (pa or {}).get(stt), (pr or {}).get(stt)
+    if s is None or r is None or s.get("cell_ids", s["cells"]) != r.get("cell_ids", r["cells"]):
+        return None
+    return dict(TC.k3_line(s, r), gated=False)
 
 
 def gate_k3(role: str, tables: dict, seeds=SEEDS) -> dict:
@@ -1239,7 +1265,7 @@ def gate_k3(role: str, tables: dict, seeds=SEEDS) -> dict:
         miss_a, miss_r = _k3_complete(tr), _k3_complete(rr)
         pa = TC.pooled_views(tr["cells"]) if tr is not None and tr["cells"] else None
         pr = TC.pooled_views(rr["cells"]) if rr is not None and rr["cells"] else None
-        for stt in TC.START_TYPES:
+        for stt in TC.START_TYPES:                          # the GATED start type only (the 6 gated cells pooled)
             nr, nf = (f"STOOD rate {stt} es{s} >= R_h's - max({TC.K3_RATE_PP}, {TC.K3_SE_K:g} SE)",
                       f"falls/100 {stt} es{s} <= max({TC.K3_FALLS_FLOOR_PER100:g}, R_h's)")
             if miss_a or miss_r:
@@ -1253,16 +1279,28 @@ def gate_k3(role: str, tables: dict, seeds=SEEDS) -> dict:
             cl[nf] = _cl(ln["falls_per100"], ln["falls_line_per100"], ln["falls_pass"], "eval", s,
                          short=f"falls {stt}", note=f"R_h {ln['ref_falls_per100']:.2f} per 100")
         if tr is not None:
-            rep[f"es{s}"] = {"per_cell": tr["per_cell"], "notes": tr["notes"], "stand_sha256": tr["stand_sha256"],
-                             "per_top": (pa or {}).get("per_top"), "ground_per_pose": (pa or {}).get("ground_per_pose")}
-    return dict(verdict_of(cl, inv), clauses=cl, reported=rep,
-                statistic="sh_table_core: the 12 pinned cells (n >= 100 each); per seed per start type (tables pooled "
-                          "over tops and poses, ground over poses) k3_line: STOOD rate >= R_h's - max(5 pp, 2 SE), "
-                          "falls / 100 <= max(1, R_h's)")
+            rep[f"es{s}"] = {"gated_cells": list(TC.K3_GATED_CELLS),
+                             "gated_cells_present": (pa or {}).get("gated_cells", []),
+                             "reported_cells_present": (pa or {}).get("reported_cells", []),
+                             "per_cell": tr["per_cell"], "notes": tr["notes"], "stand_sha256": tr["stand_sha256"],
+                             "stand_sha256_reported": tr.get("stand_sha256_reported", []),
+                             "per_top": (pa or {}).get("per_top"),
+                             "per_top_all_poses_reported": (pa or {}).get("per_top_all_poses"),
+                             "ground_per_pose_reported": (pa or {}).get("ground_per_pose"),
+                             "reported_lines": {st: _k3_reported_line(pa, pr, st) for st in TC.REPORTED_START_TYPES}}
+    return dict(verdict_of(cl, inv), clauses=cl, reported=rep, gated_cells=list(TC.K3_GATED_CELLS),
+                reported_cells=list(TC.K3_REPORTED_CELLS),
+                statistic=f"sh_table_core: the {len(TC.K3_GATED_CELLS)} GATED cells {list(TC.K3_GATED_CELLS)} (n >= "
+                          f"{TC.ENVS_PER_CELL} each, per seed) pooled as start type 'tables': k3_line STOOD rate >= "
+                          "R_h's - max(5 pp, 2 SE), falls / 100 <= max(1, R_h's); the reported cells (18-in table, "
+                          "every rod_min cell, every ground cell) and the ground line are reported, never gated "
+                          "(CHARTER section 3, step-4 decision)")
 
 
 def k3_premise(tables: dict, seeds=SEEDS) -> dict:
-    """R_h's own stand-up floor (PLAN step 4 STOP): ``sh_table_core.rh_floor`` per seed (pending when incomplete)."""
+    """R_h's own stand-up floor (PLAN step 4 STOP, re-scoped at the step-4 stop): ``sh_table_core.rh_floor`` per seed
+    on the gated cells only (per gated top pooled over the gated poses; pending when a gated cell is missing / short);
+    reported cells never make a miss."""
     TC = _tc()
     out, misses = {}, []
     for s in seeds:
@@ -1274,9 +1312,10 @@ def k3_premise(tables: dict, seeds=SEEDS) -> dict:
         fl = TC.rh_floor(TC.pooled_views(rr["cells"]))
         out[f"es{s}"] = fl
         misses += [f"es{s} {k}" for k, v in fl.items() if not k.startswith("_") and v["gated"] and not v["floor_pass"]]
-    return {"seeds": out, "misses": misses,
+    return {"seeds": out, "misses": misses, "gated_cells": list(TC.K3_GATED_CELLS),
             "rule": f"sh_table_core.rh_floor: STOOD >= {TC.RH_FLOOR_STOOD} and falls <= {TC.RH_FLOOR_FALLS_PER100:g} "
-                    "per 100 on each table top, ground knee_folded and ground rod_min"}
+                    f"per 100 on each gated top {list(TC.K3_GATED_SURFACES)} pooled over the gated poses "
+                    f"{list(TC.K3_GATED_POSES)}; the reported cells are listed, never a miss"}
 
 
 # ===================================================================================== K5
@@ -1661,7 +1700,9 @@ def run(spec: dict, *, k5: bool = True, forces: bool = True, snc=None) -> dict:
             "k5": None if k5_out is None else {k: v for k, v in k5_out.items() if k != "gates"},
             "reads": {r: {f"es{s}": {row: {k: v for k, v in p.items() if k in keep} for row, p in by.items()}
                           for s, by in reads[r].items()} for r in roles},
-            "tables": {r: {f"es{s}": {"reasons": t["reasons"], "notes": t["notes"], "cells": sorted(t["cells"])}
+            "tables": {r: {f"es{s}": {"reasons": t["reasons"], "notes": t["notes"], "cells": sorted(t["cells"]),
+                                      "stand_sha256": t.get("stand_sha256", []),
+                                      "stand_sha256_reported": t.get("stand_sha256_reported", [])}
                            for s, t in v.items()} for r, v in tables.items()},
             "seeds": list(seeds)}
 
@@ -1719,8 +1760,27 @@ def markdown(out: dict) -> str:
     if out["mismatches"]:
         L += ["**Mismatches (step 4: STOP, notify, ask):**", ""] + [f"- {x}" for x in out["mismatches"]] + [""]
     pr = out["premise_rh_standup"]
-    L += [f"**R_h stand-up premise ({pr['rule']}):** " + ("MISS in " + ", ".join(pr["misses"]) if pr["misses"]
-                                                           else "no miss read"), ""]
+    pend = [f"{es}: {'; '.join(str(x) for x in (v.get('why') or []))}" for es, v in (pr.get("seeds") or {}).items()
+            if isinstance(v, dict) and v.get("state") == "pending"]
+    L += [f"**R_h stand-up premise ({pr['rule']}):** "
+          + ("MISS in " + ", ".join(pr["misses"]) if pr["misses"] else "")
+          + (("; " if pr["misses"] else "") + "pending (" + " | ".join(pend) + ")" if pend else "")
+          + ("" if pr["misses"] or pend else "no miss read"), ""]
+    TC = _tc()
+    L += [f"**K3 cells:** GATED ({len(TC.K3_GATED_CELLS)}; the K3 line and the R_h floor read these only): "
+          + ", ".join(TC.K3_GATED_CELLS) + f". REPORTED ({len(TC.K3_REPORTED_CELLS)}; run and read, never gated): "
+          + ", ".join(TC.K3_REPORTED_CELLS) + ".", ""]
+    sha_rows = []
+    for role, by in (out.get("tables") or {}).items():
+        for es, t in by.items():
+            g, rp = list(t.get("stand_sha256") or []), list(t.get("stand_sha256_reported") or [])
+            if g or rp:
+                sha_rows.append(f"- {role} {es}: gated cells' stand checkpoint {[x[:12] for x in g]}; reported cells' "
+                                f"{[x[:12] for x in rp]}" + (" -- **reported cells ran another checkpoint (their "
+                                                              "numbers are not this head's)**" if set(rp) - set(g)
+                                                              else ""))
+    if sha_rows:
+        L += ["**K3 stand checkpoints (the one-checkpoint rule reads the gated cells only):**", ""] + sha_rows + [""]
     hm = out.get("h_max_recheck") or {}
     near = hm.get("at_h_max") or {}
     L += [f"**h_max re-check (R_h top bin {hm.get('bin')}):** {hm.get('state')}"
@@ -1778,7 +1838,9 @@ def constants() -> dict:
                    "arrival_delay_s": K1_ARRIVAL_DELAY_S},
             "k2": {"tol_m": TRACK_TOL_M, "reach_hold_s": REACH_HOLD_S, "extra_s": K2_EXTRA_S, "q": K2_Q,
                    "fall_floor": FALL_FLOOR},
-            "k3": "sh_table_core (K3_CELLS, ENVS_PER_CELL, classify, pooled_views, k3_line, rh_floor)",
+            "k3": "sh_table_core (K3_GATED_CELLS decide, K3_REPORTED_CELLS reported; ENVS_PER_CELL, classify, "
+                  "pooled_views, k3_line, rh_floor)",
+            "k3_gated_cells": list(_tc().K3_GATED_CELLS), "k3_reported_cells": list(_tc().K3_REPORTED_CELLS),
             "k4": {"engage_m": CORE.RESTORE_ENGAGE_M, "rod_tol_m": CORE.RESTORE_ROD_TOL_M,
                    "settle_s": CORE.RESTORE_SETTLE_S, "exit_fall_s": K4_EXIT_FALL_S,
                    "onset_extra_s": K4_ONSET_EXTRA_S, "q": K4_Q},

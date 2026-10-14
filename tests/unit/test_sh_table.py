@@ -5,7 +5,10 @@ refusals and env composition with stubs) and ``scripts/sh_table_test.sh`` (launc
 Pinned here:
 
 * both scripts are torch- / numpy-free at import, write no bytecode, and import nothing of Isaac before Kit;
-* the K3 cells: the frozen tops, 4 surfaces x 3 poses, the fixed poses' spawn / table geometry against ``facts.json``,
+* the K3 cells: the frozen tops (gated 0.635 / 0.6985 / 0.762 + the reported 18-in table; CHARTER step-4 decision),
+  5 surfaces x 3 poses, the GATED set = exactly the 6 gated-top x knee_folded / random cells (every other cell
+  reported, never flipping a K3 line, the R_h floor or its STOP), the fixed poses' spawn / table geometry against
+  ``facts.json``,
   the random-fold family (hip grid, knee range, table rejection), commands (>= top + 0.31; ground >= max(h_min, spawn +
   0.14625); stratified; fixed ``--h-cmd`` in range), per-(seed, cell, k) determinism independent of the other cells,
   k = 0 nominal jitter, the pinned K3 episode (16.0 s) covering every env's rise + ramp + settle + window;
@@ -17,7 +20,8 @@ Pinned here:
   q(h_init) on every leg; the stand-checkpoint rule (tags, mask, S1, the W[:, 15] zeroing);
 * K3 STOOD on synthetic traces (every clause and its boundary, the 95 % tolerances, 5- / 6-down, falls by cause,
   the H5 hip-contact arming on ground starts, fell-off, homed), the aggregate, the pooled views, the K3 line vs R_h
-  (rate - max(5 pp, 2 SE), falls <= max(1, R_h's) per 100) and the step-4 R_h floor, the merge (duplicates refused);
+  (rate - max(5 pp, 2 SE), falls <= max(1, R_h's) per 100) on the gated cells and the step-4 R_h floor per gated top
+  pooled over the two gated poses, the merge (duplicates refused; gated vs reported labelled);
 * the action-clip check, the crab_failure read before it is disabled, the env composition (time-out only, DR off,
   ``sh_start`` LAST, the tall kinematic table);
 * the launcher: ``bash -n``, the busy pattern, ``--dry-run`` (smoke / full / split; nothing written), refusals, and the
@@ -156,9 +160,12 @@ def test_scripts_compile_and_no_top_level_heavy_imports(tmp_path):
 # ===================================================================================== constants / cells
 def test_constants_and_cells(C, SH, facts):
     fr = facts["frozen"]
-    assert C.K3_TOPS_M == tuple(fr["k3_eval_tops_m"]) == (0.4572, 0.635, 0.762)
-    assert C.SURFACES == ("table_0p4572", "table_0p635", "table_0p762", "ground")
-    assert len(C.K3_CELLS) == 12 and C.K3_CELLS[0] == "table_0p4572__knee_folded" and C.K3_CELLS[-1] == "ground__random"
+    assert C.K3_TOPS_M == tuple(fr["k3_eval_tops_m"]) == (0.635, 0.6985, 0.762)            # gated (step-4 decision)
+    assert C.K3_REPORTED_TOPS_M == tuple(fr["k3_reported_tops_m"]) == (0.4572,)              # run + read, never gated
+    assert C.K3_GATED_POSES == tuple(fr["k3_gated_poses"]) == ("knee_folded", "random")
+    assert C.TOP_MIN_M == fr["top_min_m"] == 0.635 and C.TOP_MAX_TRAIN_M == fr["top_max_train_m"] == 0.805
+    assert C.SURFACES == ("table_0p4572", "table_0p635", "table_0p6985", "table_0p762", "ground")
+    assert len(C.K3_CELLS) == 15 and C.K3_CELLS[0] == "table_0p4572__knee_folded" and C.K3_CELLS[-1] == "ground__random"
     assert C.POSES == ("knee_folded", "rod_min", "random") and C.ENVS_PER_CELL == 100
     assert C.CONTROLLERS == ("r_h", "stand_net", "posture_only", "s1", "amask_old")
     assert C.CMD_MARGIN_EVAL_M == 0.31 and C.GROUND_CMD_RISE_M == pytest.approx(0.31 - 0.15875 - 0.005)
@@ -169,12 +176,41 @@ def test_constants_and_cells(C, SH, facts):
     assert C.START_CODE == {"table": SH.START_KINDS.index("table"), "ground": SH.START_KINDS.index("ground")}
     for top in C.K3_TOPS_M:                                                     # frozen eval tops are feasible
         assert fr["top_min_m"] <= top <= fr["top_max_train_m"] and top + 0.31 <= SH.H_MAX
+    for top in C.K3_REPORTED_TOPS_M:                                            # the 18-in table: below the trained
+        assert top < fr["top_min_m"] and top + 0.31 <= SH.H_MAX                 # range, still runnable
     assert C.surface_id(0.635) == "table_0p635" and C.surface_id(None) == "ground"
+    assert C.surface_id(0.6985) == "table_0p6985" and C.SURFACE_TOP["table_0p6985"] == 0.6985
+    assert C.SURFACE_TOP["table_0p4572"] == 0.4572 and C.SURFACE_TOP["ground"] is None
+
+
+def test_gated_set_is_exactly_the_six_cells(C):
+    """CHARTER step-4 decision: gated = tops {0.635, 0.6985, 0.762} x poses {knee_folded, random}; every other cell (the
+    18-in table, every rod_min cell, every ground cell) is reported."""
+    assert C.K3_GATED_CELLS == ("table_0p635__knee_folded", "table_0p635__random", "table_0p6985__knee_folded",
+                                "table_0p6985__random", "table_0p762__knee_folded", "table_0p762__random")
+    assert len(C.K3_REPORTED_CELLS) == 9 and not set(C.K3_GATED_CELLS) & set(C.K3_REPORTED_CELLS)
+    assert set(C.K3_GATED_CELLS) | set(C.K3_REPORTED_CELLS) == set(C.K3_CELLS)
+    assert set(C.K3_REPORTED_CELLS) == ({c for c in C.K3_CELLS if c.startswith(("ground", "table_0p4572"))}
+                                        | {c for c in C.K3_CELLS if c.endswith("__rod_min")})
+    assert [c for c in C.K3_CELLS if C.cell_gated(c)] == list(C.K3_GATED_CELLS)
+    assert not C.cell_gated("ground__knee_folded") and not C.cell_gated(None) and not C.cell_gated("bogus")
+    assert C.START_TYPES == ("tables",) and C.REPORTED_START_TYPES == ("ground",)
+    g = C.gating_record()
+    assert g["gated_cells"] == list(C.K3_GATED_CELLS) and g["reported_cells"] == list(C.K3_REPORTED_CELLS)
+    assert g["gated_tops_m"] == [0.635, 0.6985, 0.762] and g["reported_tops_m"] == [0.4572]
+    assert C.cell_record({"seed": 1}, "table_0p6985__random", [], [])["meta"]["gated"] is True
+    assert C.cell_record({"seed": 1}, "table_0p6985__rod_min", [], [])["meta"]["gated"] is False
+    f = C.build_facts()
+    assert f["k3_gated_cells"] == list(C.K3_GATED_CELLS) and f["k3_reported_cells"] == list(C.K3_REPORTED_CELLS)
+    assert f["surfaces"]["table_0p635"]["gated_poses"] == ["knee_folded", "random"]
+    assert f["surfaces"]["table_0p4572"]["gated_poses"] == [] and f["surfaces"]["ground"]["gated_poses"] == []
 
 
 def test_parse_cells(C):
     assert C.parse_cells("all") == list(C.K3_CELLS)
     assert C.parse_cells("ground") == ["ground__knee_folded", "ground__rod_min", "ground__random"]
+    assert C.parse_cells("table_0p6985") == ["table_0p6985__knee_folded", "table_0p6985__rod_min",
+                                             "table_0p6985__random"]
     assert C.parse_cells("table_0p635__rod_min,ground,table_0p635__rod_min") == [
         "table_0p635__rod_min", "ground__knee_folded", "ground__rod_min", "ground__random"]
     for bad in ("table_0p7__rod_min", "ground__folded", "ground_rod_min", "x"):
@@ -192,7 +228,7 @@ def test_fixed_pose_geometry_matches_the_step1_facts(C, facts):
         assert C.table_top_min(p["hip_rad"], p["knee_left_rad"]) == pytest.approx(
             fp[pose]["table_top_min_m_legs_0p02_above_floor"], abs=1e-9)
         assert lp["first_contact"] == fp[pose]["ground"]["first_contact"]
-        for top in C.K3_TOPS_M:
+        for top in C.K3_TOPS_M + C.K3_REPORTED_TOPS_M:                          # gated and reported tables
             assert C.fold_ok_on_table(p["hip_rad"], p["knee_left_rad"], top), (pose, top)
     assert C.table_spawn_root_z(0.635) == pytest.approx(0.79875)
 
@@ -247,7 +283,7 @@ def test_commands_and_ranges(C, SH, plan1):
 
 
 def test_plan_layout_determinism_and_independence(C, plan1):
-    assert [e["env"] for e in plan1] == list(range(1200))
+    assert [e["env"] for e in plan1] == list(range(1500))
     assert [e["cell"] for e in plan1[::100]] == list(C.K3_CELLS)
     again = C.plan_envs(C.K3_CELLS, 100, 1, jitter=True)
     assert again == plan1 and C.plan_digest(again) == C.plan_digest(plan1)
@@ -306,7 +342,7 @@ def test_joint_rows_probe_rows_and_event_params(C, plan1):
     toes = [p["toe"] for p in C.STC.foot_points_body(kf["hip_rad"], kf["knee_left_rad"]).values()]
     assert all([t[0], t[1]] in pts for t in toes)
     ev = C.event_params(plan1, names)
-    assert len(ev["joint_pos"]) == len(ev["probe_xy_b"]) == len(ev["root_rel"]) == 1200
+    assert len(ev["joint_pos"]) == len(ev["probe_xy_b"]) == len(ev["root_rel"]) == 1500
     assert all(math.isnan(t) for t, e in zip(ev["table_top_rel"], plan1) if e["top"] is None)
     assert all(t == e["top"] for t, e in zip(ev["table_top_rel"], plan1) if e["top"] is not None)
     json.dumps({k: v for k, v in ev.items() if k != "table_top_rel"})                  # plain lists
@@ -808,28 +844,137 @@ def test_pooled_views_k3_read_and_rh_floor(C):
     subj = {c: _agg(stood=93) for c in C.K3_CELLS}
     bad = dict(subj, **{c: _agg(stood=60) for c in C.K3_CELLS if c.startswith("ground")})
     pv = C.pooled_views(ref)
-    assert pv["tables"]["n_envs"] == 900 and pv["tables"]["cells"] == 9 and pv["ground"]["n_envs"] == 300
-    assert set(pv["per_top"]) == {"table_0p4572", "table_0p635", "table_0p762"} and pv["per_top"]["table_0p635"][
+    assert pv["tables"]["n_envs"] == 600 and pv["tables"]["cells"] == 6 and pv["ground"]["n_envs"] == 300
+    assert set(pv["per_top"]) == {"table_0p635", "table_0p6985", "table_0p762"}
+    assert pv["per_top"]["table_0p635"]["n_envs"] == 200 and pv["per_top"]["table_0p635"]["cells"] == 2
+    assert set(pv["per_top_all_poses"]) == set(C.SURFACES[:-1]) and pv["per_top_all_poses"]["table_0p635"][
         "n_envs"] == 300
     assert set(pv["ground_per_pose"]) == set(C.POSES)
+    assert pv["gated_cells"] == list(C.K3_GATED_CELLS) and pv["missing_gated_cells"] == []
+    assert pv["reported_cells"] == list(C.K3_REPORTED_CELLS)
+    assert all(pv["cells"][c]["gated"] == C.cell_gated(c) for c in C.K3_CELLS)
     pooled = {"1": {"r_h": pv, "x": C.pooled_views(subj), "y": C.pooled_views(bad),
-                    "z": C.pooled_views({c: a for c, a in subj.items() if "rod_min" not in c})}}
+                    "z": C.pooled_views({c: a for c, a in subj.items() if c != "table_0p6985__random"}),
+                    "zr": C.pooled_views({c: a for c, a in subj.items() if "rod_min" not in c})}}
     k3 = C.k3_read(pooled)
     assert "r_h" not in k3["1"]
-    assert k3["1"]["x"]["tables"]["pass"] and k3["1"]["x"]["ground"]["pass"]
+    assert k3["1"]["x"]["tables"]["pass"] and k3["1"]["x"]["tables"]["gated"] is True
+    assert k3["1"]["x"]["ground"]["pass"] and k3["1"]["x"]["ground"]["gated"] is False          # reported line
     assert k3["1"]["y"]["tables"]["pass"] and k3["1"]["y"]["ground"]["pass"] is False
-    assert k3["1"]["z"]["tables"]["pass"] is None and "cell counts" in k3["1"]["z"]["tables"]["why"]
+    assert k3["1"]["z"]["tables"]["pass"] is None and "gated cell set incomplete" in k3["1"]["z"]["tables"]["why"]
+    assert k3["1"]["zr"]["tables"]["pass"] is True                     # dropping REPORTED cells never refuses the line
     assert C.k3_read({"2": {"x": C.pooled_views(subj)}})["2"]["x"]["tables"]["pass"] is None   # no reference
     fl = C.rh_floor(pv)
-    assert fl["_all_gated_pass"] and not fl["ground random"]["gated"] and fl["ground rod_min"]["gated"]
-    low = dict(ref, **{"ground__rod_min": _agg(stood=85)})
+    assert fl["_all_gated_pass"] and fl["_complete"] and fl["_missing_gated_cells"] == []
+    gated = {k for k, v in fl.items() if not k.startswith("_") and v["gated"]}
+    assert gated == {"top table_0p635", "top table_0p6985", "top table_0p762"}
+    assert {k for k, v in fl.items() if not k.startswith("_") and not v["gated"]} == {
+        f"cell {c}" for c in C.K3_REPORTED_CELLS}
+    low = dict(ref, **{"ground__rod_min": _agg(stood=85), "ground__knee_folded": _agg(stood=0, falls=31)})
     fl = C.rh_floor(C.pooled_views(low))
-    assert not fl["ground rod_min"]["floor_pass"] and not fl["_all_gated_pass"]
-    rnd = dict(ref, **{"ground__random": _agg(stood=50)})
-    assert C.rh_floor(C.pooled_views(rnd))["_all_gated_pass"]                    # ground random: reported only
-    falls = dict(ref, **{"table_0p762__knee_folded": _agg(stood=95, falls=4)})
-    fl = C.rh_floor(C.pooled_views(falls))                                       # 4 of 300 on that top: 1.33 / 100
-    assert not fl["top table_0p762"]["floor_pass"]
+    assert fl["_all_gated_pass"] and not fl["cell ground__rod_min"]["floor_pass"]   # reported: listed, never a miss
+    falls = dict(ref, **{"table_0p762__knee_folded": _agg(stood=95, falls=3)})
+    fl = C.rh_floor(C.pooled_views(falls))                                       # 3 of 200 on that top: 1.5 / 100
+    assert not fl["top table_0p762"]["floor_pass"] and not fl["_all_gated_pass"]
+
+
+def test_k3_read_compares_gated_cell_sets_not_counts(C, tmp_path):
+    """Review fix: equal cell COUNTS with different (or both short) gated cell SETS never read as a ``tables`` line --
+    in k3_read, the merge summary and the printed table; the reported ``ground`` line compares sets too."""
+    ref = {c: _agg(stood=95) for c in C.K3_CELLS}
+    subj = {c: _agg(stood=93) for c in C.K3_CELLS}
+    a, b = "table_0p635__knee_folded", "table_0p762__random"
+    pv = C.pooled_views(ref)
+    assert pv["tables"]["cell_ids"] == list(C.K3_GATED_CELLS)
+    assert pv["ground"]["cell_ids"] == [c for c in C.K3_CELLS if c.startswith("ground")]
+    drop = lambda d, *cs: {c: v for c, v in d.items() if c not in cs}  # noqa: E731
+    cases = {"different": (drop(ref, a), drop(subj, b)),      # 5 vs 5 cells, different sets
+             "same": (drop(ref, a), drop(subj, a)),           # both short the same gated cell
+             "ref_short": (drop(ref, a), subj)}
+    for name, (r, s) in cases.items():
+        k = C.k3_read({"1": {"r_h": C.pooled_views(r), "x": C.pooled_views(s)}})["1"]["x"]["tables"]
+        assert k["pass"] is None and "gated cell set incomplete" in k["why"], name
+        assert k["gated"] is True and a in k["why"], name
+    g1, g2 = "ground__knee_folded", "ground__random"
+    k = C.k3_read({"1": {"r_h": C.pooled_views(drop(ref, g1)), "x": C.pooled_views(drop(subj, g2))}})["1"]["x"]
+    assert k["ground"]["pass"] is None and "cell sets differ" in k["ground"]["why"]
+    assert k["tables"]["pass"] is True                         # a reported gap never refuses the gated line
+    # through the per-cell files, the merge summary and the printed table: no tables PASS over 5 cells
+    _write_cells(C, tmp_path, "r_h", 1, [c for c in C.K3_CELLS if c != a], stood=97)
+    _write_cells(C, tmp_path, "stand_net", 1, [c for c in C.K3_CELLS if c != b], stood=96)
+    m = C.merge_cells(sorted(tmp_path.glob("*.json")))
+    assert m["k3"]["1"]["stand_net"]["tables"]["pass"] is None
+    row = next(ln for ln in C.format_table(m).splitlines() if "stand_net" in ln and " tables " in ln)
+    assert "PASS" not in row and "FAIL" not in row
+
+
+def test_rh_floor_is_per_gated_top_pooled_over_the_two_gated_poses(C):
+    ref = {c: _agg(stood=100) for c in C.K3_CELLS}
+    # 0.635: knee_folded 85 + random 96 = 181 / 200 = 0.905 -- one pose alone would miss, the pooled top passes
+    mix = dict(ref, **{"table_0p635__knee_folded": _agg(stood=85), "table_0p635__random": _agg(stood=96)})
+    t = C.rh_floor(C.pooled_views(mix))["top table_0p635"]
+    assert (t["n_envs"], t["n_stood"], t["cells"], t["poses"]) == (200, 181, 2, ["knee_folded", "random"])
+    assert t["stood_share"] == pytest.approx(0.905) and t["floor_pass"]
+    # the top's rod_min cell is not in its pool: a terrible one moves nothing
+    t2 = C.rh_floor(C.pooled_views(dict(mix, **{"table_0p635__rod_min": _agg(stood=0, falls=100)})))["top table_0p635"]
+    assert {k: t2[k] for k in ("n_envs", "n_stood", "falls", "floor_pass")} == {
+        k: t[k] for k in ("n_envs", "n_stood", "falls", "floor_pass")}
+    # 179 / 200 = 0.895 < 0.90: MISS on that top only
+    fl = C.rh_floor(C.pooled_views(dict(ref, **{"table_0p635__knee_folded": _agg(stood=83),
+                                                "table_0p635__random": _agg(stood=96)})))
+    assert not fl["top table_0p635"]["floor_pass"] and fl["top table_0p6985"]["floor_pass"] and not fl["_all_gated_pass"]
+    # falls pooled over both poses: 2 / 200 = 1.0 per 100 passes, 3 / 200 = 1.5 misses
+    f2 = dict(ref, **{"table_0p6985__knee_folded": _agg(stood=99, falls=1), "table_0p6985__random": _agg(stood=99,
+                                                                                                         falls=1)})
+    assert C.rh_floor(C.pooled_views(f2))["top table_0p6985"]["falls_per100"] == pytest.approx(1.0)
+    assert C.rh_floor(C.pooled_views(f2))["_all_gated_pass"]
+    f3 = dict(f2, **{"table_0p6985__random": _agg(stood=98, falls=2)})
+    assert not C.rh_floor(C.pooled_views(f3))["top table_0p6985"]["floor_pass"]
+    # a gated cell missing: incomplete, never a pass (the merge prints INCOMPLETE, not PASS)
+    fl = C.rh_floor(C.pooled_views({c: a for c, a in ref.items() if c != "table_0p762__random"}))
+    assert not fl["_complete"] and fl["_missing_gated_cells"] == ["table_0p762__random"] and not fl["_all_gated_pass"]
+    assert fl["top table_0p762"]["cells"] == 1 and fl["top table_0p762"]["poses"] == ["knee_folded"]
+
+
+def test_a_terrible_reported_cell_never_flips_a_k3_line_or_the_floor(C, tmp_path):
+    ref = {c: _agg(stood=96) for c in C.K3_CELLS}
+    subj = {c: _agg(stood=93) for c in C.K3_CELLS}
+    terrible = _agg(stood=0, falls=100)
+
+    def read(r, s):
+        k = C.k3_read({"1": {"r_h": C.pooled_views(r), "x": C.pooled_views(s)}})["1"]["x"]["tables"]
+        fl = C.rh_floor(C.pooled_views(r))
+        return k, {k_: v["floor_pass"] for k_, v in fl.items() if k_.startswith("top ")}, fl["_all_gated_pass"]
+
+    base = read(ref, subj)
+    assert base[0]["pass"] is True and base[2] is True
+    for cell in C.K3_REPORTED_CELLS:
+        for r, s in ((ref, dict(subj, **{cell: terrible})), (dict(ref, **{cell: terrible}), subj),
+                     (dict(ref, **{cell: terrible}), dict(subj, **{cell: terrible}))):
+            assert read(r, s) == base, cell
+    # the same injection in a GATED cell flips the line (subject) and the floor (R_h)
+    for cell in C.K3_GATED_CELLS:
+        assert read(ref, dict(subj, **{cell: terrible}))[0]["pass"] is False, cell
+        assert read(dict(ref, **{cell: terrible}), subj)[2] is False, cell
+    # end to end through the per-cell files, the merge and the printed table
+    _write_cells(C, tmp_path, "r_h", 1, C.K3_CELLS, stood=97)
+    _write_cells(C, tmp_path, "stand_net", 1, C.K3_GATED_CELLS, stood=96)
+    _write_cells(C, tmp_path, "stand_net", 1, C.K3_REPORTED_CELLS, stood=0)
+    for cell in C.K3_REPORTED_CELLS:                                       # R_h too: every reported cell terrible
+        f = tmp_path / f"r_h_s1__{cell}.json"
+        rec = json.loads(f.read_text())
+        rec["aggregate"].update(n_stood=0, falls=100, falls_per100=100.0, stood_share=0.0)
+        f.write_text(json.dumps(rec))
+    m = C.merge_cells(sorted(tmp_path.glob("*.json")))
+    assert m["k3"]["1"]["stand_net"]["tables"]["pass"] is True and m["rh_floor"]["1"]["_all_gated_pass"] is True
+    assert m["gating"]["gated_cells"] == list(C.K3_GATED_CELLS)
+    txt = C.format_table(m)
+    assert "K3 GATED cells (6" in txt and "K3 REPORTED cells (9" in txt and "-> PASS" in txt
+    assert "R_h reported es1 (never gated)" in txt and "cell ground__knee_folded 0/100 falls 100" in txt
+    row = next(ln for ln in txt.splitlines() if "stand_net" in ln and "ground__rod_min" in ln)
+    assert " reported " in row
+    row = next(ln for ln in txt.splitlines() if "stand_net" in ln and "table_0p6985__random" in ln)
+    assert " GATED " in row
 
 
 def _write_cells(C, d: Path, label, seed, cells, stood=95, controller=None, video=False):
@@ -969,7 +1114,8 @@ def test_pre_kit_refusals(T, tmp_path):
 def test_emit_facts_and_merge_end_to_end(T, C, tmp_path, capsys):
     assert T.main(["sh_table_test.py", "--emit-facts", "--out", str(tmp_path / "f")]) == 0
     f = json.loads((tmp_path / "f" / "facts.json").read_text())
-    assert f["k3_episode_s"] == 16.0 and len(f["k3_cells"]) == 12 and f["h_min"] == 0.719 and f["h_max"] == 1.346
+    assert f["k3_episode_s"] == 16.0 and len(f["k3_cells"]) == 15 and f["h_min"] == 0.719 and f["h_max"] == 1.346
+    assert len(f["k3_gated_cells"]) == 6 and len(f["k3_reported_cells"]) == 9 and f["k3_reported_tops_m"] == [0.4572]
     assert f["_sources"]["r_knob"] == T.SN.RESTANCE_D3 and set(f["poses"]) == {"knee_folded", "rod_min", "random"}
     assert f["clip"]["harness_clip_actions"] == 4.8 and "floor_rule" in f
     d = tmp_path / "m"
@@ -1011,6 +1157,22 @@ def test_launcher_busy_pattern():
         assert pat.search(line) and nonkit.search(line), line
 
 
+def test_launcher_cell_lists_match_the_core(C):
+    """The launcher's surfaces / smoke / video cells follow sh_table_core after the step-4 re-scope: the full run's
+    ``--cells all`` holds the reported cells too (the 18-in table and the ground), the smoke exercises a gated and a
+    reported cell, the default videos are gated cells."""
+    src = SH_PATH.read_text()
+    surf = re.search(r'^\s*SURFACES="([^"]*)"$', src, flags=re.M).group(1).split()
+    assert tuple(surf) == C.SURFACES and "table_0p4572" in surf and "ground" in surf
+    vc = re.search(r'^\s*VCELLS="([^"]*)"$', src, flags=re.M).group(1).split()
+    sc = re.search(r'^\s*SC="([^"]*)"$', src, flags=re.M).group(1).split(",")
+    for c in vc + sc:
+        C.parse_cell(c)
+    assert all(C.cell_gated(c) for c in vc)
+    assert any(C.cell_gated(c) for c in sc) and any(not C.cell_gated(c) for c in sc)
+    assert set(C.parse_cells("all")) == set(C.K3_GATED_CELLS) | set(C.K3_REPORTED_CELLS)
+
+
 def _dry(env, *args):
     r = subprocess.run(["bash", str(SH_PATH), "--dry-run", *args], env=env, capture_output=True, text=True, timeout=60)
     return r, [ln for ln in r.stdout.splitlines() if ln.startswith("systemd-run")]
@@ -1035,9 +1197,9 @@ def test_launcher_syntax_and_dry_runs(tmp_path):
     assert " -k " not in r.stdout and "--kill-after" not in r.stdout and "KILL" not in r.stdout   # never SIGKILL Kit
     assert len(jobs) == 3 and ["--enable_cameras" in j for j in jobs] == [False, False, True]
     assert all("--smoke" in j and "--episode-s 2" in j for j in jobs)
-    assert "--controller r_h --cells table_0p635__knee_folded,ground__rod_min,table_0p4572__random" in jobs[0]
+    assert "--controller r_h --cells table_0p635__knee_folded,ground__rod_min,table_0p6985__random" in jobs[0]
     assert "--controller stand_net" in jobs[1] and "--envs-per-cell 2" in jobs[1]
-    assert "--controller r_h --cells ground__knee_folded --envs-per-cell 1" in jobs[2] and "--video" in jobs[2]
+    assert "--controller r_h --cells table_0p635__knee_folded --envs-per-cell 1" in jobs[2] and "--video" in jobs[2]
     r, jobs = _dry(env, "--smoke", "--smoke-no-video")
     assert r.returncode == 0 and len(jobs) == 2 and "--enable_cameras" not in r.stdout
     r, jobs = _dry(env)
@@ -1054,8 +1216,9 @@ def test_launcher_syntax_and_dry_runs(tmp_path):
     r, jobs = _dry(env, "--split", "surface", "--seeds", "1", "--stand-ckpt", "/abs/ck.pt", "--label", "pilot18",
                    "--videos", "r_h")
     stats = [j for j in jobs if "--enable_cameras" not in j]
-    assert r.returncode == 0 and len(stats) == 20                         # 5 controllers x 4 surfaces
-    assert sum("--cells table_0p4572 " in j for j in stats) == 5 and sum("--cells ground " in j for j in stats) == 5
+    assert r.returncode == 0 and len(stats) == 25                         # 5 controllers x 5 surfaces
+    for surf in ("table_0p4572", "table_0p635", "table_0p6985", "table_0p762", "ground"):   # = sh_table_core.SURFACES
+        assert sum(f"--cells {surf} " in j for j in stats) == 5, surf
     for j in jobs:
         assert ("--stand-ckpt /abs/ck.pt --label pilot18" in j) == ("--controller stand_net" in j), j
     assert not marker.exists() and not out.exists()                      # a dry run launches and writes nothing
@@ -1115,7 +1278,7 @@ def test_launcher_queue_runs_jobs_serially_and_merges(tmp_path):
     stamp = Path((tmp_path / "out" / "LATEST").read_text().strip())
     assert stamp.parent == tmp_path / "out" and stamp.name.endswith("_smoke")
     q = (stamp / "queue.log").read_text()
-    names = ("smoke_r_h", "smoke_stand_net", "smoke_video_r_h_ground__knee_folded")
+    names = ("smoke_r_h", "smoke_stand_net", "smoke_video_r_h_table_0p635__knee_folded")
     for name in names:
         assert f"SHTABLE JOB START {name}" in q and f"SHTABLE JOB END {name} rc=0" in q
         assert (stamp / f"{name}_summary.json").is_file() and (stamp / f"{name}.unit").is_file()

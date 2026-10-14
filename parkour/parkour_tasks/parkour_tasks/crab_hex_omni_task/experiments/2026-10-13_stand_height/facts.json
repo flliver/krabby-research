@@ -41,16 +41,34 @@
   "h_min_m": 0.719,
   "h_max_m": 1.346,
   "h_max_rule": "USER DECISION 2026-10-13 at the step-1 stop: cap from the measured-foot-load statics (b_forces.curves F_hip_foot_load_model_N): highest h on a 1 mm grid whose six-leg mean |F_hip| <= 2000 N. The sim's PD-torque reading (2064 N at 1.064, an unexplained ~14 % excess) is reported alongside, not used for the cap.",
-  "status": "FROZEN 2026-10-13 (CHARTER log)",
-  "top_min_m": 0.4123901406139288,
+  "status": "FROZEN 2026-10-13 (CHARTER log); table range and K3 cells re-scoped 2026-10-13 at the step-4 stop (CHARTER section 3, USER DECISION: narrow stand-up to tall tables)",
+  "top_min_m": 0.635,
+  "top_min_rule": "USER DECISION 2026-10-13 at the step-4 stop (CHARTER section 3, 'narrow stand-up to tall tables'): lowest table top = 0.635 m (25 in), where R_h's loaded knees unfold in the air before the toes touch; the step-1 derived value (0.412 m, knee_folded toes clear the floor at spawn) is kept under previous_frozen_step4, not re-derived",
   "top_max_train_m": 0.805,
   "top_max_rule": "min(restore clearance 0.805, h_max - 0.264 = 1.082)",
   "k3_eval_tops_m": [
-   0.4572,
    0.635,
+   0.6985,
    0.762
   ],
-  "k3_eval_rule": "tops within [top_min, 0.805 - margin], h_cmd >= top + 0.31 <= h_max",
+  "k3_gated_poses": [
+   "knee_folded",
+   "random"
+  ],
+  "k3_reported_tops_m": [
+   0.4572
+  ],
+  "k3_eval_rule": "GATED cells = k3_eval_tops_m x k3_gated_poses (6 cells): the R_h floor (per top, pooled over the gated poses) and the student's K3 line (tables pooled over the 6 cells per env seed) read these only; REPORTED only (run, read, never gated): k3_reported_tops_m (the 18-in table), every rod_min cell, every ground cell; every table cell commands h_cmd >= top + 0.31 <= h_max",
+  "previous_frozen_step4": {
+   "reason": "superseded 2026-10-13 by the USER DECISION at the step-4 stop (CHARTER section 3, 'narrow stand-up to tall tables'): R_h's stand-up floor missed on the 18-in table and the ground (loaded folded knees cannot extend)",
+   "top_min_m": 0.4123901406139288,
+   "k3_eval_tops_m": [
+    0.4572,
+    0.635,
+    0.762
+   ],
+   "k3_eval_rule": "tops within [top_min, 0.805 - margin], h_cmd >= top + 0.31 <= h_max"
+  },
   "previous_provisional": {
    "h_max_m": 1.02,
    "top_max_train_m": 0.756,
