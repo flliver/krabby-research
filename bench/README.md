@@ -24,7 +24,7 @@ sudo krabby-bench install [options]
 | Flag | Default | Description |
 |---|---|---|
 | `--ssm-prefix` | `/krabby/bench` | SSM parameter path prefix. When set, credentials are loaded from AWS SSM. |
-| `--ecr-tag` | `mainline-latest` | ECR image tag to watch. |
+| `--ecr-tag` | `main-latest` | ECR image tag to watch. |
 | `--firmware-channel` | `release/0.2.9` | Firmware channel for smoke tests. |
 | `--error-alert-type` | `both` | Alert delivery type: `email`, `github`, or `both`. |
 | `--github-repo` | _(none)_ | `owner/repo` to open issues against (legacy mode only). |
@@ -39,7 +39,7 @@ sudo \
   BENCH_AWS_SECRET_KEY=... \
   krabby-bench install \
     [--ssm-prefix /krabby/bench] \
-    [--ecr-tag mainline-latest] \
+    [--ecr-tag main-latest] \
     [--firmware-channel release/0.2.9] \
     [--error-alert-type both]
 ```
@@ -98,7 +98,7 @@ sudo \
   BENCH_SMTP_TO=krabby-errors@example.com \
   BENCH_GITHUB_REPO=owner/krabby-research \
   BENCH_GITHUB_TOKEN=ghp_... \
-  krabby-bench install [--ecr-tag mainline-latest] [--firmware-channel release/0.2.9] [--error-alert-type both]
+  krabby-bench install [--ecr-tag main-latest] [--firmware-channel release/0.2.9] [--error-alert-type both]
 ```
 
 ##### Legacy environment variables
@@ -123,7 +123,7 @@ Default path: `/etc/krabby-bench/config.toml`
 ```toml
 [ecr]
 repo = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
-tag = "mainline-latest"
+tag = "main-latest"
 poll_interval = 60          # seconds
 
 [smoke]
@@ -251,12 +251,12 @@ should use the published pin revision / S3 artifact path.
 
 Workflow: [`.github/workflows/artifact-health.yml`](../.github/workflows/artifact-health.yml)
 
-Runs on push to `mainline` / `release/**` (and `workflow_dispatch`). No Orin required.
+Runs on push to `main` / `release/**` (and `workflow_dispatch`). No Orin required.
 
 | Job | Check |
 |---|---|
 | packages | `pip install` + import for `krabby-launcher`, `krabby-firmware`, `krabby-bench` |
-| locomotion-image | pull `release-latest`, `docker run … --help` must show `--teleop-ip` (arm64 via QEMU); `mainline-latest` not checked (stale; will likely be deprecated) |
+| locomotion-image | pull `main-latest` and `release-latest`, `docker run … --help` must show `--teleop-ip` (arm64 via QEMU) |
 | firmware-artifact | S3 `latest.json` + manifest `ver_string` + HEX HEAD for `release/0.2.15` |
 | notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset) |
 

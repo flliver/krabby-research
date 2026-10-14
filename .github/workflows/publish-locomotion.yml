@@ -1,6 +1,7 @@
-# Build the production locomotion image and push to ECR Public on every push to mainline or release/*.
+# Build the production locomotion image and push to ECR Public on every push to main or release/*.
+# `main` is the dev channel (`main-latest`); `release/*` is stable (`release-latest`).
 # Dev image (images/locomotion/Dockerfile) is not built or pushed here.
-# Tags: <sha7>, <branch>-latest (e.g. mainline-latest, release-0-2-9-latest),
+# Tags: <sha7>, <branch>-latest (e.g. main-latest, release-0-2-9-latest),
 #       and on locomotion-v* tags also the semver version.
 #
 # Requires:
@@ -12,7 +13,7 @@ name: Build and push locomotion image to ECR
 on:
   push:
     branches:
-      - mainline
+      - main
       - 'release/**'
     tags:
       - 'locomotion-v*'

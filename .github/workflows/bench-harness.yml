@@ -7,14 +7,14 @@
 #   3. Sets secret DISCORD_WEBHOOK_URL (optional but recommended)
 #
 # See bench/README.md → "CI: self-hosted Orin runner (deferred)".
-# Watches publish branches (mainline / release/**), not default branch `main`.
+# Watches publish branches: main (dev) / release/** (stable).
 
 name: Bench harness
 
 on:
   push:
     branches:
-      - mainline
+      - main
       - 'release/**'
   workflow_dispatch:
 

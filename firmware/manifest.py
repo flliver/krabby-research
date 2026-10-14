@@ -24,7 +24,7 @@ class BuildManifest:
     commit_date: str        # YYYY-MM-DD
     build_timestamp: str    # ISO 8601
     board_fqbn: str
-    ver_string: str         # content after "VER " — e.g. "1.0 mainline abc1234"
+    ver_string: str         # content after "VER " — e.g. "1.0 main abc1234"
     hex_filename: str
 
 

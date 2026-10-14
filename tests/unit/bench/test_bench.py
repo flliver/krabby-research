@@ -46,7 +46,7 @@ class TestState:
 class TestConfig:
     def test_defaults_when_no_file(self, tmp_path):
         cfg = load_config(tmp_path / "config.toml")
-        assert cfg.ecr.tag == "mainline-latest"
+        assert cfg.ecr.tag == "main-latest"
         assert cfg.alert.mode == "email"
 
     def test_toml_overrides_ecr_tag(self, tmp_path):
@@ -93,7 +93,7 @@ class TestEcrDigestPoll:
 
         with patch("krabby_bench._ecr.urllib.request.urlopen", side_effect=[token_resp, manifest_resp]):
             from krabby_bench._ecr import get_digest
-            digest = get_digest("public.ecr.aws/t7t7b3i3/krabby-locomotion", "mainline-latest")
+            digest = get_digest("public.ecr.aws/t7t7b3i3/krabby-locomotion", "main-latest")
 
         assert digest == expected_digest
 

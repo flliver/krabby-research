@@ -74,7 +74,7 @@ Confirm the runner shows **Idle** under Settings → Actions → Runners.
 1. Repo **Settings → Secrets and variables → Actions → Variables**  
    `BENCH_RUNNER_ENABLED` = `true`
 2. Secret `DISCORD_WEBHOOK_URL` if not already set (same name local harness uses).
-3. Trigger: push to `mainline` / `release/**`, or **Actions → Bench harness → Run workflow**.
+3. Trigger: push to `main` / `release/**`, or **Actions → Bench harness → Run workflow**.
 
 Until the variable is `true`, [`bench-harness.yml`](../.github/workflows/bench-harness.yml)
 runs only the stub job (stays green, no Orin queue).

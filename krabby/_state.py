@@ -9,7 +9,8 @@ from typing import Optional
 ECR_REPO = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
 # Kit owners track the stable release line by default. CI moves the
 # `release-latest` tag to the newest release/* build (see publish-locomotion.yml),
-# mirroring `krabby-firmware update`'s "latest non-mainline release" behavior.
+# mirroring `krabby-firmware update`'s "latest release/*" behavior.
+# Dev channel image tag is `main-latest` (pushes to `main`).
 DEFAULT_TAG = "release-latest"
 
 

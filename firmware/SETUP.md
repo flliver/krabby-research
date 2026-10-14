@@ -223,7 +223,7 @@ The robot now calibrates itself automatically and saves limits to EEPROM.
 
 ## 4. Firmware Store (`krabby-firmware-public`)
 
-Built firmware lives in a public S3 bucket. CI publishes a new build on every push to `mainline` or `release/*`, plus a daily scheduled build of the newest `release/*` branch.
+Built firmware lives in a public S3 bucket. CI publishes a new build on every push to `main` (dev channel) or `release/*` (stable), plus a daily scheduled build of the newest `release/*` branch.
 
 ### 4.1 Bucket layout
 
@@ -237,7 +237,7 @@ s3://krabby-firmware-public/
     manifest.json                          ← branch, commit, timestamp, board FQBN, VER string
 ```
 
-`<branch>` mirrors the Git branch name (`mainline`, `release/0.2.0`, etc.).
+`<branch>` mirrors the Git branch name (`main`, `release/0.2.0`, etc.).
 
 **`manifest.json` fields:** `schema_version`, `branch`, `commit`, `commit_date`, `build_timestamp`, `board_fqbn`, `ver_string`, `hex_filename`.
 

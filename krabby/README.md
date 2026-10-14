@@ -155,7 +155,7 @@ public.ecr.aws/t7t7b3i3/krabby-locomotion:release-latest
 
 `release-latest` tracks the newest `release/*` build — the stable channel for kit
 owners (CI moves the tag on each release build; see `images/locomotion/README.md`).
-Use `--image mainline-latest` to follow the development line instead.
+Use `--image main-latest` to follow the development line instead.
 
 A bare tag (e.g. `--image v1.2.3`) is expanded to the full ECR URI automatically.
 Pass a fully-qualified URI to use a different registry entirely.

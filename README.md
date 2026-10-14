@@ -106,7 +106,7 @@ krabby run -- --checkpoint /path/to/checkpoint.pt
 
 ## Continuous bench watchdog
 
-A systemd service polls ECR every 60 s for a new `mainline-latest` digest. When one appears it runs a firmware smoke test and emails (or opens a GitHub Issue) on failure.
+A systemd service polls ECR every 60 s for a new `main-latest` digest (configurable). When one appears it runs a firmware smoke test and emails (or opens a GitHub Issue) on failure.
 
 Complete Software quick-start §1–2 first, then:
 

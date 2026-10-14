@@ -62,8 +62,8 @@ ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
 # Latest release build — the default channel `krabby install`/`run` pull
 docker pull ${ECR}:release-latest
 
-# Latest mainline (development) build
-docker pull ${ECR}:mainline-latest
+# Latest main (development) build
+docker pull ${ECR}:main-latest
 
 # Specific commit
 docker pull ${ECR}:<sha7>
@@ -94,7 +94,7 @@ docker run --rm --gpus all \
 | Tag | Updated on |
 |-----|-----------|
 | `<sha7>` | Every push to a tracked branch |
-| `mainline-latest` | Every push to `mainline` |
+| `main-latest` | Every push to `main` (dev channel) |
 | `release-<x-y-z>-latest` | Every push to `release/x.y.z` |
 | `release-latest` | The newest `release/*` build (most recent push wins); **default channel** for `krabby install`/`run` |
 | `<semver>` (e.g. `0.2.9`) | Push of a `locomotion-v*` tag |
@@ -122,7 +122,7 @@ krabby-firmware==0.2.9
 ### Bumping Pins
 
 1. Edit the `==` versions in `requirements.release.txt`
-2. Push to `mainline` or a `release/*` branch
+2. Push to `main` or a `release/*` branch
 3. CI builds and pushes the new image automatically
 
 ### Bundled Flash Tooling
