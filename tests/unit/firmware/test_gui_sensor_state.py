@@ -39,16 +39,27 @@ class TestResolveImuState:
 
 class TestJointRowCurrentColumn:
     def test_cur_shows_telemetry_current_field(self):
-        row = JointRow.__new__(JointRow)
-        row.var_cur = __import__("tkinter").StringVar(value="---")
-        jt = JointTelemetry(
-            name="FLHL",
-            pos=0.5,
-            pot=512,
-            current=30,
-            en=(1, 1),
-            pwm=(0, 200),
-            saf=0,
-        )
-        JointRow.update_from_telemetry(row, jt)
-        assert row.var_cur.get() == "30"
+        import tkinter as tk
+
+        # StringVar needs a Tk root; CI/headless runners have none by default.
+        root = tk.Tk()
+        root.withdraw()
+        try:
+            row = JointRow.__new__(JointRow)
+            row.var_pot = tk.StringVar(master=root, value="---")
+            row.var_cur = tk.StringVar(master=root, value="---")
+            row.var_pwm = tk.StringVar(master=root, value="---")
+            row.var_hall = tk.StringVar(master=root, value="---")
+            jt = JointTelemetry(
+                name="FLHL",
+                pos=0.5,
+                pot=512,
+                current=30,
+                en=(1, 1),
+                pwm=(0, 200),
+                saf=0,
+            )
+            JointRow.update_from_telemetry(row, jt)
+            assert row.var_cur.get() == "30"
+        finally:
+            root.destroy()
