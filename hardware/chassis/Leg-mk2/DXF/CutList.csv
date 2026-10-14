@@ -1,0 +1,26 @@
+,,,,
+,,,,
+,,Base,,Qty Per Assembly
+,,,YawMotorMount.dxf,1
+,,,TTab1.dxf,1
+,,,TTab2.dxf,2
+,,,,
+,,,,
+,,Hip,,
+,,,YawStrap1.dxf,1
+,,,YawStrapBrace1.dxf,1
+,,,HipTTab1-NoClearance.dxf,2
+,,,HipTTab1.dxf,2
+,,,HipSide1.dxf,2
+,,,,
+,,,,
+,,Femur,,
+,,,FemurSkin.dxf,2
+,,,FemurSpacerInner.dxf,4
+,,,FemurSpacerOuterpar.dxf,2
+,,,FemurSpacerTriangle.dxf,6
+,,,,
+,,,,
+,,Tibia,,
+,,,ProfiledTibia.dxf,2
+,,,TibiaSpacer1.dxf,3
