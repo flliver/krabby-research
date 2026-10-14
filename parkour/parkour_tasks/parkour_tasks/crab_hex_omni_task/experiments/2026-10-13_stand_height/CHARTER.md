@@ -240,3 +240,16 @@ the user's.**
     hip PD 16 000 N·m/rad a 1-mm rod error on one of six stance legs moves enough load to cross the 50 N loaded
     threshold: one mechanism for both K3 (four-feet) and K6 (taps).
   - Train-time table STOOD had plateaued at 0.77 from its ≈ 3300 (more iterations are unlikely to close it).
+- 2026-10-14, **USER DECISION at the step-6 stop: probe a residual deadband.** Pinned before any build or run:
+  - **Deadband:** on the stand network's hip and knee residual channels (12 of 18; cams untouched), per leg and channel,
+    after the ±1 clamp and before adding q(h): `r ← r if |r| ≥ 0.25 else 0` (hard, not shrink). Default 0 = the current
+    action path, bitwise. **Why 0.25:** R_h's hip / knee labels are binary — exactly 0 on HOLD / WAIT / SEAT rows and
+    exactly 0.5 on LIFT / HOME rows (pilot es1 raws) — and the pilot's residual is below 0.25 on 95–99.9 % of zero-label
+    rows and at or above 0.25 on 98.4–99.7 % of lift / home rows; 0.25 is the midpoint.
+  - **Probe** (≈ 1.1 GPU-h): `SH_P18` model_5000 with the deadband at eval — height rows hwalkstop / hraise es1 + es2,
+    the nine K5 zero-command rows, the full table test (stand_net, seeds 1 + 2) — read with `sh_read` as a head
+    against the step-4b controls.
+  - **Decision rule:** all of K1–K6 PASS at both env seeds → "train it in": the trainer executes the deadbanded student
+    action (labels unchanged, R_h / β-R executors untouched), and all three seeds (18, 16, 17) are retrained with the
+    pinned 5000 iterations and evaluated in full (config parity; the deadband-free pilot is not one of them). K3 or K6
+    still failing, or any other gate newly failing → STOP and ask with the read.
