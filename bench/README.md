@@ -269,6 +269,8 @@ acceptable). If locomotion publish fails, Artifact health does not run.
 | firmware-artifact | S3 `latest.json` + manifest `ver_string` + HEX HEAD for `release/0.2.15` |
 | notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset) |
 
+If a run is red (or Discord reports FAIL): [docs/CI-FAILURES.md](../docs/CI-FAILURES.md).
+
 ## CI: self-hosted Orin runner
 
 **Full procedure (every bench Orin):** [`SELF-HOSTED-RUNNER.md`](SELF-HOSTED-RUNNER.md)

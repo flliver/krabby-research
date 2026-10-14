@@ -125,6 +125,7 @@ See [bench/README.md](bench/README.md) for config reference and forced-failure t
 
 | Document | Contents |
 |----------|----------|
+| [docs/CI-FAILURES.md](docs/CI-FAILURES.md) | What to do when publish / Artifact health / Discord CI fails |
 | [firmware/SETUP.md](firmware/SETUP.md) | S3 firmware store, V protocol, three-board update procedure |
 | [images/locomotion/README.md](images/locomotion/README.md) | Production Docker image, ECR tags, pin bumping |
 | [krabby/README.md](krabby/README.md) | Full `krabby` CLI reference |

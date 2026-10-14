@@ -60,7 +60,7 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 9 | F13 | friction | Pro Controller idle power-off → Home wake; HAL / `krabby run` does not reopen joystick | was yes for drive after idle sleep | ~1–3 min restart; every Pro idle power-off mid-session | 16 | 10 | AI + Human reopen/hotplug; Human+HW Orin verify (incl. post-release) | 33.0 | done |
 | 10 | F12 | friction | Artifact-health **locomotion-image** stage FAIL | was yes for green artifact-health | ~15–60 min once Actions log read | 4 | 1.5 | AI + Human | 37.0 | done |
 | 11 | F11 | friction | `docker/setup-qemu-action@v3` Node 20 deprecation warn | no until Node 20 removal | ~5 min when editing workflow | 4 | 1.5 | AI + Human | 41.0 | done |
-| 12 | K1 | known | Default branch `main` publishes nothing; workflows watch `mainline`/`release/**` | yes (silent no-ship) | every merge to `main`; hours of false confidence | 6 | — | Human decision + AI change/docs | 47.0 | open |
+| 12 | K1 | known | Default branch `main` publishes nothing; workflows watch `mainline`/`release/**` | yes (silent no-ship) | every merge to `main`; hours of false confidence | 6 | 6 | Human decision + AI change/docs; Human verify Actions | 47.0 | done — `main` = dev, `release/*` = stable. Retargeted publish/artifact-health/bench from `mainline` → `main` (S3 `main`, ECR `main-latest`; kit defaults unchanged). Artifact health via `workflow_run` after locomotion publish so it can pull the new image. Fixed tests so CI pass |
 | 13 | K5 | known | Isaac `contacvt_sensor` typo; contact never assigned | yes (sim contact path) | every contact/current read through Isaac HAL | 1 | 0 | AI; Human | 48.0 | done — already fixed (`37738a17`) |
 | 14 | K13 | known | Firmware error branch silently swallowed (`arduino.ino`) | yes when hit | can burn a bring-up afternoon | 6 | 2 | AI + Hardware; Human (Orin only has USB to FRONT, not the FRONT↔RIGHT UART, so overflow was forced by temporarily shrinking `TELEMETRY_LINE_MAX` so RIGHT telemetry overflows; USB prints `ERR FWD RIGHT: line overflow (>31 B), discarded`) | 54.0 | done |
 | 15 | K17 | known | Gamepad mapper assumes start joints; does not read state | no | wrong start-pose assumptions | 3 | 2 | AI + Human (IsaacSim only; real robot uses jog) | 57.0 | done |
@@ -73,39 +73,41 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 
 | Pri | ID | Source | Summary | Blocking | Cost (with recurrence) | Effort (h) | Actual (h) | Who | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 19 | K12 | known | Actuators instantiated before role election finishes | intermittent | wrong first wiring until corrected | 16 | — | Hardware + AI; Human | open |
-| 20 | K3 | known | Publish workflows still silent (bench Discord ≠ publish notify) | no | Actions tab or try-to-use only signal | 5 | — | AI; Human | open |
-| 21 | K2 | known | No test suite on push/PR (only on package version tags) | no (until release) | every breaking commit until someone tags | 5 | — | AI + Human | open |
-| 22 | K27 | known | Root README interleaves user / developer / infra | yes (cold-start clarity) | every new user; residual after F1/F2 line fixes | 3 | — | AI + Human | open |
-| 23 | K33 | known | Two competing host-setup paths (manual Jetson doc vs `krabby install`) | yes (wrong path) | hours if reader follows the stale guide | 2 | — | Human decide + AI mark/doc | open |
-| 24 | K31 | known | Enrollment documented in `ENROLL.md` and `SETUP-FLEET.md` | yes (which is current?) | drift; Task 1 had to pick one | 2 | — | AI; Human | open |
-| 25 | K30 | known | `firmware/SETUP.md` milestone title + four audiences | no | confusion every firmware reader | 3 | — | AI; Human | open |
-| 26 | K34 | known | `DEVELOPER.md` untitled; sim-only half of development | no | real-robot dev path undocumented | 3 | — | AI; Human | open |
-| 27 | K32 | known | `SETUP-FLEET.md` mixes account setup and per-robot ops | no | infra vs operator confusion | 3 | — | AI; Human | open |
-| 28 | K35 | known | Image/package READMEs mix consumer and maintainer | no | wrong audience sections | 2 | — | AI; Human | open |
-| 29 | K26 | known | M21 contract says merge to `main` (follow K1 decision) | tied to K1 | contract/docs wrong until aligned | 1 | — | AI (after K1); Human | open |
-| 30 | K19 | known | Gamepad launch hard-codes Jetson HAL backend | yes (non-Jetson gamepad) | cannot launch other backends via that path | 16 | — | AI; Human | open |
-| 31 | K16 | known | Observation timestamps not propagated (`None`) | no | incomplete teleop latency accounting | 2 | — | AI; Human | open |
-| 32 | K18 | known | Gamepad path tested on macOS only (Orin partly covered in T1) | partial | Linux/Windows still thin | 4 | — | Hardware; Human | open |
-| 33 | M21-B | M21 | Absent MCU → detect and offer simulator | yes for no-MCU machines | cannot soft-fail to sim today | 16 | — | AI + Human | open |
-| 34 | K21 / M21-D | known / M21 | Stopped simulator stays offline; no IoT resume | yes for sim recovery | manual CLI restart each time | 16 | — | AI + Human | open |
-| 35 | K10 | known | John’s OLED simulator referenced, not in repo | yes for M21 T4 | blocks until located/vendored | 6 | — | Human | open |
-| 36 | K4 / M21-A | known / M21 | IsaacSim image built locally, never published | no for hardware path | every sim adopter rebuilds (hours) | 10 | — | AI + Human | open |
-| 37 | M21-C | M21 | GPU capability validation before launch | no | failed launches on wrong GPU | 6 | — | AI + Human | open |
-| 38 | K6 | known | Real MCU position commands disabled; jog fallback | architectural | closed-loop path not what robot runs | 16 | — | Human + Hardware | open |
-| 39 | K11 | known | Actuator identity / pin config hardcoded in several places | no | hours whenever roles/names change | 24 | — | AI + Hardware; Human | open |
-| 40 | K8 | known | HAL has no abstract backend contract | no | days of reading to add a backend | 24 | — | AI + Human | open |
-| 41 | K7 | known | Jetson observations partly unimplemented | no | incomplete real sensor obs | 32 | — | Human + Hardware | open |
-| 42 | K15 | known | `MODEL_CONTROLLER_KRABBY` unimplemented stub | feature | blocks model-controller mode | 24 | — | Human | open |
-| 43 | K9 | known | M16 sensors specified, not in `firmware/arduino/` | yes for M21 T4 sim | large cross-milestone gap | 40 | — | Human + Hardware | open |
-| 44 | K20 | known | Updates require SSH (`krabby update`); no cloud rollout | scope decision | every update needs an operator | 20 | — | Human | open |
-| 45 | K29-PEP541 | known | Request PyPI `krabby` name under PEP 541 | no (docs fix is above) | process time; discretionary transfer | 4 | — | Human | open |
-| 46 | K14 | known | Actuator lookup linear/quadratic (OK at six) | no | none until actuator count grows | 1 | — | AI; Human | open |
-| 47 | K24 | known | Grants README describes `T1-` / `AUDIT-LOG` nobody uses | no (meta) | contributor naming mismatch | 1 | — | AI; Human | open |
-| 48 | K25 | known | Grant time-estimate drift (checked in M21; others unchecked) | no (meta) | estimate inconsistency | 1 | — | Human | open |
-| 49 | K22 | known | Windows `play.py` needs three undocumented fixes | Windows only | hours on first Windows setup; no local Windows — need machine/access | 10 | — | Human (needs Windows); AI assist | open |
-| 50 | K23 | known | Kit non-fatal sensor extension DLL errors on Windows | Windows only | minutes of false alarm; needs Windows machine to verify docs | 16 | — | Human (needs Windows); AI docs | open |
-| 51 | F10 | friction | `firmware show` sometimes only FRONT until USB replug | yes (3-role flash/bring-up) | ~1–2 min; intermittent | 3 | — | Hardware + Human; AI docs/retry | in progress — do not move to Tier 1 (someone else working on it); close when finished |
+| 19 | K33 | known | Two competing host-setup paths (manual Jetson doc vs `krabby install`) | yes (wrong path) | hours if reader follows the stale guide | 2 | — | Human decide + AI mark/doc | open |
+| 20 | K31 | known | Enrollment documented in `ENROLL.md` and `SETUP-FLEET.md` | yes (which is current?) | drift; Task 1 had to pick one | 2 | — | AI; Human | open |
+| 21 | K27 | known | Root README interleaves user / developer / infra | yes (cold-start clarity) | every new user; residual after F1/F2 line fixes | 3 | — | AI + Human | open |
+| 22 | K12 | known | Actuators instantiated before role election finishes | intermittent | wrong first wiring until corrected | 16 | — | Hardware + AI; Human | open |
+| 23 | K2 | known | No test suite on push/PR (only on package version tags) | no (until release) | every breaking commit until someone tags | 5 | — | AI + Human | open |
+| 24 | K3 | known | Publish workflows still silent (bench Discord ≠ publish notify) | no | Actions tab or try-to-use only signal | 5 | — | AI; Human | open |
+| 25 | F15 | friction | Discord only from Artifact health — no notify if publish fails / Artifact health never starts | no (silent miss) | hours of false confidence; every failed publish | 3 | — | AI workflows; Human | open |
+| 26 | F14 | friction | Dev/stable override inconsistent: `--image main-latest` vs firmware channel `main` | no (confusing) | ~5–15 min; every operator wanting the dev line | 2 | — | AI CLI/docs; Human | open |
+| 27 | K30 | known | `firmware/SETUP.md` milestone title + four audiences | no | confusion every firmware reader | 3 | — | AI; Human | open |
+| 28 | K34 | known | `DEVELOPER.md` untitled; sim-only half of development | no | real-robot dev path undocumented | 3 | — | AI; Human | open |
+| 29 | K32 | known | `SETUP-FLEET.md` mixes account setup and per-robot ops | no | infra vs operator confusion | 3 | — | AI; Human | open |
+| 30 | K35 | known | Image/package READMEs mix consumer and maintainer | no | wrong audience sections | 2 | — | AI; Human | open |
+| 31 | K19 | known | Gamepad launch hard-codes Jetson HAL backend | yes (non-Jetson gamepad) | cannot launch other backends via that path | 16 | — | AI; Human | open |
+| 32 | K16 | known | Observation timestamps not propagated (`None`) | no | incomplete teleop latency accounting | 2 | — | AI; Human | open |
+| 33 | K18 | known | Gamepad path tested on macOS only (Orin partly covered in T1) | partial | Linux/Windows still thin | 4 | — | Hardware; Human | open |
+| 34 | M21-B | M21 | Absent MCU → detect and offer simulator | yes for no-MCU machines | cannot soft-fail to sim today | 16 | — | AI + Human | open |
+| 35 | K21 / M21-D | known / M21 | Stopped simulator stays offline; no IoT resume | yes for sim recovery | manual CLI restart each time | 16 | — | AI + Human | open |
+| 36 | K10 | known | John’s OLED simulator referenced, not in repo | yes for M21 T4 | blocks until located/vendored | 6 | — | Human | open |
+| 37 | K4 / M21-A | known / M21 | IsaacSim image built locally, never published | no for hardware path | every sim adopter rebuilds (hours) | 10 | — | AI + Human | open |
+| 38 | M21-C | M21 | GPU capability validation before launch | no | failed launches on wrong GPU | 6 | — | AI + Human | open |
+| 39 | K6 | known | Real MCU position commands disabled; jog fallback | architectural | closed-loop path not what robot runs | 16 | — | Human + Hardware | open |
+| 40 | K11 | known | Actuator identity / pin config hardcoded in several places | no | hours whenever roles/names change | 24 | — | AI + Hardware; Human | open |
+| 41 | K8 | known | HAL has no abstract backend contract | no | days of reading to add a backend | 24 | — | AI + Human | open |
+| 42 | K7 | known | Jetson observations partly unimplemented | no | incomplete real sensor obs | 32 | — | Human + Hardware | open |
+| 43 | K15 | known | `MODEL_CONTROLLER_KRABBY` unimplemented stub | feature | blocks model-controller mode | 24 | — | Human | open |
+| 44 | K9 | known | M16 sensors specified, not in `firmware/arduino/` | yes for M21 T4 sim | large cross-milestone gap | 40 | — | Human + Hardware | open |
+| 45 | K20 | known | Updates require SSH (`krabby update`); no cloud rollout | scope decision | every update needs an operator | 20 | — | Human | open |
+| 46 | K29-PEP541 | known | Request PyPI `krabby` name under PEP 541 | no (docs fix is above) | process time; discretionary transfer | 4 | — | Human | open |
+| 47 | K14 | known | Actuator lookup linear/quadratic (OK at six) | no | none until actuator count grows | 1 | — | AI; Human | open |
+| 48 | K24 | known | Grants README describes `T1-` / `AUDIT-LOG` nobody uses | no (meta) | contributor naming mismatch | 1 | — | AI; Human | open |
+| 49 | K25 | known | Grant time-estimate drift (checked in M21; others unchecked) | no (meta) | estimate inconsistency | 1 | — | Human | open |
+| 50 | K26 | known | M21 contract says merge to `main` (follow K1 decision) | tied to K1 | contract/docs wrong until aligned | 1 | — | AI (after K1); Human | done — K1 chose `main`; M21 language already matches |
+| 51 | K22 | known | Windows `play.py` needs three undocumented fixes | Windows only | hours on first Windows setup; no local Windows — need machine/access | 10 | — | Human (needs Windows); AI assist | open |
+| 52 | K23 | known | Kit non-fatal sensor extension DLL errors on Windows | Windows only | minutes of false alarm; needs Windows machine to verify docs | 16 | — | Human (needs Windows); AI docs | open |
+| 53 | F10 | friction | `firmware show` sometimes only FRONT until USB replug | yes (3-role flash/bring-up) | ~1–2 min; intermittent | 3 | — | Hardware + Human; AI docs/retry | in progress — do not move to Tier 1 (someone else working on it); close when finished |
 
 ## Out of scope / done (explicit)
 
