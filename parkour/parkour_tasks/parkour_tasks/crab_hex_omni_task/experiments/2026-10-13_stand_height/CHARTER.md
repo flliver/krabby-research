@@ -194,3 +194,18 @@ the user's.**
     gated top). `sh_read` exits 4 on this alone.
   - Step 4 closes: R_h is the teacher for height, raise / lower, restore and the gated table starts. Next: step 5
     smoke.
+- 2026-10-13, **step 5 smoke `SH_SMOKE` (seed 18, 100 its, ≈ 0.06 GPU-h): PASS, every check, no problems.** Start
+  shares walk 0.50 / table 0.41 / ground 0 (absent) / random 0.10; poses knee_folded 0.75 / random 0.25 / rod_min absent;
+  tops 0.636–0.805 (realised = drawn to 1.5e-8 m); h_cmd atom at 1.064 34.6 %; limiter within [0.7198, 1.3460] at
+  ≤ 0.08 m/s; residual labels |R_h − q| ≤ 1; R_h-slice restores 0 timeouts; table first stands all long enough and
+  ≥ top + 0.264; tables parked at the slot change (693 / 693); pushes suppressed until up; restore rows carry zeroed
+  command columns and enter the reservoir with bitwise R_h labels (111 122 rows); S1 rows |a| ≤ 1; stand hip targets
+  down to −3.73 units (266 002 rows below −1); 4.8 harness clip realised (0 mismatches on live rows); trainer ↔
+  launcher forward parity bitwise; warm start W[:, 15] zeroed; β(T/3) = 0; DART σ realised. **1.80 s / it.**
+- 2026-10-13, **pilot pinned before launch (PLAN step 6):** `SH_P18` = `--mode dagger --arm mask --seed 18
+  --iterations 5000` (5000 × 1.80 s ≈ 2.5 GPU-h, the plan's cap; the predecessor ran 4000); **judged checkpoint
+  `model_5000.pt`**; **mid-run premise window its 1667–2500** (T/3–T/2, the predecessor's relative window; β = 0 from
+  T/3) read with `sh_dagger.py --read RUN --premise 1667:2500` against the STOP lines of PLAN step 6. Evals after
+  training, chained: height rows hwalkstop / hraise es1 + es2 (`SH_P18`, stand_net, mask 1, restore armed), the nine
+  K5 zero-command rows (`SH_P18z`), the full table test (stand_net only, `--label SH_P18`); then `sh_read` with the
+  step-4b controls and the observe pass.
