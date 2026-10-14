@@ -276,3 +276,17 @@ the user's.**
     between in 3.6 M entries), so the deadband removes nothing R_h does on those channels.
   - Likely cause: the trainer's per-leg inverse-branch-frequency weights (cap 20) treat in-band HOLD as HOLD, the most
     frequent branch, so the 0.1-unit trim label carries little loss.
+- 2026-10-14, **USER DECISION at the deadband-probe stop: retrain the pilot with a trim weight + the deadband in the
+  loop.** Pinned before the build:
+  - **Trim branch:** a stand-row leg whose R_h branch is HOLD and whose R_h cam label is non-zero (the in-band trim
+    acting) counts as its own branch ("trim") in the existing per-leg inverse-branch-frequency weights (cap W_MAX = 20
+    unchanged; every other weight rule unchanged). Off by default (`--trim-branch`), so earlier runs stay reproducible.
+  - **Deadband 0.25 in the loop** (student-executed stand rows; labels and the R_h / β-R executors untouched).
+  - **Run `SH_T18`:** seed 18, `--iterations 5000`, judged `model_5000.pt`, mid-run premise its 1667–2500 with the step-6
+    STOP lines; a 100-it smoke first (all checks + the trim branch present in the reservoir with a weight above HOLD's +
+    the deadband realised). Reported diagnostic at the end: the student's executed cam command on in-band loaded HOLD
+    rows vs R_h's (pilot: 2 %).
+  - **Evals (deadband 0.25):** height rows es1 + es2, the nine K5 rows, the full table test; `sh_read` head `SH_T18`
+    against the step-4b controls.
+  - **Decision rule:** K1–K6 all PASS at both env seeds → replicates s16 / s17 with the same config, then step 8. Any
+    gate failing → STOP and ask with the read.
