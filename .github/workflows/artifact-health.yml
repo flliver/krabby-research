@@ -1,20 +1,24 @@
 # Artifact health checks — hosted runners, no Orin / MCU required.
-# Watches the same branches publish workflows use: main (dev) / release/** (stable).
+# Runs after locomotion image publish succeeds because this workflow pulls the
+# new image from ECR (main-latest / release-latest) — it does not build it —
+# and would race if started on the same push. Also runnable via workflow_dispatch.
 #
 # Discord: set repo secret DISCORD_WEBHOOK_URL (optional; skipped if unset).
 
 name: Artifact health
 
 on:
-  push:
-    branches:
-      - main
-      - 'release/**'
+  workflow_run:
+    workflows:
+      - Build and push locomotion image to ECR
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
   packages:
     name: Packages (pip install + import)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -48,6 +52,7 @@ jobs:
 
   locomotion-image:
     name: Locomotion image (pull + start)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -84,6 +89,7 @@ jobs:
 
   firmware-artifact:
     name: Firmware artifact (S3 latest + manifest)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -123,7 +129,10 @@ jobs:
   notify:
     name: Discord summary
     needs: [packages, locomotion-image, firmware-artifact]
-    if: always()
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (for Discord helper)

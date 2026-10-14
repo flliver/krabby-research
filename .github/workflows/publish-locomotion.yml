@@ -4,6 +4,11 @@
 # Tags: <sha7>, <branch>-latest (e.g. main-latest, release-0-2-9-latest),
 #       and on locomotion-v* tags also the semver version.
 #
+# After this workflow succeeds, Artifact health (artifact-health.yml) starts via
+# workflow_run. It must wait because it pulls the new locomotion image from ECR
+# (it does not build it) and smokes main-latest / release-latest, then also runs
+# packages / firmware S3 checks.
+#
 # Requires:
 #   - krabby-locomotion repo in ECR Public (public.ecr.aws/t7t7b3i3/krabby-locomotion)
 #   - krabby-locomotion-ci IAM role with OIDC trust for this repo and ecr-public push permissions

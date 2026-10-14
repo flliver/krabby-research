@@ -251,7 +251,16 @@ should use the published pin revision / S3 artifact path.
 
 Workflow: [`.github/workflows/artifact-health.yml`](../.github/workflows/artifact-health.yml)
 
-Runs on push to `main` / `release/**` (and `workflow_dispatch`). No Orin required.
+**Trigger (not on push):** GitHub starts this workflow only after
+[Build and push locomotion image to ECR](../.github/workflows/publish-locomotion.yml)
+completes **successfully** (`workflow_run`). Manual **Actions → Artifact health → Run workflow** still works.
+
+**Why wait:** Artifact health does not build the locomotion image — it **pulls** the
+new one from ECR (`main-latest` / `release-latest`) and smokes it. Running in parallel
+with publish would race (pull a missing or stale tag). Waiting until publish succeeds
+means the pull is of the image that push just produced. Packages and firmware S3
+checks run in the same workflow afterward (they wait on publish too; that is
+acceptable). If locomotion publish fails, Artifact health does not run.
 
 | Job | Check |
 |---|---|

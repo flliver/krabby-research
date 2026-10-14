@@ -124,6 +124,7 @@ krabby-firmware==0.2.9
 1. Edit the `==` versions in `requirements.release.txt`
 2. Push to `main` or a `release/*` branch
 3. CI builds and pushes the new image automatically
+4. On publish success, **Artifact health** runs — it waits so it can **pull** the new image (`main-latest` / `release-latest`) and smoke it (see `bench/README.md` → CI: artifact health)
 
 ### Bundled Flash Tooling
 
