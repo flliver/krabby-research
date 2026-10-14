@@ -117,3 +117,33 @@ the user's.**
     164 / 36) and gives 600 / 600 and 200 / 200 completions at 8 mm (median 2.9 s / 4.0 s).
   - Consequence: every stamp recorded at 4 mm reads INVALID (controller record ≠ sh_core) — R_h's es1 smoke rows are
     re-run in the probe. SH_AMq hwalkstop es1 started after the edit (8 mm).
+- 2026-10-13, **step 4 identity bridge: BITWISE.** S1 as the stand checkpoint, mask 0, zero command, the new 4.8
+  clip path with S1 rows clamped ±1, restore ARMED (δ 8 mm): `sh_bridge_read.py --head SH_ID_s18 --identity` exit 0 —
+  suite / walkstop / field_hard es1 every raw key of REFS_S1_s18 identical (max |Δa| = 0; 0 restores engaged; walkstop
+  pre-entry actions checked on 100 episodes). K5 reuses the existing R / A-mask stamps as pre-registered.
+- 2026-10-13, **step 4 calibration read (GPU ≈ 2.7 h; `step4_read.md/.json`, `step4_k3_summary.json`): control table
+  14 / 14 land, 0 mismatches; h_max holds; STOP — R_h's own stand-up floor misses (step-4 premise rule).**
+  - Height rows (es1 + es2, 100 episodes each): R_h PASSES K1 (median |h − h_cmd| 1.5–3 mm per bin), K2 (every
+    command reached > 1.1 s inside its allowance, 0 falls), K4 (1598 / 1600 restores complete, 1 miss per seed, 0 exit
+    falls), K5 (G1–G5, existing R stamps), K6 (homed / settled 93–100 % per bin; stillness 0.17 steps + 0.15 taps per
+    s). Known-bads fail on their named clauses: R and A-mask on the old ±1 path K1 / K2 (median error up to 0.29 m,
+    raises never reached); no-restore hand-back K4 (788 / 784 misses); posture-only K6 (homed 0). Reported: posture
+    only passes K1 / K2; A-mask s17 + q fails K1 / K2 / K6 and falls in stands at 1.15–1.35 m (untrained for height).
+  - **h_max re-check (pre-registered top-bin statistic): 1912 N ≤ 2000 N** — no re-freeze (within 2 cm of 1.346 m:
+    1994 N, reported). PD reading 2457 N (the open ≈ 14 % excess).
+  - **K3 control table lands** (S1 fails; R_h the reference), but **R_h's floor (STOOD ≥ 0.90, falls ≤ 1 / 100 per
+    top / ground pose) MISSES**: 18-in table 98 / 300 and 87 / 300 STOOD (knee_folded 6 / 12 %); 25-in table STOOD
+    93 / 97 % but 9 / 8 falls per 300 (rod_min 6 / 100 each seed, hip-contact clause; knee_folded 95 / 99 %, 0 falls);
+    30-in table 100 / 97 %, 0 / 2 falls (passes); ground knee_folded 0 / 100 STOOD with 31 / 33 falls; ground rod_min
+    17 / 21 %; ground random 58 / 68 %. **R_h ≡ posture-only on every K3 cell** (the re-stance never acts here).
+  - **Cause (traces, verified against the linkage's joint-space targets):** hips track their targets (≈ 0.01 rad), but
+    a LOADED folded knee does not extend — on the ground it sits 0.42 rad (≈ 16 mm of knee rod) short of its target for
+    the whole 16 s (PD demand ≈ 2500 N·m vs the knee's 400 N·m effort cap), the robot pinned 13 cm low; on the 18-in
+    table 0.15–0.42 rad short, 6–9 cm low. On the 25-in table the knees reach target in the air (≤ 2 mm rod error at
+    1 s) before the toes touch at ≈ 2 s. Geometry (`sh_kin.toe_uz`): at the −45° hip stop (the retracted pose) an
+    unfold drops the toe by up to 12 cm, so any top below ≈ 0.53 m loads the toes mid-unfold (the step-1 top_min 0.412
+    only checked clearance at spawn); from the ground no hip angle lets the legs unfold in the air. A ground get-up
+    needs a new motion (e.g. belly down, toes slid out under light load, hip push-up) whose hip forces vs the 2000 N
+    cap are unknown. On hardware the knee is hold-only and rated far below this load, so the limit is not a sim
+    artefact to tune away.
+  - **STOP and ask** (push-notified). Nothing trained; budget used ≈ 3.0 GPU-h of the ≈ 15.
