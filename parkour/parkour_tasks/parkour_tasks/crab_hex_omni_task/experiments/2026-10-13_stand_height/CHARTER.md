@@ -209,3 +209,9 @@ the user's.**
   training, chained: height rows hwalkstop / hraise es1 + es2 (`SH_P18`, stand_net, mask 1, restore armed), the nine
   K5 zero-command rows (`SH_P18z`), the full table test (stand_net only, `--label SH_P18`); then `sh_read` with the
   step-4b controls and the observe pass.
+- 2026-10-13, **pilot `SH_P18` mid-run premise (its 1667–2500, train-time, student vs the concurrent R_h control
+  slice; `pilot_premise_mid.json`): NO STOP.** Walk-handover homed 0.954 vs 0.954 (ratio 1.00); random-height homed
+  0.960 vs 0.987 (0.97); **table STOOD 0.673 (n 1873) vs 0.930 (n 428), ratio 0.72**; fall share 0.65 % vs 0.62 %
+  (line 2.25 %); σ-0 restore timeouts 0.03 % vs 0.28 %. Height error on holds: student median 2.5 mm / p90 6.6–7.5 mm
+  vs R_h 1.6–2.1 / 4.0–5.1 mm. **Watch item:** table stand-up trails R_h by 26 pp mid-run; K3's line is R_h's rate
+  − max(5 pp, 2 SE) (≈ 0.93 at step 4b), so the pilot passes K3 only if this closes by its 5000.
