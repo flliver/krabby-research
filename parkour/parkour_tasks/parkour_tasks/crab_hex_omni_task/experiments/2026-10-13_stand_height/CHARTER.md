@@ -307,3 +307,8 @@ the user's.**
   in the same window); walk homed 0.974 vs 0.962; random homed 0.980 vs 0.985; falls 0.61 % vs 0.58 %; restore
   timeouts 0.20 % vs 0.28 %. **Trim diagnostic:** the student's executed cam command toward home on loaded in-band
   HOLD legs, median 0.022 → 0.025 units vs R_h's 0.100 (ratio 0.22 → 0.25; the first pilot ≈ 0.02).
+- 2026-10-14, **`SH_T18` DONE** (5000 its, 1.73 s / it; judged `runs/SH_T18/model_5000.pt`). End-of-run premise (its
+  3334–5000; `t18_premise_final.json`): no STOP — table STOOD 0.931 vs R_h 0.930; walk homed 0.968 vs 0.955; random
+  homed 0.980 vs 0.972; falls 0.66 % vs 0.70 %; restore timeouts 0.15 % vs 0.13 %; trim ratio 0.30 → 0.33 → 0.35 →
+  0.37 by window (still rising). Table test (deadband 0.25): gated tables 594 / 600 and 587 / 600 STOOD, falls 0.50 /
+  0.33 per 100, homed at the end 98–100 % per cell.
