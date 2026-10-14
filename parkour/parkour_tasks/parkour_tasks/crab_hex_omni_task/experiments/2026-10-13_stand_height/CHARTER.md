@@ -182,3 +182,15 @@ the user's.**
     (tilt < 0.5 rad throughout) and standing at the end — the kind accepted above — is accepted under the same
     argument and recorded with its counts. Any tilt fall, any STOOD < 0.90 on a gated top, or a miss of any other kind
     → STOP and ask.
+- 2026-10-13, **step 4b: K3 re-calibration on the re-scoped cells (GPU ≈ 0.35 h; stamp `sh_table/2026-10-13_21-59-02_full`;
+  `step4b_read.md/.json`, `step4b_k3_summary.json`): control table 14 / 14 land, 0 mismatches.**
+  - Gated tables (6 cells × 100 envs per seed): **R_h 590 / 600 and 587 / 600 STOOD, falls 0.83 / 0.33 per 100**
+    (S1 0 / 600, falls 3.7 / 3.2 → FAIL as required; posture only 597 / 587, reported PASS; A-mask s17 13 / 16 %,
+    reported FAIL). Reported cells as at step 4 (ground knee_folded 0 %, ground random 68 %, 18-in table low).
+  - **R_h floor per gated top:** es2 all pass; es1 0.6985 (198 / 200, 1 fall) and 0.762 (199 / 200, 0) pass;
+    **es1 0.635: 193 / 200 STOOD, 4 fall-clause events (line 2) → read as coded = MISS.** All four are random-fold
+    starts, hip-contact only (peak hip force 568–11 932 N), maximum tilt 2.6–4.3° throughout, standing at the end
+    0.4–5.9 cm from the command → **accepted under the pinned floor-read rule** (no tilt fall, STOOD ≥ 0.90 on every
+    gated top). `sh_read` exits 4 on this alone.
+  - Step 4 closes: R_h is the teacher for height, raise / lower, restore and the gated table starts. Next: step 5
+    smoke.
