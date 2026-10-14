@@ -147,3 +147,25 @@ the user's.**
     cap are unknown. On hardware the knee is hold-only and rated far below this load, so the limit is not a sim
     artefact to tune away.
   - **STOP and ask** (push-notified). Nothing trained; budget used ≈ 3.0 GPU-h of the ≈ 15.
+- 2026-10-13, **USER DECISION at the step-4 stop: narrow stand-up to tall tables.** Ground get-up becomes its own
+  follow-up (it needs a scripted get-up motion and a hip-force check); this campaign trains and gates table starts
+  where the knees unfold in the air. **Rules (set before any re-read or training):**
+  - **Lowest table top = 0.635 m** (25 in), not the ≈ 0.55 m estimated at the stop: in R_h's 25-in trace the toes
+    clear the floor by only 1–2 cm when the knees reach their targets (the hip slews down while the knees unfold, which
+    the hip-stop-only estimate ignored), and the 18-in table fails. `facts.json` `frozen.top_min_m` 0.412 → 0.635;
+    training tops U[0.635, 0.805] (top_max unchanged).
+  - **K3 gated cells** = tops {0.635, 0.6985 (27.5 in, new), 0.762} × poses {knee_folded, random}; the R_h floor and
+    the student's K3 line read tables pooled over these six cells per env seed (per top for the floor). **Reported
+    only** (run, read, never gated): the 18-in table, every rod_min cell, every ground cell.
+  - **Training starts:** ground starts removed; their 15 % goes to table starts (walk 0.50 / table 0.40 / ground 0 /
+    random-height 0.10), so the stand-up dose is unchanged. Retracted poses on table starts: knee_folded 0.75, random
+    fold 0.25, rod_min 0 (the plan's 0.60 / 0.20 / 0.20 renormalised without rod_min).
+  - **R_h floor at 0.635 (knee_folded + random, existing stamps):** STOOD 95.5 % / 98.5 %, falls 3 / 200 (es1) and
+    2 / 200 (es2). The es1 count is one over the 1 / 100 line. All five events are the hip-contact clause (> 500 N)
+    with the robot UPRIGHT (tilt 2.5–3.3°) and still standing at the end, 0.3–5.8 cm from its command: hip-body
+    contacts (source not identified; the table is the only object near), not tip-overs. Such events occur at every
+    command margin (up to +0.69 m above the top). **Accepted and argued from the counts (CHARTER §2 statistics note), not
+    re-run;** the student's K3 fall line is max(1, R_h's), so it is held to the same contacts.
+  - Next: build + review of the re-scope (facts, `sh_table_core` cells / floor / pooling, `sh_read` K3, trainer start
+    and pose shares, smoke checks, `sh_table_test.sh` surfaces, tests), then re-run the K3 calibration on the new
+    surface list (R_h, S1, posture only, A-mask; es1 + es2), then step 5.
