@@ -225,3 +225,18 @@ the user's.**
     a median 87 % of the last-3-s window (quartiles 75 / 87 / 92 %) against the 95 % line; 4–6 feet loaded at the end in
     83 %. Not stepping or falling: uneven load leaves one or two feet under the loaded threshold part of the time (the
     sub-mm load flicker the predecessor's tap anatomy found). R_h has the same failure in 53 / 848 (6 %).
+- 2026-10-14, **step 6 pilot read `SH_P18` model_5000 (`head_SH_P18.md/.json`; control table 14 / 14, 0 mismatches):
+  K1 PASS, K2 PASS, K4 PASS, K5 PASS; K3 FAIL, K6 FAIL → STOP and ask before replicates (PLAN step 6).**
+  - K1 median |h − h_cmd| 1.6–2.8 mm per bin (p90 ≤ 6.4 mm); K2 every command reached ≥ 1.16 s inside its allowance,
+    0 stand falls; K4 0 misses, 0 exit falls (R_h: 1 miss per seed); K5 G1–G5 PASS at 1.064 (zero-command rows).
+  - **K3:** gated tables STOOD 480 / 600 (0.800) and 489 / 600 (0.815) vs lines 0.933 / 0.928; falls 0 and 0.33 per 100
+    (pass). Height on target (median 2 mm), homed 91–100 % per cell; the misses are the four-feet clause.
+  - **K6:** homed / settled per bin 0.955–1.0 (pass); **stillness FAILS: steps 0.59 / 0.61 per s (line 0.5), taps
+    2.85 / 2.78 per s (line 1.0)** (R_h 0.17 / 0.15).
+  - **Anatomy (es1 hwalkstop, my window from height arrival):** student taps 0.7–6.3 / s by height, foot lift median
+    0.0–0.1 mm, p90 0.03–2.8 mm — sub-mm load flicker (R_h 0.07–0.6 / s); steps 0.09–0.94 / s, 26–71 % lifting > 5 mm
+    (R_h steps too at 1.064, 0.6 / s in this window). On legs R_h HOLDs (its residual exactly 0) the student's hip /
+    knee residual is |a| p50 0.010, p90 0.033, p99 0.147 units (≈ 0.3 / 1 / 4 mm of rod); on LIFT legs ≈ 0.50. With
+    hip PD 16 000 N·m/rad a 1-mm rod error on one of six stance legs moves enough load to cross the 50 N loaded
+    threshold: one mechanism for both K3 (four-feet) and K6 (taps).
+  - Train-time table STOOD had plateaued at 0.77 from its ≈ 3300 (more iterations are unlikely to close it).
