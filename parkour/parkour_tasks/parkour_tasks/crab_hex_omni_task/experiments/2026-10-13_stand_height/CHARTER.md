@@ -354,3 +354,12 @@ the user's.**
   (154.5 s, `video_sh_raise_T17_sanity.json`): 13 / 13 stand heights arrived (median error 0.4–4.4 mm), 13 / 13 homed at
   the end, 0 falls, 2 / 2 restores completed, no reference mismatch. Report: step-8 workflow (opus·xhigh write,
   fable·high verify of every number, opus fix).
+- 2026-10-14, **step 8: `REPORT.md` written (workflow wf_30491bfd-e62: opus·xhigh draft; fable·high verified every
+  number against the records — no blocking defect, 7 minor fixed; opus fix pass; one correction by me: the 21:08
+  `SHROWS WAIT` was my CPU-only `sh_read.py` launched by relative path, a false-positive busy check, not a second Kit
+  process).** Recommendation (the report's, not a decision): `SH_T17` as the candidate stand-height head — the only head
+  passing every pre-registered clause as coded at es1 and es2; SH_T16 / SH_T18 differ only by K4 es2 count misses.
+  Notable reported lead: the deadband-free pilot `SH_P18` stood 97 / 98 % on the 18-in table and 49 / 62 % from ground
+  knee_folded (R_h 6 / 12 % and 0 %; `SH_T17` 5 / 11 % and 0 %) — the sub-0.25 residual the deadband removes is what
+  lets loaded knees open; input for the ground get-up follow-up. GPU ≈ 18.9 h of the planned ≈ 15. **STOP for the
+  user's adoption decision.** Nothing baked, nothing pushed.
