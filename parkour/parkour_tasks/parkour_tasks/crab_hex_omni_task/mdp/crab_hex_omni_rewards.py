@@ -52,6 +52,11 @@ the optimum. The turning gradient this docstring was worried about is supplied i
 ``reward_yaw_progress`` below (weight 1.0, signed, dense), which did not exist when 0.15 was
 chosen. See ``README.md`` "Revision 4 -- the reward economy".
 
+THE BODY-FRAME SET (2026-10-15, DEFAULT OFF): :func:`track_ang_vel_z_exp_straight_gated`,
+:class:`RewardYawWindowExp` and :class:`RewardYawProgressTent` -- swapped in under the SAME three
+names only by ``KRABBY_OMNI_COMMAND_FRAME=body`` (``omni_knobs._apply_body_reward_set``); see their
+section at the bottom of the reward functions.
+
 A SIXTH FUNCTION IS STAGED BUT NOT SELECTED (2026-09-18, user decision):
 :func:`track_ang_vel_z_exp_turn_gated`, the stock term zeroed on rows that command no turn.
 The cfg class body below keeps the STOCK ``func`` and no preset arms it; the omni-only knob
@@ -125,6 +130,7 @@ from __future__ import annotations
 import torch
 from isaaclab.assets import Articulation
 from isaaclab.envs.mdp.rewards import track_ang_vel_z_exp, track_lin_vel_xy_exp
+from isaaclab.managers import ManagerTermBase
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
@@ -138,6 +144,15 @@ from parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.parkour_mdp_cfg 
     CrabHexFlatWalkTerminationsCfg,
 )
 from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command_math import SLOT_TURN
+
+from .crab_hex_omni_yaw_window import (
+    YAW_WINDOW_S,
+    YAW_WINDOW_SIGMA,
+    YawWindow,
+    window_steps,
+    yaw_tent_income,
+    yaw_window_income,
+)
 
 #: Floor of the divisor that turns ``cmd[:, :2]`` into a unit direction. ``clamp_min`` (not
 #: ``+ eps``) keeps ``dir_b`` EXACTLY ``(+-1, 0)`` / ``(0, +-1)`` for an axis-aligned
@@ -618,6 +633,141 @@ def track_ang_vel_z_exp_turn_gated(
     value = track_ang_vel_z_exp(env, std=std, command_name=command_name, asset_cfg=asset_cfg)
     turning_cmd = env.command_manager.get_command(command_name)[:, 2] != 0.0
     return value * turning_cmd.float()
+
+
+# ------------------------------- the BODY-FRAME reward set (DEFAULT OFF, 2026-10-15, PLAN D4)
+#
+# Robot-frame velocity commands campaign (``experiments/2026-10-15_body_cmd``; PLAN D4 as amended by
+# the CHARTER on 2026-10-15). Nothing in this package selects these three: only
+# ``KRABBY_OMNI_COMMAND_FRAME=body`` (``omni_knobs._apply_body_reward_set``) swaps them in, under the
+# SAME term names and weights (``reward_tracking_yaw``, ``reward_yaw_progress``,
+# ``track_ang_vel_z_exp``), so every ``Episode_Reward/<name>`` line, ``KRABBY_*_W`` knob and phase-out
+# keeps resolving. A body command has no facing TARGET -- the command is a yaw RATE -- so the two
+# facing-position terms become WINDOWED rate terms (the pure math, and why a window:
+# ``crab_hex_omni_yaw_window``), and the stock ang-vel kernel keeps paying only where the command is
+# a heading hold.
+def track_ang_vel_z_exp_straight_gated(
+    env: ParkourManagerBasedRLEnv,
+    std: float,
+    command_name: str = "base_velocity",
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """The stock ``track_ang_vel_z_exp``, zeroed on every row that DOES command a turn.
+
+    The mirror image of :func:`track_ang_vel_z_exp_turn_gated` (same drop-in signature, the stock
+    function CALLED rather than re-derived, ``std`` passed straight through). Body mode only (user
+    decision 2026-10-15): on a ``wz = 0`` row the stock kernel is a heading-hold rate term (std 0.5,
+    weight 1.0, as in every world preset); on a turning row the rate is paid by the windowed terms
+    (:class:`RewardYawWindowExp`, :class:`RewardYawProgressTent`), and the stock even kernel would
+    otherwise pay a robot that never turns most of its income at a slow command.
+
+    Returns:
+        ``(N,)`` in ``[0, 1]``: the stock value on rows with ``cmd_wz == 0``, exactly 0.0 elsewhere.
+    """
+    value = track_ang_vel_z_exp(env, std=std, command_name=command_name, asset_cfg=asset_cfg)
+    straight = env.command_manager.get_command(command_name)[:, 2] == 0.0
+    return value * straight.float()
+
+
+def _body_cmd_cfg_field(env: ParkourManagerBasedRLEnv, command_name: str, field: str, term: str) -> float:
+    """A body command cfg's envelope field, read off the ENV cfg (built before any manager), loudly."""
+    cmd_cfg = getattr(getattr(getattr(env, "cfg", None), "commands", None), command_name, None)
+    value = getattr(cmd_cfg, field, None)
+    if value is None:
+        raise RuntimeError(
+            f"{term}: commands.{command_name} ({type(cmd_cfg).__name__}) has no {field}; this term is the "
+            "body-frame reward set's and needs the body command cfg (KRABBY_OMNI_COMMAND_FRAME=body)"
+        )
+    return float(value)
+
+
+class RewardYawWindowExp(ManagerTermBase):
+    """``exp(-|S_ach - S_cmd| / sigma)`` over a trailing yaw window (body mode's ``reward_tracking_yaw``).
+
+    ``S_ach`` / ``S_cmd`` are the achieved (``root_ang_vel_b[:, 2] * dt``) and commanded
+    (``vel_command_b[:, 2] * dt``) yaw summed over the last ``round(window_s / step_dt)`` steps (100
+    at the CHARTER's 2.0 s), in per-env ring buffers on the env device, zero-filled at the env's
+    episode reset and NOT at a command change (``crab_hex_omni_yaw_window``). On a ``wz = 0`` row this
+    is a 2-s heading hold; on a turning row, rate tracking with the gait wobble averaged out. A still
+    stander on a 0.05 rad/s command earns ``exp(-1)``; a perfect tracker 1.0.
+
+    ``window_s`` is resolved ONCE (the buffer length); ``sigma`` is read per call. ``asset_cfg`` /
+    ``parkour_name`` / ``command_name`` are the world term's params, kept so the swap is a pure func
+    swap (``parkour_name`` is accepted and ignored, as in :func:`reward_facing_exp`).
+    """
+
+    #: The CHARTER's dose (2026-10-15): the knob applier writes these into the term's params.
+    WINDOW_S = YAW_WINDOW_S
+    SIGMA = YAW_WINDOW_SIGMA
+
+    def __init__(self, cfg: RewTerm, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        window_s = float(cfg.params.get("window_s", self.WINDOW_S))
+        self.window = YawWindow(env.num_envs, window_steps(window_s, env.step_dt), device=self.device)
+
+    def reset(self, env_ids=None) -> None:
+        self.window.reset(env_ids)
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+        parkour_name: str | None = None,
+        command_name: str = "base_velocity",
+        window_s: float = YAW_WINDOW_S,
+        sigma: float = YAW_WINDOW_SIGMA,
+    ) -> torch.Tensor:
+        del parkour_name, window_s  # ignored / resolved once in __init__
+        asset: Articulation = env.scene[asset_cfg.name]
+        dt = env.step_dt
+        cmd_wz = env.command_manager.get_command(command_name)[:, 2]
+        s_ach, s_cmd = self.window.push(asset.data.root_ang_vel_b[:, 2] * dt, cmd_wz * dt)
+        return yaw_window_income(s_ach, s_cmd, sigma)
+
+
+class RewardYawProgressTent(ManagerTermBase):
+    """The yaw-progress tent over the same trailing window (body mode's ``reward_yaw_progress``).
+
+    ``cbar = S_cmd / T``, ``p = sign(cbar) S_ach / T`` (``T`` = the window, seconds) and
+    ``min(p, 2|cbar| - p)`` clamped below at ``-w_max``, exactly 0.0 where ``cbar == 0``
+    (:func:`~crab_hex_omni_yaw_window.yaw_tent_income`): peaks at the commanded rate, pays nothing at
+    twice it, charges over-spin and wrong-way rotation. ``w_max`` is the BODY command cfg's own
+    ``body_w_max`` (``clip`` None, the world term's "read the command's own cap" contract); a
+    ``clip`` value overrides it. Weight from ``KRABBY_YAW_PROGRESS_W`` (2.0 in the ``_b`` presets).
+    """
+
+    WINDOW_S = YAW_WINDOW_S
+
+    def __init__(self, cfg: RewTerm, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        window_s = float(cfg.params.get("window_s", self.WINDOW_S))
+        n = window_steps(window_s, env.step_dt)
+        self.window = YawWindow(env.num_envs, n, device=self.device)
+        self.window_t = n * float(env.step_dt)
+        clip = cfg.params.get("clip")
+        command_name = cfg.params.get("command_name", "base_velocity")
+        self.w_max = (float(clip) if clip is not None
+                      else _body_cmd_cfg_field(env, command_name, "body_w_max", "RewardYawProgressTent"))
+        if not self.w_max > 0.0:
+            raise ValueError(f"RewardYawProgressTent: w_max must be positive, got {self.w_max}")
+
+    def reset(self, env_ids=None) -> None:
+        self.window.reset(env_ids)
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        command_name: str = "base_velocity",
+        asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+        clip: float | None = None,
+        window_s: float = YAW_WINDOW_S,
+    ) -> torch.Tensor:
+        del clip, window_s  # resolved once in __init__
+        asset: Articulation = env.scene[asset_cfg.name]
+        dt = env.step_dt
+        cmd_wz = env.command_manager.get_command(command_name)[:, 2]
+        s_ach, s_cmd = self.window.push(asset.data.root_ang_vel_b[:, 2] * dt, cmd_wz * dt)
+        return yaw_tent_income(s_ach, s_cmd, self.window_t, self.w_max)
 
 
 # --------------------------------------------------------------------------- termination

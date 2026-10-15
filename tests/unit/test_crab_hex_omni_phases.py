@@ -148,7 +148,11 @@ def knobs():
 
 # ------------------------------------------------------------------------------ schedule shape
 def test_phase_chain_and_tasks(omni):
-    assert set(omni.PHASES) == set(PHASE_NAMES)
+    # NOTE(body-frame command mode, 2026-10-15): the three ``_b`` twins are presets too (pinned key by
+    # key in ``test_crab_hex_omni_body_cmd.py``); the WORLD chain of record is unchanged.
+    assert omni.PHASE_NAMES == PHASE_NAMES
+    assert omni.BODY_PHASE_NAMES == ("1a_b", "1b_b", "2a_b")
+    assert set(omni.PHASES) == set(PHASE_NAMES) | set(omni.BODY_PHASE_NAMES)
     assert not any("legacy" in n for n in omni.PHASES)
     assert omni.STUDENT_PHASES == ()
     assert not any(s.kind == "distill" for s in omni.PHASES.values()), "the omni plan has no student"
@@ -173,7 +177,8 @@ def test_phase_chain_and_tasks(omni):
         assert s.resume_from == prev and s.teacher_mode == mode and s.kind == "rl", name
         assert s.iterations == 5000, name
 
-    assert omni.PHASE_MODES == {"2a": "2a", "2b": "2b", "2c": "2c", "2c_clockheld": "2c"}
+    assert omni.PHASE_MODES == {"2a": "2a", "2b": "2b", "2c": "2c", "2c_clockheld": "2c",
+                                "2a_b": "2a"}   # + the body twin of 2a (2026-10-15)
     # the short stages are canary-only; every 5000-iteration window runs the full row set
     assert omni.PHASES["1a"].eval_scenarios == omni.PHASES["1b"].eval_scenarios == ("slow",)
     for name in ("1c", "2a", "2b", "2c", "2c_clockheld"):
@@ -971,13 +976,26 @@ def test_new_knob_names_and_exports(knobs):
 
 
 def test_no_preset_sets_a_curriculum_knob(omni):
-    """DEFAULT OFF, everywhere: the campaign overlays them, the presets never do."""
+    """DEFAULT OFF, everywhere: the campaign overlays them, the presets never do.
+
+    NOTE(body-frame command mode, 2026-10-15): the one exception is the ``BODY_DELTA`` block of the
+    ``_b`` twins, which sets ``KRABBY_OMNI_FACING_OBS_ENCODING=none`` by spec (STEP1_SPEC §6); the
+    source scan therefore skips exactly that assignment, and the world presets stay knob-free.
+    """
     for name in PHASE_NAMES:
         for var in NEW_KNOB_VARS.values():
             assert var not in omni.PHASES[name].env, f"{name} arms {var}"
     src = OMNI_PHASES_PY.read_text()
+    start = src.index("BODY_DELTA: dict[str, str | None] = {")
+    body_block = src[start:src.index("}", start) + 1]
+    assert body_block.count("KRABBY_OMNI_FACING_OBS_ENCODING") == 1
+    src = src.replace(body_block, "")
     for var in NEW_KNOB_VARS.values():
         assert var not in src, var
+    for name in omni.BODY_PHASE_NAMES:
+        armed = {var for var in NEW_KNOB_VARS.values() if var in omni.PHASES[name].env}
+        assert armed == {"KRABBY_OMNI_FACING_OBS_ENCODING"}, (name, armed)
+        assert omni.PHASES[name].env["KRABBY_OMNI_FACING_OBS_ENCODING"] == "none"
 
 
 # ------------------------------------------------------------------ KRABBY_OMNI_CMD_POOL
@@ -1259,8 +1277,11 @@ def test_track_facing_sigma_resolves_the_shipped_twin_when_not_injected(knobs):
 def test_parse_facing_obs_encoding(knobs):
     assert knobs.parse_facing_obs_encoding("raw") == "raw"
     assert knobs.parse_facing_obs_encoding(" SinCos ") == "sincos"
-    assert knobs.FACING_OBS_ENCODINGS == ("raw", "sincos")
-    for bad in ("", "sin_cos", "cos", "1", "none"):
+    # ``none`` (body-frame command mode, 2026-10-15) parses; world mode refuses it cross-knob
+    # (``body_frame_env_refusals``), which ``test_crab_hex_omni_body_cmd.py`` pins.
+    assert knobs.parse_facing_obs_encoding(" None ") == "none"
+    assert knobs.FACING_OBS_ENCODINGS == ("raw", "sincos", "none")
+    for bad in ("", "sin_cos", "cos", "1", None, "off"):
         with pytest.raises(ValueError, match="KRABBY_OMNI_FACING_OBS_ENCODING"):
             knobs.parse_facing_obs_encoding(bad)
 
@@ -1708,7 +1729,7 @@ def test_the_shipped_omni_obs_term_declares_the_encoding_param():
     assert '"facing_obs_encoding": "raw"' in block, block
     obs_src = (OMNI / "mdp/crab_hex_omni_observations.py").read_text()
     assert 'facing_obs_encoding: str = "raw"' in obs_src, "the class default must agree"
-    assert 'FACING_OBS_ENCODINGS = ("raw", "sincos")' in obs_src
+    assert 'FACING_OBS_ENCODINGS = ("raw", "sincos", "none")' in obs_src
 
 
 def test_apply_omni_knobs_applies_all_three_a2_knobs_in_one_pass(knobs, monkeypatch):

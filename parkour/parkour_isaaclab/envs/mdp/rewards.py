@@ -97,12 +97,16 @@ def _clock_cmd_speed(env: ParkourManagerBasedRLEnv, cmd: torch.Tensor) -> torch.
     Forward/sideways: ``cmd[:, 0].abs()``, bitwise (``omni_command`` is absent -> ``False``).
     Omni: ``max(||cmd[:, :2]||, r_turn * |cmd[:, 2]|)`` so turning in place keeps the clock
     running. Kept in step with ``CrabHexDelayedJointPositionAction.process_actions``: the
-    reward must price the schedule the clock is actually advancing.
+    reward must price the schedule the clock is actually advancing. The omni BODY-frame command
+    mode (2026-10-15) adds ``omni_clock_turn_floor`` (an env-cfg instance attribute only that mode
+    writes; absent -> 0.0 -> the expression above, bitwise): ``max(.., floor [wz != 0])``, so every
+    gate that reads this speed (``_cmd_gate``, ``_clock_running``) keeps a slow turn "moving".
     """
     return clock_command_speed(
         cmd,
         bool(getattr(env.cfg, "omni_command", False)),
         float(getattr(env.cfg, "omni_clock_turn_radius", 0.0)),
+        float(getattr(env.cfg, "omni_clock_turn_floor", 0.0)),
     )
 
 

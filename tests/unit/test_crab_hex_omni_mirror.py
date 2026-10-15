@@ -184,8 +184,10 @@ def test_head_tables_are_the_plan_literals():
     assert s_rot == [a * b for a, b in zip(s_lr, s_fa)]
     assert s_rot[6] == s_rot[7] == +1.0
     assert s_rot == omni.HEAD_SIGNS_ROT_Z_PI
-    assert omni.FACING_OBS_ENCODINGS == ("raw", "sincos")
+    assert omni.FACING_OBS_ENCODINGS == ("raw", "sincos", "none")
     assert (omni.FACING_SIN_SLOT, omni.FACING_COS_SLOT) == (6, 7)
+    # ``none`` (body-frame command mode, 2026-10-15): slots 6-7 are exact zeros, the tables UNCHANGED
+    assert omni.head_signs("none") == omni.head_signs("raw")
 
 
 @pytest.mark.parametrize("bad", ["", "sin_cos", "RAW ", "cos", None, 1])

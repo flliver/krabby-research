@@ -426,10 +426,13 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         cmd = self._env.command_manager.get_command("base_velocity")
         # ``omni_command`` is absent on the forward (and sideways) cfg classes -> False, and
         # ``clock_command_speed`` is then exactly ``cmd[:, 0].abs()`` as before.
+        # ``omni_clock_turn_floor`` exists only on a body-frame omni env cfg (an instance attribute
+        # ``omni_knobs._apply_command_frame`` writes): absent -> 0.0 -> the world path, bitwise.
         v = clock_command_speed(
             cmd,
             bool(getattr(self._env.cfg, "omni_command", False)),
             float(getattr(self._env.cfg, "omni_clock_turn_radius", 0.0)),
+            float(getattr(self._env.cfg, "omni_clock_turn_floor", 0.0)),
         )
         self.clock_cmd_speed = v
         freq_rev_s = torch.where(

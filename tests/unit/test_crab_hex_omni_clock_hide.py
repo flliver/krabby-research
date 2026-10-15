@@ -501,7 +501,10 @@ def test_omni_knobs_reexports_and_applies_the_clock_knobs():
     # before the motion and stroke/posture knobs, which stay LAST in that order (pinned by
     # test_crab_hex_omni_motion_knobs.py)
     assert calls.index("_ck.apply_clock_knobs(cfg, env)") < calls.index("_mk.apply_motion_knobs(cfg, env)")
-    assert calls[-1] == "_sk.apply_stroke_knobs(cfg, env)"
+    # NOTE(body-frame command mode, 2026-10-15): the command frame is applied after them all (the one
+    # application point of KRABBY_OMNI_COMMAND_FRAME; world writes nothing).
+    assert calls[-1] == "_apply_command_frame(cfg, env)"
+    assert calls[-2] == "_sk.apply_stroke_knobs(cfg, env)"
 
 
 def test_no_preset_arms_a_clock_knob():

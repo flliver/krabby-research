@@ -50,6 +50,7 @@ def clock_command_speed(
     cmd: torch.Tensor,
     planar: bool = False,
     turn_radius: float = 0.0,
+    turn_floor: float = 0.0,
 ) -> torch.Tensor:
     """The commanded speed that drives the gait clock's cadence, ``[N]``.
 
@@ -65,16 +66,27 @@ def clock_command_speed(
     turn of radius ``turn_radius`` implies (``r * |wz|``), so the clock never stalls under an
     active turn. ``turn_radius=0.0`` degenerates to the pure planar norm.
 
+    ``turn_floor`` (omni body-frame command mode only, 2026-10-15; default 0.0 = the world path,
+    bitwise -- no extra op is even evaluated): a turning row (``wz != 0``) reads at least this speed,
+    i.e. ``max(|v|, r |wz|, turn_floor [wz != 0])``. With ``r = 1.2`` alone a body command's slow
+    turns (``|wz|`` down to 0.05 rad/s) would read 0.06 m/s -- below the clock's stop speed and the
+    gait gates' 0.12 -- so the robot would be paid to stand through every slow turn; the body mode
+    sets the floor to the walk floor (0.21 m/s), so a turning row is "moving" like a slow walk.
+
     Args:
         cmd: ``[N, >=3]`` base-velocity command (vx, vy, wz) in the body frame.
         planar: read the planar command (omni tasks) instead of ``cmd[:, 0]`` alone.
         turn_radius: metres; the effective turning radius mapping |wz| to a foot speed.
+        turn_floor: m/s; the least clock speed of a turning row (planar branch only; 0 = off).
     """
     if not planar:
         return cmd[:, 0].abs()
-    return torch.maximum(
+    speed = torch.maximum(
         torch.linalg.norm(cmd[:, :2], dim=-1), turn_radius * cmd[:, 2].abs()
     )
+    if turn_floor:
+        speed = torch.maximum(speed, float(turn_floor) * (cmd[:, 2] != 0.0).to(speed.dtype))
+    return speed
 
 
 #: Tolerance (in units of pi) under which a phase counts as sitting ON a touchdown boundary.

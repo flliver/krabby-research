@@ -51,4 +51,10 @@ Modules (documentary only -- none of these names is bound here):
     The four DEFAULT-OFF penalty terms ``config/crab_hex/motion_knobs.py`` adds to the rewards
     cfg only when their weight knob is armed (second-difference smoothness, rod joint speed,
     loaded-foot slip, stand-gated pose deviation).
+``crab_hex_omni_yaw_window`` (body-frame command mode 2026-10-15, pure torch)
+    The trailing yaw window and the two incomes (windowed yaw tracking, yaw-progress tent) the
+    DEFAULT-OFF body reward set (``KRABBY_OMNI_COMMAND_FRAME=body``) pays through
+    ``crab_hex_omni_rewards.RewardYawWindowExp`` / ``RewardYawProgressTent``. The body command
+    itself is ``crab_hex_omni_command.CrabHexOmniBodyCommand`` (its math in
+    ``crab_hex_omni_command_math``).
 """

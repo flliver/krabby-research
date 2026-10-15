@@ -92,3 +92,46 @@ adoption-grade report. **Adoption, bake and push are the user's.**
   0.245); 0.08: ≤ 0.144; ceiling ≤ 0.016; w_max ≤ 0.006. Premium vs still at w_min 8.4 / 7.4 per s, at 0.08 13.1 /
   12.0 per s. Straight-row wobble income 1.131 / 1.108 of 1.200. (The v1 read's idealised line is regenerated with
   the window length in the formula; its verdict and shares are unchanged.) Next: step 1 code.
+- 2026-10-15, **step 1 dispatched (opus·xhigh) on `STEP1_SPEC.md`; pins it makes beyond PLAN, recorded before any
+  result is read:** (1) envelope knobs `KRABBY_OMNI_BODY_ENVELOPE=w_min:ceiling:w_max` and
+  `KRABBY_OMNI_BODY_CAP=v@wz,...` (required in body mode, refused in world mode; not in the presets — the campaign
+  overlay sets them after step 4); (2) the coupled cap is a function of |v| only (piecewise-linear through the P1
+  points, constant beyond the last point) — this is the deferred "off-grid bearings" rule: at each |v| the P1 point
+  used is the worse of the fwd / lat reads (step 4 pins it when it fits the cap); (3) a move+turn draw whose cap
+  falls below w_min has its speed reduced to the largest |v| with cap ≥ w_min; (4) the 2-s window is NOT reset on a
+  command change (it compares achieved and commanded yaw over the same trailing steps) and is zero-filled at an
+  episode reset — this replaces PLAN's "window reset on a command change / reset" (a reset on change would pay or
+  charge the first seconds of every command on a partial window); (5) the tent is clamped below at −w_max and pays
+  exactly 0 where the window's mean command is 0; (6) a pool type with a non-unit `ang_scale` is refused in body mode
+  (no shipped pool uses one); (7) the clock-radius rule is skipped in body mode (the walk-floor rule keeps the clock
+  running on every turning row) — this closes the deferred "clock-radius rule" item; (8) world mode refuses the
+  `none` obs encoding.
+- 2026-10-15, **inertness baseline:** Kit config dumps at HEAD of the 13 targets in `dump_targets.json` (presets
+  1a 1b 1c 2a 2b 2c 2c_clockheld + overlays fb6k c4 c5 c6 c6x p2a), `scripts/bc_dump_cfgs.py` →
+  `parkour/outputs/omni_plan/body_cmd/dumps_head/` (13/13 ok). The after-code dumps must match them byte for byte.
+- 2026-10-15, **step-2 procedure pinned (`STEP2_SPEC.md`), deviation from PLAN "eval_sha moves once":** the body
+  scenario file `eval/scenarios_omni_body.yaml` carries the envelope as a manifest block (turn levels and move_turn
+  rows are SYMBOLS resolved from it: `w_min`, `ceiling`, `w_max`, `cap80` = 0.8 × cap(|v|)). It is written with a
+  PROVISIONAL envelope at step 2 (0.05 / 0.167 / 0.21, cap (0, 0.21) (0.22, 0.13) (0.30, 0.10)) and rewritten — that
+  block only — when step 4 freezes the envelope from P1, so **eval_sha moves twice** (harness at step 2; envelope at
+  step 4). Every anchor and every gate read runs at the post-freeze eval_sha; the step-3 harness proof (0
+  route / slot / obs mismatches) and the P1 grid row do not depend on the envelope numbers. Body field rows translate
+  the world 8-hold timeline: turn holds at ±ceiling for 12 s, move_turn at (0.22, 0, cap80) for 8 s.
+- 2026-10-15, **step 1 built (opus·xhigh; report in the session record): 183 new CPU tests; full `tests/unit/` 13
+  failed / 4847 passed — the same 13 fail at HEAD (pre-existing, unrelated); no Kit run by the implementer.** Pins it
+  made beyond the spec are in its report (window not reset on a command change, zero-filled at reset; tent clamp
+  −w_max; body signature (φ, v, wz); hook writes the row verbatim and validates only; envelope with no moving turn
+  refused; RSI refused also by the built cfg; `omni_clock_turn_floor` = walk floor 0.21; `_b` presets resume
+  `1b_b → 1a_b`, `2a_b` from nothing). Gates that read only ‖cmd_xy‖ (air time, stride, progress, obstacle
+  clearance) get no turn floor — the same as world mode, where they already ignore turns.
+- 2026-10-15, **inertness check (Kit dumps, `scripts/bc_dump_compare.py`): the 13 knob-off targets after the step-1
+  code are IDENTICAL to the HEAD dumps** (`parkour/outputs/omni_plan/body_cmd/dump_compare_head_vs_after.json`).
+  Body-preset dumps (`dumps_body/`, provisional envelope) show the body command class + envelope fields, obs encoding
+  `none`, the three swapped reward funcs (2-s window, σ 0.10; tent weight 2.0; straight-gated ang-vel), facing-turn
+  weight 0, turn floor 0.21, no RSI event.
+- 2026-10-15, **DECISION (decide-record-notify): the 2-s windowed yaw term is weighted 0.2 in EVERY `_b` preset**
+  (`KRABBY_YAW_W=0.2` joins `BODY_DELTA`). Found in the body dumps: `1a_b` / `1b_b` carry weight 0 because the world
+  1a / 1b presets never set `KRABBY_YAW_W` — the facing lineage had no facing reward before c4 because its relay held
+  heading (any drift past 0.133 rad commanded a corrective turn). Body mode has no relay, so at weight 0 nothing would
+  price slow heading drift in fb6k_b (the straight-gated ang-vel kernel, std 0.5, is flat at 0.01 rad/s). 0.2 is the
+  lineage's own weight from c4 on.

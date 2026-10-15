@@ -991,3 +991,400 @@ def sample_pool_travel_dir(
     hi_row = hi_t[type_id]
     body = yaw + (lo_row + u * (hi_row - lo_row))
     return torch.where(world_t[type_id], world, body)
+
+
+# ============================================================ the body-frame command mode
+#
+# Robot-frame velocity commands campaign (``experiments/2026-10-15_body_cmd``, PLAN D1 / D3 / D6;
+# DEFAULT OFF behind ``KRABBY_OMNI_COMMAND_FRAME=body``). The world command above is a held world
+# travel direction + an absolute world facing, turned into ``(vx, vy, wz)`` every step by the
+# clamp-only re-cap and the facing P-relay -- so the policy has only ever seen
+# ``wz in {0} U (0.2, 0.3]``. The body mode commands ``(vx, vy, wz)`` DIRECTLY, held in the body
+# frame for the slot: the deployment language (HAL teleop sends body-frame ``vx, vy, yaw_rate``).
+#
+# Everything a body command may be is ONE envelope, defined ONCE here
+# (:func:`body_cmd_violation_masks`) and used by the sampler's tests, the step-2 eval validator,
+# the eval hook (``CrabHexOmniBodyCommand.schedule_hook_body``) and the deployment / ``world_rate``
+# mapper (:func:`shape_body_command`):
+#
+# * speed ``|v| = hypot(vx, vy)`` in ``{0} U [walk_floor, ellipse_cap(atan2(vy, vx))]``;
+# * yaw rate ``|wz|`` in ``{0} U [w_min, w_max]``;
+# * moving AND turning: ``|wz| <= body_cap_wz(|v|)`` -- the COUPLED move+turn cap, a piecewise-
+#   linear frontier through measured ``(|v|, wz)`` points (PLAN D3: the robot cannot turn as fast
+#   while it walks as it can on the spot).
+#
+# The numbers are a KNOB / manifest parameter (``KRABBY_OMNI_BODY_ENVELOPE`` /
+# ``KRABBY_OMNI_BODY_CAP``, frozen in the campaign CHARTER at step 4), never a code constant: this
+# module owns their GRAMMAR (:func:`parse_body_envelope`).
+
+#: The two knob names whose grammar this module owns (``config/crab_hex/body_knobs.py`` re-states
+#: them as its ``*_VAR`` constants; a unit test pins the two spellings against each other).
+BODY_ENVELOPE_KNOB = "KRABBY_OMNI_BODY_ENVELOPE"
+BODY_CAP_KNOB = "KRABBY_OMNI_BODY_CAP"
+
+
+class BodyEnvelope(NamedTuple):
+    """The measured command envelope of a body-frame run (PLAN D3), all rad/s except ``cap``'s v.
+
+    ``w_min``
+        The smallest non-zero yaw-rate command (the slow-turn floor; 0.05 rad/s pre-registered).
+    ``ceiling``
+        The plant's sustained pure-turn rate (S1's measured 0.167 rad/s at the plan's writing) --
+        recorded with the envelope because the gates are read at it; the sampler draws above it,
+        up to ``w_max`` (the 1.2x headroom).
+    ``w_max``
+        The largest yaw-rate command any row may carry; a pure turn draws up to it.
+    ``cap``
+        The coupled move+turn frontier: ``((v0, wz0), (v1, wz1), ...)`` with ``v0 == 0``, ``v``
+        strictly increasing and ``wz`` non-increasing -- see :func:`body_cap_wz`.
+    """
+
+    w_min: float
+    ceiling: float
+    w_max: float
+    cap: tuple[tuple[float, float], ...]
+
+
+def _finite_float(knob: str, text: str, token: str) -> float:
+    try:
+        value = float(str(token).strip())
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{knob}: {token!r} is not a number (in {text!r})") from exc
+    if not math.isfinite(value):
+        raise ValueError(f"{knob}: {token!r} is not finite (in {text!r})")
+    return value
+
+
+def parse_body_envelope_triple(text: str) -> tuple[float, float, float]:
+    """``KRABBY_OMNI_BODY_ENVELOPE`` = ``w_min:ceiling:w_max`` (rad/s), ``0 < w_min < ceiling <= w_max``."""
+    raw = str(text).strip()
+    parts = raw.split(":")
+    if len(parts) != 3:
+        raise ValueError(f"{BODY_ENVELOPE_KNOB} must be 'w_min:ceiling:w_max' (rad/s), got {text!r}")
+    w_min, ceiling, w_max = (_finite_float(BODY_ENVELOPE_KNOB, text, p) for p in parts)
+    if not (0.0 < w_min < ceiling <= w_max):
+        raise ValueError(
+            f"{BODY_ENVELOPE_KNOB} needs 0 < w_min < ceiling <= w_max, got w_min={w_min}, "
+            f"ceiling={ceiling}, w_max={w_max} ({text!r})"
+        )
+    return (w_min, ceiling, w_max)
+
+
+def parse_body_cap_points(text: str) -> tuple[tuple[float, float], ...]:
+    """``KRABBY_OMNI_BODY_CAP`` = ``v0@wz0,v1@wz1,...`` -> ``((v0, wz0), ...)`` (m/s, rad/s).
+
+    The SHAPE rules, which need no other knob: ``v0 == 0`` exactly, ``v`` strictly increasing,
+    every ``wz`` finite and ``> 0``, ``wz`` non-increasing (a turn never gets EASIER as the robot
+    walks faster). The cross-knob rule ``wz <= w_max`` is :func:`check_body_envelope`'s. Whitespace
+    around tokens is tolerated; an empty entry (a stray comma), a missing ``@`` or a third field is
+    refused by name.
+    """
+    raw = str(text).strip()
+    if raw == "":
+        raise ValueError(f"{BODY_CAP_KNOB} must not be empty")
+    points = []
+    for token in raw.split(","):
+        fields = token.strip().split("@")
+        if len(fields) != 2 or any(f.strip() == "" for f in fields):
+            raise ValueError(f"{BODY_CAP_KNOB} entries must be 'v@wz' (m/s @ rad/s), got {token!r} in {text!r}")
+        v, wz = (_finite_float(BODY_CAP_KNOB, text, f) for f in fields)
+        points.append((v, wz))
+    if points[0][0] != 0.0:
+        raise ValueError(f"{BODY_CAP_KNOB}: the first point must be at v = 0 (the pure-turn end), got {text!r}")
+    for (v0, w0), (v1, w1) in zip(points, points[1:]):
+        if not v1 > v0:
+            raise ValueError(f"{BODY_CAP_KNOB}: v must be strictly increasing, got {v0} then {v1} in {text!r}")
+        if w1 > w0:
+            raise ValueError(f"{BODY_CAP_KNOB}: wz must be non-increasing in v, got {w0} then {w1} in {text!r}")
+    for v, wz in points:
+        if v < 0.0:
+            raise ValueError(f"{BODY_CAP_KNOB}: v must be >= 0, got {v} in {text!r}")
+        if not wz > 0.0:
+            raise ValueError(f"{BODY_CAP_KNOB}: every wz must be > 0 rad/s, got {wz} in {text!r}")
+    return tuple(points)
+
+
+def check_body_envelope(env: BodyEnvelope) -> BodyEnvelope:
+    """Re-validate a :class:`BodyEnvelope` from any source (a knob, a cfg, a hand-built tuple).
+
+    The triple rule, the cap's shape rules and the cross rule ``every cap wz in (0, w_max]``.
+    Returns the envelope with every number a Python float and ``cap`` a tuple of float pairs.
+    """
+    try:
+        w_min, ceiling, w_max = (float(env.w_min), float(env.ceiling), float(env.w_max))
+        cap = tuple((float(v), float(wz)) for v, wz in env.cap)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError(f"body envelope is not (w_min, ceiling, w_max, ((v, wz), ...)): {env!r}") from exc
+    parse_body_envelope_triple(f"{w_min!r}:{ceiling!r}:{w_max!r}")
+    if not cap:
+        raise ValueError(f"{BODY_CAP_KNOB}: the coupled cap needs at least the v = 0 point, got {env!r}")
+    parse_body_cap_points(",".join(f"{v!r}@{wz!r}" for v, wz in cap))
+    over = [(v, wz) for v, wz in cap if wz > w_max]
+    if over:
+        raise ValueError(
+            f"{BODY_CAP_KNOB}: every cap wz must be <= w_max ({BODY_ENVELOPE_KNOB} w_max = {w_max}); "
+            f"{over} exceed it"
+        )
+    return BodyEnvelope(w_min, ceiling, w_max, cap)
+
+
+def parse_body_envelope(env_text: str, cap_text: str) -> BodyEnvelope:
+    """The two body-envelope knobs -> one validated :class:`BodyEnvelope` (the knob grammar)."""
+    w_min, ceiling, w_max = parse_body_envelope_triple(env_text)
+    return check_body_envelope(BodyEnvelope(w_min, ceiling, w_max, parse_body_cap_points(cap_text)))
+
+
+def body_cap_tables(env: BodyEnvelope, device=None, dtype: torch.dtype = torch.float32):
+    """``(v_points, wz_points)`` as two 1-D tensors -- built ONCE by a caller that evaluates the cap
+    every resample (the command term), so no host->device copy happens in the hot path."""
+    v = torch.tensor([float(p[0]) for p in env.cap], device=device, dtype=dtype)
+    w = torch.tensor([float(p[1]) for p in env.cap], device=device, dtype=dtype)
+    return v, w
+
+
+def body_cap_wz_from_tables(speed: torch.Tensor, v_pts: torch.Tensor, w_pts: torch.Tensor) -> torch.Tensor:
+    """:func:`body_cap_wz` on prebuilt tables (``speed`` already a magnitude, ``>= 0``)."""
+    k = int(v_pts.numel())
+    if k == 1:
+        return torch.full_like(speed, 0.0) + w_pts[0]
+    a = speed.contiguous()
+    i = (torch.searchsorted(v_pts, a, right=True) - 1).clamp(0, k - 2)
+    v0, v1 = v_pts[i], v_pts[i + 1]
+    w0, w1 = w_pts[i], w_pts[i + 1]
+    t = ((a - v0) / (v1 - v0)).clamp(0.0, 1.0)
+    inside = w0 + t * (w1 - w0)
+    return torch.where(a >= v_pts[-1], torch.zeros_like(inside) + w_pts[-1], inside)
+
+
+def body_cap_wz(v, env: BodyEnvelope):
+    """The coupled cap's yaw rate at speed ``|v|``: piecewise-linear through ``env.cap`` in ``|v|``.
+
+    ``v = 0`` -> ``cap[0].wz``; between two points the straight line through them; CONSTANT at the
+    last point's ``wz`` beyond it (the frontier is not extrapolated past what was measured). Tensor
+    in -> tensor out (same shape / dtype / device); a Python number in -> a float out, computed in
+    float64 through the same expression.
+    """
+    if isinstance(v, torch.Tensor):
+        v_pts, w_pts = body_cap_tables(env, device=v.device, dtype=v.dtype)
+        return body_cap_wz_from_tables(v.abs(), v_pts, w_pts)
+    a = torch.tensor([abs(float(v))], dtype=torch.float64)
+    v_pts, w_pts = body_cap_tables(env, dtype=torch.float64)
+    return float(body_cap_wz_from_tables(a, v_pts, w_pts)[0])
+
+
+def body_v_turn_max(env: BodyEnvelope) -> float:
+    """The largest ``|v|`` at which a moving row may still turn: ``body_cap_wz(v) >= w_min``.
+
+    ``inf`` when the cap never drops below ``w_min`` (the last point's ``wz >= w_min``); ``0.0`` when
+    even ``v = 0`` sits below it (no moving turn is commandable -- the command term refuses such an
+    envelope, because a move+turn row could then not keep its walk-floor speed). Otherwise the
+    crossing on the first segment that leaves ``[w_min, inf)``, by the same linear interpolation
+    :func:`body_cap_wz` uses (so ``body_cap_wz(body_v_turn_max(env)) == w_min`` up to rounding;
+    callers clamp the band, never re-derive it).
+    """
+    w_min = float(env.w_min)
+    cap = tuple((float(v), float(wz)) for v, wz in env.cap)
+    if cap[-1][1] >= w_min:
+        return math.inf
+    last = None
+    for j, (_v, wz) in enumerate(cap):
+        if wz >= w_min:
+            last = j
+    if last is None:
+        return 0.0
+    (v0, w0), (v1, w1) = cap[last], cap[last + 1]
+    return v0 + (w_min - w0) * (v1 - v0) / (w1 - w0)
+
+
+def sample_yaw_rate(u_mag: torch.Tensor, u_sign: torch.Tensor, lo, hi) -> torch.Tensor:
+    """A signed yaw-rate command from two uniforms: ``|wz| = lo + u_mag (hi - lo)``.
+
+    The sign is :func:`sample_facing`'s convention EXACTLY -- ``u_sign < 0.5`` -> ``-1``, else
+    ``+1`` -- so the body sampler, which feeds this the same two "facing" uniforms the world sampler
+    draws, turns the same rows the same way the world sampler's facing change would. ``lo`` / ``hi``
+    are floats or per-row tensors (the coupled cap gives every moving row its own ``hi``).
+    """
+    mag = lo + u_mag * (hi - lo)
+    sign = torch.where(u_sign < 0.5, -torch.ones_like(u_mag), torch.ones_like(u_mag))
+    return sign * mag
+
+
+def slot_from_body_cmd(vx: torch.Tensor, vy: torch.Tensor, wz: torch.Tensor) -> torch.Tensor:
+    """``slot = moving + 2 turning`` of a body command: ``moving = (vx, vy) != 0``, ``turning = wz != 0``.
+
+    The 2-bit encoding of :data:`SLOT_STAND` ... :data:`SLOT_MOVE_TURN`; ``int64``. In body mode the
+    slot is a pure function of the held command (stand IS ``(0, 0, 0)``, no latch), which is why the
+    sampler's type-table slot must equal this on every draw (pinned by the unit tests).
+    """
+    moving = (vx != 0.0) | (vy != 0.0)
+    turning = wz != 0.0
+    return moving.to(torch.long) + 2 * turning.to(torch.long)
+
+
+def body_cmd_violation_masks(vx, vy, wz, env: BodyEnvelope, ellipse, walk_floor: float, tol: float = 1e-6):
+    """``{kind: (N,) bool}`` -- the ONE envelope definition, per violation kind (tensor path).
+
+    Kinds: ``nonfinite`` (any component), ``speed`` (``|v|`` not in ``{0} U [floor, cap(atan2(vy,
+    vx))]``), ``wz`` (``|wz|`` not in ``{0} U [w_min, w_max]``), ``move_turn_cap`` (moving AND
+    turning with ``|wz| > body_cap_wz(|v|)``). Zero is EXACT on both axes (the slot rule's own
+    ``!= 0``); every bound is widened by ``tol``.
+    """
+    a, b, c = (float(x) for x in ellipse)
+    floor = float(walk_floor)
+    finite = torch.isfinite(vx) & torch.isfinite(vy) & torch.isfinite(wz)
+    speed = torch.hypot(vx, vy)
+    cap = ellipse_cap(torch.atan2(vy, vx), a, b, c)
+    moving = (vx != 0.0) | (vy != 0.0)
+    turning = wz != 0.0
+    awz = torch.abs(wz)
+    speed_bad = moving & ((speed < floor - tol) | (speed > cap + tol))
+    wz_bad = turning & ((awz < float(env.w_min) - tol) | (awz > float(env.w_max) + tol))
+    coupled_bad = moving & turning & (awz > body_cap_wz(speed, env) + tol)
+    return {
+        "nonfinite": ~finite,
+        "speed": speed_bad & finite,
+        "wz": wz_bad & finite,
+        "move_turn_cap": coupled_bad & finite,
+    }
+
+
+def body_cmd_violation_mask(vx, vy, wz, env: BodyEnvelope, ellipse, walk_floor: float, tol: float = 1e-6):
+    """``(N,)`` bool: the rows that violate the envelope in ANY way (the batch helper)."""
+    masks = body_cmd_violation_masks(vx, vy, wz, env, ellipse, walk_floor, tol)
+    out = torch.zeros_like(masks["nonfinite"])
+    for m in masks.values():
+        out = out | m
+    return out
+
+
+def body_cmd_violations(vx: float, vy: float, wz: float, env: BodyEnvelope, ellipse, walk_floor: float,
+                        tol: float = 1e-6) -> tuple[str, ...]:
+    """The float path: one body command -> a tuple of short strings, ``()`` when it is inside.
+
+    Computed in float64 through :func:`body_cmd_violation_masks` -- the same definition, never a
+    re-spelling -- so the eval hook / validator and the sampler's tests cannot disagree.
+    """
+    t = [torch.tensor([float(x)], dtype=torch.float64) for x in (vx, vy, wz)]
+    masks = body_cmd_violation_masks(*t, env, ellipse, walk_floor, tol)
+    if bool(masks["nonfinite"][0]):
+        return (f"non-finite command ({vx}, {vy}, {wz})",)
+    a, b, c = (float(x) for x in ellipse)
+    speed = math.hypot(float(vx), float(vy))
+    out = []
+    if bool(masks["speed"][0]):
+        cap = float(ellipse_cap(torch.atan2(t[1], t[0]), a, b, c)[0])
+        out.append(f"speed {speed:.6g} m/s not in {{0}} U [{float(walk_floor):.6g}, {cap:.6g}] "
+                   f"(bearing {math.degrees(math.atan2(float(vy), float(vx))):.1f} deg)")
+    if bool(masks["wz"][0]):
+        out.append(f"|wz| {abs(float(wz)):.6g} rad/s not in {{0}} U [{float(env.w_min):.6g}, "
+                   f"{float(env.w_max):.6g}]")
+    if bool(masks["move_turn_cap"][0]):
+        out.append(f"|wz| {abs(float(wz)):.6g} rad/s above the move+turn cap "
+                   f"{body_cap_wz(speed, env):.6g} at |v| {speed:.6g} m/s")
+    return tuple(out)
+
+
+def shape_body_command(vx, vy, wz, env: BodyEnvelope, ellipse, walk_floor: float, turns: bool = True):
+    """Map ANY finite ``(vx, vy, wz)`` into the envelope -> ``(vx, vy, wz, clipped)`` (PLAN D6).
+
+    The deployment mapper and the eval's ``world_rate`` adapter (a body head driven on the legacy
+    world rows: the relay's output passed through here, for the head's trained envelope). In order:
+
+    1. ``turns=False`` (a stage with no turn slots) -> ``wz = 0``;
+    2. the yaw dead zone: ``0 < |wz| < w_min`` -> 0;
+    3. speed: ``0 < |v| < floor`` -> ``floor``; above the ellipse cap at the command's bearing ->
+       the cap; the BEARING is kept either way;
+    4. moving AND turning: if ``body_cap_wz(|v|) < w_min`` the speed drops to
+       :func:`body_v_turn_max`, then ``|wz|`` is clamped to ``[w_min, body_cap_wz(|v|)]``; a pure
+       turn clamps ``|wz|`` to ``[w_min, w_max]``. The sign of ``wz`` is kept.
+
+    ``clipped`` is True where any component moved by more than 1e-9. A component the rules did not
+    touch is returned BITWISE (the speed is only re-composed from its bearing when it changed), and
+    the result always satisfies ``body_cmd_violations == ()`` (pinned by the unit tests).
+
+    Tensor inputs (any one shape) -> tensors + a bool tensor; Python numbers -> floats + a bool.
+
+    Raises:
+        ValueError: an ellipse whose smallest semi-axis is below the walk floor, or an envelope whose
+            :func:`body_v_turn_max` is below it (no moving turn could keep the floor speed) -- the
+            same two refusals the command term makes at construction.
+    """
+    scalar = not isinstance(vx, torch.Tensor)
+    if scalar:
+        vx, vy, wz = (torch.tensor([float(x)], dtype=torch.float64) for x in (vx, vy, wz))
+    a, b, c = (float(x) for x in ellipse)
+    floor = float(walk_floor)
+    if min(a, b, c) < floor:
+        raise ValueError(f"shape_body_command: ellipse {(a, b, c)} dips below the walk floor {floor}")
+    v_turn = body_v_turn_max(env)
+    if v_turn < floor:
+        raise ValueError(
+            f"shape_body_command: body_v_turn_max {v_turn} m/s is below the walk floor {floor} m/s -- "
+            "this envelope admits no moving turn"
+        )
+    w_min, w_max = float(env.w_min), float(env.w_max)
+    zero = torch.zeros_like(wz)
+    w = wz if turns else zero
+    w = torch.where((w != 0.0) & (torch.abs(w) < w_min), zero, w)
+
+    speed = torch.hypot(vx, vy)
+    bearing = torch.atan2(vy, vx)
+    moving = (vx != 0.0) | (vy != 0.0)
+    v = torch.where(moving & (speed < floor), torch.full_like(speed, floor), speed)
+    v = torch.minimum(v, ellipse_cap(bearing, a, b, c))
+    turning = w != 0.0
+    move_turn = moving & turning
+    reduce = move_turn & (body_cap_wz(v, env) < w_min)
+    v = torch.where(reduce, torch.full_like(v, v_turn), v)
+    cap_w = body_cap_wz(v, env)
+    hi = torch.where(moving, torch.maximum(cap_w, torch.full_like(cap_w, w_min)), torch.full_like(cap_w, w_max))
+    aw = torch.minimum(torch.maximum(torch.abs(w), torch.full_like(w, w_min)), hi)
+    w = torch.where(turning, torch.sign(w) * aw, zero)
+
+    changed = v != speed
+    nvx = torch.where(changed, v * torch.cos(bearing), vx)
+    nvy = torch.where(changed, v * torch.sin(bearing), vy)
+    clipped = (torch.abs(nvx - vx) > 1e-9) | (torch.abs(nvy - vy) > 1e-9) | (torch.abs(w - wz) > 1e-9)
+    if scalar:
+        return float(nvx[0]), float(nvy[0]), float(w[0]), bool(clipped[0])
+    return nvx, nvy, w, clipped
+
+
+def body_hold_step(face, yaw, wz, dt: float, windup: float = 0.6):
+    """The ``body_hold`` adapter's facing integrator (PLAN D6): ``yaw + clamp(wrap(face + wz dt - yaw), +-windup)``.
+
+    Drives a WORLD-trained head (which follows an absolute facing target) on a body row ``wz``: the
+    target advances at the commanded rate, and the anti-windup bound keeps it at most ``windup`` rad
+    ahead of (or behind) the robot's actual yaw, so a head that turns slower than asked is pulled
+    along at its relay's saturation instead of accumulating a target it can never reach. Tensors or
+    Python numbers (floats in, float out).
+    """
+    if isinstance(face, torch.Tensor) or isinstance(yaw, torch.Tensor) or isinstance(wz, torch.Tensor):
+        face_t = torch.as_tensor(face)
+        lead = wrap_to_pi(face_t + wz * dt - yaw)
+        return yaw + torch.clamp(lead, -float(windup), float(windup))
+    lead = float(wrap_to_pi(torch.tensor([float(face) + float(wz) * float(dt) - float(yaw)],
+                                         dtype=torch.float64))[0])
+    return float(yaw) + max(-float(windup), min(float(windup), lead))
+
+
+class BodyHoldRow(NamedTuple):
+    """A WORLD hold row (``CrabHexOmniCommand.schedule_hook``'s ``speed`` / ``dir`` / ``face``)."""
+
+    speed: float
+    dir: float
+    face: float
+
+
+def body_hold_world_row(vx, vy, wz, face, yaw) -> BodyHoldRow:
+    """A body row -> the world row the ``body_hold`` adapter hands a world head this step.
+
+    ``speed = |v|``, ``dir = yaw + atan2(vy, vx)`` (the body bearing laid onto the CURRENT yaw, so
+    the world direction rotates with the robot, as a body command does), ``face`` = the integrator's
+    target (:func:`body_hold_step`). ``wz`` is accepted for the call's symmetry and is consumed by
+    :func:`body_hold_step`, not here. Floats or tensors.
+    """
+    del wz
+    if isinstance(vx, torch.Tensor):
+        return BodyHoldRow(torch.hypot(vx, vy), yaw + torch.atan2(vy, vx), face)
+    return BodyHoldRow(math.hypot(float(vx), float(vy)), float(yaw) + math.atan2(float(vy), float(vx)), float(face))

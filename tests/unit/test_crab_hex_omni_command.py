@@ -2304,10 +2304,12 @@ def test_schedule_hook_is_untouched_by_the_suite():
 
     src = (OMNI_MDP / "crab_hex_omni_command.py").read_text()
     tree = ast.parse(src)
+    # The WORLD term's hook. (2026-10-15: ``CrabHexOmniBodyCommand`` overrides it with a refusal --
+    # a world row on a body term is a route mismatch; ``test_crab_hex_omni_body_cmd.py`` pins that.)
     hooks = [
         (cls.name, fn)
         for cls in tree.body
-        if isinstance(cls, ast.ClassDef)
+        if isinstance(cls, ast.ClassDef) and cls.name == "CrabHexOmniCommand"
         for fn in cls.body
         if isinstance(fn, ast.FunctionDef) and fn.name == "schedule_hook"
     ]

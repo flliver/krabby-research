@@ -28,6 +28,15 @@ note, which this module deliberately does not repeat):
   ("clamp-only re-cap"), so a forward command at ``a`` becomes a lateral command at ``b``
   in the same world direction after a 90 deg turn. ``recap_frac`` logs how often that bites.
 
+THE BODY-FRAME MODE (robot-frame velocity commands campaign 2026-10-15, ``experiments/
+2026-10-15_body_cmd``; DEFAULT OFF). :class:`CrabHexOmniBodyCommand` / :class:`CrabHexOmniBodyCommandCfg`
+(bottom of this file) command a HELD robot-frame ``(vx, vy, wz)`` per slot instead -- drawn from the
+same uniforms in the same order, inside one measured envelope -- and are reached only through
+``KRABBY_OMNI_COMMAND_FRAME=body`` (``omni_knobs._apply_command_frame``). Both classes answer
+:meth:`CrabHexOmniCommand.command_signature` / :meth:`CrabHexOmniCommand.intended_bearing_b`, the
+two identity questions the stroke / centring / telemetry consumers ask (world: bitwise the old
+expressions).
+
 IMPORTS. The pure math lives in the sibling module and is reached by a RELATIVE import, so
 this module loads under any package name -- the real
 ``parkour_tasks.crab_hex_omni_task.mdp`` in Isaac, a synthetic one in the CPU unit test
@@ -62,7 +71,13 @@ from .crab_hex_omni_command_math import (
     SLOT_STAND,
     SLOT_TURN,
     TELEMETRY_CATEGORIES,
+    BodyEnvelope,
+    body_cap_tables,
+    body_cap_wz_from_tables,
+    body_cmd_violations,
     body_command_details,
+    body_v_turn_max,
+    check_body_envelope,
     check_relay_hyst,
     check_row_ang_limits,
     ellipse_cap,
@@ -77,6 +92,8 @@ from .crab_hex_omni_command_math import (
     sample_pool_travel_dir,
     sample_slots,
     sample_travel_dir,
+    sample_yaw_rate,
+    slot_from_body_cmd,
     slot_is_moving,
     slot_is_turning,
     telemetry_category as _telemetry_category,
@@ -691,10 +708,34 @@ class CrabHexOmniCommand(UniformParkourCommand):
         Calls the pure :func:`crab_hex_omni_command_math.telemetry_category` on the COMMANDED
         pair -- ``slot_id`` and the intended bearing ``travel_dir_w - heading_target`` -- never
         on ``phi_b`` (the instantaneous body-frame command): a facing-tracking error must not
-        move a row between categories mid-episode.
+        move a row between categories mid-episode. The bearing is :meth:`intended_bearing_b` (the
+        body-frame command mode's own held bearing in :class:`CrabHexOmniBodyCommand`; here
+        bitwise the expression above).
         """
-        bearing = self.travel_dir_w - self.heading_target
-        return _telemetry_category(self.slot_id, bearing)
+        return _telemetry_category(self.slot_id, self.intended_bearing_b())
+
+    # ------------------------------------------------------------------ command identity
+    # NOTE(body-frame command mode, 2026-10-15; STEP1_SPEC §2): the two questions every command
+    # consumer asks -- "did a NEW command arrive?" and "which body bearing was commanded?" -- answered
+    # by the term, so a consumer never spells them off the world fields (in the body mode those
+    # follow the robot's yaw every step and would read as a new command on every step). The world
+    # answers are BITWISE the expressions the consumers used before.
+
+    def command_signature(self) -> torch.Tensor:
+        """``(N, 3)``: changes exactly when a new command is drawn or hooked.
+
+        World: ``(slot_id, travel_dir_w, heading_target)`` -- the tuple the stroke / centring terms
+        compared before this method existed (``crab_hex_omni_stroke_rewards._OncePerStep``), bitwise.
+        """
+        return torch.stack((self.slot_id.float(), self.travel_dir_w, self.heading_target), dim=-1)
+
+    def intended_bearing_b(self) -> torch.Tensor:
+        """``(N,)``: the commanded body bearing, NOT wrapped (consumers wrap).
+
+        World: ``travel_dir_w - heading_target`` -- the commanded travel direction relative to the
+        commanded facing, exactly as :meth:`telemetry_category` and the centring term used it.
+        """
+        return self.travel_dir_w - self.heading_target
 
     def _write_command(self, env_ids, apply_hold: bool = True):
         """World command -> ``vel_command_b`` for ``env_ids`` (a tensor/list or a slice).
@@ -979,6 +1020,19 @@ class CrabHexOmniCommand(UniformParkourCommand):
             # receives the hold exactly as a training stand slot does.
             self._apply_stand_hold(slice(None))
 
+    def schedule_hook_body(self, vx, vy=None, wz=None) -> None:
+        """REFUSED on a world term: a body row ``(vx, vy, wz)`` here is a route mismatch.
+
+        NOTE(body-frame command mode, 2026-10-15): the eval harness must route body rows to a
+        :class:`CrabHexOmniBodyCommand`, or drive this world term through a NAMED adapter
+        (``body_hold``: ``crab_hex_omni_command_math.body_hold_step`` / ``body_hold_world_row`` into
+        :meth:`schedule_hook`) -- an unnamed conversion would score something nobody chose.
+        """
+        raise RuntimeError(
+            "schedule_hook_body (a BODY row: vx/vy/wz) called on the WORLD CrabHexOmniCommand: route "
+            "mismatch -- use schedule_hook(row) or the named body_hold adapter"
+        )
+
 
 @configclass
 class CrabHexOmniCommandCfg(ParkourCommandCfg):
@@ -1057,6 +1111,325 @@ class CrabHexOmniCommandCfg(ParkourCommandCfg):
     ``ang_vel_clip`` is 0.2 rather than the forward task's 0.4 -- at stiffness 1.5 that is
     a facing dead band of 0.133 rad instead of 0.267 rad, and it sits below
     ``ang_vel_max`` so a saturated turn command survives it."""
+
+
+# ======================================================================= the body-frame command
+#
+# Robot-frame velocity commands campaign (``experiments/2026-10-15_body_cmd``, PLAN D1; step-1 spec
+# §2). DEFAULT OFF: the class below and its cfg exist only so ``KRABBY_OMNI_COMMAND_FRAME=body``
+# (``omni_knobs._apply_command_frame``) can SWAP ``commands.base_velocity`` for a
+# :class:`CrabHexOmniBodyCommandCfg` carrying every field of the world cfg plus the envelope. No
+# shipped cfg names them, so a world run's config dump, RNG stream and every value are untouched.
+
+
+def _validate_body_cfg(cfg: CrabHexOmniBodyCommandCfg, env=None):
+    """The body cfg's own refusals (the world ones run too, in the parent's ``__init__``).
+
+    Returns the validated :class:`BodyEnvelope`. Every refusal is a silent failure otherwise: a
+    missing envelope would sample nothing sensible, a pool type with a scaled TURN demand has no
+    meaning when the yaw rate is drawn from the envelope (the world relay's ``ang_scale`` would be
+    silently ignored), the relay hysteresis drives a relay this mode does not run, and an RSI event
+    stages a WORLD command (``rsi_cmd_staged`` = theta, v, psi) the body sampler cannot honour.
+    """
+    fields = (cfg.body_w_min, cfg.body_ceiling, cfg.body_w_max, cfg.body_cap)
+    if any(f is None for f in fields):
+        raise ValueError(
+            "CrabHexOmniBodyCommandCfg needs body_w_min / body_ceiling / body_w_max / body_cap "
+            "(KRABBY_OMNI_BODY_ENVELOPE + KRABBY_OMNI_BODY_CAP); got "
+            f"{fields}"
+        )
+    envelope = check_body_envelope(BodyEnvelope(*fields))
+    floor = omni_walk_floor(cfg)
+    if body_v_turn_max(envelope) < floor:
+        raise ValueError(
+            f"body envelope {envelope} admits no moving turn: body_v_turn_max = "
+            f"{body_v_turn_max(envelope)} m/s is below the walk floor {floor} m/s (the coupled cap "
+            "drops under w_min before the slowest legal walk) -- PLAN D3's STOP condition"
+        )
+    if getattr(cfg, "relay_hyst", None) is not None:
+        raise ValueError(
+            f"relay_hyst {cfg.relay_hyst} (KRABBY_OMNI_RELAY_HYST) is set on a body-frame command: "
+            "there is no facing relay in body mode"
+        )
+    if cfg.cmd_pool is not None:
+        pool = parse_cmd_pool(cfg.cmd_pool)
+        scaled = [(n, s) for n, s in zip(pool.names, pool.ang_scale) if float(s) != 1.0]
+        if scaled:
+            raise ValueError(
+                f"cmd_pool {cfg.cmd_pool!r} gives {scaled} a non-unit ang_scale: in body mode the "
+                "yaw rate is drawn from the envelope, so a per-type turn scale would be silently "
+                "ignored"
+            )
+    events = getattr(getattr(env, "cfg", None), "events", None)
+    if getattr(events, "rsi_reference_reset", None) is not None:
+        raise ValueError(
+            "events.rsi_reference_reset is installed in a body-frame env: the RSI event stages a "
+            "WORLD command (theta, v, psi) the body sampler cannot honour (set KRABBY_RSI_FRAC=0)"
+        )
+    return envelope
+
+
+class CrabHexOmniBodyCommand(CrabHexOmniCommand):
+    """The omni command in the ROBOT frame: a held ``(vx, vy, wz)`` per slot (PLAN D1).
+
+    Per resample, the SAME uniforms in the SAME order as the world sampler of the same branch
+    (pool / pool-less) -- categorical, direction, speed, then the two "facing" uniforms, which feed
+    :func:`~crab_hex_omni_command_math.sample_yaw_rate` instead of a facing change -- so a body run
+    and a world run consume one RNG stream (pinned by the unit tests). Per row:
+
+    * ``phi = wrap(theta - yaw)`` -- the body bearing the unchanged direction draw lands on, HELD;
+    * the speed exactly as the world sampler draws it at ``phi`` (the ellipse cap x the type's
+      ``speed_scale``, above the walk floor), 0 on non-moving rows;
+    * turning rows: a pure turn draws ``|wz|`` in ``[w_min, w_max]``; a moving turn in
+      ``[w_min, min(w_max, body_cap_wz(v))]``, its speed first reduced to ``body_v_turn_max`` where
+      the coupled cap would otherwise sit below ``w_min``; the sign from the second uniform;
+      non-turning rows ``wz = 0``;
+    * stand rows are EXACTLY ``(0, 0, 0)``; ``slot_id`` comes from the type table as today and equals
+      ``slot_from_body_cmd`` of the drawn command by construction.
+
+    Held state ``body_phi`` / ``body_speed`` / ``body_wz`` (``(N,)``); ``vel_command_b`` is written at
+    the resample (or by :meth:`schedule_hook_body`) and then NEVER re-projected: no re-cap, no relay.
+    Every step the legacy world fields are refreshed so their readers see defined values --
+    ``heading_target = yaw`` (zero facing error, by construction), ``travel_dir_w = yaw + body_phi``
+    (the body bearing laid onto the current yaw), ``speed_cmd = body_speed``, ``phi_b = body_phi``,
+    ``recap_mask = False``. The metrics keep their names and meanings (``facing_err_abs`` reads 0;
+    ``yaw_progress`` keeps its ``cmd_wz != 0`` gate). No new metric, no new cfg field on the world
+    class.
+
+    The RSI staging channel is refused (the cfg validator refuses an installed RSI event, and a row
+    staged anyway raises at the resample that would consume it).
+    """
+
+    cfg: CrabHexOmniBodyCommandCfg
+
+    def __init__(self, cfg: CrabHexOmniBodyCommandCfg, env: ParkourManagerBasedEnv):
+        envelope = _validate_body_cfg(cfg, env)
+        super().__init__(cfg, env)
+        n, dev = self.num_envs, self.device
+        self.body_envelope = envelope
+        self.body_v_turn_max = body_v_turn_max(envelope)
+        self.body_phi = torch.zeros(n, device=dev)
+        self.body_speed = torch.zeros(n, device=dev)
+        self.body_wz = torch.zeros(n, device=dev)
+        # The cap tables, built ONCE: the resample path evaluates the coupled cap per row and must
+        # not copy two small host lists to the device on every call.
+        self._cap_v, self._cap_w = body_cap_tables(envelope, device=dev, dtype=self.body_phi.dtype)
+
+    def __str__(self) -> str:
+        env = self.body_envelope
+        msg = "CrabHexOmniBodyCommand (robot-frame vx, vy, wz):\n"
+        msg += f"\tResampling time: {self.cfg.resampling_time_range}\n"
+        msg += f"\tSlot probabilities {SLOT_NAMES}: {tuple(self.cfg.slot_probs)}\n"
+        msg += f"\tSpeed ellipse (fore-aft, lateral, backward): {tuple(self.cfg.speed_ellipse)}\n"
+        msg += f"\tWalk floor: {omni_walk_floor(self.cfg)} m/s\n"
+        msg += f"\tYaw rate: w_min {env.w_min} / ceiling {env.ceiling} / w_max {env.w_max} rad/s\n"
+        msg += f"\tMove+turn cap (v, wz): {env.cap}; v_turn_max {self.body_v_turn_max} m/s"
+        if self._pool is not None:
+            msg += f"\n\tCommand pool: {self.cfg.cmd_pool}"
+        return msg
+
+    # ------------------------------------------------------------------ the sampler
+    def _resample_command(self, env_ids: Sequence[int]):
+        """Draw a held body command for ``env_ids`` (see the class docstring).
+
+        The world sampler's two branches, uniform for uniform: the four draw calls below are the
+        world ones with ``sample_facing``'s two internal ``torch.rand`` calls written out (same
+        shape, device and dtype, same order), because the body mode consumes those two uniforms
+        itself rather than as a facing target.
+        """
+        n = len(env_ids)
+        if n == 0:
+            return
+        cfg = self.cfg
+        env_ = self.body_envelope
+        a, b, c = (float(x) for x in cfg.speed_ellipse)
+        floor = omni_walk_floor(cfg)
+        yaw = self.robot.data.heading_w[env_ids]
+
+        if cfg.cmd_pool is None:
+            slot = sample_slots(None, cfg.slot_probs, n, device=self.device)
+            theta = sample_travel_dir(yaw, cfg.dir_band, cfg.travel_dir_range)
+            u_speed = torch.rand(n, device=self.device)
+            u_mag = torch.rand(tuple(yaw.shape), device=yaw.device, dtype=yaw.dtype)
+            u_sign = torch.rand(tuple(yaw.shape), device=yaw.device, dtype=yaw.dtype)
+            phi = wrap_to_pi(theta - yaw)
+            cap0 = ellipse_cap(phi, a, b, c)
+            type_id = torch.full((n,), -1, dtype=torch.long, device=self.device)
+        else:
+            tables = self._pool_tables
+            type_id = sample_slots(None, self._pool.weights, n, device=self.device)
+            slot = tables.slot[type_id]
+            theta = sample_pool_travel_dir(
+                yaw, type_id, tables.lo, tables.hi, tables.world, cfg.travel_dir_range
+            )
+            u_speed = torch.rand(n, device=self.device)
+            u_mag = torch.rand(tuple(yaw.shape), device=yaw.device, dtype=yaw.dtype)
+            u_sign = torch.rand(tuple(yaw.shape), device=yaw.device, dtype=yaw.dtype)
+            phi = wrap_to_pi(theta - yaw)
+            cap0 = ellipse_cap(phi, a, b, c) * tables.speed_scale[type_id]
+
+        moving = slot_is_moving(slot)
+        turning = slot_is_turning(slot)
+        speed = torch.where(moving, floor + u_speed * (cap0 - floor), torch.zeros_like(u_speed))
+        # The coupled move+turn cap: a moving turn whose speed puts the cap under w_min walks at
+        # body_v_turn_max instead (always below the drawn speed there, so still inside the ellipse,
+        # and >= the walk floor -- the cfg validator refused any envelope where it is not).
+        w_min, w_max = float(env_.w_min), float(env_.w_max)
+        reduce = moving & turning & (body_cap_wz_from_tables(speed, self._cap_v, self._cap_w) < w_min)
+        if math.isfinite(self.body_v_turn_max):
+            speed = torch.where(reduce, torch.full_like(speed, self.body_v_turn_max), speed)
+        cap_w = body_cap_wz_from_tables(speed, self._cap_v, self._cap_w)
+        # ``max(.., w_min)``: at exactly body_v_turn_max the interpolated cap is w_min up to one
+        # rounding -- the band must never invert.
+        hi = torch.where(
+            moving,
+            torch.clamp(torch.minimum(cap_w, torch.full_like(cap_w, w_max)), min=w_min),
+            torch.full_like(cap_w, w_max),
+        )
+        wz = sample_yaw_rate(u_mag, u_sign, w_min, hi)
+        wz = torch.where(turning, wz, torch.zeros_like(wz))
+
+        # RSI staging is refused in body mode; a staged row here is a mis-wired env (one sync per
+        # resample call, body mode only -- the world path never reaches this line).
+        staged = self.rsi_cmd_staged[env_ids]
+        if bool(torch.isfinite(staged).all(dim=1).any()):
+            raise RuntimeError(
+                "CrabHexOmniBodyCommand: an RSI-staged world command reached the body sampler; "
+                "RSI staging is refused in body mode (KRABBY_RSI_FRAC must be 0)"
+            )
+
+        self.body_phi[env_ids] = phi
+        self.body_speed[env_ids] = speed
+        self.body_wz[env_ids] = wz
+        self.slot_id[env_ids] = slot
+        self.type_id[env_ids] = type_id
+        if self._pool is not None:
+            self._count_pool_draws(env_ids, type_id, torch.zeros_like(moving))
+        self._write_command(env_ids)
+
+    def _write_command(self, env_ids, apply_hold: bool = True):
+        """The held body command -> ``vel_command_b`` (and the legacy world fields) for ``env_ids``.
+
+        Non-moving rows are written as exact zeros (``0 * cos(phi)`` would be ``-0.0`` for a bearing
+        behind the robot). ``apply_hold`` is accepted for the parent's signature and ignored: a body
+        stand row is already ``(0, 0, 0)``, which is all ``KRABBY_OMNI_STAND_HOLD`` would write.
+        """
+        del apply_hold
+        speed = self.body_speed[env_ids]
+        phi = self.body_phi[env_ids]
+        zero = torch.zeros_like(speed)
+        moving = speed != 0.0
+        self.vel_command_b[env_ids, 0] = torch.where(moving, speed * torch.cos(phi), zero)
+        self.vel_command_b[env_ids, 1] = torch.where(moving, speed * torch.sin(phi), zero)
+        self.vel_command_b[env_ids, 2] = self.body_wz[env_ids]
+        self._write_legacy(env_ids)
+
+    def _write_legacy(self, env_ids) -> None:
+        """The legacy world fields, refreshed from the held body command and the CURRENT yaw."""
+        yaw = self.robot.data.heading_w[env_ids]
+        self.heading_target[env_ids] = yaw
+        self.travel_dir_w[env_ids] = yaw + self.body_phi[env_ids]
+        self.speed_cmd[env_ids] = self.body_speed[env_ids]
+        self.phi_b[env_ids] = self.body_phi[env_ids]
+        self.recap_mask[env_ids] = False
+
+    def _update_command(self):
+        """Every step: NO re-projection and no relay -- ``vel_command_b`` stays held; only the legacy
+        world fields follow the robot's yaw."""
+        self._write_legacy(slice(None))
+
+    def _update_metrics(self):
+        """The parent's metrics, after refreshing the legacy fields to THIS step's yaw.
+
+        The command manager runs ``_update_metrics`` before ``_update_command``, i.e. after physics
+        moved the yaw; without the refresh ``facing_err_abs`` would read the step's own rotation
+        ``|wz| dt`` instead of the 0 a body command's facing error is by definition.
+        """
+        self._write_legacy(slice(None))
+        super()._update_metrics()
+
+    # ------------------------------------------------------------------ identity
+    def command_signature(self) -> torch.Tensor:
+        """``(N, 3)`` = ``(body_phi, body_speed, body_wz)``: changes exactly when a new command is held."""
+        return torch.stack((self.body_phi, self.body_speed, self.body_wz), dim=-1)
+
+    def intended_bearing_b(self) -> torch.Tensor:
+        """``(N,)`` the commanded body bearing -- the held ``body_phi`` itself."""
+        return self.body_phi
+
+    # ------------------------------------------------------------------ eval harness
+    def schedule_hook(self, row) -> None:
+        """REFUSED in body mode: a world hold row (speed, dir, face) on a body term is a route
+        mismatch -- the harness must route body rows through :meth:`schedule_hook_body`, or a world
+        row through a NAMED adapter (``world_rate``)."""
+        raise RuntimeError(
+            "schedule_hook (a WORLD row: speed/dir/face) called on CrabHexOmniBodyCommand: route "
+            "mismatch -- use schedule_hook_body(vx, vy, wz), or a named adapter"
+        )
+
+    def schedule_hook_body(self, vx, vy=None, wz=None) -> None:
+        """Pin every env to one held body command (eval harness, PLAN D5 / spec §2).
+
+        ``vx, vy, wz`` as numbers, or ONE row argument (a mapping or an object with ``vx`` / ``vy`` /
+        ``wz``). Validated -- finite AND inside the envelope (``body_cmd_violations == ()``), else
+        ``ValueError`` naming every violation; the hook never shapes a row (that is the adapter's
+        job, :func:`~crab_hex_omni_command_math.shape_body_command`). Then: the held state, the
+        command (``vel_command_b`` = the row's three components VERBATIM, so obs cols 8/9/5 read the
+        row exactly), ``slot_id = slot_from_body_cmd``, ``type_id = -1`` and the legacy fields.
+        """
+        if vy is None and wz is None:
+            row = vx
+            vx, vy, wz = (_row_field(row, k) for k in ("vx", "vy", "wz"))
+        vx, vy, wz = float(vx), float(vy), float(wz)
+        if not (math.isfinite(vx) and math.isfinite(vy) and math.isfinite(wz)):
+            raise ValueError(f"schedule_hook_body: vx/vy/wz must be finite, got ({vx}, {vy}, {wz})")
+        bad = body_cmd_violations(vx, vy, wz, self.body_envelope, tuple(self.cfg.speed_ellipse),
+                                  omni_walk_floor(self.cfg))
+        if bad:
+            raise ValueError(f"schedule_hook_body: ({vx}, {vy}, {wz}) is outside the body envelope: {bad}")
+        speed = math.hypot(vx, vy)
+        self.body_phi[:] = math.atan2(vy, vx) if speed > 0.0 else 0.0
+        self.body_speed[:] = speed
+        self.body_wz[:] = wz
+        slot = slot_from_body_cmd(torch.tensor([vx]), torch.tensor([vy]), torch.tensor([wz]))
+        self.slot_id[:] = int(slot[0])
+        self.type_id[:] = -1
+        self.vel_command_b[:, 0] = vx
+        self.vel_command_b[:, 1] = vy
+        self.vel_command_b[:, 2] = wz
+        self._write_legacy(slice(None))
+
+
+@configclass
+class CrabHexOmniBodyCommandCfg(CrabHexOmniCommandCfg):
+    """Cfg for :class:`CrabHexOmniBodyCommand` -- the world cfg's fields plus the measured envelope.
+
+    NEVER built by a shipped cfg: ``omni_knobs._apply_command_frame`` constructs one only under
+    ``KRABBY_OMNI_COMMAND_FRAME=body``, carrying EVERY field of the realised world cfg unchanged
+    (so the slot mix, the pool, the ellipse, the resampling time and every motion-knob instance
+    attribute carry over) plus the four fields below -- which exist ONLY on this subclass, so a
+    world config dump cannot grow them. The world relay fields (``facing_delta``,
+    ``ang_vel_max``, ``clips.ang_vel_clip``, ``heading_control_stiffness``) are carried and inert:
+    the yaw rate is drawn from the envelope, and nothing re-projects or relays the command.
+
+    The envelope is the knob grammar's (``crab_hex_omni_command_math.parse_body_envelope``) and is
+    re-validated by the term at construction (``_validate_body_cfg``).
+    """
+
+    class_type: type = CrabHexOmniBodyCommand
+
+    body_w_min: float | None = None
+    """Smallest non-zero yaw-rate command, rad/s (``KRABBY_OMNI_BODY_ENVELOPE``'s first field)."""
+
+    body_ceiling: float | None = None
+    """The plant's sustained pure-turn rate, rad/s (recorded with the envelope; gates read at it)."""
+
+    body_w_max: float | None = None
+    """Largest yaw-rate command, rad/s; a pure turn draws up to it."""
+
+    body_cap: tuple | None = None
+    """The coupled move+turn cap ``((v, wz), ...)`` (``KRABBY_OMNI_BODY_CAP``), see
+    ``crab_hex_omni_command_math.body_cap_wz``."""
 
 
 @configclass

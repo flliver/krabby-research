@@ -190,7 +190,7 @@ IMAGE_NAMES = ("identity", "M_y", "M_x", "M_x M_y")
 #: The two facing-error head slots, and the encodings :func:`head_signs` knows.
 FACING_SIN_SLOT = 6
 FACING_COS_SLOT = 7
-FACING_OBS_ENCODINGS = ("raw", "sincos")
+FACING_OBS_ENCODINGS = ("raw", "sincos", "none")
 
 #: The observation term the encoding is read off, as the omni env cfg declares it.
 OBS_GROUP_ATTR = "policy"
@@ -209,7 +209,9 @@ LPF_OBS_DIM = 12
 def head_signs(encoding: str = "raw") -> tuple[list, list, list]:
     """``(lr, fa, rot_z_pi)`` head sign tables for a facing-error ``encoding``.
 
-    ``"raw"`` returns copies of the module constants verbatim. ``"sincos"`` returns copies
+    ``"raw"`` returns copies of the module constants verbatim, and so does ``"none"`` (body-frame
+    command mode, 2026-10-15: slots 6-7 are exact zeros, so any sign maps them to zero -- the
+    tables are left UNCHANGED rather than re-derived for a channel that carries nothing). ``"sincos"`` returns copies
     with slot 7 (``cos(err)``, an EVEN function of a quantity both reflections negate) flipped
     to +1 in BOTH plane tables; slot 6 (``sin(err)``, odd) keeps the raw -1. The composed
     table is recomputed as the elementwise product in both cases, so it is +1 at slot 7 either
@@ -219,7 +221,9 @@ def head_signs(encoding: str = "raw") -> tuple[list, list, list]:
         ValueError: for any other spelling. The mirror must never fall back to a default: the
             wrong table is a silent, plausible-looking training corruption.
     """
-    token = str(encoding).strip().lower()
+    # ``None`` is refused BY TYPE: since ``"none"`` became a spelling (2026-10-15), ``str(None)``
+    # would otherwise lower-case into it and a missing encoding would pick a table.
+    token = None if encoding is None else str(encoding).strip().lower()
     if token not in FACING_OBS_ENCODINGS:
         raise ValueError(
             f"crab_hex_omni_mirror.head_signs: unknown facing observation encoding "

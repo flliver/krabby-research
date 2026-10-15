@@ -334,8 +334,11 @@ def test_omni_knobs_reexports_and_applies_the_motion_knobs_before_stroke_posture
     calls = [ast.unparse(s) for s in fn.body if isinstance(s, ast.Expr)]
     # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs (stroke_knobs.py) now
     # apply LAST of all, so a term they add sees the motion knobs' own additions too.
-    assert calls[-1] == "_sk.apply_stroke_knobs(cfg, env)"
-    assert calls[-2] == "_mk.apply_motion_knobs(cfg, env)"
+    # NOTE(body-frame command mode, 2026-10-15): ... and the command frame after both (its one
+    # application point; world writes nothing), so every knob above carries into the body cfg.
+    assert calls[-1] == "_apply_command_frame(cfg, env)"
+    assert calls[-2] == "_sk.apply_stroke_knobs(cfg, env)"
+    assert calls[-3] == "_mk.apply_motion_knobs(cfg, env)"
     # the runner side: both omni runner cfgs call the exploration applier
     runner_src = (OMNI / "config/crab_hex/agents/rsl_rl_ppo_cfg.py").read_text()
     assert runner_src.count("_apply_exploration_knobs(self)") == 2

@@ -26,6 +26,17 @@ slot 6 and ``cos(err)`` into slot 7 instead: two bounded channels that are conti
 for the mirror sign tables the choice selects -- the two MUST agree, which is why the mirror
 reads the encoding off this term's params rather than taking a default.
 
+THE ``"none"`` ENCODING (robot-frame velocity commands campaign, 2026-10-15, PLAN D2; DEFAULT OFF,
+WIDTH-PRESERVING). Under ``KRABBY_OMNI_COMMAND_FRAME=body`` the command is a held robot-frame
+``(vx, vy, wz)`` and there is no facing TARGET: ``omni_knobs._apply_command_frame`` sets
+``facing_obs_encoding = "none"``, and slots 6-7 then read EXACTLY 0.0 (never ``-0.0``) -- in the
+observation AND in every history row, because ``_steering_channels`` is one of the hooks folded
+into ``obs_buf`` before the history push (see "THE HISTORY BUFFER NEEDS NO SEPARATE PATCH" below).
+Slot 5 (``cmd[:, 2]``, the yaw-rate command) and slots 8-10 (``cmd[:, 0]``, ``cmd[:, 1]``,
+``||cmd[:, :2]||``) keep their meanings: both read ``vel_command_b``, which the body command holds.
+World mode refuses ``none`` (a world head would be facing-blind). The mirror keeps the raw tables
+(a sign on an exact zero changes nothing; ``crab_hex_omni_mirror.head_signs``).
+
 TWO OPTIONAL HEAD EXTENSIONS (motion-quality campaign 2026-09-22, DEFAULT OFF; both change the
 observation WIDTH, so a head trained without them cannot load with them -- from-scratch confirm
 runs only). Each is armed by a param the shipped cfg does not carry, and is appended to the
@@ -156,10 +167,11 @@ from parkour_tasks.crab_hex_forward_task.mdp.observations import (
 )
 from parkour_tasks.crab_hex_omni_task.mdp import crab_hex_omni_restance as restance
 
-#: The only two spellings :data:`CrabHexOmniParkourObservations.facing_obs_encoding` accepts.
+#: The only spellings :data:`CrabHexOmniParkourObservations.facing_obs_encoding` accepts.
 #: Must stay equal to ``omni_knobs.FACING_OBS_ENCODINGS`` (the knob validates at config build,
 #: this class at term construction; pinned by ``tests/unit/test_crab_hex_omni_observations.py``).
-FACING_OBS_ENCODINGS = ("raw", "sincos")
+#: ``"none"`` (body-frame command mode, 2026-10-15): slots 6-7 read exactly 0.0.
+FACING_OBS_ENCODINGS = ("raw", "sincos", "none")
 
 #: Widths of the two optional head extensions (see the module docstring).
 STAND_OBS_DIM = 1
@@ -175,7 +187,8 @@ def _check_facing_obs_encoding(value) -> str:
     encoding that fell through to ``raw`` would change the observation the policy is trained
     on while every log line looked like the other one.
     """
-    token = str(value).strip().lower()
+    # ``None`` refused by type (``str(None)`` would lower-case into the ``"none"`` spelling).
+    token = None if value is None else str(value).strip().lower()
     if token not in FACING_OBS_ENCODINGS:
         raise ValueError(
             f"facing_obs_encoding must be one of {FACING_OBS_ENCODINGS}, got {value!r}"
@@ -262,6 +275,9 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
     #: cosine is EVEN, so it does not flip under either reflection).
     #: ``crab_hex_omni_mirror.build_mirrors`` reads this very param off the env cfg and
     #: selects ``head_signs(encoding)`` accordingly -- never a default.
+    #:
+    #: ``"none"`` (body-frame command mode, 2026-10-15): slots 6-7 are exactly 0.0 -- see the module
+    #: docstring's "THE ``none`` ENCODING". The clip is irrelevant there (there is no angle).
     facing_obs_encoding: str = "raw"
 
     #: True zeroes obs slots 8-9 (the command's body-frame x/y) while keeping slot 10
@@ -581,7 +597,14 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
         instead, on the UNCLIPPED error -- see the class attribute's docstring for why the
         clip does not apply there. The ``"raw"`` branch below is untouched and is what every
         shipped preset runs.
+
+        Under ``"none"`` (body-frame command mode, 2026-10-15) both channels are EXACT zeros and the
+        command term is not read at all: a body command has no facing target, and its legacy
+        ``heading_target`` (= the yaw) must not leak a stale value into the observation.
         """
+        if self.facing_obs_encoding == "none":
+            zeros = torch.zeros_like(self.asset.data.heading_w)
+            return zeros, zeros.clone()
         cmd_term = env.command_manager.get_term("base_velocity")
         facing_err = wrap_to_pi(cmd_term.heading_target - self.asset.data.heading_w)
         if self.facing_obs_encoding == "sincos":

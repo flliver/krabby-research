@@ -1,0 +1,181 @@
+{
+ "ovl_c4": {
+  "overlay": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "0",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:0.6",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_SLOTS": "0.15:0.6:0.15:0.1",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_YAW_W": "0.2"
+  },
+  "phase": "1a",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "ovl_c5": {
+  "overlay": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "0",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:0.6",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_SLOTS": "0.15:0.6:0.1:0.15",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_YAW_W": "0.2"
+  },
+  "phase": "1a",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "ovl_c6": {
+  "overlay": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "0",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:0.6",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_YAW_W": "0.2"
+  },
+  "phase": "1a",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "ovl_c6x": {
+  "overlay": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "0",
+   "KRABBY_APEX_W": "0.001",
+   "KRABBY_CLOCK_W": "0.001",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CLOCK_HIDE": "1",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:0.6",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_YAW_W": "0.2"
+  },
+  "phase": "1a",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "ovl_fb6k": {
+  "overlay": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "0",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft"
+  },
+  "phase": "1b",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "ovl_p2a": {
+  "overlay": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "-0.05",
+   "KRABBY_APEX_W": "0.001",
+   "KRABBY_CLOCK_W": "0.001",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_FIELD_BLOCKS": "14:28",
+   "KRABBY_FIELD_EDGES": "wall",
+   "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+   "KRABBY_FIELD_PAD_R": "1.7",
+   "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+   "KRABBY_FLAT_TERRAIN_GEOM": "field",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CLOCK_HIDE": "1",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:1.2",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PHASEOUT": "",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+   "KRABBY_YAW_W": "0.2"
+  },
+  "phase": "2a",
+  "task": "Isaac-Crab-Hex-Omni-Teacher-v0"
+ },
+ "preset_1a": {
+  "overlay": {},
+  "phase": "1a",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "preset_1b": {
+  "overlay": {},
+  "phase": "1b",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "preset_1c": {
+  "overlay": {},
+  "phase": "1c",
+  "task": "Isaac-Crab-Hex-Omni-Walk-v0"
+ },
+ "preset_2a": {
+  "overlay": {},
+  "phase": "2a",
+  "task": "Isaac-Crab-Hex-Omni-Teacher-v0"
+ },
+ "preset_2b": {
+  "overlay": {},
+  "phase": "2b",
+  "task": "Isaac-Crab-Hex-Omni-Teacher-v0"
+ },
+ "preset_2c": {
+  "overlay": {},
+  "phase": "2c",
+  "task": "Isaac-Crab-Hex-Omni-Teacher-v0"
+ },
+ "preset_2c_clockheld": {
+  "overlay": {},
+  "phase": "2c_clockheld",
+  "task": "Isaac-Crab-Hex-Omni-Teacher-v0"
+ }
+}

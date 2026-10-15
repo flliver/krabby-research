@@ -120,6 +120,15 @@ five things the forward block cannot know about:
     ``KRABBY_OMNI_MIRROR_IMAGES`` has no eval-carry entry, the mirror loss does not run in an
     eval) and must still build.
 
+15. **the BODY-FRAME COMMAND knobs** (robot-frame velocity commands campaign, step 1, 2026-10-15; all
+    DEFAULT OFF, set by no world preset) -- ``body_knobs.py``, path-loaded and re-exported here the
+    same way. ``KRABBY_OMNI_COMMAND_FRAME=body`` (with the REQUIRED ``KRABBY_OMNI_BODY_ENVELOPE`` /
+    ``KRABBY_OMNI_BODY_CAP``) is applied by :func:`_apply_command_frame`, the LAST call of
+    :func:`apply_omni_knobs`: it swaps ``commands.base_velocity`` for the body command cfg (every
+    field carried over), sets the obs encoding to ``none``, swaps the body reward set in
+    (:func:`_apply_body_reward_set`) and writes ``omni_clock_turn_floor``; it skips the clock-radius
+    rule (10.). World (unset) refuses the envelope knobs and the ``none`` encoding and writes nothing.
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -177,6 +186,21 @@ def _stroke_knobs():
         spec = importlib.util.spec_from_file_location(_STROKE_KNOBS_NAME, _STROKE_KNOBS_PY)
         mod = importlib.util.module_from_spec(spec)
         sys.modules[_STROKE_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
+_BODY_KNOBS_PY = Path(__file__).resolve().parent / "body_knobs.py"
+_BODY_KNOBS_NAME = "crab_hex_omni_body_knobs"
+
+
+def _body_knobs():
+    """``body_knobs.py`` (pure), by path -- the same object for every loader of this module."""
+    mod = sys.modules.get(_BODY_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_BODY_KNOBS_NAME, _BODY_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_BODY_KNOBS_NAME] = mod
         spec.loader.exec_module(mod)
     return mod
 
@@ -278,6 +302,19 @@ FIELD_MIN_GAP_VAR = _tk.FIELD_MIN_GAP_VAR
 FIELD_SIZE_SCALE_VAR = _tk.FIELD_SIZE_SCALE_VAR
 FIELD_KNOB_PARSERS = _tk.FIELD_KNOB_PARSERS
 
+_bk = _body_knobs()
+# NOTE(body-frame command mode, 2026-10-15): the three command-frame knobs (body_knobs.py),
+# re-exported for the same whitelist reason; applied by :func:`_apply_command_frame`, the LAST call
+# of :func:`apply_omni_knobs`. BODY_KNOB_PARSERS is for the driver's round-trip table.
+COMMAND_FRAME_VAR = _bk.COMMAND_FRAME_VAR
+BODY_ENVELOPE_VAR = _bk.BODY_ENVELOPE_VAR
+BODY_CAP_VAR = _bk.BODY_CAP_VAR
+COMMAND_FRAMES = _bk.COMMAND_FRAMES
+parse_command_frame = _bk.parse_command_frame
+parse_body_envelope_knob = _bk.parse_body_envelope_knob
+parse_body_cap_knob = _bk.parse_body_cap_knob
+BODY_KNOB_PARSERS = _bk.BODY_KNOB_PARSERS
+
 __all__ = [
     "SLOTS_VAR",
     "DIR_BAND_VAR",
@@ -352,6 +389,9 @@ __all__ = [
     # field-geometry knobs (mdp/omni_terrain_knobs.py, 2026-10-06)
     "FIELD_PAD_R_VAR", "FIELD_BLOCKS_VAR", "FIELD_KINDS_VAR", "FIELD_EDGES_VAR",
     "FIELD_MIN_GAP_VAR", "FIELD_SIZE_SCALE_VAR", "FIELD_KNOB_PARSERS",
+    # body-frame command knobs (body_knobs.py, 2026-10-15)
+    "COMMAND_FRAME_VAR", "BODY_ENVELOPE_VAR", "BODY_CAP_VAR", "COMMAND_FRAMES", "parse_command_frame",
+    "parse_body_envelope_knob", "parse_body_cap_knob", "BODY_KNOB_PARSERS", "body_frame_env_refusals",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"
@@ -450,11 +490,14 @@ PROGRESS_W_VAR = "KRABBY_OMNI_PROGRESS_W"
 #: How the facing error reaches the policy's observation (2026-09-18, Part A1): ``"raw"`` (the
 #: shipped default -- one clipped signed angle) or ``"sincos"`` (its sine and cosine, which is
 #: continuous across ``+-pi`` and cannot be read as "nearly zero" when it is nearly a half turn).
+#: ``"none"`` (body-frame command mode, 2026-10-15): slots 6-7 read exactly 0 -- legal ONLY with
+#: ``KRABBY_OMNI_COMMAND_FRAME=body`` (:func:`body_frame_env_refusals`; a world head would be
+#: facing-blind), and the body mode writes it itself.
 #: The obs term must ALREADY carry the key: writing a param the observation function does not
 #: accept would raise inside the observation manager on the first step of training.
 FACING_OBS_ENCODING_VAR = "KRABBY_OMNI_FACING_OBS_ENCODING"
-FACING_OBS_ENCODINGS = ("raw", "sincos")
-"""The only two spellings :func:`parse_facing_obs_encoding` accepts."""
+FACING_OBS_ENCODINGS = ("raw", "sincos", "none")
+"""The only spellings :func:`parse_facing_obs_encoding` accepts (``none``: body mode only)."""
 
 #: The symmetry loss's ``data_augmentation_func`` (side-speed-bisection plan step 1a,
 #: 2026-09-28, DEFAULT OFF). ``"fa"`` is the only recognised mode -- it re-points the RUNNER cfg
@@ -678,14 +721,18 @@ def parse_progress_w(text: str) -> float:
 
 
 def parse_facing_obs_encoding(text: str) -> str:
-    """``KRABBY_OMNI_FACING_OBS_ENCODING`` -> ``"raw"`` or ``"sincos"``.
+    """``KRABBY_OMNI_FACING_OBS_ENCODING`` -> ``"raw"``, ``"sincos"`` or ``"none"``.
+
+    ``"none"`` parses here (the knob's own shape) and is refused in WORLD mode by the cross-knob
+    rule :func:`body_frame_env_refusals` -- the parser cannot see the command frame.
 
     Validated here, at config build, rather than inside the observation function on the first
     step: an unknown encoding that fell through to a default would change the OBSERVATION the
     policy is trained on while the launcher believed the other one was armed, and the two are
     indistinguishable in a training log.
     """
-    token = str(text).strip().lower()
+    # ``None`` refused by type (``str(None)`` would lower-case into the ``"none"`` spelling).
+    token = None if text is None else str(text).strip().lower()
     if token not in FACING_OBS_ENCODINGS:
         raise ValueError(
             f"{FACING_OBS_ENCODING_VAR} must be one of {FACING_OBS_ENCODINGS}, got {text!r}"
@@ -1207,6 +1254,12 @@ def _check_clock_radius_rule(cfg) -> None:
     Checked after BOTH knobs have been applied, so it sees the effective pair, and it names both
     variables and both values -- the failure it prevents (gait rewards paying a statue on every
     turn row) looks like a training problem, not a config one.
+
+    SKIPPED under ``KRABBY_OMNI_COMMAND_FRAME=body`` (2026-10-15, STEP1_SPEC §1/§5): there the gait
+    clock reads ``max(|v|, r |wz|, walk_floor [wz != 0])`` (``omni_clock_turn_floor``), so EVERY
+    turning row runs the clock at or above the walk floor whatever ``radius x ang_vel_max`` is -- and
+    ``ang_vel_max`` (the world relay's cap) is inert there: the body yaw rate is drawn from the
+    measured envelope. :func:`apply_omni_knobs` logs the skip.
     """
     radius = getattr(cfg, "omni_clock_turn_radius", None)
     if radius is None:
@@ -1328,6 +1381,269 @@ def _repoint_rsi(cfg, env, yaw_range) -> None:
             _mk._consumed(var, env.get(var))
 
 
+# ============================================================ the body-frame command mode (2026-10-15)
+#
+# Robot-frame velocity commands campaign (``experiments/2026-10-15_body_cmd``, STEP1_SPEC §1). The
+# three knobs (``body_knobs.py``) are DEFAULT OFF; ``world`` (unset) writes nothing. ``body`` is
+# applied at ONE point -- :func:`_apply_command_frame`, the LAST call of :func:`apply_omni_knobs`,
+# so every command / observation / reward knob before it has already been applied and carries over.
+
+def _blank_knob(raw) -> bool:
+    return raw is None or not str(raw).strip()
+
+
+def body_frame_env_refusals(env) -> list[str]:
+    """Every command-frame refusal an env MAPPING earns, as short reasons naming knob and value.
+
+    Pure (a mapping in, strings out): :func:`_apply_command_frame` raises with them at config build,
+    and the candidates driver runs the same function on every composed stage env at COMPOSE time
+    (``run_candidates._check_body_frame_composition``), so a recipe that cannot build is refused
+    before a GPU is booked. A malformed frame / envelope value raises ``ValueError`` from its parser
+    instead (that is the parser table's job, not a cross-knob refusal).
+
+    World (unset / ``world``): the two envelope knobs, and ``KRABBY_OMNI_FACING_OBS_ENCODING=none``
+    (a world head would be facing-blind -- the facing target IS its turn command).
+
+    Body: both envelope knobs REQUIRED, and refused -- each one carries a WORLD facing / relay /
+    RSI semantics the body command does not have, so leaving it in would train something the recipe
+    does not describe: ``KRABBY_OMNI_FACING`` (any value), ``KRABBY_OMNI_FACING_OBS_CLIP`` (any
+    value), ``KRABBY_OMNI_FACING_OBS_ENCODING`` other than blank / ``none``,
+    ``KRABBY_OMNI_FACING_TURN_W`` non-zero, ``KRABBY_OMNI_TRACK_FACING_SIGMA`` (any value),
+    ``KRABBY_OMNI_RELAY_HYST`` (on), ``KRABBY_OMNI_ANG_TURN_ONLY=1``, ``KRABBY_RSI_FRAC > 0``, a
+    ``KRABBY_OMNI_CMD_POOL`` type with a non-unit ``ang_scale``, and a non-zero ``KRABBY_OMNI_STROKE_W`` /
+    ``KRABBY_OMNI_CENTRING_W``.
+    """
+    frame = _bk.parse_command_frame(env.get(COMMAND_FRAME_VAR))
+    reasons: list[str] = []
+    env_raw, cap_raw = env.get(BODY_ENVELOPE_VAR), env.get(BODY_CAP_VAR)
+    enc_raw = env.get(FACING_OBS_ENCODING_VAR)
+    if frame == _bk.FRAME_WORLD:
+        for var, raw in ((BODY_ENVELOPE_VAR, env_raw), (BODY_CAP_VAR, cap_raw)):
+            if not _blank_knob(raw):
+                reasons.append(f"{var}={str(raw).strip()!r} is REFUSED in world mode ({COMMAND_FRAME_VAR} unset/world)")
+        if not _blank_knob(enc_raw) and parse_facing_obs_encoding(enc_raw) == "none":
+            reasons.append(f"{FACING_OBS_ENCODING_VAR}=none is REFUSED in world mode: a world head would be "
+                           "facing-blind (its facing error IS its turn command)")
+        return reasons
+    for var, raw in ((BODY_ENVELOPE_VAR, env_raw), (BODY_CAP_VAR, cap_raw)):
+        if _blank_knob(raw):
+            reasons.append(f"{var} is REQUIRED in body mode (the measured envelope, PLAN D3; never a default)")
+    for var in (FACING_VAR, FACING_OBS_CLIP_VAR, TRACK_FACING_SIGMA_VAR):
+        raw = env.get(var)
+        if not _blank_knob(raw):
+            reasons.append(f"{var}={str(raw).strip()!r} is REFUSED in body mode (a world-facing knob)")
+    if not _blank_knob(enc_raw) and str(enc_raw).strip().lower() != "none":
+        reasons.append(f"{FACING_OBS_ENCODING_VAR}={str(enc_raw).strip()!r} is REFUSED in body mode "
+                       "(only blank / none: obs cols 6-7 carry no facing error)")
+    raw = env.get(FACING_TURN_W_VAR)
+    if not _blank_knob(raw) and parse_facing_turn_w(raw) != 0.0:
+        reasons.append(f"{FACING_TURN_W_VAR}={str(raw).strip()!r} is REFUSED in body mode (must be 0: "
+                       "there is no facing target to pay)")
+    raw = env.get(RELAY_HYST_VAR)
+    if _mk.parse_relay_hyst(raw) is not None:
+        reasons.append(f"{RELAY_HYST_VAR}={str(raw).strip()!r} is REFUSED in body mode (there is no facing relay)")
+    raw = env.get(ANG_TURN_ONLY_VAR)
+    if not _blank_knob(raw) and parse_ang_turn_only(raw):
+        reasons.append(f"{ANG_TURN_ONLY_VAR}=1 is REFUSED in body mode (track_ang_vel_z_exp is the "
+                       "straight-gated twin there)")
+    raw = env.get(RSI_FRAC_VAR)
+    if not _blank_knob(raw) and float(raw) > 0.0:
+        reasons.append(f"{RSI_FRAC_VAR}={str(raw).strip()!r} is REFUSED in body mode (the RSI event stages a "
+                       "WORLD command; set 0)")
+    raw = env.get(CMD_POOL_VAR)
+    pool = parse_cmd_pool(raw) if raw is not None else None
+    if pool is not None:
+        scaled = [f"{n}:{s}" for n, s in zip(pool.names, pool.ang_scale) if float(s) != 1.0]
+        if scaled:
+            reasons.append(f"{CMD_POOL_VAR} types {scaled} carry a non-unit ang_scale, REFUSED in body mode "
+                           "(the yaw rate is drawn from the envelope)")
+    # The stroke / centring terms compute their OWN clock speed (max(|v|, r|wz|), stroke math) without the
+    # body-mode turn floor, so on a slow turning row they would classify the gait at 0.06-0.2 m/s while the
+    # clock they score runs at the 0.21 m/s floor (step-1 review, 2026-10-15). Default-off knobs; refused
+    # rather than half-supported.
+    for var, parse in ((STROKE_W_VAR, parse_stroke_w), (CENTRING_W_VAR, parse_centring_w)):
+        raw = env.get(var)
+        if not _blank_knob(raw) and (parse(raw) or 0.0) != 0.0:
+            reasons.append(f"{var}={str(raw).strip()!r} is REFUSED in body mode (its stroke clock speed has no "
+                           "turn floor)")
+    return reasons
+
+
+def _cfg_field_names(cls) -> tuple[str, ...]:
+    """The declared cfg fields of a configclass (``__dataclass_fields__``; the CPU tests' stand-in
+    spells them ``__cfg_fields__``)."""
+    fields = getattr(cls, "__dataclass_fields__", None)
+    if fields is not None:
+        return tuple(fields)
+    return tuple(getattr(cls, "__cfg_fields__", ()))
+
+
+def _swap_body_command_cfg(old, envelope, body_cls):
+    """A ``body_cls`` instance carrying EVERY field of ``old`` unchanged, plus the envelope.
+
+    Every declared field is passed through the constructor (``class_type`` excepted: the body
+    class's own default names the body term); every attribute that is NOT a declared field (the
+    motion knobs' instance-only ``stand_hold`` / ``eval_slot_latch``, written by ``setattr`` when
+    armed) is copied onto the new instance after, so nothing a previous knob applied is dropped.
+    """
+    if isinstance(old, body_cls):
+        raise RuntimeError(f"{COMMAND_FRAME_VAR}=body: commands.base_velocity is already a body cfg "
+                           "(the command frame was applied twice)")
+    names = set(_cfg_field_names(type(old)))
+    state = dict(vars(old))
+    kwargs = {k: v for k, v in state.items() if k in names and k != "class_type"}
+    extras = {k: v for k, v in state.items() if k not in names}
+    new = body_cls(
+        **kwargs,
+        body_w_min=float(envelope.w_min),
+        body_ceiling=float(envelope.ceiling),
+        body_w_max=float(envelope.w_max),
+        body_cap=tuple((float(v), float(wz)) for v, wz in envelope.cap),
+    )
+    for key, value in extras.items():
+        setattr(new, key, value)
+    return new
+
+
+def _body_command_api():
+    """``(CrabHexOmniBodyCommandCfg, omni_walk_floor)`` -- imported lazily (Isaac); tests inject."""
+    from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command import (  # noqa: PLC0415
+        CrabHexOmniBodyCommandCfg,
+        omni_walk_floor,
+    )
+
+    return CrabHexOmniBodyCommandCfg, omni_walk_floor
+
+
+def _body_reward_funcs() -> dict:
+    """The world funcs the body set replaces and their body twins -- lazily (Isaac); tests inject."""
+    from isaaclab.envs.mdp.rewards import track_ang_vel_z_exp  # noqa: PLC0415
+
+    from parkour_tasks.crab_hex_omni_task.mdp import crab_hex_omni_rewards as rew  # noqa: PLC0415
+
+    return {
+        "facing_func": rew.reward_facing_exp,
+        "progress_func": rew.reward_yaw_progress,
+        "stock_ang": track_ang_vel_z_exp,
+        "window_cls": rew.RewardYawWindowExp,
+        "tent_cls": rew.RewardYawProgressTent,
+        "straight_func": rew.track_ang_vel_z_exp_straight_gated,
+    }
+
+
+def _apply_body_reward_set(cfg, *, funcs=None) -> None:
+    """The body reward set (PLAN D4 as amended by the CHARTER 2026-10-15) -- FUNCS swapped, NAMES and
+    WEIGHTS kept (the weights come from the presets / knobs; ``KRABBY_YAW_PROGRESS_W`` = 2.0 in the
+    ``_b`` presets):
+
+    * ``reward_tracking_yaw`` -> ``RewardYawWindowExp`` (2-s window, sigma 0.10 rad; ``window_s`` /
+      ``sigma`` written into the term's params, so the dump shows the dose);
+    * ``reward_yaw_progress`` -> ``RewardYawProgressTent`` (2-s window; ``w_max`` from the body
+      command cfg, ``clip`` stays None);
+    * ``track_ang_vel_z_exp`` -> ``track_ang_vel_z_exp_straight_gated`` (std and weight kept);
+    * ``reward_facing_turn`` must stay at weight 0 (refused otherwise).
+
+    Loud guards, the ``_apply_ang_turn_only_knob`` set: a missing term, or a func that is not the
+    world one the swap replaces (something else owns it -- refusing to clobber).
+    """
+    f = _body_reward_funcs() if funcs is None else funcs
+    rewards = getattr(cfg, "rewards", None)
+    window_cls, tent_cls = f["window_cls"], f["tent_cls"]
+    swaps = (
+        ("reward_tracking_yaw", f["facing_func"], window_cls,
+         {"window_s": float(window_cls.WINDOW_S), "sigma": float(window_cls.SIGMA)}),
+        ("reward_yaw_progress", f["progress_func"], tent_cls, {"window_s": float(tent_cls.WINDOW_S)}),
+        ("track_ang_vel_z_exp", f["stock_ang"], f["straight_func"], {}),
+    )
+    for name, expected, new_func, extra in swaps:
+        term = getattr(rewards, name, None)
+        if term is None or not hasattr(term, "func") or not isinstance(getattr(term, "params", None), dict):
+            raise RuntimeError(f"{COMMAND_FRAME_VAR}=body: the rewards cfg has no {name} term with params, so the "
+                               "body reward set cannot be applied")
+        if term.func is not expected:
+            raise RuntimeError(
+                f"{COMMAND_FRAME_VAR}=body expects rewards.{name} to carry "
+                f"{getattr(expected, '__name__', expected)!r}, but it carries "
+                f"{getattr(term.func, '__name__', term.func)!r}; refusing to clobber a func this swap does not know"
+            )
+        term.func = new_func
+        term.params.update(extra)
+    facing_turn = getattr(rewards, "reward_facing_turn", None)
+    if facing_turn is not None and float(facing_turn.weight) != 0.0:
+        raise RuntimeError(f"{COMMAND_FRAME_VAR}=body: rewards.reward_facing_turn has weight {facing_turn.weight}; "
+                           "it must be 0 (there is no facing target in body mode)")
+
+
+def _apply_command_frame(cfg, env, *, body_api=None, reward_funcs=None) -> str:
+    """``KRABBY_OMNI_COMMAND_FRAME`` -> the cfg; returns the frame. THE one application point.
+
+    ``world`` (unset / blank): validates (:func:`body_frame_env_refusals`, plus a realised
+    ``facing_obs_encoding == "none"`` on the obs term) and writes NOTHING -- the knob-off dump is
+    bitwise. ``body``, after every other knob has been applied:
+
+    1. refuse (``RuntimeError`` naming every knob and value) -- the env refusals plus the realised
+       cfg's own state (an installed RSI event, a facing-obs clip param, a non-zero
+       ``reward_facing_turn``, a relay hysteresis on the command cfg);
+    2. swap ``commands.base_velocity`` for a ``CrabHexOmniBodyCommandCfg`` carrying every field of
+       the world cfg unchanged plus the parsed envelope (:func:`_swap_body_command_cfg`);
+    3. set the omni obs term's ``facing_obs_encoding`` to ``"none"`` (obs cols 6-7 = 0, PLAN D2);
+    4. the body reward set (:func:`_apply_body_reward_set`);
+    5. ``omni_clock_turn_floor`` = the walk floor on the ENV cfg (an instance attribute no world cfg
+       carries): the gait clock and every clock-speed gait gate then read
+       ``max(|v|, r |wz|, floor [wz != 0])``, so a slow turn stays "moving" (PLAN D4, spec §5).
+
+    Args:
+        body_api / reward_funcs: the body cfg class + ``omni_walk_floor``, and the reward funcs --
+            injected by the CPU tests (the real ones are Isaac imports, made lazily).
+    """
+    frame = _bk.parse_command_frame(env.get(COMMAND_FRAME_VAR))
+    reasons = body_frame_env_refusals(env)
+    terms = _omni_obs_terms(cfg)
+    if frame == _bk.FRAME_WORLD:
+        for g, t, term in terms:
+            if str((term.params or {}).get("facing_obs_encoding", "")).strip().lower() == "none":
+                reasons.append(f"observations.{g}.{t} carries facing_obs_encoding='none' in world mode")
+        if reasons:
+            raise RuntimeError(f"{COMMAND_FRAME_VAR} (world): " + "; ".join(reasons))
+        return frame
+
+    cmd_cfg = cfg.commands.base_velocity
+    events = getattr(cfg, "events", None)
+    if getattr(events, "rsi_reference_reset", None) is not None:
+        reasons.append("events.rsi_reference_reset is installed (RSI stages a WORLD command)")
+    if getattr(cmd_cfg, "relay_hyst", None) is not None:
+        reasons.append(f"commands.base_velocity.relay_hyst={cmd_cfg.relay_hyst} is set (no facing relay)")
+    for g, t, term in terms:
+        if (term.params or {}).get("facing_obs_clip") is not None:
+            reasons.append(f"observations.{g}.{t} carries facing_obs_clip={term.params['facing_obs_clip']}")
+    facing_turn = getattr(getattr(cfg, "rewards", None), "reward_facing_turn", None)
+    if facing_turn is not None and float(facing_turn.weight) != 0.0:
+        reasons.append(f"rewards.reward_facing_turn.weight={facing_turn.weight} (must be 0)")
+    if reasons:
+        raise RuntimeError(f"{COMMAND_FRAME_VAR}=body refuses: " + "; ".join(dict.fromkeys(reasons)))
+
+    _frame, envelope = _bk.parse_body_knobs(env)
+    body_cls, walk_floor = _body_command_api() if body_api is None else body_api
+    cfg.commands.base_velocity = _swap_body_command_cfg(cmd_cfg, envelope, body_cls)
+    if not terms:
+        raise RuntimeError(f"{COMMAND_FRAME_VAR}=body is set but no omni observation term is installed")
+    missing = [f"{g}.{t}" for g, t, term in terms
+               if not isinstance(getattr(term, "params", None), dict) or "facing_obs_encoding" not in term.params]
+    if missing:
+        raise RuntimeError(f"{COMMAND_FRAME_VAR}=body: {missing} do not declare a 'facing_obs_encoding' param "
+                           "(the observation function would be called with a keyword it does not accept)")
+    for _g, _t, term in terms:
+        term.params["facing_obs_encoding"] = "none"
+    _apply_body_reward_set(cfg, funcs=reward_funcs)
+    floor = float(walk_floor(cfg.commands.base_velocity))
+    cfg.omni_clock_turn_floor = floor
+    print(f"[KNOB] {COMMAND_FRAME_VAR}=body consumed: robot-frame (vx, vy, wz) command, envelope "
+          f"w_min/ceiling/w_max={envelope.w_min}/{envelope.ceiling}/{envelope.w_max} rad/s, cap={envelope.cap}; "
+          f"obs cols 6-7 = 0; body reward set; clock turn floor {floor} m/s; the clock-radius rule is "
+          "SKIPPED (a turning row runs the clock at >= the walk floor)", flush=True)
+    return frame
+
+
 def apply_omni_knobs(cfg, environ=None) -> None:
     """Apply every omni knob to a built omni env cfg. Call LAST in ``__post_init__``.
 
@@ -1337,6 +1653,10 @@ def apply_omni_knobs(cfg, environ=None) -> None:
         environ: mapping to read the knobs from (defaults to ``os.environ``).
     """
     env = os.environ if environ is None else environ
+    # NOTE(body-frame command mode, 2026-10-15): the frame is parsed FIRST (a typo fails before any
+    # knob is applied) and APPLIED LAST (:func:`_apply_command_frame`, below), so every command /
+    # observation / reward knob in between carries over into the body cfg.
+    frame = _bk.parse_command_frame(env.get(COMMAND_FRAME_VAR))
 
     _apply_command_knobs(cfg.commands.base_velocity, env)
 
@@ -1344,7 +1664,12 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     if raw_turn_r is not None and str(raw_turn_r).strip():
         cfg.omni_clock_turn_radius = parse_clock_turn_radius(raw_turn_r)
     # Both halves of the product are now final (the command knobs wrote ang_vel_max above).
-    _check_clock_radius_rule(cfg)
+    if frame == _bk.FRAME_BODY:
+        print(f"[KNOB] {COMMAND_FRAME_VAR}=body: the clock-radius rule ({CLOCK_TURN_R_VAR} x "
+              f"{ANG_VEL_MAX_VAR} >= {CLOCK_TURN_MIN_SPEED}) is SKIPPED -- every turning row runs the gait "
+              "clock at >= the walk floor (omni_clock_turn_floor)", flush=True)
+    else:
+        _check_clock_radius_rule(cfg)
 
     raw_yaw = env.get(YAW_RANGE_VAR)
     yaw_range = parse_yaw_range(raw_yaw) if raw_yaw and str(raw_yaw).strip() else None
@@ -1378,6 +1703,9 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     apply_omni_ring_knobs(cfg, env)
     # The motion-quality knobs (all default off; each one unset writes nothing).
     _mk.apply_motion_knobs(cfg, env)
-    # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs, all default off. LAST
-    # of all, so the func swap and the added term see the otherwise-final cfg.
+    # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs, all default off. Last
+    # of the per-knob appliers, so the func swap and the added term see the otherwise-final cfg.
     _sk.apply_stroke_knobs(cfg, env)
+    # NOTE(body-frame command mode, 2026-10-15): THE one application point of the command frame,
+    # after everything else. World (unset) validates and writes nothing.
+    _apply_command_frame(cfg, env)

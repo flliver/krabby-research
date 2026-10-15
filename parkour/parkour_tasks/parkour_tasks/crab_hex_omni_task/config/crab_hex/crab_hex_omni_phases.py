@@ -48,6 +48,11 @@ control twin for "did the clock phase-out cost anything?", run from the 2b head.
   ``KRABBY_OMNI_ANG_VEL_STD=0.5`` and ``KRABBY_OMNI_CLOCK_COMBINE=product`` (Revision 4) and
   ``KRABBY_YAW_W`` from 1c.
 
+**Body-frame twins** (2026-10-15, robot-frame velocity commands campaign): ``1a_b`` / ``1b_b`` /
+``2a_b`` are the base preset's env plus :data:`BODY_DELTA` (one dict, pinned key by key in the unit
+tests); they are in :data:`PHASES` but not in :data:`PHASE_NAMES`, and refuse to build until the
+campaign overlay supplies the measured envelope.
+
 **One task per process.** This package activates from its own variable ``KRABBY_OMNI_PHASE``
 and NEVER writes ``KRABBY_PHASE`` or ``KRABBY_SIDE_PHASE``. The expanded ``KRABBY_*`` knob
 names are shared by all three tasks, so exactly one preset variable may be set:
@@ -239,6 +244,45 @@ EXPERIMENT_MAP = {
 #: The chain of record (1a -> 1b -> 1c -> 2a -> 2b, then 2c and its clock-held twin from 2b).
 PHASE_NAMES = ("1a", "1b", "1c", "2a", "2b", "2c", "2c_clockheld")
 
+# ---------------------------------------------------------------------- the body-frame presets
+#: NOTE(robot-frame velocity commands campaign, ``experiments/2026-10-15_body_cmd``, STEP1_SPEC §6):
+#: the ``_b`` presets are a base world preset's env with ONE delta, pinned key by key here (a value
+#: sets the key, ``None`` DROPS it). They switch the command to a held robot-frame ``(vx, vy, wz)``
+#: (``omni_knobs._apply_command_frame``), blank the facing-error observation, dose the windowed
+#: yaw-progress tent at 2.0 (the CHARTER's 2026-10-15 amendment) and turn RSI off (an RSI frame
+#: stages a WORLD command); they drop the two world-facing knobs the body mode refuses. The measured
+#: envelope (``KRABBY_OMNI_BODY_ENVELOPE`` / ``KRABBY_OMNI_BODY_CAP``) is deliberately NOT here --
+#: the campaign overlay sets it after step 4 -- so a ``_b`` preset alone refuses to build.
+BODY_DELTA: dict[str, str | None] = {
+    "KRABBY_OMNI_COMMAND_FRAME": "body",
+    "KRABBY_OMNI_FACING_OBS_ENCODING": "none",
+    "KRABBY_YAW_PROGRESS_W": "2.0",
+    # The 2-s windowed yaw term (reward_tracking_yaw's body func) is the HEADING HOLD on straight rows: weighted
+    # in every body preset, 1a_b / 1b_b included (the world 1a / 1b presets leave KRABBY_YAW_W unset = 0 because
+    # their facing relay held heading; body mode has no relay). CHARTER 2026-10-15.
+    "KRABBY_YAW_W": "0.2",
+    "KRABBY_RSI_FRAC": "0",
+    "KRABBY_OMNI_FACING": None,
+    "KRABBY_OMNI_FACING_OBS_CLIP": None,
+}
+#: The world presets that get a body twin, and the twins' names (``<base>_b``). NOT in
+#: :data:`PHASE_NAMES` (the world chain of record is unchanged); reachable through :func:`phase_env`
+#: / :func:`activate_phase` like every preset.
+BODY_BASES = ("1a", "1b", "2a")
+BODY_PHASE_SUFFIX = "_b"
+BODY_PHASE_NAMES = tuple(f"{b}{BODY_PHASE_SUFFIX}" for b in BODY_BASES)
+
+
+def _body_env(env: dict[str, str]) -> dict[str, str]:
+    """A world preset env with :data:`BODY_DELTA` applied (set the str values, drop the ``None`` ones)."""
+    ev = dict(env)
+    for key, value in BODY_DELTA.items():
+        if value is None:
+            ev.pop(key, None)
+        else:
+            ev[key] = value
+    return ev
+
 #: No distillation in this plan (teacher only).
 STUDENT_PHASES: tuple[str, ...] = ()
 
@@ -316,6 +360,20 @@ def build_phases() -> dict[str, PhaseSpec]:
         resume_from="2b",
         notes="omni phase 2 control: 2c with the gait clock held at 1.0 (no phase-out)",
     )
+
+    # --- the body-frame twins (2026-10-15): base env + BODY_DELTA, same task / experiment /
+    # iterations. ``resume_from`` points at the base's own body twin when one exists and is
+    # otherwise None (a body head never resumes a WORLD head: its obs cols 6-7 and command differ).
+    for base in BODY_BASES:
+        spec = p[base]
+        twin = f"{spec.resume_from}{BODY_PHASE_SUFFIX}" if spec.resume_from else None
+        p[f"{base}{BODY_PHASE_SUFFIX}"] = replace(
+            spec,
+            name=f"{base}{BODY_PHASE_SUFFIX}",
+            env=_body_env(spec.env),
+            resume_from=twin if twin in BODY_PHASE_NAMES else None,
+            notes=f"{spec.notes} [body-frame command: KRABBY_OMNI_COMMAND_FRAME=body]",
+        )
     return p
 
 

@@ -704,8 +704,10 @@ def test_the_clip_applies_to_raw_only(monkeypatch):
 def test_encoding_is_validated_at_construction_and_per_call(monkeypatch):
     monkeypatch.delenv("KRABBY_HEADING", raising=False)
     env = _Env(N, torch.zeros(N, 4), ENCODING_TARGETS.clone())
-    assert FACING_OBS_ENCODINGS == ("raw", "sincos")
-    for bad in ("", "sin_cos", "cos", "none", 1):
+    # ``none`` (body-frame command mode, 2026-10-15) is a spelling now (a params value of ``None`` is
+    # "not declared" at construction, as before)
+    assert FACING_OBS_ENCODINGS == ("raw", "sincos", "none")
+    for bad in ("", "sin_cos", "cos", "off", 1):
         with pytest.raises(ValueError, match="facing_obs_encoding"):
             OmniObs(_ParamCfg(facing_obs_encoding=bad), env)
     # tolerated spellings, normalised (the knob parser lower-cases too)

@@ -145,6 +145,12 @@ class _OncePerStep:
 
     Also detects a command resample: the slot, the travel target or the facing target changed since this
     term's previous call. NaN after a reset compares unequal, so a fresh env counts as resampled.
+
+    NOTE(body-frame command mode, 2026-10-15): the compared tuple is the command term's own
+    ``command_signature()`` -- for the world term BITWISE the old ``(slot_id, travel_dir_w,
+    heading_target)`` stack; for the body term the held ``(body_phi, body_speed, body_wz)``, because
+    there ``travel_dir_w`` / ``heading_target`` follow the yaw every step and would read as a resample
+    on every step.
     """
 
     def _init_resample(self, num_envs: int) -> None:
@@ -154,7 +160,7 @@ class _OncePerStep:
         self._prev_cmd[idx] = float("nan")
 
     def _resampled(self, cmd_term) -> torch.Tensor:
-        now = torch.stack((cmd_term.slot_id.float(), cmd_term.travel_dir_w, cmd_term.heading_target), dim=-1)
+        now = cmd_term.command_signature()
         resampled = (now != self._prev_cmd).any(dim=-1)
         self._prev_cmd.copy_(now)
         return resampled
@@ -332,7 +338,9 @@ class RewardBodyCentring(ManagerTermBase, _OncePerStep):
         cmd_term = _omni_command_term(env, command_name)
         slot = cmd_term.slot_id
         resampled = self._resampled(cmd_term)
-        bearing = wrap_to_pi(cmd_term.travel_dir_w - cmd_term.heading_target)
+        # The INTENDED bearing (world: ``travel_dir_w - heading_target``, bitwise; body: the held
+        # ``body_phi``) -- the command term owns the question (2026-10-15).
+        bearing = wrap_to_pi(cmd_term.intended_bearing_b())
         lat_share = torch.where(slot == SLOT_MOVE, torch.sin(bearing).abs(), torch.zeros_like(bearing))
         foot_pos_w = asset.data.body_pos_w[:, self.body_ids]
         root_pos_w = asset.data.root_pos_w
