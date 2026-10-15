@@ -1,0 +1,87 @@
+{
+  "envelope": {
+    "w_min": 0.05,
+    "ceiling": 0.168,
+    "w_max": 0.21,
+    "cap": [
+      [
+        0.0,
+        0.21
+      ],
+      [
+        0.22,
+        0.105
+      ],
+      [
+        0.3,
+        0.065
+      ]
+    ]
+  },
+  "cap80": 0.084,
+  "dt": 0.02,
+  "window_steps": 100,
+  "weights": [
+    0.2,
+    2.0,
+    1.0
+  ],
+  "n_traces": {
+    "turn": 400,
+    "move": 400,
+    "stand": 200,
+    "translate": 1000
+  },
+  "healthy": {
+    "healthy_turn@ceiling": 0.44548805106006034,
+    "healthy_move@cap80": 0.2770694564105157,
+    "healthy_synth@w_min": 0.24175474254222704,
+    "healthy_synth@ceiling": 0.477754742542227
+  },
+  "degenerate": {
+    "over_spin@w_min": {
+      "income": -0.11503156636310383,
+      "vs": "healthy_synth@w_min",
+      "share": -0.47581927516069883,
+      "margin": 0.4,
+      "pass": true
+    },
+    "stand_on_turn@ceiling": {
+      "income": 0.008689909846512012,
+      "vs": "healthy_turn@ceiling",
+      "share": 0.019506493666516873,
+      "margin": 0.1,
+      "pass": true
+    },
+    "stand_on_turn@w_min": {
+      "income": 0.07753932822341869,
+      "vs": "healthy_synth@w_min",
+      "share": 0.32073549998662376,
+      "margin": 0.4,
+      "pass": true
+    },
+    "step_in_place@w_min": {
+      "income": 0.07655405568150989,
+      "vs": "healthy_synth@w_min",
+      "share": 0.3166599954833907,
+      "margin": 0.4,
+      "pass": true
+    },
+    "step_in_place@ceiling": {
+      "income": 0.007281510787246301,
+      "vs": "healthy_turn@ceiling",
+      "share": 0.016345019288215686,
+      "margin": 0.1,
+      "pass": true
+    }
+  },
+  "drift_reported": {
+    "straight_wobble": 1.1311145740628885,
+    "straight_drift_0p01": 1.122139718895821
+  },
+  "trace_mean_rate": {
+    "turn": 0.16799777521460918,
+    "move": 0.09533361220745883
+  },
+  "pass": true
+}

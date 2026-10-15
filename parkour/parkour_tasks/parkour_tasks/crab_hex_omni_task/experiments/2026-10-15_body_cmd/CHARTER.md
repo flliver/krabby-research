@@ -219,3 +219,10 @@ adoption-grade report. **Adoption, bake and push are the user's.**
   0.991 / 0.978; fwd 0.30 m/s cells lose 2–3.5 % survival; translation body ratio 0.88–1.12 at wz 0. The scenario
   file's envelope block is rewritten (comment + block only; eval_sha moves the second time); the shipped-manifest
   test pins the frozen numbers.
+- 2026-10-15, **step 4 offline replay (`scripts/bc_replay.py` → `step4_replay.{json,md}`; the SHIPPED pure income
+  functions, `_b` weights 0.2 / 2.0, frozen envelope): PASS.** Healthy per-step yaw income: S1 turn traces at the
+  ceiling 0.446, S1 move_turn traces at cap80 0.277, synthetic tracker at w_min 0.242. Degenerate shares: over-spin
+  (S1's 0.168 turn) on a w_min command −0.48 (pays negative); stand-on-turn 0.020 at the ceiling / 0.321 at w_min;
+  step-in-place 0.016 / 0.317 — all inside the step-1a margins (0.10 / 0.40). Reported: a 0.01 rad/s straight drift
+  costs 0.009 / step of 1.131 (< 1 %) — the windowed kernel barely prices slow drift, as PLAN expected; drift is
+  policed by gate 4 and the step-6 stage-end drift stop.
