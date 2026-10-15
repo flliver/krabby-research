@@ -65,6 +65,12 @@ PKG = HERE.parents[1]
 FWD_PKG = PKG.parent / "crab_hex_forward_task"
 EVAL = FWD_PKG / "scripts/eval_crab_hex_gait.py"  # shared harness: one harness serves all three tasks
 OMNI_MANIFEST = PKG / "experiments/eval/scenarios_omni.yaml"
+#: The robot-frame rows (manifest v3, body rows routed through the term; robot-frame velocity commands
+#: campaign, 2026-10-15). An eval ROW named ``<x>_body`` is that manifest's ``<x>__omni_body`` row
+#: (:func:`eval_row_target`); every other row name is the omni manifest's ``<x>__omni``, unchanged.
+BODY_MANIFEST = PKG / "experiments/eval/scenarios_omni_body.yaml"
+BODY_ROW_SUFFIX = "_body"
+BODY_SID_SUFFIX = "__omni_body"
 PHASES_PY = PKG / "config/crab_hex/crab_hex_omni_phases.py"
 LOG_ROOT = PARKOUR / "logs/rsl_rl"
 EVAL_ROOT = LOG_ROOT / "gait_eval/omni_phases"
@@ -167,6 +173,18 @@ CANARY_KEEP = ("KRABBY_LIN_VEL_X", "KRABBY_TRACK_SIGMA2", "KRABBY_TRACK_L1_W", "
 #       loads in an eval built soft. The init std rides along (it initialises that parameter before
 #       the load overwrites it). Every other PPO-construction knob (bound loss, schedule, LR, KL
 #       stop, history-encoder LR, hand diagnostics) shapes the TRAINER and is not carried.
+#   KRABBY_OMNI_COMMAND_FRAME / KRABBY_OMNI_BODY_ENVELOPE / KRABBY_OMNI_BODY_CAP (robot-frame velocity
+#       commands campaign, 2026-10-15, PLAN D2; DEFAULT OFF, ``config/crab_hex/body_knobs.py``) -- the
+#       command FRAME (a world travel direction + facing, or a held robot-frame vx / vy / wz) and the
+#       body mode's measured envelope. The frame swaps the command term and blanks the facing-error
+#       observation, so a head is only scored honestly in the frame it trained in -- or through a NAMED
+#       harness adapter (``--command-adapter``, :func:`eval_adapter_args`). The frame defaults to
+#       ``world`` (``body_knobs.KNOB_OFF_VALUES``: it writes nothing); the two envelope knobs have NO
+#       default (:data:`EVAL_CARRY_BODY_ONLY`): the knob REFUSES them in world mode, so a world eval must
+#       never carry them, and a body eval must carry the ones it trained under. A body head's
+#       ``KRABBY_OMNI_FACING_OBS_ENCODING`` is ``none`` (its preset's ``BODY_DELTA``); the ``raw`` default
+#       below is never injected over it, and :func:`eval_env_for` refuses a body eval whose encoding is
+#       anything but ``none``.
 #
 # NOT carried, deliberately: KRABBY_OMNI_SLOTS / _DIR_BAND / _FACING / _RSI_SOURCE, KRABBY_RSI_*,
 # KRABBY_YAW_W, KRABBY_YAW_PROGRESS_W, KRABBY_STAND_FRAC, KRABBY_RESAMPLE_S, KRABBY_OMNI_MIRROR_IMAGES
@@ -191,7 +209,17 @@ EVAL_CARRY = ("KRABBY_OMNI_FACING_OBS_CLIP", "KRABBY_OMNI_SPEED_ELLIPSE", "KRABB
               # runner-only sibling and is NOT carried, see the block above)
               "KRABBY_OMNI_CMD_OBS",
               # PPO-construction plan step 2 (default off; the policy's std PARAMETER structure)
-              "KRABBY_STD_PARAM", "KRABBY_INIT_STD")
+              "KRABBY_STD_PARAM", "KRABBY_INIT_STD",
+              # robot-frame velocity commands campaign step 2 (default off: frame world; the two
+              # envelope knobs are body-only, see EVAL_CARRY_BODY_ONLY)
+              "KRABBY_OMNI_COMMAND_FRAME", "KRABBY_OMNI_BODY_ENVELOPE", "KRABBY_OMNI_BODY_CAP")
+#: The :data:`EVAL_CARRY` keys that exist only in a BODY-frame eval: no default (the knob refuses them in
+#: world mode), so a world eval never carries them and ``resolution.required_carry_keys`` never asks a
+#: world stamp for them.
+EVAL_CARRY_BODY_ONLY = ("KRABBY_OMNI_BODY_ENVELOPE", "KRABBY_OMNI_BODY_CAP")
+#: The frame knob's name and the encoding a body eval must carry (``body_knobs`` / ``BODY_DELTA``).
+COMMAND_FRAME_VAR = "KRABBY_OMNI_COMMAND_FRAME"
+FACING_OBS_ENCODING_VAR = "KRABBY_OMNI_FACING_OBS_ENCODING"
 #: The value an eval carries for an :data:`EVAL_CARRY` key the phase's preset does not set.
 #:
 #: A preset that never mentions a knob trains on the config's CLASS DEFAULT, and an eval that also
@@ -220,7 +248,10 @@ EVAL_CARRY_DEFAULTS = {"KRABBY_OMNI_FACING_OBS_ENCODING": "raw", "KRABBY_OMNI_AN
                        "KRABBY_OMNI_CMD_OBS": "0",
                        # PPO-construction plan step 2: "0" is each one's off spelling
                        # (motion_knobs.KNOB_OFF_VALUES; nothing is written into the runner cfg).
-                       "KRABBY_STD_PARAM": "0", "KRABBY_INIT_STD": "0"}
+                       "KRABBY_STD_PARAM": "0", "KRABBY_INIT_STD": "0",
+                       # robot-frame velocity commands campaign step 2: body_knobs.KNOB_OFF_VALUES (the
+                       # world frame writes nothing). The envelope knobs have NO default (body only).
+                       "KRABBY_OMNI_COMMAND_FRAME": "world"}
 # Evals never carry RSI resets: set explicitly (not merely omitted) so a preset that later grows a
 # different default, or a leaked parent value, cannot re-arm reference-state resets inside an eval.
 # apply_omni_knobs / the forward knob block build events.rsi_reference_reset only for RSI_FRAC > 0.
@@ -707,7 +738,8 @@ def _manifest_row(sid: str) -> dict:
     cut. ``KeyError`` for an unknown id.
     """
     S = _gait_schedule()
-    scenarios, _defaults = S.load_manifest(OMNI_MANIFEST)
+    manifest = _manifest_for_sid(sid)
+    scenarios, _defaults = S.load_manifest(manifest)
     for sc in scenarios:
         if sc.id == sid:
             suite = sc.suite
@@ -720,7 +752,7 @@ def _manifest_row(sid: str) -> dict:
                     "settle_hold_s": float(suite.settle_hold_s) if suite is not None else None,
                     "prologue_s": float(sc.get_default("prologue_s")),
                     "fall_exclusion_s": float(sc.get_default("fall_exclusion_s"))}
-    raise KeyError(f"scenario {sid!r} not in {OMNI_MANIFEST}")
+    raise KeyError(f"scenario {sid!r} not in {manifest}")
 
 
 def _manifest_hold_s(sid: str) -> dict[str, float]:
@@ -738,9 +770,11 @@ SUITE_COMPLETE_MARKER = "complete.json"
 
 
 def _is_suite_row(sid: str) -> bool:
-    """``sid`` is a ``kind: category_suite`` row of the omni manifest (``False`` for an unknown id)."""
+    """``sid`` is a waves row -- ``kind: category_suite`` (or the body manifest's ``envelope_grid``, a
+    suite of grid cells) -- of its manifest (``False`` for an unknown id)."""
     try:
-        return _manifest_row(sid)["kind"] == _gait_schedule().SUITE_KIND
+        S = _gait_schedule()
+        return _manifest_row(sid)["kind"] in (S.SUITE_KIND, getattr(S, "GRID_KIND", S.SUITE_KIND))
     except KeyError:
         return False
 
@@ -757,7 +791,7 @@ def _survival_end_steps(sid: str, dt: float) -> dict[str, int]:
     """
     S = _gait_schedule()
     row = _manifest_row(sid)
-    if row["kind"] == S.SUITE_KIND:
+    if row["kind"] in (S.SUITE_KIND, getattr(S, "GRID_KIND", S.SUITE_KIND)):
         return {h: S.own_hold_end_step(prologue_s=row["prologue_s"], settle_hold_s=row["settle_hold_s"],
                                        hold_s=row["hold_s"][h], dt=float(dt))
                 for h in row["hold_labels"] if h in row["hold_s"]}
@@ -814,6 +848,11 @@ CAT_METRIC_KEYS = ("ratio", "achieved_speed", "tripod", "facing_closed", "yaw_pr
                    "taps_per_m", "taps_per_rad", "swing_apex", "step_rate_hz",
                    "gait_hz", "clock_hz", "cadence_ratio", "steps_per_rad_pre", "steps_per_rad_post",
                    "hz_speed_slope", "offset_R")
+#: The BODY keys (robot-frame velocity commands campaign, 2026-10-15; ``eval_categories.BODY_CAT_KEYS``,
+#: cross-pinned by test): hoisted into ``summarize()['cat'][c]`` only when the harness wrote them into
+#: ``aggregate.suite.by_category[c]`` -- a v3 / adapter run -- so a v2 screen's key set is unchanged.
+BODY_CAT_METRIC_KEYS = ("net_yaw_rate", "net_yaw_ratio", "wz_ratio", "yaw_ripple", "heading_drift",
+                        "planar_drift", "body_ratio", "cross_body", "adapter_clipped_frac")
 
 
 def _median_of(stats: dict | None) -> float | None:
@@ -869,6 +908,8 @@ def cat_summary(a: dict | None) -> dict:
         entry: dict = {"n": sum(int(n_by_hold.get(h) or 0) for h in holds), "n_env": n_env,
                        "survival": _weighted_survival(holds, n_by_hold, surv_by_hold)}
         entry.update({key: _median_of(block.get(key)) for key in CAT_METRIC_KEYS})
+        body_keys = tuple(k for k in BODY_CAT_METRIC_KEYS if k in block)
+        entry.update({key: _median_of(block.get(key)) for key in body_keys})
         hands = block.get("by_hand")
         if hands:
             entry["by_hand"] = {}
@@ -876,7 +917,8 @@ def cat_summary(a: dict | None) -> dict:
                 own = [lab for lab in holds if hand_of.get(lab) == h]
                 entry["by_hand"][h] = {"n": sum(int(n_by_hold.get(lab) or 0) for lab in own), "n_env": n_env,
                                        "survival": _weighted_survival(own, n_by_hold, surv_by_hold),
-                                       **{key: _median_of((hblock or {}).get(key)) for key in CAT_METRIC_KEYS}}
+                                       **{key: _median_of((hblock or {}).get(key)) for key in CAT_METRIC_KEYS},
+                                       **{key: _median_of((hblock or {}).get(key)) for key in body_keys}}
         else:
             entry["by_hand"] = None
         out[c] = entry
@@ -1215,6 +1257,133 @@ def with_plant(ev: dict, plant: str) -> dict:
     return ev
 
 
+def _eval_frame(ev: dict) -> str:
+    """``"body"`` / ``"world"`` -- the command frame an eval env asks for (blank / unset = world)."""
+    raw = ev.get(COMMAND_FRAME_VAR)
+    token = "" if raw is None else str(raw).strip().lower()
+    if token in ("", "world"):
+        return "world"
+    if token == "body":
+        return "body"
+    raise ValueError(f"{COMMAND_FRAME_VAR}={raw!r}: expected world or body")
+
+
+_OMNI_KNOBS = None
+
+
+def _omni_knobs():
+    """``config/crab_hex/omni_knobs.py`` by path (pure; torch only when a body knob is parsed)."""
+    global _OMNI_KNOBS
+    if _OMNI_KNOBS is None:
+        _OMNI_KNOBS = _load(PKG / "config/crab_hex/omni_knobs.py", "crab_hex_omni_knobs__run_phases")
+    return _OMNI_KNOBS
+
+
+def _check_eval_frame(ev: dict, *, defaulted_encoding: bool) -> None:
+    """The command-frame rules on a composed EVAL env (in place); ``ValueError`` names every refusal.
+
+    World with no body key: nothing (no module is even loaded -- every legacy eval). Otherwise the
+    knob's own ``omni_knobs.body_frame_env_refusals`` -- the function config build raises with -- so
+    an eval that could not build (a body eval without its envelope, a world eval carrying one, a body
+    eval with a ``raw`` / ``sincos`` encoding) is refused before a GPU is booked. A body eval whose
+    encoding came only from :data:`EVAL_CARRY_DEFAULTS` gets ``none`` first.
+    """
+    frame = _eval_frame(ev)
+    if frame == "world" and not any(str(ev.get(k) or "").strip() for k in EVAL_CARRY_BODY_ONLY):
+        return
+    if frame == "body" and defaulted_encoding:
+        ev[FACING_OBS_ENCODING_VAR] = "none"
+    reasons = _omni_knobs().body_frame_env_refusals(ev)
+    if reasons:
+        raise ValueError("eval env refused (command frame): " + "; ".join(reasons))
+
+
+def eval_row_target(row: str) -> tuple[Path, str]:
+    """An eval ROW name -> ``(manifest, scenario id)``.
+
+    ``<x>_body`` (or a full ``<x>__omni_body`` id) is the body manifest's ``<x>__omni_body`` row; every
+    other name is the omni manifest's ``<x>__omni`` -- exactly the id ``eval_morph`` always built.
+    """
+    row = str(row)
+    if row.endswith(BODY_SID_SUFFIX):
+        return BODY_MANIFEST, row
+    if row.endswith(BODY_ROW_SUFFIX):
+        return BODY_MANIFEST, f"{row[:-len(BODY_ROW_SUFFIX)]}{BODY_SID_SUFFIX}"
+    return OMNI_MANIFEST, f"{row}__omni"
+
+
+def _manifest_for_sid(sid: str) -> Path:
+    """The manifest a scenario id lives in (``__omni_body`` -> the body manifest, else the omni one)."""
+    return BODY_MANIFEST if str(sid).endswith(BODY_SID_SUFFIX) else OMNI_MANIFEST
+
+
+_MANIFEST_VERSIONS: dict = {}
+
+
+def manifest_version(path: Path) -> int:
+    """A manifest's ``manifest_version`` (read once per path)."""
+    key = str(Path(path).resolve())
+    if key not in _MANIFEST_VERSIONS:
+        import yaml  # noqa: PLC0415 -- the harness's own manifest format
+
+        _MANIFEST_VERSIONS[key] = int((yaml.safe_load(Path(path).read_text()) or {}).get("manifest_version") or 1)
+    return _MANIFEST_VERSIONS[key]
+
+
+def command_adapter_for(head_frame: str, version: int) -> str:
+    """The harness ``--command-adapter`` for a head frame x a manifest version (PLAN D6).
+
+    v3 (body rows): a body head -> ``none``, a world head -> ``body_hold``. v1 / v2 (world rows): a world
+    head -> ``none``, a body head -> ``world_rate``. These are the only pairings the harness accepts.
+    """
+    if head_frame not in ("world", "body"):
+        raise ValueError(f"head frame {head_frame!r}: expected world or body")
+    if int(version) == 3:
+        return "none" if head_frame == "body" else "body_hold"
+    return "world_rate" if head_frame == "body" else "none"
+
+
+_EVAL_CATEGORIES = None
+
+
+def _eval_categories():
+    """``eval_categories.py`` by path (what a stage trained; the adapter-turns rule reads it)."""
+    global _EVAL_CATEGORIES
+    if _EVAL_CATEGORIES is None:
+        _EVAL_CATEGORIES = _load(PKG / "eval_categories.py", "crab_hex_omni_eval_categories__run_phases")
+    return _EVAL_CATEGORIES
+
+
+#: The categories whose presence in a stage's training makes ``--adapter-turns on``.
+TURN_CATEGORIES = ("turn", "move_turn")
+
+
+def stage_trains_turns(spec, carry_overlay: dict | None = None, trained_categories=None) -> bool:
+    """Does the stage train a turn (``turn`` or ``move_turn`` present)? ``trained_categories`` (a CSV
+    or names) when the caller has them, else ``eval_categories.trained_categories`` of the composed
+    training env (``phase_env(spec.name)`` + the overlay)."""
+    if trained_categories is not None:
+        names = ({n.strip() for n in trained_categories.split(",") if n.strip()}
+                 if isinstance(trained_categories, str) else {str(n) for n in trained_categories})
+    else:
+        env = {**ph.phase_env(spec.name), **{k: str(v) for k, v in (carry_overlay or {}).items()}}
+        names = set(_eval_categories().trained_categories(env).present)
+    return bool(names & set(TURN_CATEGORIES))
+
+
+def eval_adapter_args(ev: dict, manifest: Path, trains_turns) -> list[str]:
+    """The harness flags pairing the eval's head frame with the row's manifest (``[]`` = the legacy
+    pairing: the command line is exactly the one it always was). ``trains_turns`` is a callable,
+    called only for ``world_rate`` (``--adapter-turns on`` iff the stage trains a turn)."""
+    adapter = command_adapter_for(_eval_frame(ev), manifest_version(manifest))
+    if adapter == "none":
+        return []
+    args = ["--command-adapter", adapter]
+    if adapter == "world_rate":
+        args += ["--adapter-turns", "on" if trains_turns() else "off"]
+    return args
+
+
 def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
                  keep_source: dict | None = None, extra: dict | None = None,
                  carry_overlay: dict | None = None) -> dict:
@@ -1250,6 +1419,12 @@ def eval_env_for(spec, plant: str, *, keep: tuple[str, ...] = CANARY_KEYS,
     ev.update({k: v for k, v in EVAL_CARRY_DEFAULTS.items() if k not in pe})
     if carry_overlay:
         ev.update({k: str(v) for k, v in carry_overlay.items() if k in EVAL_CARRY})
+    # NOTE(robot-frame velocity commands campaign, 2026-10-15): a BODY-frame eval never carries the
+    # ``raw`` encoding default (the body mode refuses it at config build) -- the encoding the stage
+    # trained under (``none``, from its preset or overlay) is kept, and a defaulted one becomes
+    # ``none`` (the body mode's own setting). A world eval with no body key is left exactly as built.
+    _check_eval_frame(ev, defaulted_encoding=(FACING_OBS_ENCODING_VAR not in pe
+                                              and FACING_OBS_ENCODING_VAR not in (carry_overlay or {})))
     ev.update(EVAL_RSI_OFF)
     ev.update(EVAL_DEBUG_VIS_OFF)
     ev.update(TERRAIN_GEOM_REQUIRED)
@@ -1677,9 +1852,9 @@ def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str, *, carry_o
     for the suite dry run). Both go AFTER the fixed harness tail, so a call with neither launches
     exactly the command it always did.
     """
-    sid = f"{scenario}__omni"
+    manifest, sid = eval_row_target(scenario)
     ev = eval_env_for(spec, c.plant, keep=CANARY_KEYS, keep_source=ph.FORMATION, carry_overlay=carry_overlay)
-    tail = ["--manifest", str(OMNI_MANIFEST), "--scenario", sid, "--checkpoint", ckpt, "--save-raw"]
+    tail = ["--manifest", str(manifest), "--scenario", sid, "--checkpoint", ckpt, "--save-raw"]
     if trained_categories is not None:
         if not isinstance(trained_categories, str):
             names = (sorted(trained_categories) if isinstance(trained_categories, (set, frozenset))
@@ -1687,6 +1862,14 @@ def eval_morph(c: Campaign, spec, ckpt: str, scenario: str, tag: str, *, carry_o
             trained_categories = ",".join(names)
         tail += ["--trained-categories", trained_categories]
     tail += [str(arg) for arg in extra_args]
+    # NOTE(robot-frame velocity commands campaign, 2026-10-15; STEP2_SPEC §4): the head frame x the
+    # manifest version picks the harness adapter, so the driver never launches an INVALID pairing;
+    # the legacy pairing adds nothing (the command line above, unchanged). A body head on the envelope
+    # grid has no valid pairing at all and is refused here.
+    if manifest_version(manifest) == 3 and _eval_frame(ev) == "body" and \
+            _manifest_row(sid)["kind"] == getattr(_gait_schedule(), "GRID_KIND", None):
+        raise ValueError(f"{sid}: a BODY head on the envelope grid is refused (world heads only, via body_hold)")
+    tail += eval_adapter_args(ev, manifest, lambda: stage_trains_turns(spec, carry_overlay, trained_categories))
     latest, a, info = _run_eval(c, tag, sid, tail, ev, EVAL_ROOT / c.dir.name / tag, c.plant, 3600,
                                 max_attempts=max_attempts, interrupt_check=interrupt_check)
     if info["status"] == "interrupted":
@@ -1716,8 +1899,10 @@ def eval_obst(c: Campaign, spec, ckpt: str, tag: str, *, carry_overlay: dict | N
     knobs -- it was scored on class defaults too before 2026-09-17. See :func:`eval_env_for`.
     """
     ev = eval_env_for(spec, c.plant, keep=CANARY_KEEP + TERRAIN_PASS, extra=OBST_EVAL, carry_overlay=carry_overlay)
+    # The adapter pairing (STEP2_SPEC §4): nothing for a world head (the command line is unchanged).
+    adapter = eval_adapter_args(ev, OMNI_MANIFEST, lambda: stage_trains_turns(spec, carry_overlay))
     latest, a, info = _run_eval(c, tag, "ring__omni", ["--manifest", str(OMNI_MANIFEST), "--scenario", "ring__omni",
-                                                       "--checkpoint", ckpt], ev,
+                                                       "--checkpoint", ckpt, *adapter], ev,
                                 Path(str(EVAL_ROOT / c.dir.name / tag) + "_obst"), c.plant, 5400,
                                 max_attempts=max_attempts, interrupt_check=interrupt_check)
     if info["status"] == "interrupted":
@@ -2139,6 +2324,12 @@ def run_phase(c: Campaign, spec, resume_ckpt: str | None, iters: int, do_eval: b
             rec["evals"]["light"] = eval_morph(c, spec, ckpt, "light", tag)
         if "ring" in scenarios:
             rec["evals"]["ring"] = eval_obst(c, spec, ckpt, tag)
+        # NOTE(robot-frame velocity commands campaign, 2026-10-15): the body manifest's rows a ``_b``
+        # preset lists (``<x>_body`` -> ``<x>__omni_body``); a world preset lists none. Reported here;
+        # the campaign's gates are read by the campaign, not by ``_apply_gate``.
+        for row in scenarios:
+            if str(row).endswith(BODY_ROW_SUFFIX):
+                rec["evals"][str(row)] = eval_morph(c, spec, ckpt, str(row), tag)
         _apply_gate(c, spec, rec, tag)
     rec["checks"] = phase_checks(rec, spec, c)
     return rec

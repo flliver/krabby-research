@@ -175,10 +175,24 @@ everywhere, the ``_pre`` / ``_post`` closure split on turn). The last two (``hz_
 ``offset_R``) are one statistic across the category's episodes, not a median -- WATCH only, with no
 per-episode form (``resolution`` names them unresolvable)."""
 
-CAT_KEYS = ("n", "n_env", "survival", "ratio", "achieved_speed", "tripod", "facing_closed",
-            "yaw_progress", "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
-            "cross_track_ratio") + MOTION_QUALITY_KEYS + RIGIDITY_KEYS
-"""The keys of ``summarize()['cat'][c]`` (D5); ``by_hand`` holds the same keys per hand."""
+BODY_CAT_KEYS = ("net_yaw_rate", "net_yaw_ratio", "wz_ratio", "yaw_ripple", "heading_drift", "planar_drift",
+                 "body_ratio", "cross_body", "adapter_clipped_frac")
+"""The body-yaw keys (robot-frame velocity commands campaign, 2026-10-15, STEP2_SPEC §3;
+``gait_eval.metrics.BODY_YAW_KEYS`` + the ``world_rate`` adapter's clipped-step share, cross-pinned by
+test). ``summarize()['cat'][c]`` carries them ONLY on a v3 / adapter run's suite (the harness writes them
+into ``aggregate.suite.by_category`` only there), so a v2 screen's key set is :data:`CAT_KEYS_V2`."""
+
+_CAT_BASE_KEYS = ("n", "n_env", "survival", "ratio", "achieved_speed", "tripod", "facing_closed",
+                  "yaw_progress", "net_yaw", "settle_s", "heading_final", "drift_speed", "direction_error",
+                  "cross_track_ratio")
+CAT_KEYS_V2 = _CAT_BASE_KEYS + MOTION_QUALITY_KEYS + RIGIDITY_KEYS
+"""The keys of ``summarize()['cat'][c]`` on every v1 / v2 run (D5); ``by_hand`` holds the same per hand.
+A ``rule_version: 2`` rule may name only these."""
+CAT_KEYS = _CAT_BASE_KEYS + BODY_CAT_KEYS + MOTION_QUALITY_KEYS + RIGIDITY_KEYS
+"""Every key a ``cat.<c>.<key>`` id may name: :data:`CAT_KEYS_V2` plus :data:`BODY_CAT_KEYS` (the "rule v3"
+keys; inserted BEFORE the motion-quality / rigidity blocks so those stay the tuple's tail, which their
+cross-pins read). A ``rule_version: 3`` rule = v2's grammar with these keys allowed."""
+RULE_VERSIONS = (2, 3)
 
 COMPOSITES = ("cat_tripod_min",)
 
@@ -484,20 +498,35 @@ def trained_categories(env: Mapping) -> TrainedCategories:
     raw_enc = _set(env, kn.FACING_OBS_ENCODING_VAR)
     encoding = kn.parse_facing_obs_encoding(raw_enc) if raw_enc is not None else FACING_OBS_ENCODING_DEFAULT
     clip = _set(env, FACING_OBS_CLIP_VAR)
+    # NOTE(robot-frame velocity commands campaign, 2026-10-15): a BODY-frame env trains the same
+    # categories from the same pool / slots (the sampler draws the same types); it has no facing band
+    # (``facing_band_hi`` 0.0) and its encoding is ``none``, and the turn annotation says so.
+    body = kn.parse_command_frame(env.get(kn.COMMAND_FRAME_VAR)) == "body"
+    if body:
+        encoding = "none"
     tc = TrainedCategories(
         decisive=frozenset(decisive), present=frozenset(present), watch=watch, hands=hands,
-        demand=demand, source=source, facing_band_hi=float(facing[1]), encoding=encoding,
+        demand=demand, source=source, facing_band_hi=(0.0 if body else float(facing[1])), encoding=encoding,
         notes=tuple(dict.fromkeys(notes)),
     )
-    return tc._replace(notes=tc.notes + (turn_annotation(tc, facing_obs_clip=clip),))
+    envelope = None
+    if body:
+        envelope = ":".join(str(_set(env, v) or "<unset>") for v in (kn.BODY_ENVELOPE_VAR, kn.BODY_CAP_VAR))
+    return tc._replace(notes=tc.notes + (turn_annotation(tc, facing_obs_clip=clip, body_envelope=envelope),))
 
 
-def turn_annotation(tc: TrainedCategories, *, facing_obs_clip: str | float | None = None) -> str:
+def turn_annotation(tc: TrainedCategories, *, facing_obs_clip: str | float | None = None,
+                    body_envelope: str | None = None) -> str:
     """``turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6`` -- never a demotion.
 
     The encoding changes what the policy observes, not which command category it trained, so the
-    line is printed on the RESOLUTION and DECISION lines and nothing reads it as a verdict.
+    line is printed on the RESOLUTION and DECISION lines and nothing reads it as a verdict. A BODY-frame
+    stage (encoding ``none``, which world mode refuses) has no facing band: its line names the body
+    yaw-rate command and the envelope knobs (``body_envelope``, ``<w_min:ceiling:w_max>:<cap>``).
     """
+    if tc.encoding == "none":
+        env_txt = f" (envelope {body_envelope})" if body_envelope else ""
+        return f"turn: body frame -- a commanded yaw rate{env_txt}, no facing band; encoding none"
     rel = ">" if SUITE_TURN_DEMAND_RAD > tc.facing_band_hi else "<="
     head = f"turn: demand {SUITE_TURN_DEMAND_RAD:.3f} rad {rel} FACING band {tc.facing_band_hi:.3f}"
     if tc.encoding == "sincos":
@@ -575,6 +604,12 @@ RIGIDITY_LOWER_IS_BETTER_KEYS = frozenset({"steps_per_m", "steps_per_rad", "step
                                            "taps_per_m", "taps_per_rad"})
 LOWER_IS_BETTER_KEYS = (frozenset(k for k in MOTION_QUALITY_KEYS if k != "six_down_frac")
                         | RIGIDITY_LOWER_IS_BETTER_KEYS)
+#: The lower-is-better BODY keys (2026-10-15): ripple, the two drifts, the cross-body speed and the
+#: adapter's clipped share. Kept apart from :data:`LOWER_IS_BETTER_KEYS` (pinned key for key by the
+#: motion-ladder tests); :func:`metric_sign` reads both. The ratios are |ratio - 1| reads in the
+#: campaign's gates and keep +1 here, like every v2 ratio.
+BODY_LOWER_IS_BETTER_KEYS = frozenset({"yaw_ripple", "heading_drift", "planar_drift", "cross_body",
+                                       "adapter_clipped_frac"})
 
 #: The resolution-record key of a GUARD whose metric is ALSO a block member of the same rule (the
 #: motion-quality campaign's ``cat.<c>.ratio`` speed guard beside T, its ``slip_per_m`` guard beside
@@ -605,7 +640,7 @@ def metric_sign(mid: str) -> int:
     parsed = parse_cat_id(base_metric_id(mid))
     if parsed is None:
         return 1
-    return -1 if parsed[2] in LOWER_IS_BETTER_KEYS else 1
+    return -1 if (parsed[2] in LOWER_IS_BETTER_KEYS or parsed[2] in BODY_LOWER_IS_BETTER_KEYS) else 1
 
 
 # The key admits capitals for ``offset_R`` (clock-deprecation plan step 3); membership in CAT_KEYS
@@ -631,31 +666,46 @@ def default_rule_v2(**extra) -> dict:
     return {"rule_version": 2, "per_category": copy.deepcopy(RULE_V2_PER_CATEGORY), **extra}
 
 
-def _check_keys(where: str, members: Mapping) -> None:
+def default_rule_v3(**extra) -> dict:
+    """A ``rule_version: 3`` rule: :data:`RULE_V2_PER_CATEGORY` under the v3 key set (body keys allowed)."""
+    return {"rule_version": 3, "per_category": copy.deepcopy(RULE_V2_PER_CATEGORY), **extra}
+
+
+def _check_keys(where: str, members: Mapping, known: tuple = CAT_KEYS_V2) -> None:
     for c, keys in (members or {}).items():
         if c not in CATEGORIES:
             raise ValueError(f"decision_rule.per_category.{where} names category {c!r}; known: {CATEGORIES}")
-        bad = [k for k in keys or () if k not in CAT_KEYS]
+        bad = [k for k in keys or () if k not in known]
         if bad:
-            raise ValueError(f"decision_rule.per_category.{where}.{c} names keys {bad}; known: {CAT_KEYS}")
+            raise ValueError(f"decision_rule.per_category.{where}.{c} names keys {bad}; known: {known}")
+
+
+def rule_version(rule: Mapping) -> int:
+    """A decision rule's ``rule_version`` (1 when absent)."""
+    return int((rule or {}).get("rule_version") or 1) if isinstance(rule, Mapping) else 1
 
 
 def _per_category(rule: Mapping) -> dict:
-    """The validated ``per_category`` templates of a v2 rule (a v1 rule is refused by name)."""
-    if not isinstance(rule, Mapping) or int(rule.get("rule_version") or 1) != 2:
-        raise ValueError("expand_rule takes a rule_version: 2 decision rule; a v1 rule is scored as it "
+    """The validated ``per_category`` templates of a v2 / v3 rule (a v1 rule is refused by name).
+
+    v3 (2026-10-15, "rule v3") is v2's grammar with :data:`BODY_CAT_KEYS` allowed; a v2 rule may name
+    only :data:`CAT_KEYS_V2`, so its expansion is bitwise what it always was.
+    """
+    if not isinstance(rule, Mapping) or rule_version(rule) not in RULE_VERSIONS:
+        raise ValueError("expand_rule takes a rule_version: 2 (or 3) decision rule; a v1 rule is scored as it "
                          "stands (its blocks/guards are already flat)")
+    known = CAT_KEYS if rule_version(rule) == 3 else CAT_KEYS_V2
     pc = rule.get("per_category")
     if not isinstance(pc, Mapping) or not pc.get("blocks"):
-        raise ValueError("decision_rule (rule_version 2) carries no per_category.blocks")
+        raise ValueError(f"decision_rule (rule_version {rule_version(rule)}) carries no per_category.blocks")
     for name, body in pc["blocks"].items():
         if (body or {}).get("units") not in ("ratio", "absolute"):
             raise ValueError(f"decision_rule.per_category.blocks.{name}.units must be ratio|absolute")
-        _check_keys(f"blocks.{name}.members", body.get("members") or {})
-    _check_keys("guards.members", (pc.get("guards") or {}).get("members") or {})
-    _check_keys("guards_abs.members", (pc.get("guards_abs") or {}).get("members") or {})
-    _check_keys("watch.members", (pc.get("watch") or {}).get("members") or {})
-    _check_keys("demoted", pc.get("demoted") or {})
+        _check_keys(f"blocks.{name}.members", body.get("members") or {}, known)
+    _check_keys("guards.members", (pc.get("guards") or {}).get("members") or {}, known)
+    _check_keys("guards_abs.members", (pc.get("guards_abs") or {}).get("members") or {}, known)
+    _check_keys("watch.members", (pc.get("watch") or {}).get("members") or {}, known)
+    _check_keys("demoted", pc.get("demoted") or {}, known)
     for c, keys in (pc.get("demoted") or {}).items():
         if not isinstance(keys, Mapping):
             raise ValueError(f"decision_rule.per_category.demoted.{c} must map each demoted key to the "
@@ -800,7 +850,7 @@ def expand_rule(rule: Mapping, decisive, present, *, absolute_units: bool,
 
     scored = set(guard_ids).union(*(set(b["metrics"]) for b in blocks.values()))
     out.update({
-        "rule_version": 2,
+        "rule_version": rule_version(rule),
         "expanded": True,
         "units": units,
         "decisive": _ordered(dec),

@@ -1929,3 +1929,93 @@ def rigidity_pooled_metrics(category: str, blocks: Sequence[dict | None]) -> dic
         r, p, n = None, None, 0
     out["offset_R"] = {"value": r, "n": n, "rayleigh_p": p}
     return out
+
+
+# --------------------------------------------------------------------------------------
+# body yaw (robot-frame velocity commands campaign, 2026-10-15; PLAN D5, STEP2_SPEC §3): every hold
+# of a v3 (body-route) run and of an adapter run. Additive -- no v1 / v2 code path calls these.
+# --------------------------------------------------------------------------------------
+#: The per-hold ``body`` block's keys (``hold["body"]``), each ``None`` where it is not defined.
+BODY_YAW_KEYS: tuple[str, ...] = ("net_yaw_rate", "net_yaw_ratio", "wz_ratio", "yaw_ripple", "heading_drift",
+                                  "planar_drift", "body_ratio", "cross_body")
+#: The ripple's block length (non-overlapping 1-s blocks of ``root_ang_vel_b[:, 2]``).
+BODY_RIPPLE_BLOCK_S = 1.0
+
+
+def body_yaw_metrics(
+    root_quat_w: np.ndarray,
+    root_ang_vel_b: np.ndarray,
+    root_lin_vel_b: np.ndarray,
+    root_pos_w: np.ndarray,
+    cmd_body: np.ndarray,
+    dt: float,
+    *,
+    block_s: float = BODY_RIPPLE_BLOCK_S,
+) -> dict | None:
+    """Yaw-rate and body-frame translation tracking over ONE hold's scored window; ``None`` if empty.
+
+    Every array is the window (time first): ``root_quat_w`` ``(n, 4)`` wxyz, ``root_ang_vel_b`` /
+    ``root_lin_vel_b`` ``(n, 3)``, ``root_pos_w`` ``(n, 3)`` and ``cmd_body`` ``(n, 3)`` -- the BODY
+    command ``(vx, vy, wz)`` the hold asked for at each step (a v3 row's constant row; on a
+    ``world_rate`` adapter run the shaped command the body head was handed). With ``T = (n - 1) dt``
+    (the span the first and last samples bracket), ``wz_cmd`` = the window's mean commanded wz and
+    ``v_cmd`` = its mean commanded ``|v|``:
+
+    * ``net_yaw_rate`` -- (unwrapped yaw from ``root_quat_w``)[last] - [first], over ``T``;
+    * ``net_yaw_ratio`` -- ``net_yaw_rate / wz_cmd``, SIGNED (a turn the wrong way is negative);
+      ``None`` where ``wz_cmd == 0``. THE gated turn statistic (PLAN D5);
+    * ``wz_ratio`` -- mean ``root_ang_vel_b[:, 2]`` / ``wz_cmd`` (signed; reported, never gated);
+    * ``yaw_ripple`` -- the population std (ddof 0) of the non-overlapping ``block_s`` block means of
+      ``root_ang_vel_b[:, 2]`` (a trailing partial block is dropped; ``None`` under two blocks): 0 for
+      a constant-rate turn, large for the facing relay's stop-go;
+    * ``heading_drift`` -- straight holds (the commanded wz is 0 at every step) only: ``|mean
+      root_ang_vel_b[:, 2]|``;
+    * ``planar_drift`` -- pure turns (``|v|`` commanded 0 at every step, wz not) only: ``|xy[last] -
+      xy[first]| / T``;
+    * ``body_ratio`` / ``cross_body`` -- moving holds (``v_cmd > 0``) only: the mean achieved body
+      velocity projected on each step's commanded bearing ``atan2(vy, vx)``, over ``v_cmd``; and the
+      mean ``|perpendicular component|`` (m/s).
+
+    Extra fields: ``n_steps``, ``window_s`` (``T``), ``wz_cmd``, ``v_cmd``, ``wz_mean``, ``net_yaw_rad``.
+    """
+    q = np.asarray(root_quat_w, dtype=np.float64).reshape(-1, 4)
+    n = int(q.shape[0])
+    if n == 0:
+        return None
+    w = np.asarray(root_ang_vel_b, dtype=np.float64).reshape(-1, 3)[:, 2]
+    vel = np.asarray(root_lin_vel_b, dtype=np.float64).reshape(-1, 3)[:, :2]
+    xy = np.asarray(root_pos_w, dtype=np.float64).reshape(-1, 3)[:, :2]
+    cmd = np.asarray(cmd_body, dtype=np.float64).reshape(-1, 3)
+    out: dict[str, Any] = {k: None for k in BODY_YAW_KEYS}
+    span = (n - 1) * float(dt)
+    yaw = np.unwrap(yaw_from_quat_wxyz(q))
+    v_step = np.hypot(cmd[:, 0], cmd[:, 1])
+    wz_cmd = float(cmd[:, 2].mean())
+    v_cmd = float(v_step.mean())
+    wz_mean = float(w.mean())
+    out.update({"n_steps": n, "window_s": span, "wz_cmd": wz_cmd, "v_cmd": v_cmd, "wz_mean": wz_mean,
+                "net_yaw_rad": float(yaw[-1] - yaw[0])})
+    if span > 0.0:
+        out["net_yaw_rate"] = float((yaw[-1] - yaw[0]) / span)
+        if wz_cmd != 0.0:
+            out["net_yaw_ratio"] = float(out["net_yaw_rate"] / wz_cmd)
+    if wz_cmd != 0.0:
+        out["wz_ratio"] = float(wz_mean / wz_cmd)
+    block = max(1, int(round(float(block_s) / float(dt))))
+    n_blocks = n // block
+    if n_blocks >= 2:
+        means = w[: n_blocks * block].reshape(n_blocks, block).mean(axis=1)
+        out["yaw_ripple"] = float(np.std(means))
+    straight = bool(np.all(cmd[:, 2] == 0.0))
+    if straight:
+        out["heading_drift"] = float(abs(wz_mean))
+    if bool(np.all(v_step == 0.0)) and not straight and span > 0.0:
+        out["planar_drift"] = float(np.linalg.norm(xy[-1] - xy[0]) / span)
+    if v_cmd > 0.0:
+        bearing = np.arctan2(cmd[:, 1], cmd[:, 0])
+        c, s = np.cos(bearing), np.sin(bearing)
+        along = vel[:, 0] * c + vel[:, 1] * s
+        perp = -vel[:, 0] * s + vel[:, 1] * c
+        out["body_ratio"] = float(along.mean() / v_cmd)
+        out["cross_body"] = float(np.abs(perp).mean())
+    return out

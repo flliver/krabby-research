@@ -1144,9 +1144,12 @@ def required_carry_keys() -> tuple[str, ...]:
     """The ``EVAL_CARRY`` keys that have no ``EVAL_CARRY_DEFAULTS`` entry -- the five 2026-09-17 keys.
 
     Read from ``run_phases`` rather than listed, so growing ``EVAL_CARRY`` (with or without a
-    default) cannot leave this rule behind.
+    default) cannot leave this rule behind. The BODY-only keys (``run_phases.EVAL_CARRY_BODY_ONLY``,
+    the body envelope: no default, and REFUSED in a world eval) are never required -- a world stamp
+    cannot carry them.
     """
-    return tuple(k for k in rp.EVAL_CARRY if k not in rp.EVAL_CARRY_DEFAULTS)
+    body_only = set(getattr(rp, "EVAL_CARRY_BODY_ONLY", ()))
+    return tuple(k for k in rp.EVAL_CARRY if k not in rp.EVAL_CARRY_DEFAULTS and k not in body_only)
 
 
 def _episodes(run_dir: Path) -> list[dict]:

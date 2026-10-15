@@ -135,3 +135,69 @@ adoption-grade report. **Adoption, bake and push are the user's.**
   heading (any drift past 0.133 rad commanded a corrective turn). Body mode has no relay, so at weight 0 nothing would
   price slow heading drift in fb6k_b (the straight-gated ang-vel kernel, std 0.5, is flat at 0.01 rad/s). 0.2 is the
   lineage's own weight from c4 on.
+- 2026-10-15, **step-1 review (fable·high): no blocking defect.** World path bitwise by inspection on every hunk;
+  sampler RNG order, window-term timing vs Isaac Lab's step order (reward before reset before command compute; the
+  window pushes the command the policy acted on), history zeros, clock floor seam, knob order and the real
+  `configclass` / hydra round trip all checked. Applied: (MINOR 2) non-zero `KRABBY_OMNI_STROKE_W` /
+  `KRABBY_OMNI_CENTRING_W` refused in body mode (their own clock speed has no turn floor); the `KRABBY_YAW_W=0.2`
+  decision above. Recorded, not changed: (MINOR 1) `2a_b` has no preset `resume_from` (there is no `1c_b`) — the
+  campaign's chain stages name every fork explicitly. 3 of the 13 pre-existing test failures are caused by other
+  sessions' uncommitted ledger edits (they pass at HEAD + only this change). Committed as `3a4b7bda` (step-1 code +
+  tests; code_sha moves here, reason: the body command mode).
+- 2026-10-15, **step 2 built (opus·xhigh; report in the session record): 124 new CPU tests; full suite 14 failed /
+  4974 passed — the 13 known plus `test_sh_video_tour::test_recorder_pre_kit_path_with_a_stub_kit`, which fails BY
+  DESIGN: the closed stand-height campaign's video recorder pins the eval harness's sha256 against SH_T17's reference
+  stamp, and the harness changed. Consequence: recording stand-height videos now needs a fresh reference stamp or
+  `--allow-reference-mismatch` (left as is; the guard is doing its job).** Pins beyond the spec (recorded before any
+  read): body-metric window = hold-relative [4 s, hold_s) ∩ alive / fall-trimmed steps, rates over (n−1)·dt, ripple =
+  population std of whole 1-s blocks (None under 2 blocks), `cross_body` in m/s; scored holds need hold_s ≥ 6 s;
+  hands must match the sign (l = +wz on turns, +vy on translation); grid cells exempt from the wz / cap checks only,
+  body heads refused on the grid; `body_hold` face starts / restarts at the spawn pin; `world_rate` takes ellipse,
+  stiffness and dead band from the head's cfg and `ang_vel_max` from the row manifest, `heading_err` recorded against
+  the world row; legacy runs gain no run_meta / raw key; adapter flags appended to driver command lines only when
+  not `none`; `<x>_body` rows map to `<x>__omni_body`; `_b` presets evaluate `suite_body` (+ `ring_obst_body` for
+  `2a_b`). The two adapters use harness-side per-env twins of the term's hooks (tested equal to the real hooks).
+  Carry-over noted for step 9: the stand-network launchers' frozen carry lists do not know the frame keys.
+- 2026-10-15, **step 3 launched on the uncommitted step-2 tree** (`scripts/step3_queue.sh`, `scripts/bc_eval_row.sh`
+  = phase 2's row_eval with the env replayed exactly from the REFS stamps): G0 suite__omni es1 and field_hard__omni es1
+  (S1 at code b9d20a93 + the step-2 harness), G0w = suite es1 with `KRABBY_OMNI_COMMAND_FRAME=world` added (the
+  driver now injects it into every eval: it must not move a legacy eval), and the harness proof (S1 + `body_hold` on
+  `suite__omni_body` es1, provisional envelope). Run before the step-2 review returns so the GPU is not idle; any row
+  whose path a review fix touches is re-run before the step-3 verdict.
+- 2026-10-15, **step-4 envelope rule pinned before P1 is read (PLAN D3 made operational):**
+  - **ceiling** = the mean, over both hands × es1 + es2, of S1 s18's NET heading change over the first 6 s of the
+    world suite's pure-turn holds (turn_l90 / turn_r90, relay saturated) / 6 s. PLAN's wording "mean |wz|" is loose:
+    its quoted 0.167–0.170 are this net statistic (REFS: 0.1664 / 0.1685 es1, 0.1676 / 0.1693 es2 → **0.168**);
+    mean |wz| would read 0.177–0.179 (gait wobble). The G0 rerun must reproduce these REFS stamps bitwise, so the value
+    is the new code's. Cross-check (reported, not used): P1's saturated spot cell (|v| 0, wz cmd 0.30, `body_hold`)
+    net rate over [4, 12) s; if it differs from the ceiling by > 0.01, STOP and ask.
+  - **w_max** = 1.2 × ceiling rounded UP to 0.01 → 0.2016 → **0.21** (the step-1a value; no re-run of 1a needed).
+  - **coupled cap** points: (0, w_max) and, for each commanded |v| ∈ {0.22, 0.30}, (|v|, 1.2 × the smaller of the
+    fwd / lat cells' NET yaw rate over [4, 12) s at wz cmd 0.30 through `body_hold`), each wz rounded DOWN to 0.005;
+    the frontier is non-increasing by construction (a larger |v| point is clamped to the smaller |v| point's wz).
+    The cap is in COMMAND space (commanded |v|, achieved wz), a function of |v| only (step-1 pin 2).
+  - STOP and ask if cap(0.22) < w_min (no move+turn pair) — PLAN D3.
+- 2026-10-15, **step-2 review (fable·high): no blocking defect.** Legacy path bitwise by inspection of every hunk
+  (goldens, compile snapshots and the training-seam test pass); metrics probed on synthetic traces (wrap through π,
+  wobble, bias); adapters and route table correct. Applied: `world_rate` saturates at the HEAD's own
+  `cfg.ang_vel_max` and refuses a manifest that disagrees (`_world_rate_cap`; equal today, 0.3); the resolution test's
+  provenance strip also drops the new `KRABBY_OMNI_COMMAND_FRAME` default (it passes in a clean worktree at HEAD + this
+  campaign's files; in the shared tree it still fails from other sessions' ledger edits). **Rule for every gate reader
+  (from the review): per-hold body metrics of an episode that falls inside the hold are computed on a truncated
+  window — gate 2 / 3 / 4 statistics are taken over SURVIVING episodes only, survival is gated separately (gate 1).**
+  Noted: the driver passes `--trained-categories` to every category_suite row, which the harness refuses on
+  `turnlevels__omni_body` / `grid__omni_body` (loud, not silent) — this campaign runs those rows with its own launcher.
+- 2026-10-15, **step 3 result: G0 BITWISE, harness proof PASS — no stop.** S1 s18 at code b9d20a93 + the step-2
+  harness (uncommitted tree; the only later edit is the `world_rate` cap helper, not on these paths):
+  `suite__omni` es1 1000 / 1000 episodes and `field_hard__omni` es1 100 / 100 identical to REFS_S1_s18 on every raw
+  key and on the scored metrics; `G0w` (suite es1 with `KRABBY_OMNI_COMMAND_FRAME=world` added to the process env) also
+  bitwise — the driver's new default is inert. Proof (`scripts/bc_proof_read.py`): S1 + `body_hold` on
+  `suite__omni_body` es1 — 700 000 live steps, 0 mismatches (obs cols 5 / 8–10 = applied command, cols 6–7 = clipped
+  heading error, applied xy = the row, applied wz = the world relay of the adapter's face error, face inside the
+  0.6-rad windup and advancing by wz·dt when unclamped); route metadata body_hold / world / term. Descriptive (not a
+  gate, provisional envelope): turns at the ceiling 0.167 net ratio 0.944 (l) / 0.926 (r), ripple 0.023 / 0.021;
+  move_turn (0.22, cap80 = ±0.104) net ratio 0.782 / 0.724; straight-hold drift 0.003–0.008 rad/s.
+  **Accepted eval change (the driver's `--accept-eval-change` reason):** "body-command campaign step 2: manifest v3 +
+  body_hold / world_rate adapters + body yaw metrics + scenarios_omni_body.yaml (user decision 2026-10-15: first-class
+  body evaluation); legacy path proven bitwise on S1 (G0)". G0 is re-run at the post-freeze eval_sha at the start of
+  step 4 (≈ 15 min) so the record carries it at the final hash.

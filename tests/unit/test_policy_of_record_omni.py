@@ -246,12 +246,20 @@ def test_obs_contract_current_head_is_clock_hidden():
     assert m["obs_contract"]["width"] == 1149
     rp = _load(RUN_PHASES, "omni_run_phases_policy_test")
     carry = m["obs_contract"]["eval_env"]["carry"]
-    assert set(carry) | {HIDE} == set(rp.EVAL_CARRY)
+    # NOTE(robot-frame velocity commands campaign step 2, 2026-10-15): the command-frame knobs joined
+    # EVAL_CARRY after these heads were bundled. Every bundled head is WORLD-frame: the frame knob's
+    # absence IS world (its knob-off value builds the identical cfg) and the two body-only envelope keys
+    # are refused in a world eval -- so the manifest's carry block covers EVAL_CARRY minus those three,
+    # and a driver eval of a bundled stage is its recorded env plus the frame's recorded default.
+    frame_keys = {rp.COMMAND_FRAME_VAR, *rp.EVAL_CARRY_BODY_ONLY}
+    assert set(carry) | {HIDE} == set(rp.EVAL_CARRY) - frame_keys
     for s in m["stages"]:
         base, ov = _overlay(s["overlay_ref"])
         assert base == s["phase"], f"{s['dir']}: chain base {base} != manifest phase {s['phase']}"
         want = rp.eval_env_for(rp.ph.PHASES[s["phase"]], m["plant"], keep=rp.CANARY_KEYS,
                                keep_source=rp.ph.FORMATION, carry_overlay=ov)
+        assert want.pop(rp.COMMAND_FRAME_VAR) == "world", s["dir"]
+        assert not frame_keys & set(want), s["dir"]
         assert tool.eval_env(m, s) == want, s["dir"]
 
 

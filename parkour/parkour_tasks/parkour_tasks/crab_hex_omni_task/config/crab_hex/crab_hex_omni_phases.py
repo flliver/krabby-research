@@ -290,6 +290,12 @@ STUDENT_PHASES: tuple[str, ...] = ()
 #: stages get the flat canary only -- ~2 min instead of ~40 -- and are gated on their own hold.
 EVAL_SHORT = ("slow",)
 EVAL_FULL = ("slow", "light", "ring")
+#: NOTE(robot-frame velocity commands campaign, step 2, 2026-10-15): the ``_b`` twins' rows -- the BODY
+#: manifest (``experiments/eval/scenarios_omni_body.yaml``; ``<x>_body`` = its ``<x>__omni_body`` row),
+#: in place of the world rows they would otherwise inherit. The driver still runs ``slow`` first for
+#: every stage (a body head through the harness's ``world_rate`` adapter: reported, never gated).
+EVAL_SHORT_B = ("suite_body",)
+EVAL_FULL_B = ("suite_body", "ring_obst_body")
 
 
 def _omni_env(forward_env: dict[str, str], **extra: str) -> dict[str, str]:
@@ -372,6 +378,7 @@ def build_phases() -> dict[str, PhaseSpec]:
             name=f"{base}{BODY_PHASE_SUFFIX}",
             env=_body_env(spec.env),
             resume_from=twin if twin in BODY_PHASE_NAMES else None,
+            eval_scenarios=EVAL_SHORT_B if spec.eval_scenarios == EVAL_SHORT else EVAL_FULL_B,
             notes=f"{spec.notes} [body-frame command: KRABBY_OMNI_COMMAND_FRAME=body]",
         )
     return p

@@ -190,8 +190,14 @@ def test_eval_carry_matches_run_phases(SPEC):
             if depth == 0 and ch in ")}]":
                 break
         ns[name] = eval(src[src.index("=", start) + 1:i], {})     # noqa: S307 -- a literal from the repo's own file
-    assert tuple(ns["EVAL_CARRY"]) == SPEC.EVAL_CARRY
-    assert ns["EVAL_CARRY_DEFAULTS"] == SPEC.EVAL_CARRY_DEFAULTS
+    # NOTE(robot-frame velocity commands campaign step 2, 2026-10-15): run_phases grew exactly the three
+    # command-frame keys after this (closed, world-frame) campaign froze its copy; the frame's off value
+    # ("world") is what an absent key builds, so the frozen copy is run_phases' carry minus those three.
+    frame = ("KRABBY_OMNI_COMMAND_FRAME", "KRABBY_OMNI_BODY_ENVELOPE", "KRABBY_OMNI_BODY_CAP")
+    assert tuple(ns["EVAL_CARRY"][-3:]) == frame
+    assert tuple(k for k in ns["EVAL_CARRY"] if k not in frame) == SPEC.EVAL_CARRY
+    assert {k: v for k, v in ns["EVAL_CARRY_DEFAULTS"].items() if k not in frame} == SPEC.EVAL_CARRY_DEFAULTS
+    assert ns["EVAL_CARRY_DEFAULTS"]["KRABBY_OMNI_COMMAND_FRAME"] == "world"
 
 
 def _effective_trainer_env(SPEC):

@@ -17,6 +17,14 @@ so every episode sees the identical command sequence and metrics are comparable 
 Scoring lives in ``gait_eval/`` (pure numpy, unit-tested without Isaac). This file only simulates
 and logs.
 
+Command routes (robot-frame velocity commands campaign, 2026-10-15; ``_route_check``): a v1 / v2 row
+without ``--command-adapter`` is the ``legacy`` route -- the code path every recorded stamp ran,
+unchanged. Manifest-v3 body rows go through the omni BODY command term's ``schedule_hook_body``
+(route ``term``), or, for a world-trained head, through the named ``body_hold`` adapter; a body head
+on v1 / v2 world rows needs ``world_rate``. Any other pairing is refused (gate 0 INVALID). v3 and
+adapter runs add raw ``obs_cmd`` (+ the adapter's series) and a ``body`` block per hold; legacy runs
+gain nothing.
+
 Launch from ``krabby-research/parkour`` via ``isaaclab.sh -p`` -- see README section 4.1b.
 """
 
@@ -28,6 +36,7 @@ import contextlib
 import hashlib
 import importlib.util
 import json
+import math
 import sys
 import types
 from datetime import datetime, timezone
@@ -129,6 +138,24 @@ parser.add_argument(
     type=float,
     default=0.08,
     help="--canon cmd only: flag turns on when vy < -h, off when vy > +h, else holds (m/s, default 0.08).",
+)
+parser.add_argument(
+    "--command-adapter",
+    choices=["none", "body_hold", "world_rate"],
+    default="none",
+    help="Omni tasks (robot-frame velocity commands campaign, 2026-10-15, PLAN D6): the NAMED adapter between "
+         "the head's command frame and the rows' route. 'none' (default): v3 body rows on a body head, or "
+         "v1/v2 world rows on a world head (the unchanged legacy path). 'body_hold': a WORLD head on v3 body "
+         "rows (wz integrated into the facing target, +-0.6 rad anti-windup; dir = yaw + atan2(vy, vx)). "
+         "'world_rate': a BODY head on v1/v2 world rows (the world relay's command shaped into the head's "
+         "envelope). Any other pairing is refused (gate 0 INVALID). Recorded in run_meta.",
+)
+parser.add_argument(
+    "--adapter-turns",
+    choices=["on", "off"],
+    default=None,
+    help="--command-adapter world_rate only: 'off' zeroes the shaped yaw-rate command (a stage that trained "
+         "no turn slot); default on. Refused with any other adapter.",
 )
 parser.add_argument(
     "--allow-checkpoint-sha-mismatch",
@@ -341,8 +368,9 @@ def _apply_env_overrides(env_cfg, scenario: S.Scenario) -> dict:
 
     # World rows only: pin the spawn heading. The omni reset event samples a uniform yaw, so
     # without this the first hold's facing error is a different (random) number in every episode
-    # and the whole facing block measures the spawn, not the policy.
-    if scenario.command_frame == "world":
+    # and the whole facing block measures the spawn, not the policy. A v3 body-route row is pinned
+    # the same way (``spawn_yaw: first_face`` = yaw 0; robot-frame velocity commands campaign).
+    if scenario.command_frame == "world" or getattr(scenario, "command_route", None) == "term":
         face0 = scenario.spawn_yaw_rad()
         if face0 is not None:
             reset = getattr(events, "reset_root_state", None) if events is not None else None
@@ -459,6 +487,429 @@ def _install_schedule_override_world(
     state["apply"] = lambda t: cmd_term.schedule_hook(_row(t))
     state["row"] = _row
     return state
+
+
+# --------------------------------------------------------------------------------------------
+# Command routes and adapters (robot-frame velocity commands campaign, 2026-10-15,
+# ``crab_hex_omni_task/experiments/2026-10-15_body_cmd``: PLAN D5 / D6, STEP2_SPEC §2). Pure torch
+# helpers, free of Isaac and of module globals other than these constants (``math`` / ``torch`` /
+# ``types`` only), so the unit suite lifts them out of this file with ``ast``
+# (tests/unit/test_crab_hex_omni_body_eval.py). The omni command math is passed in (``mm``), never
+# imported here. NONE of this runs on a v1 / v2 row without an adapter (route ``legacy``): that path
+# is the unchanged code above and below, line for line.
+#
+# WHY THE PER-ENV HOOK TWINS. Both adapters hand the term a DIFFERENT command per env every step (the
+# body_hold facing target follows each env's own yaw; world_rate's relay output is a function of each
+# env's yaw), but ``CrabHexOmniCommand.schedule_hook`` is scalar-only and its source is sha-pinned
+# (``test_crab_hex_omni_command.py``: the suite runs one hold per wave so the hook "never changes"),
+# and ``CrabHexOmniBodyCommand.schedule_hook_body`` takes floats. :func:`_world_hook_rows` /
+# :func:`_body_hook_rows` are the two hooks' bodies for ``(N,)`` tensors -- pinned against the real
+# hooks on uniform rows by the unit suite (bitwise for the world hook) -- so neither training-side
+# hook moves. The world twin is the KNOB-OFF hook only: a term with the relay hysteresis, the slot
+# latch or the stand hold armed is refused by the body_hold installer (none of the facing anchors
+# carries one).
+# --------------------------------------------------------------------------------------------
+#: ``--command-adapter`` values (``none`` = the route the rows and the head share).
+COMMAND_ADAPTERS = ("none", "body_hold", "world_rate")
+ADAPTER_TURNS = ("on", "off")
+#: The four routes a run can take; ``legacy`` is every v1 / v2 run without an adapter.
+COMMAND_ROUTES_RUN = ("legacy", "term", "body_hold", "world_rate")
+#: The body_hold adapter's anti-windup bound (rad): the facing target leads the yaw by at most this.
+BODY_HOLD_WINDUP_RAD = 0.6
+#: The observation's command channels, recorded as ``obs_cmd`` on every v3 / adapter run: col 5 = wz,
+#: 6-7 = the facing error (0 under the body mode's ``none`` encoding), 8-9 = body vx / vy, 10 = |v|.
+OBS_CMD_COLS = (5, 11)
+
+
+def _env_command_frame(cmd_term):
+    """``"body"`` for the omni body-frame command term (it holds a ``body_envelope``), ``"world"`` for
+    the world omni term (``schedule_hook``), ``None`` for any other command term.
+
+    NOT "has ``schedule_hook_body``": since the body mode landed the WORLD term defines it too, as a
+    refusal (STEP2_SPEC §2 assumed otherwise).
+    """
+    if getattr(cmd_term, "body_envelope", None) is not None:
+        return "body"
+    if callable(getattr(cmd_term, "schedule_hook", None)):
+        return "world"
+    return None
+
+
+def _route_check(rows: str, env_frame, adapter: str, *, grid: bool = False, adapter_turns=None) -> str:
+    """The pairing of the rows' route and the head's frame -> the run's route; SystemExit otherwise.
+
+    ``rows``: ``"v3"`` (body rows routed through the term), ``"world"`` (v1 / v2 world rows) or
+    ``"body"`` (v1 / v2 forward / sideways body rows, written into ``vel_command_b``). ``env_frame``:
+    :func:`_env_command_frame`. Allowed (gate 0 INVALID otherwise):
+
+    ========  ==========  ==============  ==============
+    rows      head frame  adapter         route
+    ========  ==========  ==============  ==============
+    v3        body        none            ``term``  (never on an ``envelope_grid`` row)
+    v3        world       body_hold       ``body_hold``
+    world     world/-     none            ``legacy``
+    world     body        world_rate      ``world_rate``
+    body      world/-     none            ``legacy``
+    ========  ==========  ==============  ==============
+
+    ``--adapter-turns off`` is meaningful for ``world_rate`` only and refused elsewhere.
+    """
+    if adapter not in COMMAND_ADAPTERS:
+        raise SystemExit(f"--command-adapter {adapter!r}: expected one of {COMMAND_ADAPTERS}")
+    if adapter_turns is not None and adapter_turns not in ADAPTER_TURNS:
+        raise SystemExit(f"--adapter-turns {adapter_turns!r}: expected one of {ADAPTER_TURNS}")
+    if adapter_turns == "off" and adapter != "world_rate":
+        raise SystemExit(f"--adapter-turns off applies to --command-adapter world_rate only (got {adapter})")
+    if rows == "v3":
+        if env_frame == "body" and adapter == "none":
+            if grid:
+                raise SystemExit("INVALID EVAL (gate 0): a BODY head on the envelope grid is refused -- the grid "
+                                 "probes beyond the yaw-rate envelope and is run by WORLD heads through body_hold")
+            return "term"
+        if env_frame == "world" and adapter == "body_hold":
+            return "body_hold"
+    elif rows == "world":
+        if env_frame != "body" and adapter == "none":
+            return "legacy"
+        if env_frame == "body" and adapter == "world_rate":
+            return "world_rate"
+    elif rows == "body":
+        if env_frame != "body" and adapter == "none":
+            return "legacy"
+    raise SystemExit(
+        f"INVALID EVAL (gate 0): {rows} rows on a {env_frame or 'non-omni'} command term with --command-adapter "
+        f"{adapter}. Allowed: v3 rows -> a body head (none) or a world head (body_hold); v1/v2 world rows -> a "
+        "world head (none) or a body head (world_rate); v1/v2 body rows -> a non-body head (none)."
+    )
+
+
+def _world_hook_rows(cmd_term, speed, direction, face) -> None:
+    """``CrabHexOmniCommand.schedule_hook`` for PER-ENV rows (``(N,)`` tensors), the knob-off hook.
+
+    Statement for statement the hook's body with the relay hysteresis, the slot latch and the stand
+    hold off (the installer refuses a term with any of them armed): the three world fields, the
+    pool-less type, ``_write_command(apply_hold=False)``, then ``slot = moving + 2 turning`` from the
+    RAW relay output.
+    """
+    ok = (torch.isfinite(speed).all() & (speed >= 0.0).all() & torch.isfinite(direction).all()
+          & torch.isfinite(face).all())
+    if not bool(ok):
+        raise ValueError("body_hold: a per-env world row is non-finite or has a negative speed")
+    cmd_term.travel_dir_w[:] = direction
+    cmd_term.speed_cmd[:] = speed
+    cmd_term.heading_target[:] = face
+    cmd_term.type_id[:] = -1
+    cmd_term._write_command(slice(None), apply_hold=False)
+    moving = cmd_term.speed_cmd > 0.0
+    turning = cmd_term.vel_command_b[:, 2] != 0.0
+    cmd_term.slot_id[:] = moving.long() + 2 * turning.long()
+
+
+def _body_hook_rows(cmd_term, vx, vy, wz, mm, ellipse, walk_floor: float) -> None:
+    """``CrabHexOmniBodyCommand.schedule_hook_body`` for PER-ENV rows (``(N,)`` tensors).
+
+    Validated against the term's own envelope by the ONE definition (``mm.body_cmd_violation_mask``;
+    the first violating env is named), then: the held state, ``vel_command_b`` = the row verbatim,
+    ``slot_id = slot_from_body_cmd``, ``type_id = -1`` and the legacy world fields.
+    """
+    bad = mm.body_cmd_violation_mask(vx, vy, wz, cmd_term.body_envelope, ellipse, walk_floor)
+    if bool(bad.any()):
+        i = int(torch.nonzero(bad)[0])
+        why = mm.body_cmd_violations(float(vx[i]), float(vy[i]), float(wz[i]), cmd_term.body_envelope, ellipse,
+                                     walk_floor)
+        raise ValueError(f"world_rate: env {i} ({float(vx[i])}, {float(vy[i])}, {float(wz[i])}) is outside the "
+                         f"body envelope: {why}")
+    moving = (vx != 0.0) | (vy != 0.0)
+    zero = torch.zeros_like(vx)
+    cmd_term.body_phi[:] = torch.where(moving, torch.atan2(vy, vx), zero)
+    cmd_term.body_speed[:] = torch.where(moving, torch.hypot(vx, vy), zero)
+    cmd_term.body_wz[:] = wz
+    cmd_term.slot_id[:] = mm.slot_from_body_cmd(vx, vy, wz)
+    cmd_term.type_id[:] = -1
+    cmd_term.vel_command_b[:, 0] = vx
+    cmd_term.vel_command_b[:, 1] = vy
+    cmd_term.vel_command_b[:, 2] = wz
+    cmd_term._write_legacy(slice(None))
+
+
+def _row_label(compiled, hold_labels, idx: int) -> str:
+    seg = int(compiled.segment_id[idx, 0])
+    return hold_labels[seg] if 0 <= seg < len(hold_labels) else "prologue"
+
+
+def _angle_dev(a, b) -> float:
+    d = a - b
+    return float(torch.atan2(torch.sin(d), torch.cos(d)).abs().max().item())
+
+
+def _install_schedule_override_body(cmd_term, compiled, device, hold_labels) -> dict:
+    """v3 rows on a BODY head (route ``term``): the term's own ``schedule_hook_body`` every step.
+
+    The same ``compute`` slot :func:`_install_schedule_override_world` uses (after physics and any
+    reset, before the observation), so ``cmd_applied[t]`` is the command ``obs[t]`` carries. Rows are
+    python floats (every v3 row is uniform). ``state_dev(t)`` is the schedule-state check: the term's
+    held ``(body_speed, body_phi, body_wz)`` against the scheduled row, which a leaked reset-driven
+    resample would change.
+    """
+    del device
+    if getattr(cmd_term, "body_envelope", None) is None or not callable(getattr(cmd_term, "schedule_hook_body", None)):
+        raise SystemExit(f"v3 rows need the omni BODY command term (schedule_hook_body); got {type(cmd_term).__name__}")
+    n_steps = int(compiled.n_steps)
+    state = {"step": 0}
+
+    def _row(step: int):
+        idx = min(max(int(step), 0), n_steps - 1)
+        return compiled.body_row(idx, label=_row_label(compiled, hold_labels, idx))
+
+    def _schedule_compute(self, dt: float) -> None:
+        self.schedule_hook_body(_row(state["step"]))
+        self._update_metrics()
+
+    def _state_dev(t: int) -> float:
+        r = _row(t)
+        speed = math.hypot(r.vx, r.vy)
+        phi = math.atan2(r.vy, r.vx) if speed > 0.0 else 0.0
+        return max(float((cmd_term.body_speed - speed).abs().max().item()),
+                   _angle_dev(cmd_term.body_phi, phi), float((cmd_term.body_wz - r.wz).abs().max().item()))
+
+    cmd_term.compute = types.MethodType(_schedule_compute, cmd_term)
+    cmd_term.time_left[:] = 1.0e9
+    cmd_term.schedule_hook_body(_row(0))
+    state["apply"] = lambda t: cmd_term.schedule_hook_body(_row(t))
+    state["row"] = _row
+    state["state_dev"] = _state_dev
+    state["record"] = {}
+    return state
+
+
+def _install_adapter_body_hold(cmd_term, compiled, device, hold_labels, *, mm, spawn_yaw: float,
+                               windup: float = BODY_HOLD_WINDUP_RAD) -> dict:
+    """v3 rows on a WORLD head (route ``body_hold``, PLAN D6): per env, per step,
+    ``face = mm.body_hold_step(face, yaw, wz, dt, windup)`` then the world hook on
+    ``mm.body_hold_world_row(vx, vy, wz, face, yaw)`` = ``(|v|, yaw + atan2(vy, vx), face)``.
+
+    ``face`` starts at the spawn yaw (the ``first_face`` pin), is CARRIED across holds, and restarts
+    at the spawn yaw on every env whose episode was just reset (``episode_length_buf == 0`` inside
+    ``compute`` -- the reset runs before the command manager, and the env re-spawns at the pin). The
+    pre-loop ``apply`` re-seeds it at the spawn yaw without integrating. Recorded per step as
+    ``adapter_face`` (``state["record"]``). The term's world state against the last applied row is the
+    schedule-state check.
+    """
+    del device
+    if not callable(getattr(cmd_term, "schedule_hook", None)) or getattr(cmd_term, "body_envelope", None) is not None:
+        raise SystemExit(f"--command-adapter body_hold needs the WORLD omni command term; got {type(cmd_term).__name__}")
+    armed = [name for name, on in (("relay_hyst", getattr(cmd_term, "_relay_hyst", None) is not None),
+                                   ("eval_slot_latch", bool(getattr(cmd_term, "_slot_latch", False))),
+                                   ("stand_hold", bool(getattr(cmd_term, "_stand_hold", False)))) if on]
+    if armed:
+        raise SystemExit(f"--command-adapter body_hold drives the knob-off world hook only; this head arms {armed}")
+    n_steps = int(compiled.n_steps)
+    yaw0 = cmd_term.robot.data.heading_w
+    spawn = torch.full_like(yaw0, float(spawn_yaw))
+    state = {"step": 0, "face": spawn.clone()}
+    applied: dict = {}
+
+    def _row(step: int):
+        idx = min(max(int(step), 0), n_steps - 1)
+        return compiled.body_row(idx, label=_row_label(compiled, hold_labels, idx))
+
+    def _apply(step: int, *, advance: bool, dt: float = 0.0) -> None:
+        r = _row(step)
+        yaw = cmd_term.robot.data.heading_w
+        vx, vy, wz = (torch.full_like(yaw, float(v)) for v in (r.vx, r.vy, r.wz))
+        if advance:
+            reset = cmd_term._env.episode_length_buf == 0
+            face = torch.where(reset, spawn, mm.body_hold_step(state["face"], yaw, wz, float(dt), float(windup)))
+        else:
+            face = spawn.clone()
+        state["face"] = face
+        wr = mm.body_hold_world_row(vx, vy, wz, face, yaw)
+        _world_hook_rows(cmd_term, wr.speed, wr.dir, wr.face)
+        applied.update(speed=wr.speed.clone(), dir=wr.dir.clone(), face=wr.face.clone())
+
+    def _schedule_compute(self, dt: float) -> None:
+        _apply(state["step"], advance=True, dt=dt)
+        self._update_metrics()
+
+    def _state_dev(t: int) -> float:
+        del t
+        return max(float((cmd_term.travel_dir_w - applied["dir"]).abs().max().item()),
+                   float((cmd_term.speed_cmd - applied["speed"]).abs().max().item()),
+                   _angle_dev(cmd_term.heading_target, applied["face"]))
+
+    cmd_term.compute = types.MethodType(_schedule_compute, cmd_term)
+    cmd_term.time_left[:] = 1.0e9
+    _apply(0, advance=False)
+    state["apply"] = lambda t: _apply(t, advance=False)
+    state["row"] = _row
+    state["state_dev"] = _state_dev
+    state["record"] = {"adapter_face": lambda: state["face"]}
+    state["record_dtypes"] = {"adapter_face": torch.float32}
+    return state
+
+
+def _world_rate_cap(cmd_term, scenario) -> float:
+    """The relay saturation ``world_rate`` reproduces: the HEAD's own ``cfg.ang_vel_max`` (what its world term would
+    use), refused when the row manifest's ``ang_vel_max`` says otherwise (step-2 review, 2026-10-15: equal today at
+    0.3; an overlay that moved ``KRABBY_OMNI_ANG_VEL_MAX`` would otherwise break "the world term's command" silently)."""
+    head = float(cmd_term.cfg.ang_vel_max)
+    man = getattr(scenario, "ang_vel_max", None)
+    if man is not None and abs(float(man) - head) > 1e-9:
+        raise SystemExit(f"INVALID EVAL (gate 0): world_rate relay cap mismatch -- head cfg ang_vel_max {head} vs "
+                         f"manifest ang_vel_max {float(man)}")
+    return head
+
+
+def _install_adapter_world_rate(cmd_term, compiled, device, hold_labels, *, mm, ang_vel_max: float, turns: bool,
+                                walk_floor: float) -> dict:
+    """v1 / v2 WORLD rows on a BODY head (route ``world_rate``, PLAN D6).
+
+    Per step, per env, the row becomes the body command the WORLD term would produce -- the world
+    term's own math, ``mm.body_command_from_world`` (the head's ellipse) and ``mm.heading_rate_command``
+    (the ROW MANIFEST's ``ang_vel_max``, the head's stiffness and dead band) -- then
+    ``mm.shape_body_command(..., turns)`` into the head's OWN envelope (``turns=False``: wz = 0, a stage
+    with no turn slots), then :func:`_body_hook_rows`. Recorded per step: ``adapter_clipped`` (the
+    shaper changed the command) and ``adapter_wz_raw`` (the relay output before shaping); the world
+    row's facing target is exposed as ``state["heading_target"]`` so the run's ``heading_err`` -- and
+    every legacy facing metric -- is scored against the row's face, not the body term's (yaw-following)
+    legacy field.
+    """
+    if getattr(cmd_term, "body_envelope", None) is None:
+        raise SystemExit(f"--command-adapter world_rate needs the omni BODY command term; got {type(cmd_term).__name__}")
+    cfg = cmd_term.cfg
+    a, b, c = (float(x) for x in cfg.speed_ellipse)
+    ellipse = (a, b, c)
+    stiffness = float(cfg.heading_control_stiffness)
+    clip = float(cfg.clips.ang_vel_clip)
+    envelope = cmd_term.body_envelope
+    n_steps = int(compiled.n_steps)
+    uniform = compiled.world_uniform
+    if not uniform:
+        speed_t = torch.from_numpy(compiled.world_speed).to(device)
+        dir_t = torch.from_numpy(compiled.world_dir).to(device)
+        face_t = torch.from_numpy(compiled.world_face).to(device)
+    yaw0 = cmd_term.robot.data.heading_w
+    state = {"step": 0, "face": torch.zeros_like(yaw0), "clipped": torch.zeros_like(yaw0, dtype=torch.bool),
+             "wz_raw": torch.zeros_like(yaw0)}
+    applied: dict = {}
+
+    def _row(step: int):
+        idx = min(max(int(step), 0), n_steps - 1)
+        return compiled.row(idx, label=_row_label(compiled, hold_labels, idx))
+
+    def _fields(step: int, yaw):
+        idx = min(max(int(step), 0), n_steps - 1)
+        if uniform:
+            r = compiled.row(idx)
+            return tuple(torch.full_like(yaw, float(v)) for v in (r.speed, r.dir, r.face))
+        return (speed_t[idx].to(yaw.dtype), dir_t[idx].to(yaw.dtype), face_t[idx].to(yaw.dtype))
+
+    def _apply(step: int) -> None:
+        yaw = cmd_term.robot.data.heading_w
+        speed, direction, face = _fields(step, yaw)
+        xy = mm.body_command_from_world(direction, speed, yaw, a, b, c)
+        wz_raw = mm.heading_rate_command(face, yaw, stiffness, float(ang_vel_max), clip)
+        vx, vy, wz, clipped = mm.shape_body_command(xy[:, 0], xy[:, 1], wz_raw, envelope, ellipse, walk_floor,
+                                                    turns=bool(turns))
+        _body_hook_rows(cmd_term, vx, vy, wz, mm, ellipse, walk_floor)
+        state.update(face=face, clipped=clipped, wz_raw=wz_raw)
+        applied.update(vx=vx.clone(), vy=vy.clone(), wz=wz.clone())
+
+    def _schedule_compute(self, dt: float) -> None:
+        _apply(state["step"])
+        self._update_metrics()
+
+    def _state_dev(t: int) -> float:
+        del t
+        vx, vy, wz = applied["vx"], applied["vy"], applied["wz"]
+        moving = (vx != 0.0) | (vy != 0.0)
+        phi = torch.where(moving, torch.atan2(vy, vx), torch.zeros_like(vx))
+        speed = torch.where(moving, torch.hypot(vx, vy), torch.zeros_like(vx))
+        return max(float((cmd_term.body_speed - speed).abs().max().item()), _angle_dev(cmd_term.body_phi, phi),
+                   float((cmd_term.body_wz - wz).abs().max().item()))
+
+    cmd_term.compute = types.MethodType(_schedule_compute, cmd_term)
+    cmd_term.time_left[:] = 1.0e9
+    _apply(0)
+    state["apply"] = _apply
+    state["row"] = _row
+    state["state_dev"] = _state_dev
+    state["heading_target"] = lambda: state["face"]
+    state["record"] = {"adapter_clipped": lambda: state["clipped"], "adapter_wz_raw": lambda: state["wz_raw"]}
+    state["record_dtypes"] = {"adapter_clipped": torch.bool, "adapter_wz_raw": torch.float32}
+    return state
+
+
+def _body_cmd_series(route: str, compiled, host: dict):
+    """The ``(T, E, 3)`` BODY command each episode was asked for (scoring's ``body_cmd``), or ``None``.
+
+    ``term`` / ``body_hold``: the v3 rows themselves (float64, as compiled). ``world_rate``: the shaped
+    command the body head was handed, ``cmd_applied``. ``legacy``: ``None`` (no body block at all).
+    """
+    if route in ("term", "body_hold"):
+        return np.stack([compiled.body_vx, compiled.body_vy, compiled.body_wz], axis=-1)
+    if route == "world_rate":
+        return np.asarray(host["cmd_applied"], dtype=np.float64)
+    return None
+
+
+def _body_run_meta(scenario, *, route: str, adapter: str, adapter_turns: str, env_frame, env_envelope, cmd_cfg,
+                   applied_overrides: dict, max_sched_state_dev: float, walk_floor) -> dict:
+    """The run_meta keys of a v3 / adapter run (STEP2_SPEC §2); a legacy run gains none of them."""
+    v3 = getattr(scenario, "command_route", None) == S.COMMAND_ROUTE_TERM
+    raw_series = ["obs_cmd"] + {"body_hold": ["adapter_face"],
+                                "world_rate": ["adapter_clipped", "adapter_wz_raw"]}.get(route, [])
+    meta: dict = {
+        "command_route": S.COMMAND_ROUTE_TERM if v3 else "world_hook",
+        "command_adapter": adapter,
+        "adapter_turns": adapter_turns if adapter == "world_rate" else None,
+        "route": route,
+        "env_command_frame": env_frame,
+        "envelope_manifest": (dict(scenario.envelope_block) if v3 and scenario.envelope_block else None),
+        "envelope_env": (S.envelope_meta(env_envelope) if env_envelope is not None else None),
+        "env_speed_ellipse": [float(x) for x in getattr(cmd_cfg, "speed_ellipse", ())],
+        "env_walk_floor": walk_floor,
+        "body_window_start_s": float(S.BODY_WINDOW_START_S),
+        "obs_cmd_cols": list(range(OBS_CMD_COLS[0], OBS_CMD_COLS[1])),
+        "raw_series_body": raw_series,
+    }
+    if v3:
+        meta.update({
+            "spawn_yaw_pin": applied_overrides.get("spawn_yaw_pin"),
+            "spawn_yaw_pin_rsi": applied_overrides.get("spawn_yaw_pin_rsi"),
+            "hold_body_cmds": S.body_hold_commands(scenario),
+            "speed_ellipse": dict(zip(("fwd", "lat", "back"), scenario.get_speed_ellipse())),
+            "travel_yaw_mode": "per_step",
+            "schedule_state_max_deviation": max_sched_state_dev,
+            "command_conversion": {
+                "hook": ("cmd_term.schedule_hook_body(BodyScheduleRow(vx, vy, wz))" if route == "term" else
+                         "body_hold: face = body_hold_step(face, yaw, wz, dt, windup); "
+                         "schedule_hook(|v|, yaw + atan2(vy, vx), face) (per-env twin of the knob-off hook)"),
+                "row_fields": ["vx (body m/s)", "vy (body m/s)", "wz (body rad/s)"],
+                "travel_yaw_per_step": "atan2(vel_command_b[:, 1], vel_command_b[:, 0])",
+                "written_at": "command_manager.compute() inside env.step(), once per step",
+                "schedule_state_check": ("route term: the term's held (body_speed, body_phi, body_wz) vs the row; "
+                                         "body_hold: the world term's (travel_dir_w, speed_cmd, heading_target) "
+                                         "vs the adapter's last applied row"),
+            },
+        })
+    if route == "body_hold":
+        meta["adapter"] = {"name": "body_hold", "windup_rad": BODY_HOLD_WINDUP_RAD,
+                           "rule": "face = yaw + clamp(wrap(face + wz dt - yaw), +-windup); face starts at the "
+                                   "spawn yaw pin, is carried across holds and restarts at it on every reset; "
+                                   "dir = yaw + atan2(vy, vx), speed = |v|",
+                           "raw_series": ["adapter_face"]}
+    elif route == "world_rate":
+        meta["adapter"] = {"name": "world_rate", "turns": adapter_turns == "on",
+                           "ang_vel_max": float(scenario.ang_vel_max),
+                           "heading_control_stiffness": float(getattr(cmd_cfg, "heading_control_stiffness", 0.0)),
+                           "ang_vel_clip": float(cmd_cfg.clips.ang_vel_clip),
+                           "rule": "xy = body_command_from_world(row.dir, row.speed, yaw, head ellipse); wz = "
+                                   "heading_rate_command(row.face, yaw, stiffness, manifest ang_vel_max, clip); "
+                                   "shape_body_command(xy, wz, head envelope, turns) -> schedule_hook_body",
+                           "heading_err": "wrap(row.face - heading_w): facing scored against the world row",
+                           "raw_series": ["adapter_clipped", "adapter_wz_raw"]}
+    return meta
 
 
 def _terrain_z_under_feet(foot_pos_w: torch.Tensor, mesh, device) -> torch.Tensor:
@@ -592,6 +1043,8 @@ def main() -> None:
     canon_mode = args_cli.canon
     canon_on = canon_mode != "off"
     _canon_check_args(canon_mode, args_cli.canon_hyst, scenario.task, zero_actions=bool(args_cli.zero_actions))
+    if canon_on and (getattr(scenario, "command_route", None) is not None or args_cli.command_adapter != "none"):
+        raise SystemExit("--canon is defined on the legacy route only (v1/v2 rows, no --command-adapter)")
     # --waves / --trained-categories exist for category-suite rows only; on any other row either
     # flag is an error, so a legacy invocation's run_meta key set can never change.
     try:
@@ -766,7 +1219,50 @@ def main() -> None:
     if not isinstance(cmd_term, UniformParkourCommand):
         raise SystemExit(f"base_velocity must be UniformParkourCommand, got {type(cmd_term)}")
     world_frame = scenario.command_frame == "world"
-    if world_frame:
+    # NOTE(robot-frame velocity commands campaign, 2026-10-15; STEP2_SPEC §2): the ROUTE CHECK -- the
+    # rows' route (v3 body rows / v1-v2 world rows / v1-v2 body rows) x the head's command frame x the
+    # named adapter (_route_check's table; anything else is gate 0 INVALID). Pure attribute reads:
+    # nothing here touches the env, the RNG or the legacy path, which is route "legacy" (every v1/v2
+    # row without an adapter) and runs exactly the code it always ran.
+    env_frame = _env_command_frame(cmd_term)
+    rows_kind = ("v3" if getattr(scenario, "command_route", None) == S.COMMAND_ROUTE_TERM
+                 else ("world" if world_frame else "body"))
+    route = _route_check(rows_kind, env_frame, args_cli.command_adapter, grid=(scenario.kind == S.GRID_KIND),
+                         adapter_turns=args_cli.adapter_turns)
+    adapter_turns = args_cli.adapter_turns or "on"
+    # hook_driven: the command term writes vel_command_b itself through a hook (world rows, v3 rows,
+    # either adapter) -- for every legacy row exactly ``world_frame``. body_run: a v3 or adapter run.
+    hook_driven = world_frame or route in ("term", "body_hold")
+    body_run = route != "legacy"
+    omni_mm = None
+    env_envelope = None
+    body_walk_floor = None
+    if body_run:
+        omni_mm = S.omni_command_math()
+        if env_frame == "body":
+            from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command import omni_walk_floor  # noqa: PLC0415
+
+            env_envelope = cmd_term.body_envelope
+            body_walk_floor = float(omni_walk_floor(cmd_term.cfg))
+        if route == "term":
+            # Every row inside the HEAD's own envelope (the hook would raise mid-install otherwise).
+            _ell = tuple(float(x) for x in cmd_term.cfg.speed_ellipse)
+            _out = [(h.label, h.vx, h.vy, h.wz, list(_why)) for h in scenario.schedule
+                    for _why in [omni_mm.body_cmd_violations(h.vx, h.vy, h.wz, env_envelope, _ell, body_walk_floor)]
+                    if _why]
+            if _out:
+                raise SystemExit(f"INVALID EVAL (gate 0): rows outside the head's own envelope {tuple(env_envelope)}: "
+                                 f"{_out}")
+    if route == "term":
+        override_state = _install_schedule_override_body(cmd_term, compiled, device, compiled.hold_labels)
+    elif route == "body_hold":
+        override_state = _install_adapter_body_hold(cmd_term, compiled, device, compiled.hold_labels, mm=omni_mm,
+                                                    spawn_yaw=float(scenario.spawn_yaw_rad() or 0.0))
+    elif route == "world_rate":
+        override_state = _install_adapter_world_rate(cmd_term, compiled, device, compiled.hold_labels, mm=omni_mm,
+                                                     ang_vel_max=_world_rate_cap(cmd_term, scenario),
+                                                     turns=(adapter_turns == "on"), walk_floor=body_walk_floor)
+    elif world_frame:
         override_state = _install_schedule_override_world(
             cmd_term, compiled, device, compiled.hold_labels
         )
@@ -826,18 +1322,21 @@ def main() -> None:
     if _has_rods:
         _n_rods = int(action_term.hip_rod_speed.shape[1] + action_term.knee_rod_speed.shape[1])
         buf["rod_speed"] = torch.zeros(T, num_envs, _n_rods, device=device)
-    if world_frame:
+    if hook_driven:
         # Per-step travel frame (the direction of the body command) and facing error -- the two
         # series the omni scoring needs and a constant travel_yaw cannot express. They live in the
         # raw buffers, not run_meta: (T, E) floats are an npz column, not a JSON field.
+        # (2026-10-15: every hook-driven route -- for a legacy row exactly the world rows. A BODY head
+        # on v3 rows has no facing target, so it records no heading_err.)
         buf["travel_yaw"] = torch.zeros(T, num_envs, device=device)
-        buf["heading_err"] = torch.zeros(T, num_envs, device=device)
+        if route != "term":
+            buf["heading_err"] = torch.zeros(T, num_envs, device=device)
     # NOTE(clock-deprecation 2026-09-23, plan step 3): world rows record the gait clock's phase
     # (radians, the action term's ``clock_phase``) and the observation's clock dims 15-16 exactly
     # as the policy was fed them, both at the instant the step's observation was built -- so
     # ``clock_obs`` is (sin, cos) of ``clock_phase`` while the clock is visible and (0, 0) under
     # KRABBY_OMNI_CLOCK_HIDE. Body rows (forward / sideways) record neither.
-    _record_clock = world_frame and hasattr(action_term, "clock_phase")
+    _record_clock = hook_driven and hasattr(action_term, "clock_phase")
     if _record_clock:
         buf["clock_phase"] = torch.zeros(T, num_envs, device=device)
         buf["clock_obs"] = torch.zeros(T, num_envs, 2, device=device)
@@ -848,6 +1347,12 @@ def main() -> None:
     canon_mirror_files: dict[str, str] = {}
     if canon_on:
         buf["canon_flag"] = torch.zeros(T, num_envs, dtype=torch.bool, device=device)
+    # v3 / adapter runs only (so a legacy npz key set is unchanged, STEP2_SPEC §2): the observation's
+    # command channels 5-10 exactly as the policy consumed them, and the adapter's own series.
+    if body_run:
+        buf["obs_cmd"] = torch.zeros(T, num_envs, OBS_CMD_COLS[1] - OBS_CMD_COLS[0], device=device)
+        for _key, _dtype in (override_state.get("record_dtypes") or {}).items():
+            buf[_key] = torch.zeros(T, num_envs, dtype=_dtype, device=device)
 
     alive = torch.ones(num_envs, dtype=torch.bool, device=device)
     n_steps_env = torch.zeros(num_envs, dtype=torch.long, device=device)
@@ -894,13 +1399,25 @@ def main() -> None:
             if suite_mode and wave > 0:
                 env.reset()  # every env re-spawns at the pinned yaw
                 compiled = wave_compiled[wave]
-                override_state = _install_schedule_override_world(
-                    cmd_term, compiled, device, compiled.hold_labels
-                )
+                if route == "term":
+                    override_state = _install_schedule_override_body(cmd_term, compiled, device, compiled.hold_labels)
+                elif route == "body_hold":
+                    override_state = _install_adapter_body_hold(
+                        cmd_term, compiled, device, compiled.hold_labels, mm=omni_mm,
+                        spawn_yaw=float(scenario.spawn_yaw_rad() or 0.0))
+                elif route == "world_rate":
+                    override_state = _install_adapter_world_rate(
+                        cmd_term, compiled, device, compiled.hold_labels, mm=omni_mm,
+                        ang_vel_max=_world_rate_cap(cmd_term, scenario), turns=(adapter_turns == "on"),
+                        walk_floor=body_walk_floor)
+                else:
+                    override_state = _install_schedule_override_world(
+                        cmd_term, compiled, device, compiled.hold_labels
+                    )
             obs, extras = env.get_observations()
             # The wrapper's own reset ran before the override existed, so the first observation can
             # carry a randomly resampled command. Re-apply and re-read before logging anything.
-            if world_frame:
+            if hook_driven:
                 override_state["apply"](0)
             else:
                 cmd_term.vel_command_b[:] = cmd_tensor[0]
@@ -911,7 +1428,7 @@ def main() -> None:
             # "deviation" of exactly the hold-to-hold jump size at every command change, since
             # obs[:, 10] necessarily lags one step behind vel_command_b (the policy acts on last
             # step's observation).
-            obs_reflects_cmd = cmd_term.vel_command_b.clone() if world_frame else cmd_tensor[0].clone()
+            obs_reflects_cmd = cmd_term.vel_command_b.clone() if hook_driven else cmd_tensor[0].clone()
 
         if canon_on:
             if canon_lr is None:
@@ -935,7 +1452,7 @@ def main() -> None:
         with torch.inference_mode():
             for t in range(T):
                 override_state["step"] = t
-                if world_frame:
+                if hook_driven:
                     # NOTHING is written here. The term already holds this step's command: the
                     # ``env.step()`` before this one ran ``command_manager.compute()`` ->
                     # ``schedule_hook(row_t)`` -> ``_update_command`` at the post-physics yaw (the
@@ -961,13 +1478,19 @@ def main() -> None:
                     # every env right after -- this asserts it, on the three scheduled world
                     # quantities themselves, which is what a leaked resample would change (the body
                     # path gets the same guarantee for free by writing the whole command tensor).
-                    _row_t = override_state["row"](t)
-                    max_sched_state_dev = max(
-                        max_sched_state_dev,
-                        (cmd_term.travel_dir_w - _row_t.dir).abs().max().item(),
-                        (cmd_term.speed_cmd - _row_t.speed).abs().max().item(),
-                        _wrap_to_pi(cmd_term.heading_target - _row_t.face).abs().max().item(),
-                    )
+                    if route == "legacy":
+                        _row_t = override_state["row"](t)
+                        max_sched_state_dev = max(
+                            max_sched_state_dev,
+                            (cmd_term.travel_dir_w - _row_t.dir).abs().max().item(),
+                            (cmd_term.speed_cmd - _row_t.speed).abs().max().item(),
+                            _wrap_to_pi(cmd_term.heading_target - _row_t.face).abs().max().item(),
+                        )
+                    else:
+                        # v3 / adapter routes: the same guarantee on the route's own held state
+                        # (the body term's held command, or the world term against the adapter's
+                        # last applied row) -- each installer's ``state_dev``.
+                        max_sched_state_dev = max(max_sched_state_dev, override_state["state_dev"](t))
                 else:
                     cmd_term.vel_command_b[:] = cmd_tensor[t]
 
@@ -1030,13 +1553,20 @@ def main() -> None:
                     actions = policy(obs, hist_encoding=True)
 
                 buf["obs_cmd_vx"][t] = obs[:, OBS_IDX_CMD_VX]
+                if body_run:
+                    # The command channels of the observation the policy just CONSUMED (read from the
+                    # obs buffer, after every in-place write above -- never recomputed), and the
+                    # adapter's own per-step series at the same instant as cmd_applied.
+                    buf["obs_cmd"][t] = obs[:, OBS_CMD_COLS[0]:OBS_CMD_COLS[1]]
+                    for _key, _fn in (override_state.get("record") or {}).items():
+                        buf[_key][t] = _fn()
                 if _record_clock:
                     # Before env.step: the phase the obs above was built from (process_actions
                     # advances it only inside the step).
                     buf["clock_phase"][t] = action_term.clock_phase
                     buf["clock_obs"][t] = obs[:, OBS_IDX_CLOCK]
                 buf["cmd_applied"][t] = cmd_term.vel_command_b
-                if world_frame:
+                if hook_driven:
                     # Travel frame of THIS step = the direction of the body command the policy is
                     # about to act on; facing error = what the yaw-rate slot is steering to close.
                     # On a commanded stop the body command is (0, 0), atan2 gives 0.0, and the travel
@@ -1044,7 +1574,13 @@ def main() -> None:
                     buf["travel_yaw"][t] = torch.atan2(
                         cmd_term.vel_command_b[:, 1], cmd_term.vel_command_b[:, 0]
                     )
-                    buf["heading_err"][t] = _wrap_to_pi(cmd_term.heading_target - robot.data.heading_w)
+                    if route != "term":
+                        # world_rate scores the facing against the WORLD ROW's face (its installer's
+                        # ``heading_target``); every other route reads the term's own target.
+                        _ht = override_state.get("heading_target")
+                        buf["heading_err"][t] = _wrap_to_pi(
+                            (cmd_term.heading_target if _ht is None else _ht()) - robot.data.heading_w
+                        )
                 buf["actions"][t] = actions
                 buf["foot_force_norm"][t] = contact_sensor.data.net_forces_w_history[:, 0, sensor_foot_ids].norm(dim=-1)
                 fp = robot.data.body_pos_w[:, foot_body_ids]
@@ -1270,6 +1806,25 @@ def main() -> None:
             for i, label in enumerate(compiled.hold_labels)
             if bool((compiled.segment_id == i).any())
         }
+    if body_run:
+        # v3 / adapter runs only (a legacy run's run_meta key set is unchanged; STEP2_SPEC §2): the
+        # route, the adapter, both envelopes, the head's frame and -- on a v3 row, whose world block
+        # above does not run -- the body-row provenance.
+        run_meta.update(_body_run_meta(
+            scenario, route=route, adapter=args_cli.command_adapter, adapter_turns=adapter_turns,
+            env_frame=env_frame, env_envelope=env_envelope, cmd_cfg=cmd_term.cfg,
+            applied_overrides=applied_overrides, max_sched_state_dev=max_sched_state_dev,
+            walk_floor=body_walk_floor,
+        ))
+        if not world_frame:
+            ty = host["travel_yaw"]
+            run_meta["travel_yaw_by_hold"] = {
+                label: float(np.arctan2(
+                    np.sin(ty[compiled.segment_id == i]).mean(), np.cos(ty[compiled.segment_id == i]).mean()
+                ))
+                for i, label in enumerate(compiled.hold_labels)
+                if bool((compiled.segment_id == i).any())
+            }
     if suite_mode:
         # Suite rows only (a legacy row's key set is unchanged): the waves, their seeds, the
         # env_index -> (wave, env, own hold, category, hand) map and the suite's run-time geometry.
@@ -1292,7 +1847,7 @@ def main() -> None:
             f"observed command slots {dict(observed_command_slots)} deviated from the commanded "
             f"channel by {max_cmd_dev:.3e}; the schedule may not be reaching the policy."
         )
-    if world_frame and max_sched_state_dev > 1e-6:
+    if hook_driven and max_sched_state_dev > 1e-6:
         # A non-zero value means the term's world state (dir / speed / facing) was NOT the
         # scheduled row at an observation instant -- i.e. a reset-driven _resample_command's random
         # command survived into an observation. The deviation check above cannot see that (it
@@ -1314,13 +1869,18 @@ def main() -> None:
         n_steps_env=list(n_steps_list),
         action_groups=groups,
         joint_vel_groups=jv_groups,
-        # World rows: the (T, E) per-step command direction replaces the constant travel frame.
-        travel_yaw=(host["travel_yaw"] if world_frame else travel_yaw),
+        # World rows: the (T, E) per-step command direction replaces the constant travel frame
+        # (and on every v3 row: hook_driven is world_frame on a legacy row).
+        travel_yaw=(host["travel_yaw"] if hook_driven else travel_yaw),
         # Motion quality (suite rows only): rod / cam / actuated joint groups and the env's action clip.
         motion_groups=M.motion_joint_groups(list(robot.joint_names)),
         action_clip=(float(agent_cfg.clip_actions) if agent_cfg.clip_actions is not None else None),
         # Rigidity's swing_apex is mesh-terrain only (run_meta.terrain_source above).
         terrain_mesh=mesh is not None,
+        # v3 / adapter runs only (None on a legacy run: the scoring is the unchanged one): the BODY
+        # command each episode was asked for per step -- the v3 rows themselves, or on world_rate the
+        # shaped command the body head was handed (cmd_applied).
+        body_cmd=_body_cmd_series(route, compiled, host),
     )
     if suite_mode:
         print("[INFO] write_run start", flush=True)

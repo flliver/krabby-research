@@ -20,7 +20,13 @@ from typing import Any
 import numpy as np
 
 from gait_eval import metrics as M
-from gait_eval.schedule import CompiledSchedule, Scenario
+from gait_eval.schedule import (
+    BODY_WINDOW_START_S,
+    COMMAND_ROUTE_TERM,
+    CompiledSchedule,
+    Scenario,
+    hold_command_speed,
+)
 
 
 def _window_mask(
@@ -66,6 +72,7 @@ def score_episode(
     motion_groups: dict[str, list[int]] | None = None,
     action_clip: float | None = None,
     terrain_mesh: bool = True,
+    body_cmd: np.ndarray | None = None,
 ) -> dict:
     """All derived metrics for one episode, per hold plus an episode roll-up.
 
@@ -103,8 +110,18 @@ def score_episode(
     came from the raycast mesh (the harness's ``run_meta.terrain_source``); under the root-offset
     fallback it is False and ``swing_apex`` is ``None``. The recorded ``clock_phase`` and
     ``heading_err`` feed the cadence / phase keys and the turn split when present.
+
+    BODY YAW (manifest v3 / adapter runs, 2026-10-15; STEP2_SPEC §3). A v3 (body-route) row is scored
+    like a world row (its command is the term's, its travel frame turns per step); a hold's
+    ``direction`` block is keyed on its commanded speed in either frame. When ``body_cmd`` -- the
+    ``(T, 3)`` BODY command this episode was asked for at each step -- is given (every v3 run and
+    every adapter run), each hold also carries ``body`` (:func:`gait_eval.metrics.body_yaw_metrics`
+    over the hold-relative window ``[BODY_WINDOW_START_S, hold_s)``, the whole-hold mask's steps:
+    fall-trimmed like every other window), and a raw ``adapter_clipped`` series (the ``world_rate``
+    adapter's per-step shaping flag) gives each hold ``adapter.clipped_frac`` over the whole hold.
+    Neither key exists on a v1 / v2 run without an adapter.
     """
-    world = scenario.command_frame == "world"
+    world = scenario.command_frame == "world" or getattr(scenario, "command_route", None) == COMMAND_ROUTE_TERM
     has_facing = world and "heading_err" in raw
     threshold = float(scenario.get_default("contact_force_threshold"))
     min_window_steps = max(1, int(round(float(scenario.get_default("min_window_s")) / dt)))
@@ -199,7 +216,7 @@ def score_episode(
                 contact_all[widx],
                 dt,
             )
-            if scenario.schedule[hold_idx].as_world()[0] > 0.0:
+            if hold_command_speed(scenario.schedule[hold_idx]) > 0.0:
                 entry["direction"] = (
                     M.travel_direction_metrics(vel_travel[:, :2], cmd_window[:, 0])
                     if vel_travel is not None
@@ -212,6 +229,12 @@ def score_episode(
                 )
                 entry["rigidity"] = _rigidity_block(raw, env_idx, widx, own_category, dt=dt,
                                                     terrain_mesh=terrain_mesh)
+            if body_cmd is not None:
+                entry["body"] = _body_block(raw, env_idx, widx, segment_id, hold_idx, body_cmd, dt=dt)
+            if "adapter_clipped" in raw:
+                clipped = np.asarray(raw["adapter_clipped"][widx, env_idx], dtype=bool)
+                entry["adapter"] = {"clipped_frac": float(clipped.mean()) if clipped.size else None,
+                                    "n_steps": int(clipped.size)}
 
         if tri["valid"]:
             entry["air_time"] = M.air_time_metrics(contact, dt=dt)
@@ -345,6 +368,31 @@ def score_episode(
     return out
 
 
+def _body_block(raw: dict, env_idx: int, widx: np.ndarray, segment_id: np.ndarray, hold_idx: int,
+                body_cmd: np.ndarray, *, dt: float) -> dict | None:
+    """:func:`gait_eval.metrics.body_yaw_metrics` of one hold over ``[BODY_WINDOW_START_S, hold_s)``.
+
+    The window starts ``round(BODY_WINDOW_START_S / dt)`` steps after the hold's FIRST step in this
+    env (whether or not the env was still alive there) and keeps only the whole-hold mask's steps
+    (``widx``: alive, fall-trimmed). ``None`` when nothing is left (the 2-s settle hold, a fall
+    before 4 s)."""
+    first = np.flatnonzero(np.asarray(segment_id) == hold_idx)
+    if first.size == 0:
+        return None
+    lo = int(first[0]) + int(round(BODY_WINDOW_START_S / dt))
+    bidx = widx[widx >= lo]
+    if bidx.size == 0:
+        return None
+    return M.body_yaw_metrics(
+        raw["root_quat_w"][bidx, env_idx],
+        raw["root_ang_vel_b"][bidx, env_idx],
+        raw["root_lin_vel_b"][bidx, env_idx],
+        raw["root_pos_w"][bidx, env_idx],
+        np.asarray(body_cmd, dtype=np.float64)[bidx],
+        dt,
+    )
+
+
 def _quality_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, dt: float,
                    motion_groups, action_clip, hold_s_nominal: float) -> dict | None:
     """``motion_quality_metrics`` of one episode's own hold; inputs the harness did not record (an
@@ -407,12 +455,26 @@ def score_run(
     motion_groups: dict[str, list[int]] | None = None,
     action_clip: float | None = None,
     terrain_mesh: bool = True,
+    body_cmd: np.ndarray | None = None,
 ) -> list[dict]:
     """``travel_yaw`` is a scalar (forward/sideways), a ``(T,)`` array shared by every env, or a
     ``(T, E)`` array -- the per-step, per-env command direction the omni harness logs.
     ``terrain_mesh`` is False when the harness fell back to root-offset ground (see
-    :func:`score_episode`)."""
+    :func:`score_episode`). ``body_cmd`` is the ``(T, E, 3)`` per-step BODY command of a v3 / adapter
+    run (``None`` -- every v1 / v2 run without an adapter -- scores exactly as before)."""
     ndim = np.ndim(travel_yaw)
+    if body_cmd is not None:
+        bc = np.asarray(body_cmd, dtype=np.float64)
+        return [
+            score_episode(
+                raw, env_idx=i, compiled=compiled, scenario=scenario, dt=dt, term_reason=term_reason[i],
+                n_steps=n_steps_env[i], action_groups=action_groups, joint_vel_groups=joint_vel_groups,
+                travel_yaw=(np.asarray(travel_yaw)[:, i] if ndim == 2 else travel_yaw),
+                motion_groups=motion_groups, action_clip=action_clip, terrain_mesh=terrain_mesh,
+                body_cmd=bc[:, i, :],
+            )
+            for i in range(len(term_reason))
+        ]
     return [
         score_episode(
             raw,
@@ -460,6 +522,14 @@ CATEGORY_METRIC_SOURCES: dict[str, tuple[str, ...]] = {
 #: itself (one value is its own median), ``mean`` the same, ``p25`` / ``p75`` ``None``, and ``n`` the
 #: episodes that contributed; ``offset_R`` adds ``rayleigh_p``.
 CATEGORY_POOLED_KEYS: tuple[str, ...] = M.RIGIDITY_POOLED_KEYS
+#: ``aggregate.suite.by_category`` keys of a v3 / adapter run ONLY (2026-10-15, STEP2_SPEC §3): the
+#: own hold's ``body`` block and the ``world_rate`` adapter's clipped-step share. Added to a category
+#: only when an own-hold entry carries a ``body`` or ``adapter`` block, so a v1 / v2 suite aggregate
+#: is unchanged key for key.
+BODY_CATEGORY_METRIC_SOURCES: dict[str, tuple[str, ...]] = {
+    **{key: ("body", key) for key in M.BODY_YAW_KEYS},
+    "adapter_clipped_frac": ("adapter", "clipped_frac"),
+}
 
 
 def _pooled_block(category: str, blocks: list) -> dict[str, dict]:
@@ -471,13 +541,13 @@ def _pooled_block(category: str, blocks: list) -> dict[str, dict]:
     return out
 
 
-def _category_value(hold: dict, key: str) -> float | None:
+def _category_value(hold: dict, key: str, sources: dict | None = None) -> float | None:
     """One ``by_category`` value from an episode's own hold entry, or ``None`` when unmeasured."""
     if key == "tripod":
         tri = hold.get("tripod") or {}
         return None if tri.get("low_confidence") else tri.get("tripod_score")
     value: Any = hold
-    for part in CATEGORY_METRIC_SOURCES[key]:
+    for part in (CATEGORY_METRIC_SOURCES if sources is None else sources)[key]:
         if not isinstance(value, dict):
             return None
         value = value.get(part)
@@ -539,17 +609,22 @@ def _suite_block(episodes: list[dict], suite: dict, stats) -> dict:
             float(sum(1 for e in eps if int(e["n_steps"]) >= end) / len(eps)) if eps else None
         )
 
+    # v3 / adapter runs only: the body keys join every category (STEP2_SPEC §3).
+    body = any(("body" in (e["holds"].get(e["hold"]) or {})) or ("adapter" in (e["holds"].get(e["hold"]) or {}))
+               for e in episodes)
+    sources = {**CATEGORY_METRIC_SOURCES, **BODY_CATEGORY_METRIC_SOURCES} if body else CATEGORY_METRIC_SOURCES
+
     by_category: dict[str, dict] = {}
     for cat in categories:
         labels = [h["label"] for h in cat["holds"]]
-        pooled = {key: [] for key in CATEGORY_METRIC_SOURCES}
+        pooled = {key: [] for key in sources}
         hands = sorted({hand_of_hold[lab] for lab in labels if hand_of_hold[lab] is not None})
-        per_hand = {h: {key: [] for key in CATEGORY_METRIC_SOURCES} for h in hands}
+        per_hand = {h: {key: [] for key in sources} for h in hands}
         for lab in labels:
             for e in own[lab]:
                 hold = e["holds"].get(lab) or {}
-                for key in CATEGORY_METRIC_SOURCES:
-                    value = _category_value(hold, key)
+                for key in sources:
+                    value = _category_value(hold, key, sources)
                     if value is None:
                         continue
                     pooled[key].append(value)
@@ -730,10 +805,30 @@ def aggregate(episodes: list[dict], *, suite: dict | None = None) -> dict:
     if suite is not None:
         motion_extra["suite"] = _suite_block(episodes, suite, _stats)
 
+    # Body yaw / adapter (v3 / adapter runs only, 2026-10-15): ABSENT -- not empty -- on every other
+    # run, like ``facing_by_hold`` on body rows. A hold whose entry carries the key (even None: the
+    # window was empty) gets a slot, so its n = 0 is visible.
+    body_extra: dict[str, Any] = {}
+    for block_key, out_key, keys in (("body", "body_by_hold", M.BODY_YAW_KEYS),
+                                     ("adapter", "adapter_by_hold", ("clipped_frac",))):
+        by_hold = {}
+        for e in episodes:
+            for label, hold in e["holds"].items():
+                if block_key not in hold:
+                    continue
+                slot = by_hold.setdefault(label, {k: [] for k in keys})
+                for key in keys:
+                    value = (hold.get(block_key) or {}).get(key)
+                    if value is not None:
+                        slot[key].append(value)
+        if by_hold:
+            body_extra[out_key] = {label: {k: _stats(v) for k, v in slots.items()} for label, slots in by_hold.items()}
+
     n_eps = len(episodes)
     return {
         **facing_extra,
         **motion_extra,
+        **body_extra,
         "n_episodes": n_eps,
         "fall_classes": fall_classes,
         "orientation": orientation,
@@ -823,6 +918,27 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
                 f"net={_median_txt(fac['net_yaw_rate_toward'])} "
                 f"yaw_rate_ratio={_median_txt(fac['yaw_rate_ratio'])}"
             )
+    if agg.get("body_by_hold"):
+        # v3 / adapter runs only (absent elsewhere, so a v1 / v2 summary is byte-identical).
+        lines.append("")
+        lines.append(f"body yaw by hold (window [{BODY_WINDOW_START_S:g} s, hold_s); medians; net = net yaw rate "
+                     "rad/s, ratio = net / wz_cmd SIGNED (the gated turn number), wz_ratio = mean wz / wz_cmd; "
+                     "ripple = std of the 1-s mean wz; drift = |mean wz| on wz = 0 holds; planar = xy drift "
+                     "m/s on pure turns; body = along-bearing speed / |v_cmd|, cross = mean |perp| m/s):")
+        for label, b in agg["body_by_hold"].items():
+            lines.append(
+                f"  {label:>14}: net={_median_txt(b['net_yaw_rate'])} ratio={_median_txt(b['net_yaw_ratio'])} "
+                f"wz_ratio={_median_txt(b['wz_ratio'])} ripple={_median_txt(b['yaw_ripple'])} | "
+                f"drift={_median_txt(b['heading_drift'])} planar={_median_txt(b['planar_drift'])} | "
+                f"body={_median_txt(b['body_ratio'])} cross={_median_txt(b['cross_body'])} "
+                f"(n={b['net_yaw_rate']['n']})"
+            )
+    if agg.get("adapter_by_hold"):
+        lines.append("")
+        lines.append("adapter by hold (world_rate: the share of the hold's steps whose relay command was "
+                     "shaped into the body envelope; median over episodes):")
+        for label, b in agg["adapter_by_hold"].items():
+            lines.append(f"  {label:>14}: clipped_frac={_median_txt(b['clipped_frac'])} (n={b['clipped_frac']['n']})")
     if agg.get("suite"):
         sb = agg["suite"]
         trained = sb.get("trained_categories")
@@ -870,6 +986,14 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
             parts = [f"{key}={_median_txt(cat[key])}" for key in M.RIGIDITY_KEYS
                      if name in M.RIGIDITY_APPLIES[key] and key in cat]
             lines.append(f"  {name:>9}: " + " ".join(parts))
+        if any("net_yaw_ratio" in cat for cat in sb["by_category"].values()):
+            # v3 / adapter runs only (the by_category body keys exist only there).
+            lines.append("")
+            lines.append("body yaw by category (own hold, window [4 s, hold_s); medians pooled over both hands; "
+                         "per-hand values are in aggregate.suite.by_category[c].by_hand):")
+            for name, cat in sb["by_category"].items():
+                parts = [f"{key}={_median_txt(cat[key])}" for key in BODY_CATEGORY_METRIC_SOURCES if key in cat]
+                lines.append(f"  {name:>9}: " + " ".join(parts))
     for key in ("command_override_warning", "schedule_state_warning", "obs_dim_warning"):
         if run_meta.get(key):
             lines.append(f"\n[WARN] {run_meta[key]}")

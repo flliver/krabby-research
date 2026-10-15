@@ -573,7 +573,12 @@ def test_eval_carry_names_the_obs_and_command_knobs(drv):
         # PPO-construction plan step 2 (2026-10-01), default off -- RUNNER side, but structural:
         "KRABBY_STD_PARAM",                 # soft std: the policy's std PARAMETER (std_raw vs std)
         "KRABBY_INIT_STD",                  # ... and the init it is built from
+        # robot-frame velocity commands campaign step 2 (2026-10-15), default off (frame world):
+        "KRABBY_OMNI_COMMAND_FRAME",        # world vs robot-frame command: the command TERM + obs cols 6-7
+        "KRABBY_OMNI_BODY_ENVELOPE",        # body only (no default): the measured yaw-rate envelope
+        "KRABBY_OMNI_BODY_CAP",             # body only (no default): the coupled move+turn cap
     }
+    assert drv.EVAL_CARRY_BODY_ONLY == ("KRABBY_OMNI_BODY_ENVELOPE", "KRABBY_OMNI_BODY_CAP")
     # The hide RAMP is keyed on the env step counter, which restarts at 0 in an eval process: carried,
     # it would show the clock on every eval episode, so it is never carried.
     assert "KRABBY_OMNI_CLOCK_HIDE_RAMP" not in drv.EVAL_CARRY
@@ -607,6 +612,10 @@ def test_every_eval_env_carries_every_eval_carry_key_from_the_preset(drv, row):
     pe = drv.ph.phase_env("1c")
     ev = _eval_envs(drv)[row]
     for key in drv.EVAL_CARRY:
+        if key in drv.EVAL_CARRY_BODY_ONLY:
+            # 2026-10-15: the body envelope has no default and is REFUSED in a world eval.
+            assert key not in pe and key not in ev, key
+            continue
         expected = pe.get(key, drv.EVAL_CARRY_DEFAULTS.get(key))
         assert expected is not None, f"{key} is in neither the 1c preset nor EVAL_CARRY_DEFAULTS"
         assert ev.get(key) == expected, f"{row}: {key} missing or not the effective value"
@@ -635,7 +644,9 @@ def test_eval_carry_defaults_stand_in_only_for_keys_no_preset_sets(drv):
                                        # omni_knobs.CMD_OBS_OFF_SPELLINGS.
                                        "KRABBY_OMNI_CMD_OBS": "0",
                                        # PPO-construction plan step 2: each knob's off spelling
-                                       "KRABBY_STD_PARAM": "0", "KRABBY_INIT_STD": "0"}
+                                       "KRABBY_STD_PARAM": "0", "KRABBY_INIT_STD": "0",
+                                       # robot-frame velocity commands step 2: body_knobs' off value
+                                       "KRABBY_OMNI_COMMAND_FRAME": "world"}
     # The five keys the presets DO set keep the preset's value, bitwise -- the defaults changed
     # nothing about the rows that already ran.
     ev = _eval_envs(drv)["canary"]
@@ -2724,8 +2735,9 @@ def test_summarize_hoists_cat_from_the_suite_block_and_is_empty_without_it(drv, 
     cat = drv.summarize(agg)["cat"]
     assert list(cat) == list(ALL_CATEGORIES)
     for c, entry in cat.items():
-        # the key set is D5's, cross-pinned against the categories module's contract
-        assert set(entry) == set(ec.CAT_KEYS) | {"by_hand"}, c
+        # the key set is D5's, cross-pinned against the categories module's contract (a v2 suite: the
+        # 2026-10-15 body keys exist only on a v3 / adapter run's suite)
+        assert set(entry) == set(ec.CAT_KEYS_V2) | {"by_hand"}, c
         for key in drv.CAT_METRIC_KEYS:
             assert entry[key] == by_cat[c][key]["median"], (c, key)       # re-read, never recomputed
         paired = c in ("side", "turn", "move_turn")
@@ -2733,7 +2745,7 @@ def test_summarize_hoists_cat_from_the_suite_block_and_is_empty_without_it(drv, 
         if paired:
             assert set(entry["by_hand"]) == {"l", "r"}
             for h, hand in entry["by_hand"].items():
-                assert set(hand) == set(ec.CAT_KEYS), (c, h)
+                assert set(hand) == set(ec.CAT_KEYS_V2), (c, h)
                 assert hand["n"] == SUITE_E and hand["n_env"] == SUITE_E
                 for key in drv.CAT_METRIC_KEYS:
                     assert hand[key] == by_cat[c]["by_hand"][h][key]["median"], (c, h, key)

@@ -77,7 +77,8 @@ def _load(path: Path, name: str):
 rp = _load(HERE / "run_phases.py", "run_phases_ladder")
 lc = _load(HERE / "ledger_cli.py", "ledger_cli_ladder")
 ph = rp.ph
-PHASES_ALLOWED_BASES = ("1a", "1b", "1c", "2a", "2b")
+#: NOTE(body-frame command mode, 2026-10-15): the ``_b`` twins (``ph.BODY_PHASE_NAMES``) are legal bases too.
+PHASES_ALLOWED_BASES = ("1a", "1b", "1c", "2a", "2b") + tuple(getattr(ph, "BODY_PHASE_NAMES", ()))
 PROMOTION_STAGES = ("2a", "2b")
 #: ``checkpoint`` (gait-motion-quality campaign, 2026-09-23) is the only kind spelled as a MAPPING:
 #: ``resume_from: {checkpoint: <repo-relative .pt>}`` forks a named head that is NOT one of this
@@ -181,6 +182,8 @@ EVAL_PATHSPECS = (
     "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml",
     "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py",
     "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/eval_categories.py",
+    # robot-frame velocity commands campaign step 2 (2026-10-15): the v3 body rows
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni_body.yaml",
 )
 #: How far back the alias proof looks for the commit that recorded ``lad.code_sha`` (plan D8).
 ALIAS_PROOF_DEPTH = 300
@@ -2107,6 +2110,104 @@ def _stroke_cat_w_ok(txt: str, value) -> bool:
     return True
 
 
+# ---- the body-frame command knobs (robot-frame velocity commands campaign, step 1, 2026-10-15).
+# All three DEFAULT OFF; env side (params/env.yaml). "world" is audited as the ABSENCE of every body
+# field, so a world stage's dump proves it never grew one.
+#: The realised body set: (reward term, the func leaf the body mode swaps in).
+BODY_REWARD_FUNCS = (("reward_tracking_yaw", "RewardYawWindowExp"),
+                     ("reward_yaw_progress", "RewardYawProgressTent"),
+                     ("track_ang_vel_z_exp", "track_ang_vel_z_exp_straight_gated"))
+#: The body cfg's four envelope fields (``CrabHexOmniBodyCommandCfg``).
+BODY_CMD_FIELDS = ("body_w_min", "body_ceiling", "body_w_max", "body_cap")
+
+
+def _leaf(value) -> str:
+    """The last component of a dumped callable path (``module:Name`` / ``module.Name``)."""
+    return str(value or "").strip().strip("'\"").rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+
+
+def _command_frame_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_COMMAND_FRAME``: what the dump must show for each frame.
+
+    ``body``: the command term is ``CrabHexOmniBodyCommand`` with the four envelope fields; the omni
+    obs term's ``facing_obs_encoding`` is ``none`` and it carries NO ``facing_obs_clip``; the three
+    reward funcs are the body set; ``reward_facing_turn`` is at weight 0; ``rsi_reference_reset`` is
+    absent (``KRABBY_RSI_FRAC`` 0); ``omni_clock_turn_floor`` is a positive top-level number.
+    ``world`` / blank: the world ``CrabHexOmniCommand``, no envelope field, no turn floor, and an
+    encoding other than ``none``.
+    """
+    frame = knobs().parse_command_frame(value)
+    doc = _dump_doc(txt)
+    cmd = _dig(doc, "commands", "base_velocity")
+    obs = _dig(doc, "observations", "policy", "extreme_parkour_observations", "params")
+    if not isinstance(cmd, dict) or not isinstance(obs, dict):
+        return False
+    cls = _leaf(cmd.get("class_type"))
+    if frame == "world":
+        return (cls == "CrabHexOmniCommand" and not any(f in cmd for f in BODY_CMD_FIELDS)
+                and "omni_clock_turn_floor" not in doc
+                and str(obs.get("facing_obs_encoding", "raw")).strip().lower() != "none")
+    if cls != "CrabHexOmniBodyCommand":
+        return False
+    if any(_num(cmd.get(f)) is None for f in BODY_CMD_FIELDS[:3]) or not cmd.get("body_cap"):
+        return False
+    if str(obs.get("facing_obs_encoding", "")).strip().lower() != "none" or "facing_obs_clip" in obs:
+        return False
+    for term, leaf in BODY_REWARD_FUNCS:
+        if _leaf(_dig(doc, "rewards", term, "func")) != leaf:
+            return False
+    facing_turn = _dig(doc, "rewards", "reward_facing_turn")
+    if isinstance(facing_turn, dict) and not _same(facing_turn.get("weight"), 0.0):
+        return False
+    floor = _num(doc.get("omni_clock_turn_floor"))
+    return (_yaml_block(txt, "rsi_reference_reset") == "" and _dig(doc, "events", "rsi_reference_reset") is None
+            and floor is not None and floor > 0.0)
+
+
+def _body_envelope_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_BODY_ENVELOPE``: blank = the three fields ABSENT; else they equal the triple."""
+    triple = knobs().parse_body_envelope_knob(value)
+    cmd = _dig(_dump_doc(txt), "commands", "base_velocity")
+    if not isinstance(cmd, dict):
+        return False
+    if triple is None:
+        return not any(f in cmd for f in BODY_CMD_FIELDS[:3])
+    return all(_same(cmd.get(f), want) for f, want in zip(BODY_CMD_FIELDS[:3], triple))
+
+
+def _body_cap_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_BODY_CAP``: blank = ``body_cap`` ABSENT; else the dumped pairs equal the knob's."""
+    points = knobs().parse_body_cap_knob(value)
+    cmd = _dig(_dump_doc(txt), "commands", "base_velocity")
+    if not isinstance(cmd, dict):
+        return False
+    if points is None:
+        return "body_cap" not in cmd
+    got = cmd.get("body_cap")
+    if not isinstance(got, list) or len(got) != len(points):
+        return False
+    try:
+        return all(len(g) == 2 and _same(g[0], v) and _same(g[1], w) for g, (v, w) in zip(got, points))
+    except TypeError:
+        return False
+
+
+def _check_body_frame_composition(env: dict, where: str, reasons: list) -> None:
+    """The command-frame cross-knob rules on a COMPOSED stage env (2026-10-15, STEP1_SPEC §1 / §7).
+
+    ``omni_knobs.body_frame_env_refusals`` -- the very function the env builder raises with -- run at
+    COMPOSE time, so a body stage that carries a world-facing knob, RSI, or no envelope (a ``_b``
+    preset alone) is refused at ``--dry-run`` rather than at config build on a booked GPU. A
+    malformed value is left to ``_check_knob``'s parser check.
+    """
+    try:
+        found = knobs().body_frame_env_refusals(env)
+    except ValueError:
+        return
+    for reason in found:
+        reasons.append(f"{where}: {reason}")
+
+
 def _check_rsi_cam_stage_composition(env: dict, where: str, reasons: list) -> None:
     """``KRABBY_RSI_CAM_STAGE`` / ``_DEBUG`` need a non-zero ``KRABBY_RSI_FRAC`` in the SAME composed
     stage env (PPO-construction plan step 4, 2026-10-01): the staging rides on the RSI reset event,
@@ -2810,6 +2911,11 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_BC_W": lambda txt, v: _bc_w_ok(txt, v),
     "KRABBY_BC_BANK": lambda txt, v: _bc_bank_ok(txt, v),
     "KRABBY_BC_BATCH": lambda txt, v: _bc_batch_ok(txt, v),
+    # ---- the body-frame command knobs (robot-frame velocity commands campaign step 1, 2026-10-15).
+    # Env side: the command term class + envelope, the obs encoding, the body reward set, RSI off.
+    "KRABBY_OMNI_COMMAND_FRAME": _command_frame_ok,
+    "KRABBY_OMNI_BODY_ENVELOPE": _body_envelope_ok,
+    "KRABBY_OMNI_BODY_CAP": _body_cap_ok,
 }
 
 
@@ -3091,6 +3197,9 @@ def knob_parsers() -> dict:
         "KRABBY_ORIENT_W": _forward_weight_parser("KRABBY_ORIENT_W", -1),
         "KRABBY_FOOT_CLEAR_MIN": parse_foot_clear_min,
         FOOT_CLEAR_FLAT_KEY: lambda t: _motion().parse_flag(t, FOOT_CLEAR_FLAT_KEY),
+        # NOTE(body-frame command mode, 2026-10-15): the three command-frame knobs' own parsers
+        # (re-exported by omni_knobs from body_knobs.py).
+        **k.BODY_KNOB_PARSERS,
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -3481,6 +3590,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_stroke_cat_w_composition(stage_env_, where, r)
             _check_field_geom_composition(stage_env_, where, r)
             _check_cmd_obs_mirror_composition(stage_env_, where, r)
+            _check_body_frame_composition(stage_env_, where, r)
             _check_rsi_cam_stage_composition(stage_env_, where, r)
             _check_restance_composition(stage_env_, where, r)
             _check_bc_composition(stage_env_, where, r)
@@ -3715,6 +3825,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 _check_stroke_cat_w_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_field_geom_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_cmd_obs_mirror_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
+                _check_body_frame_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_rsi_cam_stage_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})
@@ -4199,7 +4310,8 @@ def _check_suite_rows_cover_trained(stage: dict, tc, where: str, reasons: list) 
     for row in stage.get("eval") or []:
         if _eval_row_kind(str(row)) != "category_suite":
             continue
-        scenarios, _defaults = S.load_manifest(rp.OMNI_MANIFEST)
+        # the row's own manifest (a ``<x>_body`` row is the body manifest's, 2026-10-15)
+        scenarios, _defaults = S.load_manifest(rp._manifest_for_sid(_sid_for(str(row))))
         sc = next((x for x in scenarios if x.id == _sid_for(str(row))), None)
         if sc is None:
             continue
@@ -8644,7 +8756,11 @@ def run_experiment(ctx: Ctx, item: dict) -> dict:
 
 
 def _sid_for(row: str) -> str:
-    return row if row.endswith("__omni") else f"{row}__omni"
+    """An eval row name -> its scenario id; ``<x>_body`` is the body manifest's ``<x>__omni_body`` row
+    (2026-10-15, ``run_phases.eval_row_target``), every other name ``<x>__omni`` as before."""
+    if row.endswith("__omni") or row.endswith(rp.BODY_SID_SUFFIX):
+        return row
+    return rp.eval_row_target(row)[1]
 
 
 def _run_row(ctx: Ctx, item: dict, header: dict, spec, ckpt: str, row: str, tag: str, env: dict,

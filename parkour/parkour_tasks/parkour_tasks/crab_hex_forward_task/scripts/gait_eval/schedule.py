@@ -31,12 +31,30 @@ wave's ``settle + hold``. :func:`compile_schedule` refuses such a row; :func:`co
 compiles one wave (row-global ``segment_id``, so every position-keyed reader indexes the union
 ``hold_labels``) and :func:`stack_waves` joins the waves along the env axis for scoring. Every
 other row is untouched and compiles exactly as before.
+
+**Manifest v3 -- body rows routed through the term (robot-frame velocity commands campaign,
+2026-10-15, ``crab_hex_omni_task/experiments/2026-10-15_body_cmd`` PLAN D5, ``STEP2_SPEC.md`` §1).**
+``manifest_version: 3`` with ``command_route: term`` and a top-level ``envelope: {w_min, ceiling,
+w_max, cap: [[v, wz], ...]}`` block (the step-1 knob grammar, ``parse_body_envelope`` -- ONE envelope
+definition). Its holds are BODY rows ``vx / vy / wz`` (m/s, rad/s) -- but unlike the forward /
+sideways body rows above they are NOT written into ``vel_command_b``: the harness hands each step's
+:class:`BodyScheduleRow` to the omni body command term's ``schedule_hook_body`` (or, for a WORLD
+head, to the named ``body_hold`` adapter), exactly as world rows go through ``schedule_hook``. ``wz``
+may be a SYMBOL resolved from the envelope at parse time (:data:`WZ_SYMBOLS`); the resolved number
+and the symbol are both kept. Every hold passes the step-1 ``body_cmd_violations`` (except the
+``kind: envelope_grid`` premise grid, which probes beyond the yaw-rate envelope on purpose).
+Everything v3 lives on its own code path (``Scenario.command_route == "term"``): a v1 / v2 manifest
+parses, validates and compiles exactly as before. The torch command math is loaded lazily, BY PATH,
+only when a v3 manifest is read (:func:`omni_command_math`), so a v1 / v2 reader never imports it.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import math
+import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -93,6 +111,63 @@ SETTLE_KEYS: tuple[str, ...] = ("hold_s", "label")
 SUITE_ROW_KEYS: tuple[str, ...] = ("waves", "settle", "hold_s", "categories")
 #: Per-wave env seed: ``env_seed * WAVE_SEED_STRIDE + wave`` (plan D2).
 WAVE_SEED_STRIDE = 1_000_003
+
+# ---------------------------------------------------------------------- manifest v3 (body rows)
+#: Every manifest version :func:`load_manifest` reads; 3 is the body-row route (module docstring).
+MANIFEST_VERSIONS: tuple[int, ...] = (1, 2, 3)
+#: The only v3 ``command_route``: rows are handed to the command TERM's body hook.
+COMMAND_ROUTE_TERM = "term"
+COMMAND_ROUTES: tuple[str, ...] = (COMMAND_ROUTE_TERM,)
+#: ``kind: envelope_grid`` (v3 only): a category suite whose categories are the premise grid's cells.
+#: It probes BEYOND the yaw-rate envelope on purpose, so its holds are exempt from the yaw-rate /
+#: coupled-cap checks (not from the speed one); only a WORLD head (through ``body_hold``) runs it.
+GRID_KIND = "envelope_grid"
+V3_SCENARIO_KINDS: tuple[str, ...] = (SCHEDULE_KIND, SUITE_KIND, GRID_KIND)
+#: The only keys a v3 manifest's top level may carry (``ang_vel_max`` has no meaning on a body row).
+V3_TOP_KEYS: tuple[str, ...] = ("manifest_version", "command_route", "envelope", "speed_ellipse",
+                                "defaults", "scenarios")
+#: The only keys a v3 row may carry. No per-row ``speed_ellipse`` / ``envelope`` (one per file), no
+#: ``rotate_holds_by_env`` (every v3 row is uniform across envs, so the hook gets python floats), no
+#: yaw probe.
+V3_ROW_KEYS: tuple[str, ...] = ("id", "task", "checkpoint", "role", "kind", "schedule", "episodes",
+                                "episode_length_s", "env_seed", "terrain_generator_seed", "env",
+                                "freeze_terrain_levels", "freeze_friction", "checkpoint_sha256",
+                                "terrain_label", "notes", "defaults", "spawn_yaw") + SUITE_ROW_KEYS
+#: A v3 timeline hold: all three body components EXPLICIT (a missing ``wz`` read as 0 would hide a typo).
+V3_HOLD_KEYS: tuple[str, ...] = ("vx", "vy", "wz", "hold_s", "label")
+V3_CATEGORY_HOLD_KEYS: tuple[str, ...] = ("label", "vx", "vy", "wz", "hand")
+#: The envelope block's keys (the step-1 ``BodyEnvelope`` fields).
+ENVELOPE_KEYS: tuple[str, ...] = ("w_min", "ceiling", "w_max", "cap")
+#: ``wz`` symbols resolved from the manifest envelope at parse time. ``cap80`` = 0.8 x the coupled
+#: cap at the hold's own ``|v|`` (PLAN D3: body move_turn eval rows sit at 80 % of the cap's wz).
+WZ_SYMBOLS: tuple[str, ...] = ("w_min", "ceiling", "w_max", "-w_min", "-ceiling", "-w_max", "cap80", "-cap80")
+CAP80_FRACTION = 0.8
+#: The body-yaw metrics' scored window starts this far into every hold (PLAN D5: ``[4, 12)`` s of a
+#: 12-s hold; ``gait_eval.metrics.body_yaw_metrics``), and must leave at least this much behind it.
+BODY_WINDOW_START_S = 4.0
+BODY_MIN_WINDOW_S = 2.0
+#: The walk floor of a body row = ``lin_vel_clip + WALK_MARGIN`` -- restated from
+#: ``parkour_isaaclab...command_sampling.WALK_MARGIN_M_S`` (pinned against it by test), so this module
+#: stays free of the Isaac-side package.
+BODY_WALK_MARGIN_M_S = 0.01
+
+#: The step-1 pure command math (``crab_hex_omni_command_math``), loaded BY PATH under a private name
+#: unless the real package module is already imported (inside Isaac) -- never at import time.
+_OMNI_MATH_PY = Path(__file__).resolve().parents[3] / "crab_hex_omni_task" / "mdp" / "crab_hex_omni_command_math.py"
+_OMNI_MATH_REAL = "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command_math"
+_OMNI_MATH_NAME = "_crab_hex_omni_command_math__gait_eval"
+
+
+def omni_command_math():
+    """The omni command math module (``BodyEnvelope``, ``parse_body_envelope``, ``body_cmd_violations``,
+    ``body_cap_wz`` ...): the real one when it is already imported, else loaded by path (torch only)."""
+    mod = sys.modules.get(_OMNI_MATH_REAL) or sys.modules.get(_OMNI_MATH_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_OMNI_MATH_NAME, _OMNI_MATH_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_OMNI_MATH_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
 
 
 class ManifestError(ValueError):
@@ -176,6 +251,41 @@ class ScheduleRow:
 
 
 @dataclass
+class BodyScheduleRow:
+    """One BODY-frame command row handed to the omni body command term's ``schedule_hook_body`` (v3).
+
+    ``vx`` / ``vy`` (m/s) and ``wz`` (rad/s) in the ROBOT frame -- python floats (every v3 row is
+    uniform across envs). ``label`` / ``step`` are informational only, like :class:`ScheduleRow`'s;
+    the object is dict-like too (``row["wz"]``), which is what the hook's one-argument form reads.
+    """
+
+    vx: Any
+    vy: Any
+    wz: Any
+    label: str = ""
+    step: int = -1
+
+    _KEYS = ("vx", "vy", "wz", "label", "step")
+
+    def keys(self):  # noqa: D102 - mapping protocol
+        return iter(self._KEYS)
+
+    def __getitem__(self, key: str) -> Any:
+        if key not in self._KEYS:
+            raise KeyError(key)
+        return getattr(self, key)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._KEYS
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return getattr(self, key) if key in self._KEYS else default
+
+    def as_dict(self) -> dict[str, Any]:
+        return {k: getattr(self, k) for k in self._KEYS}
+
+
+@dataclass
 class Hold:
     """One command hold segment.
 
@@ -193,6 +303,7 @@ class Hold:
     speed: float | None = None  # world rows: m/s
     dir: float | None = None  # world rows: world travel direction, rad
     face: float | None = None  # world rows: absolute world heading target, rad
+    wz_symbol: str | None = None  # v3 rows only: the envelope symbol ``wz`` was resolved from
 
     def as_cmd(self) -> tuple[float, float, float]:
         return (self.vx, self.vy, self.wz)
@@ -282,6 +393,57 @@ class CategorySuite:
         ]
 
 
+@dataclass
+class BodyCategoryHold:
+    """One hold of a v3 category suite / envelope grid: a held BODY command ``(vx, vy, wz)``.
+
+    ``wz_symbol`` is the envelope symbol ``wz`` was resolved from (``None`` for a number).
+    """
+
+    label: str
+    vx: float
+    vy: float
+    wz: float
+    hand: str | None = None
+    wz_symbol: str | None = None
+
+
+@dataclass
+class BodyCategorySuite(CategorySuite):
+    """A v3 ``category_suite`` / ``envelope_grid`` row: :class:`CategorySuite` with body holds.
+
+    The settle hold is a commanded body stop ``(0, 0, 0)``; every other method is the parent's.
+    """
+
+    #: The settle command ``(vx, vy, wz)`` -- fixed by the plan, not a manifest field.
+    SETTLE_COMMAND = (0.0, 0.0, 0.0)
+
+    def categories_meta(self) -> list[dict[str, Any]]:
+        """JSON-able ``[{name, kind, holds: [{label, vx, vy, wz, wz_symbol, hand}]}]``."""
+        return [
+            {
+                "name": c.name,
+                "kind": c.kind,
+                "holds": [
+                    {"label": h.label, "vx": h.vx, "vy": h.vy, "wz": h.wz, "wz_symbol": h.wz_symbol,
+                     "hand": h.hand}
+                    for h in c.holds
+                ],
+            }
+            for c in self.categories
+        ]
+
+
+def body_suite_schedule(suite: BodyCategorySuite) -> list[Hold]:
+    """The DERIVED schedule of a v3 suite / grid row: ``[settle (0, 0, 0)] + one body Hold per hold``."""
+    vx0, vy0, wz0 = BodyCategorySuite.SETTLE_COMMAND
+    holds = [Hold(hold_s=float(suite.settle_hold_s), label=suite.settle_label, vx=vx0, vy=vy0, wz=wz0)]
+    for h in suite.holds():
+        holds.append(Hold(hold_s=float(suite.hold_s), label=h.label, vx=float(h.vx), vy=float(h.vy),
+                          wz=float(h.wz), wz_symbol=h.wz_symbol))
+    return holds
+
+
 def suite_schedule(suite: CategorySuite) -> list[Hold]:
     """The DERIVED ``Scenario.schedule`` of a suite row: ``[settle] + [one Hold per category hold]``.
 
@@ -336,11 +498,17 @@ class Scenario:
     kind: str = SCHEDULE_KIND  # one of SCENARIO_KINDS
     suite: CategorySuite | None = None
     waves: int = 1  # a suite row: one wave per category hold (derived, validated)
+    # Manifest-v3 fields (None on every v1 / v2 row -- see the module docstring).
+    command_route: str | None = None  # "term" on a v3 row
+    envelope: Any = None  # the parsed BodyEnvelope (crab_hex_omni_command_math) of a v3 manifest
+    envelope_block: dict | None = None  # the manifest's own envelope block, for run_meta
+    manifest_version: int | None = None  # 3 on a v3 row; None (= "as loaded before v3") otherwise
 
     def __post_init__(self) -> None:
         # A world scenario pins the spawn yaw by default: without it the robot starts at a random
-        # heading and the first hold's facing error is a different number in every episode.
-        if self.spawn_yaw is None and self.command_frame == "world":
+        # heading and the first hold's facing error is a different number in every episode. A v3
+        # body-route row pins it too (face 0 = yaw 0, STEP2_SPEC §2).
+        if self.spawn_yaw is None and (self.command_frame == "world" or self.command_route == COMMAND_ROUTE_TERM):
             self.spawn_yaw = "first_face"
 
     @property
@@ -439,10 +607,32 @@ class CompiledSchedule:
     # into ``hold_labels``), set by compile_wave and concatenated by stack_waves.
     wave_of_env: np.ndarray | None = None  # (E,) int64
     hold_of_env: np.ndarray | None = None  # (E,) int64
+    # v3 body-route rows only (None everywhere else): the (T, E) body command handed to
+    # ``schedule_hook_body`` per step -- float64, so a manifest's 0.22 reaches the hook as 0.22.
+    body_vx: np.ndarray | None = None
+    body_vy: np.ndarray | None = None
+    body_wz: np.ndarray | None = None
 
     @property
     def command_frame(self) -> str:
         return "world" if self.world_dir is not None else "body"
+
+    @property
+    def body_route(self) -> bool:
+        """True on a v3 row: the body command goes through the term's hook, not into ``cmd``."""
+        return self.body_vx is not None
+
+    def body_row(self, step: int, *, label: str | None = None) -> BodyScheduleRow:
+        """The :class:`BodyScheduleRow` (python floats) for one step of a v3 row (env 0's column:
+        every v3 row is uniform across envs -- ``rotate_holds_by_env`` is refused on v3)."""
+        if self.body_vx is None:
+            raise ValueError("body_row() is only defined for a v3 (body-route) schedule")
+        idx = min(max(int(step), 0), self.n_steps - 1)
+        if label is None:
+            seg = int(self.segment_id[idx, 0])
+            label = self.hold_labels[seg] if 0 <= seg < len(self.hold_labels) else "prologue"
+        return BodyScheduleRow(vx=float(self.body_vx[idx, 0]), vy=float(self.body_vy[idx, 0]),
+                               wz=float(self.body_wz[idx, 0]), label=label, step=idx)
 
     @property
     def world_uniform(self) -> bool:
@@ -618,10 +808,13 @@ def load_manifest(path: str | Path) -> tuple[list[Scenario], dict[str, Any]]:
     if not isinstance(data, dict):
         raise ManifestError(f"{path}: top level must be a mapping")
     version = data.get("manifest_version")
+    if version == 3:
+        # The body-row route (module docstring): its own parser, so nothing below changes for v1 / v2.
+        return _load_manifest_v3(path, data)
     # v2 (gait-formation campaign, 2026-08-20) uses the same schema; it exists as a
     # separate file only because v1's holds are pinned to committed baselines.
     if version not in (1, 2):
-        raise ManifestError(f"{path}: unsupported manifest_version {version!r} (expected 1 or 2)")
+        raise ManifestError(f"{path}: unsupported manifest_version {version!r} (expected 1, 2 or 3)")
 
     file_defaults = dict(DEFAULTS)
     file_defaults.update(data.get("defaults", {}) or {})
@@ -701,6 +894,419 @@ def load_manifest(path: str | Path) -> tuple[list[Scenario], dict[str, Any]]:
     if dupes:
         raise ManifestError(f"{path}: duplicate scenario ids {sorted(dupes)}")
     return scenarios, file_defaults
+
+
+# --------------------------------------------------------------------------------------
+# manifest v3: body rows routed through the term (STEP2_SPEC §1)
+# --------------------------------------------------------------------------------------
+def parse_envelope_block(block: Any, where: str = "envelope"):
+    """A v3 ``envelope: {w_min, ceiling, w_max, cap: [[v, wz], ...]}`` block -> a ``BodyEnvelope``.
+
+    Parsed THROUGH the step-1 knob grammar (``parse_body_envelope`` on the knob strings the block
+    spells), so a manifest envelope and a training envelope can never be validated differently.
+    """
+    if not isinstance(block, dict):
+        raise ManifestError(f"{where}: manifest_version 3 needs an 'envelope: {{w_min, ceiling, w_max, cap}}' block")
+    extra = sorted(set(block) - set(ENVELOPE_KEYS))
+    missing = [k for k in ENVELOPE_KEYS if block.get(k) is None]
+    if extra or missing:
+        raise ManifestError(f"{where}: the envelope block carries exactly {list(ENVELOPE_KEYS)} "
+                            f"(missing {missing}, unknown {extra})")
+    cap = block["cap"]
+    if not isinstance(cap, (list, tuple)) or not cap or any(
+            not isinstance(p, (list, tuple)) or len(p) != 2 for p in cap):
+        raise ManifestError(f"{where}: envelope.cap must be a non-empty list of [v, wz] pairs, got {cap!r}")
+    try:
+        nums = [float(block[k]) for k in ("w_min", "ceiling", "w_max")]
+        pts = [(float(v), float(w)) for v, w in cap]
+    except (TypeError, ValueError) as exc:
+        raise ManifestError(f"{where}: envelope values must be numbers ({exc})") from exc
+    mm = omni_command_math()
+    env_text = ":".join(repr(x) for x in nums)
+    cap_text = ",".join(f"{v!r}@{w!r}" for v, w in pts)
+    try:
+        return mm.parse_body_envelope(env_text, cap_text)
+    except ValueError as exc:
+        raise ManifestError(f"{where}: {exc}") from exc
+
+
+def envelope_meta(envelope) -> dict[str, Any]:
+    """A ``BodyEnvelope`` as JSON-able ``{w_min, ceiling, w_max, cap: [[v, wz], ...]}``."""
+    return {"w_min": float(envelope.w_min), "ceiling": float(envelope.ceiling), "w_max": float(envelope.w_max),
+            "cap": [[float(v), float(w)] for v, w in envelope.cap]}
+
+
+def resolve_wz(value: Any, vx: float, vy: float, envelope, where: str) -> tuple[float, str | None]:
+    """A v3 hold's ``wz`` -> ``(number, symbol | None)``; symbols from :data:`WZ_SYMBOLS`."""
+    if isinstance(value, bool):
+        raise ManifestError(f"{where}: wz must be a number or one of {list(WZ_SYMBOLS)}, got {value!r}")
+    if isinstance(value, (int, float)):
+        wz = float(value)
+        if not math.isfinite(wz):
+            raise ManifestError(f"{where}: wz must be finite, got {value!r}")
+        return wz, None
+    if not isinstance(value, str) or value.strip() not in WZ_SYMBOLS:
+        raise ManifestError(f"{where}: wz must be a number or one of {list(WZ_SYMBOLS)}, got {value!r}")
+    sym = value.strip()
+    sign = -1.0 if sym.startswith("-") else 1.0
+    base = sym.lstrip("-")
+    if base == "cap80":
+        mag = CAP80_FRACTION * float(omni_command_math().body_cap_wz(math.hypot(vx, vy), envelope))
+    else:
+        mag = float(getattr(envelope, base))
+    return sign * mag, sym
+
+
+def _v3_float(raw: dict, key: str, where: str) -> float:
+    value = raw.get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+        raise ManifestError(f"{where}: {key} must be a finite number, got {value!r}")
+    return float(value)
+
+
+def _coerce_body_hold(raw: Any, index: int, envelope, sid: str) -> Hold:
+    """One v3 timeline hold ``{vx, vy, wz, hold_s, label}`` (all five explicit, nothing else)."""
+    where = f"scenario {sid!r} hold[{index}]"
+    if not isinstance(raw, dict):
+        raise ManifestError(f"{where}: must be a mapping")
+    extra = sorted(set(raw) - set(V3_HOLD_KEYS))
+    missing = [k for k in V3_HOLD_KEYS if raw.get(k) is None]
+    if extra or missing:
+        raise ManifestError(f"{where}: a v3 hold carries exactly {list(V3_HOLD_KEYS)} (missing {missing}, "
+                            f"unknown {extra}; world speed/dir/face and delta_yaw have no meaning on a body row)")
+    label = str(raw["label"])
+    vx, vy = _v3_float(raw, "vx", where), _v3_float(raw, "vy", where)
+    wz, sym = resolve_wz(raw["wz"], vx, vy, envelope, f"{where} {label!r}")
+    hold_s = _v3_float(raw, "hold_s", where)
+    if hold_s <= 0:
+        raise ManifestError(f"{where} {label!r}: hold_s must be > 0")
+    return Hold(hold_s=hold_s, vx=vx, vy=vy, wz=wz, label=label, wz_symbol=sym)
+
+
+def _parse_body_suite(raw: dict, envelope) -> BodyCategorySuite:
+    """A v3 ``category_suite`` / ``envelope_grid`` row's ``settle`` / ``hold_s`` / ``categories`` blocks.
+
+    Structure only, like :func:`_parse_suite`; the semantic rules are :func:`_validate_body_suite`'s.
+    """
+    sid = raw.get("id", "<no id>")
+    settle = raw.get("settle")
+    if not isinstance(settle, dict) or settle.get("hold_s") is None:
+        raise ManifestError(f"scenario {sid!r}: a {raw.get('kind')} row needs a 'settle: {{hold_s, label}}' block")
+    extra = sorted(set(settle) - set(SETTLE_KEYS))
+    if extra:
+        raise ManifestError(f"scenario {sid!r}: settle carries only {list(SETTLE_KEYS)} (the settle command is a "
+                            f"body stop (0, 0, 0) by construction); remove {extra}")
+    if raw.get("hold_s") is None:
+        raise ManifestError(f"scenario {sid!r}: a {raw.get('kind')} row needs a row-level 'hold_s'")
+    cats_raw = raw.get("categories")
+    if not isinstance(cats_raw, list) or not cats_raw:
+        raise ManifestError(f"scenario {sid!r}: a {raw.get('kind')} row needs a non-empty 'categories' list")
+    categories: list[Category] = []
+    for ci, cat in enumerate(cats_raw):
+        if not isinstance(cat, dict):
+            raise ManifestError(f"scenario {sid!r} categories[{ci}]: must be a mapping")
+        extra = sorted(set(cat) - set(CATEGORY_KEYS))
+        if extra:
+            raise ManifestError(f"scenario {sid!r} category {cat.get('name', ci)!r}: a category carries only "
+                                f"{list(CATEGORY_KEYS)}; remove {extra}")
+        missing = [k for k in CATEGORY_KEYS if cat.get(k) in (None, "")]
+        if missing:
+            raise ManifestError(f"scenario {sid!r} categories[{ci}]: missing {missing}")
+        holds: list[BodyCategoryHold] = []
+        for hi, hold in enumerate(cat["holds"] or []):
+            where = f"scenario {sid!r} category {cat['name']!r} holds[{hi}]"
+            if not isinstance(hold, dict):
+                raise ManifestError(f"{where}: must be a mapping")
+            extra = sorted(set(hold) - set(V3_CATEGORY_HOLD_KEYS))
+            missing = [k for k in ("label", "vx", "vy", "wz") if hold.get(k) is None]
+            if extra or missing:
+                raise ManifestError(f"{where}: a v3 category hold carries {list(V3_CATEGORY_HOLD_KEYS)} "
+                                    f"(missing {missing}, unknown {extra}; every hold runs the row's hold_s)")
+            vx, vy = _v3_float(hold, "vx", where), _v3_float(hold, "vy", where)
+            wz, sym = resolve_wz(hold["wz"], vx, vy, envelope, f"{where} {hold['label']!r}")
+            holds.append(BodyCategoryHold(label=str(hold["label"]), vx=vx, vy=vy, wz=wz,
+                                          hand=(str(hold["hand"]) if hold.get("hand") is not None else None),
+                                          wz_symbol=sym))
+        categories.append(Category(name=str(cat["name"]), kind=str(cat["kind"]), holds=holds))
+    return BodyCategorySuite(settle_hold_s=float(settle["hold_s"]), settle_label=str(settle.get("label") or "settle"),
+                             hold_s=float(raw["hold_s"]), categories=categories)
+
+
+def _load_manifest_v3(path: Path, data: dict) -> tuple[list[Scenario], dict[str, Any]]:
+    """The ``manifest_version: 3`` parser (STEP2_SPEC §1). Every row is ``command_route: term``."""
+    extra = sorted(set(data) - set(V3_TOP_KEYS))
+    if extra:
+        raise ManifestError(f"{path}: a manifest_version 3 file carries only {list(V3_TOP_KEYS)}; remove {extra} "
+                            "(ang_vel_max is a world-row facing-relay cap: it has no meaning on a body row)")
+    route = data.get("command_route")
+    if route not in COMMAND_ROUTES:
+        raise ManifestError(f"{path}: manifest_version 3 requires 'command_route: {COMMAND_ROUTE_TERM}' "
+                            f"(the only v3 route), got {route!r}")
+    envelope = parse_envelope_block(data.get("envelope"), f"{path}: envelope")
+    block = envelope_meta(envelope)
+    file_ellipse = data.get("speed_ellipse")
+    if not isinstance(file_ellipse, dict):
+        raise ManifestError(f"{path}: manifest_version 3 needs an explicit top-level speed_ellipse "
+                            "(the trained ellipse; a silent default would be the world rows' 0.25 lateral)")
+    file_defaults = dict(DEFAULTS)
+    file_defaults.update(data.get("defaults", {}) or {})
+
+    scenarios: list[Scenario] = []
+    for raw in data.get("scenarios", []) or []:
+        if not isinstance(raw, dict):
+            raise ManifestError(f"{path}: every scenario row must be a mapping")
+        sid = raw.get("id", "<no id>")
+        extra = sorted(set(raw) - set(V3_ROW_KEYS))
+        if extra:
+            raise ManifestError(f"scenario {sid!r}: a v3 row carries only {list(V3_ROW_KEYS)}; remove {extra} "
+                                "(one envelope / ellipse per file; v3 rows are uniform across envs)")
+        for key in ("id", "task", "checkpoint"):
+            if not raw.get(key):
+                raise ManifestError(f"scenario {sid!r} is missing '{key}'")
+        merged = dict(file_defaults)
+        merged.update(raw.get("defaults", {}) or {})
+        kind = str(raw.get("kind", SCHEDULE_KIND))
+        if kind not in V3_SCENARIO_KINDS:
+            raise ManifestError(f"scenario {sid!r}: unknown kind {kind!r} (expected one of {list(V3_SCENARIO_KINDS)})")
+        suite: BodyCategorySuite | None = None
+        waves = 1
+        if kind in (SUITE_KIND, GRID_KIND):
+            if "schedule" in raw:
+                raise ManifestError(f"scenario {sid!r}: a {kind} row DERIVES its schedule from 'settle' + "
+                                    "'categories'; remove the explicit 'schedule:'")
+            suite = _parse_body_suite(raw, envelope)
+            schedule = body_suite_schedule(suite)
+            waves = int(raw.get("waves", len(suite.holds())))
+        else:
+            stray = [k for k in SUITE_ROW_KEYS if k in raw]
+            if stray:
+                raise ManifestError(f"scenario {sid!r}: {stray} belong to a suite / grid row only")
+            schedule = [_coerce_body_hold(h, i, envelope, sid) for i, h in enumerate(raw.get("schedule", []) or [])]
+        spawn = raw.get("spawn_yaw")
+        scenario = Scenario(
+            id=str(raw["id"]),
+            task=str(raw["task"]),
+            checkpoint=str(raw["checkpoint"]),
+            role=str(raw.get("role", "teacher")),
+            schedule=schedule,
+            episodes=int(raw.get("episodes", 10)),
+            episode_length_s=(float(raw["episode_length_s"]) if raw.get("episode_length_s") else None),
+            env_seed=int(raw.get("env_seed", 1)),
+            terrain_generator_seed=(
+                int(raw["terrain_generator_seed"]) if raw.get("terrain_generator_seed") is not None else None
+            ),
+            env_vars={str(k): str(v) for k, v in (raw.get("env") or {}).items()},
+            freeze_terrain_levels=bool(raw.get("freeze_terrain_levels", True)),
+            freeze_friction=bool(raw.get("freeze_friction", False)),
+            checkpoint_sha256=(str(raw["checkpoint_sha256"]) if raw.get("checkpoint_sha256") else None),
+            terrain_label=str(raw.get("terrain_label", "")),
+            notes=str(raw.get("notes", "")),
+            defaults=merged,
+            spawn_yaw=(spawn if isinstance(spawn, str) else (float(spawn) if spawn is not None else None)),
+            speed_ellipse={str(k): float(v) for k, v in file_ellipse.items()},
+            kind=kind,
+            suite=suite,
+            waves=waves,
+            command_route=COMMAND_ROUTE_TERM,
+            envelope=envelope,
+            envelope_block=dict(block),
+            manifest_version=3,
+        )
+        validate_scenario(scenario)
+        scenarios.append(scenario)
+
+    ids = [s.id for s in scenarios]
+    dupes = {i for i in ids if ids.count(i) > 1}
+    if dupes:
+        raise ManifestError(f"{path}: duplicate scenario ids {sorted(dupes)}")
+    return scenarios, file_defaults
+
+
+def body_walk_floor(scenario: Scenario) -> float:
+    """A v3 row's walk floor: ``lin_vel_clip + BODY_WALK_MARGIN_M_S`` (the command term's own rule)."""
+    return float(scenario.get_default("lin_vel_clip")) + BODY_WALK_MARGIN_M_S
+
+
+def _fmt_grid(x: float) -> str:
+    """A grid label number: ``0.22`` -> ``0p22``, ``0`` -> ``0`` (no dots: labels are id path parts)."""
+    return f"{abs(float(x)):g}".replace(".", "p")
+
+
+def grid_label(vx: float, vy: float, wz: float) -> str:
+    """The envelope grid's cell label ``g_v<|v|>_<fwd|lat>_w<wz>`` (``g_v0_w<wz>`` for ``|v| = 0``).
+
+    The grid commands only body +x (``fwd``) or body +y (``lat``) and a non-negative wz (STEP2_SPEC
+    §5); anything else is not a grid cell.
+    """
+    if wz < 0.0 or vx < 0.0 or vy < 0.0 or (vx != 0.0 and vy != 0.0):
+        raise ManifestError(f"envelope grid cell ({vx}, {vy}, {wz}) is not a fwd / lat / spot cell with wz >= 0")
+    speed = math.hypot(vx, vy)
+    if speed == 0.0:
+        return f"g_v0_w{_fmt_grid(wz)}"
+    return f"g_v{_fmt_grid(speed)}_{'fwd' if vx != 0.0 else 'lat'}_w{_fmt_grid(wz)}"
+
+
+#: The kind a v3 category's command must have (``stand`` (0, 0, 0); ``translate`` moving, no wz;
+#: ``turn`` on the spot; ``move_turn`` both).
+def _v3_kind_of(vx: float, vy: float, wz: float) -> str:
+    moving = vx != 0.0 or vy != 0.0
+    turning = wz != 0.0
+    return ("move_turn" if turning else "translate") if moving else ("turn" if turning else "stand")
+
+
+def _validate_body_suite(scenario: Scenario) -> None:
+    """The v3 suite / grid rules: the legacy suite structure, plus command-kind and hand-sign consistency."""
+    sid = scenario.id
+    suite = scenario.suite
+    if not isinstance(suite, BodyCategorySuite):
+        raise ManifestError(f"scenario {sid!r}: a v3 {scenario.kind} row needs a BodyCategorySuite")
+    if not suite.categories:
+        raise ManifestError(f"scenario {sid!r}: a {scenario.kind} row needs at least one category")
+    names = [c.name for c in suite.categories]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        raise ManifestError(f"scenario {sid!r}: duplicate category names {dupes}")
+    labels = suite.hold_labels()
+    dupes = sorted({lab for lab in labels if labels.count(lab) > 1})
+    if dupes:
+        raise ManifestError(f"scenario {sid!r}: duplicate hold labels {dupes} (the settle label included)")
+    bad_name = [n for n in names if not re.fullmatch(r"[a-z][a-z0-9_]*", n)]
+    if bad_name:
+        raise ManifestError(f"scenario {sid!r}: category names {bad_name} must be [a-z][a-z0-9_]* (they are "
+                            "parts of dotted metric ids)")
+    grid = scenario.kind == GRID_KIND
+    for cat in suite.categories:
+        if cat.kind not in CATEGORY_KINDS:
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: unknown kind {cat.kind!r} "
+                                f"(expected one of {list(CATEGORY_KINDS)})")
+        if not cat.holds:
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: no holds")
+        hands = [h.hand for h in cat.holds]
+        bad = [h for h in hands if h is not None and h not in HANDS]
+        if bad:
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: hand must be one of {list(HANDS)} or absent, got {bad}")
+        if any(h is not None for h in hands) and (any(h is None for h in hands) or hands.count("l") != hands.count("r")):
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: unbalanced hands {hands} -- a paired "
+                                "category carries equally many 'l' and 'r' holds, a singleton carries none")
+        for h in cat.holds:
+            got = _v3_kind_of(h.vx, h.vy, h.wz)
+            if got != cat.kind:
+                raise ManifestError(f"scenario {sid!r} category {cat.name!r} ({cat.kind}) hold {h.label!r}: the "
+                                    f"command ({h.vx}, {h.vy}, {h.wz}) is a {got} command")
+            if h.hand is not None:
+                # l = the robot's left: +wz on a turning category, +vy on a translating one.
+                axis = h.wz if cat.kind in ("turn", "move_turn") else h.vy
+                if (h.hand == "l") != (axis > 0.0) or axis == 0.0:
+                    raise ManifestError(f"scenario {sid!r} category {cat.name!r} hold {h.label!r}: hand {h.hand!r} "
+                                        f"disagrees with the command ({h.vx}, {h.vy}, {h.wz}) (l = +wz on a turn, "
+                                        "+vy on a translation)")
+        if grid:
+            if len(cat.holds) != 1 or cat.holds[0].hand is not None:
+                raise ManifestError(f"scenario {sid!r}: an envelope_grid category is ONE cell (one hold, no hand); "
+                                    f"{cat.name!r} has {len(cat.holds)}")
+            h = cat.holds[0]
+            want = grid_label(h.vx, h.vy, h.wz)
+            if h.label != want or cat.name != want:
+                raise ManifestError(f"scenario {sid!r}: grid cell ({h.vx}, {h.vy}, {h.wz}) must be labelled and "
+                                    f"named {want!r}, got label {h.label!r} / name {cat.name!r}")
+    derived = [(h.label, h.hold_s, h.as_cmd()) for h in body_suite_schedule(suite)]
+    if [(h.label, h.hold_s, h.as_cmd()) for h in scenario.schedule] != derived:
+        raise ManifestError(f"scenario {sid!r}: schedule is not the one derived from the suite (settle + category holds)")
+    n_holds = len(suite.holds())
+    if scenario.waves != n_holds:
+        raise ManifestError(f"scenario {sid!r}: waves={scenario.waves} but the row has {n_holds} category holds "
+                            "(one hold per wave)")
+    if suite.settle_hold_s <= 0.0:
+        raise ManifestError(f"scenario {sid!r}: settle hold_s must be > 0")
+
+
+def _validate_v3_scenario(scenario: Scenario) -> None:
+    """The v3 rules (STEP2_SPEC §1). Reached only from :func:`validate_scenario`.
+
+    * route ``term``, a v3 kind, a parsed envelope and an explicit ellipse;
+    * every hold (timeline holds; a suite's category holds -- the settle is (0, 0, 0)) passes the
+      step-1 ``body_cmd_violations(vx, vy, wz, envelope, ellipse, walk_floor) == ()`` -- an
+      ``envelope_grid`` hold the SPEED part only (it probes beyond the yaw-rate envelope);
+    * hold duration: every scored hold has ``hold_s >= max(settle_s, BODY_WINDOW_START_S) +
+      BODY_MIN_WINDOW_S`` -- at least 2 s of the body-yaw window behind the settle;
+    * no ``rotate_holds_by_env`` (uniform rows), no yaw probe, no ``delta_yaw``, no world field;
+    * ``episode_length_s >=`` prologue + schedule.
+    """
+    sid = scenario.id
+    if scenario.command_route not in COMMAND_ROUTES:
+        raise ManifestError(f"scenario {sid!r}: command_route {scenario.command_route!r} (expected {list(COMMAND_ROUTES)})")
+    if scenario.kind not in V3_SCENARIO_KINDS:
+        raise ManifestError(f"scenario {sid!r}: unknown v3 kind {scenario.kind!r}")
+    if scenario.envelope is None:
+        raise ManifestError(f"scenario {sid!r}: a v3 row needs the manifest envelope")
+    mm = omni_command_math()
+    try:
+        envelope = mm.check_body_envelope(scenario.envelope)
+    except ValueError as exc:
+        raise ManifestError(f"scenario {sid!r}: {exc}") from exc
+    if scenario.speed_ellipse is None:
+        raise ManifestError(f"scenario {sid!r}: a v3 row needs an explicit speed_ellipse")
+    ellipse = scenario.get_speed_ellipse()
+    if scenario.rotate_holds_by_env:
+        raise ManifestError(f"scenario {sid!r}: rotate_holds_by_env is refused on a v3 row (every v3 row is "
+                            "uniform across envs, so the body hook is handed python floats)")
+    if scenario.probe is not None or scenario.yaw_mode is not None:
+        raise ManifestError(f"scenario {sid!r}: yaw probes are forward body-row tools; a v3 row commands wz itself")
+    if not scenario.schedule:
+        raise ManifestError(f"scenario {sid!r}: empty schedule")
+    if scenario.episodes < 1:
+        raise ManifestError(f"scenario {sid!r}: episodes must be >= 1")
+    if any(h.is_world or h.delta_yaw is not None for h in scenario.schedule):
+        raise ManifestError(f"scenario {sid!r}: a v3 hold carries only vx / vy / wz")
+    if uses_waves(scenario):
+        _validate_body_suite(scenario)
+        scored = [(h.label, float(scenario.suite.hold_s), h) for h in scenario.suite.holds()]
+    else:
+        if scenario.suite is not None or scenario.waves != 1:
+            raise ManifestError(f"scenario {sid!r}: suite / waves belong to a suite / grid row only")
+        scored = [(h.label, float(h.hold_s), h) for h in scenario.schedule]
+    labels = [h.label for h in scenario.schedule]
+    dupes = sorted({lab for lab in labels if labels.count(lab) > 1})
+    if dupes:
+        raise ManifestError(f"scenario {sid!r}: duplicate hold labels {dupes}")
+    floor = body_walk_floor(scenario)
+    need = max(float(scenario.get_default("settle_s")), BODY_WINDOW_START_S) + BODY_MIN_WINDOW_S
+    grid = scenario.kind == GRID_KIND
+    for label, hold_s, h in scored:
+        if hold_s < need:
+            raise ManifestError(f"scenario {sid!r} hold {label!r}: hold_s={hold_s} is shorter than max(settle_s, "
+                                f"{BODY_WINDOW_START_S}) + {BODY_MIN_WINDOW_S} = {need}; the body-yaw window "
+                                f"[{BODY_WINDOW_START_S}, hold_s) would be shorter than {BODY_MIN_WINDOW_S} s")
+        if grid:
+            import torch  # noqa: PLC0415 -- the math module already needs it
+            t = [torch.tensor([float(x)], dtype=torch.float64) for x in (h.vx, h.vy, h.wz)]
+            masks = mm.body_cmd_violation_masks(*t, envelope, ellipse, floor)
+            if bool(masks["nonfinite"][0]) or bool(masks["speed"][0]):
+                raise ManifestError(f"scenario {sid!r} grid cell {label!r}: ({h.vx}, {h.vy}, {h.wz}) has a speed "
+                                    f"outside {{0}} U [{floor}, ellipse cap] -- the grid probes wz, not speed")
+            continue
+        bad = mm.body_cmd_violations(h.vx, h.vy, h.wz, envelope, ellipse, floor)
+        if bad:
+            raise ManifestError(f"scenario {sid!r} hold {label!r}: ({h.vx}, {h.vy}, {h.wz}) is outside the body "
+                                f"envelope: {list(bad)} (only a 'kind: {GRID_KIND}' row may probe beyond it)")
+    if scenario.spawn_yaw is not None:
+        scenario.spawn_yaw_rad()  # raises on a bad spelling
+    if scenario.episode_length_s is not None and scenario.episode_length_s < scenario.total_duration_s:
+        raise ManifestError(f"scenario {sid!r}: episode_length_s={scenario.episode_length_s} is shorter than "
+                            f"prologue + schedule ({scenario.total_duration_s:.2f}s); the last holds would never run.")
+
+
+def body_hold_commands(scenario: Scenario) -> list[dict[str, Any]]:
+    """``[{label, vx, vy, wz, wz_symbol, hold_s}]`` of a v3 row's schedule (the run_meta record)."""
+    return [{"label": h.label, "vx": float(h.vx), "vy": float(h.vy), "wz": float(h.wz), "wz_symbol": h.wz_symbol,
+             "hold_s": float(h.hold_s)} for h in scenario.schedule]
+
+
+def hold_command_speed(hold: Hold) -> float:
+    """A hold's commanded speed: ``speed`` on a world row, ``hypot(vx, vy)`` on a body row."""
+    if hold.is_world:
+        return hold.as_world()[0]
+    return float(math.hypot(float(hold.vx), float(hold.vy)))
 
 
 def _validate_world_scenario(scenario: Scenario) -> None:
@@ -836,6 +1442,10 @@ def _validate_suite(scenario: Scenario) -> None:
 
 def validate_scenario(scenario: Scenario) -> None:
     """Reject manifests that would silently measure something other than what they say."""
+    if scenario.command_route is not None:
+        # A v3 (body-route) row has its own rules; every v1 / v2 row (route None) takes the path below.
+        _validate_v3_scenario(scenario)
+        return
     if scenario.kind not in SCENARIO_KINDS:
         raise ManifestError(f"scenario {scenario.id!r}: unknown kind {scenario.kind!r}")
     if scenario.kind == SUITE_KIND:
@@ -894,7 +1504,14 @@ def compile_schedule(scenario: Scenario, *, dt: float, num_envs: int | None = No
     ``rotate_holds_by_env`` gives env *i* the hold order rotated by *i*, so commanded speed is not
     confounded with position along the course -- on parkour terrain the last hold otherwise always
     lands on the hardest section, and the speed effect and the terrain effect become inseparable.
+
+    A v3 (body-route) row compiles through :func:`_compile_body_route` instead -- ``cmd`` stays all
+    zeros (nothing writes ``vel_command_b`` directly) and ``body_vx/vy/wz`` carry the hook's rows.
     """
+    if scenario.command_route == COMMAND_ROUTE_TERM:
+        if uses_waves(scenario):
+            raise ValueError(f"{scenario.kind} rows compile per wave: use compile_wave")
+        return _compile_body_route(scenario, scenario.schedule, dt=dt, num_envs=num_envs)
     if scenario.kind == SUITE_KIND:
         raise ValueError("category_suite rows compile per wave: use compile_wave")
     if dt <= 0:
@@ -969,17 +1586,63 @@ def compile_schedule(scenario: Scenario, *, dt: float, num_envs: int | None = No
     )
 
 
+def _compile_body_route(scenario: Scenario, schedule: list[Hold], *, dt: float,
+                        num_envs: int | None = None) -> CompiledSchedule:
+    """A v3 timeline (or one wave's two-hold schedule) -> per-step arrays; every env identical.
+
+    The step arithmetic is :func:`compile_schedule`'s (prologue = the first hold's command, one
+    ``round(hold_s / dt)`` block per hold, steady = after ``settle_s``); ``cmd`` is all zeros and the
+    body command lives in ``body_vx/vy/wz`` (float64).
+    """
+    if dt <= 0:
+        raise ValueError("dt must be > 0")
+    n_envs = int(num_envs if num_envs is not None else scenario.episodes)
+    prologue_steps = int(round(float(scenario.get_default("prologue_s")) / dt))
+    settle_steps = int(round(float(scenario.get_default("settle_s")) / dt))
+    hold_steps = [max(1, int(round(h.hold_s / dt))) for h in schedule]
+    total_steps = prologue_steps + sum(hold_steps)
+    segment = np.full(total_steps, -1, dtype=np.int16)
+    steady = np.zeros(total_steps, dtype=bool)
+    body = np.zeros((total_steps, 3), dtype=np.float64)
+    if schedule and prologue_steps > 0:
+        body[:prologue_steps] = schedule[0].as_cmd()
+    cursor = prologue_steps
+    for hold_idx, (hold, n) in enumerate(zip(schedule, hold_steps)):
+        end = cursor + n
+        body[cursor:end] = hold.as_cmd()
+        segment[cursor:end] = hold_idx
+        steady[cursor + min(settle_steps, n):end] = True
+        cursor = end
+
+    def _tile(col: np.ndarray) -> np.ndarray:
+        return np.repeat(col[:, None], n_envs, axis=1)
+
+    return CompiledSchedule(
+        cmd=np.zeros((total_steps, n_envs, 3), dtype=np.float32),
+        segment_id=_tile(segment).astype(np.int16),
+        steady_mask=_tile(steady).astype(bool),
+        delta_yaw=None,
+        n_steps=total_steps,
+        dt=float(dt),
+        hold_labels=[h.label for h in schedule],
+        body_vx=_tile(body[:, 0]),
+        body_vy=_tile(body[:, 1]),
+        body_wz=_tile(body[:, 2]),
+    )
+
+
 # --------------------------------------------------------------------------------------
 # category suites (plan D1/D2/A1): one hold per wave, the waves run back to back in one launch
 # --------------------------------------------------------------------------------------
 def uses_waves(scenario: Scenario) -> bool:
-    """True only for a ``category_suite`` row -- the one predicate the harness loop branches on.
+    """True only for a ``category_suite`` row (or a v3 ``envelope_grid``, a suite of grid cells) -- the
+    one predicate the harness loop branches on.
 
     Every other row (forward, sideways, the legacy omni rows) runs the harness's single-pass loop
     verbatim: no ``env.seed`` call, no extra reset, no re-install (plan D2 -- any env write after
     Kit startup can flip a same-seed eval between two repeatable outcomes).
     """
-    return scenario.kind == SUITE_KIND
+    return scenario.kind == SUITE_KIND or scenario.kind == GRID_KIND
 
 
 def wave_seed(scenario: Scenario, wave: int) -> int:
@@ -998,6 +1661,8 @@ def compile_wave(scenario: Scenario, wave: int, *, dt: float, num_envs: int | No
     """
     if not uses_waves(scenario) or scenario.suite is None:
         raise ValueError(f"compile_wave needs a {SUITE_KIND!r} row; {scenario.id!r} is {scenario.kind!r}")
+    if scenario.command_route == COMMAND_ROUTE_TERM:
+        return _compile_body_wave(scenario, wave, dt=dt, num_envs=num_envs)
     suite = scenario.suite
     union = suite_schedule(suite)
     n_waves = len(union) - 1
@@ -1045,6 +1710,33 @@ def compile_wave(scenario: Scenario, wave: int, *, dt: float, num_envs: int | No
     )
 
 
+def _compile_body_wave(scenario: Scenario, wave: int, *, dt: float, num_envs: int | None = None) -> CompiledSchedule:
+    """:func:`compile_wave` of a v3 suite / grid row: ``[settle (0, 0, 0), hold_wave]``, body arrays."""
+    suite = scenario.suite
+    union = body_suite_schedule(suite)
+    n_waves = len(union) - 1
+    if not 0 <= int(wave) < n_waves:
+        raise ValueError(f"wave {wave} out of range for {scenario.id!r} ({n_waves} waves)")
+    seg = int(wave) + 1
+    part = _compile_body_route(scenario, [union[0], union[seg]], dt=dt, num_envs=num_envs)
+    end = own_hold_end_step(prologue_s=float(scenario.get_default("prologue_s")),
+                            settle_hold_s=suite.settle_hold_s, hold_s=suite.hold_s, dt=dt)
+    if part.n_steps != end:
+        raise ValueError(
+            f"{scenario.id!r} wave {wave}: compiled {part.n_steps} steps but the own-hold survival end is "
+            f"round((prologue + settle + hold)/dt) = {end}; pick durations that are whole steps at dt={dt}"
+        )
+    n_envs = part.segment_id.shape[1]
+    segment_id = np.where(part.segment_id == 1, seg, part.segment_id).astype(np.int16)
+    return CompiledSchedule(
+        cmd=part.cmd, segment_id=segment_id, steady_mask=part.steady_mask, delta_yaw=None,
+        n_steps=part.n_steps, dt=part.dt, hold_labels=[h.label for h in union],
+        wave_of_env=np.full(n_envs, int(wave), dtype=np.int64),
+        hold_of_env=np.full(n_envs, seg, dtype=np.int64),
+        body_vx=part.body_vx, body_vy=part.body_vy, body_wz=part.body_wz,
+    )
+
+
 def stack_waves(parts: list[CompiledSchedule]) -> CompiledSchedule:
     """Concatenate per-wave schedules along the env axis: env ``wave * E + e`` is wave ``wave``'s env ``e``.
 
@@ -1054,15 +1746,26 @@ def stack_waves(parts: list[CompiledSchedule]) -> CompiledSchedule:
     if not parts:
         raise ValueError("stack_waves needs at least one wave")
     first = parts[0]
+    body = first.body_vx is not None
     for k, part in enumerate(parts):
         if part.n_steps != first.n_steps or part.dt != first.dt or part.hold_labels != first.hold_labels:
             raise ValueError(f"wave {k} does not share n_steps/dt/hold_labels with wave 0")
-        if part.wave_of_env is None or part.hold_of_env is None or part.world_dir is None:
+        # A legacy wave carries the world arrays, a v3 wave the body ones -- never a mix.
+        frame_ok = (part.body_vx is not None and part.world_dir is None) if body else (part.world_dir is not None)
+        if part.wave_of_env is None or part.hold_of_env is None or not frame_ok:
             raise ValueError(f"wave {k} is not a compile_wave schedule")
 
     def _cat(name: str) -> np.ndarray:
         return np.concatenate([getattr(p, name) for p in parts], axis=1)
 
+    if body:
+        return CompiledSchedule(
+            cmd=_cat("cmd"), segment_id=_cat("segment_id"), steady_mask=_cat("steady_mask"), delta_yaw=None,
+            n_steps=first.n_steps, dt=first.dt, hold_labels=list(first.hold_labels),
+            wave_of_env=np.concatenate([p.wave_of_env for p in parts]),
+            hold_of_env=np.concatenate([p.hold_of_env for p in parts]),
+            body_vx=_cat("body_vx"), body_vy=_cat("body_vy"), body_wz=_cat("body_wz"),
+        )
     return CompiledSchedule(
         cmd=_cat("cmd"),
         segment_id=_cat("segment_id"),

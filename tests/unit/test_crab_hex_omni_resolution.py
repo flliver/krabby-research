@@ -468,7 +468,8 @@ def test_block_mean_drops_a_missing_member_not_the_whole_draw():
 
 def test_required_carry_keys_are_the_five_without_a_default():
     req = res.required_carry_keys()
-    assert set(req) == set(res.rp.EVAL_CARRY) - set(res.rp.EVAL_CARRY_DEFAULTS)
+    # 2026-10-15: the body-only envelope keys (no default, refused in a world eval) are never required.
+    assert set(req) == set(res.rp.EVAL_CARRY) - set(res.rp.EVAL_CARRY_DEFAULTS) - set(res.rp.EVAL_CARRY_BODY_ONLY)
     assert len(req) == 5
     assert "KRABBY_OMNI_FACING_OBS_ENCODING" not in req    # defaulted -> not required
     assert "KRABBY_OMNI_ANG_VEL_CLIP" not in req
@@ -1814,7 +1815,8 @@ def test_the_shipped_d00_is_reproduced_bit_for_bit_from_the_frozen_v1_spec():
     # in each input's ``env_vars_defaulted`` provenance list and nowhere else. No number moves; the
     # names are dropped here so the pin still covers every number and every other field. The
     # clock-hide default (2026-09-23) is the same case.
-    added = set(MOTION_CARRY_DEFAULTS) | set(CLOCK_CARRY_DEFAULTS)
+    # 2026-10-15 (body-command campaign step 2): the frame default KRABBY_OMNI_COMMAND_FRAME=world, the same case.
+    added = set(MOTION_CARRY_DEFAULTS) | set(CLOCK_CARRY_DEFAULTS) | {"KRABBY_OMNI_COMMAND_FRAME"}
     for inp in out.get("inputs") or []:
         if "env_vars_defaulted" in inp:
             inp["env_vars_defaulted"] = [k for k in inp["env_vars_defaulted"] if k not in added]
