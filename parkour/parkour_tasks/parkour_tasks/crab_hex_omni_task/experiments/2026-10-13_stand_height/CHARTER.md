@@ -393,3 +393,8 @@ the user's.**
   commanded path stays on field tiles, fail-closed; every visited tile recorded), `--table-start 0.635:knee_folded`
   (the K3 table and pose; crab_failure disabled for the video, falls recorded by the K3 clauses), plans `tour`
   (221.4 s) and `tour_smoke` (64.5 s). 334 CPU tests; hashes unchanged. Read by no gate.
+- 2026-10-15, **tour video `sh_tour_T17` (SH_T17, medium field, 25-in table start; `video_sh_tour_T17_sanity.json`):**
+  221.4 s, rc 0, 0 falls (max tilt 0.24 rad), table get-up stood at 3.0 s; 7 / 7 stand heights arrived (window error
+  2.6–16 mm; the 1.346 stands on rough ground 12–16 mm), 6 / 7 homed at the end (the 0.719 stand after `back` ended
+  with one cam 2.7 rad off home on 4 loaded feet); 5 / 5 restores completed; turn_l90 reached 84°, move_turn_l 64°;
+  fwd 0.27 m/s; tiles crossed omni_field_dense (blocks ≤ 9 cm), border 0. Video only, read by no gate.

@@ -1,0 +1,2965 @@
+{
+ "mode": "sequence",
+ "kind": "sh_stand_height_video",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+ "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+ "stand_checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T17/model_5000.pt",
+ "stand_checkpoint_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+ "stand_mask": 1,
+ "residual_deadband": 0.25,
+ "controller": "stand_net",
+ "restore": "armed",
+ "controller_record": {
+  "dt": 0.02,
+  "rate_m_s": 0.08,
+  "h_min": 0.719,
+  "h_max": 1.346,
+  "engage_m": 0.02,
+  "rod_tol_m": 0.008,
+  "settle_steps": 10,
+  "timeout_s": 5.312500000000001,
+  "timeout_steps": 266,
+  "restore": "armed"
+ },
+ "clip": {
+  "harness_clip_actions": 4.8,
+  "s1_clamp": 1.0,
+  "residual_clamp": 1.0,
+  "stand_rod_clamp": 4.8,
+  "stand_cam_clamp": 1.0,
+  "stand_action": "q18(h_lim) + deadband(clamp(a_net, +-1), 0.25 on hip / knee), rods +-4.8, cams +-1",
+  "s1_action": "clamp(S1, +-1)",
+  "residual_deadband": 0.25,
+  "residual_deadband_rule": "after the +-1 clamp, before + q, hip / knee columns 6-17 only (cams never): r <- r if |r| >= deadband else 0 (hard); 0 = off"
+ },
+ "provenance": {
+  "sh_core_sha256": "5661a4b3155f56fe0ec01155daefdb264883ea392450eeecb876714f13c27576",
+  "sh_kin_sha256": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f",
+  "sn_common_sha256": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93",
+  "restance_sha256": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4",
+  "facts_json_sha256": "c7c4acf777683ecb743d7a1c97c813ebb424cc2ddd07268b84d25f5108587a94",
+  "stand_net_ckpt": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/stand_net/model_4000.pt",
+  "stand_net_sha256": "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff",
+  "restance_d3": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+  "h_settled": 1.064,
+  "h_min": 0.719,
+  "h_max": 1.346,
+  "height_obs_scale": 0.4,
+  "height_col": 15,
+  "rate_m_s": 0.08,
+  "restore_zero_cols": [
+   5,
+   8,
+   9,
+   10
+  ],
+  "restore_engage_m": 0.02,
+  "restore_rod_tol_m": 0.008,
+  "restore_settle_s": 0.2,
+  "restore_timeout_s": 5.312500000000001,
+  "q_grid_step_m": 0.0005,
+  "q_snap_m": 1e-06,
+  "clip": {
+   "harness_clip_actions": 4.8,
+   "s1_clamp": 1.0,
+   "residual_clamp": 1.0,
+   "stand_rod_clamp": 4.8,
+   "stand_cam_clamp": 1.0,
+   "stand_action": "q18(h_lim) + deadband(clamp(a_net, +-1), 0.25 on hip / knee), rods +-4.8, cams +-1",
+   "s1_action": "clamp(S1, +-1)",
+   "residual_deadband": 0.25,
+   "residual_deadband_rule": "after the +-1 clamp, before + q, hip / knee columns 6-17 only (cams never): r <- r if |r| >= deadband else 0 (hard); 0 = off"
+  },
+  "residual_deadband_probe": 0.25
+ },
+ "caption_tags": {
+  "stand_tag": "SH_T17 s17 db0.25",
+  "s1_tag": "S1 s18",
+  "label": "S1 s18 + stand-height net SH_T17 s17 db0.25",
+  "stand_tag_source": "stand checkpoint infos.sh_dagger",
+  "label_source": "derived from the loaded checkpoints"
+ },
+ "build": {
+  "rng_restored": true,
+  "latch_preexisting": false,
+  "wrapper_clip_before": 1.0,
+  "wrapper_clip_realised": 4.8,
+  "estimator_equals_s1": true,
+  "trained_stand_mask": 1,
+  "stand_ckpt_kind": "sh_dagger",
+  "trained_beside_s1_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+  "actor_params_equal_file": true,
+  "trained_residual_deadband": 0.25,
+  "deadband_parity": {
+   "evaluated": 0.25,
+   "trained": 0.25,
+   "note": null
+  },
+  "sh_dagger_arm": "mask",
+  "sh_dagger_seed": 17,
+  "sh_dagger_iterations": 5000,
+  "trim_branch": true,
+  "trim_min": 0.0999
+ },
+ "forward": "act_inference(sh_core.stand_net_input(obs, stand_estimator, mask, h_cmd_limited, restoring), hist_encoding=True)",
+ "routing": {
+  "rule": "--stand-rule schedule: the schedule's stand holds | H6 restore (sh_core.HeightController.step: stand_eff = routed slot | restoring)",
+  "stand_rule": "schedule",
+  "stand_rule_text": "schedule: a hold is STAND iff speed == 0 and its face equals the previous hold's face (hold 0: the spawn-yaw pin); the prologue takes hold 0's flag; stand[t] = flag[segment_id[t]] -- on every row the video accepts these are exactly the 'stand'-labelled holds (the explicit stand command; tour_row_reasons / height_row_reasons)",
+  "routed_steps": 3890,
+  "stand_eff_steps": 4898,
+  "restoring_steps": 1008,
+  "steps": 11070,
+  "route_mismatch_steps": 0,
+  "exec_checked_steps": 11070,
+  "exec_mismatch_steps": 0,
+  "schedule_vs_slot_disagree_steps": 1000,
+  "holds_where_slot_disagrees": [
+   "stand",
+   "stand"
+  ],
+  "segments_where_slot_disagrees": [
+   13,
+   16
+  ],
+  "predicted_eval_turn_stands": [
+   "13:stand",
+   "16:stand"
+  ],
+  "eval_slot_prediction": "sn_video_core.eval_slot_stand_flags: fall-free, each face reached before the next",
+  "resets_rederived": 1
+ },
+ "height_summary": {
+  "n_stand_holds": 7,
+  "arrived": 7,
+  "window_median_abs_err_m": [
+   0.0026170716285705,
+   0.0069545822938283375,
+   0.004265284379323275,
+   0.005443819602330535,
+   0.016252473831176673,
+   0.0034424183368683137,
+   0.012309566974639807
+  ],
+  "homed_at_end": 6,
+  "falls_in_stands": 0,
+  "restores": {
+   "engaged": 5,
+   "completed": 5,
+   "timed_out": 0
+  },
+  "events_all": {
+   "engaged": 5,
+   "completed": 5,
+   "timed_out": 0,
+   "merged": 0,
+   "reset_cut": 0
+  },
+  "deadband_zeroed_entries": 56694,
+  "per_stand": [
+   {
+    "hold": "stand",
+    "segment": 0,
+    "hold_s": 12.0,
+    "rows": 600,
+    "h_cmd": 1.064,
+    "arrival_s": 1.58,
+    "slack_s": 10.42,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0026170716285705,
+     "max_abs_err_m": 0.002622416178385434,
+     "feet_min": 5
+    },
+    "h_meas_end": 1.0666167736053467,
+    "feet_end": 5,
+    "homing": {
+     "rows": 600,
+     "cam_max_end_rad": 0.02538132667541504,
+     "homed_at_end": true,
+     "settle_s": 0.0,
+     "settled": true,
+     "cam_max_last5s_rad": 0.02538132667541504,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 7200
+   },
+   {
+    "hold": "stand",
+    "segment": 2,
+    "hold_s": 10.4,
+    "rows": 520,
+    "h_cmd": 0.719,
+    "arrival_s": 4.3,
+    "slack_s": 6.1000000000000005,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0069545822938283375,
+     "max_abs_err_m": 0.006955704847971589,
+     "feet_min": 5
+    },
+    "h_meas_end": 0.7259552478790283,
+    "feet_end": 5,
+    "homing": {
+     "rows": 520,
+     "cam_max_end_rad": 0.00827932357788086,
+     "homed_at_end": true,
+     "settle_s": 3.04,
+     "settled": true,
+     "cam_max_last5s_rad": 0.00827932357788086,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5534
+   },
+   {
+    "hold": "stand",
+    "segment": 3,
+    "hold_s": 13.9,
+    "rows": 695,
+    "h_cmd": 1.346,
+    "arrival_s": 7.82,
+    "slack_s": 6.08,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.004265284379323275,
+     "max_abs_err_m": 0.004266933441162024,
+     "feet_min": 5
+    },
+    "h_meas_end": 1.350266734759013,
+    "feet_end": 5,
+    "homing": {
+     "rows": 695,
+     "cam_max_end_rad": 0.012245416641235352,
+     "homed_at_end": true,
+     "settle_s": 0.0,
+     "settled": true,
+     "cam_max_last5s_rad": 0.012276411056518555,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 8340
+   },
+   {
+    "hold": "stand",
+    "segment": 7,
+    "hold_s": 10.4,
+    "rows": 520,
+    "h_cmd": 0.719,
+    "arrival_s": 4.3,
+    "slack_s": 6.1000000000000005,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.005443819602330535,
+     "max_abs_err_m": 0.006342449029286712,
+     "feet_min": 4
+    },
+    "h_meas_end": 0.7126575509707133,
+    "feet_end": 4,
+    "homing": {
+     "rows": 520,
+     "cam_max_end_rad": 2.657111406326294,
+     "homed_at_end": false,
+     "settle_s": null,
+     "settled": false,
+     "cam_max_last5s_rad": 2.657111406326294,
+     "homed_last5s": false
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5754
+   },
+   {
+    "hold": "stand",
+    "segment": 10,
+    "hold_s": 9.6,
+    "rows": 480,
+    "h_cmd": 1.346,
+    "arrival_s": 3.52,
+    "slack_s": 6.08,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.016252473831176673,
+     "max_abs_err_m": 0.016301349639892493,
+     "feet_min": 4
+    },
+    "h_meas_end": 1.36225159962972,
+    "feet_end": 4,
+    "homing": {
+     "rows": 480,
+     "cam_max_end_rad": 0.011007308959960938,
+     "homed_at_end": true,
+     "settle_s": 4.18,
+     "settled": true,
+     "cam_max_last5s_rad": 0.018019676208496094,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5320
+   },
+   {
+    "hold": "stand",
+    "segment": 13,
+    "hold_s": 10.4,
+    "rows": 520,
+    "h_cmd": 0.719,
+    "arrival_s": 4.3,
+    "slack_s": 6.1000000000000005,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0034424183368683137,
+     "max_abs_err_m": 0.0034464217821756904,
+     "feet_min": 6
+    },
+    "h_meas_end": 0.7224449316660563,
+    "feet_end": 6,
+    "homing": {
+     "rows": 520,
+     "cam_max_end_rad": 0.01587390899658203,
+     "homed_at_end": true,
+     "settle_s": 1.12,
+     "settled": true,
+     "cam_max_last5s_rad": 0.016318321228027344,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 6070
+   },
+   {
+    "hold": "stand",
+    "segment": 16,
+    "hold_s": 9.6,
+    "rows": 480,
+    "h_cmd": 1.346,
+    "arrival_s": 3.52,
+    "slack_s": 6.08,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.012309566974639807,
+     "max_abs_err_m": 0.01244282309214273,
+     "feet_min": 4
+    },
+    "h_meas_end": 1.3582673072814941,
+    "feet_end": 4,
+    "homing": {
+     "rows": 480,
+     "cam_max_end_rad": 0.0272829532623291,
+     "homed_at_end": true,
+     "settle_s": 3.84,
+     "settled": true,
+     "cam_max_last5s_rad": 0.028309106826782227,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5480
+   }
+  ],
+  "per_restore": [
+   {
+    "hold": "fwd",
+    "segment": 1,
+    "engaged": 0,
+    "completed": 0,
+    "timed_out": 0,
+    "restoring_s": 0.0,
+    "completed_at_s": null
+   },
+   {
+    "hold": "fwd",
+    "segment": 4,
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 3.72,
+    "completed_at_s": 3.72
+   },
+   {
+    "hold": "lat_r",
+    "segment": 8,
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 4.5,
+    "completed_at_s": 4.5
+   },
+   {
+    "hold": "turn_l90",
+    "segment": 11,
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 3.72,
+    "completed_at_s": 3.72
+   },
+   {
+    "hold": "move_turn_l",
+    "segment": 14,
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 4.5,
+    "completed_at_s": 4.5
+   },
+   {
+    "hold": "fwd",
+    "segment": 17,
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 3.72,
+    "completed_at_s": 3.72
+   }
+  ]
+ },
+ "reference_run_meta": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SH_T17/hraise__omni/seed001/2026-10-15_00-26-16/run_meta.json",
+ "reference_scenario_id": "hraise__omni",
+ "reference_checks": {
+  "reference_variant": {
+   "reference": "stand_height",
+   "here": "stand_height"
+  },
+  "control": {
+   "reference": "stand_net",
+   "here": "stand_net"
+  },
+  "restore": {
+   "reference": "armed",
+   "here": "armed"
+  },
+  "stand_mask": {
+   "reference": 1,
+   "here": 1
+  },
+  "residual_deadband": {
+   "reference": 0.25,
+   "here": 0.25
+  },
+  "stand_ckpt_sha256": {
+   "reference": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+   "here": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e"
+  },
+  "s1_ckpt_sha256": {
+   "reference": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+   "here": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c"
+  },
+  "harness_sha256": {
+   "reference": "342339cc7bbbb8fbe491a7bd99734c04991dbda7acadcdc47c24a80b9c263137",
+   "here": "342339cc7bbbb8fbe491a7bd99734c04991dbda7acadcdc47c24a80b9c263137"
+  },
+  "sh_launcher_sha256": {
+   "reference": "d5c6bc7f8e30fbb0d291fb8dc9a756c614a5f93594a24ab58f13ce5d5ef91fc3",
+   "here": "d5c6bc7f8e30fbb0d291fb8dc9a756c614a5f93594a24ab58f13ce5d5ef91fc3"
+  },
+  "sh_eval_common_sha256": {
+   "reference": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd",
+   "here": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd"
+  },
+  "p2r_launcher_sha256": {
+   "reference": "5953930142697401baef707da3b438926cce855a0113e97af2e6aacd7ba817f3",
+   "here": "5953930142697401baef707da3b438926cce855a0113e97af2e6aacd7ba817f3"
+  },
+  "sh_core_sha256": {
+   "reference": "5661a4b3155f56fe0ec01155daefdb264883ea392450eeecb876714f13c27576",
+   "here": "5661a4b3155f56fe0ec01155daefdb264883ea392450eeecb876714f13c27576"
+  },
+  "sh_kin_sha256": {
+   "reference": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f",
+   "here": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f"
+  },
+  "sn_common_sha256": {
+   "reference": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93",
+   "here": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93"
+  },
+  "restance_sha256": {
+   "reference": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4",
+   "here": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4"
+  },
+  "facts_json_sha256": {
+   "reference": "c7c4acf777683ecb743d7a1c97c813ebb424cc2ddd07268b84d25f5108587a94",
+   "here": "c7c4acf777683ecb743d7a1c97c813ebb424cc2ddd07268b84d25f5108587a94"
+  },
+  "forward": {
+   "reference": "act_inference(sh_core.stand_net_input(obs, stand_estimator, mask, h_cmd_limited, restoring), hist_encoding=True)",
+   "here": "act_inference(sh_core.stand_net_input(obs, stand_estimator, mask, h_cmd_limited, restoring), hist_encoding=True)"
+  },
+  "hist_encoding": {
+   "reference": true,
+   "here": true
+  },
+  "mask_fn": {
+   "reference": "crab_hex_omni_restance.stand_mask_obs",
+   "here": "crab_hex_omni_restance.stand_mask_obs"
+  }
+ },
+ "reference_mismatch": {},
+ "task": "Isaac-Crab-Hex-Omni-Walk-Play-v0",
+ "row_id": "sh_tour__omni",
+ "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/videos/scenarios_sh_video_tour.yaml",
+ "manifest_sha256": "935bb4851b1e978dc8f78100a5b77ffddcea6985840f5abedbf06170e1e06e67",
+ "reference_row": "hraise__omni",
+ "reference_row_manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scenarios_sh.yaml",
+ "terrain_label": "flat",
+ "manifest_holds": [
+  {
+   "label": "stand",
+   "hold_s": 12.0
+  },
+  {
+   "label": "fwd",
+   "hold_s": 21.0
+  },
+  {
+   "label": "stand",
+   "hold_s": 10.4
+  },
+  {
+   "label": "stand",
+   "hold_s": 13.9
+  },
+  {
+   "label": "fwd",
+   "hold_s": 14.6
+  },
+  {
+   "label": "lat_l",
+   "hold_s": 10.0
+  },
+  {
+   "label": "back",
+   "hold_s": 10.0
+  },
+  {
+   "label": "stand",
+   "hold_s": 10.4
+  },
+  {
+   "label": "lat_r",
+   "hold_s": 15.4
+  },
+  {
+   "label": "diag",
+   "hold_s": 10.0
+  },
+  {
+   "label": "stand",
+   "hold_s": 9.6
+  },
+  {
+   "label": "turn_l90",
+   "hold_s": 14.6
+  },
+  {
+   "label": "turn_r90",
+   "hold_s": 10.0
+  },
+  {
+   "label": "stand",
+   "hold_s": 10.4
+  },
+  {
+   "label": "move_turn_l",
+   "hold_s": 15.4
+  },
+  {
+   "label": "move_turn_r",
+   "hold_s": 10.0
+  },
+  {
+   "label": "stand",
+   "hold_s": 9.6
+  },
+  {
+   "label": "fwd",
+   "hold_s": 12.6
+  }
+ ],
+ "validator": "pass",
+ "height_row": {
+  "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/videos/scenarios_sh_video_tour.yaml",
+  "manifest_sha256": "935bb4851b1e978dc8f78100a5b77ffddcea6985840f5abedbf06170e1e06e67",
+  "scenario": "sh_tour__omni",
+  "labels": [
+   "stand",
+   "fwd",
+   "stand",
+   "stand",
+   "fwd",
+   "lat_l",
+   "back",
+   "stand",
+   "lat_r",
+   "diag",
+   "stand",
+   "turn_l90",
+   "turn_r90",
+   "stand",
+   "move_turn_l",
+   "move_turn_r",
+   "stand",
+   "fwd"
+  ],
+  "hold_heights": [
+   1.064,
+   null,
+   0.719,
+   1.346,
+   null,
+   null,
+   null,
+   0.719,
+   null,
+   null,
+   1.346,
+   null,
+   null,
+   0.719,
+   null,
+   null,
+   1.346,
+   null
+  ],
+  "gates": [],
+  "rules": "tour",
+  "block": "stand_height_video"
+ },
+ "env_vars": {
+  "KRABBY_ACTION_LPF_HZ": "0",
+  "KRABBY_ACTION_LPF_OBS": "0",
+  "KRABBY_APEX_W": "1.0",
+  "KRABBY_CLOCK_W": "1.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "field",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_LIN_VEL_X": "0.0:0.35",
+  "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
+  "KRABBY_OMNI_ANG_VEL_MAX": "0.3",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CLOCK_TURN_R": "1.2",
+  "KRABBY_OMNI_CMD_OBS": "0",
+  "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+  "KRABBY_OMNI_FACING_OBS_ENCODING": "raw",
+  "KRABBY_OMNI_RELAY_HYST": "0",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_OMNI_STAND_HOLD": "0",
+  "KRABBY_OMNI_STAND_OBS": "0",
+  "KRABBY_OMNI_STAND_PARK": "0",
+  "KRABBY_OMNI_YAW_RANGE": "-3.14159:3.14159",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PLAY_DEBUG_VIS": "0",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TRACK_L1_W": "-1.0",
+  "KRABBY_TRACK_SIGMA2": "0.1",
+  "KRABBY_FLAT_TERRAIN_MODE": "light",
+  "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.0",
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:0.70",
+  "KRABBY_FIELD_PAD_R": "1.7",
+  "KRABBY_FIELD_BLOCKS": "14:28",
+  "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+  "KRABBY_FIELD_EDGES": "wall"
+ },
+ "reference_env_vars": {
+  "KRABBY_ACTION_LPF_HZ": "0",
+  "KRABBY_ACTION_LPF_OBS": "0",
+  "KRABBY_APEX_W": "1.0",
+  "KRABBY_CLOCK_W": "1.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "ring",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_LIN_VEL_X": "0.0:0.35",
+  "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
+  "KRABBY_OMNI_ANG_VEL_MAX": "0.3",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CLOCK_TURN_R": "1.2",
+  "KRABBY_OMNI_CMD_OBS": "0",
+  "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+  "KRABBY_OMNI_FACING_OBS_ENCODING": "raw",
+  "KRABBY_OMNI_RELAY_HYST": "0",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_OMNI_STAND_HOLD": "0",
+  "KRABBY_OMNI_STAND_OBS": "0",
+  "KRABBY_OMNI_STAND_PARK": "0",
+  "KRABBY_OMNI_YAW_RANGE": "-3.14159:3.14159",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PLAY_DEBUG_VIS": "0",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TRACK_L1_W": "-1.0",
+  "KRABBY_TRACK_SIGMA2": "0.1"
+ },
+ "env_overrides": {
+  "seed": 1,
+  "episode_length_s": 223.4,
+  "freeze_terrain_levels": true,
+  "spawn_yaw_pin": 0.0
+ },
+ "terrain": {
+  "terrain": "field_medium",
+  "env_block": {
+   "KRABBY_FLAT_TERRAIN_MODE": "light",
+   "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.0",
+   "KRABBY_FLAT_TERRAIN_GEOM": "field",
+   "KRABBY_FLAT_TERRAIN_DIFF": "0.20:0.70",
+   "KRABBY_FIELD_PAD_R": "1.7",
+   "KRABBY_FIELD_BLOCKS": "14:28",
+   "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+   "KRABBY_FIELD_EDGES": "wall"
+  },
+  "source": {
+   "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "rows": [
+    "field_turn__omni",
+    "field_suite__omni"
+   ],
+   "manifest_sha256": "aaf39ffda42c61bad2c1464f2a9c3cb136e074d0efccffa50a1cc930c408421f"
+  },
+  "deviation": {
+   "KRABBY_FLAT_TERRAIN_MODE": {
+    "reference": null,
+    "video": "light"
+   },
+   "KRABBY_FLAT_TERRAIN_FLAT_FRAC": {
+    "reference": null,
+    "video": "0.0"
+   },
+   "KRABBY_FLAT_TERRAIN_GEOM": {
+    "reference": "ring",
+    "video": "field"
+   },
+   "KRABBY_FLAT_TERRAIN_DIFF": {
+    "reference": null,
+    "video": "0.20:0.70"
+   },
+   "KRABBY_FIELD_PAD_R": {
+    "reference": null,
+    "video": "1.7"
+   },
+   "KRABBY_FIELD_BLOCKS": {
+    "reference": null,
+    "video": "14:28"
+   },
+   "KRABBY_FIELD_KINDS": {
+    "reference": null,
+    "video": "0.4:0.4:0.2"
+   },
+   "KRABBY_FIELD_EDGES": {
+    "reference": null,
+    "video": "wall"
+   }
+  },
+  "note": "the reference stamp's env + the field_turn__omni / field_suite__omni env block, written before Kit (a deliberate deviation for the video; every other reference check unchanged)",
+  "terrain_mesh": {
+   "key": "/World/ground",
+   "n_points": 3170495,
+   "z_min": -1.0,
+   "z_max": 0.10000000149011612,
+   "z_range_m": 1.100000023841858
+  },
+  "field": {
+   "placement": {
+    "grid": {
+     "size": [
+      10.0,
+      10.0
+     ],
+     "num_rows": 10,
+     "num_cols": 20,
+     "border_width": 20.0
+    },
+    "commanded_extent_m": {
+     "x_min": 0.0,
+     "x_max": 17.20576703799147,
+     "y_min": -1.1880001021024542,
+     "y_max": 2.1999999999999993
+    },
+    "hold_end_offsets_m": [
+     [
+      0.0,
+      0.0
+     ],
+     [
+      5.25,
+      0.0
+     ],
+     [
+      5.25,
+      0.0
+     ],
+     [
+      5.25,
+      0.0
+     ],
+     [
+      8.9,
+      0.0
+     ],
+     [
+      8.9,
+      2.2
+     ],
+     [
+      6.7,
+      2.2
+     ],
+     [
+      6.7,
+      2.2
+     ],
+     [
+      6.7,
+      -1.188
+     ],
+     [
+      8.467767,
+      0.579767
+     ],
+     [
+      8.467767,
+      0.579767
+     ],
+     [
+      8.467767,
+      0.579767
+     ],
+     [
+      8.467767,
+      0.579767
+     ],
+     [
+      8.467767,
+      0.579767
+     ],
+     [
+      11.855767,
+      0.579767
+     ],
+     [
+      14.055767,
+      0.579767
+     ],
+     [
+      14.055767,
+      0.579767
+     ],
+     [
+      17.205767,
+      0.579767
+     ]
+    ],
+    "tiles_needed": {
+     "ahead": 2,
+     "behind": 0,
+     "left": 0,
+     "right": 0,
+     "margin_m": 2.0
+    },
+    "spawn_col": 0,
+    "max_init_terrain_level": {
+     "before": null,
+     "set": 7
+    },
+    "generator": {
+     "curriculum": false,
+     "difficulty_range": [
+      0.2,
+      0.7
+     ],
+     "seed": null,
+     "sub_terrain_proportions": {
+      "parkour_flat": 0.0,
+      "omni_field_sparse": 0.5,
+      "omni_field_dense": 0.5
+     }
+    },
+    "note": "the commanded path (+ margin) in tiles from the spawn tile's centre; the spawn row capped so that many field rows lie ahead (+x); each tile draws its own difficulty in the band (curriculum off)"
+   },
+   "realised": {
+    "spawn_tile": [
+     0,
+     0
+    ],
+    "env_origin_xy": [
+     -45.0,
+     -95.0
+    ],
+    "robot_spawn_xy": [
+     -45.0,
+     -95.0
+    ],
+    "path_box_xy": [
+     -47.0,
+     -25.79423296200853,
+     -98.18800010210245,
+     -90.8
+    ],
+    "path_tiles": {
+     "0,0": {
+      "tile": [
+       0,
+       0
+      ],
+      "name": "omni_field_dense",
+      "max_height_m": 0.09,
+      "min_height_m": -0.085,
+      "mean_abs_height_m": 0.017404257999496096,
+      "block_cover": 0.1618795666414714
+     },
+     "1,0": {
+      "tile": [
+       1,
+       0
+      ],
+      "name": "omni_field_dense",
+      "max_height_m": 0.09,
+      "min_height_m": -0.09,
+      "mean_abs_height_m": 0.017198916603678508,
+      "block_cover": 0.16156462585034015
+     },
+     "2,0": {
+      "tile": [
+       2,
+       0
+      ],
+      "name": "omni_field_dense",
+      "max_height_m": 0.075,
+      "min_height_m": -0.07,
+      "mean_abs_height_m": 0.013793776769967247,
+      "block_cover": 0.14934492315444697
+     }
+    },
+    "names": {
+     "0,0": "omni_field_dense",
+     "1,0": "omni_field_dense",
+     "2,0": "omni_field_dense"
+    }
+   },
+   "visits": {
+    "tiles": {
+     "0,0": 1606,
+     "1,0": 9464
+    },
+    "border_steps": 0,
+    "steps": 11070
+   },
+   "visited_tiles": {
+    "0,0": {
+     "tile": [
+      0,
+      0
+     ],
+     "name": "omni_field_dense",
+     "max_height_m": 0.09,
+     "min_height_m": -0.085,
+     "mean_abs_height_m": 0.017404257999496096,
+     "block_cover": 0.1618795666414714,
+     "steps": 1606
+    },
+    "1,0": {
+     "tile": [
+      1,
+      0
+     ],
+     "name": "omni_field_dense",
+     "max_height_m": 0.09,
+     "min_height_m": -0.09,
+     "mean_abs_height_m": 0.017198916603678508,
+     "block_cover": 0.16156462585034015,
+     "steps": 9464
+    }
+   },
+   "border_steps": 0,
+   "flat_tile_steps": 0,
+   "off_field_share": 0.0,
+   "per_hold_rule": "each segment's terrain_tiles: steps per tile of the post-step root (x, y)"
+  },
+  "terrain_label_note": "the row's terrain_label is the reference row's (a manifest-consistency check); the realised terrain is this block's (field: where, in 'field')"
+ },
+ "stand_rule": {
+  "rule": "schedule",
+  "text": "schedule: a hold is STAND iff speed == 0 and its face equals the previous hold's face (hold 0: the spawn-yaw pin); the prologue takes hold 0's flag; stand[t] = flag[segment_id[t]] -- on every row the video accepts these are exactly the 'stand'-labelled holds (the explicit stand command; tour_row_reasons / height_row_reasons)",
+  "schedule_flags": [
+   true,
+   false,
+   true,
+   true,
+   false,
+   false,
+   false,
+   true,
+   false,
+   false,
+   true,
+   false,
+   false,
+   true,
+   false,
+   false,
+   true,
+   false
+  ],
+  "eval_slot_flags_predicted": [
+   true,
+   false,
+   true,
+   true,
+   false,
+   false,
+   false,
+   true,
+   false,
+   false,
+   true,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ]
+ },
+ "table_start": {
+  "table": {
+   "top": 0.635,
+   "pose": "knee_folded",
+   "surface": "table_0p635",
+   "cell": "table_0p635__knee_folded",
+   "spawn_h_plan": 0.79875,
+   "h_init_plan": 0.79875,
+   "cmd_min": 0.9450000000000001,
+   "cmd_margin_m": 0.31
+  },
+  "park": false,
+  "plan": {
+   "env": 0,
+   "cell": "table_0p635__knee_folded",
+   "k": 0,
+   "surface": "table_0p635",
+   "start": "table",
+   "top": 0.635,
+   "pose": "knee_folded",
+   "hip_rad": -0.7766715171374766,
+   "knee_left_rad": 1.3552061292286781,
+   "fold_tries": 0,
+   "table_offset": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "spawn_root_rel": 0.79875,
+   "spawn_h_plan": 0.79875,
+   "h_init_plan": 0.79875,
+   "h_cmd": 1.064,
+   "h_cmd_range": [
+    0.9450000000000001,
+    1.346
+   ],
+   "need_s": 8.994736581659652,
+   "sizing": {
+    "rise_to_init_s": 1.1791115816596516,
+    "ramp_s": 3.315625000000001,
+    "rise_to_cmd_s": 3.3160349894884527,
+    "reach_s": 4.4947365816596525,
+    "need_s": 8.994736581659652
+   }
+  },
+  "env_changes": {
+   "crab_failure": {
+    "limit_angle": 0.5,
+    "contact_force_threshold": 500.0,
+    "hip_body_names": [
+     ".*_Hip"
+    ],
+    "sensor": "contact_forces"
+   },
+   "terminations_before": [
+    "crab_failure",
+    "total_terminates"
+   ],
+   "terminations_after": [
+    "total_terminates"
+   ],
+   "reset_events": [
+    "reset_root_state",
+    "reset_robot_joints",
+    "base_external_force_torque",
+    "sh_start"
+   ],
+   "joint_names": [
+    "FL_Body_Hip_RevoluteJoint",
+    "FL_Body_CamShaft_RevoluteJoint",
+    "FR_Body_Hip_RevoluteJoint",
+    "FR_Body_CamShaft_RevoluteJoint",
+    "ML_Body_Hip_RevoluteJoint",
+    "ML_Body_CamShaft_RevoluteJoint",
+    "MR_Body_Hip_RevoluteJoint",
+    "MR_Body_CamShaft_RevoluteJoint",
+    "RL_Body_Hip_RevoluteJoint",
+    "RL_Body_CamShaft_RevoluteJoint",
+    "RR_Body_Hip_RevoluteJoint",
+    "RR_Body_CamShaft_RevoluteJoint",
+    "FL_Hip_Femur_RevoluteJoint",
+    "FR_Hip_Femur_RevoluteJoint",
+    "ML_Hip_Femur_RevoluteJoint",
+    "MR_Hip_Femur_RevoluteJoint",
+    "RL_Hip_Femur_RevoluteJoint",
+    "RR_Hip_Femur_RevoluteJoint",
+    "FL_Femur_Tibia_RevoluteJoint",
+    "FR_Femur_Tibia_RevoluteJoint",
+    "ML_Femur_Tibia_RevoluteJoint",
+    "MR_Femur_Tibia_RevoluteJoint",
+    "RL_Femur_Tibia_RevoluteJoint",
+    "RR_Femur_Tibia_RevoluteJoint"
+   ],
+   "table_cfg": {
+    "size_m": [
+     0.9,
+     0.7,
+     1.0
+    ],
+    "mass_kg": 50.0,
+    "kinematic": true,
+    "prim": "{ENV_REGEX_NS}/ShTable",
+    "material": "RigidBodyMaterialCfg"
+   },
+   "probe": "raycast_mesh:/World/ground"
+  },
+  "start_checks": {
+   "joint_pos_max_err": 1.167874652541201e-08,
+   "root_z_vs_event_err": 0.0,
+   "root_z_vs_floor_plus_plan_err": 1.6689300497141346e-08,
+   "root_xy_from_origin": 0.0,
+   "root_quat_err": 0.0,
+   "table_xy_err": 0.0,
+   "table_z_err": 9.536743172944284e-09,
+   "probe": "raycast_mesh:/World/ground"
+  },
+  "after_step1": {
+   "xy_err_m": 0.0,
+   "z_err_m": 9.536743172944284e-09
+  },
+  "floor_z": 0.020000457763671875,
+  "top_world_z": 0.6550004577636719,
+  "spawn_root_z": 0.8187504410743713,
+  "spawn_lowest_z": 0.6600004434585571,
+  "spawn_h_meas": 0.8164860208829244,
+  "first_stand_h_cmd": 1.064,
+  "first_stand_need": {
+   "rise_to_init_s": 1.339219716694036,
+   "ramp_s": 3.093924738963445,
+   "rise_to_cmd_s": 3.3160349894884527,
+   "reach_s": 4.433144455657481,
+   "need_s": 8.93314445565748,
+   "h_init": 0.8164860208829244,
+   "rule_s": 7.433144455657481
+  },
+  "controller_start": "sh_video_core.table_start_reset: ctl.reset(rows, 'table', h_meas=...) on every episode start (limiter at clamp(h_meas)); height_step's walk reset gets no rows",
+  "arrival_s": 3.1,
+  "stood_s": 3.0,
+  "stood_rule": "one step with root rise >= 0.10 m, >= 4 feet loaded, |h_meas - h_cmd| <= 0.04 m (K3's clauses)",
+  "k3_classify_first_stand": {
+   "stood": true,
+   "stood_5down": true,
+   "stood_6down": false,
+   "reasons": [],
+   "clauses": {
+    "rise": true,
+    "feet4": true,
+    "h_tol": true,
+    "no_fall": true,
+    "not_terminated": true
+   },
+   "rise_only_fail": false,
+   "window_shares": {
+    "rise": 1.0,
+    "feet4": 1.0,
+    "feet5": 1.0,
+    "feet6": 0.0,
+    "h_tol": 1.0
+   },
+   "fall": false,
+   "fall_tilt": false,
+   "fall_hip_contact": false,
+   "fell_off_table": false,
+   "terminated": false,
+   "max_tilt_rad": 0.015548675502455051,
+   "hip_contact_armed_s": 0.02,
+   "hip_contact_pre_arm_steps": 0,
+   "hip_force_pre_arm_max_n": null,
+   "hip_force_armed_max_n": 0.0,
+   "rise_min_window_m": 0.24684911966323853,
+   "rise_end_m": 0.24684995412826538,
+   "rise_corner_min_window_m": 0.24212825298309326,
+   "rise_corner_end_m": 0.24215012788772583,
+   "h_err_window_median_m": 0.0026174491246541143,
+   "h_err_window_p90_m": 0.0026204412778217277,
+   "h_err_window_max_m": 0.0026251182556151775,
+   "h_meas_end_m": 1.0666167736053467,
+   "h_cmd_m": 1.064,
+   "limiter_arrived_s": 3.1,
+   "limiter_arrived_before_window": true,
+   "within_2cm_first_s": 3.14,
+   "lift_off_s": 1.48,
+   "standing_since_s": 3.0,
+   "final_root_z_m": 1.0656003952026367,
+   "final_feet_on_floor": 5,
+   "cam_max_last5_rad": 0.02538132667541504,
+   "homed": true,
+   "settled_s": 0.0,
+   "settled": true,
+   "cams_homed_end": true,
+   "steps": 675
+  },
+  "k3_note": "sh_table_core.classify over the prologue + first stand (its own clauses: the hip contact armed from step 0 on a table start; feet = the video's terrain-relative loaded count) -- reported only",
+  "falls": {
+   "rule": "falls RECORDED, never reset (crab_failure disabled): tilt = arccos(cos tilt) > the env's crab_failure limit_angle on any step; hip contact (max over the crab_failure hip bodies of the contact-history max norm) > its contact_force_threshold on a step once ARMED, armed from the first step whose chassis lowest corner has risen >= 0.10 m above its spawn (sh_table_core.hip_contact_armed's rise latch); a fall event = the first step of a run of fall steps",
+   "tilt_max_rad": 0.5,
+   "contact_n": 500.0,
+   "arm_rise_m": 0.1,
+   "falls": 0,
+   "events": [],
+   "fall_steps": 0,
+   "tilt_fall_steps": 0,
+   "hip_fall_steps": 0,
+   "max_tilt_rad": 0.24114651872804074,
+   "armed_first_s": 2.18,
+   "hip_contact_pre_arm_steps": 0,
+   "hip_force_pre_arm_max_n": 0.0,
+   "hip_force_armed_max_n": 0.0
+  },
+  "tracker_events": [],
+  "tracker_matches_read": true,
+  "resets": 0,
+  "change_step": 675,
+  "parked_step": null,
+  "parked_s": null,
+  "park_clear_m": null,
+  "earlier_parks": []
+ },
+ "harness": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py",
+ "harness_sha256": "342339cc7bbbb8fbe491a7bd99734c04991dbda7acadcdc47c24a80b9c263137",
+ "recorder": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scripts/sh_record_video.py",
+ "recorder_sha256": "6f25c6e8d1a4b6279a5f6c698ce228a0df05d21d6f839e9540647834afdc2d3a",
+ "video_core_sha256": "49d5bd341d769965a8d12fb1ee1f9e2216bd73b79662557e83a1b4c135a00e5b",
+ "sh_eval_common_sha256": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd",
+ "sh_launcher_sha256": "d5c6bc7f8e30fbb0d291fb8dc9a756c614a5f93594a24ab58f13ce5d5ef91fc3",
+ "p2r_launcher_sha256": "5953930142697401baef707da3b438926cce855a0113e97af2e6aacd7ba817f3",
+ "env_seed": 1,
+ "env_seed_note": "env_cfg.seed only (the harness's single pass)",
+ "spawn_yaw_pin": 0.0,
+ "prologue_s": 1.5,
+ "settle_s": 1.0,
+ "holds": [
+  {
+   "segment": 0,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 1.064,
+   "hold_s": 12.0,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 75,
+   "end_step_exclusive": 675,
+   "t0_s": 1.5,
+   "t1_s": 13.5
+  },
+  {
+   "segment": 1,
+   "label": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 21.0,
+   "speed": 0.25,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 675,
+   "end_step_exclusive": 1725,
+   "t0_s": 13.5,
+   "t1_s": 34.5
+  },
+  {
+   "segment": 2,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 0.719,
+   "hold_s": 10.4,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 1725,
+   "end_step_exclusive": 2245,
+   "t0_s": 34.5,
+   "t1_s": 44.9
+  },
+  {
+   "segment": 3,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 1.346,
+   "hold_s": 13.9,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 2245,
+   "end_step_exclusive": 2940,
+   "t0_s": 44.9,
+   "t1_s": 58.800000000000004
+  },
+  {
+   "segment": 4,
+   "label": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 14.6,
+   "speed": 0.25,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 2940,
+   "end_step_exclusive": 3670,
+   "t0_s": 58.800000000000004,
+   "t1_s": 73.4
+  },
+  {
+   "segment": 5,
+   "label": "lat_l",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 10.0,
+   "speed": 0.22,
+   "dir_deg": 89.99999846476551,
+   "face_deg": 0.0,
+   "start_step": 3670,
+   "end_step_exclusive": 4170,
+   "t0_s": 73.4,
+   "t1_s": 83.4
+  },
+  {
+   "segment": 6,
+   "label": "back",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 10.0,
+   "speed": 0.22,
+   "dir_deg": 180.000002659109,
+   "face_deg": 0.0,
+   "start_step": 4170,
+   "end_step_exclusive": 4670,
+   "t0_s": 83.4,
+   "t1_s": 93.4
+  },
+  {
+   "segment": 7,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 0.719,
+   "hold_s": 10.4,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 4670,
+   "end_step_exclusive": 5190,
+   "t0_s": 93.4,
+   "t1_s": 103.8
+  },
+  {
+   "segment": 8,
+   "label": "lat_r",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 15.4,
+   "speed": 0.22,
+   "dir_deg": -89.99999846476551,
+   "face_deg": 0.0,
+   "start_step": 5190,
+   "end_step_exclusive": 5960,
+   "t0_s": 103.8,
+   "t1_s": 119.2
+  },
+  {
+   "segment": 9,
+   "label": "diag",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 10.0,
+   "speed": 0.25,
+   "dir_deg": 45.00000209717174,
+   "face_deg": 0.0,
+   "start_step": 5960,
+   "end_step_exclusive": 6460,
+   "t0_s": 119.2,
+   "t1_s": 129.2
+  },
+  {
+   "segment": 10,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 1.346,
+   "hold_s": 9.6,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 6460,
+   "end_step_exclusive": 6940,
+   "t0_s": 129.2,
+   "t1_s": 138.8
+  },
+  {
+   "segment": 11,
+   "label": "turn_l90",
+   "kind": "turn",
+   "h_cmd": null,
+   "hold_s": 14.6,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 89.99999846476551,
+   "start_step": 6940,
+   "end_step_exclusive": 7670,
+   "t0_s": 138.8,
+   "t1_s": 153.4
+  },
+  {
+   "segment": 12,
+   "label": "turn_r90",
+   "kind": "turn",
+   "h_cmd": null,
+   "hold_s": 10.0,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 7670,
+   "end_step_exclusive": 8170,
+   "t0_s": 153.4,
+   "t1_s": 163.4
+  },
+  {
+   "segment": 13,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 0.719,
+   "hold_s": 10.4,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 8170,
+   "end_step_exclusive": 8690,
+   "t0_s": 163.4,
+   "t1_s": 173.8
+  },
+  {
+   "segment": 14,
+   "label": "move_turn_l",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 15.4,
+   "speed": 0.22,
+   "dir_deg": 0.0,
+   "face_deg": 89.99999846476551,
+   "start_step": 8690,
+   "end_step_exclusive": 9460,
+   "t0_s": 173.8,
+   "t1_s": 189.20000000000002
+  },
+  {
+   "segment": 15,
+   "label": "move_turn_r",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 10.0,
+   "speed": 0.22,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 9460,
+   "end_step_exclusive": 9960,
+   "t0_s": 189.20000000000002,
+   "t1_s": 199.20000000000002
+  },
+  {
+   "segment": 16,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 1.346,
+   "hold_s": 9.6,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 9960,
+   "end_step_exclusive": 10440,
+   "t0_s": 199.20000000000002,
+   "t1_s": 208.8
+  },
+  {
+   "segment": 17,
+   "label": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 12.6,
+   "speed": 0.25,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 10440,
+   "end_step_exclusive": 11070,
+   "t0_s": 208.8,
+   "t1_s": 221.4
+  }
+ ],
+ "n_steps": 11070,
+ "episode_length_s": 223.4,
+ "max_episode_length": 11170,
+ "dt": 0.02,
+ "fps": 50,
+ "arrows": true,
+ "camera": {
+  "eye": [
+   -6.5,
+   -5.2,
+   2.4
+  ],
+  "lookat": [
+   0.0,
+   0.0,
+   0.6
+  ],
+  "origin_type": "asset_root",
+  "resolution": [
+   1280,
+   720
+  ]
+ },
+ "captions": "cv2",
+ "readings": {
+  "h_meas": "sh_core.h_meas(root z, sh_core.terrain_z_under_feet(footpads, mesh, raycast_mesh)), post-step",
+  "feet_loaded": "contact >= 20.0 N and footpad <= 0.15 m above the terrain (sh_dagger_spec; the trainer's probe), post-step",
+  "homed": "every cam |wrap| <= 0.1 rad, post-step"
+ },
+ "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_stand_height/sh_tour_T17_sequence.mp4",
+ "frames_total": 11070,
+ "trace_sha256": "a47eb66c8e96247d0da82a3cc2ba0a6c47b5d02af16d82bdd5e8b6e183b14b4b",
+ "start_state": {
+  "x": -45.0,
+  "y": -95.0,
+  "z": 0.8187504410743713,
+  "heading_deg": 0.0,
+  "episode_length_buf": 0
+ },
+ "schedule_state_max_dev": 0.0,
+ "obs_command_slot_max_dev": 0.0,
+ "falls": [],
+ "peak_rss_gb": 10.06423568725586,
+ "cgroup_peak_gb": 8.675682067871094,
+ "segments": [
+  {
+   "segment": -1,
+   "hold": "prologue",
+   "kind": "stand",
+   "h_cmd": 1.064,
+   "start_step": 0,
+   "end_step_exclusive": 75,
+   "steps": 75,
+   "t0_s": 0.0,
+   "t1_s": 1.5,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 1.5,
+    "dx": 0.00135040283203125,
+    "dy": 0.0021209716796875,
+    "dist": 0.0025143803759165866,
+    "along_dir": 0.00135040283203125,
+    "across_dir": 0.0021209716796875,
+    "mean_speed_along": 0.0009002685546875,
+    "travel_dir_deg": null,
+    "heading_end_deg": 0.009138522136395976,
+    "heading_err_end_deg": 0.009138522136395976
+   },
+   "h_meas_end": 0.8440970977147421,
+   "terrain_tiles": {
+    "tiles": {
+     "0,0": 75
+    },
+    "border_steps": 0,
+    "steps": 75
+   }
+  },
+  {
+   "segment": 0,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 1.064,
+   "start_step": 75,
+   "end_step_exclusive": 675,
+   "steps": 600,
+   "t0_s": 1.5,
+   "t1_s": 13.5,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 12.0,
+    "dx": -0.011486053466796875,
+    "dy": 0.004852294921875,
+    "dist": 0.012468928993741621,
+    "along_dir": -0.011486053466796875,
+    "across_dir": 0.004852294921875,
+    "mean_speed_along": -0.0009571711222330729,
+    "travel_dir_deg": null,
+    "heading_end_deg": -0.033680519906032436,
+    "heading_err_end_deg": -0.033680519906032436
+   },
+   "h_meas_end": 1.0666167736053467,
+   "stand": {
+    "rows": 600,
+    "h_cmd": 1.064,
+    "arrival_s": 1.58,
+    "slack_s": 10.42,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0026170716285705,
+     "max_abs_err_m": 0.002622416178385434,
+     "feet_min": 5
+    },
+    "h_meas_end": 1.0666167736053467,
+    "feet_end": 5,
+    "homing": {
+     "rows": 600,
+     "cam_max_end_rad": 0.02538132667541504,
+     "homed_at_end": true,
+     "settle_s": 0.0,
+     "settled": true,
+     "cam_max_last5s_rad": 0.02538132667541504,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 7200
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "0,0": 600
+    },
+    "border_steps": 0,
+    "steps": 600
+   }
+  },
+  {
+   "segment": 1,
+   "hold": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 675,
+   "end_step_exclusive": 1725,
+   "steps": 1050,
+   "t0_s": 13.5,
+   "t1_s": 34.5,
+   "commanded": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.25000000000553957,
+    "world_dir_deg": 2.152217559651373e-07,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 21.0,
+    "dx": 5.636066436767578,
+    "dy": 0.043182373046875,
+    "dist": 5.636231861536566,
+    "along_dir": 5.636066436767578,
+    "across_dir": 0.043182373046875,
+    "mean_speed_along": 0.2683841160365513,
+    "travel_dir_deg": 0.43897979923810676,
+    "heading_end_deg": -0.45930567569102776,
+    "heading_err_end_deg": -0.45930567569102776
+   },
+   "h_meas_end": 1.0820372104644775,
+   "restore": {
+    "engaged": 0,
+    "completed": 0,
+    "timed_out": 0,
+    "restoring_s": 0.0,
+    "completed_at_s": null
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "0,0": 931,
+     "1,0": 119
+    },
+    "border_steps": 0,
+    "steps": 1050
+   }
+  },
+  {
+   "segment": 2,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 0.719,
+   "start_step": 1725,
+   "end_step_exclusive": 2245,
+   "steps": 520,
+   "t0_s": 34.5,
+   "t1_s": 44.9,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.4,
+    "dx": -0.041248321533203125,
+    "dy": 0.019866943359375,
+    "dist": 0.04578339729368194,
+    "along_dir": -0.041248321533203125,
+    "across_dir": 0.019866943359375,
+    "mean_speed_along": -0.003966184762807992,
+    "travel_dir_deg": null,
+    "heading_end_deg": 1.379335785429742,
+    "heading_err_end_deg": 1.379335785429742
+   },
+   "h_meas_end": 0.7259552478790283,
+   "stand": {
+    "rows": 520,
+    "h_cmd": 0.719,
+    "arrival_s": 4.3,
+    "slack_s": 6.1000000000000005,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0069545822938283375,
+     "max_abs_err_m": 0.006955704847971589,
+     "feet_min": 5
+    },
+    "h_meas_end": 0.7259552478790283,
+    "feet_end": 5,
+    "homing": {
+     "rows": 520,
+     "cam_max_end_rad": 0.00827932357788086,
+     "homed_at_end": true,
+     "settle_s": 3.04,
+     "settled": true,
+     "cam_max_last5s_rad": 0.00827932357788086,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5534
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 520
+    },
+    "border_steps": 0,
+    "steps": 520
+   }
+  },
+  {
+   "segment": 3,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 1.346,
+   "start_step": 2245,
+   "end_step_exclusive": 2940,
+   "steps": 695,
+   "t0_s": 44.9,
+   "t1_s": 58.800000000000004,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 13.9,
+    "dx": -0.01801300048828125,
+    "dy": -0.02178955078125,
+    "dist": 0.028271057812531405,
+    "along_dir": -0.01801300048828125,
+    "across_dir": -0.02178955078125,
+    "mean_speed_along": -0.001295899315703687,
+    "travel_dir_deg": null,
+    "heading_end_deg": 1.228601514575494,
+    "heading_err_end_deg": 1.228601514575494
+   },
+   "h_meas_end": 1.350266734759013,
+   "stand": {
+    "rows": 695,
+    "h_cmd": 1.346,
+    "arrival_s": 7.82,
+    "slack_s": 6.08,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.004265284379323275,
+     "max_abs_err_m": 0.004266933441162024,
+     "feet_min": 5
+    },
+    "h_meas_end": 1.350266734759013,
+    "feet_end": 5,
+    "homing": {
+     "rows": 695,
+     "cam_max_end_rad": 0.012245416641235352,
+     "homed_at_end": true,
+     "settle_s": 0.0,
+     "settled": true,
+     "cam_max_last5s_rad": 0.012276411056518555,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 8340
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 695
+    },
+    "border_steps": 0,
+    "steps": 695
+   }
+  },
+  {
+   "segment": 4,
+   "hold": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 2940,
+   "end_step_exclusive": 3670,
+   "steps": 730,
+   "t0_s": 58.800000000000004,
+   "t1_s": 73.4,
+   "commanded": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "mixed",
+   "stand_net_share": 0.2547945205479452,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.2547945205479452,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.2500000000564403,
+    "world_dir_deg": -1.8438716578684698e-07,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 14.6,
+    "dx": 2.9199676513671875,
+    "dy": 0.00873565673828125,
+    "dist": 2.919980718554398,
+    "along_dir": 2.9199676513671875,
+    "across_dir": 0.00873565673828125,
+    "mean_speed_along": 0.19999778434021834,
+    "travel_dir_deg": 0.1714110664561903,
+    "heading_end_deg": -0.999865843069466,
+    "heading_err_end_deg": -0.999865843069466
+   },
+   "h_meas_end": 1.0881952047348022,
+   "restore": {
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 3.72,
+    "completed_at_s": 3.72
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 730
+    },
+    "border_steps": 0,
+    "steps": 730
+   }
+  },
+  {
+   "segment": 5,
+   "hold": "lat_l",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 3670,
+   "end_step_exclusive": 4170,
+   "steps": 500,
+   "t0_s": 73.4,
+   "t1_s": 83.4,
+   "commanded": {
+    "speed": 0.22,
+    "dir_deg": 89.99999846476551,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.2199999988079071,
+    "dir_deg": 89.999995674289,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 1.1920928966180355e-09,
+    "dir_rad": 4.8703002963890185e-08,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.21999999868398443,
+    "world_dir_deg": 89.9999958026466,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.0,
+    "dx": 0.06340408325195312,
+    "dy": 2.2804412841796875,
+    "dist": 2.281322539310065,
+    "along_dir": 2.2804412858785925,
+    "across_dir": -0.06340402214776472,
+    "mean_speed_along": 0.22804412858785925,
+    "travel_dir_deg": 88.40739125870287,
+    "heading_end_deg": -0.600938079145999,
+    "heading_err_end_deg": -0.600938079145999
+   },
+   "h_meas_end": 1.0730619827906291,
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 500
+    },
+    "border_steps": 0,
+    "steps": 500
+   }
+  },
+  {
+   "segment": 6,
+   "hold": "back",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 4170,
+   "end_step_exclusive": 4670,
+   "steps": 500,
+   "t0_s": 83.4,
+   "t1_s": 93.4,
+   "commanded": {
+    "speed": 0.22,
+    "dir_deg": 180.000002659109,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.2199999988079071,
+    "dir_deg": -179.99999499104368,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 1.1920928966180355e-09,
+    "dir_rad": 4.1012573337440024e-08,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.21999999870034773,
+    "world_dir_deg": -179.99999601707736,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.0,
+    "dx": -2.1144180297851562,
+    "dy": 0.11791229248046875,
+    "dist": 2.11770321655291,
+    "along_dir": 2.1144180243128203,
+    "across_dir": -0.11791239061104637,
+    "mean_speed_along": 0.21144180243128202,
+    "travel_dir_deg": 176.80815881780438,
+    "heading_end_deg": 3.8198661093733173,
+    "heading_err_end_deg": 3.8198661093733173
+   },
+   "h_meas_end": 1.1095051368077595,
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 500
+    },
+    "border_steps": 0,
+    "steps": 500
+   }
+  },
+  {
+   "segment": 7,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 0.719,
+   "start_step": 4670,
+   "end_step_exclusive": 5190,
+   "steps": 520,
+   "t0_s": 93.4,
+   "t1_s": 103.8,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.4,
+    "dx": 0.147918701171875,
+    "dy": -0.0580902099609375,
+    "dist": 0.15891637627909924,
+    "along_dir": 0.147918701171875,
+    "across_dir": -0.0580902099609375,
+    "mean_speed_along": 0.01422295203575721,
+    "travel_dir_deg": -21.440787150379432,
+    "heading_end_deg": 5.8795023965146695,
+    "heading_err_end_deg": 5.879502396514669
+   },
+   "h_meas_end": 0.7126575509707133,
+   "stand": {
+    "rows": 520,
+    "h_cmd": 0.719,
+    "arrival_s": 4.3,
+    "slack_s": 6.1000000000000005,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.005443819602330535,
+     "max_abs_err_m": 0.006342449029286712,
+     "feet_min": 4
+    },
+    "h_meas_end": 0.7126575509707133,
+    "feet_end": 4,
+    "homing": {
+     "rows": 520,
+     "cam_max_end_rad": 2.657111406326294,
+     "homed_at_end": false,
+     "settle_s": null,
+     "settled": false,
+     "cam_max_last5s_rad": 2.657111406326294,
+     "homed_last5s": false
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5754
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 520
+    },
+    "border_steps": 0,
+    "steps": 520
+   }
+  },
+  {
+   "segment": 8,
+   "hold": "lat_r",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 5190,
+   "end_step_exclusive": 5960,
+   "steps": 770,
+   "t0_s": 103.8,
+   "t1_s": 119.2,
+   "commanded": {
+    "speed": 0.22,
+    "dir_deg": -89.99999846476551,
+    "face_deg": 0.0
+   },
+   "acting_network": "mixed",
+   "stand_net_share": 0.2922077922077922,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.2922077922077922,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.2199999988079071,
+    "dir_deg": -89.999995674289,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 1.1920928966180355e-09,
+    "dir_rad": 4.8703002963890185e-08,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.21999999890753222,
+    "world_dir_deg": -89.99999560189406,
+    "wz": -0.001857974776973972
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 15.4,
+    "dx": 0.1236572265625,
+    "dy": -2.15374755859375,
+    "dist": 2.157294522273134,
+    "along_dir": 2.1537475619071316,
+    "across_dir": 0.12365716885305686,
+    "mean_speed_along": 0.13985373778617738,
+    "travel_dir_deg": -86.71397545503095,
+    "heading_end_deg": 0.8164078690974226,
+    "heading_err_end_deg": 0.8164078690974226
+   },
+   "h_meas_end": 1.0641558170318604,
+   "restore": {
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 4.5,
+    "completed_at_s": 4.5
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 770
+    },
+    "border_steps": 0,
+    "steps": 770
+   }
+  },
+  {
+   "segment": 9,
+   "hold": "diag",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 5960,
+   "end_step_exclusive": 6460,
+   "steps": 500,
+   "t0_s": 119.2,
+   "t1_s": 129.2,
+   "commanded": {
+    "speed": 0.25,
+    "dir_deg": 45.00000209717174,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.25,
+    "dir_deg": 45.00000125223907,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 1.4746856735747826e-08,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.2500000060529982,
+    "world_dir_deg": 45.0000017423971,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.0,
+    "dx": 1.6632003784179688,
+    "dy": 1.7313766479492188,
+    "dist": 2.400812486603972,
+    "along_dir": 2.400328436368835,
+    "across_dir": 0.04820781464340307,
+    "mean_speed_along": 0.2400328436368835,
+    "travel_dir_deg": 46.150566741524386,
+    "heading_end_deg": 0.43051597477217446,
+    "heading_err_end_deg": 0.4305159747721744
+   },
+   "h_meas_end": 1.1108731031417847,
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 500
+    },
+    "border_steps": 0,
+    "steps": 500
+   }
+  },
+  {
+   "segment": 10,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 1.346,
+   "start_step": 6460,
+   "end_step_exclusive": 6940,
+   "steps": 480,
+   "t0_s": 129.2,
+   "t1_s": 138.8,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 9.6,
+    "dx": 0.011875152587890625,
+    "dy": 0.03968048095703125,
+    "dist": 0.04141931696644701,
+    "along_dir": 0.011875152587890625,
+    "across_dir": 0.03968048095703125,
+    "mean_speed_along": 0.001236995061238607,
+    "travel_dir_deg": null,
+    "heading_end_deg": 3.0955843120487025,
+    "heading_err_end_deg": 3.095584312048703
+   },
+   "h_meas_end": 1.36225159962972,
+   "stand": {
+    "rows": 480,
+    "h_cmd": 1.346,
+    "arrival_s": 3.52,
+    "slack_s": 6.08,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.016252473831176673,
+     "max_abs_err_m": 0.016301349639892493,
+     "feet_min": 4
+    },
+    "h_meas_end": 1.36225159962972,
+    "feet_end": 4,
+    "homing": {
+     "rows": 480,
+     "cam_max_end_rad": 0.011007308959960938,
+     "homed_at_end": true,
+     "settle_s": 4.18,
+     "settled": true,
+     "cam_max_last5s_rad": 0.018019676208496094,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5320
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 480
+    },
+    "border_steps": 0,
+    "steps": 480
+   }
+  },
+  {
+   "segment": 11,
+   "hold": "turn_l90",
+   "kind": "turn",
+   "h_cmd": null,
+   "start_step": 6940,
+   "end_step_exclusive": 7670,
+   "steps": 730,
+   "t0_s": 138.8,
+   "t1_s": 153.4,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 89.99999846476551
+   },
+   "acting_network": "mixed",
+   "stand_net_share": 0.2547945205479452,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.2547945205479452,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 89.999995674289
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 4.8703002963890185e-08
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.2803070456197817
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 14.6,
+    "dx": 0.0547027587890625,
+    "dy": 0.17403411865234375,
+    "dist": 0.18242879782049878,
+    "along_dir": 0.0547027587890625,
+    "across_dir": 0.17403411865234375,
+    "mean_speed_along": 0.0037467643006207194,
+    "travel_dir_deg": 72.55091751215816,
+    "heading_end_deg": 84.27007484748442,
+    "heading_err_end_deg": -5.729923617281086
+   },
+   "h_meas_end": 1.1155883471171062,
+   "restore": {
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 3.72,
+    "completed_at_s": 3.72
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 730
+    },
+    "border_steps": 0,
+    "steps": 730
+   }
+  },
+  {
+   "segment": 12,
+   "hold": "turn_r90",
+   "kind": "turn",
+   "h_cmd": null,
+   "start_step": 7670,
+   "end_step_exclusive": 8170,
+   "steps": 500,
+   "t0_s": 153.4,
+   "t1_s": 163.4,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": -0.24529262709617614
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.0,
+    "dx": 0.014789581298828125,
+    "dy": 0.04682159423828125,
+    "dist": 0.04910186760204645,
+    "along_dir": 0.014789581298828125,
+    "across_dir": 0.04682159423828125,
+    "mean_speed_along": 0.0014789581298828125,
+    "travel_dir_deg": null,
+    "heading_end_deg": 0.21000082279844015,
+    "heading_err_end_deg": 0.21000082279844015
+   },
+   "h_meas_end": 1.0465604066848755,
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 500
+    },
+    "border_steps": 0,
+    "steps": 500
+   }
+  },
+  {
+   "segment": 13,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 0.719,
+   "start_step": 8170,
+   "end_step_exclusive": 8690,
+   "steps": 520,
+   "t0_s": 163.4,
+   "t1_s": 173.8,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 0.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 520,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.4,
+    "dx": 0.028255462646484375,
+    "dy": 0.01244354248046875,
+    "dist": 0.030874146446988687,
+    "along_dir": 0.028255462646484375,
+    "across_dir": 0.01244354248046875,
+    "mean_speed_along": 0.0027168714083158053,
+    "travel_dir_deg": null,
+    "heading_end_deg": 1.4499940923935237,
+    "heading_err_end_deg": 1.4499940923935237
+   },
+   "h_meas_end": 0.7224449316660563,
+   "stand": {
+    "rows": 520,
+    "h_cmd": 0.719,
+    "arrival_s": 4.3,
+    "slack_s": 6.1000000000000005,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0034424183368683137,
+     "max_abs_err_m": 0.0034464217821756904,
+     "feet_min": 6
+    },
+    "h_meas_end": 0.7224449316660563,
+    "feet_end": 6,
+    "homing": {
+     "rows": 520,
+     "cam_max_end_rad": 0.01587390899658203,
+     "homed_at_end": true,
+     "settle_s": 1.12,
+     "settled": true,
+     "cam_max_last5s_rad": 0.016318321228027344,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 6070
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 520
+    },
+    "border_steps": 0,
+    "steps": 520
+   }
+  },
+  {
+   "segment": 14,
+   "hold": "move_turn_l",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 8690,
+   "end_step_exclusive": 9460,
+   "steps": 770,
+   "t0_s": 173.8,
+   "t1_s": 189.20000000000002,
+   "commanded": {
+    "speed": 0.22,
+    "dir_deg": 0.0,
+    "face_deg": 89.99999846476551
+   },
+   "acting_network": "mixed",
+   "stand_net_share": 0.2922077922077922,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.2922077922077922,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.2199999988079071,
+    "dir_deg": 0.0,
+    "face_deg": 89.999995674289
+   },
+   "applied_max_dev": {
+    "speed": 1.1920928966180355e-09,
+    "dir_rad": 0.0,
+    "face_rad": 4.8703002963890185e-08
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.22000000029810257,
+    "world_dir_deg": -9.706032717709869e-08,
+    "wz": 0.30000001192092896
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 15.4,
+    "dx": 1.8066558837890625,
+    "dy": -0.167938232421875,
+    "dist": 1.814444469345541,
+    "along_dir": 1.8066558837890625,
+    "across_dir": -0.167938232421875,
+    "mean_speed_along": 0.1173153171291599,
+    "travel_dir_deg": -5.310685239770131,
+    "heading_end_deg": 64.3611799075428,
+    "heading_err_end_deg": -25.638818557222713
+   },
+   "h_meas_end": 1.0735233227411907,
+   "restore": {
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 4.5,
+    "completed_at_s": 4.5
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 770
+    },
+    "border_steps": 0,
+    "steps": 770
+   }
+  },
+  {
+   "segment": 15,
+   "hold": "move_turn_r",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 9460,
+   "end_step_exclusive": 9960,
+   "steps": 500,
+   "t0_s": 189.20000000000002,
+   "t1_s": 199.20000000000002,
+   "commanded": {
+    "speed": 0.22,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.2199999988079071,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 1.1920928966180355e-09,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.2200000016301165,
+    "world_dir_deg": -3.6320069514814787e-07,
+    "wz": -0.30000001192092896
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 10.0,
+    "dx": 1.9072456359863281,
+    "dy": -0.003753662109375,
+    "dist": 1.9072493297857323,
+    "along_dir": 1.9072456359863281,
+    "across_dir": -0.003753662109375,
+    "mean_speed_along": 0.19072456359863282,
+    "travel_dir_deg": -0.11276403775279847,
+    "heading_end_deg": 16.907136082747744,
+    "heading_err_end_deg": 16.907136082747748
+   },
+   "h_meas_end": 1.074076493581136,
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 500
+    },
+    "border_steps": 0,
+    "steps": 500
+   }
+  },
+  {
+   "segment": 16,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 1.346,
+   "start_step": 9960,
+   "end_step_exclusive": 10440,
+   "steps": 480,
+   "t0_s": 199.20000000000002,
+   "t1_s": 208.8,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 0.0,
+   "routed_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 480,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": -0.30000001192092896
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 9.6,
+    "dx": -0.156646728515625,
+    "dy": 0.114013671875,
+    "dist": 0.193745490087042,
+    "along_dir": -0.156646728515625,
+    "across_dir": 0.114013671875,
+    "mean_speed_along": -0.016317367553710938,
+    "travel_dir_deg": 143.95139391509574,
+    "heading_end_deg": 19.142378667884238,
+    "heading_err_end_deg": 19.142378667884238
+   },
+   "h_meas_end": 1.3582673072814941,
+   "stand": {
+    "rows": 480,
+    "h_cmd": 1.346,
+    "arrival_s": 3.52,
+    "slack_s": 6.08,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.012309566974639807,
+     "max_abs_err_m": 0.01244282309214273,
+     "feet_min": 4
+    },
+    "h_meas_end": 1.3582673072814941,
+    "feet_end": 4,
+    "homing": {
+     "rows": 480,
+     "cam_max_end_rad": 0.0272829532623291,
+     "homed_at_end": true,
+     "settle_s": 3.84,
+     "settled": true,
+     "cam_max_last5s_rad": 0.028309106826782227,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 5480
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 480
+    },
+    "border_steps": 0,
+    "steps": 480
+   }
+  },
+  {
+   "segment": 17,
+   "hold": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 10440,
+   "end_step_exclusive": 11070,
+   "steps": 630,
+   "t0_s": 208.8,
+   "t1_s": 221.4,
+   "commanded": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "mixed",
+   "stand_net_share": 0.29523809523809524,
+   "slot_share": 0.0,
+   "routed_share": 0.0,
+   "restoring_share": 0.29523809523809524,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.25000000056990934,
+    "world_dir_deg": 4.0313637943891786e-08,
+    "wz": -0.19587226008612013
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 12.6,
+    "dx": 2.2135658264160156,
+    "dy": -0.01966094970703125,
+    "dist": 2.213653139229405,
+    "along_dir": 2.2135658264160156,
+    "across_dir": -0.01966094970703125,
+    "mean_speed_along": 0.17567982749333458,
+    "travel_dir_deg": -0.508889233980531,
+    "heading_end_deg": 3.5188472929329846,
+    "heading_err_end_deg": 3.5188472929329846
+   },
+   "h_meas_end": 1.0849441687266033,
+   "restore": {
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 3.72,
+    "completed_at_s": 3.72
+   },
+   "terrain_tiles": {
+    "tiles": {
+     "1,0": 630
+    },
+    "border_steps": 0,
+    "steps": 630
+   }
+  }
+ ]
+}
