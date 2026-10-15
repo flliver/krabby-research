@@ -1,6 +1,6 @@
 # Report: height-commanded stand network for the omni crab (campaign `2026-10-13_stand_height`, 2026-10-13 → 2026-10-14)
 
-**Status: COMPLETE 2026-10-14. Stopped for the user's adoption decision (PLAN step 8). Nothing is baked.**
+**Status: COMPLETE 2026-10-14. ADOPTED 2026-10-15 (user decision, "Adopt SH_T17"): SH_T17 is baked as the omni stand network of record (`policy/stand_net/model_5000.pt`, sha256 `99c377a1…`), superseding A-mask s17, which stays bundled as its warm-start ancestor (`policy/stand_net/model_4000.pt`).**
 
 - **Recommended head:** `SH_T17` (`runs/SH_T17/model_5000.pt`, sha256 `99c377a1…`).
 - **Walking head of record (unchanged):** S1 s18, `policy/6_p2a_field/model_19994.pt`, `968cc550…`.

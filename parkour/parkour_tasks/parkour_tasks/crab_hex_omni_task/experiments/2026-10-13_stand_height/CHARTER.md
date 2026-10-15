@@ -371,3 +371,17 @@ the user's.**
   zero-height mode; K1–K6 gate table), README via the bundle tool, `bundle_policy.py` / `test_policy_of_record_omni.py`
   as needed. Walking head of record (6_p2a_field) unchanged; code_sha / eval_sha unaffected (policy/ and the bundle tool
   are outside both pathspecs).
+- 2026-10-15, **BAKED — campaign CLOSED.** `policy/stand_net/model_5000.pt` = SH_T17 (sha256 99c377a1…, from
+  `runs/SH_T17/model_5000.pt`) is the omni stand network of record; `policy/manifest.yaml` `stand_network` carries the
+  full deployment contract (switch on an explicit stand command; posture map + 0.25 hip / knee deadband; height command
+  [0.719, 1.346] m at 0.08 m/s on input column 15; the H6 restore; the zero-height mode; supported starts: tables
+  0.635–0.762 m only), the K1–K6 gate table for SH_T16 / SH_T17 / SH_T18 beside R_h and the controls, and the
+  follow-ups (ground get-up with the SH_P18 lead, a height-command source, the two-network export, switch keying, the
+  trim under-fit, the PD-torque excess, the upright hip contacts at 0.635, the hold-only knee). **Deviation from the
+  2026-10-06 replace precedent, decided by me:** A-mask s17's file was NOT removed — it stays bundled as SH_T17's
+  WARM-START ANCESTOR (`stand_network.warm_start`, sha 769cf253…; this campaign's trainer and tests load it from that
+  path, as the walking head's lineage stages stay bundled); `superseded:` records its retirement as the net of record.
+  Built by workflows wf_9d1156f6-5b7 (implement, record + code reviews, fix, verify) and wf_133069aa-85a (the
+  keep-the-ancestor revision, review: no defects). Checks: `test_policy_of_record_omni.py` 45 pass, the campaign's
+  warm-start tests pass (232, 0 skipped), `bundle_policy.py --check` OK, code_sha / eval_sha 14301cd2 / 1d021625
+  unchanged (policy/ and the bundle tool are outside both). Walking head of record (6_p2a_field) unchanged. Not pushed.
