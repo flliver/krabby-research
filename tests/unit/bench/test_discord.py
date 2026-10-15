@@ -14,6 +14,8 @@ from krabby_bench._discord import (
     format_job_results,
     list_failed_steps_from_run,
     notify_ci_result,
+    previous_workflow_run_conclusion,
+    should_collapse_consecutive_pass,
 )
 
 
@@ -128,6 +130,81 @@ class TestListFailedSteps:
             get.assert_called_once()
 
 
+class TestCollapseConsecutivePass:
+    def test_fail_never_collapses(self):
+        assert (
+            should_collapse_consecutive_pass(
+                ok=False,
+                collapse_consecutive_pass=True,
+                previous_conclusion="success",
+            )
+            is False
+        )
+
+    def test_pass_collapses_after_success(self):
+        assert (
+            should_collapse_consecutive_pass(
+                ok=True,
+                collapse_consecutive_pass=True,
+                previous_conclusion="success",
+            )
+            is True
+        )
+
+    def test_pass_posts_after_failure(self):
+        assert (
+            should_collapse_consecutive_pass(
+                ok=True,
+                collapse_consecutive_pass=True,
+                previous_conclusion="failure",
+            )
+            is False
+        )
+
+    def test_pass_posts_when_no_prior(self):
+        assert (
+            should_collapse_consecutive_pass(
+                ok=True,
+                collapse_consecutive_pass=True,
+                previous_conclusion=None,
+            )
+            is False
+        )
+
+
+class TestPreviousWorkflowRunConclusion:
+    def test_returns_empty_without_env(self, monkeypatch):
+        monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+        monkeypatch.delenv("GITHUB_RUN_ID", raising=False)
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("GH_TOKEN", raising=False)
+        assert previous_workflow_run_conclusion() is None
+
+    def test_skips_current_run(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_REPOSITORY", "org/repo")
+        monkeypatch.setenv("GITHUB_RUN_ID", "100")
+        monkeypatch.setenv("GITHUB_TOKEN", "tok")
+
+        run_resp = MagicMock()
+        run_resp.raise_for_status = MagicMock()
+        run_resp.json.return_value = {"workflow_id": 42}
+
+        list_resp = MagicMock()
+        list_resp.raise_for_status = MagicMock()
+        list_resp.json.return_value = {
+            "workflow_runs": [
+                {"id": 100, "conclusion": "success"},
+                {"id": 99, "conclusion": "failure"},
+            ]
+        }
+
+        with patch(
+            "krabby_bench._discord.requests.get",
+            side_effect=[run_resp, list_resp],
+        ):
+            assert previous_workflow_run_conclusion() == "failure"
+
+
 class TestNotifyCiResult:
     def test_fetches_steps_on_failure(self, monkeypatch):
         monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.example/hook")
@@ -144,3 +221,38 @@ class TestNotifyCiResult:
             assert kwargs["failed_stage"] == "build"
             assert kwargs["subject"] == "fix: smoke teleop-ip"
             assert "CI-FAILURES.md" in kwargs["help_url"]
+
+    def test_skips_consecutive_pass(self, monkeypatch):
+        monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.example/hook")
+        with patch(
+            "krabby_bench._discord.previous_workflow_run_conclusion",
+            return_value="success",
+        ), patch("krabby_bench._discord.post_discord", return_value=True) as post:
+            assert (
+                notify_ci_result(
+                    ok=True,
+                    title="artifact-health",
+                    collapse_consecutive_pass=True,
+                )
+                is False
+            )
+            post.assert_not_called()
+
+    def test_posts_pass_after_prior_failure(self, monkeypatch):
+        monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.example/hook")
+        with patch(
+            "krabby_bench._discord.previous_workflow_run_conclusion",
+            return_value="failure",
+        ), patch(
+            "krabby_bench._discord.default_commit_subject",
+            return_value="chore: bump",
+        ), patch("krabby_bench._discord.post_discord", return_value=True) as post:
+            assert (
+                notify_ci_result(
+                    ok=True,
+                    title="artifact-health",
+                    collapse_consecutive_pass=True,
+                )
+                is True
+            )
+            post.assert_called_once()

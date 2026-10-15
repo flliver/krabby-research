@@ -267,7 +267,7 @@ acceptable). If locomotion publish fails, Artifact health does not run.
 | packages | `pip install` + import for `krabby-launcher`, `krabby-firmware`, `krabby-bench` |
 | locomotion-image | pull `main-latest` and `release-latest`, `docker run … --help` must show `--teleop-ip` (arm64 via QEMU) |
 | firmware-artifact | S3 `latest.json` + manifest `ver_string` + HEX HEAD for `release/0.2.15` |
-| notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset) |
+| notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset). FAIL always; consecutive PASSes collapsed (PASS only after a non-green prior run) |
 
 Publish firmware / locomotion also Discord on **failure** (same secret) so a red publish is not silent when Artifact health never starts. Messages include failed step names when resolvable.
 

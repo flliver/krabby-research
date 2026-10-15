@@ -4,6 +4,7 @@
 # and would race if started on the same push. Also runnable via workflow_dispatch.
 #
 # Discord: set repo secret DISCORD_WEBHOOK_URL (optional; skipped if unset).
+# FAIL always; consecutive PASSes collapsed (PASS only after a non-green prior run).
 
 name: Artifact health
 
@@ -218,5 +219,8 @@ jobs:
               failed_stage=(",".join(failed) if failed else None),
               job_results=results,
               detail=detail,
+              # Daily schedule + every green locomotion publish would otherwise
+              # spam PASS. FAIL always; PASS only after a non-green prior run.
+              collapse_consecutive_pass=True,
           )
           PY

@@ -2,6 +2,9 @@
 
 Posts on success and failure. Skips cleanly when DISCORD_WEBHOOK_URL is unset
 so local and stubbed-CI runs do not require a secret.
+
+Artifact health can collapse consecutive PASSes (FAIL always; PASS only after a
+non-green prior run) so the daily schedule does not spam Discord.
 """
 from __future__ import annotations
 
@@ -14,6 +17,14 @@ import requests
 log = logging.getLogger(__name__)
 
 _DETAIL_SOFT_LIMIT = 1500
+
+
+def _github_api_headers(token: str) -> dict[str, str]:
+    return {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
 
 
 def resolve_webhook_url(explicit: Optional[str] = None) -> str:
@@ -108,13 +119,13 @@ def list_failed_steps_from_run(
         return []
 
     url = f"{base}/repos/{repo}/actions/runs/{rid}/jobs"
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "Authorization": f"Bearer {tok}",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
     try:
-        resp = requests.get(url, headers=headers, params={"per_page": 100}, timeout=30)
+        resp = requests.get(
+            url,
+            headers=_github_api_headers(tok),
+            params={"per_page": 100},
+            timeout=30,
+        )
         resp.raise_for_status()
         jobs = resp.json().get("jobs") or []
     except Exception:
@@ -129,6 +140,76 @@ def list_failed_steps_from_run(
                 step_name = step.get("name") or "step"
                 out.append(f"{job_name} › {step_name}")
     return out
+
+
+def previous_workflow_run_conclusion(
+    *,
+    repository: Optional[str] = None,
+    run_id: Optional[str] = None,
+    token: Optional[str] = None,
+    api_url: Optional[str] = None,
+) -> Optional[str]:
+    """Return the conclusion of the prior completed run of this workflow.
+
+    Looks up the current run's ``workflow_id``, then the newest completed run
+    other than ``run_id``. Returns e.g. ``\"success\"`` / ``\"failure\"``, or
+    ``None`` if env/token/API is unavailable or no prior run exists.
+    """
+    repo = (repository or os.environ.get("GITHUB_REPOSITORY") or "").strip()
+    rid = (run_id or os.environ.get("GITHUB_RUN_ID") or "").strip()
+    tok = (token or os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or "").strip()
+    base = (api_url or os.environ.get("GITHUB_API_URL") or "https://api.github.com").rstrip("/")
+    if not (repo and rid and tok):
+        return None
+
+    headers = _github_api_headers(tok)
+    try:
+        run_resp = requests.get(
+            f"{base}/repos/{repo}/actions/runs/{rid}",
+            headers=headers,
+            timeout=30,
+        )
+        run_resp.raise_for_status()
+        workflow_id = run_resp.json().get("workflow_id")
+        if workflow_id is None:
+            return None
+
+        list_resp = requests.get(
+            f"{base}/repos/{repo}/actions/workflows/{workflow_id}/runs",
+            headers=headers,
+            params={"status": "completed", "per_page": 20},
+            timeout=30,
+        )
+        list_resp.raise_for_status()
+        runs = list_resp.json().get("workflow_runs") or []
+    except Exception:
+        log.warning("Could not list prior Actions runs for PASS collapse", exc_info=True)
+        return None
+
+    for run in runs:
+        other_id = str(run.get("id") or "")
+        if other_id == rid:
+            continue
+        conclusion = run.get("conclusion")
+        if conclusion:
+            return str(conclusion)
+    return None
+
+
+def should_collapse_consecutive_pass(
+    *,
+    ok: bool,
+    collapse_consecutive_pass: bool,
+    previous_conclusion: Optional[str],
+) -> bool:
+    """True when a PASS should be skipped because the prior run was also green.
+
+    ``previous_conclusion`` is the prior completed run's conclusion, or ``None``
+    when unknown / no prior run (do not collapse — prefer a heartbeat PASS).
+    """
+    if not ok or not collapse_consecutive_pass:
+        return False
+    return previous_conclusion == "success"
 
 
 def format_discord_payload(
@@ -264,6 +345,7 @@ def notify_ci_result(
     job_results: Optional[Mapping[str, str]] = None,
     failed_steps: Optional[Sequence[str]] = None,
     include_failed_steps_from_api: bool = True,
+    collapse_consecutive_pass: bool = False,
     help_url: Optional[str] = None,
     webhook_url: Optional[str] = None,
 ) -> bool:
@@ -273,7 +355,23 @@ def notify_ci_result(
     on a failure, attempts to resolve failed step names via the Actions API.
     Commit subject defaults to ``git log -1 --format=%s`` when unset.
     Links ``docs/CI-FAILURES.md`` unless ``help_url`` is set to "" to suppress.
+
+    When ``collapse_consecutive_pass`` is True, a PASS is skipped if the previous
+    completed run of this workflow also concluded ``success`` (FAIL always posts).
     """
+    if collapse_consecutive_pass and ok:
+        prev = previous_workflow_run_conclusion()
+        if should_collapse_consecutive_pass(
+            ok=True,
+            collapse_consecutive_pass=True,
+            previous_conclusion=prev,
+        ):
+            log.info(
+                "Discord skipped: consecutive PASS for %s (prior run was success)",
+                title,
+            )
+            return False
+
     steps: Optional[list[str]]
     if failed_steps is not None:
         steps = list(failed_steps)

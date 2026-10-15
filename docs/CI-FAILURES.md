@@ -26,7 +26,7 @@ When `DISCORD_WEBHOOK_URL` is set:
 | --- | --- |
 | **Publish firmware** | On **failure** only (tests / compile / S3). |
 | **Publish locomotion** | On **failure** only (build / push / verify). Artifact health does not start until this is green. |
-| **Artifact health** | PASS/FAIL summary after a green locomotion publish (or manual dispatch), with per-stage results. |
+| **Artifact health** | **FAIL** always (with per-stage results). **PASS** only when the prior Artifact health run was not green (recovery / first heartbeat) — consecutive greens are collapsed so the daily locomotion schedule does not spam Discord. |
 
 Typical FAIL fields:
 
