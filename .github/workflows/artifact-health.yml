@@ -55,6 +55,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      fail_kind: ${{ steps.smoke.outputs.fail_kind }}
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -62,19 +64,42 @@ jobs:
           platforms: arm64
 
       - name: Pull and smoke-start channel tags
+        id: smoke
         run: |
           set -euo pipefail
           # release-latest = kit default; main-latest = dev channel (pushes to main).
           ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
+
+          rate_limit_fail() {
+            local ctx="$1"
+            echo "fail_kind=rate_limit" >> "$GITHUB_OUTPUT"
+            echo "::error::Registry rate limit during ${ctx} (toomanyrequests / Rate exceeded). This is a flake — re-run the Artifact health job; do not treat as a bad image."
+            exit 1
+          }
+
           for TAG in main-latest release-latest; do
             echo "=== ${ECR}:${TAG} ==="
-            docker pull --platform linux/arm64 "${ECR}:${TAG}"
+            set +e
+            PULL_OUT="$(docker pull --platform linux/arm64 "${ECR}:${TAG}" 2>&1)"
+            PULL_RC=$?
+            set -e
+            echo "$PULL_OUT"
+            if [ "$PULL_RC" -ne 0 ]; then
+              if echo "$PULL_OUT" | grep -Eiq 'toomanyrequests|Rate exceeded'; then
+                rate_limit_fail "docker pull ${TAG}"
+              fi
+              echo "FAIL ${TAG}: docker pull exited ${PULL_RC}"
+              exit 1
+            fi
             docker image inspect "${ECR}:${TAG}" --format '{{.Id}} {{.Architecture}} {{.Os}}'
             set +e
             HELP="$(docker run --rm --platform linux/arm64 --network host "${ECR}:${TAG}" --help 2>&1)"
             RC=$?
             set -e
             if [ "$RC" -ne 0 ]; then
+              if echo "$HELP" | grep -Eiq 'toomanyrequests|Rate exceeded'; then
+                rate_limit_fail "docker run ${TAG}"
+              fi
               echo "FAIL ${TAG}: docker run --help exited ${RC}"
               echo "$HELP" | head -60
               exit 1
@@ -134,6 +159,9 @@ jobs:
       (github.event_name == 'workflow_dispatch' ||
        github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout (for Discord helper)
         uses: actions/checkout@v5
@@ -146,8 +174,10 @@ jobs:
       - name: Notify Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
           PKG: ${{ needs.packages.result }}
           IMG: ${{ needs.locomotion-image.result }}
+          IMG_FAIL_KIND: ${{ needs.locomotion-image.outputs.fail_kind }}
           FW: ${{ needs.firmware-artifact.result }}
         run: |
           set -euo pipefail
@@ -155,7 +185,7 @@ jobs:
           pip install -q -e ./bench
           python - <<'PY'
           import os
-          from krabby_bench._discord import post_discord
+          from krabby_bench._discord import notify_ci_result
 
           results = {
               "packages": os.environ["PKG"],
@@ -164,11 +194,29 @@ jobs:
           }
           ok = all(v == "success" for v in results.values())
           failed = [k for k, v in results.items() if v != "success"]
-          detail = "; ".join(f"{k}={v}" for k, v in results.items())
-          post_discord(
+          img_fail_kind = (os.environ.get("IMG_FAIL_KIND") or "").strip()
+          loco_hint = "ECR pull or --help / --teleop-ip smoke failed"
+          if img_fail_kind == "rate_limit":
+              loco_hint = (
+                  "Registry rate limit (toomanyrequests) — flake; "
+                  "re-run Artifact health (do not treat as a bad image)"
+              )
+          hints = {
+              "packages": "pip install / import failed for a cold-start package",
+              "locomotion-image": loco_hint,
+              "firmware-artifact": "S3 latest.json / manifest / HEX HEAD failed",
+          }
+          detail = ""
+          if failed:
+              detail = "What failed:\n" + "\n".join(
+                  f"• {name}: {hints.get(name, results[name])} (result={results[name]})"
+                  for name in failed
+              )
+          notify_ci_result(
               ok=ok,
               title="artifact-health",
               failed_stage=(",".join(failed) if failed else None),
+              job_results=results,
               detail=detail,
           )
           PY

@@ -36,6 +36,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read     # list failed steps for Discord detail
 
     steps:
       - uses: actions/checkout@v5
@@ -186,3 +187,44 @@ jobs:
             arduino-cli core list | grep -E "^arduino:avr"
 
           echo "All verification checks passed."
+
+      # Discord on red publish (Artifact health only starts after this workflow succeeds).
+      - name: Set up Python (Discord on failure)
+        if: failure()
+        continue-on-error: true
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Discord on failure
+        if: failure()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import subprocess
+          from krabby_bench._discord import notify_ci_result
+
+          try:
+              branch = subprocess.check_output(
+                  ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
+              ).strip()
+          except Exception:
+              branch = ""
+
+          notify_ci_result(
+              ok=False,
+              title="publish-locomotion",
+              failed_stage="build-and-push",
+              branch=branch,
+              detail=(
+                  "Locomotion image was not published. Artifact health will not run "
+                  "until this workflow is green."
+              ),
+          )
+          PY
