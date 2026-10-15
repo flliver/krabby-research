@@ -1,0 +1,146 @@
+{
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24",
+  "dt": 0.02,
+  "window_steps": 50,
+  "sigma": 0.05,
+  "weights": {
+    "track": 0.2,
+    "tent": 1.0,
+    "ang": 1.0
+  },
+  "levels": {
+    "w_min": 0.05,
+    "0.08": 0.08,
+    "ceiling": 0.167,
+    "w_max": 0.21
+  },
+  "B_wmin": 0.4,
+  "ceil_share_max": 0.1,
+  "families": {
+    "translation": {
+      "n_traces": 500,
+      "n_windows": 225500,
+      "window_dyaw_std_rad": 0.023765637819791782,
+      "window_dyaw_abs_p50_rad": 0.014628817612567235,
+      "window_dyaw_abs_p90_rad": 0.038955251096593625,
+      "per_step_wz_std": 0.09365674085145137,
+      "levels": {
+        "w_min": {
+          "c": 0.05,
+          "tracker": 0.1760422904457894,
+          "step_in_place": 0.0794861208029854,
+          "still": 0.07357588823428848,
+          "share_step_in_place": 0.4515171928387424,
+          "share_still": 0.4179443930658554,
+          "premium_vs_still_per_step": 0.10246640221150091,
+          "premium_vs_still_per_s": 5.123320110575046,
+          "premium_vs_step_in_place_per_step": 0.096556169642804
+        },
+        "0.08": {
+          "c": 0.08,
+          "tracker": 0.20604229044578945,
+          "step_in_place": 0.04518798207013854,
+          "still": 0.04037930359893109,
+          "share_step_in_place": 0.21931411251724403,
+          "share_still": 0.19597580434369635,
+          "premium_vs_still_per_step": 0.16566298684685837,
+          "premium_vs_still_per_s": 8.283149342342918,
+          "premium_vs_step_in_place_per_step": 0.1608543083756509
+        },
+        "ceiling": {
+          "c": 0.167,
+          "tracker": 0.29304229044578944,
+          "step_in_place": 0.007964569811998123,
+          "still": 0.007087391544319728,
+          "share_step_in_place": 0.027178909228023206,
+          "share_still": 0.02418555879268505,
+          "premium_vs_still_per_step": 0.2859548989014697,
+          "premium_vs_still_per_s": 14.297744945073484,
+          "premium_vs_step_in_place_per_step": 0.28507772063379133
+        },
+        "w_max": {
+          "c": 0.21,
+          "tracker": 0.33604229044578937,
+          "step_in_place": 0.003367987651444788,
+          "still": 0.0029991153640955438,
+          "share_step_in_place": 0.010022511294566107,
+          "share_still": 0.008924815266902733,
+          "premium_vs_still_per_step": 0.33304317508169384,
+          "premium_vs_still_per_s": 16.65215875408469,
+          "premium_vs_step_in_place_per_step": 0.33267430279434457
+        }
+      },
+      "straight_wobble_income": 1.1120436826189277,
+      "straight_still_income": 1.2
+    },
+    "move_turn": {
+      "n_traces": 200,
+      "n_windows": 90200,
+      "window_dyaw_std_rad": 0.03364675374784947,
+      "window_dyaw_abs_p50_rad": 0.022603208622895152,
+      "window_dyaw_abs_p90_rad": 0.0553847274089233,
+      "per_step_wz_std": 0.1087690448476028,
+      "levels": {
+        "w_min": {
+          "c": 0.05,
+          "tracker": 0.14881831436693896,
+          "step_in_place": 0.07783525390533393,
+          "still": 0.07357588823428848,
+          "share_step_in_place": 0.5230220100021882,
+          "share_still": 0.49440076342266304,
+          "premium_vs_still_per_step": 0.07524242613265048,
+          "premium_vs_still_per_s": 3.762121306632524,
+          "premium_vs_step_in_place_per_step": 0.07098306046160503
+        },
+        "0.08": {
+          "c": 0.08,
+          "tracker": 0.17881831436693899,
+          "step_in_place": 0.04561322946515789,
+          "still": 0.04037930359893109,
+          "share_step_in_place": 0.25508141952148466,
+          "share_still": 0.22581190154869651,
+          "premium_vs_still_per_step": 0.1384390107680079,
+          "premium_vs_still_per_s": 6.921950538400395,
+          "premium_vs_step_in_place_per_step": 0.1332050849017811
+        },
+        "ceiling": {
+          "c": 0.167,
+          "tracker": 0.265818314366939,
+          "step_in_place": 0.006499995325723875,
+          "still": 0.007087391544319728,
+          "share_step_in_place": 0.02445277459983889,
+          "share_still": 0.026662540394173907,
+          "premium_vs_still_per_step": 0.2587309228226192,
+          "premium_vs_still_per_s": 12.936546141130961,
+          "premium_vs_step_in_place_per_step": 0.2593183190412151
+        },
+        "w_max": {
+          "c": 0.21,
+          "tracker": 0.30881831436693896,
+          "step_in_place": 0.001588050631552947,
+          "still": 0.0029991153640955438,
+          "share_step_in_place": 0.0051423460257153655,
+          "share_still": 0.009711585176687366,
+          "premium_vs_still_per_step": 0.30581919900284343,
+          "premium_vs_still_per_s": 15.290959950142172,
+          "premium_vs_step_in_place_per_step": 0.30723026373538603
+        }
+      },
+      "straight_wobble_income": 1.082015800846473,
+      "straight_still_income": 1.2
+    }
+  },
+  "idealised_still_share": {
+    "w_min": 0.2943035529371539,
+    "0.08": 0.14421179856761102,
+    "ceiling": 0.019311693581252665,
+    "w_max": 0.007314915522184252
+  },
+  "fails": [
+    "translation w_min: share_step_in_place 0.452 > B 0.4",
+    "translation w_min: share_still 0.418 > B 0.4",
+    "move_turn w_min: share_step_in_place 0.523 > B 0.4",
+    "move_turn w_min: share_still 0.494 > B 0.4"
+  ],
+  "verdict": "FAIL"
+}
