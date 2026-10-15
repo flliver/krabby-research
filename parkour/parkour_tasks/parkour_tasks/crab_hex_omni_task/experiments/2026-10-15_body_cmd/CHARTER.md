@@ -79,3 +79,16 @@ adoption-grade report. **Adoption, bake and push are the user's.**
     w_min 0.06 → move_turn SIP 0.418 (fail); w_min 0.07 → max share 0.328; 2-s window σ 0.10 → max 0.399 (borderline);
     σ 0.03 → 0.403; tent weight 2.0 → 0.431; 2-s window σ 0.10 + tent 2.0 → max **0.333** (premium 8.4 / s at w_min,
     ceiling shares ≤ 0.03 unchanged in kind).
+- 2026-10-15, **USER DECISION at the step-1a stop: "2-s window + tent 2.0".** PLAN D4 amended (before any code):
+  `reward_tracking_yaw` → `0.2 × exp(−|Δyaw_2s − ∫wz_cmd| / σ)` with a **2-s window** (100 steps) and **σ = 0.10 rad**
+  (still σ = w_min × window); `reward_yaw_progress` → tent `min(p, 2|c| − p)` with **p = the 2-s mean yaw rate**
+  toward the command, at **weight 2.0** (was 1.0; its top income at the ceiling ≈ 0.33 / step, about the facing
+  lineage's yaw_progress cap of 0.3); w_min stays 0.05; window reset on a command change / reset as planned (the
+  window integral is taken over the steps since the reset when fewer than 100 have elapsed — implementation pins it).
+  Every PLAN text that says "1-s" for these two terms now reads "2-s"; the eval's ripple statistic (std of the 1-s
+  mean wz, D5) is an eval statistic and is unchanged.
+- 2026-10-15, **step 1a re-read under the amended D4 (`step1a_turn_pricing_v2.{json,md}`): PASS.** Non-rotating
+  share (still / step-in-place): w_min translation 0.304 / 0.316, move_turn 0.333 / 0.327 (≤ B 0.40; idealised
+  0.245); 0.08: ≤ 0.144; ceiling ≤ 0.016; w_max ≤ 0.006. Premium vs still at w_min 8.4 / 7.4 per s, at 0.08 13.1 /
+  12.0 per s. Straight-row wobble income 1.131 / 1.108 of 1.200. (The v1 read's idealised line is regenerated with
+  the window length in the formula; its verdict and shares are unchanged.) Next: step 1 code.

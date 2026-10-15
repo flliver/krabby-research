@@ -1,6 +1,6 @@
 # Step 1a — body-mode turn pricing on S1's measured yaw traces
 
-Rule: CHARTER §3 (pinned 2026-10-15 before this read). Stamp `parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24`; window 50 steps; σ 0.05 rad; weights track 0.2 / tent 1.0 (ang-vel term 0 on turning rows).
+Rule: CHARTER §3 (pinned 2026-10-15 before this read). Stamp `parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24`; window 50 steps (1.0 s); σ 0.05 rad; weights track 0.2 / tent 1.0 (ang-vel term 0 on turning rows).
 
 **Verdict: FAIL** — translation w_min: share_step_in_place 0.452 > B 0.4; translation w_min: share_still 0.418 > B 0.4; move_turn w_min: share_step_in_place 0.523 > B 0.4; move_turn w_min: share_still 0.494 > B 0.4
 

@@ -2,6 +2,7 @@
   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24",
   "dt": 0.02,
   "window_steps": 50,
+  "window_s": 1.0,
   "sigma": 0.05,
   "weights": {
     "track": 0.2,

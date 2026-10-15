@@ -84,15 +84,22 @@ def main() -> None:
     ap.add_argument("--stamp", default=str(STAMP))
     ap.add_argument("--json", default=str(CAMPAIGN / "step1a_turn_pricing.json"))
     ap.add_argument("--md", default=str(CAMPAIGN / "step1a_turn_pricing.md"))
+    ap.add_argument("--win", type=float, default=None, help="window seconds (default WIN_S)")
+    ap.add_argument("--sigma", type=float, default=None, help="window kernel width, rad (default SIGMA)")
+    ap.add_argument("--w-tent", type=float, default=None, help="tent weight (default W_TENT)")
     a = ap.parse_args()
+    global WIN_S, SIGMA, W_TENT
+    WIN_S = WIN_S if a.win is None else a.win
+    SIGMA = SIGMA if a.sigma is None else a.sigma
+    W_TENT = W_TENT if a.w_tent is None else a.w_tent
     stamp = Path(a.stamp)
     traces, dt = hold_traces(stamp)
     n = int(round(WIN_S / dt))
 
-    res: dict = {"stamp": str(stamp), "dt": dt, "window_steps": n, "sigma": SIGMA,
+    res: dict = {"stamp": str(stamp), "dt": dt, "window_steps": n, "window_s": WIN_S, "sigma": SIGMA,
                  "weights": {"track": W_TRACK, "tent": W_TENT, "ang": W_ANG}, "levels": LEVELS,
                  "B_wmin": B_WMIN, "ceil_share_max": CEIL_SHARE, "families": {}}
-    ideal = {k: (W_TRACK * math.exp(-c / SIGMA)) / (W_TRACK + W_TENT * c) for k, c in LEVELS.items()}
+    ideal = {k: (W_TRACK * math.exp(-c * WIN_S / SIGMA)) / (W_TRACK + W_TENT * c) for k, c in LEVELS.items()}
     res["idealised_still_share"] = ideal
     fails = []
     for fam, labels in (("translation", TRANSLATE), ("move_turn", MOVE_TURN)):
@@ -137,14 +144,14 @@ def main() -> None:
 
     L = ["# Step 1a — body-mode turn pricing on S1's measured yaw traces", "",
          f"Rule: CHARTER §3 (pinned 2026-10-15 before this read). Stamp `{stamp.relative_to(R)}`; window "
-         f"{n} steps; σ {SIGMA} rad; weights track {W_TRACK} / tent {W_TENT} (ang-vel term 0 on turning rows).", "",
+         f"{n} steps ({WIN_S} s); σ {SIGMA} rad; weights track {W_TRACK} / tent {W_TENT} (ang-vel term 0 on turning rows).", "",
          f"**Verdict: {res['verdict']}**" + ("" if not fails else " — " + "; ".join(fails)), ""]
     L.append("Idealised still-stander share (wobble-free tracker): " +
              ", ".join(f"{k} {v:.3f}" for k, v in ideal.items()) + f"; pinned w_min bound B = {B_WMIN}.")
     L.append("")
     for fam, fo in res["families"].items():
         L += [f"## {fam} traces (n = {fo['n_traces']}, windows {fo['n_windows']})", "",
-              f"1-s Δyaw: std {fo['window_dyaw_std_rad']:.4f} rad, |·| p50 {fo['window_dyaw_abs_p50_rad']:.4f}, "
+              f"{WIN_S:g}-s Δyaw: std {fo['window_dyaw_std_rad']:.4f} rad, |·| p50 {fo['window_dyaw_abs_p50_rad']:.4f}, "
               f"p90 {fo['window_dyaw_abs_p90_rad']:.4f}; per-step wz std {fo['per_step_wz_std']:.3f} rad/s. "
               f"Straight rows (c = 0): wobble income {fo['straight_wobble_income']:.4f}/step vs still "
               f"{fo['straight_still_income']:.4f}.", "",
