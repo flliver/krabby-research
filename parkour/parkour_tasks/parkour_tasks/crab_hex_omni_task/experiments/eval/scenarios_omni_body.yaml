@@ -11,11 +11,12 @@
 # refused by the harness (gate 0 INVALID). The legacy world rows (scenarios_omni.yaml) are not edited:
 # a body head runs THEM through `--command-adapter world_rate` (reported, never gated).
 #
-# THE ENVELOPE BLOCK IS PROVISIONAL. `envelope:` below is the CHARTER's provisional envelope (w_min
-# 0.05, the ceiling 0.167 = S1's sustained pure-turn rate on the world suite, w_max 0.21 = 1.2 x the
-# ceiling rounded up, the coupled move+turn cap through (0, 0.21) (0.22, 0.13) (0.30, 0.10)). Step 4
-# freezes it from the P1 envelope grid and the orchestrator then rewrites THAT BLOCK ONLY (eval_sha
-# moves a second time, CHARTER §3 2026-10-15). Every turn level and move_turn row is written as a
+# THE ENVELOPE BLOCK IS FROZEN (step 4, 2026-10-15; experiments/2026-10-15_body_cmd/envelope_freeze.md):
+# w_min 0.05; ceiling 0.168 = S1 s18's net turn rate over the first 6 s of the world suite's saturated
+# pure-turn holds (4 reads); w_max 0.21 = 1.2 x the ceiling rounded up; the coupled move+turn cap through
+# (0, 0.21) (0.22, 0.105) (0.30, 0.065) = 1.2 x the smaller of the fwd / lat P1 grid cells' achieved rate at
+# wz cmd 0.30, rounded down to 0.005. It was PROVISIONAL (0.167 / cap 0.13, 0.10) at step 2; the freeze
+# rewrote that block only (eval_sha moved a second time, CHARTER §3 2026-10-15). Every turn level and move_turn row is written as a
 # SYMBOL resolved from this block at parse time -- `w_min`, `ceiling`, `w_max` (and their negatives),
 # `cap80` = 0.8 x the cap's wz at the hold's own |v| (PLAN D3: body move_turn eval rows sit inside the
 # cap) -- so the freeze moves the rows with it and no number below has to be edited by hand. The
@@ -46,9 +47,9 @@ command_route: term
 
 envelope:
   w_min: 0.05
-  ceiling: 0.167
+  ceiling: 0.168
   w_max: 0.21
-  cap: [[0.0, 0.21], [0.22, 0.13], [0.30, 0.10]]
+  cap: [[0.0, 0.21], [0.22, 0.105], [0.30, 0.065]]
 
 speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
 

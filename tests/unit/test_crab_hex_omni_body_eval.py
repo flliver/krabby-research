@@ -124,23 +124,24 @@ def test_the_shipped_body_manifest_parses_with_the_spec_rows():
         assert sc.task == "Isaac-Crab-Hex-Omni-Walk-Play-v0" and sc.episodes == 100 and sc.env_seed == 1
         assert sc.spawn_yaw == "first_face" and sc.spawn_yaw_rad() == 0.0
         assert sc.get_speed_ellipse() == (0.35, 0.35, 0.25)
-        assert tuple(sc.envelope) == (0.05, 0.167, 0.21, ((0.0, 0.21), (0.22, 0.13), (0.30, 0.10)))
+        # FROZEN at step 4 (CHARTER 2026-10-15, envelope_freeze.md); was provisional 0.167 / (0.22, 0.13) (0.30, 0.10)
+        assert tuple(sc.envelope) == (0.05, 0.168, 0.21, ((0.0, 0.21), (0.22, 0.105), (0.30, 0.065)))
     suite = by_id["suite__omni_body"]
     assert suite.kind == "category_suite" and suite.waves == 10
     assert suite.suite.settle_hold_s == 2.0 and suite.suite.hold_s == 12.0
     cmds = {h.label: (h.vx, h.vy, round(h.wz, 12), h.wz_symbol) for h in suite.suite.holds()}
-    cap80 = 0.8 * mm.body_cap_wz(0.22, ENVELOPE)
+    cap80 = 0.8 * mm.body_cap_wz(0.22, suite.envelope)
     assert cmds == {"stand": (0.0, 0.0, 0.0, None), "fwd": (0.25, 0.0, 0.0, None),
                     "lat_l": (0.0, 0.22, 0.0, None), "lat_r": (0.0, -0.22, 0.0, None),
                     "back": (-0.22, 0.0, 0.0, None), "diag": (0.1767767, 0.1767767, 0.0, None),
-                    "turn_l_ceiling": (0.0, 0.0, 0.167, "ceiling"), "turn_r_ceiling": (0.0, 0.0, -0.167, "-ceiling"),
+                    "turn_l_ceiling": (0.0, 0.0, 0.168, "ceiling"), "turn_r_ceiling": (0.0, 0.0, -0.168, "-ceiling"),
                     "move_turn_l": (0.22, 0.0, round(cap80, 12), "cap80"),
                     "move_turn_r": (0.22, 0.0, round(-cap80, 12), "-cap80")}
-    assert cap80 == pytest.approx(0.104)
+    assert cap80 == pytest.approx(0.084)
     assert [c.name for c in suite.suite.categories] == ["stand", "fwd", "side", "back", "diag", "turn", "move_turn"]
     levels = by_id["turnlevels__omni_body"]
     assert levels.waves == 10 and [c.kind for c in levels.suite.categories] == ["turn"] * 5
-    assert sorted(abs(h.wz) for h in levels.suite.holds())[::2] == [0.05, 0.08, 0.15, 0.167, 0.21]
+    assert sorted(abs(h.wz) for h in levels.suite.holds())[::2] == [0.05, 0.08, 0.15, 0.168, 0.21]
     grid = by_id["grid__omni_body"]
     assert grid.kind == "envelope_grid" and grid.waves == 20 and S.uses_waves(grid)
     cells = {(round(math.hypot(h.vx, h.vy), 6), "lat" if h.vy else "fwd", h.wz) for h in grid.suite.holds()}
@@ -158,7 +159,7 @@ def test_the_shipped_body_manifest_parses_with_the_spec_rows():
         assert [(h.label, h.hold_s) for h in sc.schedule] == [
             ("stand", 8.0), ("fwd", 8.0), ("lat_l", 8.0), ("diag", 8.0), ("back", 8.0),
             ("turn_l_ceiling", 12.0), ("turn_r_ceiling", 12.0), ("move_turn_l", 8.0)]
-        assert sc.schedule[-1].wz_symbol == "cap80" and sc.schedule[5].wz == 0.167
+        assert sc.schedule[-1].wz_symbol == "cap80" and sc.schedule[5].wz == 0.168
 
 
 def test_v1_v2_manifests_load_with_no_v3_field():

@@ -201,3 +201,21 @@ adoption-grade report. **Adoption, bake and push are the user's.**
   body_hold / world_rate adapters + body yaw metrics + scenarios_omni_body.yaml (user decision 2026-10-15: first-class
   body evaluation); legacy path proven bitwise on S1 (G0)". G0 is re-run at the post-freeze eval_sha at the start of
   step 4 (≈ 15 min) so the record carries it at the final hash.
+- 2026-10-15, **P1 read statistic pinned before P1 is read:** a grid cell's achieved yaw rate = the MEDIAN over its
+  surviving episodes of the harness's per-episode `net_yaw_rate` (window [4, 12) s), averaged over es1 and es2;
+  the cap uses the wz-cmd 0.30 cells (`scripts/bc_freeze_envelope.py`). Gate-reader conventions for the whole
+  campaign (`scripts/bc_read.py`): body statistics over surviving episodes only (per-episode records under
+  `metrics/episode_*.json` → `holds[label].body`); suite / grid survival = schedule completed; field-row completion =
+  `schedule_completion_rate`, field_hard pooled over es1–es4 (n = 400, as REFS), field_light / ring_obst over es1 +
+  es2. code_sha moved a second time at the step-2 commit (`fe714b41…`): the `_b` presets' `eval_scenarios` (driver
+  metadata, no training value) sit in a hashed config file. eval_sha = `cb813876…` (step 2).
+- 2026-10-15, **step 4 P1 read + ENVELOPE FROZEN (`envelope_freeze.{json,md}`; S1 s18 + `body_hold` on
+  `grid__omni_body` es1 + es2): no STOP.** ceiling **0.168** (world suite, 4 reads 0.1664–0.1693); spot-cell
+  cross-check 0.1676 (Δ 0.0004 ≤ 0.01); w_max **0.21**; coupled cap **(0, 0.21) (0.22, 0.105) (0.30, 0.065)** —
+  set by the FORWARD cells (fwd + turn at wz cmd 0.30: 0.088 at |v| 0.22, 0.056 at 0.30; lat + turn: 0.144 /
+  0.128): S1 turns far less while walking forward than while walking sideways; the |v|-only cap takes the worse.
+  cap80 at |v| 0.22 = 0.084 rad/s (the body move_turn rows). Knobs: `KRABBY_OMNI_BODY_ENVELOPE=0.05:0.168:0.21`,
+  `KRABBY_OMNI_BODY_CAP=0@0.21,0.22@0.105,0.3@0.065`. P1 map (descriptive): spot turns at 0.08 / 0.15 net ratio
+  0.991 / 0.978; fwd 0.30 m/s cells lose 2–3.5 % survival; translation body ratio 0.88–1.12 at wz 0. The scenario
+  file's envelope block is rewritten (comment + block only; eval_sha moves the second time); the shipped-manifest
+  test pins the frozen numbers.
