@@ -347,3 +347,10 @@ the user's.**
     and fix were resumed after the usage limit): bitwise parity with the launcher's step over 770 steps (CPU); GPU smoke
     `sh_smoke_T18` rc 0 (20.5 s, 1025 frames at 20 fps render, peak RSS 10.1 GB, two stands arrived within 1.7 mm, the
     restore completed). Full raise / lower video `sh_raise_T17` launched.
+- 2026-10-14, **step 8 inputs:** observe passes for `SH_T18`, `SH_T16`, `SH_T17` and the pilot `SH_P18` (height rows and
+  zero-command rows; `observe_*_{height,zero}.{md,json}`; all status complete). `SH_T17` height rows: HOLD hip / knee
+  residual executed = R_h's exactly (deadband), LIFT μ_hip −0.473 (R −0.5), 98.5 % of LIFT onsets launched within 0.3 s,
+  HOLD cam-trim slope −0.21 … −0.43 per leg (R's −0.48 … −0.54 on the same rows). **Raise / lower video `sh_raise_T17`**
+  (154.5 s, `video_sh_raise_T17_sanity.json`): 13 / 13 stand heights arrived (median error 0.4–4.4 mm), 13 / 13 homed at
+  the end, 0 falls, 2 / 2 restores completed, no reference mismatch. Report: step-8 workflow (opus·xhigh write,
+  fable·high verify of every number, opus fix).

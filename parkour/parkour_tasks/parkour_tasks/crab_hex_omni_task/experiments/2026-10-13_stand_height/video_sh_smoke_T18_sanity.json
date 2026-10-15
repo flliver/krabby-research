@@ -1,0 +1,817 @@
+{
+ "mode": "sequence",
+ "kind": "sh_stand_height_video",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+ "checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+ "stand_checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T18/model_5000.pt",
+ "stand_checkpoint_sha256": "6935037a6fa9265fff4318525fff19dfc295b322e3dcc0465a7166e0e9ab72a9",
+ "stand_mask": 1,
+ "residual_deadband": 0.25,
+ "controller": "stand_net",
+ "restore": "armed",
+ "controller_record": {
+  "dt": 0.02,
+  "rate_m_s": 0.08,
+  "h_min": 0.719,
+  "h_max": 1.346,
+  "engage_m": 0.02,
+  "rod_tol_m": 0.008,
+  "settle_steps": 10,
+  "timeout_s": 5.312500000000001,
+  "timeout_steps": 266,
+  "restore": "armed"
+ },
+ "clip": {
+  "harness_clip_actions": 4.8,
+  "s1_clamp": 1.0,
+  "residual_clamp": 1.0,
+  "stand_rod_clamp": 4.8,
+  "stand_cam_clamp": 1.0,
+  "stand_action": "q18(h_lim) + deadband(clamp(a_net, +-1), 0.25 on hip / knee), rods +-4.8, cams +-1",
+  "s1_action": "clamp(S1, +-1)",
+  "residual_deadband": 0.25,
+  "residual_deadband_rule": "after the +-1 clamp, before + q, hip / knee columns 6-17 only (cams never): r <- r if |r| >= deadband else 0 (hard); 0 = off"
+ },
+ "provenance": {
+  "sh_core_sha256": "5661a4b3155f56fe0ec01155daefdb264883ea392450eeecb876714f13c27576",
+  "sh_kin_sha256": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f",
+  "sn_common_sha256": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93",
+  "restance_sha256": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4",
+  "facts_json_sha256": "c7c4acf777683ecb743d7a1c97c813ebb424cc2ddd07268b84d25f5108587a94",
+  "stand_net_ckpt": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/stand_net/model_4000.pt",
+  "stand_net_sha256": "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff",
+  "restance_d3": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+  "h_settled": 1.064,
+  "h_min": 0.719,
+  "h_max": 1.346,
+  "height_obs_scale": 0.4,
+  "height_col": 15,
+  "rate_m_s": 0.08,
+  "restore_zero_cols": [
+   5,
+   8,
+   9,
+   10
+  ],
+  "restore_engage_m": 0.02,
+  "restore_rod_tol_m": 0.008,
+  "restore_settle_s": 0.2,
+  "restore_timeout_s": 5.312500000000001,
+  "q_grid_step_m": 0.0005,
+  "q_snap_m": 1e-06,
+  "clip": {
+   "harness_clip_actions": 4.8,
+   "s1_clamp": 1.0,
+   "residual_clamp": 1.0,
+   "stand_rod_clamp": 4.8,
+   "stand_cam_clamp": 1.0,
+   "stand_action": "q18(h_lim) + deadband(clamp(a_net, +-1), 0.25 on hip / knee), rods +-4.8, cams +-1",
+   "s1_action": "clamp(S1, +-1)",
+   "residual_deadband": 0.25,
+   "residual_deadband_rule": "after the +-1 clamp, before + q, hip / knee columns 6-17 only (cams never): r <- r if |r| >= deadband else 0 (hard); 0 = off"
+  },
+  "residual_deadband_probe": 0.25
+ },
+ "caption_tags": {
+  "stand_tag": "SH_T18 s18 db0.25",
+  "s1_tag": "S1 s18",
+  "label": "S1 s18 + stand-height net SH_T18 s18 db0.25",
+  "stand_tag_source": "stand checkpoint infos.sh_dagger",
+  "label_source": "derived from the loaded checkpoints"
+ },
+ "build": {
+  "rng_restored": true,
+  "latch_preexisting": false,
+  "wrapper_clip_before": 1.0,
+  "wrapper_clip_realised": 4.8,
+  "estimator_equals_s1": true,
+  "trained_stand_mask": 1,
+  "stand_ckpt_kind": "sh_dagger",
+  "trained_beside_s1_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+  "actor_params_equal_file": true,
+  "trained_residual_deadband": 0.25,
+  "deadband_parity": {
+   "evaluated": 0.25,
+   "trained": 0.25,
+   "note": null
+  },
+  "sh_dagger_arm": "mask",
+  "sh_dagger_seed": 18,
+  "sh_dagger_iterations": 5000,
+  "trim_branch": true,
+  "trim_min": 0.0999
+ },
+ "forward": "act_inference(sh_core.stand_net_input(obs, stand_estimator, mask, h_cmd_limited, restoring), hist_encoding=True)",
+ "routing": {
+  "rule": "the eval's latched stand slot | H6 restore (sh_core.HeightController.step: stand_eff)",
+  "stand_eff_steps": 624,
+  "restoring_steps": 49,
+  "steps": 1025,
+  "route_mismatch_steps": 0,
+  "exec_checked_steps": 1025,
+  "exec_mismatch_steps": 0,
+  "schedule_vs_slot_disagree_steps": 0,
+  "holds_where_slot_disagrees": [],
+  "resets_rederived": 1
+ },
+ "height_summary": {
+  "n_stand_holds": 2,
+  "arrived": 2,
+  "window_median_abs_err_m": [
+   0.001669836044311479,
+   0.0014584859212239953
+  ],
+  "homed_at_end": 2,
+  "falls_in_stands": 0,
+  "restores": {
+   "engaged": 1,
+   "completed": 1,
+   "timed_out": 0
+  },
+  "events_all": {
+   "engaged": 1,
+   "completed": 1,
+   "timed_out": 0,
+   "merged": 0,
+   "reset_cut": 0
+  },
+  "deadband_zeroed_entries": 7198,
+  "per_stand": [
+   {
+    "hold": "stand",
+    "segment": 1,
+    "hold_s": 5.5,
+    "rows": 275,
+    "h_cmd": 1.2,
+    "arrival_s": 1.68,
+    "slack_s": 3.8200000000000003,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.001669836044311479,
+     "max_abs_err_m": 0.0054455518722533736,
+     "feet_min": 4
+    },
+    "h_meas_end": 1.198330044746399,
+    "feet_end": 6,
+    "homing": {
+     "rows": 275,
+     "cam_max_end_rad": 0.008602380752563477,
+     "homed_at_end": true,
+     "settle_s": 3.18,
+     "settled": true,
+     "cam_max_last5s_rad": 1.6668376922607422,
+     "homed_last5s": false
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 3010
+   },
+   {
+    "hold": "stand",
+    "segment": 2,
+    "hold_s": 6.0,
+    "rows": 300,
+    "h_cmd": 1.0,
+    "arrival_s": 2.48,
+    "slack_s": 3.52,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0014584859212239953,
+     "max_abs_err_m": 0.0014596780141195032,
+     "feet_min": 6
+    },
+    "h_meas_end": 0.9985419909159342,
+    "feet_end": 6,
+    "homing": {
+     "rows": 300,
+     "cam_max_end_rad": 0.01285409927368164,
+     "homed_at_end": true,
+     "settle_s": 0.0,
+     "settled": true,
+     "cam_max_last5s_rad": 0.012868881225585938,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 3600
+   }
+  ],
+  "per_restore": [
+   {
+    "hold": "lat_l",
+    "segment": 3,
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 0.98,
+    "completed_at_s": 0.98
+   }
+  ]
+ },
+ "reference_run_meta": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SH_T18/hraise__omni/seed001/2026-10-14_17-21-41/run_meta.json",
+ "reference_scenario_id": "hraise__omni",
+ "reference_checks": {
+  "reference_variant": {
+   "reference": "stand_height",
+   "here": "stand_height"
+  },
+  "control": {
+   "reference": "stand_net",
+   "here": "stand_net"
+  },
+  "restore": {
+   "reference": "armed",
+   "here": "armed"
+  },
+  "stand_mask": {
+   "reference": 1,
+   "here": 1
+  },
+  "residual_deadband": {
+   "reference": 0.25,
+   "here": 0.25
+  },
+  "stand_ckpt_sha256": {
+   "reference": "6935037a6fa9265fff4318525fff19dfc295b322e3dcc0465a7166e0e9ab72a9",
+   "here": "6935037a6fa9265fff4318525fff19dfc295b322e3dcc0465a7166e0e9ab72a9"
+  },
+  "s1_ckpt_sha256": {
+   "reference": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+   "here": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c"
+  },
+  "harness_sha256": {
+   "reference": "342339cc7bbbb8fbe491a7bd99734c04991dbda7acadcdc47c24a80b9c263137",
+   "here": "342339cc7bbbb8fbe491a7bd99734c04991dbda7acadcdc47c24a80b9c263137"
+  },
+  "sh_launcher_sha256": {
+   "reference": "d5c6bc7f8e30fbb0d291fb8dc9a756c614a5f93594a24ab58f13ce5d5ef91fc3",
+   "here": "d5c6bc7f8e30fbb0d291fb8dc9a756c614a5f93594a24ab58f13ce5d5ef91fc3"
+  },
+  "sh_eval_common_sha256": {
+   "reference": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd",
+   "here": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd"
+  },
+  "p2r_launcher_sha256": {
+   "reference": "5953930142697401baef707da3b438926cce855a0113e97af2e6aacd7ba817f3",
+   "here": "5953930142697401baef707da3b438926cce855a0113e97af2e6aacd7ba817f3"
+  },
+  "sh_core_sha256": {
+   "reference": "5661a4b3155f56fe0ec01155daefdb264883ea392450eeecb876714f13c27576",
+   "here": "5661a4b3155f56fe0ec01155daefdb264883ea392450eeecb876714f13c27576"
+  },
+  "sh_kin_sha256": {
+   "reference": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f",
+   "here": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f"
+  },
+  "sn_common_sha256": {
+   "reference": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93",
+   "here": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93"
+  },
+  "restance_sha256": {
+   "reference": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4",
+   "here": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4"
+  },
+  "facts_json_sha256": {
+   "reference": "c7c4acf777683ecb743d7a1c97c813ebb424cc2ddd07268b84d25f5108587a94",
+   "here": "c7c4acf777683ecb743d7a1c97c813ebb424cc2ddd07268b84d25f5108587a94"
+  },
+  "forward": {
+   "reference": "act_inference(sh_core.stand_net_input(obs, stand_estimator, mask, h_cmd_limited, restoring), hist_encoding=True)",
+   "here": "act_inference(sh_core.stand_net_input(obs, stand_estimator, mask, h_cmd_limited, restoring), hist_encoding=True)"
+  },
+  "hist_encoding": {
+   "reference": true,
+   "here": true
+  },
+  "mask_fn": {
+   "reference": "crab_hex_omni_restance.stand_mask_obs",
+   "here": "crab_hex_omni_restance.stand_mask_obs"
+  }
+ },
+ "reference_mismatch": {},
+ "task": "Isaac-Crab-Hex-Omni-Walk-Play-v0",
+ "row_id": "sh_smoke__omni",
+ "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/videos/scenarios_sh_video_smoke.yaml",
+ "manifest_sha256": "28d6a230938948ced681bab67cb69debca41dedb222df7b6e83d4459e5a882fd",
+ "reference_row": "hraise__omni",
+ "reference_row_manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scenarios_sh.yaml",
+ "terrain_label": "flat",
+ "manifest_holds": [
+  {
+   "label": "fwd",
+   "hold_s": 3.0
+  },
+  {
+   "label": "stand",
+   "hold_s": 5.5
+  },
+  {
+   "label": "stand",
+   "hold_s": 6.0
+  },
+  {
+   "label": "lat_l",
+   "hold_s": 4.5
+  }
+ ],
+ "validator": "pass",
+ "height_row": {
+  "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/videos/scenarios_sh_video_smoke.yaml",
+  "manifest_sha256": "28d6a230938948ced681bab67cb69debca41dedb222df7b6e83d4459e5a882fd",
+  "scenario": "sh_smoke__omni",
+  "labels": [
+   "fwd",
+   "stand",
+   "stand",
+   "lat_l"
+  ],
+  "hold_heights": [
+   null,
+   1.2,
+   1.0,
+   null
+  ],
+  "gates": []
+ },
+ "env_vars": {
+  "KRABBY_ACTION_LPF_HZ": "0",
+  "KRABBY_ACTION_LPF_OBS": "0",
+  "KRABBY_APEX_W": "1.0",
+  "KRABBY_CLOCK_W": "1.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "ring",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_LIN_VEL_X": "0.0:0.35",
+  "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
+  "KRABBY_OMNI_ANG_VEL_MAX": "0.3",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CLOCK_TURN_R": "1.2",
+  "KRABBY_OMNI_CMD_OBS": "0",
+  "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+  "KRABBY_OMNI_FACING_OBS_ENCODING": "raw",
+  "KRABBY_OMNI_RELAY_HYST": "0",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_OMNI_STAND_HOLD": "0",
+  "KRABBY_OMNI_STAND_OBS": "0",
+  "KRABBY_OMNI_STAND_PARK": "0",
+  "KRABBY_OMNI_YAW_RANGE": "-3.14159:3.14159",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PLAY_DEBUG_VIS": "0",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TRACK_L1_W": "-1.0",
+  "KRABBY_TRACK_SIGMA2": "0.1"
+ },
+ "env_overrides": {
+  "seed": 1,
+  "episode_length_s": 22.5,
+  "freeze_terrain_levels": true,
+  "spawn_yaw_pin": 0.0
+ },
+ "harness": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py",
+ "harness_sha256": "342339cc7bbbb8fbe491a7bd99734c04991dbda7acadcdc47c24a80b9c263137",
+ "recorder": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scripts/sh_record_video.py",
+ "recorder_sha256": "816e53f633b33fba1a6ebc17234caaa228b087f38f98225633a06eb47fbad956",
+ "video_core_sha256": "aed8dcb88288f65f7180c45ae59e3fe975ff9115d1d45485e4f118b4a92d1ba8",
+ "sh_eval_common_sha256": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd",
+ "sh_launcher_sha256": "d5c6bc7f8e30fbb0d291fb8dc9a756c614a5f93594a24ab58f13ce5d5ef91fc3",
+ "p2r_launcher_sha256": "5953930142697401baef707da3b438926cce855a0113e97af2e6aacd7ba817f3",
+ "env_seed": 1,
+ "env_seed_note": "env_cfg.seed only (the harness's single pass)",
+ "spawn_yaw_pin": 0.0,
+ "prologue_s": 1.5,
+ "settle_s": 1.0,
+ "holds": [
+  {
+   "segment": 0,
+   "label": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 3.0,
+   "speed": 0.25,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 75,
+   "end_step_exclusive": 225,
+   "t0_s": 1.5,
+   "t1_s": 4.5
+  },
+  {
+   "segment": 1,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 1.2,
+   "hold_s": 5.5,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 225,
+   "end_step_exclusive": 500,
+   "t0_s": 4.5,
+   "t1_s": 10.0
+  },
+  {
+   "segment": 2,
+   "label": "stand",
+   "kind": "stand",
+   "h_cmd": 1.0,
+   "hold_s": 6.0,
+   "speed": 0.0,
+   "dir_deg": 0.0,
+   "face_deg": 0.0,
+   "start_step": 500,
+   "end_step_exclusive": 800,
+   "t0_s": 10.0,
+   "t1_s": 16.0
+  },
+  {
+   "segment": 3,
+   "label": "lat_l",
+   "kind": "walk",
+   "h_cmd": null,
+   "hold_s": 4.5,
+   "speed": 0.2,
+   "dir_deg": 89.99999846476551,
+   "face_deg": 0.0,
+   "start_step": 800,
+   "end_step_exclusive": 1025,
+   "t0_s": 16.0,
+   "t1_s": 20.5
+  }
+ ],
+ "n_steps": 1025,
+ "episode_length_s": 22.5,
+ "max_episode_length": 1125,
+ "dt": 0.02,
+ "fps": 50,
+ "arrows": true,
+ "camera": {
+  "eye": [
+   -5.0,
+   -4.0,
+   1.6
+  ],
+  "lookat": [
+   0.0,
+   0.0,
+   -0.45
+  ],
+  "origin_type": "asset_root",
+  "resolution": [
+   1280,
+   720
+  ]
+ },
+ "captions": "cv2",
+ "readings": {
+  "h_meas": "sh_core.h_meas(root z, sh_core.terrain_z_under_feet(footpads, mesh, raycast_mesh)), post-step",
+  "feet_loaded": "contact >= 20.0 N and footpad <= 0.15 m above the terrain (sh_dagger_spec; the trainer's probe), post-step",
+  "homed": "every cam |wrap| <= 0.1 rad, post-step"
+ },
+ "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_stand_height/sh_smoke_T18_sequence.mp4",
+ "frames_total": 1025,
+ "trace_sha256": "f843f8871d6dc0e83be49b16ab16755982cd4fdb18230751e57fe880eb815f83",
+ "start_state": {
+  "x": -25.0,
+  "y": -95.0,
+  "z": 1.0850000381469727,
+  "heading_deg": 0.0,
+  "episode_length_buf": 0
+ },
+ "schedule_state_max_dev": 0.0,
+ "obs_command_slot_max_dev": 0.0,
+ "falls": [],
+ "peak_rss_gb": 10.11904525756836,
+ "cgroup_peak_gb": 8.762088775634766,
+ "segments": [
+  {
+   "segment": -1,
+   "hold": "prologue",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 0,
+   "end_step_exclusive": 75,
+   "steps": 75,
+   "t0_s": 0.0,
+   "t1_s": 1.5,
+   "commanded": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.24999999929298358,
+    "world_dir_deg": -4.59463757327592e-07,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 1.5,
+    "dx": 0.3604164123535156,
+    "dy": 0.02392578125,
+    "dist": 0.36120968052116526,
+    "along_dir": 0.3604164123535156,
+    "across_dir": 0.02392578125,
+    "mean_speed_along": 0.2402776082356771,
+    "travel_dir_deg": 3.7979344642153254,
+    "heading_end_deg": 0.9760671161236144,
+    "heading_err_end_deg": 0.9760671161236144
+   },
+   "h_meas_end": 1.1024738152821858
+  },
+  {
+   "segment": 0,
+   "hold": "fwd",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 75,
+   "end_step_exclusive": 225,
+   "steps": 150,
+   "t0_s": 1.5,
+   "t1_s": 4.5,
+   "commanded": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "s1",
+   "stand_net_share": 0.0,
+   "slot_share": 0.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.25,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.24999999976422202,
+    "world_dir_deg": -2.957389439366248e-07,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 3.0,
+    "dx": 0.8211612701416016,
+    "dy": 0.03017425537109375,
+    "dist": 0.821715472209066,
+    "along_dir": 0.8211612701416016,
+    "across_dir": 0.03017425537109375,
+    "mean_speed_along": 0.2737204233805339,
+    "travel_dir_deg": 2.1044343441275397,
+    "heading_end_deg": -1.066285057157903,
+    "heading_err_end_deg": -1.066285057157903
+   },
+   "h_meas_end": 1.088815967241923
+  },
+  {
+   "segment": 1,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 1.2,
+   "start_step": 225,
+   "end_step_exclusive": 500,
+   "steps": 275,
+   "t0_s": 4.5,
+   "t1_s": 10.0,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 5.5,
+    "dx": -0.10504722595214844,
+    "dy": 0.06728363037109375,
+    "dist": 0.12474777190858238,
+    "along_dir": -0.10504722595214844,
+    "across_dir": 0.06728363037109375,
+    "mean_speed_along": -0.019099495627663353,
+    "travel_dir_deg": 147.36009694330224,
+    "heading_end_deg": 0.3913161317432961,
+    "heading_err_end_deg": 0.3913161317432961
+   },
+   "h_meas_end": 1.198330044746399,
+   "stand": {
+    "rows": 275,
+    "h_cmd": 1.2,
+    "arrival_s": 1.68,
+    "slack_s": 3.8200000000000003,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.001669836044311479,
+     "max_abs_err_m": 0.0054455518722533736,
+     "feet_min": 4
+    },
+    "h_meas_end": 1.198330044746399,
+    "feet_end": 6,
+    "homing": {
+     "rows": 275,
+     "cam_max_end_rad": 0.008602380752563477,
+     "homed_at_end": true,
+     "settle_s": 3.18,
+     "settled": true,
+     "cam_max_last5s_rad": 1.6668376922607422,
+     "homed_last5s": false
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 3010
+   }
+  },
+  {
+   "segment": 2,
+   "hold": "stand",
+   "kind": "stand",
+   "h_cmd": 1.0,
+   "start_step": 500,
+   "end_step_exclusive": 800,
+   "steps": 300,
+   "t0_s": 10.0,
+   "t1_s": 16.0,
+   "commanded": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "acting_network": "stand_net",
+   "stand_net_share": 1.0,
+   "slot_share": 1.0,
+   "restoring_share": 0.0,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.0,
+    "dir_deg": 0.0,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 0.0,
+    "dir_rad": 0.0,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.0,
+    "world_dir_deg": null,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 6.0,
+    "dx": 0.00183868408203125,
+    "dy": 0.001190185546875,
+    "dist": 0.002190274135697457,
+    "along_dir": 0.00183868408203125,
+    "across_dir": 0.001190185546875,
+    "mean_speed_along": 0.0003064473470052083,
+    "travel_dir_deg": null,
+    "heading_end_deg": 0.43584997898798417,
+    "heading_err_end_deg": 0.43584997898798417
+   },
+   "h_meas_end": 0.9985419909159342,
+   "stand": {
+    "rows": 300,
+    "h_cmd": 1.0,
+    "arrival_s": 2.48,
+    "slack_s": 3.52,
+    "window": {
+     "s": 2.0,
+     "median_abs_err_m": 0.0014584859212239953,
+     "max_abs_err_m": 0.0014596780141195032,
+     "feet_min": 6
+    },
+    "h_meas_end": 0.9985419909159342,
+    "feet_end": 6,
+    "homing": {
+     "rows": 300,
+     "cam_max_end_rad": 0.01285409927368164,
+     "homed_at_end": true,
+     "settle_s": 0.0,
+     "settled": true,
+     "cam_max_last5s_rad": 0.012868881225585938,
+     "homed_last5s": true
+    },
+    "falls": 0,
+    "deadband_zeroed_entries": 3600
+   }
+  },
+  {
+   "segment": 3,
+   "hold": "lat_l",
+   "kind": "walk",
+   "h_cmd": null,
+   "start_step": 800,
+   "end_step_exclusive": 1025,
+   "steps": 225,
+   "t0_s": 16.0,
+   "t1_s": 20.5,
+   "commanded": {
+    "speed": 0.2,
+    "dir_deg": 89.99999846476551,
+    "face_deg": 0.0
+   },
+   "acting_network": "mixed",
+   "stand_net_share": 0.21777777777777776,
+   "slot_share": 0.0,
+   "restoring_share": 0.21777777777777776,
+   "schedule_vs_slot_disagree_steps": 0,
+   "route_mismatch_steps": 0,
+   "exec_mismatch_steps": 0,
+   "applied_mean": {
+    "speed": 0.20000000298023224,
+    "dir_deg": 89.999995674289,
+    "face_deg": 0.0
+   },
+   "applied_max_dev": {
+    "speed": 2.980232227667301e-09,
+    "dir_rad": 4.8703002963890185e-08,
+    "face_rad": 0.0
+   },
+   "schedule_state_max_dev": 0.0,
+   "obs_command_slot_max_dev": 0.0,
+   "body_cmd_mean": {
+    "speed_xy": 0.20000000387753294,
+    "world_dir_deg": 89.99999504033516,
+    "wz": 0.0
+   },
+   "falls": [],
+   "achieved": {
+    "until": "end",
+    "duration_s": 4.5,
+    "dx": 0.009527206420898438,
+    "dy": 0.8300933837890625,
+    "dist": 0.8301480551519483,
+    "along_dir": 0.8300933840443427,
+    "across_dir": -0.00952718417863206,
+    "mean_speed_along": 0.18446519645429837,
+    "travel_dir_deg": 89.34242970449225,
+    "heading_end_deg": -0.34774886298787067,
+    "heading_err_end_deg": -0.34774886298787067
+   },
+   "h_meas_end": 1.1284174919128418,
+   "restore": {
+    "engaged": 1,
+    "completed": 1,
+    "timed_out": 0,
+    "restoring_s": 0.98,
+    "completed_at_s": 0.98
+   }
+  }
+ ]
+}
