@@ -329,3 +329,21 @@ the user's.**
   --iterations 5000 --deadband 0.25 --trim-branch --trim-min 0.0999`), judged `model_5000.pt`, mid-run premise its
   1667–2500 with the step-6 STOP lines, then the same evals at deadband 0.25 (table test, height rows es1 + es2, the nine
   K5 rows) and `sh_read` against the step-4b controls; chained in one serial queue (s16 then s17). Then step 8.
+- 2026-10-14, **replicates done** (queue `qr.sh`; `SH_T16` 14:15–17:45, `SH_T17` 17:45–21:15; the weekly usage limit
+  paused my monitoring, not the queue — the mid-run premise reads were made after the runs, on the same windows).
+  - **Premise (its 1667–2500 / 3334–5000): no STOP line crossed in either run.** `SH_T16` table STOOD 0.931 / 0.935 vs
+    R_h 0.932 / 0.937, walk homed 0.964 / 0.967, falls 0.6 % / 0.6 %; `SH_T17` table 0.940 / 0.933 vs 0.926 / 0.931,
+    walk homed 0.969 / 0.970, falls 0.4 % / 0.5 %. Trim ratio rising: `SH_T16` 0.28 → 0.43, `SH_T17` 0.26 → 0.51
+    (`SH_T18` 0.25 → 0.37). Files `t16_premise_{mid,final}.json`, `t17_premise_{mid,final}.json`.
+  - **`SH_T17` (`head_SH_T17.md/.json`): K1–K6 ALL PASS at es1 and es2** — K3 0.992 / 0.977 STOOD, falls 0.17 / 0.33;
+    K4 0 / 1 misses; K6 homed 0.98–1.0, stillness steps 0.16 / 0.18, taps 0.17 / 0.16 per s; K5 G1–G5 PASS.
+  - **`SH_T16` (`head_SH_T16.md/.json`): K1, K2, K3, K5, K6 PASS; K4 es2 2 / 800 misses (line 1)** — K3 0.990 / 0.980,
+    falls 0.50 / 0.33; K6 homed 0.98–1.0, steps 0.16 / 0.14, taps 0.19 / 0.17.
+  - **Every replicate K4 timeout is the kind accepted for `SH_T18`:** robot at walking height (h 1.062–1.074 m), one hip
+    rod 8.1–8.3 mm off (band 8 mm) while a leg seats; one `SH_T16` es2 case had a leg mid re-step (8.3–11.7 mm).
+  - Configuration count over three seeds: K4 es2 misses 3 / 2 / 1 per 800 (R_h 1); everything else passes at every seed.
+  - **Step-8 video recorder** (`sh_record_video.{py,sh}`, `sh_video_core.py`, `sh_video_schedule.py`,
+    `tests/unit/test_sh_video.py`; workflow wf_9ff84a77-35d — opus build, fable review APPROVE, 1 minor fix; the review
+    and fix were resumed after the usage limit): bitwise parity with the launcher's step over 770 steps (CPU); GPU smoke
+    `sh_smoke_T18` rc 0 (20.5 s, 1025 frames at 20 fps render, peak RSS 10.1 GB, two stands arrived within 1.7 mm, the
+    restore completed). Full raise / lower video `sh_raise_T17` launched.
