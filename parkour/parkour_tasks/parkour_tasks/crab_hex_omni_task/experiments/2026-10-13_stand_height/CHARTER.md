@@ -385,3 +385,11 @@ the user's.**
   keep-the-ancestor revision, review: no defects). Checks: `test_policy_of_record_omni.py` 45 pass, the campaign's
   warm-start tests pass (232, 0 skipped), `bundle_policy.py --check` OK, code_sha / eval_sha 14301cd2 / 1d021625
   unchanged (policy/ and the bundle tool are outside both). Walking head of record (6_p2a_field) unchanged. Not pushed.
+- 2026-10-15, **video-only extension of the recorder (user request: a table get-up + walk + min / max stands + a tour of
+  every command type with stands at min / max, on medium-rough terrain).** Workflow wf_4f028feb-8f2 (opus·xhigh build,
+  fable·high review PASS, 2 minor fixed): `--stand-rule {schedule, slot}` (default schedule = an explicit stand
+  command keys the switch and the restore; bitwise parity with the launcher pinned under both rules), `--terrain
+  field_medium` (the field_turn / field_suite env block from scenarios_p2.yaml, set before Kit; spawn row pinned so the
+  commanded path stays on field tiles, fail-closed; every visited tile recorded), `--table-start 0.635:knee_folded`
+  (the K3 table and pose; crab_failure disabled for the video, falls recorded by the K3 clauses), plans `tour`
+  (221.4 s) and `tour_smoke` (64.5 s). 334 CPU tests; hashes unchanged. Read by no gate.

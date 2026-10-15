@@ -64,6 +64,43 @@ CAPTIONS (per frame; the predecessor's style): mode (walk / stand / restoring, c
 (>= 20 N and <= 0.15 m above the terrain: the trainer's probe rule), homed (every cam within 0.10 rad), the world
 command, the next hold, time / heading / speed, the last restore event, falls.
 
+THE TOUR OPTIONS (2026-10-15; ``sh_video_core`` docstring "THE TOUR EXTENSION"):
+
+* ``--stand-rule {schedule, slot}`` (default ``schedule``, the predecessor video's semantics): the (N,) stand slot
+  handed to ``sh_video_core.height_step`` -- and so to ``HeightController.step``, whose restore engages on that slot's
+  exit -- is the schedule's stand flag (speed 0 at the previous hold's face = the ``"stand"``-labelled holds) or the
+  eval's latched slot (``rederive_on_reset``, called every step under both rules and recorded as ``slot``). The
+  latched slot keeps TURN on every stand after a facing change, so a tour routes its later stands to the stand net only
+  under ``schedule``. ``--stand-rule slot --terrain flat`` without ``--table-start`` is the pre-tour recorder's path.
+* ``--terrain {flat, field_medium}`` (default ``flat`` = the reference stamp's env, unchanged): ``field_medium`` writes,
+  BEFORE Kit, the reference env + the env block of ``field_turn__omni`` / ``field_suite__omni`` (read from
+  ``scenarios_p2.yaml``); the one deliberate deviation from the reference stamp, recorded in the sanity JSON
+  (``terrain``: the block, its source, the per-variable deviation). Every other reference check stays (checkpoint shas,
+  deadband, controller, restore, mask); h_meas reads the env's terrain raycast mesh (its z range is recorded and a flat
+  mesh under ``field_medium`` is refused). WHERE on the field (``_field_placement`` / ``_field_realised`` /
+  ``_field_summary``): the field's 10-m tiles each draw their own difficulty and the grid ends in a flat border, so the
+  spawn row is pinned on the cfg (``scene.terrain.max_init_terrain_level`` = the highest row with enough field rows
+  ahead for the schedule's commanded path + 2 m; field only); the realised spawn tile is re-checked after the
+  construction reset (refused if the path would reach the border or a flat tile); the tile under the robot is
+  captioned and recorded per hold and over the run (sanity JSON ``terrain.field``: grid, pin, spawn tile, each visited
+  tile's sub-terrain and height read-out, border / flat-tile steps).
+* ``--table-start TOP[:POSE]`` (default off; e.g. ``0.635:knee_folded``): env 0 spawns in the retracted pose on a
+  kinematic table cuboid as the K3 table test builds it (``sh_table_core.plan_envs`` / ``event_params`` / ``sh_start``
+  appended LAST to the reset events, the terrain mesh registered as its floor probe; the cuboid from
+  ``sh_table_core``'s constants); the HeightController is reset in TABLE start mode with the measured h_meas on every
+  episode start (``sh_video_core.table_start_reset``; height_step's walk reset then gets no rows). The first schedule
+  hold must be a stand whose height >= top + 0.31 and whose length covers the rods' rise + the ramp + 1 + 2 s (refused
+  otherwise); the spawn yaw pin must be 0 (sh_start spawns at yaw 0). The table STAYS in place unless ``--table-park``
+  (then it is parked at ``sh_starts``' park position at the first check after the first routed stand -> walk change
+  once the chassis' lowest point clears the top by 0.05 m, as the trainer parks it). ``crab_failure`` is DISABLED
+  (its clauses read first, as the table test does) and falls are RECORDED (``sh_video_core.FALL_RULE``: tilt > the
+  limit any time; hip contact > the threshold once the lowest corner has risen >= 0.10 m above its spawn), never reset.
+  The env's other termination stays: ``total_terminates`` (the time-out with the roll / pitch > 1.5 rad and root
+  z < -0.25 m cut-offs bundled in; a ``time_out`` term), so a flip mid-video ends the episode as a truncation,
+  labelled ``terminated_other`` (``timeout`` only at the episode's last step), and the robot respawns FOLDED ON THE
+  TABLE (``sh_start``) under whatever the schedule then commands -- captioned; the schedule carries on. Captioned:
+  top, pose, the limiter's arrival, the K3 "stood" instant, the table's state, the falls.
+
 OUTPUTS (``--out-dir``, default ``parkour/logs/videos/sh_stand_height``): ``<prefix>_sequence.mp4``,
 ``stills/<prefix>_sequence_<NN>_<label>_{mid,end}.png``, ``<prefix>_sequence_sanity.json`` (per segment: the
 record_categories block, the routing shares and checks; per stand hold the height read-out -- arrival, slack, the
@@ -181,6 +218,18 @@ parser.add_argument("--no-captions", action="store_true")
 parser.add_argument("--no-stills", action="store_true", help="Skip the per-hold PNG stills.")
 parser.add_argument("--trace-npz", action="store_true", help="Also dump every recorded per-step array.")
 parser.add_argument("--rss-abort-gb", type=float, default=20.0, help="Abort if RSS exceeds this (DDC balloon).")
+parser.add_argument("--stand-rule", choices=VC.STAND_RULES, default=VC.DEFAULT_STAND_RULE,
+                    help="The stand slot handed to the controller: the schedule's stand holds (default; speed 0 at the "
+                         "previous face = the 'stand' labels) or the eval's latched slot.")
+parser.add_argument("--terrain", choices=VC.TERRAINS, default=VC.DEFAULT_TERRAIN,
+                    help="flat (default): the reference stamp's env; field_medium: + the field_turn__omni / "
+                         "field_suite__omni env block of scenarios_p2.yaml, written before Kit.")
+parser.add_argument("--table-start", type=str, default=None, metavar="TOP[:POSE]",
+                    help="Spawn env 0 on a K3 table (top in m, pose default knee_folded); the first hold must be a "
+                         "stand at >= top + 0.31. Default off.")
+parser.add_argument("--table-park", action="store_true",
+                    help="With --table-start: park the table once the robot has stood up and the stand ended "
+                         "(default: the table stays in place).")
 parser.add_argument("--disable_fabric", action="store_true", default=False)
 cli_args.add_rsl_rl_args(parser)
 AppLauncher.add_app_launcher_args(parser)
@@ -224,14 +273,38 @@ WANT_ENV = {k: str(v) for k, v in RUN_META["env_vars"].items()}
 _env_why = SN.env_reasons(WANT_ENV)
 if _env_why:
     raise SystemExit("the reference stamp's env fails the launcher's D5 / L10 refusals:\n  " + "\n  ".join(_env_why))
+RULE = args_cli.stand_rule
+try:                                                      # --terrain: the env to write before Kit (flat = WANT_ENV)
+    RUN_ENV, TERRAIN = VC.terrain_env(WANT_ENV, args_cli.terrain)
+except (OSError, ValueError) as _exc:
+    raise SystemExit(f"--terrain {args_cli.terrain}: {_exc}") from _exc
+_env_why = SN.env_reasons(RUN_ENV)
+if _env_why:
+    raise SystemExit(f"the --terrain {args_cli.terrain} env fails the launcher's D5 / L10 refusals:\n  "
+                     + "\n  ".join(_env_why))
 for _p, _what in ((Path(args_cli.checkpoint), "--checkpoint"), (Path(args_cli.stand_ckpt), "--stand-ckpt"),
                   (Path(args_cli.manifest), "--manifest")):
     if not _p.is_file():
         raise SystemExit(f"{_what} not found: {_p}")
+try:                                                      # --table-start: parsed BEFORE Kit (arithmetic only)
+    TABLE = VC.parse_table_start(args_cli.table_start)
+except ValueError as _exc:
+    raise SystemExit(str(_exc)) from _exc
+if args_cli.table_park and TABLE is None:
+    raise SystemExit("--table-park needs --table-start")
 try:                                                      # the launcher's manifest path: validated BEFORE Kit
-    HEIGHT_ROW = EC.height_row(args_cli.manifest, args_cli.sequence)
+    if args_cli.sequence in VC.video_row_names(args_cli.manifest):    # a tour row (turns / a stand first)
+        HEIGHT_ROW = VC.video_height_row(args_cli.manifest, args_cli.sequence,
+                                         first_level=None if TABLE is None else TABLE["h_init_plan"])
+    else:
+        HEIGHT_ROW = EC.height_row(args_cli.manifest, args_cli.sequence)
 except (OSError, ValueError) as _exc:
     raise SystemExit(f"--manifest / --sequence: {_exc}") from _exc
+if TABLE is not None:                                     # first hold a stand at >= top + 0.31 (a height iff a stand)
+    _why = VC.table_start_reasons(TABLE, [VC.KIND_STAND if h is not None else VC.KIND_WALK
+                                          for h in HEIGHT_ROW["hold_heights"]], HEIGHT_ROW["hold_heights"])
+    if _why:
+        raise SystemExit("; ".join(_why))
 S1_SHA = _sha256(Path(args_cli.checkpoint))
 STAND_SHA = _sha256(Path(args_cli.stand_ckpt))
 HARNESS_SHA = _sha256(HARNESS)
@@ -295,15 +368,19 @@ def _cgroup_peak_gb() -> float | None:
 # ------------------------------------------------------------------ env vars BEFORE Kit boots
 # Writing KRABBY_* AFTER Kit has started is a known way to flip a same-seed eval between two
 # repeatable outcomes, so the whole replacement happens here, before AppLauncher.
-_dropped = sorted(k for k in os.environ if k.startswith("KRABBY_") and os.environ[k] != WANT_ENV.get(k))
+_dropped = sorted(k for k in os.environ if k.startswith("KRABBY_") and os.environ[k] != RUN_ENV.get(k))
 for _k in [k for k in os.environ if k.startswith("KRABBY_")]:
     del os.environ[_k]
-os.environ.update(WANT_ENV)
+os.environ.update(RUN_ENV)                                # = WANT_ENV on --terrain flat
 print(f"[SHV] reference stamp {RUN_META_PATH}", flush=True)
-print(f"[SHV] KRABBY_* env replaced by run_meta env_vars ({len(WANT_ENV)} vars); "
-      f"pre-existing differing/extra vars dropped: {_dropped or 'none'}", flush=True)
-for _k, _v in sorted(WANT_ENV.items()):
+print(f"[SHV] KRABBY_* env replaced by run_meta env_vars ({len(WANT_ENV)} vars)"
+      + ("" if not TERRAIN["deviation"] else f" + the --terrain {args_cli.terrain} block ({len(RUN_ENV)} vars; "
+         f"deviation from the reference: {TERRAIN['deviation']}; source {TERRAIN['source']})")
+      + f"; pre-existing differing/extra vars dropped: {_dropped or 'none'}", flush=True)
+for _k, _v in sorted(RUN_ENV.items()):
     print(f"[SHV]   {_k}={_v}", flush=True)
+print(f"[SHV] stand rule {RULE}: {VC.STAND_RULE_TEXT[RULE]}; terrain {args_cli.terrain}; table start "
+      f"{'off' if TABLE is None else TABLE}{' (park)' if args_cli.table_park else ''}", flush=True)
 print(f"[SHV] reference checks: {'all equal' if not REFERENCE_MISMATCH else f'MISMATCH (allowed): {REFERENCE_MISMATCH}'}",
       flush=True)
 print(f"[SHV] height row {HEIGHT_ROW['scenario']} ({HEIGHT_ROW['manifest']}): hold_heights {HEIGHT_ROW['hold_heights']}; "
@@ -629,6 +706,255 @@ def _caption_tags(stand_check: dict, sh_dagger: dict, resume_path) -> dict:
             "label_source": "--label" if args_cli.label else "derived from the loaded checkpoints"}
 
 
+#: --terrain field_medium: a terrain mesh whose z range is below this is flat (the env block did not reach it)
+FIELD_MIN_Z_RANGE_M = 0.02
+#: sh_table_core.sh_start reads the table as env.scene["sh_table"] (sh_starts.TABLE_NAME)
+TABLE_SCENE_NAME = "sh_table"
+TABLE_COLOR = (0.55, 0.36, 0.20)
+#: the K3 table test's start-state tolerances (sh_table_test)
+TABLE_START_TOL = {"joint_pos_max_err": 1e-3, "root_z_vs_event_err": 1e-3, "root_z_vs_floor_plus_plan_err": 1e-3,
+                   "root_xy_from_origin": 1e-3, "table_xy_err": 1e-3, "table_z_err": 1e-3, "root_quat_err": 1e-4}
+TABLE_STEP1_TOL_M = 0.01
+
+
+def _mesh_record(mesh, key: str) -> dict:
+    """The raycast mesh h_meas reads: its prim key and z range (warp ``mesh.points``; None where unreadable)."""
+    rec = {"key": key, "n_points": None, "z_min": None, "z_max": None, "z_range_m": None}
+    try:
+        pts = np.asarray(mesh.points.numpy())
+        z = pts[:, 2]
+        rec.update(n_points=int(pts.shape[0]), z_min=float(z.min()), z_max=float(z.max()),
+                   z_range_m=float(z.max() - z.min()))
+    except Exception as exc:  # noqa: BLE001 -- recorded, never fatal on its own
+        rec["error"] = f"{type(exc).__name__}: {exc}"
+    return rec
+
+
+#: the field's flat sub-terrain (omni_field.py's load-bearing "parkour_flat"; FLAT_FRAC 0.0 gives it no tile): a path
+#: tile of this name means the video would not be on the field
+FIELD_FLAT_SUBTERRAIN = "parkour_flat"
+
+
+def _field_placement(env_cfg, scenario) -> dict:
+    """``--terrain field_medium``, on the cfg before the env is built: the schedule's commanded path
+    (``sh_video_core.commanded_extent``, an upper bound) sized in the generator's tiles (+ the margin), and the spawn
+    row pinned (``scene.terrain.max_init_terrain_level``; IsaacLab draws env 0's row uniformly from 0 to it, column 0)
+    so that many FIELD rows lie ahead of the spawn and the path never reaches the flat border. Refused when the grid
+    cannot hold the path from env 0's spawn column. Recorded (the generator's band, curriculum, sub-terrain shares)."""
+    terrain = env_cfg.scene.terrain
+    tg = getattr(terrain, "terrain_generator", None) if terrain is not None else None
+    if tg is None:
+        raise SystemExit(f"--terrain {args_cli.terrain}: the env cfg has no terrain generator")
+    grid = VC.field_grid_of(tg)
+    extent = VC.commanded_extent(scenario.schedule, prologue_s=float(scenario.get_default("prologue_s")))
+    need = VC.field_tiles_needed(extent, grid)
+    try:
+        cap = VC.field_spawn_row_cap(need, grid)
+    except ValueError as exc:
+        raise SystemExit(f"--terrain {args_cli.terrain}: {exc}") from exc
+    before = terrain.max_init_terrain_level
+    terrain.max_init_terrain_level = cap
+    rec = {
+        "grid": grid, "commanded_extent_m": {k: extent[k] for k in ("x_min", "x_max", "y_min", "y_max")},
+        "hold_end_offsets_m": extent["ends"], "tiles_needed": need, "spawn_col": VC.FIELD_SPAWN_COL,
+        "max_init_terrain_level": {"before": before, "set": cap},
+        "generator": {"curriculum": getattr(tg, "curriculum", None),
+                      "difficulty_range": list(getattr(tg, "difficulty_range", []) or []),
+                      "seed": getattr(tg, "seed", None),
+                      "sub_terrain_proportions": {str(n): float(getattr(s, "proportion", float("nan")))
+                                                  for n, s in (getattr(tg, "sub_terrains", None) or {}).items()}},
+        "note": "the commanded path (+ margin) in tiles from the spawn tile's centre; the spawn row capped so that "
+                "many field rows lie ahead (+x); each tile draws its own difficulty in the band (curriculum off)",
+    }
+    print(f"[SHV] field placement: commanded path from the spawn x [{extent['x_min']:+.2f}, {extent['x_max']:+.2f}] "
+          f"y [{extent['y_min']:+.2f}, {extent['y_max']:+.2f}] m (+ {need['margin_m']} m) -> tiles ahead "
+          f"{need['ahead']}, left {need['left']}; grid {grid}; scene.terrain.max_init_terrain_level {before} -> "
+          f"{cap} (spawn row 0..{cap}, column {VC.FIELD_SPAWN_COL}); generator {rec['generator']}", flush=True)
+    return rec
+
+
+def _field_tile_record(gen, tile) -> dict:
+    """One generator tile: its sub-terrain and its height field (int16 x vertical_scale, metres: max / min / mean |h|,
+    the exact block cover where the generator kept one). Errors are recorded, never fatal."""
+    r, c = tile
+    rec = {"tile": [int(r), int(c)]}
+    try:
+        rec["name"] = str(np.asarray(gen.terrain_names)[r, c].reshape(-1)[0])
+    except Exception as exc:  # noqa: BLE001
+        rec["name_error"] = f"{type(exc).__name__}: {exc}"
+    try:
+        hf = np.asarray(gen.height_fields[r, c], dtype=np.float64) * float(gen.cfg.vertical_scale)
+        rec.update(max_height_m=float(hf.max()), min_height_m=float(hf.min()),
+                   mean_abs_height_m=float(np.abs(hf).mean()))
+        bm = getattr(gen, "block_masks", None)
+        rec["block_cover"] = None if bm is None else float(np.asarray(bm[r, c]).mean())
+    except Exception as exc:  # noqa: BLE001
+        rec["height_error"] = f"{type(exc).__name__}: {exc}"
+    return rec
+
+
+def _field_realised(unwrapped, robot, place: dict) -> tuple[dict, object]:
+    """After the construction reset: env 0's realised spawn tile (``scene.terrain.terrain_levels / terrain_types``),
+    which must be the tile under its env origin and under the robot (the tile map ``sh_video_core.tile_of``), checked
+    against the path from the robot's spawn (``sh_video_core.field_path_reasons``) and against the flat sub-terrain:
+    REFUSED if the path would reach the border or a flat tile. Per tile of the path box its sub-terrain and height-field
+    read-out (``_field_tile_record``). Returns ``(record, the generator object)``."""
+    grid = place["grid"]
+    terrain = unwrapped.scene.terrain
+    try:
+        row, col = int(terrain.terrain_levels[0].item()), int(terrain.terrain_types[0].item())
+        org = [float(v) for v in terrain.env_origins[0, :2].tolist()]
+    except (AttributeError, IndexError, TypeError, RuntimeError) as exc:
+        raise SystemExit(f"--terrain {args_cli.terrain}: env 0's spawn tile is unreadable ({exc}); cannot check the "
+                         "path stays on the field") from exc
+    root = [float(v) for v in robot.data.root_pos_w[0, :2].tolist()]
+    extent = dict(place["commanded_extent_m"])
+    why = VC.field_path_reasons(root[0], root[1], extent, grid)
+    for what, xy in (("env origin", org), ("robot spawn", root)):
+        t = VC.tile_of(xy[0], xy[1], grid)
+        if t != (row, col):
+            why.append(f"the {what} {xy} lies on tile {t}, not env 0's spawn tile ({row}, {col}): the tile map is "
+                       "wrong")
+    if row > place["max_init_terrain_level"]["set"]:
+        why.append(f"spawn row {row} > the pinned max_init_terrain_level {place['max_init_terrain_level']['set']}")
+    gen = getattr(terrain, "terrain_generator_class", None)
+    tiles = {VC.tile_key(t): _field_tile_record(gen, t) for t in VC.field_path_tiles(root[0], root[1], extent, grid)}
+    flat = sorted(k for k, t in tiles.items() if t.get("name") == FIELD_FLAT_SUBTERRAIN)
+    if flat:
+        why.append(f"path tiles {flat} are the flat sub-terrain {FIELD_FLAT_SUBTERRAIN!r}")
+    spawn = tiles.get(VC.tile_key((row, col))) or _field_tile_record(gen, (row, col))
+    print(f"[SHV] field spawn tile ({row}, {col}) {spawn.get('name')} (max {spawn.get('max_height_m')} / min "
+          f"{spawn.get('min_height_m')} m, block cover {spawn.get('block_cover')}); robot spawn {root}; path box "
+          f"{[round(v, 2) for v in VC.field_path_box(root[0], root[1], extent)]} covers tiles {sorted(tiles)}",
+          flush=True)
+    if why:
+        raise SystemExit(f"--terrain {args_cli.terrain}: the video would leave the field: " + "; ".join(why))
+    return {"spawn_tile": [row, col], "env_origin_xy": org, "robot_spawn_xy": root,
+            "path_box_xy": VC.field_path_box(root[0], root[1], extent), "path_tiles": tiles,
+            "names": {k: t.get("name") for k, t in tiles.items()}}, gen
+
+
+def _compose_table(env_cfg, plan: list) -> dict:
+    """The K3 table start on the harness's env (module docstring): ``crab_failure`` read (``sh_table_test
+    .crab_failure_params``) then DISABLED (falls recorded instead); ``sh_table_core.sh_start`` appended LAST to the reset
+    events with ``sh_table_core.event_params`` of the one-env plan; the tall kinematic cuboid of ``sh_table_core``'s
+    size / mass on the terrain's physics material, parked until the reset event places it."""
+    import isaaclab.sim as sim_utils  # noqa: PLC0415
+    from isaaclab.assets import RigidObjectCfg  # noqa: PLC0415
+    from isaaclab.managers import EventTermCfg  # noqa: PLC0415
+
+    TC, ST, STT = VC.table_core(), VC.starts_module(), VC.table_test_module()
+    if ST.TABLE_NAME != TABLE_SCENE_NAME:
+        raise SystemExit(f"sh_starts.TABLE_NAME {ST.TABLE_NAME!r} != {TABLE_SCENE_NAME!r} (sh_start's scene key)")
+    fail = STT.crab_failure_params(env_cfg.terminations)
+    terms_before = sorted(n for n, t in vars(env_cfg.terminations).items() if t is not None)
+    env_cfg.terminations.crab_failure = None
+    terms_after = sorted(n for n, t in vars(env_cfg.terminations).items() if t is not None)
+    ev = env_cfg.events
+    if getattr(ev, "sh_start", None) is not None:
+        raise SystemExit("events.sh_start is already set on the env cfg")
+    joint_names = list(RUN_META["joint_names"])
+    ev.sh_start = EventTermCfg(func=TC.sh_start, mode="reset", params=TC.event_params(plan, joint_names))
+    resets = [n for n, t in vars(ev).items() if t is not None and getattr(t, "mode", None) == "reset"]
+    if not resets or resets[-1] != "sh_start":
+        raise SystemExit(f"sh_start is not the LAST reset event: {resets}")
+    tmat = copy.deepcopy(env_cfg.scene.terrain.physics_material)
+    setattr(env_cfg.scene, TABLE_SCENE_NAME, RigidObjectCfg(
+        prim_path=ST.TABLE_PRIM,
+        spawn=sim_utils.CuboidCfg(
+            size=(TC.TABLE_X_M, TC.TABLE_Y_M, TC.TABLE_HEIGHT_M),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True, disable_gravity=True),
+            mass_props=sim_utils.MassPropertiesCfg(mass=TC.TABLE_MASS_KG),
+            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=True),
+            physics_material=tmat,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=TABLE_COLOR),
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, TC.PARK_CENTER_Z_M)),
+    ))
+    rec = {"plan": plan[0], "crab_failure": fail, "terminations_before": terms_before,
+           "terminations_after": terms_after, "reset_events": resets, "joint_names": joint_names,
+           "table_cfg": {"size_m": [TC.TABLE_X_M, TC.TABLE_Y_M, TC.TABLE_HEIGHT_M], "mass_kg": TC.TABLE_MASS_KG,
+                         "kinematic": True, "prim": ST.TABLE_PRIM, "material": type(tmat).__name__}}
+    plan_txt = {k: plan[0][k] for k in ("cell", "spawn_root_rel", "h_init_plan", "h_cmd", "h_cmd_range")}
+    print(f"[SHV] TABLE START {TABLE}: crab_failure disabled ({fail}; terminations {terms_before} -> {terms_after}); "
+          f"sh_table_core.sh_start appended last ({resets}); kinematic cuboid {rec['table_cfg']}; plan {plan_txt}",
+          flush=True)
+    return rec
+
+
+def _register_table_probe(raw_env) -> str:
+    """The table spawn's floor probe = the terrain raycast mesh (``sh_table_core.make_terrain_probe``), registered in
+    ``sh_table_core.RUNTIME`` BEFORE the wrapper's construction reset runs ``sh_start`` (the table test's order)."""
+    TC = VC.table_core()
+    try:
+        scanner = raw_env.unwrapped.scene.sensors.get("height_scanner")
+        key = scanner.cfg.mesh_prim_paths[0] if scanner is not None else "/World/ground"
+        mesh = RayCaster.meshes[key]
+    except (KeyError, AttributeError) as exc:
+        raise SystemExit(f"terrain mesh unavailable ({exc}): the table spawn's floor probe needs it") from exc
+    TC.RUNTIME["terrain_probe"] = TC.make_terrain_probe(mesh, raycast_mesh)
+    TC.RUNTIME["probe_label"] = f"raycast_mesh:{key}"
+    return TC.RUNTIME["probe_label"]
+
+
+def _table_start_state(unwrapped, robot, contact_sensor, plan: list, table_env: dict, scenario, h_meas_t) -> dict:
+    """After the construction reset, before any step: the start state is the planned one (the K3 test's checks and
+    tolerances), the crab_failure hip bodies resolve to 6 contact-sensor ids, the first stand covers the rods' rise +
+    the ramp from the MEASURED spawn height + 1 + 2 s; the spawn references (root z, lowest corner, h_meas, the
+    world table top) for the fall read and the captions."""
+    TC = VC.table_core()
+    e = plan[0]
+    joint_names = table_env["joint_names"]
+    if list(robot.joint_names) != joint_names:
+        raise SystemExit(f"joint order {robot.joint_names} != the stamp's {joint_names} (the table pose rows)")
+    table = unwrapped.scene[TABLE_SCENE_NAME]
+    last, floor = TC.RUNTIME.get("last_root_z"), TC.RUNTIME.get("last_floor_z")
+    if last is None or floor is None or bool(torch.isnan(last).any()) or bool(torch.isnan(floor).any()):
+        raise SystemExit("sh_start did not run at the construction reset")
+    rp, rq = robot.data.root_pos_w, robot.data.root_quat_w
+    org = unwrapped.scene.env_origins[0].double()
+    floor0 = float(floor[0].item())
+    top_w = floor0 + float(TABLE["top"])
+    jr = torch.as_tensor(TC.joint_pos_rows(plan, joint_names)[0], dtype=torch.float64, device=rp.device)
+    tp = table.data.root_pos_w[0].double()
+    checks = {
+        "joint_pos_max_err": float((robot.data.joint_pos[0].double() - jr).abs().max().item()),
+        "root_z_vs_event_err": abs(float(rp[0, 2].item()) - float(last[0].item())),
+        "root_z_vs_floor_plus_plan_err": abs(float(rp[0, 2].item()) - floor0 - float(e["spawn_root_rel"])),
+        "root_xy_from_origin": float((rp[0, :2].double() - org[:2]).abs().max().item()),
+        "root_quat_err": float((rq[0].double() - torch.tensor([1.0, 0.0, 0.0, 0.0], dtype=torch.float64,
+                                                              device=rq.device)).abs().max().item()),
+        "table_xy_err": float((tp[:2] - org[:2]).abs().max().item()),
+        "table_z_err": abs(float(tp[2].item()) - float(TC.table_center_z(TABLE["top"], floor0))),
+        "probe": TC.RUNTIME.get("probe_kind"),
+    }
+    bad = {k: v for k, v in checks.items() if k in TABLE_START_TOL and not v <= TABLE_START_TOL[k]}
+    print(f"[SHV] table start state after the construction reset: {checks}", flush=True)
+    if bad:
+        raise SystemExit(f"the table start state is not the planned one: {bad} (tolerances {TABLE_START_TOL})")
+    fail = table_env["crab_failure"]
+    hip_sid, hip_names = contact_sensor.find_bodies(fail["hip_body_names"])
+    if len(hip_sid) != 6:
+        raise SystemExit(f"crab_failure hip bodies {fail['hip_body_names']} -> {hip_names} (want 6)")
+    low0, cz0 = TC.STC.lowest_z_and_cos_tilt(rp[:, 2], rq[:, 0], rq[:, 1], rq[:, 2], rq[:, 3])
+    h0 = float(h_meas_t()[0].item())
+    h_cmd0 = float(HEIGHT_ROW["hold_heights"][0])
+    need = VC.table_need_s(TABLE, h_cmd0, h_init=h0)
+    hold0 = float(scenario.schedule[0].hold_s)
+    if hold0 + 1e-9 < need["rule_s"]:
+        raise SystemExit(f"--table-start: the first stand lasts {hold0} s < the rods' rise + the ramp from the measured "
+                         f"spawn height {h0:.3f} + 1 + 2 = {need['rule_s']:.2f} s")
+    print(f"[SHV] table spawn: floor {floor0:+.4f} m, top (world) {top_w:+.4f} m, root z {float(rp[0, 2]):+.4f}, h_meas "
+          f"{h0:.4f} m (limiter init {need['h_init']:.4f}) -> first stand {h_cmd0:.3f} m: need {need['rule_s']:.2f} s "
+          f"<= {hold0} s; hip bodies {list(hip_names)}; falls recorded per {VC.FALL_RULE!r}", flush=True)
+    return {"TC": TC, "ST": VC.starts_module(), "obj": table, "top": float(TABLE["top"]), "pose": TABLE["pose"],
+            "floor_z": floor0, "top_w": top_w, "spawn_root_z": float(rp[0, 2].item()),
+            "spawn_low": float(low0[0].item()), "spawn_cos_tilt": float(cz0[0].item()), "spawn_h_meas": h0,
+            "h_cmd0": h_cmd0, "hip_sid": hip_sid, "hip_names": list(hip_names), "fail": fail, "checks": checks,
+            "need": need, "park": bool(args_cli.table_park), "env": {k: v for k, v in table_env.items()
+                                                                     if k != "plan"}, "plan": e}
+
+
 def main() -> None:
     out_dir = Path(args_cli.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -638,13 +964,33 @@ def main() -> None:
     manifest = Path(args_cli.manifest)
     scenarios, _ = S.load_manifest(manifest)
     scenario, seq_info = _resolve_sequence_row(scenarios, manifest)
-    kinds = VC.hold_kinds(scenario.schedule)
+    kinds = VC.hold_kinds(scenario.schedule, scenario.spawn_yaw_rad())
+    table_plan = None
+    if TABLE is not None:
+        _why = VC.table_start_reasons(TABLE, kinds, HEIGHT_ROW["hold_heights"])
+        if _why:
+            raise SystemExit("; ".join(_why))
+        if scenario.spawn_yaw_rad() != 0.0:
+            raise SystemExit(f"--table-start spawns at yaw 0 (sh_table_core.sh_start); the row's spawn yaw pin is "
+                             f"{scenario.spawn_yaw_rad()}")
+        TC = VC.table_core()
+        try:   # the K3 plan of one env (no jitter): pose, spawn height, the command's K3 range, the floor probes
+            table_plan = TC.plan_envs([TABLE["cell"]], 1, int(scenario.env_seed), jitter=False,
+                                      h_cmd=float(HEIGHT_ROW["hold_heights"][0]))
+        except ValueError as exc:
+            raise SystemExit(f"--table-start: {exc}") from exc
 
     # ---- env, composed as the harness composes it
     env_cfg = parse_env_cfg(scenario.task, device=args_cli.device, num_envs=1, use_fabric=not args_cli.disable_fabric)
     applied_overrides = H["_apply_env_overrides"](env_cfg, scenario)
     print(f"[SHV] harness env overrides applied: {applied_overrides} (reference run: {RUN_META['env_overrides']})",
           flush=True)
+    field_place = None
+    if args_cli.terrain != "flat":   # the field: pin the spawn row so the commanded path stays on field tiles
+        field_place = _field_placement(env_cfg, scenario)
+    table_env = None
+    if TABLE is not None:
+        table_env = _compose_table(env_cfg, table_plan)
     env_cfg.commands.base_velocity.debug_vis = bool(args_cli.arrows)
     eye, lookat = _parse_vec3(args_cli.cam_eye), _parse_vec3(args_cli.cam_lookat)
     if eye is not None:
@@ -657,10 +1003,10 @@ def main() -> None:
           f"resolution={tuple(env_cfg.viewer.resolution)}", flush=True)
 
     agent_cfg = cli_args.parse_rsl_rl_cfg(scenario.task, args_cli)
-    env = ParkourRslRlVecEnvWrapper(
-        gym.make(scenario.task, cfg=env_cfg, render_mode="rgb_array"),
-        clip_actions=agent_cfg.clip_actions,
-    )
+    raw_env = gym.make(scenario.task, cfg=env_cfg, render_mode="rgb_array")
+    if TABLE is not None:   # the table spawn's floor probe = the terrain mesh, registered BEFORE the construction reset
+        table_env["probe"] = _register_table_probe(raw_env)
+    env = ParkourRslRlVecEnvWrapper(raw_env, clip_actions=agent_cfg.clip_actions)
     unwrapped = env.unwrapped
     device = env.device
     dt = float(unwrapped.step_dt)
@@ -670,9 +1016,11 @@ def main() -> None:
         raise SystemExit(f"RSS {_rss_gb():.1f} GB > {args_cli.rss_abort_gb} GB before the first step -- aborting")
 
     krabby_now = {k: v for k, v in sorted(os.environ.items()) if k.startswith("KRABBY_")}
-    if krabby_now != WANT_ENV:
-        raise SystemExit(f"KRABBY_* env after import differs from run_meta: now={krabby_now} want={WANT_ENV}")
-    print("[SHV] KRABBY_* env after task import == reference run_meta env_vars", flush=True)
+    if krabby_now != RUN_ENV:
+        raise SystemExit(f"KRABBY_* env after import differs from the env written before Kit: now={krabby_now} "
+                         f"want={RUN_ENV}")
+    print("[SHV] KRABBY_* env after task import == reference run_meta env_vars"
+          + ("" if not TERRAIN["deviation"] else f" + the --terrain {args_cli.terrain} block"), flush=True)
 
     robot = unwrapped.scene["robot"]
     usd_spawned = str(getattr(getattr(robot.cfg, "spawn", None), "usd_path", "<unknown>"))
@@ -738,6 +1086,25 @@ def main() -> None:
     except (KeyError, AttributeError) as exc:
         raise SystemExit(f"terrain raycast mesh unavailable ({exc}); h_meas needs it (the harness's root-offset "
                          "fallback would make it a constant)") from exc
+    terrain_mesh = _mesh_record(mesh, mesh_key)
+    print(f"[SHV] h_meas / feet read the terrain raycast mesh {terrain_mesh}", flush=True)
+    if (args_cli.terrain != "flat" and terrain_mesh.get("z_range_m") is not None
+            and terrain_mesh["z_range_m"] < FIELD_MIN_Z_RANGE_M):
+        raise SystemExit(f"--terrain {args_cli.terrain}: the terrain mesh is flat ({terrain_mesh}); the env block did "
+                         "not reach the terrain generator")
+    field_ctx, field_gen = None, None
+    if field_place is not None:      # the realised spawn tile: the path from it must stay on the field (refused if not)
+        field_real, field_gen = _field_realised(unwrapped, robot, field_place)
+        field_ctx = {"placement": field_place, "realised": field_real}
+
+    def _h_meas_t():
+        """(N,) h_meas of the CURRENT state (sh_core.h_meas on the terrain raycast under the footpads)."""
+        return CORE.h_meas(robot.data.root_pos_w[:, 2],
+                           CORE.terrain_z_under_feet(robot.data.body_pos_w[:, foot_body_ids, :], mesh, raycast_mesh))
+
+    table_ctx = None
+    if TABLE is not None:
+        table_ctx = _table_start_state(unwrapped, robot, contact_sensor, table_plan, table_env, scenario, _h_meas_t)
 
     cam = getattr(unwrapped, "viewport_camera_controller", None)
     if cam is None:
@@ -790,6 +1157,8 @@ def main() -> None:
         build={"rng_restored": bool(rng_restored), "latch_preexisting": latch_pre,
                "wrapper_clip_before": float(clip_before), "wrapper_clip_realised": float(env.clip_actions),
                **stand_check},
+        table=table_ctx, h_meas_t=_h_meas_t, terrain_mesh=terrain_mesh, contact_sensor=contact_sensor,
+        field=field_ctx, field_gen=field_gen,
     )
     try:
         _run_sequence(ctx, scenario, seq_info, kinds)
@@ -806,7 +1175,9 @@ REC_KEYS = ("row_speed", "row_dir", "row_face", "speed_cmd", "travel_dir_w", "he
             "x_post", "y_post", "heading_post", "vx_w", "vy_w", "done", "fail",
             "stand_schedule", "slot", "restoring", "stand_eff", "mode", "route_ok", "exec_ok", "exec_checked",
             "h_cmd", "h_lim", "h_meas", "feet", "homed", "cam_abs_max",
-            "engaged", "completed", "timed_out", "merged", "reset_cut", "db_zeroed", "a_net_abs_max")
+            "engaged", "completed", "timed_out", "merged", "reset_cut", "db_zeroed", "a_net_abs_max",
+            # the tour: the routed slot (``slot`` stays the eval's latched slot) and the table start's fall-read inputs
+            "routed", "table_cut", "lowest_z", "cos_tilt", "root_z", "hip_force", "rise", "fall", "armed")
 MODE_CODE = {VC.MODE_WALK: 0, VC.MODE_STAND: 1, VC.MODE_RESTORING: 2}
 
 
@@ -817,9 +1188,11 @@ def _new_rec(T: int) -> dict:
 def _harness_step(ctx, ctl, override_state: dict, obs, t: int, trace, h_cmd_t, stand_sched: bool):
     """ONE control step of the harness's world-frame loop body with the stand_height launcher's controller in place of
     the one policy: advance ``override_state['step']``, check the schedule state and the observed command slots, write
-    S1's estimate into the priv-explicit slice (the harness), the eval's latched slot (``rederive_on_reset``), then
-    ``sh_video_core.height_step`` (sh_core: reset / HeightController.step / stand_net_input / stand_action / route),
-    the routing checks, ``env.step`` and the post-step readings (the state the frame shows)."""
+    S1's estimate into the priv-explicit slice (the harness), the eval's latched slot (``rederive_on_reset``, every
+    rule), the routed slot (``sh_video_core.routed_slot``: ``--stand-rule``), on a table-start episode start the
+    table-mode controller reset (``sh_video_core.table_start_reset``), then ``sh_video_core.height_step`` (sh_core:
+    reset / HeightController.step / stand_net_input / stand_action / route) on the routed slot, the routing checks,
+    ``env.step`` and the post-step readings (the state the frame shows; a table start's fall-read inputs)."""
     cmd_term, robot, H = ctx.cmd_term, ctx.robot, ctx.H
     override_state["step"] = t + 1
     obs_reflects_cmd = cmd_term.vel_command_b.clone()
@@ -833,8 +1206,15 @@ def _harness_step(ctx, ctl, override_state: dict, obs, t: int, trace, h_cmd_t, s
     for _slot, _channel in ctx.observed_slots.items():
         cmd_dev = max(cmd_dev, (obs[:, _slot] - obs_reflects_cmd[:, _channel]).abs().max().item())
     obs[:, ctx.priv_lo: ctx.priv_hi] = ctx.estimator.inference(obs[:, :ctx.num_prop])
-    slot = ctx.slot_rule.rederive_on_reset()                  # (N,) bool, the eval's latched stand slot
+    eval_slot = ctx.slot_rule.rederive_on_reset()             # (N,) bool, the eval's latched stand slot (every rule)
+    slot = VC.routed_slot(RULE, schedule_stand=stand_sched, eval_slot=eval_slot)   # what the controller routes on
     reset_rows = ctx.unwrapped.episode_length_buf.reshape(-1) == 0
+    table_cut = False
+    if ctx.table is not None and bool(reset_rows.any()):
+        # every table-start episode begins on the table: the K3 test's controller start (limiter at clamp(h_meas));
+        # height_step's walk-handover reset then gets no rows
+        reset_rows, _cut = VC.table_start_reset(ctl, reset_rows, h_cmd=h_cmd_t, h_meas=ctx.h_meas_t())
+        table_cut = bool(_cut.any())
     st = VC.height_step(ctl, obs, slot=slot, reset_rows=reset_rows, h_cmd=h_cmd_t, s1_policy=ctx.policy,
                         stand_policy=ctx.stand_policy, stand_estimator=ctx.stand_estimator, p0=ctx.priv_lo,
                         p1=ctx.priv_hi, num_prop=ctx.num_prop, mask=ctx.stand_mask, deadband=DEADBAND)
@@ -867,11 +1247,19 @@ def _harness_step(ctx, ctl, override_state: dict, obs, t: int, trace, h_cmd_t, s
     ]).double().cpu().numpy()
     trace.update(post.tobytes())
     rd = ctx.readings()
+    tb = None
+    if ctx.table is not None:                                 # the fall read's inputs, post-step (the K3 test's)
+        rp, rq = robot.data.root_pos_w, robot.data.root_quat_w
+        low, cz = ctx.table["TC"].STC.lowest_z_and_cos_tilt(rp[:, 2], rq[:, 0], rq[:, 1], rq[:, 2], rq[:, 3])
+        hip = ctx.contact_sensor.data.net_forces_w_history[:, :, ctx.table["hip_sid"]].norm(dim=-1)
+        tb = {"lowest_z": float(low[0].item()), "cos_tilt": float(cz[0].item()), "root_z": float(rp[0, 2].item()),
+              "hip_force": float(hip.max(dim=1).values.max(dim=-1).values[0].item())}
     return obs, types.SimpleNamespace(
         row=row_t, pre=pre, post=post, done=done, failed=failed, sched_dev=sched_dev, cmd_dev=cmd_dev,
-        stand_sched=bool(stand_sched), slot=bool(slot[0].item()), restoring=bool(hs.restoring[0].item()),
+        stand_sched=bool(stand_sched), slot=bool(eval_slot[0].item()), routed=bool(slot[0].item()),
+        restoring=bool(hs.restoring[0].item()),
         stand_eff=eff, mode=VC.mode_of(bool(slot[0].item()), bool(hs.restoring[0].item())),
-        route_ok=route_ok, exec_ok=exec_ok, exec_checked=exec_checked,
+        route_ok=route_ok, exec_ok=exec_ok, exec_checked=exec_checked, table_cut=table_cut, tb=tb,
         h_cmd=float(CORE.H_SETTLED if h_cmd_t is None else h_cmd_t[0].item()), h_lim=float(hs.h_lim[0].item()),
         engaged=bool(hs.engaged[0].item()), completed=bool(hs.completed[0].item()),
         timed_out=bool(hs.timed_out[0].item()), merged=bool(hs.merged[0].item()), reset_cut=bool(st.cut[0].item()),
@@ -888,13 +1276,18 @@ def _store_step(rec: dict, t: int, st) -> None:
     rec["mode"][t] = MODE_CODE[st.mode]
     rec["homed"][t] = float(VC.is_homed(st.cam_abs_max))
     for k in ("stand_sched", "slot", "restoring", "stand_eff", "route_ok", "exec_ok", "exec_checked", "engaged",
-              "completed", "timed_out", "merged", "reset_cut"):
+              "completed", "timed_out", "merged", "reset_cut", "routed", "table_cut"):
         rec["stand_schedule" if k == "stand_sched" else k][t] = float(getattr(st, k))
     for k in ("h_cmd", "h_lim", "h_meas", "feet", "cam_abs_max", "db_zeroed", "a_net_abs_max"):
         rec[k][t] = float(getattr(st, k))
+    if st.tb is not None:
+        for k in ("lowest_z", "cos_tilt", "root_z", "hip_force", "rise", "fall", "armed"):
+            rec[k][t] = float(st.tb[k])
 
 
 def _termination_reason(failed: bool, steps_since_reset: int, max_episode_length: int) -> str:
+    """``crab_failure`` (always False on a table start: the term is disabled), else the time-out at the episode's last
+    step, else ``total_terminates``' roll / pitch / height cut-off (a ``time_out`` term, i.e. a truncation)."""
     if failed:
         return "fall (crab_failure)"
     if steps_since_reset >= max_episode_length - 1:
@@ -963,6 +1356,7 @@ def _sequence_segment(i, label, kind, height, idx, cmd, dt, rec, falls, sched_de
         "acting_network": "stand_net" if eff.all() else ("s1" if not eff.any() else "mixed"),
         "stand_net_share": float(eff.mean()) if idx.size else None,
         "slot_share": float((rec["slot"][idx] > 0.5).mean()) if idx.size else None,
+        "routed_share": float((rec["routed"][idx] > 0.5).mean()) if idx.size else None,
         "restoring_share": float((rec["restoring"][idx] > 0.5).mean()) if idx.size else None,
         "schedule_vs_slot_disagree_steps": int(((rec["stand_schedule"][idx] > 0.5) != (rec["slot"][idx] > 0.5)).sum()),
         "route_mismatch_steps": int((rec["route_ok"][idx] < 0.5).sum()),
@@ -979,9 +1373,148 @@ def _sequence_segment(i, label, kind, height, idx, cmd, dt, rec, falls, sched_de
                                                        first_fall_step),
                             homing=VC.SNV.stand_hold_stats(rec["cam_abs_max"], idx, dt, first_fall_step),
                             falls=len(falls_in), deadband_zeroed_entries=int(rec["db_zeroed"][idx].sum()))
-    if kind == VC.KIND_WALK and prev_kind == VC.KIND_STAND:
+    if kind != VC.KIND_STAND and prev_kind == VC.KIND_STAND:          # a walk or a turn after a stand: the restore
         out["restore"] = VC.restore_hold_stats(rec["restoring"], rec["engaged"], rec["completed"], rec["timed_out"],
                                                idx, dt)
+    return out
+
+
+def _table_step(ctx, t: int, st, dt: float, *, first_end: int) -> None:
+    """A table-start video's per-step bookkeeping, after ``env.step`` (no-op otherwise): an env reset inside the step
+    re-bases the spawn references (sh_start put the robot back on the table); the fall read (``FallTracker``: falls
+    RECORDED, never reset); the get-up's limiter arrival and K3 'stood' instant (first episode, first stand); after
+    step 1 the kinematic table is at its pose (the table test's check); ``--table-park``: the table parked at the first
+    check after the first routed stand -> walk change once the chassis' lowest point clears the top by
+    ``sh_starts.SPEC.TABLE_PARK_CLEAR_M`` (``sh_starts.StartState``'s park position / pose write)."""
+    tbl = ctx.table
+    if tbl is None:
+        return
+    s, tb = tbl["state"], st.tb
+    if st.done:
+        s["resets"] += 1
+        s["episode"] += 1
+        s["spawn_low"], s["spawn_root_z"] = tb["lowest_z"], tb["root_z"]
+        s["change_step"] = s["prev_routed"] = None
+        if s["parked_step"] is not None:          # sh_start put the table back under the robot
+            s.setdefault("parks", []).append({"step": s["parked_step"], "t_s": s["parked_s"]})
+            s["parked_step"] = s["parked_s"] = None
+    tb["rise"] = tb["lowest_z"] - s["spawn_low"]
+    ev = tbl["tracker"].update(t, tb["cos_tilt"], tb["hip_force"], tb["rise"], episode_start=bool(st.done))
+    tb["armed"], tb["fall"] = float(tbl["tracker"].armed), float(tbl["tracker"].prev)
+    if ev is not None:
+        print(f"[SHV] FALL (recorded, not reset) at t={ev['t_s']:.2f} s: {ev['cause']} (tilt "
+              f"{math.degrees(math.acos(max(-1.0, min(1.0, tb['cos_tilt'])))):.1f} deg, hip {tb['hip_force']:.0f} N, "
+              f"rise {tb['rise']:+.3f} m, armed {bool(tbl['tracker'].armed)})", flush=True)
+    if s["episode"] == 0 and t < first_end:
+        if s["arrival_s"] is None and st.h_lim == tbl["h_cmd0"]:
+            s["arrival_s"] = round((t + 1) * dt, 6)
+        if s["stood_s"] is None and VC.table_stood_now(tb["root_z"] - s["spawn_root_z"], st.feet, st.h_meas,
+                                                       tbl["h_cmd0"]):
+            s["stood_s"] = round((t + 1) * dt, 6)
+            print(f"[SHV] table get-up: stood (K3 clauses on one step) at t={s['stood_s']:.2f} s (limiter arrived "
+                  f"{s['arrival_s']})", flush=True)
+    if t == 0 and not st.done:
+        tp = tbl["obj"].data.root_pos_w[0].double()
+        org = ctx.unwrapped.scene.env_origins[0].double()
+        e_xy = float((tp[:2] - org[:2]).abs().max().item())
+        e_z = abs(float(tp[2].item()) - float(tbl["TC"].table_center_z(tbl["top"], tbl["floor_z"])))
+        tbl["after_step1"] = {"xy_err_m": e_xy, "z_err_m": e_z}
+        if e_xy > TABLE_STEP1_TOL_M or e_z > TABLE_STEP1_TOL_M:
+            raise SystemExit(f"the kinematic table is not at its pose in PhysX after the first step (xy err {e_xy:.4f}, "
+                             f"z err {e_z:.4f} m)")
+    if s["change_step"] is None and s["prev_routed"] is True and not st.routed:
+        s["change_step"] = t                                  # the episode's first routed stand -> walk change
+    if tbl["park"] and s["parked_step"] is None:
+        if s["change_step"] is not None:
+            ST = tbl["ST"]
+            clear = tb["lowest_z"] - tbl["top_w"]
+            if clear >= float(ST.SPEC.TABLE_PARK_CLEAR_M):
+                holder = types.SimpleNamespace(table_name=TABLE_SCENE_NAME, device=ctx.device)
+                ids = torch.zeros(1, dtype=torch.long, device=ctx.device)
+                park_pos = ST.StartState._park_pos(holder, ctx.unwrapped, ids)
+                ST.StartState.write_table(holder, ctx.unwrapped, ids, park_pos,
+                                          torch.zeros(1, dtype=torch.float64, device=ctx.device))
+                s["parked_step"], s["parked_s"], s["park_clear_m"] = t, round((t + 1) * dt, 6), clear
+                print(f"[SHV] table PARKED at t={s['parked_s']:.2f} s (stand -> walk change at step {s['change_step']}; "
+                      f"lowest point {clear:+.3f} m above the top)", flush=True)
+    s["prev_routed"] = bool(st.routed)
+
+
+def _table_summary(ctx, rec: dict, dt: float, first_end: int) -> dict | None:
+    """The sanity JSON's ``table_start`` block: the setup, the start checks, the get-up (arrival, stood, the K3
+    classifier over the first stand -- reported, its own arming rule), the video's fall read over the whole run and
+    whether the live tracker saw the same events, the park, the resets."""
+    tbl = ctx.table
+    if tbl is None:
+        return None
+    TC, s = tbl["TC"], tbl["state"]
+    fail = tbl["fail"]
+    starts_ep = rec["done"] > 0.5
+    read = VC.table_fall_read(rec["cos_tilt"], rec["hip_force"], rec["rise"], dt, tilt_max=fail["limit_angle"],
+                              contact_n=fail["contact_force_threshold"], episode_start=starts_ep)
+    k3 = None
+    w = slice(0, first_end)
+    if not starts_ep[w].any():
+        try:
+            k3 = TC.classify({"lowest_z": rec["lowest_z"][w], "cos_tilt": rec["cos_tilt"][w],
+                              "feet_on_floor": rec["feet"][w], "h_meas": rec["h_meas"][w],
+                              "hip_force": rec["hip_force"][w], "cam_abs": rec["cam_abs_max"][w],
+                              "root_z": rec["root_z"][w], "h_lim": rec["h_lim"][w],
+                              "terminated": starts_ep[w]}, dt, start=TC.START_TABLE,
+                             spawn_lowest_z=tbl["spawn_low"], spawn_root_z=tbl["spawn_root_z"], h_cmd=tbl["h_cmd0"],
+                             table_top=tbl["top_w"], tilt_max=fail["limit_angle"],
+                             contact_n=fail["contact_force_threshold"])
+        except ValueError as exc:
+            k3 = {"error": str(exc)}
+    return {
+        "table": dict(TABLE), "park": tbl["park"], "plan": tbl["plan"], "env_changes": tbl["env"],
+        "start_checks": tbl["checks"], "after_step1": tbl.get("after_step1"), "floor_z": tbl["floor_z"],
+        "top_world_z": tbl["top_w"], "spawn_root_z": tbl["spawn_root_z"], "spawn_lowest_z": tbl["spawn_low"],
+        "spawn_h_meas": tbl["spawn_h_meas"], "first_stand_h_cmd": tbl["h_cmd0"], "first_stand_need": tbl["need"],
+        "controller_start": "sh_video_core.table_start_reset: ctl.reset(rows, 'table', h_meas=...) on every episode "
+                            "start (limiter at clamp(h_meas)); height_step's walk reset gets no rows",
+        "arrival_s": s["arrival_s"], "stood_s": s["stood_s"],
+        "stood_rule": "one step with root rise >= 0.10 m, >= 4 feet loaded, |h_meas - h_cmd| <= 0.04 m (K3's clauses)",
+        "k3_classify_first_stand": k3,
+        "k3_note": "sh_table_core.classify over the prologue + first stand (its own clauses: the hip contact armed "
+                   "from step 0 on a table start; feet = the video's terrain-relative loaded count) -- reported only",
+        "falls": read, "tracker_events": list(tbl["tracker"].events),
+        "tracker_matches_read": list(tbl["tracker"].events) == read["events"],
+        "resets": s["resets"], "change_step": s["change_step"], "parked_step": s["parked_step"],
+        "parked_s": s["parked_s"], "park_clear_m": s["park_clear_m"], "earlier_parks": s.get("parks", []),
+    }
+
+
+def _field_summary(ctx, rec: dict, seg_ids, segments: list[dict]) -> dict | None:
+    """``--terrain field_medium`` (None otherwise): WHERE the video was recorded -- the tile under the robot (post-step
+    root) per hold (added to each segment as ``terrain_tiles``) and over the run, with every visited tile's sub-terrain
+    and height-field read-out, the steps on the border and on a flat tile (want 0; a WARN otherwise), beside the
+    placement (the pinned spawn row) and the realised spawn tile."""
+    if ctx.field is None:
+        return None
+    grid = ctx.field["placement"]["grid"]
+    for s in segments:
+        idx = np.nonzero(seg_ids == s["segment"])[0]
+        s["terrain_tiles"] = VC.tile_visits(rec["x_post"][idx], rec["y_post"][idx], grid)
+    run = VC.tile_visits(rec["x_post"], rec["y_post"], grid)
+    known = dict(ctx.field["realised"]["path_tiles"])
+    visited = {}
+    for k in run["tiles"]:
+        if k not in known:
+            known[k] = _field_tile_record(ctx.field_gen, tuple(int(v) for v in k.split(",")))
+        visited[k] = dict(known[k], steps=run["tiles"][k])
+    flat_steps = sum(t["steps"] for t in visited.values() if t.get("name") == FIELD_FLAT_SUBTERRAIN)
+    off = run["border_steps"] + flat_steps
+    out = dict(ctx.field, visits=run, visited_tiles=visited, border_steps=run["border_steps"],
+               flat_tile_steps=flat_steps, off_field_share=off / max(1, run["steps"]),
+               per_hold_rule="each segment's terrain_tiles: steps per tile of the post-step root (x, y)")
+    print(f"[SHV] field: spawn tile {ctx.field['realised']['spawn_tile']}; tiles visited "
+          + ", ".join(f"{k} {t.get('name')} ({t['steps']} steps, max {t.get('max_height_m')} m)"
+                      for k, t in visited.items())
+          + f"; border steps {run['border_steps']}, flat-tile steps {flat_steps}", flush=True)
+    if off:
+        print(f"[SHV][WARN] {off} of {run['steps']} steps were off the field (border {run['border_steps']}, flat tiles "
+              f"{flat_steps})", flush=True)
     return out
 
 
@@ -1004,7 +1537,15 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
     seg, starts, ends = _segment_bounds(compiled)
     n_holds = len(labels)
     prologue_steps = starts[0]
-    stand_sched = VC.SNV.step_stand_mask(seg, [k == VC.KIND_STAND for k in kinds])
+    spawn = scenario.spawn_yaw_rad()
+    flags = VC.schedule_stand_flags(scenario.schedule, spawn)    # the schedule rule (the predecessor's function)
+    if flags != [k == VC.KIND_STAND for k in kinds]:
+        raise SystemExit(f"schedule stand flags {flags} disagree with the hold kinds {kinds}")
+    if [h is not None for h in heights] != flags:                # a height iff a schedule stand (both row loaders)
+        raise SystemExit(f"the height row's heights {heights} are not on exactly the schedule's stand holds {flags}")
+    stand_sched = VC.step_stand_mask(seg, flags)
+    eval_flags = VC.eval_slot_stand_flags(scenario.schedule, spawn)
+    predicted_eval_turn = [f"{i}:{labels[i]}" for i in range(n_holds) if flags[i] and not eval_flags[i]]
     cmd_of = {}
     for i in [-1] + list(range(n_holds)):
         s0 = 0 if i < 0 else starts[i]
@@ -1013,17 +1554,28 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
     for i, h in enumerate(scenario.schedule):
         if cmd_of[i] != h.as_world():
             raise SystemExit(f"compiled command of hold {i} {h.label!r} {cmd_of[i]} != manifest {h.as_world()}")
-    spawn = scenario.spawn_yaw_rad()
     print(f"[SHV] SEQUENCE {scenario.id}: {T} steps = {T * dt:.2f} s at dt {dt}; prologue steps 0-{prologue_steps - 1} "
           f"(holds '{labels[0]}' command, height {h_np[0, 0]:.3f}); spawn yaw pin "
-          f"{'none' if spawn is None else f'{_deg(spawn):+.1f} deg'}; env_cfg.seed {scenario.env_seed}; routing: the "
-          "eval's latched stand slot | H6 restore (the launcher's)", flush=True)
+          f"{'none' if spawn is None else f'{_deg(spawn):+.1f} deg'}; env_cfg.seed {scenario.env_seed}; routing: "
+          f"stand rule {RULE} ({VC.STAND_RULE_TEXT[RULE]}) | H6 restore (the launcher's controller)", flush=True)
     for i, h in enumerate(scenario.schedule):
         sp, di, fa = cmd_of[i]
-        what = f"STAND NET at {heights[i]:.3f} m" if kinds[i] == VC.KIND_STAND else "S1 walk"
-        print(f"[SHV] plan: hold {i + 1:2d}/{n_holds} {h.label:8s} {kinds[i]:5s} -> {what:22s} speed {sp:.2f} "
+        what = (f"STAND NET at {heights[i]:.3f} m" if kinds[i] == VC.KIND_STAND
+                else ("S1 turn" if kinds[i] == VC.KIND_TURN else "S1 walk"))
+        print(f"[SHV] plan: hold {i + 1:2d}/{n_holds} {h.label:11s} {kinds[i]:5s} -> {what:22s} speed {sp:.2f} "
               f"dir {_deg(di):+7.2f} face {_deg(fa):+7.2f}  t {starts[i] * dt:6.2f}-{ends[i] * dt:6.2f} s "
               f"({h.hold_s:.2f} s)", flush=True)
+        if flags[i] and not eval_flags[i]:
+            print(f"[SHV]   note: '{h.label}' comes after a facing change with no reset since -- the eval's latched "
+                  f"slot keeps TURN here (predicted, fall-free); rule {RULE} routes it to "
+                  f"{'the STAND NET' if RULE == 'schedule' else 'S1 (the latched slot)'}", flush=True)
+    tbl = ctx.table
+    if tbl is not None:
+        tbl["state"] = {"spawn_low": tbl["spawn_low"], "spawn_root_z": tbl["spawn_root_z"], "episode": 0,
+                        "arrival_s": None, "stood_s": None, "change_step": None, "parked_step": None,
+                        "parked_s": None, "park_clear_m": None, "prev_routed": None, "resets": 0}
+        tbl["tracker"] = VC.FallTracker(dt, tilt_max=tbl["fail"]["limit_angle"],
+                                        contact_n=tbl["fail"]["contact_force_threshold"])
 
     override_state = H["_install_schedule_override_world"](cmd_term, compiled, ctx.device, compiled.hold_labels)
     obs, _extras = env.get_observations()
@@ -1070,6 +1622,7 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
             for t in range(T):
                 obs, st = _harness_step(ctx, ctl, override_state, obs, t, trace, h_dev[t], bool(stand_sched[t]))
                 sched_dev[t], cmd_dev[t] = st.sched_dev, st.cmd_dev
+                _table_step(ctx, t, st, dt, first_end=ends[0])
                 _store_step(rec, t, st)
                 steps_since_reset += 1
                 t_s = (t + 1) * dt
@@ -1104,8 +1657,22 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
                     fall_text = None
                     if falls:
                         last = falls[-1]
-                        fall_text = (f"FELL at t={last['t_s']:.2f} s in '{last['hold']}' -> auto-reset, schedule "
-                                     "continues" + (f" ({len(falls)} terminations)" if len(falls) > 1 else ""))
+                        fall_text = (f"{'TERMINATED' if ctx.table is not None else 'FELL'} at t={last['t_s']:.2f} s "
+                                     f"in '{last['hold']}' ({last['reason']}) -> auto-reset"
+                                     + (" onto the table" if ctx.table is not None else "") + ", schedule continues"
+                                     + (f" ({len(falls)} terminations)" if len(falls) > 1 else ""))
+                    tile_text = None
+                    if ctx.field is not None:                 # the tile under the robot (the field's live read-out)
+                        tile_text = VC.tile_caption_text(
+                            VC.tile_of(st.post[0], st.post[1], ctx.field["placement"]["grid"]),
+                            ctx.field["realised"]["names"])
+                    extra = [(VC.setup_caption_text(TERRAIN, RULE, tile_text), VC.WHITE)]
+                    if ctx.table is not None:
+                        ts = ctx.table["state"]
+                        evs = ctx.table["tracker"].events
+                        extra += VC.table_caption_lines(TABLE, arrival_s=ts["arrival_s"], stood_s=ts["stood_s"],
+                                                        falls=len(evs), last_fall=evs[-1] if evs else None,
+                                                        parked_s=ts["parked_s"], park=ctx.table["park"])
                     lines = VC.caption_lines(
                         title=ctx.tags["label"], hold_i=i, n_holds=n_holds, hold_label=labels[hi],
                         hold_kind=kinds[hi], hold_t=(t + 1 - k0) * dt, hold_len=(k1 - k0) * dt, t_s=t_s,
@@ -1116,7 +1683,7 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
                         next_text=VC.next_hold_text(hi if i >= 0 else -1, labels, kinds, heights, starts, dt, T * dt),
                         last_event=last_event, heading_deg=_deg(st.post[2]),
                         speed_xy=math.hypot(st.post[3], st.post[4]), arrows=bool(args_cli.arrows),
-                        fall_text=fall_text)
+                        fall_text=fall_text, extra_lines=extra)
                     frame = _caption(frame, lines)
                 else:
                     frame = np.ascontiguousarray(frame[:, :, :3])
@@ -1148,18 +1715,26 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
         prev_kind = None if i <= 0 else kinds[i - 1]
         segments.append(_sequence_segment(i, lab, kind, hh, idx, cmd_of[i], dt, rec, falls,
                                           float(sched_dev[idx].max()), float(cmd_dev[idx].max()), prev_kind))
+    field_summary = _field_summary(ctx, rec, seg, segments)
     ru_peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0 / 1024.0
     cg_peak = _cgroup_peak_gb()
     stands = [s for s in segments if "stand" in s]
     restores = [s for s in segments if "restore" in s]
     routing = {
-        "rule": "the eval's latched stand slot | H6 restore (sh_core.HeightController.step: stand_eff)",
+        "rule": (f"--stand-rule {RULE}: " + ("the schedule's stand holds" if RULE == "schedule"
+                                             else "the eval's latched stand slot")
+                 + " | H6 restore (sh_core.HeightController.step: stand_eff = routed slot | restoring)"),
+        "stand_rule": RULE, "stand_rule_text": VC.STAND_RULE_TEXT[RULE],
+        "routed_steps": int((rec["routed"] > 0.5).sum()),
         "stand_eff_steps": int((rec["stand_eff"] > 0.5).sum()), "restoring_steps": int((rec["restoring"] > 0.5).sum()),
         "steps": T, "route_mismatch_steps": int((rec["route_ok"] < 0.5).sum()),
         "exec_checked_steps": int((rec["exec_checked"] > 0.5).sum()),
         "exec_mismatch_steps": int((rec["exec_ok"] < 0.5).sum()),
         "schedule_vs_slot_disagree_steps": int(((rec["stand_schedule"] > 0.5) != (rec["slot"] > 0.5)).sum()),
         "holds_where_slot_disagrees": [s["hold"] for s in segments if s["schedule_vs_slot_disagree_steps"]],
+        "segments_where_slot_disagrees": [s["segment"] for s in segments if s["schedule_vs_slot_disagree_steps"]],
+        "predicted_eval_turn_stands": predicted_eval_turn,
+        "eval_slot_prediction": "sn_video_core.eval_slot_stand_flags: fall-free, each face reached before the next",
         "resets_rederived": int(ctx.slot_rule.resets_rederived),
     }
     height_summary = {
@@ -1181,6 +1756,16 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
     print(f"[SHV] peak RSS (ru_maxrss) {ru_peak:.2f} GB; cgroup memory.peak "
           f"{'n/a' if cg_peak is None else f'{cg_peak:.2f} GB'}", flush=True)
     _print_sequence_table(segments, falls, routing, height_summary)
+    table_summary = _table_summary(ctx, rec, dt, ends[0])
+    if table_summary is not None:
+        fr = table_summary["falls"]
+        k3 = table_summary["k3_classify_first_stand"] or {}
+        print(f"[SHV] table start: arrived {table_summary['arrival_s']} s, stood {table_summary['stood_s']} s; falls "
+              f"recorded {fr['falls']} ({fr['events']}; max tilt {fr['max_tilt_rad']:.3f} rad, hip armed at "
+              f"{fr['armed_first_s']} s, pre-arm hip contacts {fr['hip_contact_pre_arm_steps']} steps); tracker == "
+              f"read: {table_summary['tracker_matches_read']}; env resets {table_summary['resets']}; parked "
+              f"{table_summary['parked_s']}; K3 classify (first stand) stood {k3.get('stood')} {k3.get('reasons')}",
+              flush=True)
     meta = {
         "mode": "sequence", "kind": "sh_stand_height_video",
         "checkpoint": str(ctx.resume_path), "checkpoint_sha256": S1_SHA,
@@ -1194,7 +1779,13 @@ def _run_sequence(ctx, scenario, seq_info: dict, kinds: list) -> None:
         "reference_checks": {k: {"reference": a, "here": b} for k, (a, b) in REFERENCE_CHECKS.items()},
         "reference_mismatch": REFERENCE_MISMATCH,
         "task": scenario.task, **seq_info,
-        "env_vars": WANT_ENV, "env_overrides": ctx.applied_overrides,
+        "env_vars": RUN_ENV, "reference_env_vars": WANT_ENV, "env_overrides": ctx.applied_overrides,
+        "terrain": dict(TERRAIN, terrain_mesh=ctx.terrain_mesh, field=field_summary,
+                        terrain_label_note="the row's terrain_label is the reference row's (a manifest-consistency "
+                                           "check); the realised terrain is this block's (field: where, in 'field')"),
+        "stand_rule": {"rule": RULE, "text": VC.STAND_RULE_TEXT[RULE], "schedule_flags": flags,
+                       "eval_slot_flags_predicted": eval_flags},
+        "table_start": table_summary,
         "harness": str(HARNESS), "harness_sha256": HARNESS_SHA,
         "recorder": str(Path(__file__).resolve()), "recorder_sha256": _sha256(Path(__file__).resolve()),
         "video_core_sha256": _sha256(VC_PATH), "sh_eval_common_sha256": _sha256(EC_PATH),
@@ -1238,7 +1829,7 @@ def _print_sequence_table(segments: list[dict], falls: list[dict], routing: dict
     print("[SHV] SEQUENCE SANITY TABLE (net = who acted, share; rst = restoring share; arr = command arrival in the "
           "hold; err = median |h_meas - h_cmd| over the last 2 s; feet = loaded at the end; cam_end = worst |cam|)",
           flush=True)
-    hdr = (f"{'#':>2s} {'hold':8s} {'kind':5s} {'h_cmd':>6s} {'t0-t1 s':>13s} | {'net':>9s} {'share':>5s} {'rst':>5s} | "
+    hdr = (f"{'#':>2s} {'hold':11s} {'kind':5s} {'h_cmd':>6s} {'t0-t1 s':>13s} | {'net':>9s} {'share':>5s} {'rst':>5s} | "
            f"{'dx':>6s} {'dy':>6s} | {'arr':>5s} {'err mm':>6s} {'feet':>4s} {'cam_end':>7s} | restore | falls")
     print(hdr, flush=True)
     nan = float("nan")
@@ -1260,7 +1851,7 @@ def _print_sequence_table(segments: list[dict], falls: list[dict], routing: dict
         err_txt = "   -- " if win is None else f"{win['median_abs_err_m'] * 1000:6.1f}"
         feet_txt = "  --" if stn.get("feet_end") is None else f"{stn['feet_end']:4d}"
         cam_txt = "   --  " if cam_end is None else f"{cam_end:7.3f}"
-        print(f"{num:>2s} {r['hold']:8s} {r['kind']:5s} {hc_txt} "
+        print(f"{num:>2s} {r['hold']:11s} {r['kind']:5s} {hc_txt} "
               f"{r['t0_s']:6.2f}-{r['t1_s']:6.2f} | {r['acting_network']:>9s} {r['stand_net_share']:5.2f} "
               f"{r['restoring_share']:5.2f} | {ach.get('dx', nan):+6.2f} {ach.get('dy', nan):+6.2f} | "
               f"{arr_txt} {err_txt} {feet_txt} {cam_txt} | {rtxt} | {fl}", flush=True)

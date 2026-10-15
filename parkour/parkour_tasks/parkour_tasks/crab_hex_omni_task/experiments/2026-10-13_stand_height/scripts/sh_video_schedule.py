@@ -6,10 +6,33 @@ It writes a world-frame ``kind: schedule`` row PLUS the campaign's ``stand_heigh
 stand_height launcher reads on its ``--sh-command manifest`` path), which ``sh_record_video.py`` records (S1 s18 walks
 every walk hold, the stand-height network stands at every stand hold's height, the H6 restore hands back):
 
-    sh_video_schedule.py [--plan raise|smoke|random] [--seed N] [--total-s S] [--out-dir DIR] [--dry-run]
+    sh_video_schedule.py [--plan raise|smoke|random|tour|tour_smoke] [--seed N] [--total-s S]
+                         [--table-start TOP[:POSE]] [--out-dir DIR] [--dry-run]
 
 -> ``videos/scenarios_sh_video_<plan>.yaml`` (``manifest_version: 2``, ONE row ``sh_<plan>__omni`` + the
-``stand_height`` block) and ``videos/sh_video_schedule_<plan>.json`` (holds, heights, kinds, times, summary).
+``stand_height`` block -- the tour plans: the ``stand_height_video`` block, see below) and
+``videos/sh_video_schedule_<plan>.json`` (holds, heights, kinds, times, summary).
+
+THE TOUR PLANS (2026-10-15, the user's "stand up off a table, walk forward 20 s, stand at min then max, then each
+command type 10 s, stopping every 2-3 commands to stand at min or max"; world frame, ``spawn_yaw: first_face``; the
+suite's speeds -- fwd 0.25, lat 0.22, back 0.22, diag 0.25 at 45 deg, move_turn 0.22 -- checked against
+``scenarios_p2.yaml``'s ``field_suite__omni`` at generation):
+
+* ``tour`` (~221 s): (a) stand 1.064 for 12 s (the table get-up: >= the rods' rise + the ramp from the table spawn
+  height + 3 s settle + 3 s); (b) fwd 20 s; (c) stand h_min then stand h_max (one facing); (d) fwd, lat_l, back 10 s
+  each -> stand h_min; (e) lat_r, diag -> stand h_max; (f) turn_l90 (face 0 -> +90), turn_r90 (+90 -> 0) -> stand
+  h_min; (g) move_turn_l (dir 0, face 0 -> +90), move_turn_r (dir 0, face +90 -> 0) -> stand h_max; (h) fwd 8 s;
+* ``tour_smoke`` (~65 s, the GPU smoke): table stand 12 s, fwd 6, stand h_min, turn_l90 6, stand h_max (at face +90:
+  a stand after a facing change), fwd 8 (dir = face = +90).
+
+Tour lengths: a stand (other than the first) = ``|dh| / 0.08 + 3 s settle + 3 s hold`` from the level it is entered
+at; a command hold that follows a stand at ``h`` = its base + ``|h - 1.064| / 0.08 + 1 s`` (the restore), so every
+command gets its base of actual motion; whole deciseconds, rounded up. A tour row has turns and a stand first, which
+the launcher's one-facing / walk-first rules refuse, so it is written under ``stand_height_video`` (rules ``tour``) and
+validated by ``sh_video_core.tour_row_reasons`` (those rules, adapted for turns and the table first stand) + the
+harness validator + the tour lengths above; the first stand is checked against the table it is designed for
+(:data:`TOUR_TABLE`, 0.635 m knee_folded: ``sh_table_core.env_need_s`` + 3 s + 3 s) and, with ``--table-start``,
+against that table too (the K3 margin: first height >= top + 0.31).
 
 THE PLANS (one facing, face 0, for the whole row: every speed-0 hold is a stand slot, never a turn):
 
@@ -62,7 +85,8 @@ REF_MANIFEST = CAMPAIGN / "scenarios_sh.yaml"
 REF_ROW = "hraise__omni"
 CORE_PATH = HERE / "sh_video_core.py"
 
-PLANS = ("raise", "smoke", "random")
+PLANS = ("raise", "smoke", "random", "tour", "tour_smoke")
+TOUR_PLANS = ("tour", "tour_smoke")
 DEFAULT_PLAN = "raise"
 DEFAULT_SEED = 20261014
 DEFAULT_TOTAL_S = 150.0
@@ -97,6 +121,47 @@ SPEED_MIN = 0.12
 FINAL_STRETCH_DS = 40
 MAX_ATTEMPTS = 10000
 
+# the tour plans (module docstring)
+_HALF_PI, _PI, _QUARTER_PI = 1.5707963, 3.1415927, 0.7853982
+#: (speed, world dir, world face) per tour command; the speeds / translation dirs are the suite's (checked against
+#: scenarios_p2.yaml field_suite__omni), the turn faces the tour's (0 -> +90 -> 0)
+TOUR_CMDS = {
+    "fwd": (0.25, 0.0, 0.0), "lat_l": (0.22, _HALF_PI, 0.0), "back": (0.22, _PI, 0.0),
+    "lat_r": (0.22, -_HALF_PI, 0.0), "diag": (0.25, _QUARTER_PI, 0.0),
+    "turn_l90": (0.0, 0.0, _HALF_PI), "turn_r90": (0.0, 0.0, 0.0),
+    "move_turn_l": (0.22, 0.0, _HALF_PI), "move_turn_r": (0.22, 0.0, 0.0),
+}
+#: the suite label each tour translation command takes its speed / dir from (move_turn_* take move_turn's speed)
+SUITE_ROW = "field_suite__omni"
+SUITE_OF = {"fwd": "fwd", "lat_l": "lat_l", "back": "back", "lat_r": "lat_r", "diag": "diag",
+            "move_turn_l": "move_turn", "move_turn_r": "move_turn_r"}
+TOUR_TABLE_STAND_S = 12.0                 # (a): >= rod rise + ramp from the table spawn height + 3 s + 3 s
+TOUR_STAND_SETTLE_S = 3.0
+TOUR_STAND_HOLD_S = 3.0
+TOUR_RESTORE_EXTRA_S = 1.0                # a command after a stand at h: base + |h - 1.064| / 0.08 + 1 s
+#: the table the tour's first stand is designed for (the recorder's --table-start for the user's video)
+TOUR_TABLE = "0.635:knee_folded"
+# ("table", h, s) | ("stand", h) | ("cmd", label, base_s[, (speed, dir, face)])
+TOUR_PLAN = (
+    ("table", "h_settled", TOUR_TABLE_STAND_S),                                           # (a)
+    ("cmd", "fwd", 20.0),                                                                 # (b)
+    ("stand", "h_min"), ("stand", "h_max"),                                               # (c)
+    ("cmd", "fwd", 10.0), ("cmd", "lat_l", 10.0), ("cmd", "back", 10.0), ("stand", "h_min"),        # (d)
+    ("cmd", "lat_r", 10.0), ("cmd", "diag", 10.0), ("stand", "h_max"),                    # (e)
+    ("cmd", "turn_l90", 10.0), ("cmd", "turn_r90", 10.0), ("stand", "h_min"),             # (f)
+    ("cmd", "move_turn_l", 10.0), ("cmd", "move_turn_r", 10.0), ("stand", "h_max"),       # (g)
+    ("cmd", "fwd", 8.0),                                                                  # (h)
+)
+TOUR_SMOKE_PLAN = (
+    ("table", "h_settled", TOUR_TABLE_STAND_S),
+    ("cmd", "fwd", 6.0),
+    ("stand", "h_min"),
+    ("cmd", "turn_l90", 6.0),
+    ("stand", "h_max"),                                   # face +90: a stand after a facing change
+    ("cmd", "fwd", 8.0, (0.25, _HALF_PI, _HALF_PI)),      # body-forward at face +90
+)
+TOUR = {"tour": TOUR_PLAN, "tour_smoke": TOUR_SMOKE_PLAN}
+
 
 def _load(path: Path, name: str):
     spec = importlib.util.spec_from_file_location(name, str(path))
@@ -128,6 +193,9 @@ def row_id_for(plan: str) -> str:
     if plan not in PLANS:
         raise ValueError(f"plan {plan!r} not in {PLANS}")
     return f"sh_{plan}__omni"
+
+
+TOUR_ROW_IDS = tuple(row_id_for(p) for p in TOUR_PLANS)
 
 
 # ===================================================================================== reference header
@@ -186,8 +254,8 @@ def _ceil_to(seconds: float, step: float) -> float:
     return round(k * step, 6)
 
 
-def _hold(S, label, speed, direction, hold_ds):
-    return S.Hold(hold_s=hold_ds / DS, label=label, speed=float(speed), dir=float(direction), face=0.0)
+def _hold(S, label, speed, direction, hold_ds, face=0.0):
+    return S.Hold(hold_s=hold_ds / DS, label=label, speed=float(speed), dir=float(direction), face=float(face))
 
 
 def _scenario(S, hdr: dict, holds: list, row_id: str):
@@ -200,16 +268,66 @@ def _scenario(S, hdr: dict, holds: list, row_id: str):
 
 
 def hold_dicts(holds) -> list[dict]:
-    """The ``height_row_reasons`` view of the holds."""
-    return [{"label": h.label, "speed": float(h.speed), "face": float(h.face), "hold_s": float(h.hold_s)}
-            for h in holds]
+    """The ``height_row_reasons`` view of the holds (+ ``dir``, which the tour rules' kinds read)."""
+    return [{"label": h.label, "speed": float(h.speed), "dir": float(h.dir), "face": float(h.face),
+             "hold_s": float(h.hold_s)} for h in holds]
 
 
-def check_rules(S, hdr, holds, heights, row_id) -> None:
-    """Both validators (module docstring); raises with every reason."""
-    why = EC.height_row_reasons(hold_dicts(holds), list(heights))
-    if why:
-        raise ValueError(f"{row_id}: the stand_height manifest rules refuse the schedule:\n  " + "\n  ".join(why))
+def tour_table(text: str | None = None) -> dict:
+    """The table a tour's first stand is checked against (``--table-start`` text; default :data:`TOUR_TABLE`)."""
+    return VC.parse_table_start(text or TOUR_TABLE)
+
+
+def tour_first_need(table: dict, h0: float) -> dict:
+    """The first stand's needs on ``table``: ``rule_s`` (the scenarios_sh stand rule adapted: rod rise + ramp + 1 + 2
+    s, ``sh_video_core.table_need_s``) and ``tour_s`` (the tour's: rod rise + ramp + 3 s settle + 3 s hold)."""
+    n = VC.table_need_s(table, float(h0))
+    return {**n, "tour_s": n["reach_s"] + TOUR_STAND_SETTLE_S + TOUR_STAND_HOLD_S}
+
+
+def tour_length_reasons(holds, heights) -> list[str]:
+    """The tour's own (stricter) lengths: every stand after the first >= ``|dh| / 0.08 + 3 + 3`` s from its entry
+    level; every command hold after a stand at ``h`` >= ``|h - 1.064| / 0.08 + 1 s`` + 1 s of motion at least."""
+    out = []
+    kinds = VC.hold_kinds(holds)
+    level, prev = CORE.H_SETTLED, None
+    for i, (h, hh, k) in enumerate(zip(holds, heights, kinds)):
+        if k == VC.KIND_STAND:
+            if i > 0:
+                need = abs(hh - level) / CORE.HEIGHT_RATE_M_S + TOUR_STAND_SETTLE_S + TOUR_STAND_HOLD_S
+                if h.hold_s + 1e-9 < need:
+                    out.append(f"hold {i} stand {hh}: {h.hold_s} s < the tour's {need:.3f} s")
+            level, prev = hh, hh
+        else:
+            if prev is not None:
+                need = abs(prev - CORE.H_SETTLED) / CORE.HEIGHT_RATE_M_S + TOUR_RESTORE_EXTRA_S + 1.0
+                if h.hold_s + 1e-9 < need:
+                    out.append(f"hold {i} {h.label}: {h.hold_s} s < the restore allowance + 1 s = {need:.3f} s")
+            level, prev = CORE.H_SETTLED, None
+    return out
+
+
+def check_rules(S, hdr, holds, heights, row_id, *, table: dict | None = None) -> None:
+    """Both validators (module docstring); raises with every reason. A tour row: ``sh_video_core.tour_row_reasons``
+    (first stand entered at ``table``'s spawn height with its need; default :data:`TOUR_TABLE`) + the tour lengths +
+    the first stand's tour need on that table + the harness validator."""
+    if row_id in TOUR_ROW_IDS:
+        tb = table or tour_table()
+        why = VC.table_start_reasons(tb, VC.hold_kinds(holds), list(heights))
+        if not why:
+            need = tour_first_need(tb, heights[0])
+            why = VC.tour_row_reasons(hold_dicts(holds), list(heights), first_level=tb["h_init_plan"],
+                                      first_need_s=need["rule_s"])
+            if holds[0].hold_s + 1e-9 < need["tour_s"]:
+                why.append(f"hold 0 (the table stand): {holds[0].hold_s} s < the rods' rise + ramp + 3 + 3 = "
+                           f"{need['tour_s']:.3f} s on the {tb['top']} m table ({tb['pose']})")
+            why += tour_length_reasons(holds, heights)
+        if why:
+            raise ValueError(f"{row_id}: the tour rules refuse the schedule:\n  " + "\n  ".join(why))
+    else:
+        why = EC.height_row_reasons(hold_dicts(holds), list(heights))
+        if why:
+            raise ValueError(f"{row_id}: the stand_height manifest rules refuse the schedule:\n  " + "\n  ".join(why))
     S.validate_scenario(_scenario(S, hdr, holds, row_id))
 
 
@@ -218,7 +336,65 @@ def _resolve_h(h) -> float:
         return float(CORE.H_MAX)
     if h == "h_min":
         return float(CORE.H_MIN)
+    if h == "h_settled":
+        return float(CORE.H_SETTLED)
     return float(h)
+
+
+def suite_speed_reasons(manifest=None, row: str = SUITE_ROW) -> list[str]:
+    """:data:`TOUR_CMDS`' speeds (and translation dirs at face 0) vs the phase-2 suite's holds (read from the file)."""
+    import yaml  # noqa: PLC0415
+
+    path = Path(manifest) if manifest else VC.FIELD_MANIFEST
+    rows = {r.get("id"): r for r in (yaml.safe_load(path.read_text()).get("scenarios") or [])}
+    if row not in rows:
+        return [f"{path}: no row {row!r}"]
+    suite = {}
+    for cat in rows[row].get("categories") or []:
+        for h in cat.get("holds") or []:
+            suite[str(h["label"])] = (float(h["speed"]), float(h["dir"]), float(h["face"]))
+    out = []
+    for name, slabel in SUITE_OF.items():
+        if slabel not in suite:
+            out.append(f"{row}: no hold {slabel!r}")
+            continue
+        sp, di, fa = suite[slabel]
+        if TOUR_CMDS[name][0] != sp:
+            out.append(f"tour {name} speed {TOUR_CMDS[name][0]} != {row} {slabel}'s {sp}")
+        if fa == 0.0 and TOUR_CMDS[name][1] != di:
+            out.append(f"tour {name} dir {TOUR_CMDS[name][1]} != {row} {slabel}'s {di}")
+    return out
+
+
+def _tour(S, plan: str) -> tuple[list, list]:
+    """The tour holds (module docstring): stands at ``|dh| / 0.08 + 3 + 3`` s (the first: the plan's table length),
+    commands at base + the previous stand's restore allowance; every stand at the previous hold's face."""
+    why = suite_speed_reasons()
+    if why:
+        raise ValueError("the tour's speeds are not the suite's:\n  " + "\n  ".join(why))
+    rate = CORE.HEIGHT_RATE_M_S
+    holds, heights = [], []
+    level, prev_stand, face = CORE.H_SETTLED, None, 0.0
+    for step in TOUR[plan]:
+        if step[0] in ("table", "stand"):
+            h = _resolve_h(step[1])
+            if step[0] == "table":
+                if holds:
+                    raise ValueError(f"{plan}: the table stand must be the first hold")
+                ds = _ceil_ds(float(step[2]))
+            else:
+                ds = _ceil_ds(abs(h - level) / rate + TOUR_STAND_SETTLE_S + TOUR_STAND_HOLD_S)
+            holds.append(_hold(S, EC.STAND_LABEL, 0.0, 0.0, ds, face=face))
+            heights.append(h)
+            level, prev_stand = h, h
+        else:
+            label, base = step[1], float(step[2])
+            sp, di, fa = step[3] if len(step) > 3 else TOUR_CMDS[label]
+            extra = 0.0 if prev_stand is None else abs(prev_stand - CORE.H_SETTLED) / rate + TOUR_RESTORE_EXTRA_S
+            holds.append(_hold(S, label, sp, di, _ceil_ds(base + extra), face=fa))
+            heights.append(None)
+            level, prev_stand, face = CORE.H_SETTLED, None, float(fa)
+    return holds, heights
 
 
 # ===================================================================================== generation
@@ -311,31 +487,50 @@ def _random(S, hdr, seed: int, total_s: float, prologue_s: float) -> tuple[list,
 
 
 def generate(plan: str = DEFAULT_PLAN, seed: int = DEFAULT_SEED, total_s: float = DEFAULT_TOTAL_S, *,
-             hdr: dict | None = None) -> dict:
+             hdr: dict | None = None, table_start: str | None = None) -> dict:
     """The schedule (``holds`` as ``gait_eval.schedule.Hold``, ``heights`` one per hold) + records + summary.
-    Deterministic in ``(plan, seed, total_s)``; ``seed`` / ``total_s`` only steer the random plan."""
+    Deterministic in ``(plan, seed, total_s)``; ``seed`` / ``total_s`` only steer the random plan. ``table_start``
+    (``TOP[:POSE]``): also check the schedule against that table start (``sh_video_core.table_start_reasons``; a tour:
+    its first stand's needs on that table) -- the recorder's ``--table-start`` refusals, run on the CPU first."""
     S = schedule_module()
     hdr = hdr or reference_header()
     row_id = row_id_for(plan)
     prologue_s = float(hdr["defaults"].get("prologue_s", S.DEFAULTS["prologue_s"]))
+    table = VC.parse_table_start(table_start) if table_start else None
     if plan in FIXED:
         holds, heights = _fixed(S, plan)
+    elif plan in TOUR_PLANS:
+        holds, heights = _tour(S, plan)
     else:
         if abs(round(float(total_s) * DS) / DS - float(total_s)) > 1e-9:
             raise ValueError(f"--total-s {total_s} is not a whole number of deciseconds")
         holds, heights = _random(S, hdr, seed, total_s, prologue_s)
-    check_rules(S, hdr, holds, heights, row_id)
-    return _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s)
+    check_rules(S, hdr, holds, heights, row_id, table=table)
+    if table is not None:
+        why = VC.table_start_reasons(table, VC.hold_kinds(holds), list(heights))
+        if why:
+            raise ValueError(f"{row_id}: " + "; ".join(why))
+    first = None
+    if plan in TOUR_PLANS:
+        tb = table or tour_table()
+        need = tour_first_need(tb, heights[0])
+        first = {"table": tb, "level": tb["h_init_plan"], "need_s": need["rule_s"], "tour_need_s": need["tour_s"],
+                 "sizing": {k: need[k] for k in ("rise_to_init_s", "ramp_s", "rise_to_cmd_s", "reach_s")}}
+    out = _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s, first=first)
+    out["table_start"] = None if table is None else dict(table)
+    return out
 
 
-def _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s) -> dict:
+def _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s, *, first: dict | None = None) -> dict:
     kinds = VC.hold_kinds(holds)
     recs, t = [], prologue_s
-    level = CORE.H_SETTLED
+    level = CORE.H_SETTLED if first is None else float(first["level"])
     prev_stand = None
-    for h, hh, k in zip(holds, heights, kinds):
+    for i, (h, hh, k) in enumerate(zip(holds, heights, kinds)):
         if k == VC.KIND_STAND:
             need = stand_need_s(hh, level)
+            if i == 0 and first is not None:
+                need = max(need, float(first["need_s"]))
             level, prev_stand = hh, hh
         else:
             need = walk_need_s(prev_stand)
@@ -348,22 +543,32 @@ def _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s) -> d
     changes = [(a["height"], b["height"]) for a, b in zip(recs, recs[1:])
                if a["kind"] == b["kind"] == VC.KIND_STAND]
     summary = {
-        "n_holds": len(recs), "n_walks": len(recs) - len(stands), "n_stands": len(stands),
+        "n_holds": len(recs), "n_walks": sum(1 for r in recs if r["kind"] == VC.KIND_WALK), "n_stands": len(stands),
         "heights": [r["height"] for r in stands],
         "height_min": min((r["height"] for r in stands), default=None),
         "height_max": max((r["height"] for r in stands), default=None),
         "in_stand_raises": sum(1 for a, b in changes if b > a), "in_stand_lowers": sum(1 for a, b in changes if b < a),
         "restores": sum(1 for a, b in zip(recs, recs[1:]) if a["kind"] == VC.KIND_STAND
-                        and b["kind"] == VC.KIND_WALK and abs(a["height"] - CORE.H_SETTLED) > CORE.RESTORE_ENGAGE_M),
+                        and b["kind"] != VC.KIND_STAND and abs(a["height"] - CORE.H_SETTLED) > CORE.RESTORE_ENGAGE_M),
         "min_slack_s": min(r["slack_s"] for r in recs),
         "prologue_s": prologue_s, "holds_s": round(sum(r["hold_s"] for r in recs), 6),
         "video_s": round(prologue_s + sum(r["hold_s"] for r in recs), 6),
     }
+    rules = {"stand": "hold_s >= |h - level| / 0.08 + 1 + 2 s", "walk_after_stand":
+             "hold_s >= |h - 1.064| / 0.08 + 1.5 + 2 s", "source": "sh_eval_common.height_row_reasons",
+             "h_min": CORE.H_MIN, "h_max": CORE.H_MAX, "validator": "gait_eval.schedule.validate_scenario"}
+    if first is not None:
+        summary["n_turns"] = sum(1 for r in recs if r["kind"] == VC.KIND_TURN)
+        summary["commands"] = [r["label"] for r in recs if r["kind"] != VC.KIND_STAND]
+        summary["first_stand"] = {"height": heights[0], "hold_s": holds[0].hold_s, **first}
+        rules.update({"source": "sh_video_core.tour_row_reasons (sh_eval_common.height_row_reasons adapted: turns, "
+                                "a table first stand)",
+                      "tour_stand": f"hold_s >= |dh| / 0.08 + {TOUR_STAND_SETTLE_S} + {TOUR_STAND_HOLD_S} s",
+                      "tour_command_after_stand": f"base + |h - 1.064| / 0.08 + {TOUR_RESTORE_EXTRA_S} s",
+                      "tour_first_stand": "rod rise + ramp from the table spawn height + 3 + 3 s "
+                                          "(sh_table_core.env_need_s)"})
     return {"plan": plan, "seed": int(seed), "total_s": float(total_s), "row_id": row_id, "header": hdr,
-            "rules": {"stand": "hold_s >= |h - level| / 0.08 + 1 + 2 s", "walk_after_stand":
-                      "hold_s >= |h - 1.064| / 0.08 + 1.5 + 2 s", "source": "sh_eval_common.height_row_reasons",
-                      "h_min": CORE.H_MIN, "h_max": CORE.H_MAX, "validator": "gait_eval.schedule.validate_scenario"},
-            "holds": holds, "heights": list(heights), "records": recs, "summary": summary}
+            "rules": rules, "holds": holds, "heights": list(heights), "records": recs, "summary": summary}
 
 
 # ===================================================================================== output
@@ -384,6 +589,18 @@ def manifest_dict(gen: dict) -> dict:
                   f"restored hand-backs); {sm['video_s']:.1f} s incl. the {sm['prologue_s']} s prologue. Generated by "
                   "sh_video_schedule.py; heights from the stand_height block below."),
     }
+    if gen["plan"] in TOUR_PLANS:
+        row["notes"] = (f"VIDEO ONLY (the stand-height tour; read by no gate): plan {gen['plan']}, a table get-up "
+                        f"stand then {len(sm['commands'])} commands ({', '.join(sm['commands'])}; {sm['n_turns']} "
+                        f"turns) with {sm['n_stands'] - 1} stands at {sm['height_min']}-{sm['height_max']} m between "
+                        f"them; {sm['video_s']:.1f} s incl. the {sm['prologue_s']} s prologue. Generated by "
+                        f"sh_video_schedule.py; heights from the {VC.VIDEO_BLOCK} block below (turns + a stand first: "
+                        "not a launcher row).")
+        blk = {"version": VC.VIDEO_BLOCK_VERSION,
+               "rows": {gen["row_id"]: {"hold_heights": list(gen["heights"]), "rules": VC.VIDEO_RULES,
+                                        "notes": "VIDEO ONLY: no gate reads this row"}}}
+        return {"manifest_version": 2, "speed_ellipse": dict(hdr["speed_ellipse"]), "ang_vel_max": hdr["ang_vel_max"],
+                "defaults": dict(hdr["defaults"]), "scenarios": [row], VC.VIDEO_BLOCK: blk}
     blk = {"version": EC.MANIFEST_BLOCK_VERSION,
            "rows": {gen["row_id"]: {"gates": [], "hold_heights": list(gen["heights"]),
                                     "notes": "VIDEO ONLY: no gate reads this row"}}}
@@ -396,13 +613,18 @@ def manifest_text(gen: dict) -> str:
 
     args = f"--plan {gen['plan']}" + (f" --seed {gen['seed']} --total-s {gen['total_s']:g}"
                                       if gen["plan"] == "random" else "")
-    head = ("# Stand-height campaign -- step-8 raise / lower VIDEO schedule (VIDEO ONLY; read by no gate, ledger or "
+    if gen.get("table_start"):
+        args += f" --table-start {gen['table_start']['top']:g}:{gen['table_start']['pose']}"
+    what = "the stand-height TOUR" if gen["plan"] in TOUR_PLANS else "step-8 raise / lower"
+    head = (f"# Stand-height campaign -- {what} VIDEO schedule (VIDEO ONLY; read by no gate, ledger or "
             "reader).\n"
             f"# GENERATED by scripts/sh_video_schedule.py {args} -- do not hand-edit; re-run the generator.\n"
             "# Header + row task / terrain_label / env_seed / spawn_yaw copied from "
             f"{gen['header']['source']['manifest']}\n"
             f"# (row {gen['header']['source']['row']}). Recorded by scripts/sh_record_video.py (S1 s18 on walk holds, "
-            "the stand-height\n# network on stand holds at the stand_height block's heights, the H6 restore armed).\n")
+            "the stand-height\n# network on stand holds at the "
+            f"{VC.VIDEO_BLOCK if gen['plan'] in TOUR_PLANS else EC.MANIFEST_BLOCK} block's heights, the H6 restore "
+            "armed).\n")
     return head + yaml.safe_dump(manifest_dict(gen), sort_keys=False, default_flow_style=None, width=120)
 
 
@@ -428,7 +650,9 @@ def check_written(path: Path, gen: dict) -> dict:
         raise SystemExit(f"{path}: not a world-frame schedule row")
     if abs(sc.total_duration_s - gen["summary"]["video_s"]) > 1e-9:
         raise SystemExit(f"{path}: total {sc.total_duration_s} != {gen['summary']['video_s']}")
-    row = EC.height_row(path, gen["row_id"])
+    fs = (gen["summary"].get("first_stand") or {})
+    kw = {"first_level": fs["level"], "first_need_s": fs["need_s"]} if fs else {}
+    row = VC.load_height_row(path, gen["row_id"], **kw)
     if row["hold_heights"] != list(gen["heights"]) or row["labels"] != [h.label for h in gen["holds"]]:
         raise SystemExit(f"{path}: sh_eval_common.height_row reads other heights / labels than generated")
     return row
@@ -442,10 +666,21 @@ def print_summary(gen: dict, file=sys.stdout) -> None:
           f"{sm['in_stand_raises']} in-stand raises, {sm['in_stand_lowers']} lowers, {sm['restores']} restores; "
           f"min slack {sm['min_slack_s']:.2f} s", file=file)
     for r in gen["records"]:
-        what = f"STAND {r['height']:.3f} m" if r["kind"] == VC.KIND_STAND else \
-            f"WALK  {r['speed']:.2f} m/s dir {math.degrees(r['dir']):+7.1f}"
-        print(f"[SHV]   {r['t0_s']:7.2f}-{r['t1_s']:7.2f} s  {r['label']:8s} {what:28s} {r['hold_s']:5.1f} s "
+        if r["kind"] == VC.KIND_STAND:
+            what = f"STAND {r['height']:.3f} m face {math.degrees(r['face']):+5.0f}"
+        elif r["kind"] == VC.KIND_TURN:
+            what = f"TURN  to face {math.degrees(r['face']):+5.0f}"
+        else:
+            what = (f"WALK  {r['speed']:.2f} m/s dir {math.degrees(r['dir']):+6.1f}"
+                    + (f" face {math.degrees(r['face']):+4.0f}" if r["face"] else ""))
+        print(f"[SHV]   {r['t0_s']:7.2f}-{r['t1_s']:7.2f} s  {r['label']:11s} {what:36s} {r['hold_s']:5.1f} s "
               f"(rule {r['need_s']:5.2f} s, slack {r['slack_s']:+5.2f})", file=file)
+    fs = sm.get("first_stand")
+    if fs:
+        tb = fs["table"]
+        print(f"[SHV]   first stand on the {tb['top']} m table ({tb['pose']}): {fs['hold_s']} s >= the tour's rod rise + "
+              f"ramp + 3 + 3 = {fs['tour_need_s']:.2f} s (rule {fs['need_s']:.2f} s); height {fs['height']} >= top + "
+              f"{tb['cmd_margin_m']} = {tb['cmd_min']:.4f}", file=file)
 
 
 def main(argv=None) -> int:
@@ -453,10 +688,16 @@ def main(argv=None) -> int:
     ap.add_argument("--plan", choices=PLANS, default=DEFAULT_PLAN)
     ap.add_argument("--seed", type=int, default=DEFAULT_SEED, help="random plan only")
     ap.add_argument("--total-s", type=float, default=DEFAULT_TOTAL_S, help="random plan only: target video length")
+    ap.add_argument("--table-start", type=str, default=None, metavar="TOP[:POSE]",
+                    help="check the schedule against this table start (the recorder's --table-start refusals)")
     ap.add_argument("--out-dir", type=str, default=str(VIDEOS))
     ap.add_argument("--dry-run", action="store_true", help="print the schedule; write nothing")
     args = ap.parse_args(argv)
-    gen = generate(args.plan, args.seed, args.total_s)
+    try:
+        gen = generate(args.plan, args.seed, args.total_s, table_start=args.table_start)
+    except ValueError as exc:
+        print(f"[SHV] REFUSED: {exc}", file=sys.stderr)
+        return 2
     print_summary(gen)
     out = Path(args.out_dir)
     yml = out / f"scenarios_sh_video_{args.plan}.yaml"
@@ -468,7 +709,9 @@ def main(argv=None) -> int:
     yml.write_text(manifest_text(gen))
     check_written(yml, gen)
     js.write_text(json.dumps(schedule_json(copy.deepcopy(gen)), indent=1) + "\n")
-    print(f"[SHV] wrote {yml} (re-loaded by gait_eval.schedule.load_manifest and sh_eval_common.height_row) and {js}")
+    loader = ("sh_video_core.video_height_row (the tour rules)" if args.plan in TOUR_PLANS
+              else "sh_eval_common.height_row")
+    print(f"[SHV] wrote {yml} (re-loaded by gait_eval.schedule.load_manifest and {loader}) and {js}")
     print(f"[SHV] MANIFEST={yml}")
     print(f"[SHV] ROW={gen['row_id']}")
     return 0

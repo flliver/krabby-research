@@ -4,14 +4,26 @@
 # The recorder is an Isaac process: one at a time, under a memory cap, never SIGKILLed, detached (memories: video
 # memory hazard, Kit DerivedDataCache corruption, GPU queue chaining; CHARTER section 2: never SIGKILL Kit).
 #
-#   sh_record_video.sh [--dry-run] [--overwrite] [--smoke | --seed N] [--total-s S] [--prefix P] [-- <recorder args>]
+#   sh_record_video.sh [--dry-run] [--overwrite] [--plan P | --smoke | --seed N] [--total-s S] [--prefix P]
+#                      [--stand-rule R] [--terrain T] [--table-start TOP[:POSE] [--table-park]] [-- <recorder args>]
 #     (default)       the fixed RAISE / LOWER plan (~155 s): videos/scenarios_sh_video_raise.yaml, row sh_raise__omni
-#     --smoke         the ~20 s smoke plan (walk -> 1.20 -> 1.00 -> walk: a raise, an in-stand lower, a restore):
-#                     videos/scenarios_sh_video_smoke.yaml, row sh_smoke__omni
+#     --plan P        a fixed plan: raise | smoke | tour | tour_smoke (videos/scenarios_sh_video_<P>.yaml, row
+#                     sh_<P>__omni). tour (~221 s): the table get-up, fwd 20 s, stand h_min / h_max, then every command
+#                     type ~10 s with stands at h_min / h_max between; tour_smoke (~65 s): table get-up, fwd, stand,
+#                     turn_l90, stand after the turn, fwd (sh_video_schedule.py docstring)
+#     --smoke         = --plan smoke: the ~20 s smoke plan (walk -> 1.20 -> 1.00 -> walk: a raise, an in-stand lower, a
+#                     restore): videos/scenarios_sh_video_smoke.yaml, row sh_smoke__omni
 #     --seed N        the RANDOM plan with seed N (random walks, random stand heights / lengths):
 #                     videos/scenarios_sh_video_random.yaml, row sh_random__omni
 #     --total-s S     random plan only: the target video length in s (default 150)
-#     --prefix P      output prefix (default sh_raise / sh_smoke / sh_random_s<N>)
+#     --prefix P      output prefix (default sh_<plan> / sh_random_s<N>)
+#     --stand-rule R  schedule | slot (the recorder's; default its own: schedule)
+#     --terrain T     flat | field_medium (the recorder's; default flat = the reference stamp's env)
+#     --table-start TOP[:POSE]  spawn on a K3 table (e.g. 0.635:knee_folded); also checked by the generator (CPU)
+#                     before anything launches: the plan's first hold must be a stand at >= top + 0.31 long enough
+#                     for the get-up
+#     --table-park    with --table-start: park the table after the get-up (default: it stays)
+#                     (these four are forwarded to sh_record_video.py; they are refused after --)
 #     --overwrite     allow replacing an existing <prefix>_sequence.mp4
 #     --dry-run       print the schedule (nothing written), whether an Isaac process is running, the environment and
 #                     the command; launch nothing
@@ -29,7 +41,8 @@
 #      <isaac python> sh_record_video.py --headless --enable_cameras --manifest ... --sequence ... --out-dir $OUT
 #      --prefix P` with OMNI_KIT_ACCEPT_EULA=yes, PYTHONUNBUFFERED=1, detached via `setsid nohup`; returns once the
 #      recorder python is visible (its pid -> $OUT/P.pid, the scope unit -> $OUT/P.unit, the log -> $OUT/P.log).
-#      SH_VIDEO_TIMEOUT seconds (default 5400; --smoke 1800) bounds the run with SIGTERM only (the recorder unwinds:
+#      SH_VIDEO_TIMEOUT seconds (default 5400 -- the ~221-s tour renders ~11k frames at ~20 fps, ~10 min, plus Kit
+#      boot; --smoke / tour_smoke 1800) bounds the run with SIGTERM only (the recorder unwinds:
 #      the mp4 writer closes, Kit closes). NO `timeout -k`: the campaign never SIGKILLs Kit (the predecessor's -k is
 #      dropped on purpose). A Kit hung inside C++ ignores the TERM's SystemExit until control returns; then stop it
 #      with `systemctl --user stop <unit>.scope` (the CHARTER's stop path), never with a SIGKILL of your own.
@@ -55,12 +68,18 @@ ISAAC_PAT='^[^ ]*[i]saac_venv/bin/python3?( -[^ ]+)* [^ ]*(run_phases|run_candid
 NONKIT_PAT='(s[hn]_dagger\.py .*--(read|emit-env)([ =]|$))|(s[hn]_table_test\.py .*--(emit-facts|merge)([ =]|$))|((^|[ /])sh_(facts|kin|core|table_core|eval_common|read|bridge_read|observe_read|video_schedule|video_core)\.py( |$))'
 
 die() { echo "sh_record_video.sh: $*" >&2; exit 5; }
-DRY=0; OVERWRITE=0; SMOKE=0; SEED=""; TOTAL=""; PREFIX=""
+DRY=0; OVERWRITE=0; SMOKE=0; SEED=""; TOTAL=""; PREFIX=""; PLAN_ARG=""
+RULE_ARG=""; TERRAIN_ARG=""; TABLE_ARG=""; TABLE_PARK=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift ;;
     --overwrite) OVERWRITE=1; shift ;;
     --smoke) SMOKE=1; shift ;;
+    --plan) [ $# -ge 2 ] || die "--plan needs a value"; PLAN_ARG=$2; shift 2 ;;
+    --stand-rule) [ $# -ge 2 ] || die "--stand-rule needs a value"; RULE_ARG=$2; shift 2 ;;
+    --terrain) [ $# -ge 2 ] || die "--terrain needs a value"; TERRAIN_ARG=$2; shift 2 ;;
+    --table-start) [ $# -ge 2 ] || die "--table-start needs a value"; TABLE_ARG=$2; shift 2 ;;
+    --table-park) TABLE_PARK=1; shift ;;
     --seed) [ $# -ge 2 ] || die "--seed needs a value"; SEED=$2; shift 2 ;;
     --total-s) [ $# -ge 2 ] || die "--total-s needs a value"; TOTAL=$2; shift 2 ;;
     --prefix) [ $# -ge 2 ] || die "--prefix needs a value"; PREFIX=$2; shift 2 ;;
@@ -70,6 +89,18 @@ while [ $# -gt 0 ]; do
 done
 EXTRA=("$@")
 [ "$SMOKE" = 1 ] && [ -n "$SEED" ] && die "--smoke and --seed are exclusive (the smoke is a fixed plan)"
+if [ -n "$PLAN_ARG" ]; then
+  [ "$SMOKE" = 1 ] && die "--plan and --smoke are exclusive"
+  [ -n "$SEED" ] && die "--plan and --seed are exclusive (--seed N is the random plan)"
+  case "$PLAN_ARG" in raise|smoke|tour|tour_smoke) ;; *) die "--plan must be raise | smoke | tour | tour_smoke, got '$PLAN_ARG'" ;; esac
+fi
+[ "$PLAN_ARG" = smoke ] && { SMOKE=1; PLAN_ARG=""; }
+case "$RULE_ARG" in ''|schedule|slot) ;; *) die "--stand-rule must be schedule | slot, got '$RULE_ARG'" ;; esac
+case "$TERRAIN_ARG" in ''|flat|field_medium) ;; *) die "--terrain must be flat | field_medium, got '$TERRAIN_ARG'" ;; esac
+if [ -n "$TABLE_ARG" ]; then
+  printf '%s' "$TABLE_ARG" | grep -qE '^[0-9]+(\.[0-9]+)?(:[a-z_]+)?$' || die "--table-start must be TOP[:POSE], got '$TABLE_ARG'"
+fi
+[ "$TABLE_PARK" = 1 ] && [ -z "$TABLE_ARG" ] && die "--table-park needs --table-start"
 if [ -n "$SEED" ]; then
   case "$SEED" in *[!0-9]*) die "--seed must be a non-negative integer, got '$SEED'" ;; esac
   PLAN=random; TOTAL=${TOTAL:-150}; PREFIX=${PREFIX:-sh_random_s$SEED}; TMO=${SH_VIDEO_TIMEOUT:-5400}
@@ -79,11 +110,22 @@ else
   [ -n "$TOTAL" ] && die "--total-s applies to the random plan only (--seed N)"
   if [ "$SMOKE" = 1 ]; then
     PLAN=smoke; PREFIX=${PREFIX:-sh_smoke}; TMO=${SH_VIDEO_TIMEOUT:-1800}
+  elif [ "$PLAN_ARG" = tour_smoke ]; then
+    PLAN=tour_smoke; PREFIX=${PREFIX:-sh_tour_smoke}; TMO=${SH_VIDEO_TIMEOUT:-1800}
+  elif [ "$PLAN_ARG" = tour ]; then
+    PLAN=tour; PREFIX=${PREFIX:-sh_tour}; TMO=${SH_VIDEO_TIMEOUT:-5400}
   else
     PLAN=raise; PREFIX=${PREFIX:-sh_raise}; TMO=${SH_VIDEO_TIMEOUT:-5400}
   fi
   GEN_ARGS=(--plan "$PLAN" --out-dir "$VID")
 fi
+REC_OPTS=()
+[ -n "$RULE_ARG" ] && REC_OPTS+=(--stand-rule "$RULE_ARG")
+[ -n "$TERRAIN_ARG" ] && REC_OPTS+=(--terrain "$TERRAIN_ARG")
+if [ -n "$TABLE_ARG" ]; then
+  REC_OPTS+=(--table-start "$TABLE_ARG"); GEN_ARGS+=(--table-start "$TABLE_ARG")
+fi
+[ "$TABLE_PARK" = 1 ] && REC_OPTS+=(--table-park)
 YAML=$VID/scenarios_sh_video_$PLAN.yaml; ROW=sh_${PLAN}__omni
 case "$PREFIX" in ''|*[!A-Za-z0-9_.-]*) die "--prefix must be [A-Za-z0-9_.-]+, got '$PREFIX'" ;; esac
 case "$TMO" in ''|*[!0-9]*|0) die "SH_VIDEO_TIMEOUT must be a positive integer of seconds, got '$TMO'" ;; esac
@@ -92,6 +134,8 @@ for a in "${EXTRA[@]}"; do
   case "$a" in
     --manifest|--manifest=*|--sequence|--sequence=*|--out-dir|--out-dir=*|--prefix|--prefix=*)
       die "'$a' is set by this launcher" ;;
+    --stand-rule|--stand-rule=*|--terrain|--terrain=*|--table-start|--table-start=*|--table-park)
+      die "'$a' is a launcher option: pass it before --" ;;
   esac
 done
 [ -f "$GEN" ] && [ -f "$REC" ] || die "missing $GEN or $REC"
@@ -125,7 +169,7 @@ UNIT="sh-video-${PREFIX//[^A-Za-z0-9_-]/_}-$(date +%s)"
 LOG=$OUT/$PREFIX.log
 CMD=(systemd-run --user --scope -q "--unit=$UNIT" -p "MemoryMax=$MEM" -p MemorySwapMax=0
      timeout --signal=TERM "$TMO" "$PY" "$REC" --headless --enable_cameras
-     --manifest "$YAML" --sequence "$ROW" --out-dir "$OUT" --prefix "$PREFIX" "${EXTRA[@]}")
+     --manifest "$YAML" --sequence "$ROW" --out-dir "$OUT" --prefix "$PREFIX" "${REC_OPTS[@]}" "${EXTRA[@]}")
 if [ "$DRY" = 1 ]; then
   echo "# isaac busy: $([ "$BUSY" = 1 ] && echo 'YES (a real launch refuses, exit 3)' || echo no)"
   echo "export OMNI_KIT_ACCEPT_EULA=yes PYTHONUNBUFFERED=1"
@@ -138,7 +182,7 @@ export OMNI_KIT_ACCEPT_EULA=yes PYTHONUNBUFFERED=1 TERM=${TERM:-xterm}
 mkdir -p "$OUT"
 echo "$UNIT" > "$OUT/$PREFIX.unit"
 rm -f "$OUT/$PREFIX.pid"
-{ echo "[$(date -Is)] sh_record_video.sh plan=$PLAN seed=${SEED:-none} total_s=${TOTAL:-plan} unit=$UNIT.scope DerivedDataCache=${DDC_GB}GB"
+{ echo "[$(date -Is)] sh_record_video.sh plan=$PLAN seed=${SEED:-none} total_s=${TOTAL:-plan} rule=${RULE_ARG:-default} terrain=${TERRAIN_ARG:-default} table=${TABLE_ARG:-off} park=$TABLE_PARK unit=$UNIT.scope DerivedDataCache=${DDC_GB}GB"
   printf '%q ' "${CMD[@]}"; echo; } >> "$LOG"
 END="SHVIDEO END $PREFIX unit=$UNIT.scope"
 setsid nohup bash -c '"$@" >> "$0" 2>&1 < /dev/null; rc=$?; echo "[$(date -Is)] '"$END"' rc=$rc" >> "$0"' \
