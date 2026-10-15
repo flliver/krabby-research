@@ -363,3 +363,11 @@ the user's.**
   knee_folded (R_h 6 / 12 % and 0 %; `SH_T17` 5 / 11 % and 0 %) — the sub-0.25 residual the deadband removes is what
   lets loaded knees open; input for the ground get-up follow-up. GPU ≈ 18.9 h of the planned ≈ 15. **STOP for the
   user's adoption decision.** Nothing baked, nothing pushed.
+- 2026-10-15, **USER DECISION: "Adopt SH_T17".** SH_T17 (`runs/SH_T17/model_5000.pt`, sha256 99c377a1…) becomes the omni
+  stand network of record, superseding A-mask s17 (repo precedent of the 2026-10-06 bake: same `policy/stand_net/` dir,
+  the superseded file leaves the folder and stays in git history at 4f3019b2, recorded under `superseded:`). Bake built
+  by workflow wf_9d1156f6-5b7 (opus·xhigh implement; fable·high record review + opus·xhigh code review; fix; fable
+  verify): `policy/manifest.yaml` stand_network block (deployment contract incl. the height controller, deadband and
+  zero-height mode; K1–K6 gate table), README via the bundle tool, `bundle_policy.py` / `test_policy_of_record_omni.py`
+  as needed. Walking head of record (6_p2a_field) unchanged; code_sha / eval_sha unaffected (policy/ and the bundle tool
+  are outside both pathspecs).
