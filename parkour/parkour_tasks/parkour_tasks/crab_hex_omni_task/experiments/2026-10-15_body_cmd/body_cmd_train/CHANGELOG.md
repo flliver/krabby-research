@@ -35,3 +35,7 @@
 
 ### 2026-10-16 08:24 — reference BC_DX_inst_s18 s18 X08 finished (head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-05-22_seed18_X08_c6_A15pB/model_11495.pt)
 > NOTIFY: AWAIT await_user:reference_done:BC_DX_inst_s18 | reference BC_DX_inst_s18 s18 recorded (X08, head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-05-22_seed18_X08_c6_A15pB/model_11495.pt) | judge it by hand; forks name it as resume_from: {reference: BC_DX_inst_s18}
+> NOTIFY: REFERENCE BC_c6x_s18 s18 | X09 on chain BC_c6x_s18 (recipe 959d160ce236) finished -- judged by hand, no decision | head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-34-51_seed18_X09_c6x_A15pB/model_14995.pt | c6x: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-34-51_seed18_X09_c6x_A15pB/model_14995.pt | floors held
+
+### 2026-10-16 10:16 — reference BC_c6x_s18 s18 X09 finished (head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-34-51_seed18_X09_c6x_A15pB/model_14995.pt)
+> NOTIFY: AWAIT await_user:reference_done:BC_c6x_s18 | reference BC_c6x_s18 s18 recorded (X09, head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-34-51_seed18_X09_c6x_A15pB/model_14995.pt) | judge it by hand; forks name it as resume_from: {reference: BC_c6x_s18}

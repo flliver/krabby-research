@@ -332,3 +332,28 @@ adoption-grade report. **Adoption, bake and push are the user's.**
     cols 6–7 = its error, raw, clip 0.6; the lineage's world reward set on that target) — reverses PLAN D2's cols 6–7
     = 0 and D4's rate rewards; (C) warm-start from S1 under (B) (reverses "from scratch"); (D) keep rate-only with a
     turn-first curriculum.
+- 2026-10-16, **USER DECISION: "Stop this campaign for now." Campaign STOPPED (resumable); nothing baked, nothing
+  pushed.** The step-4 gate-semantics question was answered "no preference" (left open; moot while stopped).
+
+## 4. State at the stop (for a resume)
+
+- **Code (committed, default-off, world mode bitwise — 13 Kit dumps identical, S1 G0 bitwise at the final hashes):**
+  `KRABBY_OMNI_COMMAND_FRAME=body` (held robot-frame command, envelope knobs, obs encoding `none`, the body reward
+  set, turn clock floor), presets `1a_b` / `1b_b` / `2a_b`, `KRABBY_OMNI_BODY_TENT_RATE=instant` (diagnostic knob);
+  eval harness v3 + `body_hold` / `world_rate` adapters + `eval/scenarios_omni_body.yaml` (envelope frozen:
+  w_min 0.05, ceiling 0.168, w_max 0.21, cap (0, 0.21) (0.22, 0.105) (0.30, 0.065)). Last hashes: code `a8519343…`
+  (the tent-rate knob after `fe714b41…`), eval `567d1704…`.
+- **Records:** P1 envelope map (`envelope_freeze.md`), anchors and gate numbers (`anchor_numbers.md`), offline replay
+  (`step4_replay.md`), smoke (`step5_smoke.json`), stage reads (`stage_reads/`), all launch scripts (`scripts/`),
+  training candidates (`body_cmd_train/`).
+- **Pilot s18 heads** (`parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_*_seed18_X0{4..9}_*`): fb6k_b X04,
+  c4_b X05, c5_b X06, c6_b X07, DX_inst X08, c6x_b X09 — walks every direction (c6x_b 0.93–1.05 of command,
+  survival 1.0, drift 0.005), does NOT turn (net ratio ≈ 0 at every rate). p2a_b and replicates not run.
+- **The finding:** a rate-only body command (no observed heading error, windowed or instantaneous rate rewards) did
+  not let the walker acquire rotation from scratch in 9 500 its, where the facing lineage (closed-loop heading error
+  observed) did. The facing walker S1 behind the `body_hold` mapper already tracks robot-frame yaw rates at net
+  ratio 0.91–1.03 (0.05–0.168 rad/s), w_max 0.77–0.82, move_turn 0.61–0.87, straight drift ≈ 0.004.
+- **Open on resume:** the design route — (A) ship S1 + `body_hold` as the deployment mapper; (B) integrated heading
+  target inside the env (cols 6–7 = its error) and retrain from the fb6k_b head; (C) B warm-started from S1;
+  (D) rate-only with a turn-first curriculum — and the three gate-semantics fixes (ripple clause, gate-4 known-bad,
+  gate-3 noise band). Untracked other-session files were never touched.
