@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 
-#include "src/controller/board_role.h"
+#include "../controller/board_role.h"
 
 // Joint names per board role. Physical pins are shared; only names change after election.
 static constexpr size_t ACTUATOR_ROLE_NAME_COUNT = 6;
