@@ -128,3 +128,18 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - the R level: 95 % block vs 99 % guard;
     - p2a field_hard at es1–4.
   - PLAN's drift example corrected to the harness medians (.057 / .010; it had quoted means).
+- **2026-10-16, STOP-0 + STOP-A — user decisions (all as recommended).**
+  - **Thresholds v0: recommended values.** s1–c6x floors at survival ≥ 0.80, ratio ≥ 0.50, side22 not-SLOW; SN G2
+    stillness lines WATCH (SH's K5 re-checks them); G4 field_hard / field_turn relaxed to
+    REFS(T\*) − max(0.10, 2SE); K4 ≤ 3/800 (D9). Run sum ≈ 1.06 (reported, not capped).
+  - **0-kg check statistic.** Tracking is a one-sided ratio *drop* (as PLAN words it), with R at the 99 % guard
+    level (fwd .051 / back .062). |r − 1| is reported as WATCH. thresholds.py's |r − 1| / 95 % implementation is
+    to be changed to match (folded into step 6).
+  - **P-early amendment (applies to R18's "process reproduced" read too).** `Loss/hist_latent` may differ by
+    ≤ 4 ULP when every other non-timing tag is bitwise. Under it the Phase-A P-early read is reproduced, with this
+    disclosure. Phase A therefore PASSES: no STOP-A.
+  - **Also approved:** cameras (placeholders for M15); budget ≈ 130–170 GPU-h; D5 payload geometry; D9; D14 (the
+    code freeze for other sessions from the pin until F19 ends — "commit or stash before the pin"); D19 (the
+    untracked resolution file is dropped from the inputs).
+  - **Next:** builds. Steps 3 (M1a payload) and 4 (M1b omni depth student) run in parallel, under file-ownership
+    rules; then step 5 (E1), step 6 (TP + stand parameterisation) and step 7 (CPU test pass).
