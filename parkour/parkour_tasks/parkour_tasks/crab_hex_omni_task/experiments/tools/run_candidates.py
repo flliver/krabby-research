@@ -2192,6 +2192,16 @@ def _body_cap_ok(txt: str, value) -> bool:
         return False
 
 
+def _body_tent_rate_ok(txt: str, value) -> bool:
+    """``KRABBY_OMNI_BODY_TENT_RATE`` (2026-10-16): ``instant`` = ``reward_yaw_progress.params.rate`` is
+    ``instant``; blank / ``window`` = the key ABSENT (the default body dump, unchanged)."""
+    rate = knobs().parse_body_tent_rate(value)
+    params = _dig(_dump_doc(txt), "rewards", "reward_yaw_progress", "params")
+    if not isinstance(params, dict):
+        return False
+    return params.get("rate") == "instant" if rate == "instant" else "rate" not in params
+
+
 def _check_body_frame_composition(env: dict, where: str, reasons: list) -> None:
     """The command-frame cross-knob rules on a COMPOSED stage env (2026-10-15, STEP1_SPEC §1 / §7).
 
@@ -2916,6 +2926,8 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_OMNI_COMMAND_FRAME": _command_frame_ok,
     "KRABBY_OMNI_BODY_ENVELOPE": _body_envelope_ok,
     "KRABBY_OMNI_BODY_CAP": _body_cap_ok,
+    # 2026-10-16 (c6_b-stop diagnostic): the body tent's rate
+    "KRABBY_OMNI_BODY_TENT_RATE": _body_tent_rate_ok,
 }
 
 

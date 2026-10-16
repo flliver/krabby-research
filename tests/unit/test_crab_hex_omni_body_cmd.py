@@ -1482,3 +1482,18 @@ def test_instant_income_is_one_sided_at_the_command_and_zero_on_straight_rows():
     # the right hand is the mirror
     assert torch.allclose(yw.yaw_instant_income(-wz, -c, 0.21), out)
     assert out[-1].item() == 0.0 and not torch.signbit(out[-1])
+
+
+def test_tent_rate_dump_check_both_directions():
+    """The driver's OVERLAY_DUMP_CHECKS entry for KRABBY_OMNI_BODY_TENT_RATE fails on a dump without the change."""
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location("_rc_tent", OMNI / "experiments/tools/run_candidates.py")
+    rc = _ilu.module_from_spec(spec)
+    import sys as _sys
+    _sys.modules["_rc_tent"] = rc
+    spec.loader.exec_module(rc)
+    chk = rc.OVERLAY_DUMP_CHECKS["KRABBY_OMNI_BODY_TENT_RATE"]
+    on = "rewards:\n  reward_yaw_progress:\n    params:\n      rate: instant\n      window_s: 2.0\n"
+    off = "rewards:\n  reward_yaw_progress:\n    params:\n      window_s: 2.0\n"
+    assert chk(on, "instant") and not chk(off, "instant")
+    assert chk(off, "") and chk(off, "window") and not chk(on, "window")
