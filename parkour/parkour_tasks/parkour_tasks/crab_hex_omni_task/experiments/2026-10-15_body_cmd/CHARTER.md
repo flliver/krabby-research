@@ -313,3 +313,22 @@ adoption-grade report. **Adoption, bake and push are the user's.**
     head by explicit checkpoint path. Its stage read keeps the c6 low-end rule as a descriptive line; the user is
     asked in parallel about a design change (obs integrated heading error / warm start from S1 / turn-first
     curriculum).
+- 2026-10-16, **step 6 stage end c6x_b (X09, 4000 its from the c6_b head): translation OK, TURNING ABSENT — the
+  approved rate-only design fails TURN WORKS; pilot halted before p2a_b (field training cannot supply turning).**
+  Stage read OK: fwd 1.029, lat_l 0.978, lat_r 0.966, back 1.048, diag 0.927 (c6x anchors 0.93–1.06), survival 1.000,
+  drift 0.0051 / 0.0140. Pure turn net ratio +0.022 / −0.022 at the ceiling, move_turn +0.002 / −0.001 (the veer is
+  gone: it now holds heading on every command); training `yaw_progress` −0.0001 → 0.0018 rad/s over 4000 its.
+  Facing lineage at c6x: 0.62–0.77 / 0.83–0.91. Across 9 500 its of turning stages (+ the 500-it instant-tent fork)
+  the body walker never acquired rotation.
+  - **Reading:** the facing lineage learned to turn as a CLOSED-LOOP heading problem — an observed error that grows
+    while it does not turn, a Markov position reward on it, and an immediate rate reward. The rate-only body design
+    removes the observed error (cols 6–7 = 0) and leaves only rate rewards on a constant command; from a non-turning
+    policy nothing pulls it toward rotation. Evidence the closed loop is the missing piece: the SAME facing head driven
+    by integrating the body wz into a heading target (`body_hold`, step 4 anchors) tracks body yaw-rate commands at net
+    ratio 0.91–1.03 (0.05–0.168 rad/s) with drift 0.004.
+  - **STOP and ask (design change, the user's):** (A) deploy the facing walker behind the `body_hold` mapper (no
+    retrain; measured above; move_turn 0.61–0.87); (B) retrain under the body interface WITH the integrated heading
+    target inside the env (the command integrates wz into a hidden heading target with ±0.6-rad anti-windup; obs
+    cols 6–7 = its error, raw, clip 0.6; the lineage's world reward set on that target) — reverses PLAN D2's cols 6–7
+    = 0 and D4's rate rewards; (C) warm-start from S1 under (B) (reverses "from scratch"); (D) keep rate-only with a
+    turn-first curriculum.
