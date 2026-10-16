@@ -205,6 +205,21 @@ def _body_knobs():
     return mod
 
 
+_PAYLOAD_KNOBS_PY = Path(__file__).resolve().parent / "payload_knobs.py"
+_PAYLOAD_KNOBS_NAME = "crab_hex_omni_payload_knobs"
+
+
+def _payload_knobs():
+    """``payload_knobs.py`` (pure), by path -- the same object for every loader of this module."""
+    mod = sys.modules.get(_PAYLOAD_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_PAYLOAD_KNOBS_NAME, _PAYLOAD_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_PAYLOAD_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
 _TERRAIN_KNOBS_PY = Path(__file__).resolve().parents[2] / "mdp" / "omni_terrain_knobs.py"
 _TERRAIN_KNOBS_NAME = "crab_hex_omni_terrain_knobs"
 
@@ -317,6 +332,16 @@ BODY_KNOB_PARSERS = _bk.BODY_KNOB_PARSERS
 BODY_TENT_RATE_VAR = _bk.BODY_TENT_RATE_VAR
 parse_body_tent_rate = _bk.parse_body_tent_rate
 
+_pk = _payload_knobs()
+# NOTE(M18 Task 4 pipeline step 3 "M1a", 2026-10-16): the payload knobs (payload_knobs.py, default off),
+# re-exported for the same whitelist reason; applied by ``payload_knobs.apply_payload_knobs`` (it creates
+# ``events.payload_reset``). PAYLOAD_KNOB_PARSERS is for the driver's round-trip table.
+PAYLOAD_KG_VAR = _pk.PAYLOAD_KG_VAR
+PAYLOAD_ZERO_FRAC_VAR = _pk.PAYLOAD_ZERO_FRAC_VAR
+PAYLOAD_COM_XY_VAR = _pk.PAYLOAD_COM_XY_VAR
+PAYLOAD_COM_Z_VAR = _pk.PAYLOAD_COM_Z_VAR
+PAYLOAD_KNOB_PARSERS = _pk.PAYLOAD_KNOB_PARSERS
+
 __all__ = [
     "SLOTS_VAR",
     "DIR_BAND_VAR",
@@ -394,6 +419,8 @@ __all__ = [
     # body-frame command knobs (body_knobs.py, 2026-10-15)
     "COMMAND_FRAME_VAR", "BODY_ENVELOPE_VAR", "BODY_CAP_VAR", "COMMAND_FRAMES", "parse_command_frame",
     "parse_body_envelope_knob", "parse_body_cap_knob", "BODY_KNOB_PARSERS", "body_frame_env_refusals",
+    # payload knobs (payload_knobs.py, 2026-10-16)
+    "PAYLOAD_KG_VAR", "PAYLOAD_ZERO_FRAC_VAR", "PAYLOAD_COM_XY_VAR", "PAYLOAD_COM_Z_VAR", "PAYLOAD_KNOB_PARSERS",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"
@@ -1707,6 +1734,10 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     )
 
     apply_omni_ring_knobs(cfg, env)
+    # NOTE(M18 Task 4 pipeline step 3 "M1a", 2026-10-16): the payload knobs, default off (unset writes nothing;
+    # armed, they add ``events.payload_reset``). Here, before the motion / stroke knobs and the command frame,
+    # which stay the last three calls (pinned by the clock-hide and motion-knob suites) and never touch events.
+    _pk.apply_payload_knobs(cfg, env)
     # The motion-quality knobs (all default off; each one unset writes nothing).
     _mk.apply_motion_knobs(cfg, env)
     # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs, all default off. Last

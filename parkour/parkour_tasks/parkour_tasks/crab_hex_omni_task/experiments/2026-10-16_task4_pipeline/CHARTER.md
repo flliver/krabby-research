@@ -143,3 +143,20 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     untracked resolution file is dropped from the inputs).
   - **Next:** builds. Steps 3 (M1a payload) and 4 (M1b omni depth student) run in parallel, under file-ownership
     rules; then step 5 (E1), step 6 (TP + stand parameterisation) and step 7 (CPU test pass).
+- **2026-10-16, step 3 (M1a payload) done (opus·xhigh) and checked (fable·high: no blocking defects).**
+  - **Built:** `config/crab_hex/payload_knobs.py` and a `payload_reset` term in `mdp/omni_events.py`.
+    - Lazy capture of the post-DR base at the first reset.
+    - An absolute composite (mass, CoM, parallel-axis inertia) written for the reset envs only.
+    - A private generator.
+    - `0:0` never calls a setter.
+  - **Tests:** 40; the 13 knob-off config dumps are byte-identical (`m1a/dump_check.json`).
+  - **Decision (decide-record-notify): the payload is privileged-visible to the teacher.** The existing priv obs
+    reads the live body mass and CoM (`parkour_isaaclab/envs/mdp/observations.py:151-152`), so a payload enters the
+    teacher's priv input. This is the standard teacher-student setup; the depth student must infer the payload
+    from history (num_prop 89 carries the current-sense proxy). Evidence it is safe: in A3, S1 (trained with mass
+    DR −0.5:1.5) read a body mass of up to 338 kg in that input and still walked (90 kg: 0.999 survival).
+  - **For later steps:**
+    - The step-8 readback compares `get_coms` / `get_inertias` with a tolerance, because PhysX re-diagonalises
+      inertia.
+    - An armed run adds the `Payload/*` log tags, so the bitwise bridges compare shared tags only.
+    - Eval `env_seed` is null in play, so U-draw evals are not seed-varied; L:L level rows are unaffected.
