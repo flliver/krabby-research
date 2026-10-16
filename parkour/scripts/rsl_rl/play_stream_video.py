@@ -87,6 +87,9 @@ export_teacher_policy_as_onnx,
 export_deploy_policy_as_jit, 
 export_deploy_policy_as_onnx,
 )
+# Task 4 M1b: the omni depth student runs the ONE shared step (trainer / harness / play / play_stream_video).
+from scripts.rsl_rl.exporter import export_omni_student_deploy
+from scripts.rsl_rl.modules.omni_student_step import OmniStudentStep, is_omni_student
 from scripts.rsl_rl.vecenv_wrapper import ParkourRslRlVecEnvWrapper
 
 import isaaclab_tasks  # noqa: F401
@@ -155,7 +158,16 @@ def main():
     # obtain the trained policy for inference
 
     estimator = ppo_runner.get_estimator_inference_policy(device=env.device) 
-    if agent_cfg.algorithm.class_name == "DistillationWithExtractor":
+    omni_student = None
+    if agent_cfg.algorithm.class_name == "DistillationWithExtractor" and is_omni_student(agent_cfg):
+        # Task 4 M1b: the omni depth student (4 cameras) -- the shared step and its own deploy export.
+        # (The forward branch below overwrites obs cols 6:8 with a yaw estimate; the omni step never does.)
+        ppo_runner.get_inference_depth_policy(device=env.unwrapped.device)
+        ppo_runner.get_depth_encoder_inference_policy(device=env.device)
+        omni_student = OmniStudentStep.from_runner(ppo_runner, device=env.unwrapped.device)
+        export_model_dir = os.path.join(os.path.dirname(resume_path), "exported_deploy")
+        export_omni_student_deploy(ppo_runner, path=export_model_dir)
+    elif agent_cfg.algorithm.class_name == "DistillationWithExtractor":
         policy = ppo_runner.get_inference_depth_policy(device=env.unwrapped.device)
         depth_encoder = ppo_runner.get_depth_encoder_inference_policy(device=env.device)
         policy_nn = ppo_runner.alg.depth_actor
@@ -203,6 +215,9 @@ def main():
                 obs[:, num_prop+num_scan:num_prop+num_scan+num_priv_explicit] = estimator.inference(obs[:, :num_prop])
                 actions = policy(obs, hist_encoding = True)
             # env stepping
+        elif omni_student is not None:
+            with torch.inference_mode():
+                actions = omni_student.act(obs, extras["observations"], env.unwrapped.common_step_counter)
         else:
             depth_camera = extras["observations"]['depth_camera'].to(env.device)
             with torch.inference_mode():
@@ -216,6 +231,9 @@ def main():
                 # obs[:, num_prop+num_scan:num_prop+num_scan+num_priv_explicit] = estimator.inference(obs[:, :num_prop])
                 actions = policy(obs, hist_encoding=True, scandots_latent=depth_latent)
         obs, _, dones, extras = env.step(actions)
+        if omni_student is not None:
+            with torch.inference_mode():
+                omni_student.reset(dones)
         if args_cli.video:
             # Provenance for "no resets except a fall": every env reset is logged with its step.
             try:

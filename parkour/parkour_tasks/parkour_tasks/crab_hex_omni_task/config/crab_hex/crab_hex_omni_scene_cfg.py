@@ -26,15 +26,21 @@ a baked-in spawn attitude would only bias the first frame of the first episode. 
 stated rather than asserted because "the sideways scene turns it, the omni one must not" is
 exactly the kind of copy-paste the delta test exists to catch (it pins the identity rot).
 
-There is no student scene: this plan is teacher-only (no depth camera, no phase 3).
+The omni plans were teacher-only; the Task 4 pipeline (2026-10-16, step 4 / M1b) adds
+:class:`CrabHexOmniStudentSceneCfg` -- the teacher scene plus the four depth cameras of
+``omni_student_spec`` (``PL/cameras.yaml`` v0). It is used ONLY by the omni student gym ids; the
+teacher / walk scenes above are untouched.
 """
 
+from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
 from isaaclab.utils import configclass
 
 from parkour_isaaclab.terrains.omni.config.omni_ring import OMNI_RING_TERRAINS_CFG
 from parkour_tasks.crab_hex_forward_task.config.crab_hex.crab_hex_scene_cfg import (
     CrabHexTeacherSceneCfg,
 )
+from parkour_tasks.crab_hex_omni_task.config.crab_hex import omni_student_spec as _student_spec
+from parkour_tasks.default_cfg import CAMERA_CFG
 
 #: Height-scan ray origin, body frame. On both mirror planes (see the module docstring).
 SCANNER_OFFSET_POS = (0.0, 0.0, 20.0)
@@ -61,3 +67,45 @@ class CrabHexOmniTeacherSceneCfg(CrabHexTeacherSceneCfg):
     def __post_init__(self):
         super().__post_init__()
         _apply_omni_terrain_and_scanner(self)
+
+
+def _student_camera(name: str):
+    """One depth camera of the spec, as a ``RayCasterCameraCfg`` (the forward ``CAMERA_CFG`` fields replaced).
+
+    Everything that defines the image is set from ``omni_student_spec`` (pose, ROS quaternion composed
+    there, a 58 x 87 pinhole grid over the datasheet FOV, 2 m clip, ``/World/ground`` only). The update
+    period is set by the env cfg (``sim.dt * decimation``, as the forward student does). The rotation
+    tripwire runs in the env cfg's ``__post_init__`` (see ``omni_student_spec``'s module docstring).
+    """
+    spec = _student_spec.camera_specs()[name]
+    return CAMERA_CFG.replace(
+        prim_path=_student_spec.CAMERA_PRIM_PATH,
+        offset=CAMERA_CFG.offset.replace(pos=tuple(spec["pos"]), rot=tuple(spec["rot"]), convention="ros"),
+        data_types=["distance_to_camera"],
+        depth_clipping_behavior="max",
+        pattern_cfg=PinholeCameraPatternCfg(
+            focal_length=_student_spec.FOCAL_LENGTH,
+            horizontal_aperture=spec["horizontal_aperture"],
+            vertical_aperture=spec["vertical_aperture"],
+            height=spec["height"],
+            width=spec["width"],
+        ),
+        mesh_prim_paths=list(_student_spec.MESH_PRIM_PATHS),
+        max_distance=_student_spec.MAX_DISTANCE_M,
+    )
+
+
+@configclass
+class CrabHexOmniStudentSceneCfg(CrabHexOmniTeacherSceneCfg):
+    """Omni depth-student scene (Task 4 M1b): the omni teacher scene + four ray-caster depth cameras.
+
+    Front ZED 2i + left / right / rear SEN0583 (``omni_student_spec.CAMERA_NAMES`` order), all on
+    ``chassis/body``, all PLACEHOLDER mounts (M15). Deliberately NOT derived from the forward student scene:
+    that one inherits the Go2 student scene's terrain rewrite. There is no camera-pose event (the teacher
+    env sets ``events.random_camera_position = None``; the env cfg asserts it).
+    """
+
+    depth_camera_front = _student_camera("front")
+    depth_camera_left = _student_camera("left")
+    depth_camera_right = _student_camera("right")
+    depth_camera_rear = _student_camera("rear")

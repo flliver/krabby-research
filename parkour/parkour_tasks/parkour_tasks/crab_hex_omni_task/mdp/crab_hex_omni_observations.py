@@ -154,7 +154,8 @@ from __future__ import annotations
 import os
 
 import torch
-from isaaclab.managers import SceneEntityCfg
+import torch.nn.functional as F
+from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.math import wrap_to_pi
 
 from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
@@ -739,3 +740,95 @@ class CrabHexOmniParkourObservations(CrabHexParkourObservations):
             # (current step + its real history frames); the stored history keeps the raw rows.
             self._mask_stand_rows(env, observations)
         return observations
+
+
+# ----------------------------------------------------------------------- the omni depth student's images
+#: The image term refreshes its buffer on ``env.common_step_counter % DEPTH_TERM_PERIOD == 0`` -- the
+#: forward ``image_features`` cadence, and the cadence the shared student step encodes at
+#: (``scripts/rsl_rl/modules/omni_student_step.DEPTH_PERIOD``; pinned equal by the unit test).
+DEPTH_TERM_PERIOD = 5
+
+
+def _check_depth_crop(crop) -> tuple[int, int, int, int] | None:
+    """``None`` or ``(top, bottom, left, right)`` non-negative pixel counts (the forward crop is ``(0, 2, 4, 4)``)."""
+    if crop is None:
+        return None
+    vals = tuple(int(v) for v in crop)
+    if len(vals) != 4 or any(v < 0 for v in vals) or any(int(v) != v for v in crop):
+        raise ValueError(f"crop must be (top, bottom, left, right) non-negative ints, got {crop!r}")
+    return vals
+
+
+def process_depth_batch(depth: torch.Tensor, *, clip: float, resize: tuple[int, int],
+                        crop: tuple[int, int, int, int] | None = None) -> torch.Tensor:
+    """``(n, H, W)`` ray-caster distances -> ``(n, *resize)`` normalised ``d / clip - 0.5``, for ALL rows at once.
+
+    The forward ``image_features`` runs crop -> bicubic resize -> normalise per env in a Python loop; this is
+    the same three steps on the whole batch: an optional crop, ONE ``F.interpolate`` (bicubic, antialiased,
+    the torchvision ``Resize`` defaults the forward term uses) and the same normalisation. When the camera
+    already casts at ``resize`` (the omni student cameras do: 58 x 87, ``omni_student_spec``) and no crop is
+    set, the resize is skipped and the image is exactly the normalised ray distances.
+    """
+    if crop is not None:
+        top, bottom, left, right = crop
+        depth = depth[:, top:depth.shape[1] - bottom, left:depth.shape[2] - right]
+    if tuple(depth.shape[1:]) != tuple(resize):
+        depth = F.interpolate(depth[:, None], size=tuple(resize), mode="bicubic", align_corners=False,
+                              antialias=True)[:, 0]
+    return depth / clip - 0.5
+
+
+class image_features_batched(ManagerTermBase):
+    """One depth camera's image for the omni depth student (Task 4 M1b, DESIGN B3). DEFAULT OFF.
+
+    Used only by the omni student observation groups (``depth_<camera>``); the forward ``image_features``
+    term is untouched. Same semantics as the forward term, batched:
+
+    * every ``DEPTH_TERM_PERIOD`` env steps the newest processed image is pushed onto a ``buffer_len``-deep
+      buffer (one ``process_depth_batch`` call for every env);
+    * the term returns ``buffer[:, -2]`` -- the image one refresh (0.1 s) old, the forward latency model;
+    * at reset the reset rows' buffer is refilled with the current image (as the forward term does). The
+      robot was just re-posed, so that image -- and the student's held latent -- can be up to one refresh
+      (<= 5 steps) stale; recorded, not fixed (DESIGN B3).
+    """
+
+    def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        params = cfg.params
+        self.camera_sensor = env.scene[params["sensor_cfg"].name]
+        self.clipping_range = float(self.camera_sensor.cfg.max_distance)
+        self.resize = (int(params["resize"][0]), int(params["resize"][1]))
+        self.buffer_len = int(params["buffer_len"])
+        if self.buffer_len < 2:
+            raise ValueError(f"buffer_len must be >= 2 (the term returns buffer[:, -2]), got {self.buffer_len}")
+        self.crop = _check_depth_crop(params.get("crop"))
+        self.depth_buffer = torch.zeros(self.num_envs, self.buffer_len, *self.resize, device=self.device)
+
+    def _processed(self, env_ids=None) -> torch.Tensor:
+        raw = self.camera_sensor.data.output["distance_to_camera"]
+        if env_ids is not None:
+            raw = raw[env_ids]
+        return process_depth_batch(raw.squeeze(-1).to(self.device), clip=self.clipping_range,
+                                   resize=self.resize, crop=self.crop)
+
+    def reset(self, env_ids=None) -> None:
+        if env_ids is None:
+            ids = torch.arange(self.num_envs, device=self.device)
+        else:
+            ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+        if ids.numel() == 0:
+            return
+        images = self._processed(ids)
+        self.depth_buffer[ids] = images.unsqueeze(1).expand(-1, self.buffer_len, -1, -1)
+
+    def __call__(
+        self,
+        env: ParkourManagerBasedRLEnv,
+        sensor_cfg: SceneEntityCfg,
+        resize: tuple[int, int],
+        buffer_len: int,
+        crop: tuple[int, int, int, int] | None = None,
+    ) -> torch.Tensor:
+        if env.common_step_counter % DEPTH_TERM_PERIOD == 0:
+            self.depth_buffer = torch.cat([self.depth_buffer[:, 1:], self._processed().unsqueeze(1)], dim=1)
+        return self.depth_buffer[:, -2]

@@ -160,3 +160,21 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
       inertia.
     - An armed run adds the `Payload/*` log tags, so the bitwise bridges compare shared tags only.
     - Eval `env_seed` is null in play, so U-draw evals are not seed-varied; L:L level rows are unaffected.
+- **2026-10-16, step 4 (M1b omni depth student) done (opus·xhigh) and checked (fable·high: no blocking defects).**
+  - **Built:**
+    - 4 RayCasterCameras per `cameras.yaml`, with a quaternion tripwire and no camera event;
+    - gym ids `Isaac-Crab-Hex-Omni-Student-v0` (2a Teacher env + cameras, 192 envs) and `-Student-Play-v0`
+      (Walk-Play + cameras);
+    - the shared `OmniStudentStep` (`RSL/modules/omni_student_step.py`) used by the trainer, play.py and
+      play_stream_video.py;
+    - `image_features_batched`;
+    - the runner `crab_hex_omni_student` (num_prop 89; only STD_PARAM / INIT_STD accepted);
+    - JIT + ONNX export with an explicit GRU state.
+  - **Tests:** 31; the forward `learn_vision` is bitwise-identical to 5f0b45b8 on a fake env, and the forward play
+    branches are AST-identical.
+  - **Deviations:** gradient checkpointing on the shared conv (new class only; activation memory ≈ 23 GB otherwise);
+    a `zero_depth` cfg flag for step 8's pilot.
+  - **DESIGN correction:** §0.1 #3 had the estimator columns wrong (they are CoM / friction / stiffness, not
+    velocity). The DESIGN header is annotated. D2's outcome is unchanged.
+  - **Integration note:** the Student-Play gym id binds the student runner cfg, which refuses runner knobs, so
+    T\*'s `--policy-role teacher` row on Student-Play must launch with the runner-only knobs stripped (steps 5/6).

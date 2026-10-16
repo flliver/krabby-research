@@ -16,6 +16,8 @@ from . import agents  # noqa: E402
 from .crab_hex_omni_env_cfg import (  # noqa: E402
     CrabHexOmniFlatWalkEnvCfg,
     CrabHexOmniFlatWalkEnvCfgPLAY,
+    CrabHexOmniStudentEnvCfg,
+    CrabHexOmniStudentEnvCfgPLAY,
     CrabHexOmniTeacherEnvCfg,
     CrabHexOmniTeacherEnvCfgPLAY,
 )
@@ -57,5 +59,28 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": CrabHexOmniTeacherEnvCfgPLAY,
         "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.CrabHexOmniTeacherPPORunnerCfg,
+    },
+)
+
+# Task 4 pipeline step 4 (M1b, 2026-10-16): the omni depth student (4 cameras, DEFAULT OFF -- nothing else
+# reaches these classes). Train: ``KRABBY_OMNI_PHASE=2a`` + T*'s overlay minus the runner-only keys,
+# ``--resume --checkpoint <T*>``. Play/eval: the Walk-Play MDP + the cameras (``--policy-role teacher`` pairs T*).
+gym.register(
+    id="Isaac-Crab-Hex-Omni-Student-v0",
+    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": CrabHexOmniStudentEnvCfg,
+        "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.CrabHexOmniStudentPPORunnerCfg,
+    },
+)
+
+gym.register(
+    id="Isaac-Crab-Hex-Omni-Student-Play-v0",
+    entry_point="parkour_isaaclab.envs:ParkourManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": CrabHexOmniStudentEnvCfgPLAY,
+        "rsl_rl_cfg_entry_point": agents.rsl_rl_ppo_cfg.CrabHexOmniStudentPPORunnerCfg,
     },
 )

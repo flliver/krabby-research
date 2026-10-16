@@ -25,6 +25,12 @@
 > - **K4 (D9):** ≤ 3/800 per env seed, approved at STOP-0.
 > - **R18 verdict (§5):** two verdicts — "process reproduced" (P-config, P-early, P-live; STOP-R only on this) and
 >   the R18 gates read like F19's. The P-gates are not part of a gate pass.
+> - **Obs layout correction (§0.1 #3, found at step 4 and verified by the fable check).** obs_buf is cols 0–88; heights
+  89–196; priv_explicit 197–205 (vel×2 at 197–199); priv_latent 206–258 (mass 206, CoM 207–209, friction 210,
+  stiffness 211–234, damping 235–258); history 259–1148. The estimator's cols 207–215 are CoM + friction + 5
+  stiffness ratios, not body velocity. D2's outcome (cols 13–14 stay privileged and untouched) stands; its stated
+  rationale does not. Deploy (M15) must supply a velocity estimate wherever cols 13–14 appear: the actor's prop
+  slice, the depth encoder's proprio, and the history frames.
 > - **Confirmed as the design recommends:** D2 (velocity cols privileged), D8 (force side report-only, sim-plant
 >   label), D10 (full R18 + X), D16 (sweep, report-only), stand nets teacher-side. ONNX export kept in the student
 >   step (user).

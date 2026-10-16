@@ -21,7 +21,8 @@ exactly this list -- plan Appendix A):
   ``events.rsi_reference_reset`` re-pointed by :func:`~...omni_knobs.apply_omni_knobs`;
 * ``scene`` -> the ring generator and the centred height scan (``crab_hex_omni_scene_cfg``).
 
-There is no student cfg: this plan is teacher-only.
+The omni plans were teacher-only. The Task 4 pipeline (step 4 / M1b, 2026-10-16) adds the depth-student
+cfgs at the end of this module (``CrabHexOmniStudentEnvCfg`` / ``...PLAY``); every class above is unchanged.
 
 **KNOB TIMING (the pillar that makes this file look redundant).** ``import_packages`` imports
 the forward package FIRST, so every forward cfg class body -- and with it every cfg object
@@ -59,7 +60,9 @@ from parkour_tasks.crab_hex_forward_task.config.crab_hex.crab_hex_env_cfg import
     CrabHexTeacherEnvCfg,
     _crab_hex_teacher_mode,
 )
+from parkour_tasks.crab_hex_omni_task.config.crab_hex import omni_student_spec as _student_spec
 from parkour_tasks.crab_hex_omni_task.config.crab_hex.crab_hex_omni_scene_cfg import (
+    CrabHexOmniStudentSceneCfg,
     CrabHexOmniTeacherSceneCfg,
 )
 from parkour_tasks.crab_hex_omni_task.config.crab_hex.omni_knobs import apply_omni_knobs
@@ -67,6 +70,7 @@ from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command import CrabHexOm
 from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_observations import (
     CrabHexOmniParkourObservations,
     _check_omni,
+    image_features_batched,
 )
 from parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards import (
     CrabHexOmniFlatWalkRewardsCfg,
@@ -366,3 +370,119 @@ class CrabHexOmniTeacherEnvCfgPLAY(CrabHexOmniTeacherEnvCfg):
     def __post_init__(self):
         super().__post_init__()
         _apply_play(self)
+
+
+# ---------------------------------------------------------------------------- omni depth student
+# Task 4 pipeline step 4 (M1b, DESIGN B3; 2026-10-16). DEFAULT OFF: these classes are reached only through
+# the two ``Isaac-Crab-Hex-Omni-Student*`` gym ids; every class above is untouched. ``STUDENT_PHASES``
+# stays empty -- the student env is composed from T*'s own overlay under ``KRABBY_OMNI_PHASE=2a``.
+
+#: The depth image each camera group returns: the forward depth encoder's input (rows, cols).
+STUDENT_DEPTH_RESIZE = (_student_spec.IMAGE_ROWS, _student_spec.IMAGE_COLS)
+
+
+def _depth_term(sensor_attr: str) -> ObsTerm:
+    """The batched image term on one camera (forward ``image_features`` semantics, ``buffer_len`` 2)."""
+    return ObsTerm(
+        func=image_features_batched,
+        params={"sensor_cfg": SceneEntityCfg(sensor_attr), "resize": STUDENT_DEPTH_RESIZE, "buffer_len": 2},
+    )
+
+
+@configclass
+class CrabHexOmniStudentObservationsCfg(CrabHexOmniObservationsCfg):
+    """The omni policy group (unchanged, so every omni observation knob reaches it) + one depth group per camera.
+
+    Group names are ``omni_student_spec.DEPTH_GROUPS`` (``depth_front`` / ``depth_left`` / ``depth_right`` /
+    ``depth_rear``), each one ``(N, 58, 87)`` image; the shared student step stacks them in that order into
+    the ``(N, K=4, 58, 87)`` encoder input. There is no ``delta_yaw_ok`` group: the omni student never
+    writes the facing-command columns 6-7, so it has nothing to gate.
+    """
+
+    @configclass
+    class DepthFrontCfg(ObsGroup):
+        depth_image = _depth_term("depth_camera_front")
+
+    @configclass
+    class DepthLeftCfg(ObsGroup):
+        depth_image = _depth_term("depth_camera_left")
+
+    @configclass
+    class DepthRightCfg(ObsGroup):
+        depth_image = _depth_term("depth_camera_right")
+
+    @configclass
+    class DepthRearCfg(ObsGroup):
+        depth_image = _depth_term("depth_camera_rear")
+
+    depth_front: DepthFrontCfg = DepthFrontCfg()
+    depth_left: DepthLeftCfg = DepthLeftCfg()
+    depth_right: DepthRightCfg = DepthRightCfg()
+    depth_rear: DepthRearCfg = DepthRearCfg()
+
+
+def _apply_student_sensors(cfg) -> None:
+    """The student-only sensor block, run LAST in both student ``__post_init__``s.
+
+    1. every camera refreshes each policy step (``sim.dt * decimation`` = cameras.yaml's 0.02 s, the forward
+       student's own expression); the image term and the student step consume every 5th step. With
+       IsaacLab's lazy sensor update (``InteractiveSceneCfg.lazy_sensor_update`` True, ``history_length`` 0,
+       no debug vis) the rays are cast only when the term reads the data -- every 5th step, plus every step
+       on which any env resets (the reset refill reads, and all envs are outdated) -- not every step. The
+       image is fresh at each read, with no sensor-phase drift (cameras.yaml ``update.proposal_note``);
+    2. no camera-pose event: the teacher chain sets ``random_camera_position = None`` (Go2 teacher cfg), and
+       no other event may name a camera (the forward event has a frame bug for a turned camera);
+    3. the camera tripwire (``omni_student_spec.check_scene_cameras``): raises on any drift of a camera's
+       pose, composed rotation, grid, clip or ray-cast target.
+    """
+    period = cfg.sim.dt * cfg.decimation
+    if abs(period - _student_spec.UPDATE_PERIOD_S) > 1e-9:
+        raise ValueError(f"omni student cameras: the policy step is {period} s, but cameras.yaml v0 specifies "
+                         f"{_student_spec.UPDATE_PERIOD_S} s refreshes (re-approve the camera spec first)")
+    for attr in _student_spec.CAMERA_ATTRS:
+        getattr(cfg.scene, attr).update_period = period
+    events = cfg.events
+    if getattr(events, "random_camera_position", None) is not None:
+        raise ValueError("omni student: events.random_camera_position is armed; the omni student has no camera "
+                         "event (DESIGN B3)")
+    camera_names = set(_student_spec.CAMERA_ATTRS) | {"depth_camera"}
+    for name, term in vars(events).items():
+        sensor = (getattr(term, "params", None) or {}).get("sensor_cfg") if term is not None else None
+        if getattr(sensor, "name", None) in camera_names:
+            raise ValueError(f"omni student: event {name!r} targets camera {sensor.name!r} (no camera event)")
+    _student_spec.check_scene_cameras(cfg.scene)
+
+
+@configclass
+class CrabHexOmniStudentEnvCfg(CrabHexOmniTeacherEnvCfg):
+    """``Isaac-Crab-Hex-Omni-Student-v0`` -- distillation env: the omni teacher MDP (phase mode 2a) + 4 cameras.
+
+    192 envs (the forward student's count). Built from T*'s own overlay under ``KRABBY_OMNI_PHASE=2a``, so the
+    MDP is exactly the teacher's; the only deltas are the scene's four cameras, the four depth groups and the
+    env count (pinned against a teacher dump at step 8).
+    """
+
+    scene: CrabHexOmniStudentSceneCfg = CrabHexOmniStudentSceneCfg(num_envs=192, env_spacing=1.0)
+    observations: CrabHexOmniStudentObservationsCfg = CrabHexOmniStudentObservationsCfg()
+
+    def __post_init__(self):
+        super().__post_init__()
+        _apply_student_sensors(self)
+
+
+@configclass
+class CrabHexOmniStudentEnvCfgPLAY(CrabHexOmniFlatWalkEnvCfgPLAY):
+    """``Isaac-Crab-Hex-Omni-Student-Play-v0`` -- evaluation / viewing: the Walk-Play env + the 4 cameras.
+
+    Derived from Walk-Play, NOT Teacher-Play, because every omni gate row of record runs on
+    ``Isaac-Crab-Hex-Omni-Walk-Play-v0`` (``run_phases.eval_obst``: a Teacher-Play row cannot build without
+    ``KRABBY_HEX_TEACHER_MODE``). A teacher on this task (``--policy-role teacher``) therefore sees exactly
+    its Walk-Play rows' MDP, plus cameras it ignores -- the paired student-vs-T* read (PLAN Gates -> Student).
+    """
+
+    scene: CrabHexOmniStudentSceneCfg = CrabHexOmniStudentSceneCfg(num_envs=192, env_spacing=1.0)
+    observations: CrabHexOmniStudentObservationsCfg = CrabHexOmniStudentObservationsCfg()
+
+    def __post_init__(self):
+        super().__post_init__()
+        _apply_student_sensors(self)

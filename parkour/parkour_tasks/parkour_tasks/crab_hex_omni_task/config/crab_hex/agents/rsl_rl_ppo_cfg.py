@@ -15,7 +15,9 @@ schedules -- the campaign changes the command space, not the policy):
    ``data_augmentation_func``, so a ``KRABBY_SYM_LOSS_COEF=0`` ablation (symmetry_cfg left
    None) still behaves exactly as it does forward.
 
-There is no student runner: this plan is teacher-only.
+The omni plans were teacher-only. The Task 4 pipeline (step 4 / M1b, 2026-10-16) adds the depth-student
+runner at the end of this module (:class:`CrabHexOmniStudentPPORunnerCfg`); the two runners above are
+unchanged.
 
 A THIRD, DEFAULT-OFF delta (motion-quality plan step 2, 2026-09-22): the three runner-side
 exploration knobs -- ``KRABBY_ACTION_STD_MAX`` (``policy.action_std_max``),
@@ -53,11 +55,16 @@ import os
 
 from isaaclab.utils import configclass
 
+from parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.crab_hex_rl_cfg import (
+    CrabHexParkourRslRlDepthEncoderCfg,
+)
 from parkour_tasks.crab_hex_forward_task.config.crab_hex.agents.rsl_rl_ppo_cfg import (
     CrabHexFlatWalkPPORunnerCfg,
+    CrabHexStudentPPORunnerCfg,
     CrabHexTeacherPPORunnerCfg,
 )
 from parkour_tasks.crab_hex_omni_task.config.crab_hex import omni_knobs as _knobs
+from parkour_tasks.crab_hex_omni_task.config.crab_hex import omni_student_spec as _student_spec
 
 #: ``mdp/crab_hex_omni_mirror.py``: the composed L/R x fore-aft four-image augmentation.
 OMNI_MIRROR = (
@@ -119,3 +126,56 @@ class CrabHexOmniTeacherPPORunnerCfg(CrabHexTeacherPPORunnerCfg):
         super().__post_init__()
         _repoint_symmetry(self)
         _apply_exploration_knobs(self)
+
+
+# ---------------------------------------------------------------------------- omni depth student
+@configclass
+class CrabHexOmniRslRlDepthEncoderCfg(CrabHexParkourRslRlDepthEncoderCfg):
+    """The K-image depth encoder of the omni student (Task 4 M1b, DESIGN B4 / D4). A subclass, so the forward
+    ``CrabHexParkourRslRlDepthEncoderCfg`` -- and ``FWD/policy/mdp_pins.yaml`` -- do not move.
+
+    ``RecurrentMultiDepthBackbone`` (``scripts/rsl_rl/modules/feature_extractors/depth_backbone.py``): the four
+    camera images through ONE shared conv -> ``combination_mlp(32 K + num_prop)`` -> GRU(512) -> a 32-d latent
+    (no yaw head). ``num_prop`` 89 = the whole per-step proprio head (D4: restores the last-action tail and the
+    current-sense proxy, columns 75-88, which the teacher saw through its scan slice). ``omni_student`` is the
+    routing flag every entry point reads (``omni_student_step.is_omni_student``); it lands in
+    ``params/agent.yaml``. ``grad_checkpoint`` recomputes the shared conv in the backward pass: at 192 envs x
+    K = 4 x 24 encodes per 120-step rollout the stored conv activations alone are ~23 GB (vs ~6 GB at the
+    forward K = 1) -- more than the 16 GB card; the recompute is mathematically the same gradient.
+    """
+
+    encoder_class_name: str = "RecurrentMultiDepthBackbone"
+    num_prop: int = 89
+    num_cameras: int = len(_student_spec.CAMERA_NAMES)
+    depth_shape: tuple[int, int] = (_student_spec.IMAGE_ROWS, _student_spec.IMAGE_COLS)
+    latent_dim: int = 32
+    grad_checkpoint: bool = True
+    omni_student: bool = True
+    #: DEFAULT OFF diagnostic: all-zero images into the same step (the step-8 depth vs zeroed-depth pilot).
+    #: No KRABBY knob sets it; a pilot passes the Hydra override ``agent.depth_encoder.zero_depth=true``.
+    zero_depth: bool = False
+
+
+@configclass
+class CrabHexOmniStudentPPORunnerCfg(CrabHexStudentPPORunnerCfg):
+    """Omni depth-student distillation runner (``Isaac-Crab-Hex-Omni-Student*``; Task 4 M1b, DESIGN B3).
+
+    The forward student runner (``clip_actions`` 1.0 inherited -- load-bearing: the omni teacher's raw action
+    clip is wider than its trained authority, exactly the forward phase-3 root cause), with:
+
+    * ``experiment_name`` -> ``crab_hex_omni_student``;
+    * the omni K = 4 depth encoder (:class:`CrabHexOmniRslRlDepthEncoderCfg`);
+    * ONLY ``KRABBY_STD_PARAM`` / ``KRABBY_INIT_STD`` applied (``soft`` is needed to load the teacher's
+      ``std_raw``); every other runner knob is REFUSED (``omni_student_spec.apply_student_runner_knobs``).
+    """
+
+    experiment_name = "crab_hex_omni_student"
+    depth_encoder = CrabHexOmniRslRlDepthEncoderCfg(
+        hidden_dims=512,
+        learning_rate=1e-3,
+        num_steps_per_env=24 * 5,
+    )
+
+    def __post_init__(self):
+        # (the forward student runner has no __post_init__ of its own; configclass adds its own after this)
+        _student_spec.apply_student_runner_knobs(self)
