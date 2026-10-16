@@ -1,0 +1,511 @@
+{
+ "smoke_runs": {
+  "s1": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-30-26_seed18_X01_s1_A15pB",
+  "c4": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-32-46_seed18_X02_c4_A15pB",
+  "c5": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-36-06_seed18_X03_c5_A15pB",
+  "c6": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-38-26_seed18_X04_c6_A15pB",
+  "c6x": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-40-46_seed18_X05_c6x_A15pB",
+  "p2a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_17-43-06_seed18_X06_p2a_A15pB"
+ },
+ "pconfig": {
+  "s1": {
+   "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-30-26_seed18_X01_s1_A15pB",
+   "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-04_10-01-39_seed18_X43_s1_A15pB",
+   "files": {
+    "env.yaml": {
+     "n_keys_old": 1422,
+     "n_keys_new": 1422,
+     "allowed": [],
+     "not_allowed": []
+    },
+    "agent.yaml": {
+     "n_keys_old": 79,
+     "n_keys_new": 79,
+     "allowed": [
+      {
+       "key": "max_iterations",
+       "old": "6000",
+       "new": "20",
+       "why": "allowed key"
+      },
+      {
+       "key": "run_name",
+       "old": "'seed18_X43_s1_A15pB'",
+       "new": "'seed18_X01_s1_A15pB'",
+       "why": "allowed key"
+      }
+     ],
+     "not_allowed": []
+    }
+   },
+   "pass": true
+  },
+  "c4": {
+   "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-32-46_seed18_X02_c4_A15pB",
+   "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_17-41-16_seed18_X57_c4_A15pB",
+   "files": {
+    "env.yaml": {
+     "n_keys_old": 1422,
+     "n_keys_new": 1422,
+     "allowed": [],
+     "not_allowed": []
+    },
+    "agent.yaml": {
+     "n_keys_old": 79,
+     "n_keys_new": 79,
+     "allowed": [
+      {
+       "key": "load_checkpoint",
+       "old": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-04_10-01-39_seed18_X43_s1_A15pB/model_5999.pt'",
+       "new": "'/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/1_fb6k/model_5999.pt'",
+       "why": "allowed key"
+      },
+      {
+       "key": "max_iterations",
+       "old": "1500",
+       "new": "20",
+       "why": "allowed key"
+      },
+      {
+       "key": "run_name",
+       "old": "'seed18_X57_c4_A15pB'",
+       "new": "'seed18_X02_c4_A15pB'",
+       "why": "allowed key"
+      }
+     ],
+     "not_allowed": []
+    }
+   },
+   "pass": true
+  },
+  "c5": {
+   "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-36-06_seed18_X03_c5_A15pB",
+   "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_00-56-48_seed18_X60_c5_A15pB",
+   "files": {
+    "env.yaml": {
+     "n_keys_old": 1422,
+     "n_keys_new": 1422,
+     "allowed": [],
+     "not_allowed": []
+    },
+    "agent.yaml": {
+     "n_keys_old": 79,
+     "n_keys_new": 79,
+     "allowed": [
+      {
+       "key": "load_checkpoint",
+       "old": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_17-41-16_seed18_X57_c4_A15pB/model_7498.pt'",
+       "new": "'/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/2_c4/model_7498.pt'",
+       "why": "allowed key"
+      },
+      {
+       "key": "max_iterations",
+       "old": "1500",
+       "new": "20",
+       "why": "allowed key"
+      },
+      {
+       "key": "run_name",
+       "old": "'seed18_X60_c5_A15pB'",
+       "new": "'seed18_X03_c5_A15pB'",
+       "why": "allowed key"
+      }
+     ],
+     "not_allowed": []
+    }
+   },
+   "pass": true
+  },
+  "c6": {
+   "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-38-26_seed18_X04_c6_A15pB",
+   "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_01-30-49_seed18_X60_c6_A15pB",
+   "files": {
+    "env.yaml": {
+     "n_keys_old": 1422,
+     "n_keys_new": 1422,
+     "allowed": [],
+     "not_allowed": []
+    },
+    "agent.yaml": {
+     "n_keys_old": 79,
+     "n_keys_new": 79,
+     "allowed": [
+      {
+       "key": "load_checkpoint",
+       "old": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_00-56-48_seed18_X60_c5_A15pB/model_8997.pt'",
+       "new": "'/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/3_c5/model_8997.pt'",
+       "why": "allowed key"
+      },
+      {
+       "key": "max_iterations",
+       "old": "2000",
+       "new": "20",
+       "why": "allowed key"
+      },
+      {
+       "key": "run_name",
+       "old": "'seed18_X60_c6_A15pB'",
+       "new": "'seed18_X04_c6_A15pB'",
+       "why": "allowed key"
+      }
+     ],
+     "not_allowed": []
+    }
+   },
+   "pass": true
+  },
+  "c6x": {
+   "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-40-46_seed18_X05_c6x_A15pB",
+   "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB",
+   "files": {
+    "env.yaml": {
+     "n_keys_old": 1423,
+     "n_keys_new": 1423,
+     "allowed": [],
+     "not_allowed": []
+    },
+    "agent.yaml": {
+     "n_keys_old": 79,
+     "n_keys_new": 79,
+     "allowed": [
+      {
+       "key": "load_checkpoint",
+       "old": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_01-30-49_seed18_X60_c6_A15pB/model_10996.pt'",
+       "new": "'/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/4_c6/model_10996.pt'",
+       "why": "allowed key"
+      },
+      {
+       "key": "max_iterations",
+       "old": "4000",
+       "new": "20",
+       "why": "allowed key"
+      },
+      {
+       "key": "run_name",
+       "old": "'seed18_X60_c6x_A15pB'",
+       "new": "'seed18_X05_c6x_A15pB'",
+       "why": "allowed key"
+      }
+     ],
+     "not_allowed": []
+    }
+   },
+   "pass": true
+  },
+  "p2a": {
+   "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_17-43-06_seed18_X06_p2a_A15pB",
+   "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB",
+   "files": {
+    "env.yaml": {
+     "n_keys_old": 1480,
+     "n_keys_new": 1480,
+     "allowed": [],
+     "not_allowed": []
+    },
+    "agent.yaml": {
+     "n_keys_old": 79,
+     "n_keys_new": 79,
+     "allowed": [
+      {
+       "key": "load_checkpoint",
+       "old": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt'",
+       "new": "'/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/5_c6x_clockfree/model_14995.pt'",
+       "why": "allowed key"
+      },
+      {
+       "key": "max_iterations",
+       "old": "5000",
+       "new": "20",
+       "why": "allowed key"
+      },
+      {
+       "key": "run_name",
+       "old": "'seed18_X08_p2a_A15pB'",
+       "new": "'seed18_X06_p2a_A15pB'",
+       "why": "allowed key"
+      }
+     ],
+     "not_allowed": []
+    }
+   },
+   "pass": true
+  }
+ },
+ "pearly": {
+  "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_17-30-26_seed18_X01_s1_A15pB",
+  "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-04_10-01-39_seed18_X43_s1_A15pB",
+  "tags_old": 148,
+  "tags_new": 152,
+  "shared": 148,
+  "only_old": [],
+  "only_new": [
+   "Metrics/base_parkour/demote_count",
+   "Metrics/base_parkour/promote_count",
+   "Metrics/base_parkour/terrain_levels_obst",
+   "Metrics/base_parkour/track_ratio_obst_p50"
+  ],
+  "bitwise": 142,
+  "differ": [
+   {
+    "tag": "Loss/hist_latent",
+    "max_abs": 5.960464477539063e-08,
+    "max_ulp": 2,
+    "tolerated": false,
+    "timing": false,
+    "first_step": 0
+   },
+   {
+    "tag": "Loss/priv_reg",
+    "max_abs": 1.430511474609375e-06,
+    "max_ulp": 48,
+    "tolerated": true,
+    "timing": false,
+    "first_step": 1
+   },
+   {
+    "tag": "Perf/collection time",
+    "max_abs": 0.08060741424560547,
+    "max_ulp": 1352368,
+    "tolerated": true,
+    "timing": true,
+    "first_step": 0
+   },
+   {
+    "tag": "Perf/learning_time",
+    "max_abs": 0.029695510864257812,
+    "max_ulp": 996416,
+    "tolerated": true,
+    "timing": true,
+    "first_step": 0
+   },
+   {
+    "tag": "Perf/total_fps",
+    "max_abs": 396.0,
+    "max_ulp": 851968,
+    "tolerated": true,
+    "timing": true,
+    "first_step": 0
+   },
+   {
+    "tag": "Train/mean_episode_length/time",
+    "max_abs": 20.31707763671875,
+    "max_ulp": 1331500,
+    "tolerated": true,
+    "timing": true,
+    "first_step": 9
+   }
+  ],
+  "pass": false
+ },
+ "a3": {
+  "0kg": {
+   "settle": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_settle_0kg/adhoc/seed001/2026-10-16_21-45-25",
+    "body_mass": 158.75732421875,
+    "added": 0.0,
+    "mass_ok": true,
+    "dr_mass_env": null,
+    "n_episodes": 32,
+    "n_terminated": 0,
+    "termination_reasons": {
+     "schedule_complete": 32
+    },
+    "tips": false,
+    "max_tilt_deg": 1.7614667756320608,
+    "mean_height_sag_m": 0.0008700633780998057
+   },
+   "suite": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_suite_0kg/suite__omni/seed001/2026-10-16_21-46-06",
+    "body_mass": 158.75732421875,
+    "added": 0.0,
+    "mass_ok": true,
+    "dr_mass_env": null,
+    "survival_mean": 1.0,
+    "survival_by_hold": {
+     "back": 1.0,
+     "diag": 1.0,
+     "fwd": 1.0,
+     "lat_l": 1.0,
+     "lat_r": 1.0,
+     "move_turn": 1.0,
+     "move_turn_r": 1.0,
+     "stand": 1.0,
+     "turn_l90": 1.0,
+     "turn_r90": 1.0
+    },
+    "completion": 1.0
+   }
+  },
+  "45kg": {
+   "settle": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_settle_45kg/adhoc/seed001/2026-10-16_21-53-13",
+    "body_mass": 203.75732421875,
+    "added": 45.0,
+    "mass_ok": true,
+    "dr_mass_env": "45:45",
+    "n_episodes": 32,
+    "n_terminated": 0,
+    "termination_reasons": {
+     "schedule_complete": 32
+    },
+    "tips": false,
+    "max_tilt_deg": 1.8050007114430051,
+    "mean_height_sag_m": 0.0009568633609696453
+   },
+   "suite": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_suite_45kg/suite__omni/seed001/2026-10-16_21-53-54",
+    "body_mass": 203.75732421875,
+    "added": 45.0,
+    "mass_ok": true,
+    "dr_mass_env": "45:45",
+    "survival_mean": 1.0,
+    "survival_by_hold": {
+     "back": 1.0,
+     "diag": 1.0,
+     "fwd": 1.0,
+     "lat_l": 1.0,
+     "lat_r": 1.0,
+     "move_turn": 1.0,
+     "move_turn_r": 1.0,
+     "stand": 1.0,
+     "turn_l90": 1.0,
+     "turn_r90": 1.0
+    },
+    "completion": 1.0
+   }
+  },
+  "90kg": {
+   "settle": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_settle_90kg/adhoc/seed001/2026-10-16_22-00-59",
+    "body_mass": 248.75732421875,
+    "added": 90.0,
+    "mass_ok": true,
+    "dr_mass_env": "90:90",
+    "n_episodes": 32,
+    "n_terminated": 0,
+    "termination_reasons": {
+     "schedule_complete": 32
+    },
+    "tips": false,
+    "max_tilt_deg": 1.8300593855184049,
+    "mean_height_sag_m": 0.001011200183839156
+   },
+   "suite": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_suite_90kg/suite__omni/seed001/2026-10-16_22-01-40",
+    "body_mass": 248.75732421875,
+    "added": 90.0,
+    "mass_ok": true,
+    "dr_mass_env": "90:90",
+    "survival_mean": 0.999,
+    "survival_by_hold": {
+     "back": 1.0,
+     "diag": 0.99,
+     "fwd": 1.0,
+     "lat_l": 1.0,
+     "lat_r": 1.0,
+     "move_turn": 1.0,
+     "move_turn_r": 1.0,
+     "stand": 1.0,
+     "turn_l90": 1.0,
+     "turn_r90": 1.0
+    },
+    "completion": 0.999
+   }
+  },
+  "135kg": {
+   "settle": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_settle_135kg/adhoc/seed001/2026-10-16_22-08-44",
+    "body_mass": 293.75732421875,
+    "added": 135.0,
+    "mass_ok": true,
+    "dr_mass_env": "135:135",
+    "n_episodes": 32,
+    "n_terminated": 0,
+    "termination_reasons": {
+     "schedule_complete": 32
+    },
+    "tips": false,
+    "max_tilt_deg": 1.874243064070312,
+    "mean_height_sag_m": 0.0011082552373408994
+   },
+   "suite": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_suite_135kg/suite__omni/seed001/2026-10-16_22-09-24",
+    "body_mass": 293.75732421875,
+    "added": 135.0,
+    "mass_ok": true,
+    "dr_mass_env": "135:135",
+    "survival_mean": 0.9879999999999999,
+    "survival_by_hold": {
+     "back": 1.0,
+     "diag": 0.92,
+     "fwd": 0.98,
+     "lat_l": 1.0,
+     "lat_r": 1.0,
+     "move_turn": 0.98,
+     "move_turn_r": 1.0,
+     "stand": 1.0,
+     "turn_l90": 1.0,
+     "turn_r90": 1.0
+    },
+    "completion": 0.988
+   }
+  },
+  "180kg": {
+   "settle": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_settle_180kg/adhoc/seed001/2026-10-16_22-16-28",
+    "body_mass": 338.75732421875,
+    "added": 180.0,
+    "mass_ok": true,
+    "dr_mass_env": "180:180",
+    "n_episodes": 32,
+    "n_terminated": 0,
+    "termination_reasons": {
+     "schedule_complete": 32
+    },
+    "tips": false,
+    "max_tilt_deg": 1.9000460093826985,
+    "mean_height_sag_m": 0.0011517509425941347
+   },
+   "suite": {
+    "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/lr/A3_suite_180kg/suite__omni/seed001/2026-10-16_22-17-08",
+    "body_mass": 338.75732421875,
+    "added": 180.0,
+    "mass_ok": true,
+    "dr_mass_env": "180:180",
+    "survival_mean": 0.922,
+    "survival_by_hold": {
+     "back": 0.93,
+     "diag": 0.62,
+     "fwd": 0.83,
+     "lat_l": 0.99,
+     "lat_r": 0.99,
+     "move_turn": 0.93,
+     "move_turn_r": 0.93,
+     "stand": 1.0,
+     "turn_l90": 1.0,
+     "turn_r90": 1.0
+    },
+    "completion": 0.92
+   }
+  },
+  "verdict": {
+   "knob_inert": false,
+   "settle_tips_le_90": false,
+   "suite_survival_90": 0.999,
+   "stop_a": false,
+   "status": "PASS"
+  },
+  "bonus_refs_bitwise": {
+   "metrics_equal": true,
+   "n_value_mismatch": 0,
+   "n_key_mismatch": 0,
+   "missing_episodes": 0
+  }
+ },
+ "verdict": {
+  "pconfig": true,
+  "pearly": false,
+  "a3": "PASS",
+  "stop_a": true
+ }
+}

@@ -213,7 +213,7 @@ step 0. Where this plan differs, this plan wins; the difference is the camera la
     - The margin is max(R, 3·SE_diff, the zero-lever continuation drift on that statistic, scaled by the head's
       iterations past p2a / 5000). The drift is X12 = P2__C0_s18, 5000 more its of the unchanged recipe, minus
       X08 = S1 s18 (one run). Continued training moves these statistics by more than eval noise; for example
-      move_turn drops .048 and yaw_progress .012.
+      move_turn drops .057 and yaw_progress .010 (es1 medians, the key the harness reads).
     - Each T\* candidate's notification logs how much of its margin it used.
     - X12 vs X08 is the check's known-good in the self-check; it passes by construction, so the class is
       `unvalidated` there.
