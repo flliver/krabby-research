@@ -71,6 +71,11 @@ def main() -> int:
             cid = f"BC_{name}_s{seed}"
             s = st[name]
             resume = "scratch" if prev is None else {"reference": prev}
+            # 2026-10-16 (c6_b STOP, CHARTER): code_sha moved after BC_c6_s18 was recorded, so a reference lookup at
+            # the new code_sha finds nothing -- c6x_b at seed 18 forks the c6_b head by explicit checkpoint path.
+            if seed == 18 and name == "c6x" and (C / "stage_reads" / "BC_c6_s18.json").is_file():
+                ck = json.loads((C / "stage_reads" / "BC_c6_s18.json").read_text())["ckpt"]
+                resume = {"checkpoint": str(Path(ck).relative_to("/home/nickmagus/krabby/krabby-research"))}
             chains[cid] = {"notes": f"body-cmd {name}_b (PLAN step {'6' if seed == 18 else '8'}): the shipped "
                                     f"{name} stage overlay minus KRABBY_OMNI_FACING plus the frozen envelope, base "
                                     f"{BASE_B[s['base']]}.",

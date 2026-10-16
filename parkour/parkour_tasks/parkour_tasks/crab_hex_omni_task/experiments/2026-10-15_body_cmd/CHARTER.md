@@ -299,3 +299,17 @@ adoption-grade report. **Adoption, bake and push are the user's.**
     low-end turnlevels for both forks. If the instant fork turns and the control does not, the proposal is to re-run
     the pilot from c4_b (fork of the fb6k_b head, which trained no turns) with the instant tent; that adoption is
     recorded and notified before it launches. code_sha moves (the knob; world and default-body dumps unchanged).
+- 2026-10-16, **c6_b-stop diagnostic read: inconclusive — the instant tent does not unlock turning within 500 its.**
+  `BC_DX_inst_s18` (X08, 500 its from the c6_b head, `KRABBY_OMNI_BODY_TENT_RATE=instant`): low-end net ratio
+  −0.061 / +0.034, pure turn −0.013 / +0.014, move_turn −0.09 / +0.13 (the same veer); training `yaw_progress`
+  0.0000 → 0.0007 rad/s across the fork (no trend); translation fine (fwd 0.954, back 0.952, diag 0.922, lat_r 0.885,
+  lat_l 0.849), drift 0.0047 / 0.0122. Its own stage read tripped the low-end STOP, so the queue ended before the
+  control fork ran (not run). Conclusion: the windowed reward's credit assignment is not, by itself, what blocks
+  turning — or 500 its from a non-turning policy is too short to show it.
+  - **DECISION (decide-record-notify): continue the approved pilot to c6x_b unchanged** (4000 its from the c6_b head,
+    windowed tent as approved). c6x is where the facing lineage did most of its turn learning (pure turn −0.02…0.58
+    at c6 → 0.62–0.77 at c6x); the GPU would otherwise idle while the user decides on a design change. Because
+    code_sha moved (the default-off knob, `a8519343…`; world and default-body dumps unchanged), c6x_b forks the c6_b
+    head by explicit checkpoint path. Its stage read keeps the c6 low-end rule as a descriptive line; the user is
+    asked in parallel about a design change (obs integrated heading error / warm start from S1 / turn-first
+    curriculum).

@@ -398,7 +398,7 @@ chains:
       iters: 4000
       from_scratch: false
       resume_from:
-        reference: BC_c6_s18
+        checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_06-53-27_seed18_X07_c6_A15pB/model_10996.pt
       overlay:
         KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
         KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2

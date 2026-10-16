@@ -1,0 +1,13 @@
+{
+  "chain": "BC_DX_inst_s18",
+  "stage": "c6",
+  "seed": 18,
+  "xid": "X08",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-05-22_seed18_X08_c6_A15pB/model_11495.pt",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_08-05-22_seed18_X08_c6_A15pB",
+  "tag": "seed18_X08_c6_A15pB",
+  "audit": "PASS",
+  "head_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/body_cmd_train/seed18_X08_c6_A15pB/suite__omni_body/seed001/2026-10-16_12-17-22",
+  "low_end_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/LOW_BC_DX_inst_s18/turnlevels__omni_body/seed001/2026-10-16_12-25-41",
+  "stage_read_rc": 3
+}
