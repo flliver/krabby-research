@@ -1,0 +1,15 @@
+# CHANGELOG — body_cmd_train
+
+### 2026-10-16 01:55 — campaign start: plant A15+B, seeds 18/16, code_sha fe714b414906, candidates.yaml 1f985c749b36
+> NOTIFY: REFERENCE BC_SMK_1b_s18 s18 | X01 on chain BC_SMK_1b_s18 (recipe 8a5ae1f18bd6) finished -- judged by hand, no decision | head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-55-15_seed18_X01_fb6k_A15pB/model_99.pt | fb6k: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-55-15_seed18_X01_fb6k_A15pB/model_99.pt | floors held
+
+### 2026-10-16 01:59 — reference BC_SMK_1b_s18 s18 X01 finished (head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-55-15_seed18_X01_fb6k_A15pB/model_99.pt)
+> NOTIFY: AWAIT await_user:reference_done:BC_SMK_1b_s18 | reference BC_SMK_1b_s18 s18 recorded (X01, head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-55-15_seed18_X01_fb6k_A15pB/model_99.pt) | judge it by hand; forks name it as resume_from: {reference: BC_SMK_1b_s18}
+> NOTIFY: REFERENCE BC_SMK_c4_s18 s18 | X02 on chain BC_SMK_c4_s18 (recipe 264115dc92b1) finished -- judged by hand, no decision | head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-59-35_seed18_X02_c4_A15pB/model_99.pt | c4: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-59-35_seed18_X02_c4_A15pB/model_99.pt | floors held
+
+### 2026-10-16 02:03 — reference BC_SMK_c4_s18 s18 X02 finished (head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-59-35_seed18_X02_c4_A15pB/model_99.pt)
+> NOTIFY: AWAIT await_user:reference_done:BC_SMK_c4_s18 | reference BC_SMK_c4_s18 s18 recorded (X02, head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-59-35_seed18_X02_c4_A15pB/model_99.pt) | judge it by hand; forks name it as resume_from: {reference: BC_SMK_c4_s18}
+> NOTIFY: REFERENCE BC_SMK_p2a_s18 s18 | X03 on chain BC_SMK_p2a_s18 (recipe 9700636bf06b) finished -- judged by hand, no decision | head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_02-03-55_seed18_X03_p2a_A15pB/model_99.pt | p2a: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_02-03-55_seed18_X03_p2a_A15pB/model_99.pt | floors held
+
+### 2026-10-16 02:07 — reference BC_SMK_p2a_s18 s18 X03 finished (head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_02-03-55_seed18_X03_p2a_A15pB/model_99.pt)
+> NOTIFY: AWAIT await_user:reference_done:BC_SMK_p2a_s18 | reference BC_SMK_p2a_s18 s18 recorded (X03, head /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_02-03-55_seed18_X03_p2a_A15pB/model_99.pt) | judge it by hand; forks name it as resume_from: {reference: BC_SMK_p2a_s18}

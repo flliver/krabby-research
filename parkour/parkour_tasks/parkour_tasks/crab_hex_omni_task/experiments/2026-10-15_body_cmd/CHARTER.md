@@ -226,3 +226,40 @@ adoption-grade report. **Adoption, bake and push are the user's.**
   step-in-place 0.016 / 0.317 — all inside the step-1a margins (0.10 / 0.40). Reported: a 0.01 rad/s straight drift
   costs 0.009 / step of 1.131 (< 1 %) — the windowed kernel barely prices slow drift, as PLAN expected; drift is
   policed by gate 4 and the step-6 stage-end drift stop.
+- 2026-10-16, **step 4b complete (61 rows, 0 failures).** G0 re-run at the FINAL hashes (code `fe714b41`, eval
+  `567d1704`, tree clean): `suite__omni` es1 1000 / 1000 and `field_hard__omni` es1 100 / 100 bitwise vs REFS_S1_s18.
+- 2026-10-16, **step 4 anchor read (`scripts/bc_anchor_read.py` → `anchor_numbers.{json,md}`): STOP — 3 pre-registered
+  triggers, all about gate SEMANTICS (no training input depends on them).**
+  - **Gate 2 ripple clause unattainable (PLAN trigger "a ripple < 0.03").** Premise refuted: S1 through `body_hold`
+    does NOT turn stop-go — net ratio at w_min 0.91–0.98, at 0.08 0.99–1.03, at 0.15 0.96–1.03, at the ceiling
+    0.91–0.99, at w_max 0.77–0.82 (survival 1.000 everywhere); ripple 0.032–0.038 (w_min, 0.08), 0.021–0.028 (0.15),
+    0.019–0.024 (ceiling) against 0.014–0.028 on its own wz = 0 holds. "≤ 0.5× the worst anchor" = 0.0186 / 0.0191 /
+    0.0139 — under the gait's own wobble floor.
+  - **Known-bad P2 passes gate 4.** S1 zero-shot in body mode (facing channels zeroed, wz fed directly) keeps heading:
+    drift median 0.0066 / p90 0.0157 vs the clause 0.0100 / 0.0207 (anchors 0.0034–0.0042 / 0.0081–0.0107). It still
+    fails gate 2 as intended (net ratio ≈ 0 at every level: it does not turn on a wz command). PLAN's deferred list
+    names the fallback: a drift-injected known-bad.
+  - **Gate 3's translation clause is noise-level on one hand** (not a PLAN trigger; flagged with the others):
+    "|ratio − 1| ≤ the best anchor's" with no band → move_turn_r ≤ 0.011 (s18 0.989 / 0.988), move_turn_l ≤ 0.118
+    (s17). Anchors' move_turn net ratio 0.61–0.87 (gate 3's 0.8 floor is absolute: the move-turn superiority claim).
+  - Numbers frozen otherwise (PLAN gates; anchors = mean of es1 / es2): g1 move_turn survival ≥ 0.950 (l) / 0.935 (r);
+    g2 top rate at w_max ≥ 0.1668 rad/s; g4 drift median ≤ 0.0100, p90 ≤ 0.0207; g5 |ratio − 1| ≤ fwd 0.0823, lat_l
+    0.1486, lat_r 0.1048, back 0.1209, diag 0.0880; field_hard_body completion ≥ 0.520 (worst anchor s17 0.70, band
+    0.09), field_light ≥ 0.895, ring_obst ≥ 0.920. Anchors' body field_hard completion: s16 0.89, s17 0.70, s18 0.81.
+  - **DECISION (decide-record-notify): the pilot proceeds (steps 5 → 6) while the user decides the three gate
+    semantics.** No training input depends on them; gates 2 / 3 are first read at step 7 (≈ 12 h away), the step-6
+    stage-end reads use only gate 4's drift clauses against the same-stage anchors (valid as written). The user's
+    answers are recorded here before any step-7 read.
+- 2026-10-16, **step 5 smoke: PASS (`step5_smoke.json`).** Three 100-it chains from scratch through the candidates
+  driver (BC_SMK_1b / _c4 / _p2a s18, runs X01–X03), dump audits PASS (body command class + frozen envelope, obs
+  encoding none, the three swapped reward funcs at 0.2 / 2.0 / 1.0, facing-turn 0, ellipse 0.35:0.35:0.25, no RSI,
+  turn floor 0.21, pools = the overlays). Each head on `suite__omni_body` + `turnlevels__omni_body` (route term):
+  0 violations over 3.77 M live steps — obs cols 6–7 exactly 0, cols 5 / 8 / 9 / 10 = the command, command = the row,
+  and on every turning hold down to w_min (2.11 M steps) the clock running, its speed ≥ 0.21 and its phase advancing.
+  The p2a smoke head through `world_rate` on `suite__omni`: route world_hook / world_rate / body, obs = the adapter's
+  command, applied wz always in {0} ∪ [w_min, w_max]; clipped share 1.0 on turn and move_turn holds (the 0.3 relay
+  saturates into w_max / the cap, by design), 0.24 on `back` (untrained head's heading corrections at 0.2 rad/s capped
+  to cap(0.22) = 0.105 while moving). "sampled (v, wz) inside the envelope" is covered by the step-1 CPU tests (every
+  sampler draw passes `body_cmd_violations`); the driver logs no per-draw envelope telemetry.
+- 2026-10-16, **step 6 pilot launched** (`scripts/bc_train_queue.sh BC_fb6k_s18 … BC_p2a_s18`, one reference per
+  stage; stage-end reads in `stage_reads/`).

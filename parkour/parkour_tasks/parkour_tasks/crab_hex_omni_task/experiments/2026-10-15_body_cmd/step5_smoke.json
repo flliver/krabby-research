@@ -1,0 +1,220 @@
+{
+  "term": [
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/BC_SMK_1b_s18/suite__omni_body/seed001/2026-10-16_06-08-14",
+      "route": [
+        "term",
+        "none",
+        "body"
+      ],
+      "steps": 590748,
+      "turn_steps": 186187,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "cmd_row": 0,
+        "clock_running": 0,
+        "clock_speed": 0,
+        "clock_still": 0
+      },
+      "pass": true
+    },
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/BC_SMK_1b_s18/turnlevels__omni_body/seed001/2026-10-16_06-15-06",
+      "route": [
+        "term",
+        "none",
+        "body"
+      ],
+      "steps": 700000,
+      "turn_steps": 550000,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "cmd_row": 0,
+        "clock_running": 0,
+        "clock_speed": 0,
+        "clock_still": 0
+      },
+      "pass": true
+    },
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/BC_SMK_c4_s18/suite__omni_body/seed001/2026-10-16_06-22-06",
+      "route": [
+        "term",
+        "none",
+        "body"
+      ],
+      "steps": 594423,
+      "turn_steps": 180742,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "cmd_row": 0,
+        "clock_running": 0,
+        "clock_speed": 0,
+        "clock_still": 0
+      },
+      "pass": true
+    },
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/BC_SMK_c4_s18/turnlevels__omni_body/seed001/2026-10-16_06-29-04",
+      "route": [
+        "term",
+        "none",
+        "body"
+      ],
+      "steps": 659991,
+      "turn_steps": 509991,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "cmd_row": 0,
+        "clock_running": 0,
+        "clock_speed": 0,
+        "clock_still": 0
+      },
+      "pass": true
+    },
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/BC_SMK_p2a_s18/suite__omni_body/seed001/2026-10-16_06-36-12",
+      "route": [
+        "term",
+        "none",
+        "body"
+      ],
+      "steps": 528160,
+      "turn_steps": 134154,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "cmd_row": 0,
+        "clock_running": 0,
+        "clock_speed": 0,
+        "clock_still": 0
+      },
+      "pass": true
+    },
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/BC_SMK_p2a_s18/turnlevels__omni_body/seed001/2026-10-16_06-42-59",
+      "route": [
+        "term",
+        "none",
+        "body"
+      ],
+      "steps": 700000,
+      "turn_steps": 550000,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "cmd_row": 0,
+        "clock_running": 0,
+        "clock_speed": 0,
+        "clock_still": 0
+      },
+      "pass": true
+    }
+  ],
+  "world_rate": [
+    {
+      "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/WR_BC_SMK_p2a_s18/suite__omni/seed001/2026-10-16_06-50-01",
+      "route": [
+        "world_hook",
+        "world_rate",
+        "body"
+      ],
+      "steps": 526984,
+      "bad": {
+        "obs_facing": 0,
+        "obs_cmd": 0,
+        "wz_outside": 0
+      },
+      "clipped_by_hold": {
+        "back": {
+          "mean": 0.2156717993895359,
+          "median": 0.24333333333333332,
+          "n": 100,
+          "p25": 0.014583333333333334,
+          "p75": 0.35958333333333337
+        },
+        "diag": {
+          "mean": 0.0,
+          "median": 0.0,
+          "n": 100,
+          "p25": 0.0,
+          "p75": 0.0
+        },
+        "fwd": {
+          "mean": 0.0,
+          "median": 0.0,
+          "n": 100,
+          "p25": 0.0,
+          "p75": 0.0
+        },
+        "lat_l": {
+          "mean": 0.0028833333333333332,
+          "median": 0.0,
+          "n": 100,
+          "p25": 0.0,
+          "p75": 0.0
+        },
+        "lat_r": {
+          "mean": 0.0017,
+          "median": 0.0,
+          "n": 100,
+          "p25": 0.0,
+          "p75": 0.0
+        },
+        "move_turn": {
+          "mean": 1.0,
+          "median": 1.0,
+          "n": 100,
+          "p25": 1.0,
+          "p75": 1.0
+        },
+        "move_turn_r": {
+          "mean": 1.0,
+          "median": 1.0,
+          "n": 100,
+          "p25": 1.0,
+          "p75": 1.0
+        },
+        "settle": {
+          "mean": 0.0,
+          "median": 0.0,
+          "n": 1000,
+          "p25": 0.0,
+          "p75": 0.0
+        },
+        "stand": {
+          "mean": 0.009266666666666666,
+          "median": 0.0,
+          "n": 100,
+          "p25": 0.0,
+          "p75": 0.0
+        },
+        "turn_l90": {
+          "mean": 1.0,
+          "median": 1.0,
+          "n": 100,
+          "p25": 1.0,
+          "p75": 1.0
+        },
+        "turn_r90": {
+          "mean": 1.0,
+          "median": 1.0,
+          "n": 100,
+          "p25": 1.0,
+          "p75": 1.0
+        }
+      },
+      "pass": true
+    }
+  ],
+  "audits": {
+    "BC_SMK_1b_s18": "PASS",
+    "BC_SMK_c4_s18": "PASS",
+    "BC_SMK_p2a_s18": "PASS"
+  },
+  "pass": true
+}

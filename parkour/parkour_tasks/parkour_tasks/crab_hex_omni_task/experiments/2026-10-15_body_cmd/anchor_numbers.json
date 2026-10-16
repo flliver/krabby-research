@@ -1,0 +1,778 @@
+{
+  "anchors": {
+    "16": {
+      "drift": {
+        "1": [
+          0.0035681389798310195,
+          0.01047221898585667
+        ],
+        "2": [
+          0.0037795782559715005,
+          0.010196402258108719
+        ]
+      },
+      "levels": {
+        "w_min": {
+          "1": {
+            "net_yaw_ratio": 0.9724256703732774,
+            "yaw_ripple": 0.033862400210171076,
+            "net_yaw_rate_abs": 0.04862128351866387,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9787383031629098,
+            "yaw_ripple": 0.03212098492965988,
+            "net_yaw_rate_abs": 0.048936915158145494,
+            "survival": 1.0
+          }
+        },
+        "0p08": {
+          "1": {
+            "net_yaw_ratio": 1.0290562901224198,
+            "yaw_ripple": 0.038217180504136875,
+            "net_yaw_rate_abs": 0.08232450320979356,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 1.02427477571415,
+            "yaw_ripple": 0.038043778043740546,
+            "net_yaw_rate_abs": 0.08194198205713199,
+            "survival": 1.0
+          }
+        },
+        "0p15": {
+          "1": {
+            "net_yaw_ratio": 1.0275440176664437,
+            "yaw_ripple": 0.028043742437798495,
+            "net_yaw_rate_abs": 0.1541316026499665,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 1.016220751285792,
+            "yaw_ripple": 0.02743782177421066,
+            "net_yaw_rate_abs": 0.15243311269286874,
+            "survival": 1.0
+          }
+        },
+        "ceiling": {
+          "1": {
+            "net_yaw_ratio": 0.9907022379883137,
+            "yaw_ripple": 0.023033061161048342,
+            "net_yaw_rate_abs": 0.1664379759820367,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.978866351978315,
+            "yaw_ripple": 0.024284195870039143,
+            "net_yaw_rate_abs": 0.16444954713235688,
+            "survival": 1.0
+          }
+        },
+        "w_max": {
+          "1": {
+            "net_yaw_ratio": 0.8106047642047916,
+            "yaw_ripple": 0.027288983081992874,
+            "net_yaw_rate_abs": 0.1702270004830062,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.8148204297529789,
+            "yaw_ripple": 0.02700322325779647,
+            "net_yaw_rate_abs": 0.17111229024812558,
+            "survival": 1.0
+          }
+        }
+      },
+      "suite": {
+        "stand": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.012114111254903484
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.011341713570371958
+          }
+        },
+        "fwd": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.9934734203666449,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.028430644322731024
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.995645183250308,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.02776203230248687
+          }
+        },
+        "lat_l": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.003864386247931,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.012401592061290809
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.999112934032878,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.012296160343184492
+          }
+        },
+        "lat_r": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0757977396609597,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.023068390120733334
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0738763443607071,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.023759811601155513
+          }
+        },
+        "back": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.036134842825545,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.02770182232223263
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0324367814146993,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.028598148326845443
+          }
+        },
+        "diag": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.9443766628142627,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.028350370142561525
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.9396741555257768,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.02996120418005041
+          }
+        },
+        "turn_l_ceiling": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9958445646498174,
+            "yaw_ripple": 0.02384126484490836
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9832860328419999,
+            "yaw_ripple": 0.02529648581521149
+          }
+        },
+        "turn_r_ceiling": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9728269181843228,
+            "yaw_ripple": 0.023165223722196343
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9781782303120967,
+            "yaw_ripple": 0.023231009438598405
+          }
+        },
+        "move_turn_l": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.8449422180525616,
+            "net_yaw_ratio": 0.767089954125521,
+            "yaw_ripple": 0.026639542965144536
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.8450553995472461,
+            "net_yaw_ratio": 0.7746298949279455,
+            "yaw_ripple": 0.027365935276889623
+          }
+        },
+        "move_turn_r": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.9039451689353548,
+            "net_yaw_ratio": 0.7464719851069062,
+            "yaw_ripple": 0.043122390475318545
+          },
+          "2": {
+            "survival": 0.99,
+            "body_ratio": 0.9021087267690081,
+            "net_yaw_ratio": 0.7493666116963326,
+            "yaw_ripple": 0.043836436615233725
+          }
+        }
+      },
+      "field": {
+        "field_hard__omni_body": {
+          "1": 0.9,
+          "2": 0.87,
+          "3": 0.88,
+          "4": 0.91,
+          "n": 400
+        },
+        "field_light__omni_body": {
+          "1": 1.0,
+          "2": 0.99,
+          "n": 200
+        },
+        "ring_obst__omni_body": {
+          "1": 1.0,
+          "2": 1.0,
+          "n": 200
+        }
+      }
+    },
+    "17": {
+      "drift": {
+        "1": [
+          0.0035345517562927853,
+          0.00931729750320301
+        ],
+        "2": [
+          0.0034356328687863424,
+          0.008143430470503518
+        ]
+      },
+      "levels": {
+        "w_min": {
+          "1": {
+            "net_yaw_ratio": 0.9139667506913867,
+            "yaw_ripple": 0.03345021558767348,
+            "net_yaw_rate_abs": 0.04569833753456934,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9196263284700005,
+            "yaw_ripple": 0.03358943773490963,
+            "net_yaw_rate_abs": 0.04598131642350003,
+            "survival": 1.0
+          }
+        },
+        "0p08": {
+          "1": {
+            "net_yaw_ratio": 0.9972796893504219,
+            "yaw_ripple": 0.03287194273122984,
+            "net_yaw_rate_abs": 0.07978237514803374,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9860776473934031,
+            "yaw_ripple": 0.03281996796538811,
+            "net_yaw_rate_abs": 0.07888621179147223,
+            "survival": 1.0
+          }
+        },
+        "0p15": {
+          "1": {
+            "net_yaw_ratio": 0.9589832885681956,
+            "yaw_ripple": 0.022248938441040735,
+            "net_yaw_rate_abs": 0.1438474932852293,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.955794190194613,
+            "yaw_ripple": 0.021136340644419868,
+            "net_yaw_rate_abs": 0.14336912852919192,
+            "survival": 1.0
+          }
+        },
+        "ceiling": {
+          "1": {
+            "net_yaw_ratio": 0.9059104518401306,
+            "yaw_ripple": 0.01944930833087529,
+            "net_yaw_rate_abs": 0.15219295590914195,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9131711916171974,
+            "yaw_ripple": 0.020118518996023557,
+            "net_yaw_rate_abs": 0.15341276019168915,
+            "survival": 1.0
+          }
+        },
+        "w_max": {
+          "1": {
+            "net_yaw_ratio": 0.769839767240809,
+            "yaw_ripple": 0.023153022211355657,
+            "net_yaw_rate_abs": 0.16166635112056993,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.7719364361557646,
+            "yaw_ripple": 0.023407154226865307,
+            "net_yaw_rate_abs": 0.16210665159271054,
+            "survival": 1.0
+          }
+        }
+      },
+      "suite": {
+        "stand": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.01322057317733404
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.012421686595358737
+          }
+        },
+        "fwd": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0067624064534901,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.030882288193536778
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0047982121631502,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.030945200247339398
+          }
+        },
+        "lat_l": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.077055149415338,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.014300341323271196
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0737166401760816,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.014688027234020738
+          }
+        },
+        "lat_r": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.04636793048121,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.015307009791526324
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0493658207441592,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.015089171139799403
+          }
+        },
+        "back": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0326192899691784,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.04217734282118927
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0306606393476776,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.0432897458460442
+          }
+        },
+        "diag": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0083802189804842,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.02239350597922554
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.00833837050314,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.02355294117128
+          }
+        },
+        "turn_l_ceiling": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9040827699499075,
+            "yaw_ripple": 0.01889830669584002
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9062594188356023,
+            "yaw_ripple": 0.02051570310709732
+          }
+        },
+        "turn_r_ceiling": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9186981604345916,
+            "yaw_ripple": 0.01941672573912978
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9244437233898974,
+            "yaw_ripple": 0.020250938801755252
+          }
+        },
+        "move_turn_l": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.8820361404425715,
+            "net_yaw_ratio": 0.8585553966403867,
+            "yaw_ripple": 0.04730260296769114
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.8812992725605988,
+            "net_yaw_ratio": 0.8673126900979462,
+            "yaw_ripple": 0.04640682908628462
+          }
+        },
+        "move_turn_r": {
+          "1": {
+            "survival": 0.98,
+            "body_ratio": 0.9280051186426793,
+            "net_yaw_ratio": 0.6177335394022985,
+            "yaw_ripple": 0.025746663801339505
+          },
+          "2": {
+            "survival": 0.99,
+            "body_ratio": 0.9338530722836198,
+            "net_yaw_ratio": 0.6055071368532993,
+            "yaw_ripple": 0.027376348275316858
+          }
+        }
+      },
+      "field": {
+        "field_hard__omni_body": {
+          "1": 0.76,
+          "2": 0.67,
+          "3": 0.71,
+          "4": 0.66,
+          "n": 400
+        },
+        "field_light__omni_body": {
+          "1": 0.98,
+          "2": 0.97,
+          "n": 200
+        },
+        "ring_obst__omni_body": {
+          "1": 1.0,
+          "2": 1.0,
+          "n": 200
+        }
+      }
+    },
+    "18": {
+      "drift": {
+        "1": [
+          0.004212287813527382,
+          0.01071505657621674
+        ],
+        "2": [
+          0.003958844861444959,
+          0.009962803606543958
+        ]
+      },
+      "levels": {
+        "w_min": {
+          "1": {
+            "net_yaw_ratio": 0.9606975489723331,
+            "yaw_ripple": 0.03637833593934102,
+            "net_yaw_rate_abs": 0.048034877448616654,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9496818367797244,
+            "yaw_ripple": 0.03801658575115551,
+            "net_yaw_rate_abs": 0.04748409183898623,
+            "survival": 1.0
+          }
+        },
+        "0p08": {
+          "1": {
+            "net_yaw_ratio": 1.0180124478253525,
+            "yaw_ripple": 0.03708856601396239,
+            "net_yaw_rate_abs": 0.08144099582602818,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 1.0145381910265376,
+            "yaw_ripple": 0.03711741935585287,
+            "net_yaw_rate_abs": 0.08116305528212298,
+            "survival": 1.0
+          }
+        },
+        "0p15": {
+          "1": {
+            "net_yaw_ratio": 0.9783059417275187,
+            "yaw_ripple": 0.02207265516562907,
+            "net_yaw_rate_abs": 0.1467458912591278,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9729216635953368,
+            "yaw_ripple": 0.021372035401178692,
+            "net_yaw_rate_abs": 0.1459382495393005,
+            "survival": 1.0
+          }
+        },
+        "ceiling": {
+          "1": {
+            "net_yaw_ratio": 0.9312487771348943,
+            "yaw_ripple": 0.024111077128920827,
+            "net_yaw_rate_abs": 0.1564497945586622,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.9337161801892678,
+            "yaw_ripple": 0.023054600049597807,
+            "net_yaw_rate_abs": 0.15686431827179698,
+            "survival": 1.0
+          }
+        },
+        "w_max": {
+          "1": {
+            "net_yaw_ratio": 0.8183037501852723,
+            "yaw_ripple": 0.02801752329343652,
+            "net_yaw_rate_abs": 0.1718437875389072,
+            "survival": 1.0
+          },
+          "2": {
+            "net_yaw_ratio": 0.8180471971319855,
+            "yaw_ripple": 0.026632078666972828,
+            "net_yaw_rate_abs": 0.17178991139771693,
+            "survival": 1.0
+          }
+        }
+      },
+      "suite": {
+        "stand": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.014069677783253368
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.013167620099268994
+          }
+        },
+        "fwd": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0557287396118045,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.01899672940081531
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0489161240076645,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.021807090466764555
+          }
+        },
+        "lat_l": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.1129314949820661,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.016241404012482558
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.1243461522813458,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.01675027062877268
+          }
+        },
+        "lat_r": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0186007748019286,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.018298183255604394
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0263280118180604,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.017926056044619464
+          }
+        },
+        "back": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.094973285978829,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.028478744815519583
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0868140148760916,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.029235068395390168
+          }
+        },
+        "diag": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 1.0244366438795662,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.02179218294759723
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 1.0206910500835877,
+            "net_yaw_ratio": null,
+            "yaw_ripple": 0.020525639560407746
+          }
+        },
+        "turn_l_ceiling": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9454426385318652,
+            "yaw_ripple": 0.025949018991791334
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9542610738190808,
+            "yaw_ripple": 0.024722595823305573
+          }
+        },
+        "turn_r_ceiling": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9230691138412981,
+            "yaw_ripple": 0.02194856103371817
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": null,
+            "net_yaw_ratio": 0.9259044300337071,
+            "yaw_ripple": 0.022163929658266933
+          }
+        },
+        "move_turn_l": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.8370147727969607,
+            "net_yaw_ratio": 0.8575553471613143,
+            "yaw_ripple": 0.046612920242334197
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.8496654825724939,
+            "net_yaw_ratio": 0.8465453476099993,
+            "yaw_ripple": 0.04737727125776167
+          }
+        },
+        "move_turn_r": {
+          "1": {
+            "survival": 1.0,
+            "body_ratio": 0.9903076225045049,
+            "net_yaw_ratio": 0.7938834424434404,
+            "yaw_ripple": 0.018281387010836203
+          },
+          "2": {
+            "survival": 1.0,
+            "body_ratio": 0.9877554381858892,
+            "net_yaw_ratio": 0.7783671197413051,
+            "yaw_ripple": 0.018751360896788992
+          }
+        }
+      },
+      "field": {
+        "field_hard__omni_body": {
+          "1": 0.8,
+          "2": 0.79,
+          "3": 0.8,
+          "4": 0.83,
+          "n": 400
+        },
+        "field_light__omni_body": {
+          "1": 0.99,
+          "2": 0.99,
+          "n": 200
+        },
+        "ring_obst__omni_body": {
+          "1": 1.0,
+          "2": 1.0,
+          "n": 200
+        }
+      }
+    }
+  },
+  "gate_numbers": {
+    "g1.move_turn_l.survival_min": 0.95,
+    "g1.move_turn_r.survival_min": 0.9349999999999999,
+    "g2.w_min.ripple_max": 0.01859873042262413,
+    "g2.0p08.ripple_max": 0.019065239636969357,
+    "g2.0p15.ripple_max": 0.01387039105300229,
+    "g2.w_max.net_rate_min": 0.16681684946831205,
+    "g3.move_turn_l.transl_dev_max": 0.11833229349841479,
+    "g3.move_turn_r.transl_dev_max": 0.010968469654802915,
+    "g4.drift_median_max": 0.01,
+    "g4.drift_p90_max": 0.020677860182760698,
+    "g5.fwd.ratio_dev_max": 0.08232243180973439,
+    "g5.lat_l.ratio_dev_max": 0.14863882363170597,
+    "g5.lat_r.ratio_dev_max": 0.10483704201083352,
+    "g5.back.ratio_dev_max": 0.12089365042746023,
+    "g5.diag.ratio_dev_max": 0.08797459082998024,
+    "g5.field_hard__omni_body.completion_min": 0.5200000000000001,
+    "g5.field_light__omni_body.completion_min": 0.895,
+    "g5.ring_obst__omni_body.completion_min": 0.92
+  },
+  "p2": {
+    "drift_median": 0.00659238748386997,
+    "drift_p90": 0.015663990943888165,
+    "level_ratio": {
+      "w_min": 0.022598670513318493,
+      "0p08": -0.0013893493427727965,
+      "0p15": 0.0005405445541110468,
+      "ceiling": 0.005484091522302495,
+      "w_max": 0.008402068529114157
+    },
+    "passes_g2": false,
+    "passes_g4": true
+  },
+  "stops": [
+    "gate 2 ripple clause at w_min would need ripple < 0.03 (0.0186)",
+    "gate 2 ripple clause at 0p08 would need ripple < 0.03 (0.0191)",
+    "gate 2 ripple clause at 0p15 would need ripple < 0.03 (0.0139)",
+    "known-bad P2 PASSES gate 4 (drift median 0.0066, p90 0.0157)"
+  ]
+}
