@@ -263,3 +263,39 @@ adoption-grade report. **Adoption, bake and push are the user's.**
   sampler draw passes `body_cmd_violations`); the driver logs no per-draw envelope telemetry.
 - 2026-10-16, **step 6 pilot launched** (`scripts/bc_train_queue.sh BC_fb6k_s18 … BC_p2a_s18`, one reference per
   stage; stage-end reads in `stage_reads/`).
+- 2026-10-16, **step 6 stage end fb6k_b (X04, 6000 its from scratch, `stage_reads/BC_fb6k_s18*`): OK.** Audit PASS;
+  no shortfall vs the fb6k anchors (X40 / X42 / X43 + body_hold) on the trained categories; heading drift median
+  0.0039 (≤ 0.0100) / p90 0.0169 (≤ 0.0316). Turn rows (untrained, descriptive): pure-turn net ratio ≈ 0.
+- 2026-10-16, **step 6 stage end c4_b (X05, 1500 its): NOTIFY (decide-record-notify; continue).** Speed shortfall
+  beyond max(0.02, the anchors' range) on fwd (0.815 vs c4 anchors 0.86–0.90) and lat_l (0.577 vs 0.83–0.98; fb6k_b
+  had 0.781) — not a collapse (> 0.5× the worst anchor); survival 1.000 on every trained hold (anchors 0.96–1.00);
+  drift median 0.0039 / p90 0.0152 (≤ 0.0100 / 0.0358). Descriptive: the body head does not turn yet — pure turn net
+  ratio −0.006 / 0.012 at the ceiling, move_turn −0.11 / +0.12 (a slow right veer, no response to wz), training
+  `yaw_progress` ≈ −0.0004 rad/s. Lineage context (same-stage facing anchors through body_hold): pure turn −0.18…0.14
+  at c4, −0.01…0.14 at c5, −0.02…0.58 at c6, 0.62–0.77 at c6x; move_turn 0.19–0.65 at c4 → 0.83–0.91 at c6x. The
+  lineage also learned to turn in place only at c6 / c6x; the pre-registered low-end check (c6_b, w_min net ratio
+  ≥ 0.5) is where turning is decided. Watch item: the lat_l speed (0.78 → 0.58).
+- 2026-10-16, **step 6 stage end c5_b (X06, 1500 its): NOTIFY (continue).** Speed shortfall beyond the anchors' band
+  on diag 0.775 (c5 anchors 0.875–0.957), lat_l 0.742 (0.973–1.026), lat_r 0.685 (0.953–1.013); fwd 0.891, back 0.867
+  within band; survival ≥ 0.99 everywhere; drift median 0.0037 / p90 0.0185 (≤ 0.0100 / 0.0246). Still no turning:
+  pure turn net ratio −0.013 / 0.006, move_turn −0.11 / +0.11 (the same right veer), training `yaw_progress`
+  0.001 rad/s. Lineage at c5: pure turn −0.01…0.14, move_turn 0.16–0.55.
+- 2026-10-16, **step 6 STOP at the c6_b stage end (X07, 2000 its; pre-registered low-end check): the body walker does
+  not turn.** Low-end net ratio at w_min −0.020 (l) / +0.013 (r) (< 0.5); pure turn at the ceiling −0.007 / −0.001;
+  move_turn −0.02 / −0.03; training `yaw_progress` 0.001 rad/s with 45 % of training steps on a turn command. The
+  facing lineage at c6: pure turn −0.02…0.58, move_turn 0.46–0.80. Translation recovering (fwd 0.921, lat_r 0.942,
+  back 0.889, diag 0.870; lat_l 0.816 short of 0.994–1.036 → NOTIFY); drift median 0.0038 / p90 0.0151 (OK).
+  - **Diagnosis (hypothesis):** both body yaw terms pay on the 2-s WINDOW of achieved yaw rate, which neither the
+    policy nor the critic observes (their history is far shorter): the turn reward is non-Markov in the observation,
+    and its credit for a rotation at step t is spread over the next 100 steps, of which GAE (λγ ≈ 0.94, ≈ 17-step
+    horizon) captures ≈ 16 % directly. The facing lineage's turn terms were Markov and immediate (rotation now →
+    `yaw_progress` now; the facing error itself observed). Move+turn commands are also small by construction
+    (cap 0.065–0.105 rad/s), so the move-turn premium is about half the facing relay's.
+  - **DECISION (decide-record-notify, reversible, the user may overrule): a cheap diagnostic before any design
+    change** — two 500-it forks of the c6_b head on the c6_b overlay: `BC_DX_ctrl_s18` (unchanged) and
+    `BC_DX_inst_s18` with the new default-off knob `KRABBY_OMNI_BODY_TENT_RATE=instant` (the tent pays
+    `clamp(min(sign(c)·wz, |c|), −w_max)` per step, 0 on straight rows — Markov, one-sided at the command; the 2-s
+    window term is unchanged and still prices accuracy). Read: training `yaw_progress` + the c6 stage read +
+    low-end turnlevels for both forks. If the instant fork turns and the control does not, the proposal is to re-run
+    the pilot from c4_b (fork of the fb6k_b head, which trained no turns) with the instant tent; that adoption is
+    recorded and notified before it launches. code_sha moves (the knob; world and default-body dumps unchanged).

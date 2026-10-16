@@ -150,6 +150,7 @@ from .crab_hex_omni_yaw_window import (
     YAW_WINDOW_SIGMA,
     YawWindow,
     window_steps,
+    yaw_instant_income,
     yaw_tent_income,
     yaw_window_income,
 )
@@ -750,6 +751,11 @@ class RewardYawProgressTent(ManagerTermBase):
                       else _body_cmd_cfg_field(env, command_name, "body_w_max", "RewardYawProgressTent"))
         if not self.w_max > 0.0:
             raise ValueError(f"RewardYawProgressTent: w_max must be positive, got {self.w_max}")
+        # KRABBY_OMNI_BODY_TENT_RATE (default "window"): "instant" pays the CURRENT yaw rate toward the command,
+        # capped at the command (crab_hex_omni_yaw_window.yaw_instant_income) -- written into params only when armed.
+        self.rate = str(cfg.params.get("rate", "window"))
+        if self.rate not in ("window", "instant"):
+            raise ValueError(f"RewardYawProgressTent: rate must be 'window' or 'instant', got {self.rate!r}")
 
     def reset(self, env_ids=None) -> None:
         self.window.reset(env_ids)
@@ -761,12 +767,16 @@ class RewardYawProgressTent(ManagerTermBase):
         asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
         clip: float | None = None,
         window_s: float = YAW_WINDOW_S,
+        rate: str = "window",
     ) -> torch.Tensor:
-        del clip, window_s  # resolved once in __init__
+        del clip, window_s, rate  # resolved once in __init__
         asset: Articulation = env.scene[asset_cfg.name]
         dt = env.step_dt
         cmd_wz = env.command_manager.get_command(command_name)[:, 2]
-        s_ach, s_cmd = self.window.push(asset.data.root_ang_vel_b[:, 2] * dt, cmd_wz * dt)
+        wz = asset.data.root_ang_vel_b[:, 2]
+        s_ach, s_cmd = self.window.push(wz * dt, cmd_wz * dt)
+        if self.rate == "instant":
+            return yaw_instant_income(wz, cmd_wz, self.w_max)
         return yaw_tent_income(s_ach, s_cmd, self.window_t, self.w_max)
 
 

@@ -66,6 +66,10 @@ def audit(run_dir: Path, overlay: dict, env: dict) -> list[str]:
         t = r.get(term) or {}
         if fn not in str(t.get("func")) or abs(float(t.get("weight", -9)) - w) > 1e-12:
             bad.append(f"{term}: func {t.get('func')} weight {t.get('weight')} (want {fn} @ {w})")
+    want_rate = "instant" if str(overlay.get("KRABBY_OMNI_BODY_TENT_RATE", "")).strip().lower() == "instant" else None
+    got_rate = ((r.get("reward_yaw_progress") or {}).get("params") or {}).get("rate")
+    if got_rate != want_rate:
+        bad.append(f"reward_yaw_progress rate {got_rate!r} != overlay {want_rate!r}")
     if float((r.get("reward_facing_turn") or {}).get("weight", 0.0)) != 0.0:
         bad.append("reward_facing_turn weight != 0")
     if (d.get("events") or {}).get("rsi_reference_reset") is not None:

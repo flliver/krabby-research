@@ -79,6 +79,19 @@ def main() -> int:
                                             from_scratch=prev is None)]}
             refs[cid] = {"chain": cid, "seed": seed}
             prev = cid
+    # c6_b-stop diagnostic (CHARTER 2026-10-16): two 500-it forks of the c6_b head on the c6 overlay -- control, and
+    # the instantaneous tent (KRABBY_OMNI_BODY_TENT_RATE=instant). Checkpoint forks (no reference / code_sha lookup).
+    c6b = C / "stage_reads" / "BC_c6_s18.json"
+    if c6b.is_file():
+        ck = json.loads(c6b.read_text())["ckpt"]
+        ck = str(Path(ck).relative_to("/home/nickmagus/krabby/krabby-research"))
+        for sid, extra in (("DX_ctrl", {}), ("DX_inst", {"KRABBY_OMNI_BODY_TENT_RATE": "instant"})):
+            cid = f"BC_{sid}_s18"
+            stg = stage("c6", 500, {"checkpoint": ck}, ["suite_body"])
+            stg["overlay"].update(extra)
+            chains[cid] = {"notes": f"body-cmd c6_b-stop diagnostic: 500 its from the c6_b head, c6_b overlay"
+                                    f"{' + instant tent' if extra else ' (control)'}.", "stages": [stg]}
+            refs[cid] = {"chain": cid, "seed": 18}
     for sid, name in (("SMK_1b", "fb6k"), ("SMK_c4", "c4"), ("SMK_p2a", "p2a")):
         cid = f"BC_{sid}_s18"
         chains[cid] = {"notes": f"body-cmd smoke (PLAN step 5): 100 its from scratch, {name}_b overlay.",

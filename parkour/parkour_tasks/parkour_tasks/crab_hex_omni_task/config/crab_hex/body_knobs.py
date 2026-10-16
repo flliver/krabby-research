@@ -45,6 +45,10 @@ from pathlib import Path
 COMMAND_FRAME_VAR = "KRABBY_OMNI_COMMAND_FRAME"
 BODY_ENVELOPE_VAR = "KRABBY_OMNI_BODY_ENVELOPE"
 BODY_CAP_VAR = "KRABBY_OMNI_BODY_CAP"
+#: The body tent's rate (default OFF = "window"; body-command campaign 2026-10-16, c6_b stop): "instant" pays the
+#: CURRENT yaw rate toward the command, capped at it (``crab_hex_omni_yaw_window.yaw_instant_income``).
+BODY_TENT_RATE_VAR = "KRABBY_OMNI_BODY_TENT_RATE"
+TENT_RATES = ("window", "instant")
 
 FRAME_WORLD = "world"
 FRAME_BODY = "body"
@@ -60,6 +64,7 @@ KNOB_OFF_VALUES = {COMMAND_FRAME_VAR: FRAME_WORLD}
 __all__ = [
     "COMMAND_FRAME_VAR", "BODY_ENVELOPE_VAR", "BODY_CAP_VAR", "FRAME_WORLD", "FRAME_BODY",
     "COMMAND_FRAMES", "EVAL_SEMANTIC_KNOBS", "KNOB_OFF_VALUES", "parse_command_frame",
+    "BODY_TENT_RATE_VAR", "TENT_RATES", "parse_body_tent_rate",
     "parse_body_envelope_knob", "parse_body_cap_knob", "parse_body_knobs", "BODY_KNOB_PARSERS",
 ]
 
@@ -140,9 +145,20 @@ def parse_body_knobs(environ) -> tuple[str, object]:
     return frame, _command_math().parse_body_envelope(str(env_raw), str(cap_raw))
 
 
-#: ``{variable: parser}`` for the three knobs (the candidates driver's round-trip table).
+def parse_body_tent_rate(text) -> str:
+    """``KRABBY_OMNI_BODY_TENT_RATE`` -> ``"window"`` (blank / unset / ``window``) or ``"instant"``; strict."""
+    if _blank(text):
+        return "window"
+    token = str(text).strip().lower()
+    if token not in TENT_RATES:
+        raise ValueError(f"{BODY_TENT_RATE_VAR} must be one of {TENT_RATES} (blank = window), got {text!r}")
+    return token
+
+
+#: ``{variable: parser}`` for the body knobs (the candidates driver's round-trip table).
 BODY_KNOB_PARSERS = {
     COMMAND_FRAME_VAR: parse_command_frame,
     BODY_ENVELOPE_VAR: parse_body_envelope_knob,
     BODY_CAP_VAR: parse_body_cap_knob,
+    BODY_TENT_RATE_VAR: parse_body_tent_rate,
 }

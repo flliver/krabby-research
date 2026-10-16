@@ -982,6 +982,85 @@ chains:
       - turn
       floor:
         kind: none
+  BC_DX_ctrl_s18:
+    notes: 'body-cmd c6_b-stop diagnostic: 500 its from the c6_b head, c6_b overlay (control).'
+    stages:
+    - stage: c6
+      base: 1a_b
+      iters: 500
+      from_scratch: false
+      resume_from:
+        checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_06-53-27_seed18_X07_c6_A15pB/model_10996.pt
+      overlay:
+        KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+        KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+        KRABBY_OMNI_DIR_BAND: ''
+        KRABBY_YAW_W: '0.2'
+        KRABBY_OMNI_MIRROR_IMAGES: fa
+        KRABBY_RSI_FRAC: '0'
+        KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+        KRABBY_ACTION_BOUND_LOSS: '0.001'
+        KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+        KRABBY_ACTION_BOUND: '1.1'
+        KRABBY_STD_PARAM: soft
+        KRABBY_INIT_STD: '0.8'
+        KRABBY_ENTROPY_COEF: '0.0025'
+        KRABBY_ACTION_RATE_W: '0'
+        KRABBY_PPO_HAND_DIAG: '1'
+        KRABBY_OMNI_BODY_ENVELOPE: 0.05:0.168:0.21
+        KRABBY_OMNI_BODY_CAP: 0@0.21,0.22@0.105,0.3@0.065
+      eval:
+      - suite_body
+      categories:
+      - back
+      - diag
+      - fwd
+      - move_turn
+      - side
+      - stand
+      - turn
+      floor:
+        kind: none
+  BC_DX_inst_s18:
+    notes: 'body-cmd c6_b-stop diagnostic: 500 its from the c6_b head, c6_b overlay + instant tent.'
+    stages:
+    - stage: c6
+      base: 1a_b
+      iters: 500
+      from_scratch: false
+      resume_from:
+        checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_06-53-27_seed18_X07_c6_A15pB/model_10996.pt
+      overlay:
+        KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+        KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+        KRABBY_OMNI_DIR_BAND: ''
+        KRABBY_YAW_W: '0.2'
+        KRABBY_OMNI_MIRROR_IMAGES: fa
+        KRABBY_RSI_FRAC: '0'
+        KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+        KRABBY_ACTION_BOUND_LOSS: '0.001'
+        KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+        KRABBY_ACTION_BOUND: '1.1'
+        KRABBY_STD_PARAM: soft
+        KRABBY_INIT_STD: '0.8'
+        KRABBY_ENTROPY_COEF: '0.0025'
+        KRABBY_ACTION_RATE_W: '0'
+        KRABBY_PPO_HAND_DIAG: '1'
+        KRABBY_OMNI_BODY_ENVELOPE: 0.05:0.168:0.21
+        KRABBY_OMNI_BODY_CAP: 0@0.21,0.22@0.105,0.3@0.065
+        KRABBY_OMNI_BODY_TENT_RATE: instant
+      eval:
+      - suite_body
+      categories:
+      - back
+      - diag
+      - fwd
+      - move_turn
+      - side
+      - stand
+      - turn
+      floor:
+        kind: none
   BC_SMK_1b_s18:
     notes: 'body-cmd smoke (PLAN step 5): 100 its from scratch, fb6k_b overlay.'
     stages:
@@ -1154,6 +1233,12 @@ references:
   BC_p2a_s17:
     chain: BC_p2a_s17
     seed: 17
+  BC_DX_ctrl_s18:
+    chain: BC_DX_ctrl_s18
+    seed: 18
+  BC_DX_inst_s18:
+    chain: BC_DX_inst_s18
+    seed: 18
   BC_SMK_1b_s18:
     chain: BC_SMK_1b_s18
     seed: 18

@@ -24,7 +24,8 @@ echo "BCTRAIN START $(date -Is) chains=$*"
 for chain in "$@"; do
   seed=$(python3 -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['references'][sys.argv[2]]['seed'])" "$T/candidates.yaml" "$chain") || { echo "BCTRAIN STOP $chain rc=4 (unknown chain)"; exit 4; }
   while ps -eo args | grep -qE "$ISAAC_PAT"; do sleep 30; done
-  out=$("$L" --campaign-dir "$T" --reference-chain "$chain" --seed "$seed" 2>&1)
+  # BC_DRIVER_ARGS: extra run_candidates args (e.g. --accept-code-change WHY), word-split on purpose
+  out=$("$L" --campaign-dir "$T" --reference-chain "$chain" --seed "$seed" ${BC_DRIVER_ARGS:-} 2>&1)
   unit=$(printf '%s\n' "$out" | grep -E '^cands-' | head -n 1)
   [ -n "$unit" ] || { echo "BCTRAIN STOP $chain rc=4 (launcher printed no unit: $(printf '%s' "$out" | tail -n 2 | tr '\n' ' '))"; exit 4; }
   echo "BCTRAIN LAUNCH $chain seed=$seed unit=$unit $(date -Is)"

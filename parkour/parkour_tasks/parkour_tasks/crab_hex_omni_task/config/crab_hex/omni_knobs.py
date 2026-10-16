@@ -314,6 +314,8 @@ parse_command_frame = _bk.parse_command_frame
 parse_body_envelope_knob = _bk.parse_body_envelope_knob
 parse_body_cap_knob = _bk.parse_body_cap_knob
 BODY_KNOB_PARSERS = _bk.BODY_KNOB_PARSERS
+BODY_TENT_RATE_VAR = _bk.BODY_TENT_RATE_VAR
+parse_body_tent_rate = _bk.parse_body_tent_rate
 
 __all__ = [
     "SLOTS_VAR",
@@ -1418,7 +1420,8 @@ def body_frame_env_refusals(env) -> list[str]:
     env_raw, cap_raw = env.get(BODY_ENVELOPE_VAR), env.get(BODY_CAP_VAR)
     enc_raw = env.get(FACING_OBS_ENCODING_VAR)
     if frame == _bk.FRAME_WORLD:
-        for var, raw in ((BODY_ENVELOPE_VAR, env_raw), (BODY_CAP_VAR, cap_raw)):
+        for var, raw in ((BODY_ENVELOPE_VAR, env_raw), (BODY_CAP_VAR, cap_raw), (BODY_TENT_RATE_VAR,
+                                                                                 env.get(BODY_TENT_RATE_VAR))):
             if not _blank_knob(raw):
                 reasons.append(f"{var}={str(raw).strip()!r} is REFUSED in world mode ({COMMAND_FRAME_VAR} unset/world)")
         if not _blank_knob(enc_raw) and parse_facing_obs_encoding(enc_raw) == "none":
@@ -1428,6 +1431,7 @@ def body_frame_env_refusals(env) -> list[str]:
     for var, raw in ((BODY_ENVELOPE_VAR, env_raw), (BODY_CAP_VAR, cap_raw)):
         if _blank_knob(raw):
             reasons.append(f"{var} is REQUIRED in body mode (the measured envelope, PLAN D3; never a default)")
+    _bk.parse_body_tent_rate(env.get(BODY_TENT_RATE_VAR))  # ValueError on a malformed value
     for var in (FACING_VAR, FACING_OBS_CLIP_VAR, TRACK_FACING_SIGMA_VAR):
         raw = env.get(var)
         if not _blank_knob(raw):
@@ -1531,7 +1535,7 @@ def _body_reward_funcs() -> dict:
     }
 
 
-def _apply_body_reward_set(cfg, *, funcs=None) -> None:
+def _apply_body_reward_set(cfg, *, funcs=None, tent_rate: str = "window") -> None:
     """The body reward set (PLAN D4 as amended by the CHARTER 2026-10-15) -- FUNCS swapped, NAMES and
     WEIGHTS kept (the weights come from the presets / knobs; ``KRABBY_YAW_PROGRESS_W`` = 2.0 in the
     ``_b`` presets):
@@ -1552,7 +1556,9 @@ def _apply_body_reward_set(cfg, *, funcs=None) -> None:
     swaps = (
         ("reward_tracking_yaw", f["facing_func"], window_cls,
          {"window_s": float(window_cls.WINDOW_S), "sigma": float(window_cls.SIGMA)}),
-        ("reward_yaw_progress", f["progress_func"], tent_cls, {"window_s": float(tent_cls.WINDOW_S)}),
+        # ``rate`` is written ONLY when armed (KRABBY_OMNI_BODY_TENT_RATE=instant), so a default body dump is unchanged
+        ("reward_yaw_progress", f["progress_func"], tent_cls,
+         {"window_s": float(tent_cls.WINDOW_S), **({"rate": "instant"} if tent_rate == "instant" else {})}),
         ("track_ang_vel_z_exp", f["stock_ang"], f["straight_func"], {}),
     )
     for name, expected, new_func, extra in swaps:
@@ -1634,7 +1640,7 @@ def _apply_command_frame(cfg, env, *, body_api=None, reward_funcs=None) -> str:
                            "(the observation function would be called with a keyword it does not accept)")
     for _g, _t, term in terms:
         term.params["facing_obs_encoding"] = "none"
-    _apply_body_reward_set(cfg, funcs=reward_funcs)
+    _apply_body_reward_set(cfg, funcs=reward_funcs, tent_rate=_bk.parse_body_tent_rate(env.get(BODY_TENT_RATE_VAR)))
     floor = float(walk_floor(cfg.commands.base_velocity))
     cfg.omni_clock_turn_floor = floor
     print(f"[KNOB] {COMMAND_FRAME_VAR}=body consumed: robot-frame (vx, vy, wz) command, envelope "

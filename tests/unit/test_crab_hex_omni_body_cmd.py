@@ -972,7 +972,8 @@ def test_body_knob_names_parsers_and_exports():
     for name in ("COMMAND_FRAME_VAR", "BODY_ENVELOPE_VAR", "BODY_CAP_VAR", "BODY_KNOB_PARSERS",
                  "body_frame_env_refusals", "parse_command_frame"):
         assert name in knobs.__all__, name
-    assert set(knobs.BODY_KNOB_PARSERS) == {knobs.COMMAND_FRAME_VAR, knobs.BODY_ENVELOPE_VAR, knobs.BODY_CAP_VAR}
+    assert set(knobs.BODY_KNOB_PARSERS) == {knobs.COMMAND_FRAME_VAR, knobs.BODY_ENVELOPE_VAR, knobs.BODY_CAP_VAR,
+                                            knobs.BODY_TENT_RATE_VAR}
     assert knobs.parse_command_frame(None) == knobs.parse_command_frame(" ") == "world"
     assert knobs.parse_command_frame(" Body ") == "body" and knobs.parse_command_frame("world") == "world"
     for bad in ("robot", "1", "b"):
@@ -1456,3 +1457,28 @@ def test_the_real_s1_dump_is_world(rc):
     assert chk["KRABBY_OMNI_COMMAND_FRAME"](txt, "world") and not chk["KRABBY_OMNI_COMMAND_FRAME"](txt, "body")
     assert chk["KRABBY_OMNI_BODY_ENVELOPE"](txt, "") and not chk["KRABBY_OMNI_BODY_ENVELOPE"](txt, ENV_TXT)
     assert chk["KRABBY_OMNI_BODY_CAP"](txt, "") and not chk["KRABBY_OMNI_BODY_CAP"](txt, CAP_TXT)
+
+
+# ============================================================ KRABBY_OMNI_BODY_TENT_RATE (2026-10-16, c6_b stop)
+def test_tent_rate_knob_parses_and_is_refused_in_world_mode():
+    assert knobs.parse_body_tent_rate(None) == "window" and knobs.parse_body_tent_rate(" Instant ") == "instant"
+    with pytest.raises(ValueError, match="KRABBY_OMNI_BODY_TENT_RATE"):
+        knobs.parse_body_tent_rate("fast")
+    assert knobs.body_frame_env_refusals(dict(BODY_ENV, KRABBY_OMNI_BODY_TENT_RATE="instant")) == []
+    reasons = knobs.body_frame_env_refusals({"KRABBY_OMNI_BODY_TENT_RATE": "instant"})
+    assert len(reasons) == 1 and "KRABBY_OMNI_BODY_TENT_RATE" in reasons[0]
+    assert "KRABBY_OMNI_BODY_TENT_RATE" in knobs.BODY_KNOB_PARSERS
+
+
+def test_instant_income_is_one_sided_at_the_command_and_zero_on_straight_rows():
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location("_yw_instant", OMNI / "mdp/crab_hex_omni_yaw_window.py")
+    yw = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(yw)
+    wz = torch.tensor([0.0, 0.05, 0.10, 0.30, -0.10, -0.40, 0.08])
+    c = torch.tensor([0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.0])
+    out = yw.yaw_instant_income(wz, c, 0.21)
+    assert torch.allclose(out, torch.tensor([0.0, 0.05, 0.10, 0.10, -0.10, -0.21, 0.0]))
+    # the right hand is the mirror
+    assert torch.allclose(yw.yaw_instant_income(-wz, -c, 0.21), out)
+    assert out[-1].item() == 0.0 and not torch.signbit(out[-1])

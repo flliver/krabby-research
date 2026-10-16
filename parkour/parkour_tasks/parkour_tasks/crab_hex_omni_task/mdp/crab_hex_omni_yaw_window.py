@@ -127,3 +127,24 @@ def yaw_tent_income(
     p = torch.sign(cbar) * sum_ach / window_t
     value = torch.clamp(torch.minimum(p, 2.0 * torch.abs(cbar) - p), min=-w_max)
     return torch.where(cbar != 0.0, value, torch.zeros_like(value))
+
+
+def yaw_instant_income(wz: torch.Tensor, cmd_wz: torch.Tensor, w_max: float) -> torch.Tensor:
+    """The INSTANTANEOUS turn-progress income ``min(sign(c) * wz, |c|)``, clamped below at ``-w_max``, 0.0 at ``c == 0``.
+
+    ``KRABBY_OMNI_BODY_TENT_RATE=instant`` (default OFF; body-command campaign, 2026-10-16 c6_b stop). The windowed
+    tent pays the 2-s mean rate, which the policy and critic cannot observe (their history is far shorter), so its
+    credit for a rotation NOW is spread over the next 100 steps -- a non-Markov reward that GAE (lambda gamma ~ 0.94)
+    mostly misses. This form pays the CURRENT yaw rate toward the command, Markov in the observation (the base
+    angular velocity is observed), one-sided at the command: over-rotation earns nothing extra (the 2-s window term
+    still prices accuracy), wrong-way rotation is charged down to ``-w_max``. One-sided rather than the tent's
+    ``2|c| - p`` fall-off because per-step gait wobble (~0.09 rad/s std) would make a per-step tent concave: its mean
+    for a perfect tracker would sit BELOW zero at slow commands.
+    """
+    w_max = float(w_max)
+    if not (math.isfinite(w_max) and w_max > 0.0):
+        raise ValueError(f"yaw_instant_income: w_max must be finite and positive, got {w_max}")
+    p = torch.sign(cmd_wz) * wz
+    value = torch.clamp(torch.minimum(p, torch.abs(cmd_wz)), min=-w_max)
+    return torch.where(cmd_wz != 0.0, value, torch.zeros_like(value))
+

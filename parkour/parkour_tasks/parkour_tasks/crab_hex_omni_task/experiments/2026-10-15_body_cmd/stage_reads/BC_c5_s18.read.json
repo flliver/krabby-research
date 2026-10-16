@@ -1,0 +1,162 @@
+{
+  "stage": "c5_b",
+  "head": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/body_cmd_train/seed18_X06_c5_A15pB/suite__omni_body/seed001/2026-10-16_10-45-06",
+  "anchors": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/STG_c5_s16/suite__omni_body/seed001/2026-10-16_04-51-20",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/STG_c5_s17/suite__omni_body/seed001/2026-10-16_04-58-22",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/STG_c5_s18/suite__omni_body/seed001/2026-10-16_05-05-28"
+  ],
+  "categories": [
+    "back",
+    "diag",
+    "fwd",
+    "move_turn",
+    "side",
+    "stand",
+    "turn"
+  ],
+  "verdict": "NOTIFY",
+  "stop": [],
+  "notify": [
+    "diag: |ratio - 1| 0.225 > worst anchor 0.125 + max(0.02, range 0.082)",
+    "lat_l: |ratio - 1| 0.258 > worst anchor 0.027 + max(0.02, range 0.008)",
+    "lat_r: |ratio - 1| 0.315 > worst anchor 0.047 + max(0.02, range 0.034)"
+  ],
+  "table": [
+    {
+      "label": "back",
+      "survival": 1.0,
+      "anchor_survival": [
+        0.98,
+        1.0,
+        1.0
+      ],
+      "body_ratio": 0.8669223845089697,
+      "anchor_body_ratio": [
+        0.8950871718473284,
+        0.8426989749211561,
+        0.8647644509751854
+      ]
+    },
+    {
+      "label": "diag",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "body_ratio": 0.7754002204309091,
+      "anchor_body_ratio": [
+        0.9541190878984089,
+        0.9570088009974259,
+        0.8752267767793817
+      ]
+    },
+    {
+      "label": "fwd",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        0.99
+      ],
+      "body_ratio": 0.8912891357019543,
+      "anchor_body_ratio": [
+        0.961835515499115,
+        0.9192607674002647,
+        0.898799274712801
+      ]
+    },
+    {
+      "label": "lat_l",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "body_ratio": 0.7423698189766745,
+      "anchor_body_ratio": [
+        1.0264291332303768,
+        1.0188794642771506,
+        0.973418659699911
+      ]
+    },
+    {
+      "label": "lat_r",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "body_ratio": 0.6847257731401852,
+      "anchor_body_ratio": [
+        0.9525410215031691,
+        1.0133420593232252,
+        0.9563481433063065
+      ]
+    },
+    {
+      "label": "stand",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "drift": {
+    "labels": [
+      "back",
+      "diag",
+      "fwd",
+      "lat_l",
+      "lat_r",
+      "stand"
+    ],
+    "head_median": 0.0036704998005450307,
+    "head_p90": 0.018471049533174667,
+    "anchor_median": [
+      0.003027677809695888,
+      0.0029924383287470843,
+      0.003585731977582327
+    ],
+    "anchor_p90": [
+      0.008783039971360282,
+      0.00990868960401713,
+      0.012323027041915338
+    ],
+    "limit_median": 0.01,
+    "limit_p90": 0.024646054083830676
+  },
+  "turns_descriptive": {
+    "turn_l_ceiling": {
+      "survival": 1.0,
+      "net_yaw_ratio": -0.01264287214312751,
+      "yaw_ripple": 0.007918160400135002,
+      "body_ratio": null
+    },
+    "turn_r_ceiling": {
+      "survival": 1.0,
+      "net_yaw_ratio": 0.0060943764965037785,
+      "yaw_ripple": 0.008197540007295044,
+      "body_ratio": null
+    },
+    "move_turn_l": {
+      "survival": 1.0,
+      "net_yaw_ratio": -0.10963492990670422,
+      "yaw_ripple": 0.03257458766764271,
+      "body_ratio": 0.8597989683462812
+    },
+    "move_turn_r": {
+      "survival": 0.99,
+      "net_yaw_ratio": 0.11155259479549445,
+      "yaw_ripple": 0.03375692428728969,
+      "body_ratio": 0.8421567818149921
+    }
+  },
+  "low_end": null
+}
