@@ -57,9 +57,29 @@ public:
     unsigned long stallLastMoveTime = 0;
     int stallLastAppliedPwm = 0;
 
-    // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
+    // Shared physical slot pins; role election only changes the joint name.
+    struct SlotConfig
+    {
+        int pinPwmR;
+        int pinPwmL;
+        int pinEn;
+        int pinIS;
+        int pinPot;
+        int8_t hallSlot;
+    };
+
     LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
         : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot), hallSlot(hallIdx) {}
+
+    LinearActuator(const char *n, const SlotConfig &slot, const ControlConfig &cfg)
+        : name(n),
+          pinPwmR(slot.pinPwmR),
+          pinPwmL(slot.pinPwmL),
+          pinEn(slot.pinEn),
+          pinIS(slot.pinIS),
+          pinPot(slot.pinPot),
+          hallSlot(slot.hallSlot),
+          controlConfig(cfg) {}
 
     const char *getName() const
     {

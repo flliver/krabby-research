@@ -34,6 +34,32 @@ static LinearActuator makeActuator(int8_t slot = -1)
     return LinearActuator("FLHY", 0, 1, 2, 3, 4, slot);
 }
 
+static void test_slot_config_ctor_sets_pins_name_and_control_config()
+{
+    const LinearActuator::SlotConfig slot{10, 11, 12, 13, 14, 3};
+    // Wide position-error deadband: mid-travel target must not command PWM if cfg applied.
+    const LinearActuator::ControlConfig cfg(5, 10, 20, 200, 2.0f);
+    LinearActuator actuator("RLHY", slot, cfg);
+
+    TEST_ASSERT_EQUAL_STRING("RLHY", actuator.getName());
+    TEST_ASSERT_EQUAL_INT(10, actuator.pinPwmR);
+    TEST_ASSERT_EQUAL_INT(11, actuator.pinPwmL);
+    TEST_ASSERT_EQUAL_INT(12, actuator.pinEn);
+    TEST_ASSERT_EQUAL_INT(13, actuator.pinIS);
+    TEST_ASSERT_EQUAL_INT(14, actuator.pinPot);
+    TEST_ASSERT_EQUAL_INT(3, actuator.hallSlot);
+
+    analog[14] = 500;
+    actuator.init();
+    actuator.setTarget(0.6f); // raw target ~614; error ~114 < 200 deadband
+    now = 100;
+    actuator.update();
+    TEST_ASSERT_EQUAL_INT(0, actuator.currentPwm);
+    TEST_ASSERT_EQUAL_INT(0, pwm[10]);
+    TEST_ASSERT_EQUAL_INT(0, pwm[11]);
+    TEST_ASSERT_EQUAL_INT(LOW, digital[12]);
+}
+
 static void assertDrive(int extend, int retract, int enabled)
 {
     TEST_ASSERT_EQUAL_INT(extend, pwm[0]);
@@ -464,6 +490,7 @@ static void test_calibration_states_and_persistence()
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_slot_config_ctor_sets_pins_name_and_control_config);
     RUN_TEST(test_init_resets_hardware_filters_and_evidence);
     RUN_TEST(test_probe_averages_in_order_and_restores_input);
     RUN_TEST(test_sensor_update_probe_timing_and_filter_isolation);
