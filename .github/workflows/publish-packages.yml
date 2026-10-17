@@ -13,6 +13,7 @@ on:
       - 'hal-client-v*'
       - 'hal-server-v*'
       - 'compute-parkour-v*'
+      - 'data-collection-v*'
       - 'controller-v*'
       - 'hal-tools-v*'
       - 'hal-server-isaac-v*'
@@ -53,7 +54,7 @@ jobs:
           elif [[ "$TAG" == hal-server-isaac-v* ]]; then
             echo "pkg_key=hal-server-isaac" >> $GITHUB_OUTPUT
             echo "path=hal/server/isaac" >> $GITHUB_OUTPUT
-            echo "deps=hal/client hal/server compute/parkour" >> $GITHUB_OUTPUT
+            echo "deps=hal/client hal/server compute/parkour data_collection controller teleop/edge" >> $GITHUB_OUTPUT
             echo "test_path=tests/unit/hal/server/isaac/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-server-jetson-v* ]]; then
@@ -85,6 +86,12 @@ jobs:
             echo "path=compute/parkour" >> $GITHUB_OUTPUT
             echo "deps=hal/client" >> $GITHUB_OUTPUT
             echo "test_path=tests/unit/test_compute_parkour_policy.py tests/unit/test_compute_parkour_model_definition.py" >> $GITHUB_OUTPUT
+            echo "build_self_first=" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == data-collection-v* ]]; then
+            echo "pkg_key=data-collection" >> $GITHUB_OUTPUT
+            echo "path=data_collection" >> $GITHUB_OUTPUT
+            echo "deps=hal/client" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/data_collection/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == controller-v* ]]; then
             echo "pkg_key=controller" >> $GITHUB_OUTPUT
