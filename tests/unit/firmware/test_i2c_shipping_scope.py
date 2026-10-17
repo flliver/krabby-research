@@ -11,6 +11,7 @@ from firmware.sim.i2c_shipping_scope import (
 REPO = Path(__file__).resolve().parents[3]
 IMU_CONSTANTS = REPO / "firmware/arduino/src/imu/imu_constants.h"
 DISPLAY_CONSTANTS = REPO / "firmware/arduino/src/display/display_constants.h"
+INA228_CONSTANTS = REPO / "firmware/arduino/src/power/ina228_constants.h"
 
 
 def test_imu_addresses_match_imu_constants_h():
@@ -26,11 +27,19 @@ def test_oled_address_matches_display_constants_h():
     assert f"SSD1306_I2C_ADDRESS = 0x{oled.primary_address:02X}" in text
 
 
-def test_ina228_devices_marked_not_wired():
+def test_ina228_devices_marked_shipping_on_firmware():
     ina = [d for d in SHIPPING_I2C_DEVICES if "INA228" in d.name]
     assert len(ina) == 2
-    assert all(d.status is I2cSimStatus.NOT_WIRED for d in ina)
+    assert all(d.status is I2cSimStatus.SHIPPING for d in ina)
     assert all(d.primary_address in (0x40, 0x41) for d in ina)
+
+
+def test_ina228_addresses_match_ina228_constants_h():
+    text = INA228_CONSTANTS.read_text(encoding="utf-8")
+    pack = next(d for d in SHIPPING_I2C_DEVICES if d.primary_address == 0x40)
+    mid = next(d for d in SHIPPING_I2C_DEVICES if d.primary_address == 0x41)
+    assert f"INA228_PACK_ADDRESS = 0x{pack.primary_address:02X}" in text
+    assert f"INA228_MIDPOINT_ADDRESS = 0x{mid.primary_address:02X}" in text
 
 
 def test_imu_telemetry_tag_matches_firmware():

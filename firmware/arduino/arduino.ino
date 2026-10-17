@@ -9,6 +9,7 @@
 #include <math.h>
 #include "src/imu/imu_calibrator.h"
 #include "src/imu/lsm6dso_adapter.h"
+#include "src/power/ina228_adapter.h"
 #include "src/display/ssd1306_adapter.h"
 #include "src/display/display_renderer.h"
 #include "src/display/display_frame_model.h"
@@ -36,6 +37,8 @@ BoardRole currentRole = ROLE_UNKNOWN;
 ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT];
 ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount];
 ImuMeasurement latestImuMeasurement;
+BatteryMeasurement latestBatteryMeasurement;
+Ina228BatteryCluster batteryCluster;
 Ssd1306Adapter oledDisplay;
 DisplayRenderer<Ssd1306Adapter> oledRenderer(oledDisplay);
 unsigned long lastOledDrawMilliseconds = 0;
@@ -169,6 +172,20 @@ static void logImuCalibrationResult(ImuCalibrationResult result)
             Serial.println(F("IMU CAL: EEPROM verification failed; bias left at zero."));
             break;
     }
+}
+
+static void batterySetup()
+{
+    const Ina228InitializationResult initResult = batteryCluster.initialize();
+    if (initResult == Ina228InitializationResult::Ok) return;
+
+    if (initResult == Ina228InitializationResult::NotDetected)
+    {
+        Serial.println(F("BATT: INA228 pack/midpoint not detected; omitting BATT segment."));
+        return;
+    }
+
+    Serial.println(F("BATT: INA228 detected but pack shunt configuration failed."));
 }
 
 static void imuSetup()
@@ -327,6 +344,7 @@ void setup()
         pinMode(STATUS_LED_PIN, OUTPUT);
         digitalWrite(STATUS_LED_PIN, LOW);
         imuSetup();
+        batterySetup();
         if (!oledRenderer.initialize())
             Serial.println(F("OLED: initialization failed at 0x3D."));
     }
@@ -509,6 +527,11 @@ void loop()
         controllerFreshnessTrackers[ROLE_FRONT] =
             ControllerFreshnessTracker::seenAt(nowMilliseconds);
 
+        if (batteryCluster.isOnline())
+        {
+            latestBatteryMeasurement = batteryCluster.measure();
+        }
+
         DisplayFrame displayFrame = buildDisplayFrame(
             currentRole,
             controllerFreshnessTrackers,
@@ -517,6 +540,14 @@ void loop()
             nowMilliseconds,
             ACTUATOR_CONFIG.pwmDeadband
         );
+        if (batteryCluster.isOnline() && latestBatteryMeasurement.didSucceed())
+        {
+            const Volts batteryVoltage[2] = {
+                Volts(latestBatteryMeasurement.battAVolts),
+                Volts(latestBatteryMeasurement.battBVolts),
+            };
+            setBatteryVoltages(displayFrame, batteryVoltage);
+        }
 
         const bool isActuatorDisconnected = hasDisconnectedActuator(displayFrame);
         digitalWrite(STATUS_LED_PIN, isActuatorDisconnected ? HIGH : LOW);
@@ -552,6 +583,11 @@ void loop()
             const ImuMeasurement measurement = imuSensor.measure();
             latestImuMeasurement = measurement;
             appendImuMeasurement(*mainSerial, measurement);
+            if (batteryCluster.isOnline())
+            {
+                latestBatteryMeasurement = batteryCluster.measure();
+                appendBatteryMeasurement(*mainSerial, latestBatteryMeasurement);
+            }
         }
         mainSerial->println();
         mainSerial->flush();  // ensure full line is sent before next loop (avoids two "LEFT;" in one buffer on host)

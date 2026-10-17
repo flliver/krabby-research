@@ -66,9 +66,12 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         primary_address=0x40,
         alternate_address=None,
         leader_only=True,
-        status=I2cSimStatus.NOT_WIRED,
-        firmware_sources=(),
-        notes="Host sim probes 0x40; shipping Mega firmware does not include INA228 driver yet.",
+        status=I2cSimStatus.SHIPPING,
+        firmware_sources=(
+            "firmware/arduino/src/power/ina228_adapter.h",
+            "firmware/arduino/arduino.ino (batterySetup, appendBatteryMeasurement)",
+        ),
+        notes="Pack shunt monitor; setShunt(0.000375 ohm, 200 A) on leader bring-up.",
         telemetry_segment=";BATT <pack_v> <pack_i> <pack_w> <pack_charge> <batt_a_v> <batt_b_v> <div> <pwr>",
     ),
     I2cDeviceScope(
@@ -76,9 +79,12 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         primary_address=0x41,
         alternate_address=None,
         leader_only=True,
-        status=I2cSimStatus.NOT_WIRED,
-        firmware_sources=(),
-        notes="Host sim probes 0x41 midpoint; OLED bars still use placeholders until firmware reads it.",
+        status=I2cSimStatus.SHIPPING,
+        firmware_sources=(
+            "firmware/arduino/src/power/ina228_adapter.h",
+            "firmware/arduino/src/power/ina228_constants.h",
+        ),
+        notes="Midpoint VBUS for per-cell voltage; batt_b = pack_v - batt_a_v.",
         telemetry_segment=None,
     ),
 )

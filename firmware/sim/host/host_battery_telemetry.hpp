@@ -22,27 +22,26 @@ private:
 
 HostLeaderBattery &leaderBattery();
 
+inline BatteryMeasurement batteryMeasurementFromSim(const SimBatteryTelemetry &sample)
+{
+    BatteryMeasurement out{};
+    if (!sample.valid) return out;
+    out.packVolts = sample.packVolts;
+    out.packAmps = sample.packAmps;
+    out.packWatts = sample.packWatts;
+    out.packChargeCoulombs = sample.packChargeCoulombs;
+    out.battAVolts = sample.battAVolts;
+    out.battBVolts = sample.battBVolts;
+    out.divergenceFlag = sample.divergenceFlag;
+    out.powerState = sample.powerState;
+    out.valid = true;
+    return out;
+}
+
 template <typename Output>
 void appendBatteryTelemetry(Output &output, const SimBatteryTelemetry &sample)
 {
-    output.print(TELEMETRY_SEGMENT_DELIMITER);
-    output.print(BATT_TELEMETRY_TAG);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(sample.packVolts, 2);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(sample.packAmps, 3);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(sample.packWatts, 2);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(sample.packChargeCoulombs, 1);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(sample.battAVolts, 2);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(sample.battBVolts, 2);
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(static_cast<int>(sample.divergenceFlag));
-    output.print(TELEMETRY_FIELD_SEPARATOR);
-    output.print(static_cast<int>(sample.powerState));
+    appendBatteryMeasurement(output, batteryMeasurementFromSim(sample));
 }
 
 }  // namespace host

@@ -135,6 +135,7 @@ LSM6DSO_LIB_DIR := SparkFun_Qwiic_6Dof_-_LSM6DSO
 # Versions from 1.0.14 compile a CH1120 driver that includes C++ <map>, which the
 # AVR toolchain lacks. 1.0.13 is the last that builds for AVR.
 OLED_LIB := SparkFun Qwiic OLED Arduino Library@1.0.13
+INA228_LIB := Adafruit INA228 Library@3.0.0
 
 fetch-libs:
 	@installed="$$($(ARDUINO_CLI) config get directories.user)/libraries/$(LSM6DSO_LIB_DIR)"; \
@@ -146,6 +147,7 @@ fetch-libs:
 		echo "$(LSM6DSO_LIB_REF)" > "$$installed/.krabby-pin"; \
 	fi
 	$(ARDUINO_CLI) lib install "$(OLED_LIB)"
+	$(ARDUINO_CLI) lib install "$(INA228_LIB)"
 
 compile-firmware: arduino-core fetch-libs
 	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(BUILD_PROPS) --output-dir "$(BUILD_DIR)" $(SKETCH)

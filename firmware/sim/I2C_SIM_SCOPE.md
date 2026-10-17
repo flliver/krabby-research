@@ -30,8 +30,8 @@ Host role election treats FRONT as IMU-capable via `hostBoardHasFrontImu()` (see
 |--------|-------------|----------|-----------------|
 | IMU (SparkFun LSM6DSO) | **`0x6B`** / **`0x6A`** (ADR jumper) | `lsm6dso_adapter.h`, `hasFrontImu()` | LSM6DSO register model; burst from **`0x20`** |
 | OLED (SSD1306) | **`0x3D`** / **`0x3C`** (jumper) | `Ssd1306Adapter`, `SparkFun_Qwiic_OLED` | SSD1306 command/data stream; preview in [`firmware/oled_sim/`](../oled_sim/) |
-| Pack INA228 | **`0x40`** | Not probed on Mega yet | ACK + `;BATT` via `sim_battery_model` |
-| Midpoint INA228 | **`0x41`** | Not probed on Mega yet | ACK; midpoint fields in `;BATT` |
+| Pack INA228 | **`0x40`** | `ina228_adapter.h` (Adafruit driver, external shunt) | ACK + `;BATT` via `sim_battery_model` |
+| Midpoint INA228 | **`0x41`** | Same cluster as pack monitor | ACK; midpoint fields in `;BATT` |
 
 Unlisted addresses (for example **`0x68`**) are not on the leader bus inventory and
 **NACK** in host sim (`test_host_i2c.cpp`). Full list: [`i2c_shipping_scope.py`](i2c_shipping_scope.py).
@@ -47,7 +47,7 @@ There is **no** central `sensors_config.h` in the tree; constants live in `imu_c
 |---------|----------------------|----------|---------------|
 | Joints | `FRONT;` + 6 nine-token segments | `actuator_manager.h` | `joint_telemetry.py` |
 | IMU | `;IMU ax ay az gx gy gz temp valid` | `appendImuMeasurement()` in `telemetry.h` | `imu_telemetry.py`, `TelemetryFrame` |
-| BATT | `;BATT ...` (documented pack schema) | **Absent** | **`battery_telemetry.py` + host append** |
+| BATT | `;BATT ...` (documented pack schema) | Leader **`appendBatteryMeasurement`** when INA228 online | Host append when sim devices present |
 
 IMU units on the wire: accel **m/s^2**, gyro **rad/s**, temp **deg C**, `valid` **0|1**.
 When init fails, firmware still appends IMU with zeros and `valid=0` (does not stall the loop).
@@ -101,5 +101,5 @@ Three-board health screen (controller thirds + missing follower):
 pytest tests/unit/firmware/test_i2c_shipping_scope.py -v
 ```
 
-Keeps Python inventory aligned with `imu_constants.h` / `display_constants.h`. Host `Wire`
-addresses include sim INA228 at `0x40`/`0x41` even though Mega sketch does not probe them yet.
+Keeps Python inventory aligned with `imu_constants.h`, `display_constants.h`, and
+`ina228_constants.h`. Host `Wire` uses the same `0x40`/`0x41` addresses as shipping firmware.
