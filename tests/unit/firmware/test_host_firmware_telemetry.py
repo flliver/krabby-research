@@ -102,3 +102,36 @@ def test_left_prefix_golden_line_parses_without_parser_changes():
     frame = TelemetryFrame.parse_line(GOLDEN_LEFT_PREFIX_LINE)
     assert len(frame.joints) == 1
     assert frame.joints[0].name == "RLHY"
+
+
+def _advance_until_front_telemetry(host, *, max_ticks: int = 30) -> str:
+    for _ in range(max_ticks):
+        host.advance_millis(10)
+        host.firmware_loop_once()
+        if host.serial_usb_tx_available():
+            line = _read_usb_line(host)
+            if line.startswith("FRONT;"):
+                return line
+    raise AssertionError("no FRONT telemetry line on USB serial")
+
+
+def test_front_telemetry_en_fields_follow_jog_on_usb_serial(host):
+    """``printTelemetry`` enL/enR on the role-prefixed USB line track ``digitalRead(pinEn)``."""
+    host.reset()
+    _stage_front_board_sensors(host)
+    host.firmware_setup()
+    _drain_usb_tx(host)
+
+    host.serial_usb_rx_write(b"JFLHY 180\n")
+    line = _advance_until_front_telemetry(host)
+    assert TelemetryFrame.role_from_line(line) == "FRONT"
+    flhy = next(j for j in TelemetryFrame.parse_line(line).joints if j.name == "FLHY")
+    assert flhy.en == (1, 1)
+
+    host.serial_usb_rx_write(b"JFLHY 0\n")
+    for _ in range(30):
+        host.advance_millis(10)
+        host.firmware_loop_once()
+    line = _advance_until_front_telemetry(host)
+    flhy = next(j for j in TelemetryFrame.parse_line(line).joints if j.name == "FLHY")
+    assert flhy.en == (0, 0)
