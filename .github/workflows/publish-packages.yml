@@ -130,14 +130,17 @@ jobs:
 
       - name: Build and install dependency wheels
         run: |
+          ROOT="$GITHUB_WORKSPACE"
+          build_install() {
+            echo "Building and installing $1..."
+            (cd "$ROOT/$1" && python -m build --wheel --no-isolation && pip install dist/*.whl)
+          }
           if [[ -n "${{ steps.pkg.outputs.build_self_first }}" ]]; then
-            echo "Building and installing ${{ steps.pkg.outputs.build_self_first }} first..."
-            cd "${{ steps.pkg.outputs.build_self_first }}" && python -m build --wheel --no-isolation && pip install dist/*.whl && cd ../..
+            build_install "${{ steps.pkg.outputs.build_self_first }}"
           fi
           for dep in ${{ steps.pkg.outputs.deps }}; do
             if [[ -n "$dep" ]]; then
-              echo "Building and installing $dep..."
-              cd "$dep" && python -m build --wheel --no-isolation && pip install dist/*.whl && cd ../..
+              build_install "$dep"
             fi
           done
 
