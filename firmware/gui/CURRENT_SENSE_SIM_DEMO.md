@@ -21,6 +21,9 @@ export RUN_FIRMWARE_ISAAC=1
 pytest tests/integration/firmware/test_gui_current_sense_sdk.py -v
 ```
 
+Covers idle **0**, moving **~2**, ground **~4**, and lift **~30** bands on the SDK path and
+GUI **Cur** text (`str(jt.current)` in ``JointRow.update_from_telemetry``, headless in pytest).
+
 ## Manual demo checklist
 
 Run the Isaac PTY host (headless sim + serial port). It prints the slave path and keeps
