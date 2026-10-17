@@ -81,8 +81,33 @@ python -m hal.server.isaac.main \
 - `--inference_device`: Device for inference, `cuda` or `cpu` (default: cuda)
 - `--observation_bind`: Observation endpoint (default: `inproc://hal_observation`)
 - `--command_bind`: Command endpoint (default: `inproc://hal_commands`)
+- `--backend`: `direct` (default) or `fullsim` (three-board host firmware on the hex env)
+- `--firmware-transport`: with `fullsim`, `in_process` (default) or `serial_sdk` (KrabbyMCUSDK over PTY)
 
 Plus all AppLauncher arguments for IsaacSim configuration.
+
+### Fullsim firmware transport (crab hex)
+
+**`--backend fullsim`** runs three-board host firmware on the hex scene (18 DOFs). Default
+**`--firmware-transport in_process`** is usually enough; use **`serial_sdk`** only when you
+need the Jetson/GUI pyserial path in the loop.
+
+| Transport | Behavior | Pick when |
+|-----------|----------|-----------|
+| **`in_process`** (default) | Host bridge jog + firmware tick; no PTY | Policy/firmware Isaac work, throughput (`test_hal_fullsim_teleop_e2e.py`) |
+| **`serial_sdk`** | **`KrabbyMCUSDK`** over PTY (`B`/`J`/`H` wire) | Debug teleop, SDK reader, serial framing before hardware (`test_hal_fullsim_serial_sdk.py`; Unix PTY only) |
+| **`direct`** backend (no fullsim) | Isaac actions only, no host firmware | Default HAL; not a `--firmware-transport` target |
+
+```bash
+python -m hal.server.isaac.main --task <crab-hex-task> --backend fullsim \
+  --firmware-transport in_process …
+```
+
+Jetson production opens real USB with **`KrabbyMCUSDK`**; it does not use these flags.
+**`serial_sdk`** on Isaac uses sparse `B` batches on the PTY shim; Jetson still sends full
+18-joint batches on hardware USB. PTY setup for GUI/scripts:
+[`firmware/sim/VIRTUAL_SERIAL.md`](../../../firmware/sim/VIRTUAL_SERIAL.md). Isaac firmware
+pytest: `./images/isaacsim/run_firmware_isaac_pytest.sh` (mounts live `hal/` / `compute/`).
 
 ## Components
 

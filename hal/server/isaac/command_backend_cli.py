@@ -26,7 +26,7 @@ def add_command_backend_arguments(parser: argparse.ArgumentParser) -> None:
         dest="firmware_transport",
         help=(
             "When --backend fullsim: in_process (host jog, default) or serial_sdk "
-            "(KrabbyMCUSDK over PTY, same wire protocol as Jetson)."
+            "(KrabbyMCUSDK over PTY, Jetson wire). See hal/server/isaac/README.md."
         ),
     )
 
