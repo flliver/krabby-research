@@ -2,10 +2,39 @@
 
 from __future__ import annotations
 
-# Placeholder until a stop-to-stop ``saf`` delta is measured on hardware (fleet
-# telemetry while jogging one joint min→max) or supplied by the mechanical team.
-# Replace with measured stop-to-stop encoder triggers when available.
-DEFAULT_HALL_EDGES_PER_FULL_TRAVEL = 3200
+import json
+import os
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
+_SCALE_JSON = Path(__file__).with_name("hall_encoder_scale.json")
+_FALLBACK_EDGES_PER_FULL_TRAVEL = 3200
+
+
+@lru_cache(maxsize=1)
+def load_hall_encoder_scale(path: Path | None = None) -> dict[str, Any]:
+    """Load ``hall_encoder_scale.json`` (cached)."""
+    scale_path = path or _SCALE_JSON
+    with scale_path.open(encoding="utf-8") as fh:
+        data = json.load(fh)
+    if "edges_per_full_travel" not in data:
+        raise KeyError(f"{scale_path}: missing edges_per_full_travel")
+    return data
+
+
+def resolve_hall_edges_per_full_travel(*, scale_path: Path | None = None) -> int:
+    """Effective stop-to-stop edge count for sim hall synthesis."""
+    override = os.environ.get("KRABBY_HALL_EDGES_PER_FULL_TRAVEL", "").strip()
+    if override:
+        return int(override)
+    try:
+        return int(load_hall_encoder_scale(scale_path)["edges_per_full_travel"])
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return _FALLBACK_EDGES_PER_FULL_TRAVEL
+
+
+DEFAULT_HALL_EDGES_PER_FULL_TRAVEL = resolve_hall_edges_per_full_travel()
 
 
 def edges_for_angle_delta(

@@ -59,3 +59,9 @@ python -m firmware.sim.wrench_tuning_viewer
 ```
 
 Focus the terminal for keys: **e** / **r** jog extend/retract, **space** coast, **q** quit. Each printed line shows effective load (N) with wrench vs effort breakdown when both are available, mapped ADC, host `analogRead` shim value, joint velocity, and EN — adjust constants until idle / swing / contact / lift match ~0, ~2, ~4, and ~30.
+
+## Hall encoder scale (`saf`)
+
+Simulated hall edges per stop-to-stop travel live in `hall_encoder_scale.json` (loaded by `hall_encoder.py` and mirrored in `host/hall_encoder_scale.hpp`). Until a physical stop-to-stop measurement is committed, the file keeps the documented placeholder **3200**. After measuring `saf` on real hardware (one joint, mechanical min to max), update `edges_per_full_travel` in the JSON and set the same value on `kHallEdgesPerFullTravel` in `host/hall_encoder_scale.hpp`.
+
+Override at runtime without editing JSON: `KRABBY_HALL_EDGES_PER_FULL_TRAVEL=<n>`.
