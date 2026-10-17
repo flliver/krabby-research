@@ -1339,3 +1339,19 @@ def test_trim_diagnostic_histograms_on_a_hand_set_step(CORE, classes, cfg, nets_
     assert r["rh_toward_home"]["median"] == pytest.approx(0.1) and r["ratio"] == pytest.approx(
         r["exec_toward_home"]["median"] / 0.1)
     assert tr.trim_loaded.startswith("probe foot_loaded")
+
+
+# ===================================================================================== the warm start (Task 4, DESIGN B6)
+def test_explicit_default_warm_start_is_the_default_build(CORE, classes, cfg, nets_proto):
+    """sh_dagger.py passes (STAND_NET_CKPT, STAND_NET_SHA256) when --warm-start is unset: the build is the default's."""
+    same = CORE.build_networks(classes[0], classes[1], cfg, SC.S1_CKPT, "cpu",
+                               warm_path=CORE.SH.STAND_NET_CKPT, warm_sha=CORE.SH.STAND_NET_SHA256)
+    a, b = nets_proto.student.state_dict(), same.student.state_dict()
+    assert a.keys() == b.keys() and all(torch.equal(a[k], b[k]) for k in a)
+    assert same.warm == nets_proto.warm
+
+
+def test_warm_start_with_a_wrong_sha_is_refused(CORE, classes, cfg, nets_proto):
+    with pytest.raises(Exception, match="sha"):
+        CORE.build_networks(classes[0], classes[1], cfg, SC.S1_CKPT, "cpu",
+                            warm_path=CORE.SH.STAND_NET_CKPT, warm_sha="0" * 64)

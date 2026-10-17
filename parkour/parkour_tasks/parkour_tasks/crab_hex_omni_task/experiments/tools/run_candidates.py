@@ -2202,6 +2202,72 @@ def _body_tent_rate_ok(txt: str, value) -> bool:
     return params.get("rate") == "instant" if rate == "instant" else "rate" not in params
 
 
+def _payload():
+    """``payload_knobs`` (M18 Task 4 M1a, 2026-10-16), reached through the path-loaded ``omni_knobs``."""
+    return knobs()._pk
+
+
+def _payload_params(txt: str):
+    """``events.payload_reset.params`` of a dump (``None`` when the term or its params is absent)."""
+    params = _dig(_dump_doc(txt), "events", _payload().PAYLOAD_EVENT, "params")
+    return params if isinstance(params, dict) else None
+
+
+def _payload_kg_ok(txt: str, value) -> bool:
+    """``KRABBY_PAYLOAD_KG`` (M18 Task 4 M1a, 2026-10-16): blank = ``events.payload_reset`` ABSENT (the knob-off
+    dump, byte-identical to one built before the knob existed); ``lo:hi`` = the term present with the payload func,
+    mode ``reset``, the ``robot`` asset's ``body`` link, ``params.kg_range == (lo, hi)`` and ``params.box_size`` the
+    deck box (``payload_knobs.PAYLOAD_BOX_SIZE_M``). The dump writes both tuples as ``!!python/tuple``; the plain-data
+    loader reads them as lists."""
+    pk = _payload()
+    kg = pk.parse_payload_kg(value)
+    term = _dig(_dump_doc(txt), "events", pk.PAYLOAD_EVENT)
+    if kg is None:
+        return term is None
+    if not isinstance(term, dict):
+        return False
+    params = term.get("params")
+    if not isinstance(params, dict) or not str(term.get("func") or "").endswith(":" + pk.PAYLOAD_EVENT):
+        return False
+    asset = params.get("asset_cfg") if isinstance(params.get("asset_cfg"), dict) else {}
+    if term.get("mode") != "reset" or asset.get("name") != pk.PAYLOAD_ASSET:
+        return False
+    if asset.get("body_names") not in (pk.PAYLOAD_BODY, [pk.PAYLOAD_BODY]):
+        return False
+    rng, box = params.get("kg_range"), params.get("box_size")
+    if not isinstance(rng, list) or len(rng) != 2 or not all(_same(g, w) for g, w in zip(rng, kg)):
+        return False
+    return (isinstance(box, list) and len(box) == 3
+            and all(_same(g, w) for g, w in zip(box, pk.PAYLOAD_BOX_SIZE_M)))
+
+
+def _payload_param_ok(key: str, parse):
+    """The three companion knobs: ``params.<key>`` of the armed term equals the parsed value (1e-9). A companion is
+    never set without ``KRABBY_PAYLOAD_KG`` (:func:`_check_payload_composition` refuses it at compose time), so a dump
+    without the term fails this check."""
+    def ok(txt: str, value) -> bool:
+        params = _payload_params(txt)
+        return params is not None and _same(params.get(key), parse(value))
+    return ok
+
+
+def _check_payload_composition(env: dict, where: str, reasons: list) -> None:
+    """``KRABBY_PAYLOAD_KG`` needs all three companions in the SAME composed stage env, and none of the companions
+    may be set without it (``payload_knobs.parse_payload_knobs``: the very function the env builder raises with,
+    run at COMPOSE time so a half-stated payload is refused at ``--dry-run`` rather than at config build on a booked
+    GPU). A malformed value is left to ``_check_knob``'s parser check."""
+    pk = _payload()
+    sub = {k: env.get(k) for k in pk.PAYLOAD_VARS if env.get(k) is not None}
+    if not sub:
+        return
+    try:
+        pk.parse_payload_knobs(sub)
+    except ValueError as exc:
+        msg = str(exc)
+        if "needs" in msg or "set but" in msg:
+            reasons.append(f"{where}: {msg}")
+
+
 def _check_body_frame_composition(env: dict, where: str, reasons: list) -> None:
     """The command-frame cross-knob rules on a COMPOSED stage env (2026-10-15, STEP1_SPEC §1 / §7).
 
@@ -2928,6 +2994,12 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_OMNI_BODY_CAP": _body_cap_ok,
     # 2026-10-16 (c6_b-stop diagnostic): the body tent's rate
     "KRABBY_OMNI_BODY_TENT_RATE": _body_tent_rate_ok,
+    # ---- M18 Task 4 pipeline (step 6; the M1a payload knobs, payload_knobs.py). Env side: params/env.yaml
+    # events.payload_reset (absent while KRABBY_PAYLOAD_KG is blank; kg_range / box_size dumped as !!python/tuple).
+    "KRABBY_PAYLOAD_KG": _payload_kg_ok,
+    "KRABBY_PAYLOAD_ZERO_FRAC": _payload_param_ok("zero_frac", lambda v: _payload().parse_payload_zero_frac(v)),
+    "KRABBY_PAYLOAD_COM_XY": _payload_param_ok("com_xy", lambda v: _payload().parse_payload_com_xy(v)),
+    "KRABBY_PAYLOAD_COM_Z": _payload_param_ok("com_z", lambda v: _payload().parse_payload_com_z(v)),
 }
 
 
@@ -3212,6 +3284,9 @@ def knob_parsers() -> dict:
         # NOTE(body-frame command mode, 2026-10-15): the three command-frame knobs' own parsers
         # (re-exported by omni_knobs from body_knobs.py).
         **k.BODY_KNOB_PARSERS,
+        # NOTE(M18 Task 4 pipeline step 6, 2026-10-16): the four M1a payload knobs' own parsers (re-exported by
+        # omni_knobs from payload_knobs.py); the KG-needs-its-companions rule is _check_payload_composition.
+        **k.PAYLOAD_KNOB_PARSERS,
     }
     _KNOB_PARSERS_CACHE = table
     return table
@@ -3603,6 +3678,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
             _check_field_geom_composition(stage_env_, where, r)
             _check_cmd_obs_mirror_composition(stage_env_, where, r)
             _check_body_frame_composition(stage_env_, where, r)
+            _check_payload_composition(stage_env_, where, r)
             _check_rsi_cam_stage_composition(stage_env_, where, r)
             _check_restance_composition(stage_env_, where, r)
             _check_bc_composition(stage_env_, where, r)
@@ -3838,6 +3914,7 @@ def validate_candidates(cands: dict, *, strict: bool = True, check_replay: bool 
                 _check_field_geom_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_cmd_obs_mirror_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_body_frame_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
+                _check_payload_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
                 _check_rsi_cam_stage_composition(senv, f"{cid} on {chain_name} stage {sname}", r)
         r = list(dict.fromkeys(r))          # one reason per distinct message, in order
         verdicts.append({"id": cid, "ok": not r, "deferred": deferred, "reasons": r, "notes": n})

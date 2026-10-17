@@ -100,6 +100,94 @@ S1_OVERLAY = {
     "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
     "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
 }
+#: the REFS head name the readers (sn_calib NAMES["REFS"], sh_read's K5 refs sha) anchor on
+REFS_NAME = "REFS_S1_s18"
+
+# ===================================================================================== the walker override (Task 4)
+#: NOTE(M18 Task 4 pipeline step 6, 2026-10-16; DESIGN B6 "stand on a new walker"): ONE override, the environment
+#: variable ``SN_WALKER_SPEC`` = a JSON object. UNSET (or blank) -> every constant above stays EXACTLY what it is
+#: (today's behaviour: S1 s18, REFS_S1_s18, P2__S1_s18). SET -> its keys replace :data:`WALKER_SPEC_KEYS` (all
+#: required except ``S1_AGENT_YAML``, which defaults to ``<S1_CKPT dir>/params/agent.yaml``); paths absolute. The
+#: override walker's overlay must carry the SAME command pool and slots as P2__S1_s18 (the stand-0.5 POOL / SLOTS
+#: below are derived from them) and no ``KRABBY_PAYLOAD_*`` key (the stand nets train and are read at 0 kg).
+#: A malformed override RAISES at import: the trainer, the launchers' --emit-env and the readers all stop before Kit.
+WALKER_SPEC_VAR = "SN_WALKER_SPEC"
+WALKER_SPEC_KEYS = ("S1_CKPT", "S1_SHA256", "S1_AGENT_YAML", "REFS_ENV_STAMP", "CANDIDATES", "OVERLAY_CHAIN",
+                    "S1_OVERLAY", "REFS_NAME")
+_WALKER_SPEC_OPTIONAL = ("S1_AGENT_YAML",)
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def walker_spec_override(environ=None) -> dict | None:
+    """``SN_WALKER_SPEC`` parsed and checked -> ``{key: value}`` (paths as :class:`Path`), or None when unset."""
+    import os  # noqa: PLC0415  (stdlib)
+
+    env = os.environ if environ is None else environ
+    raw = env.get(WALKER_SPEC_VAR)
+    if raw is None or not str(raw).strip():
+        return None
+    try:
+        spec = json.loads(raw)
+    except ValueError as exc:
+        raise ValueError(f"{WALKER_SPEC_VAR} is not JSON: {exc}") from exc
+    if not isinstance(spec, dict):
+        raise ValueError(f"{WALKER_SPEC_VAR} must be a JSON object, got {type(spec).__name__}")
+    unknown = sorted(set(spec) - set(WALKER_SPEC_KEYS))
+    if unknown:
+        raise ValueError(f"{WALKER_SPEC_VAR}: unknown key(s) {unknown}; known: {list(WALKER_SPEC_KEYS)}")
+    missing = [k for k in WALKER_SPEC_KEYS if k not in spec and k not in _WALKER_SPEC_OPTIONAL]
+    if missing:
+        raise ValueError(f"{WALKER_SPEC_VAR}: missing key(s) {missing} (an override states the whole walker)")
+    out: dict = {}
+    for k in ("S1_CKPT", "S1_AGENT_YAML", "REFS_ENV_STAMP", "CANDIDATES"):
+        if k not in spec:
+            continue
+        p = Path(str(spec[k]))
+        if not p.is_absolute():
+            raise ValueError(f"{WALKER_SPEC_VAR}: {k} must be an absolute path, got {spec[k]!r}")
+        out[k] = p
+    out.setdefault("S1_AGENT_YAML", out["S1_CKPT"].parent / "params" / "agent.yaml")
+    sha = str(spec["S1_SHA256"]).strip().lower()
+    if not _HEX64.match(sha):
+        raise ValueError(f"{WALKER_SPEC_VAR}: S1_SHA256 must be 64 hex characters, got {spec['S1_SHA256']!r}")
+    out["S1_SHA256"] = sha
+    for k in ("OVERLAY_CHAIN", "REFS_NAME"):
+        v = str(spec[k]).strip()
+        if not re.match(r"^[A-Za-z0-9_]+$", v):
+            raise ValueError(f"{WALKER_SPEC_VAR}: {k} must be [A-Za-z0-9_]+, got {spec[k]!r}")
+        out[k] = v
+    ov = spec["S1_OVERLAY"]
+    if not isinstance(ov, dict) or not all(isinstance(k, str) for k in ov):
+        raise ValueError(f"{WALKER_SPEC_VAR}: S1_OVERLAY must be an object of KRABBY_* -> string")
+    ov = {str(k): ("" if v is None else str(v)) for k, v in ov.items()}
+    bad = sorted(k for k in ov if not k.startswith("KRABBY_"))
+    if bad:
+        raise ValueError(f"{WALKER_SPEC_VAR}: S1_OVERLAY keys must be KRABBY_*, got {bad}")
+    pay = sorted(k for k in ov if k.startswith("KRABBY_PAYLOAD_"))
+    if pay:
+        raise ValueError(f"{WALKER_SPEC_VAR}: S1_OVERLAY carries {pay}: the stand nets train and are read at 0 kg "
+                         "(pass the walker's p2a overlay, without the payload knobs)")
+    for k in ("KRABBY_OMNI_CMD_POOL", "KRABBY_OMNI_SLOTS"):
+        if ov.get(k) != _S1_OVERLAY_DEFAULT.get(k):
+            raise ValueError(f"{WALKER_SPEC_VAR}: S1_OVERLAY {k}={ov.get(k)!r} differs from P2__S1_s18's "
+                             f"{_S1_OVERLAY_DEFAULT.get(k)!r}: the stand-0.5 POOL / SLOTS are derived from it")
+    out["S1_OVERLAY"] = ov
+    return out
+
+
+_S1_OVERLAY_DEFAULT = dict(S1_OVERLAY)
+#: the parsed override (None = today's constants), recorded by whoever reports the walker
+WALKER_OVERRIDE = walker_spec_override()
+if WALKER_OVERRIDE is not None:
+    S1_CKPT = WALKER_OVERRIDE["S1_CKPT"]
+    S1_SHA256 = WALKER_OVERRIDE["S1_SHA256"]
+    S1_AGENT_YAML = WALKER_OVERRIDE["S1_AGENT_YAML"]
+    REFS_ENV_STAMP = WALKER_OVERRIDE["REFS_ENV_STAMP"]
+    CANDIDATES = WALKER_OVERRIDE["CANDIDATES"]
+    OVERLAY_CHAIN = WALKER_OVERRIDE["OVERLAY_CHAIN"]
+    S1_OVERLAY = dict(WALKER_OVERRIDE["S1_OVERLAY"])
+    REFS_NAME = WALKER_OVERRIDE["REFS_NAME"]
+
 #: PLAN D2: stand share 0.5 (stand weight 0.85 against S1's other weights, within-slot proportions kept) with the
 #: MATCHING slot projection (map T3: a pool without SLOTS falls back to the legacy sampler silently; a mismatch is loud).
 POOL = ("stand:0.85,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,"

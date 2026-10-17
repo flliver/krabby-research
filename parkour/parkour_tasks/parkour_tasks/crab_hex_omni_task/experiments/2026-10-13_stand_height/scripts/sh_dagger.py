@@ -100,6 +100,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--deadband", type=float, default=0.0)
     ap.add_argument("--trim-branch", dest="trim_branch", action="store_true", default=False)
     ap.add_argument("--trim-min", dest="trim_min", type=float, default=None)
+    # NOTE(M18 Task 4 pipeline step 6, 2026-10-16; DESIGN B6): the warm start, default the pinned A-mask s17
+    # (sh_core.STAND_NET_CKPT / STAND_NET_SHA256: unset = today's run exactly); both flags together or neither
+    ap.add_argument("--warm-start", dest="warm_start", default=None)
+    ap.add_argument("--warm-sha", dest="warm_sha", default=None)
     ap.add_argument("--emit-env", dest="emit_env", action="store_true", default=False)
     ap.add_argument("--read", default=None)
     ap.add_argument("--premise", default=None)
@@ -112,7 +116,7 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     o, rest = ap.parse_known_args(list(argv))
     stray = [a for a in rest if a.startswith(("--mode", "--arm", "--seed", "--iter", "--num", "--out", "--smoke",
                                               "--buffer", "--emit", "--read", "--premise", "--deadband",
-                                              "--trim"))]
+                                              "--trim", "--warm"))]
     if stray:
         raise SystemExit(f"sh_dagger: malformed argument(s) {stray}")
     if o.emit_env or o.read:
@@ -138,7 +142,32 @@ def parse(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     if bad:
         raise SystemExit("sh_dagger: --out refused (the checkpoints go to an unquoted launcher argument): "
                          + "; ".join(bad))
+    o.warm_start, o.warm_sha = warm_start_args(o.warm_start, o.warm_sha)
     return o, rest
+
+
+def warm_start_args(path, sha) -> tuple:
+    """``--warm-start`` / ``--warm-sha`` -> (Path, sha) or (None, None) for the pinned default. Both or neither; the
+    path absolute and shell-safe (it is recorded and re-read); the sha 64 lower-case hex. Pre-Kit refusals."""
+    if path is None and sha is None:
+        return None, None
+    if path is None or sha is None:
+        raise SystemExit("sh_dagger: --warm-start and --warm-sha go together (the sha pins the file the run warms "
+                         "from)")
+    bad = SPEC.path_reasons(path)
+    if bad:
+        raise SystemExit("sh_dagger: --warm-start refused: " + "; ".join(bad))
+    s = str(sha).strip().lower()
+    if len(s) != 64 or any(c not in "0123456789abcdef" for c in s):
+        raise SystemExit(f"sh_dagger: --warm-sha must be 64 hex characters, got {sha!r}")
+    return Path(path), s
+
+
+def warm_start_of(o) -> tuple:
+    """(path, sha) the run warms from: the CLI pair, else the pinned A-mask s17 (today's default)."""
+    if getattr(o, "warm_start", None) is not None:
+        return Path(o.warm_start), o.warm_sha
+    return SH.STAND_NET_CKPT, SH.STAND_NET_SHA256
 
 
 def out_dir_reasons(out: Path) -> list[str]:
@@ -160,10 +189,13 @@ def pre_kit_reasons(o: argparse.Namespace, environ) -> list[str]:
         out.append(f"S1 checkpoint missing: {SPEC.S1_CKPT}")
     elif SN.sha256_file(SPEC.S1_CKPT) != SPEC.S1_SHA256:
         out.append(f"S1 checkpoint sha256 is not the pinned {SPEC.S1_SHA256[:12]}")
-    if not SH.STAND_NET_CKPT.is_file():
-        out.append(f"warm start missing: {SH.STAND_NET_CKPT}")
-    elif SN.sha256_file(SH.STAND_NET_CKPT) != SH.STAND_NET_SHA256:
-        out.append(f"warm start sha256 is not the pinned A-mask s17 {SH.STAND_NET_SHA256[:12]}")
+    warm, warm_sha = warm_start_of(o)
+    if not warm.is_file():
+        out.append(f"warm start missing: {warm}")
+    elif SN.sha256_file(warm) != warm_sha:
+        out.append(f"warm start sha256 is not the pinned A-mask s17 {warm_sha[:12]}"
+                   if getattr(o, "warm_start", None) is None else
+                   f"warm start sha256 is not the --warm-sha {warm_sha[:12]} ({warm})")
     if not (SPEC.REFS_ENV_STAMP / "run_meta.json").is_file():
         out.append(f"REFS env stamp missing: {SPEC.REFS_ENV_STAMP}")
     if not SPEC.S1_AGENT_YAML.is_file():
@@ -283,6 +315,9 @@ def provenance(o, env_dump_sha: str) -> dict:
                                   "margin": SPEC.FIRST_STAND_MARGIN_S},
                 "up_rise_m": SPEC.UP_RISE_M, "table_park_clear_m": SPEC.TABLE_PARK_CLEAR_M,
                 "core": SH.provenance(db),
+                # the CLI warm start (Task 4) is recorded only when given: an unset run's run.json is today's
+                **({"warm_start_cli": {"path": str(o.warm_start), "sha256": o.warm_sha}}
+                   if getattr(o, "warm_start", None) is not None else {}),
                 "created": datetime.now(timezone.utc).isoformat(timespec="seconds")}}
 
 
@@ -378,7 +413,9 @@ def _run(o: argparse.Namespace, app_args) -> int:
         dump_yaml(str(out / "params" / "agent.yaml"), agent_cfg)
         mesh = RayCaster.meshes.get(mesh_key)
         probe = starts.KitProbe(env, mesh=mesh, raycast_fn=raycast_mesh)
-        nets = core.build_networks(CrabHexActorCriticRMA, DefaultEstimator, train_cfg, SPEC.S1_CKPT, env.device)
+        warm, warm_sha = warm_start_of(o)
+        nets = core.build_networks(CrabHexActorCriticRMA, DefaultEstimator, train_cfg, SPEC.S1_CKPT, env.device,
+                                   warm_path=warm, warm_sha=warm_sha)
         if nets.s1_sha != SPEC.S1_SHA256:
             raise SystemExit("sh_dagger: S1's sha changed under the run")
         opts = core.RunOpts(mode=o.mode, arm=o.arm, seed=o.seed, iterations=o.iterations,

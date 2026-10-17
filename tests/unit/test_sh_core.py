@@ -964,3 +964,13 @@ def test_trained_vs_evaluated_deadband_is_a_note_not_a_refusal(C):
     for rec in ({T: True}, {T: -0.1}, {T: [0.2]}):
         with pytest.raises(ValueError):
             C.recorded_trained_deadband(rec)
+
+
+def test_warm_start_default_is_the_pinned_amask_s17():
+    """M18 Task 4 (DESIGN B6): sh_dagger.py's --warm-start / --warm-sha default to these constants (unset = today)."""
+    core = _load(CORE_PATH, "_t_sh_core_warm_default")
+    assert core.STAND_NET_CKPT == AMASK
+    assert core.STAND_NET_SHA256 == "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff"
+    import inspect
+    assert inspect.signature(core.warm_start_state).parameters["sha256"].default == core.STAND_NET_SHA256
+    assert inspect.signature(core.load_warm_start).parameters["path"].default == core.STAND_NET_CKPT

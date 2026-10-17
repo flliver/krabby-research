@@ -31,8 +31,17 @@ LAUNCHER=$HERE/sn_stand_net_eval_crab_hex_gait.py
 OUT=$R/parkour/outputs/omni_plan/phase2
 SNOUT=$R/parkour/outputs/omni_plan/stand_network
 LOG=$SNOUT/sn_rows.log
-CK=$R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt
-ST=$OUT/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24
+# NOTE(M18 Task 4 pipeline step 6, 2026-10-16; DESIGN B6): the walker checkpoint and its eval env stamp come from
+# SN_WALKER_CK / SN_WALKER_ST when set (a new walker, e.g. the pipeline's T*; set them together with SN_WALKER_SPEC and
+# P2_REANCHOR=1 -- the pipeline's pin guard holds the code state); unset = S1 s18 and REFS_S1_s18 exactly, as before.
+CK=${SN_WALKER_CK:-$R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt}
+ST=${SN_WALKER_ST:-$OUT/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24}
+if [ -n "${SN_WALKER_CK:-}" ] || [ -n "${SN_WALKER_ST:-}" ]; then
+  [ -n "${SN_WALKER_CK:-}" ] && [ -n "${SN_WALKER_ST:-}" ] || { echo "sn_eval_rows: SN_WALKER_CK and SN_WALKER_ST go together" >&2; exit 2; }
+  case "$CK$ST" in *[[:space:]*?\[\]]*) echo "sn_eval_rows: SN_WALKER_CK / SN_WALKER_ST contain whitespace / glob characters" >&2; exit 2 ;; esac
+  case "$CK" in /*) ;; *) echo "sn_eval_rows: SN_WALKER_CK must be absolute: $CK" >&2; exit 2 ;; esac
+  case "$ST" in /*) ;; *) echo "sn_eval_rows: SN_WALKER_ST must be absolute: $ST" >&2; exit 2 ;; esac
+fi
 DRY=0
 if [ "${1:-}" = "--dry-run" ]; then DRY=1; shift; fi
 die() { echo "sn_eval_rows: $*" >&2; exit 2; }

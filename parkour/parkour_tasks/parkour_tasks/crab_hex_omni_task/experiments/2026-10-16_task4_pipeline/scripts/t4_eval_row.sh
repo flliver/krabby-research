@@ -24,6 +24,12 @@ ISAAC_PAT='^[^ ]*[i]saac_venv/bin/python3?( -[^ ]+)* [^ ]*(run_phases|run_candid
 
 name=$1; ck=$2; src=$3; man=$4; sc=$5; es=$6; shift 6
 case "$es" in ''|*[!0-9]*) echo "T4ROW END name=$name rc=2 stamp= (env_seed '$es' not a positive integer)"; exit 2 ;; esac
+# 2026-10-16 (step 6, orchestrator note): the launch cds into parkour/, so every path is made ABSOLUTE first (a
+# relative manifest used to produce no stamp while the row still reported rc=0)
+ck=$(realpath -m -- "$ck"); src=$(realpath -m -- "$src")
+[ "$man" = "-" ] || man=$(realpath -m -- "$man")
+[ -e "$src" ] || { echo "T4ROW END name=$name rc=2 stamp= (no env source $src)"; exit 2; }
+[ "$man" = "-" ] || [ -f "$man" ] || { echo "T4ROW END name=$name rc=2 stamp= (no manifest $man)"; exit 2; }
 sd=$(printf 'seed%03d' "$es")
 if [ -d "$src" ]; then
   envs=$(python3 -c "import json,sys;m=json.load(open(sys.argv[1]));print(' '.join(f'{k}={v}' for k,v in sorted(m['env_vars'].items())))" "$src/run_meta.json")
@@ -43,6 +49,18 @@ if [ "$man" = "-" ]; then
   d=$(ls -dt "$OUT/lr/$name"/*/"$sd"/*/ 2>/dev/null | head -1)
 else
   d=$(ls -d "$OUT/lr/$name/$sc/$sd"/*/ 2>/dev/null | tail -1)
+fi
+# 2026-10-16 (step 6): success is the STAMP's, never the harness exit code alone -- rc 0 with no stamp dir, or a stamp
+# missing run_meta / scenario_metrics / summary, or a category-suite stamp without complete.json, is rc 8
+if [ "$rc" = 0 ]; then
+  if [ -z "$d" ]; then
+    rc=8
+  else
+    for f in run_meta.json scenario_metrics.json summary.md; do [ -f "$d/$f" ] || rc=8; done
+    if [ "$rc" = 0 ] && python3 -c "import json,sys;sys.exit(0 if json.load(open(sys.argv[1])).get('suite') else 1)" "$d/run_meta.json"; then
+      [ -f "$d/complete.json" ] || rc=8
+    fi
+  fi
 fi
 if [ "$rc" = 0 ] && [ -n "$d" ]; then
   ( cd "$TOOLS" && "$PY" -I -c "

@@ -1232,3 +1232,32 @@ def test_sh_dry_run_passes_the_trim_branch_through(tmp_path):
     assert s.returncode == 0, s.stderr
     assert "--smoke --smoke-iters 100 --deadband 0.25 --trim-branch --out " in s.stdout
     assert "timeout --signal=TERM 3600 " in s.stdout
+
+
+# ===================================================================================== --warm-start / --warm-sha (Task 4)
+def test_warm_start_cli_default_and_override(ENT, SPEC, tmp_path, monkeypatch, capsys):
+    called = []
+    monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append(o) or 0)
+    good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})
+    out = tmp_path / "run"
+    # unset: today's pinned A-mask s17
+    assert ENT.main([str(ENTRY)] + _good_args(out), environ=good_env) == 0
+    o = called.pop()
+    assert o.warm_start is None and o.warm_sha is None
+    assert ENT.warm_start_of(o) == (ENT.SH.STAND_NET_CKPT, ENT.SH.STAND_NET_SHA256)
+    # set: a file with its sha
+    w = tmp_path / "sn_head.pt"
+    w.write_bytes(b"warm")
+    sha = ENT.SN.sha256_file(w)
+    assert ENT.main([str(ENTRY)] + _good_args(out) + ["--warm-start", str(w), "--warm-sha", sha],
+                    environ=good_env) == 0
+    o = called.pop()
+    assert ENT.warm_start_of(o) == (w, sha)
+    capsys.readouterr()
+    for extra, needle in ((["--warm-start", str(w)], "go together"), (["--warm-sha", sha], "go together"),
+                          (["--warm-start", "rel.pt", "--warm-sha", sha], "not absolute"),
+                          (["--warm-start", str(w), "--warm-sha", "zz"], "64 hex"),
+                          (["--warm-start", str(w), "--warm-sha", "0" * 64], "--warm-sha 000000000000")):
+        assert ENT.main([str(ENTRY)] + _good_args(out) + extra, environ=good_env) == 2, extra
+        assert needle in capsys.readouterr().err, extra
+    assert called == []

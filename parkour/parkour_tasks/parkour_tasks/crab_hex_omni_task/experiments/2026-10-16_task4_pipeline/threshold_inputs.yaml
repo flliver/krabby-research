@@ -5,10 +5,9 @@ note: 'Stamp/anchor map for TP/thresholds.py (thresholds v0). Paths are relative
   inferred 1d021625 (probe: EVAL_PATHSPECS unchanged 60532fb9..79dec009). 567d1704 is preferred where a bitwise-equal 567d1704 stamp exists (G0f_S1_s18 suite / field_hard es1).'
 resolution_files:
 - parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-23_clock_deprecation/resolution.36e5a8af7000.json
-- parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-19_facing_tracking_ladder/resolution.74f93b91dc8b.json
 resolution_file_status:
   ? parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-19_facing_tracking_ladder/resolution.74f93b91dc8b.json
-  : UNTRACKED (another session; D19) -- read only
+  : DROPPED from the inputs (D19, user decision 2026-10-16 at STOP-0) -- untracked, another session's file
 side22_classifier: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts/side22_classify.py
 stages:
   s1:

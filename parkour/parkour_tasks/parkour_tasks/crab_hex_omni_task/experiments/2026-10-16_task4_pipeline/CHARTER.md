@@ -197,3 +197,30 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - a 0-kg `0:0` row carries an armed dict of zero payload, which counts as "no payload";
     - bundled checkpoints carry no params/agent.yaml, so the zero-depth pilot uses run-dir checkpoints;
     - judge a row by its `complete.json`, not by the exit code (`t4_eval_row.sh` reported rc=0 on an empty stamp).
+- **2026-10-16, step 6 (TP tooling + stand parameterisation + driver payload checks) done (opus·xhigh) and checked
+  (fable·high).**
+  - **The check's 2 blocking defects, fixed by the builder and verified in code by the orchestrator:**
+    - the queue pid was stale (util-linux `setsid` forked), so the duplicate-queue guard was dead. The queue now
+      writes its own pid and its cmdline is verified.
+    - X could never read BITWISE (no train logs were passed). Logs are now passed; the file sha decides alone if a
+      log is missing, and the record says so.
+  - **10 small items fixed:** the notify hook passes through; accept-as-chance is refused for student-branch and
+    T\* / select HALTs; Gate 0 runs on T\*'s Student-Play rows and the prescreen rows; head-iteration check;
+    consistent Isaac patterns; `_a<n>` distill retrains; per-family row timeouts; clean placeholder reporting.
+  - **D19 applied.** The untracked resolution file is dropped from `threshold_inputs.yaml`. Only the fwd/back
+    survival guard R moves (0.12 → 0.11 / 0.105): a 0-kg survival margin ≤ 0.015 narrower, run sums unchanged
+    (2.821 / 1.064). The lock is regenerated (335 files).
+  - **Tests:** `test_task4_pipeline.py` 55; the stand / threshold / payload / student suites pass. Seven
+    no-bytecode stand tests fail only because another process left
+    `2026-10-13_stand_height/scripts/__pycache__/sh_kin.cpython-311.pyc` (13:13).
+  - **Placeholders until step 8:** N_p, x_rule, the student manifest-shape split, and the pilot-based payload
+    rates. `check` refuses official runs until they are set.
+  - **Deviations recorded by the builder (accepted):**
+    - rows go through `TP/gate_row.sh`;
+    - `lock` is a separate subcommand;
+    - the pipeline keeps its own `pipeline_state.json`;
+    - the dry pass lives in `dry/` with `INJECT.json`;
+    - the collapse live rule applies to resumed stages only (s1 uses the dead-walker / NaN rules; the collapse
+      rule would kill X43 at +300);
+    - lazy stand controls are not automated (a stand FAIL HALTs as a prompt);
+    - an accepted DAgger live kill retrains as `_a<n>`.

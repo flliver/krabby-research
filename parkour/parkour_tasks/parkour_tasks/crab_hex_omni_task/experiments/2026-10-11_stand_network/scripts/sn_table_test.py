@@ -146,6 +146,11 @@ def _load(path: Path, name: str):
 CORE = _load(HERE / "sn_table_core.py", "_snt_core")
 SN = _load(HERE / "sn_common.py", "_snt_common")
 SPEC = _load(HERE / "sn_dagger_spec.py", "_snt_spec")
+# NOTE(M18 Task 4 pipeline step 6, 2026-10-16; DESIGN B6 "--s1-sha on the table tests"): with SN_WALKER_SPEC set, the
+# default walker is the override's (its sha is SPEC.S1_SHA256, the one the --s1-ckpt refusal checks); unset -> the
+# bundled S1 exactly, as before.
+if SPEC.WALKER_OVERRIDE is not None:
+    DEFAULT_S1 = SPEC.S1_CKPT
 P2L = SN.load_by_path(P2R_LAUNCHER, "_snt_p2r")
 
 

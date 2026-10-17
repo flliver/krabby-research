@@ -898,3 +898,74 @@ def test_path_reasons(SPEC):
     assert SPEC.path_reasons("/abs/run_1") == []
     for bad in ("rel/run", "/a b/run", "/a/r*n", "/a/$x", "/a/r;n"):
         assert SPEC.path_reasons(bad), bad
+
+
+# ===================================================================================== the walker override (Task 4, DESIGN B6)
+def _override(**kw):
+    base = {"S1_CKPT": "/abs/walker/model_22494.pt", "S1_SHA256": "ab" * 32, "REFS_ENV_STAMP": "/abs/refs/stamp",
+            "CANDIDATES": "/abs/run/candidates.yaml", "OVERLAY_CHAIN": "R18_p2a", "REFS_NAME": "REFS_R18_tstar",
+            "S1_OVERLAY": dict(_SN_DEFAULT_OVERLAY)}
+    base.update(kw)
+    return {k: v for k, v in base.items() if v is not None}
+
+
+_SN_DEFAULT_OVERLAY = yaml.safe_load(CANDIDATES.read_text())["chains"]["P2__S1_s18"]["stages"][0]["overlay"]
+_SN_DEFAULT_OVERLAY = {k: ("" if v is None else str(v)) for k, v in _SN_DEFAULT_OVERLAY.items()}
+
+
+def test_walker_override_unset_is_today(SPEC, monkeypatch):
+    monkeypatch.delenv("SN_WALKER_SPEC", raising=False)
+    assert SPEC.WALKER_OVERRIDE is None
+    assert SPEC.S1_SHA256 == "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c"
+    assert SPEC.S1_CKPT.name == "model_19994.pt" and "X08_p2a" in str(SPEC.S1_CKPT)
+    assert SPEC.S1_AGENT_YAML == SPEC.S1_CKPT.parent / "params" / "agent.yaml"
+    assert SPEC.REFS_ENV_STAMP.name == "2026-10-09_03-20-24" and SPEC.REFS_NAME == "REFS_S1_s18"
+    assert SPEC.OVERLAY_CHAIN == "P2__S1_s18" and SPEC.CANDIDATES.parent.name == "2026-10-07_omni_phase2"
+    assert SPEC.walker_spec_override({}) is None and SPEC.walker_spec_override({"SN_WALKER_SPEC": "  "}) is None
+
+
+def test_walker_override_set_replaces_the_walker(monkeypatch):
+    monkeypatch.setenv("SN_WALKER_SPEC", json.dumps(_override()))
+    sp = _load(SCRIPTS / "sn_dagger_spec.py", "_t_sn_dagger_spec_override")
+    assert sp.WALKER_OVERRIDE is not None
+    assert str(sp.S1_CKPT) == "/abs/walker/model_22494.pt" and sp.S1_SHA256 == "ab" * 32
+    assert sp.S1_AGENT_YAML == sp.S1_CKPT.parent / "params" / "agent.yaml"          # the optional key's default
+    assert str(sp.REFS_ENV_STAMP) == "/abs/refs/stamp" and sp.REFS_NAME == "REFS_R18_tstar"
+    assert sp.OVERLAY_CHAIN == "R18_p2a" and str(sp.CANDIDATES) == "/abs/run/candidates.yaml"
+    assert sp.S1_OVERLAY == _SN_DEFAULT_OVERLAY
+    # the trainer env is composed from the override's overlay, unchanged otherwise (pool / slots derived from S1's)
+    assert sp.expected_krabby_env()["KRABBY_OMNI_CMD_POOL"] == sp.POOL
+    # the SH spec inherits it (PRED is loaded fresh, under the same environment)
+    sh = _load(TASK / "experiments/2026-10-13_stand_height/scripts/sh_dagger_spec.py", "_t_sh_spec_override")
+    assert sh.S1_SHA256 == "ab" * 32 and sh.REFS_NAME == "REFS_R18_tstar" and sh.WALKER_OVERRIDE is not None
+
+
+@pytest.mark.parametrize("patch,needle", [
+    ({"S1_CKPT": "rel/model.pt"}, "absolute"),
+    ({"S1_SHA256": "xyz"}, "64 hex"),
+    ({"REFS_NAME": None}, "missing"),
+    ({"EXTRA": 1}, "unknown"),
+    ({"OVERLAY_CHAIN": "a b"}, "OVERLAY_CHAIN"),
+    ({"S1_OVERLAY": dict(_SN_DEFAULT_OVERLAY, KRABBY_PAYLOAD_KG="0:90")}, "0 kg"),
+    ({"S1_OVERLAY": dict(_SN_DEFAULT_OVERLAY, KRABBY_OMNI_CMD_POOL="stand:1")}, "POOL"),
+])
+def test_walker_override_refusals(SPEC, patch, needle):
+    with pytest.raises(ValueError, match=needle):
+        SPEC.walker_spec_override({"SN_WALKER_SPEC": json.dumps(_override(**patch))})
+    with pytest.raises(ValueError, match="JSON"):
+        SPEC.walker_spec_override({"SN_WALKER_SPEC": "{not json"})
+
+
+def test_sn_calib_refs_name_follows_the_spec(monkeypatch):
+    monkeypatch.delenv("SN_WALKER_SPEC", raising=False)
+    old = sys.dont_write_bytecode
+    try:
+        calib = _load(SCRIPTS / "sn_calib.py", "_t_sn_calib_refs_default")
+        assert calib.NAMES["REFS"] == "REFS_S1_s18" and calib.WALKER.WALKER_OVERRIDE is None
+        monkeypatch.setenv("SN_WALKER_SPEC", json.dumps(_override()))
+        calib2 = _load(SCRIPTS / "sn_calib.py", "_t_sn_calib_refs_override")
+        assert calib2.NAMES["REFS"] == "REFS_R18_tstar"
+        assert {k: v for k, v in calib2.NAMES.items() if k != "REFS"} == \
+            {k: v for k, v in calib.NAMES.items() if k != "REFS"}
+    finally:
+        sys.dont_write_bytecode = old

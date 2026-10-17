@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: BSD-3-Clause
+"""Task 4 baseline-vs-final report SKELETON (PLAN step 11; DESIGN 6), generated from RECORDS only (CPU).
+
+Columns: H (history: the v1 stand-ins as committed; 6300 / 9800 shown as NOT loadable), F (the forward 3a student,
+the previous-generation measured "before"), T0 (S1 + SH_T17: the recorded anchors), T1 / St (T* and the selected
+student of the deliverable run). A column whose rows have not been read yet says so ("pending step 11") -- never 0.
+Sections: Task 0 (tripod / duty, the 50 N rigidity set, 1 N metrics with the misread caveat, tracking, orientation),
+Task 2 (grid, turn levels, body suite, the 16-bin sweep, field rows, side22), Task 3 (the 0-270 kg curves, max_stable,
+the limiting factor, actuator load -- every payload number labelled "sim plant, force side not enforced"), the stand
+K1-K6 beside SH_T17, provenance (MEASURED wall-clock per stage from the driver's state.json ``wall_h`` and the
+pipeline's stage records, the pins, every gate verdict, every HALT accepted as chance with its chance rate), and the
+grant reconciliation (robot 230.06 kg, not 83: 90 / 180 / 270 kg = 0.39 / 0.78 / 1.17x robot mass; as-built SLA08
+2000 N @ 28 mm/s hip and YH8-523D 500 N @ 33 mm/s knee; the ceiling is a sim-plant number).
+
+    report.py --spec PL/pipeline.yaml --run F19 [--other R18] [--out PL/REPORT_baseline_vs_final]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.dont_write_bytecode = True
+HERE = Path(__file__).resolve().parent
+
+
+def _lib():
+    import importlib.util  # noqa: PLC0415
+
+    if "tp_lib" in sys.modules:
+        return sys.modules["tp_lib"]
+    spec = importlib.util.spec_from_file_location("tp_lib", str(HERE / "tp_lib.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["tp_lib"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+L = _lib()
+PENDING = "pending step 11"
+ROBOT_KG = 230.06
+RECONCILIATION = [
+    f"Robot mass {ROBOT_KG} kg (as built), not the grant's 83 kg: 90 / 180 / 270 kg = "
+    f"{90 / ROBOT_KG:.2f} / {180 / ROBOT_KG:.2f} / {270 / ROBOT_KG:.2f} x robot mass.",
+    "Actuators as built: hip SLA08 2000 N @ 28 mm/s, knee YH8-523D 500 N @ 33 mm/s (not 500 N / 80 mm/s and "
+    "400 N / 60 mm/s).",
+    "Every payload ceiling is a SIM-PLANT number: no rod-force limit is enforced (the hip rod is ~3.4 kN static at "
+    "0 kg); the force side is report-only (D8).",
+]
+
+
+def run_records(spec_path: Path, run: str) -> dict:
+    P = L.load_by_path(HERE / "pipeline.py", "tp_pipeline")
+    ctx = P.Ctx.open(spec_path, run)
+    gates, heads = {}, {}
+    for st in ctx.spec.stages(run):
+        sid = st["id"]
+        g = L.read_json(ctx.dir / "gates" / f"{sid}.json")
+        if g:
+            gates[sid] = g
+        h = ctx.head(sid)
+        if h:
+            heads[sid] = h
+    drv = L.read_json(ctx.dir / "state.json", {}) or {}
+    wall = {}
+    for bucket in (drv.get("keys") or {}).values():
+        for k, v in bucket.items():
+            if isinstance(v, dict) and v.get("wall_h") is not None:
+                wall[k] = v["wall_h"]
+    return {"run": run, "state": ctx.state, "gates": gates, "heads": heads, "wall_h_driver": wall,
+            "halts": {s: L.read_json(L.REPO / h["record"]) for s, h in (ctx.state.get("halts") or {}).items()},
+            "deliverable": L.read_json(ctx.dir / "deliverable.json")}
+
+
+def column_t1(rec: dict) -> dict:
+    """T1 / St numbers from the deliverable run's gate records (reported WATCH reads included)."""
+    out = {}
+    ts = (rec["state"].get("tstar") or {})
+    if ts:
+        g = rec["gates"].get(ts.get("stage")) or {}
+        out["tstar"] = {"stage": ts.get("stage"), "max_stable": ts.get("max_stable"), "curve": g.get("curve"),
+                        "limiting_factor": g.get("limiting_factor"), "zero_kg": g.get("zero_kg"),
+                        "label": "sim plant, force side not enforced"}
+        out["tstar_watch"] = g.get("watch")
+    p2a = rec["gates"].get("p2a") or {}
+    out["p2a_watch"] = p2a.get("watch")
+    sel = rec["gates"].get("sel") or {}
+    out["student"] = {"selected": rec["state"].get("selected_student"), "blocks": sel.get("blocks")}
+    out["stand"] = {k: (rec["gates"].get(k) or {}).get("decisive") for k in ("sn", "sh")}
+    return out
+
+
+def provenance(rec: dict) -> dict:
+    st = rec["state"]
+    verdicts = {s: (v.get("gate") or {}).get("verdict") for s, v in (st.get("stages") or {}).items()}
+    accepted = [{**a, "record": (rec["halts"].get(a["stage"]) or {}).get("lines")} for a in st.get("accepted") or []]
+    return {"pin": st.get("pin"), "verdicts": verdicts, "accepted_halts": accepted,
+            "amendments": st.get("amendments"), "wall_h_measured": rec["wall_h_driver"],
+            "wall_h_total": sum(rec["wall_h_driver"].values()) if rec["wall_h_driver"] else None}
+
+
+def md(doc: dict) -> str:
+    t1 = doc["T1"]
+    L_ = ["# M18 Task 4 -- baseline vs final (skeleton; generated by TP/report.py from records)", "",
+          f"Deliverable run: **{doc['run']}**" + (f"; other run in the appendix: {doc['other']}" if doc.get("other")
+                                                  else ""), "",
+          "| column | what | status |", "|---|---|---|",
+          "| H | v1 stand-ins as committed (6300 / 9800 do NOT load: critic 1007 vs 1149, pre-cam plant) | "
+          f"{PENDING} |",
+          f"| F | forward 3a student (`FWD/policy/3a_student/model_24995.pt`), its own task and rows | {PENDING} |",
+          "| T0 | S1 s18 + SH_T17 (recorded anchors; B0b payload curve at step 8) | from the anchors |",
+          f"| T1 / St | T* = {((t1.get('tstar') or {}).get('stage'))}, student = "
+          f"{((t1.get('student') or {}).get('selected') or {}).get('cand')} | from the run's gates |", "",
+          "## Task 3 (payload) -- sim plant, force side not enforced", ""]
+    ts = t1.get("tstar") or {}
+    L_.append(f"T*: max_stable {ts.get('max_stable')} kg; curve {ts.get('curve')}; limiting factor "
+              f"{(ts.get('limiting_factor') or {}).get('name')}")
+    L_ += ["", "## Grant reconciliation", ""] + [f"- {x}" for x in RECONCILIATION]
+    pv = doc["provenance"]
+    L_ += ["", "## Provenance", "", f"- pin: {pv.get('pin')}",
+           f"- measured wall-clock (driver stages, h): total {pv.get('wall_h_total')}",
+           f"- gate verdicts: {pv.get('verdicts')}",
+           f"- HALTs accepted as chance (disclosed): {pv.get('accepted_halts') or 'none'}",
+           f"- amendments: {pv.get('amendments') or 'none'}", "",
+           "_Task 0 / Task 2 tables, the F / H columns and the stand K1-K6 table are filled at PLAN step 11 from "
+           "their rows; this skeleton never invents a number._"]
+    return "\n".join(L_) + "\n"
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--spec", required=True, type=Path)
+    ap.add_argument("--run", required=True)
+    ap.add_argument("--other", default=None)
+    ap.add_argument("--out", type=Path, default=None)
+    a = ap.parse_args(argv)
+    rec = run_records(a.spec, a.run)
+    doc = {"run": a.run, "other": a.other, "generated_at": L.now_iso(), "T1": column_t1(rec),
+           "T0": {"anchors": "thresholds.json provenance (S1 s16/17/18 stamps) + SH_T17 head JSON"},
+           "F": PENDING, "H": PENDING, "provenance": provenance(rec), "reconciliation": RECONCILIATION}
+    if a.other:
+        o = run_records(a.spec, a.other)
+        doc["appendix"] = {"run": a.other, "T1": column_t1(o), "provenance": provenance(o)}
+    out = a.out or (a.spec.resolve().parent / "REPORT_baseline_vs_final")
+    L.write_json_atomic(out.with_suffix(".json"), doc)
+    L.write_text_atomic(out.with_suffix(".md"), md(doc))
+    print(f"wrote {out.with_suffix('.md')} / .json")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

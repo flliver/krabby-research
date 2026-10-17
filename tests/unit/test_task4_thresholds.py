@@ -193,3 +193,100 @@ def test_union_and_total(T):
     assert T.total([0.1, 0.2, None, float("nan")]) == pytest.approx(0.3)
     assert T.union([0.1, 0.2]) == pytest.approx(1 - 0.9 * 0.8)
     assert T.union([]) == 0.0
+
+
+# ---------------------------------------------------------------------- the paired 0-kg check (CHARTER STOP-0)
+def _write_res(tmp_path, metrics):
+    import json as _json
+    p = tmp_path / "res.json"
+    p.write_text(_json.dumps({"metrics": metrics}))
+    return p
+
+
+def test_resolution_R_guard_prefers_the_99_percent_entry(T, tmp_path):
+    p = _write_res(tmp_path, {
+        "cat.fwd.ratio": {"R_eval": 0.041, "level": 0.95},
+        "cat.fwd.ratio@guard": {"R_eval": 0.0508, "level": 0.99},
+        "cat.move_turn.ratio": {"R_eval": 0.0367, "level": 0.99},     # a guard-block entry with no @guard twin
+        "cat.side.ratio": {"R_eval": 0.018, "level": 0.95},            # 95 % only: no guard R
+    })
+    g = T.resolution_R_guard([p])
+    assert g["cat.fwd.ratio"] == pytest.approx(0.0508)
+    assert g["cat.move_turn.ratio"] == pytest.approx(0.0367)
+    assert "cat.side.ratio" not in g
+    assert T.resolution_R([p])["cat.fwd.ratio"] == pytest.approx(0.041)    # the 95 % reader is unchanged
+
+
+def _eps(cat, ratios, env0=0):
+    out = [{"env": env0 + i, "cat": cat, "surv": True, "ratio": r, "facing_closed": None, "yaw_progress": None}
+           for i, r in enumerate(ratios)]
+    if cat == "fwd":   # every synthetic suite also carries a turn category (facing_closed / yaw_progress rows)
+        out += [{"env": 500 + i, "cat": "turn", "surv": True, "ratio": None, "facing_closed": 0.95,
+                 "yaw_progress": 0.15} for i in range(len(ratios))]
+    return out
+
+
+def test_zero_kg_tracking_is_a_one_sided_ratio_drop(T):
+    R = {"cat.fwd.ratio": 0.04}
+    Rg = {"cat.fwd.ratio": 0.05, "cat.move_turn.ratio": 0.04}
+    p2a = {1: _eps("fwd", [1.00] * 50) + _eps("move_turn", [0.8] * 50, 100)}
+    faster = {1: _eps("fwd", [1.20] * 50) + _eps("move_turn", [0.8] * 50, 100)}    # |r-1| worse, ratio up
+    slower = {1: _eps("fwd", [0.90] * 50) + _eps("move_turn", [0.8] * 50, 100)}    # ratio drop 0.10
+    rows_f = T.zero_kg_suite_rows(faster, p2a, ["fwd"], R, Rg)
+    dec = {r["statistic"]: r for r in rows_f if not r["watch"]}
+    wat = {r["statistic"]: r for r in rows_f if r["watch"]}
+    assert dec["ratio fwd"]["worse_by"] == pytest.approx(-0.20)        # a faster head is never failed
+    assert dec["ratio fwd"]["R"] == pytest.approx(0.05)                # the 99 % guard R
+    assert wat["|ratio-1| fwd"]["worse_by"] == pytest.approx(0.20)     # ... but |r-1| reports it (WATCH)
+    assert wat["|ratio-1| fwd"]["R"] == pytest.approx(0.04)
+    drift = {f"{r['statistic']}|{r['row']}": 0.0 for r in rows_f}
+    j = T.zero_kg_judge(rows_f, drift, 2500)
+    assert j["verdict"] == "PASS" and [r for r in j["rows"] if r["watch"] and r.get("exceeds")]
+    rows_s = T.zero_kg_suite_rows(slower, p2a, ["fwd"], R, Rg)
+    j = T.zero_kg_judge(rows_s, {f"{r['statistic']}|{r['row']}": 0.0 for r in rows_s}, 2500)
+    assert j["verdict"] == "FAIL" and any("ratio fwd" in f for f in j["fails"])
+
+
+def test_zero_kg_margin_uses_drift_scaled_by_iterations(T):
+    R, Rg = {}, {"cat.fwd.ratio": 0.01, "cat.move_turn.ratio": 0.01}
+    p2a = {1: _eps("fwd", [1.00] * 50) + _eps("move_turn", [0.8] * 50, 100)}
+    head = {1: _eps("fwd", [0.97] * 50) + _eps("move_turn", [0.8] * 50, 100)}     # drop 0.03
+    rows = T.zero_kg_suite_rows(head, p2a, ["fwd"], R, Rg)
+    drift = {f"{r['statistic']}|{r['row']}": 0.0 for r in rows}
+    drift["ratio fwd|suite es1"] = 0.06                                             # X12 - X08 over 5000 its
+    assert T.zero_kg_judge(rows, drift, 1000)["verdict"] == "FAIL"                  # margin 0.012 < 0.03
+    assert T.zero_kg_judge(rows, drift, 3000)["verdict"] == "PASS"                  # margin 0.036 >= 0.03
+
+
+def test_zero_kg_fails_closed(T):
+    p2a = {1: _eps("fwd", [1.0] * 10) + _eps("move_turn", [0.8] * 10, 100)}
+    rows = T.zero_kg_suite_rows(p2a, p2a, ["fwd"], {}, {"cat.move_turn.ratio": 0.04})   # no guard R for fwd
+    j = T.zero_kg_judge(rows, {f"{r['statistic']}|{r['row']}": 0.0 for r in rows}, 2500)
+    assert j["verdict"] == "FAIL" and any("guard" in f for f in j["fails"])
+    rows = T.zero_kg_suite_rows(p2a, p2a, ["fwd"], {}, {"cat.fwd.ratio": 0.05, "cat.move_turn.ratio": 0.04})
+    assert T.zero_kg_judge(rows, {}, 2500)["verdict"] == "FAIL"                    # no recorded drift
+    ok = T.zero_kg_judge(rows, {f"{r['statistic']}|{r['row']}": 0.0 for r in rows}, 2500,
+                         side22_head=["FAST", "SLOW"], side22_p2a=["FAST", "FAST"])
+    assert ok["verdict"] == "FAIL" and ok["side22"]["fast_fast_lost"]
+    c = T.zero_kg_completion_row("field_hard", {(0, 1): True}, {(0, 2): True}, (1, 2))
+    assert c["missing"]
+    assert T.zero_kg_judge([c], {"field_hard completion|field_hard": 0.0}, 2500)["verdict"] == "FAIL"
+
+
+def test_committed_thresholds_v0_use_the_stop0_semantics():
+    import json as _json
+    d = _json.loads((REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/"
+                            "2026-10-16_task4_pipeline/thresholds_v0.json").read_text())
+    z = next(x for x in d["lines"] if x["id"] == "p3a.capability.zero_kg_paired")
+    stats = {s["statistic"] for s in z["statistics"]}
+    assert "ratio fwd" in stats and not any(s.startswith("|ratio-1|") for s in stats)
+    assert {s["statistic"] for s in z["watch_statistics"]} >= {"|ratio-1| fwd", "|ratio-1| move_turn"}
+    fwd = next(s for s in z["statistics"] if s["statistic"] == "ratio fwd" and s["row"] == "suite es1")
+    assert fwd["R"] == pytest.approx(0.0508, abs=1e-4) and "@guard" in fwd["R_source"]
+    back = next(s for s in z["statistics"] if s["statistic"] == "ratio back" and s["row"] == "suite es1")
+    assert back["R"] == pytest.approx(0.0617, abs=1e-4)
+    assert z["known_good_self_check"] is True
+    assert z["row_list"]["field_hard__omni"] == [1, 2]
+    fh = next(x for x in d["lines"] if x["id"] == "p2a.capability.field_hard")
+    assert fh["env_seeds"] == [1, 2, 3, 4]
+    assert d["self_check_failures"] == []

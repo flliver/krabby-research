@@ -26,6 +26,10 @@ READ CLASSES AND THEIR MODELS (PLAN "Gates -> Rule -> Self-checks")
   (:func:`poisson_count_rate`). Sensitivity: the Jeffreys gamma-Poisson predictive (:func:`nb_count_rate`).
 * ``paired``      -- the 0-kg check and the student completion: ``Phi(-margin / SE_diff)``
   (:func:`paired_rate`); the student's HALT needs two failed blocks -> ``p_block^2`` (lower bound).
+  The 0-kg check's tracking statistic is a one-sided ratio DROP (p2a - head) with R at the 99 % GUARD level
+  (:func:`resolution_R_guard`; CHARTER STOP-0 2026-10-16); ``|r - 1|`` is reported as WATCH only. Its pure
+  pieces (:func:`zero_kg_suite_rows`, :func:`zero_kg_completion_row`, :func:`zero_kg_judge`) are the ones
+  ``gate_read.py`` applies at gate time, so the self-check and the gate cannot drift apart.
 * ``payload_apriori`` -- pending step 8 (no pilot yet): formula ``Phi((line - mu_pilot) /
   sqrt(2 sigma_hat_p2a^2 + SE^2))`` (:func:`payload_apriori_rate`); only illustrated here.
 * ``live_kill`` / the 0-kg drift margin -- ``unvalidated``, excluded from every sum.
@@ -61,6 +65,16 @@ RANGE_D2_N3 = 1.693          # E[range] / sigma for n = 3 normal draws
 Z95 = 1.96
 GUARD_LEVEL = 0.99           # resolution.binomial_guard_floor
 BINOM_P_CLIP = (0.05, 0.95)
+
+#: The paired 0-kg check's ONE row list (PLAN Payload -> 0-kg check; read at p3a, the step-8 pilot and T*):
+#: suite es1-2, side22, field_hard, field_light, ring_obst, field_turn at es1-2. p2a field_hard is ALSO read at
+#: es1-4 (n = 400) for its own capability line (CHARTER STOP-0); the 0-kg check uses its es1-2 rows only.
+ZERO_KG_ROW_LIST = {"suite__omni": [1, 2], "side22_25lr__omni": [1], "field_hard__omni": [1, 2],
+                    "field_light__omni": [1, 2], "ring_obst__omni": [1, 2], "field_turn__omni": [1, 2]}
+ZERO_KG_FIELD_ROWS = ("field_hard", "field_light", "ring_obst", "field_turn")
+#: the env seeds of the RECORDED drift pair the self-check reads (X12 / X08 have field_turn at es1 only)
+ZERO_KG_FIELD_ENV_SEEDS = {"field_hard": (1, 2), "field_light": (1, 2), "ring_obst": (1, 2), "field_turn": (1,)}
+P2A_FIELD_HARD_ENV_SEEDS = (1, 2, 3, 4)
 
 SURVIVAL_CANDIDATES = (0.90, 0.80, 0.70, 0.60)
 RATIO_CANDIDATES = (0.70, 0.60, 0.50, 0.40)
@@ -392,6 +406,159 @@ def resolution_R(paths: list) -> dict:
                 continue
             R[k] = max(R.get(k, 0.0), float(v["R_eval"]))
     return R
+
+
+def resolution_R_guard(paths: list) -> dict:
+    """metric -> max R_eval at the 99 % GUARD level over the resolution files (CHARTER STOP-0, 0-kg check).
+
+    For ``<metric>`` the ``<metric>@guard`` entry (the one-sided 99 % guard-type read ``resolution.py`` writes
+    beside a 95 % block entry), else ``<metric>`` itself when that entry IS a guard-level one (``level`` 0.99;
+    e.g. ``cat.move_turn.ratio``). A metric with neither has no entry here (the caller decides, loudly)."""
+    R: dict = {}
+    for p in paths:
+        m = load_json(p)["metrics"]
+        for k, v in m.items():
+            if not isinstance(v, dict) or v.get("R_eval") is None:
+                continue
+            if k.endswith("@guard"):
+                base = k[: -len("@guard")]
+            elif "@" not in k and abs(float(v.get("level") or 0.0) - GUARD_LEVEL) < 1e-9:
+                base = k
+            else:
+                continue
+            R[base] = max(R.get(base, 0.0), float(v["R_eval"]))
+    return R
+
+
+#: The paired 0-kg check's DECISIVE statistics per suite env seed (PLAN Payload -> 0-kg check; CHARTER STOP-0
+#: 2026-10-16): tracking = a one-sided ratio DROP on every trained translate category and move_turn (R at the
+#: 99 % guard level), survival per trained translate category, turn facing_closed and yaw_progress. Each is
+#: (category, key); higher is better for every one, so ``worse_by = p2a - head``.
+def zero_kg_decisive_stats(trained_translate) -> list:
+    return ([(c, "ratio") for c in trained_translate] + [("move_turn", "ratio")]
+            + [(c, "survival") for c in trained_translate]
+            + [("turn", "facing_closed"), ("turn", "yaw_progress")])
+
+
+#: WATCH-only statistics of the 0-kg check (CHARTER STOP-0: ``|r - 1|`` is reported, never decisive).
+def zero_kg_watch_stats(trained_translate) -> list:
+    return [(c, "ratio") for c in trained_translate] + [("move_turn", "ratio")]
+
+
+def zero_kg_R(cat: str, key: str, R: dict, Rg: dict, n: int, p_mean: float | None, *, watch: bool = False) -> dict:
+    """The R term of one 0-kg statistic, and where it came from.
+
+    * ratio (decisive): the 99 % guard R (:func:`resolution_R_guard`); a category without one -> ``None`` (the
+      caller fails the check closed -- an R silently read as 0 would turn every statistic into a 3 SE line).
+    * ratio (WATCH |r - 1|): the 95 % block R, as before the STOP-0 decision.
+    * survival: max(guard R, binomial guard G(n) at the pooled share).
+    * facing_closed / yaw_progress: the 95 % block R (unchanged by the STOP-0 decision)."""
+    if key == "ratio":
+        if watch:
+            return {"R": R.get(f"cat.{cat}.ratio", 0.0), "R_source": f"cat.{cat}.ratio (95 % block; WATCH)"}
+        if f"cat.{cat}.ratio" not in Rg:
+            return {"R": None, "R_source": f"no 99 % guard entry for cat.{cat}.ratio"}
+        return {"R": Rg[f"cat.{cat}.ratio"], "R_source": f"cat.{cat}.ratio@guard (99 %)"}
+    if key == "survival":
+        g = binomial_guard_floor(1.0 if p_mean is None else p_mean, max(int(n), 1))
+        r = R.get(f"cat.{cat}.survival", 0.0)
+        return {"R": max(r, g), "R_source": f"max(cat.{cat}.survival {r:.4f}, binomial guard G(n={n}) {g:.4f})"}
+    return {"R": R.get(f"cat.{cat}.{key}", 0.0), "R_source": f"cat.{cat}.{key} (95 % block)"}
+
+
+def zero_kg_suite_rows(head_eps: dict, p2a_eps: dict, trained_translate, R: dict, Rg: dict) -> list:
+    """The suite part of the paired 0-kg check, as rows (pure on :func:`suite_episodes` lists per env seed).
+
+    ``head_eps`` / ``p2a_eps``: ``{env_seed: suite_episodes(stamp)}`` for the same env seeds. Every DECISIVE row
+    reads ``worse_by = p2a - head`` on the raw statistic (a one-sided drop: a head that tracks or survives better is
+    never failed); the WATCH rows (``watch: True``) read ``|r - 1|`` with ``worse_by = head - p2a``. ``se_diff`` is
+    the env-clustered paired bootstrap SE (:func:`paired_suite_se`)."""
+    rows = []
+    for es in sorted(set(head_eps) & set(p2a_eps)):
+        A, B = head_eps[es], p2a_eps[es]
+        for watch, stats_ in ((False, zero_kg_decisive_stats(trained_translate)),
+                              (True, zero_kg_watch_stats(trained_translate))):
+            for c, key in stats_:
+                ra = [r for r in A if r["cat"] == c]
+                rb = [r for r in B if r["cat"] == c]
+                a, b = _cat_stat(ra, key, watch), _cat_stat(rb, key, watch)
+                if a is None or b is None:
+                    rows.append({"statistic": f"{'|ratio-1|' if watch else key} {c}", "row": f"suite es{es}",
+                                 "watch": watch, "head": a, "p2a": b, "worse_by": None, "missing": True})
+                    continue
+                se = paired_suite_se(A, B, c, key, watch)
+                worse = (a - b) if watch else (b - a)
+                Rk = zero_kg_R(c, key, R, Rg, len(ra), (a + b) / 2.0 if key == "survival" else None, watch=watch)
+                rows.append({"statistic": f"{'|ratio-1|' if watch else key} {c}", "row": f"suite es{es}",
+                             "category": c, "key": key, "watch": watch,
+                             "key_path": (f"aggregate.suite.by_category.{c}.{key}.median" if key != "survival"
+                                          else "own-hold survival (n_steps >= prologue + settle + hold)"),
+                             "head": a, "p2a": b, "worse_by": worse, "se_diff": se, **Rk})
+    return rows
+
+
+def zero_kg_completion_row(row: str, head_eps: dict, p2a_eps: dict, env_seeds) -> dict:
+    """One field row of the paired 0-kg check: completion paired on (env seed index, env_index). The row label is
+    the row name alone (pooled over ``env_seeds``, recorded beside it), so the drift key ``<statistic>|<row>`` is the
+    same whatever the env-seed count (the recorded drift pair has field_turn at es1 only)."""
+    a = float(np.mean(list(head_eps.values()))) if head_eps else None
+    b = float(np.mean(list(p2a_eps.values()))) if p2a_eps else None
+    if a is None or b is None or set(head_eps) != set(p2a_eps):
+        return {"statistic": f"{row} completion", "row": row, "env_seeds": list(env_seeds), "watch": False,
+                "head": a, "p2a": b, "worse_by": None, "missing": True,
+                "why": "episode keys differ between the head and its p2a (not the same rows / env seeds)"}
+    nn = len(head_eps)
+    se = paired_completion_se(head_eps, p2a_eps)
+    return {"statistic": f"{row} completion", "row": row, "env_seeds": list(env_seeds), "category": row,
+            "key": "completion", "watch": False,
+            "head": a, "p2a": b, "worse_by": b - a, "se_diff": se,
+            "R": max(2.0 * math.sqrt(a * (1 - a) / nn), 2.0 * math.sqrt(b * (1 - b) / nn)),
+            "R_source": "max over the pair of 2 sqrt(p(1-p)/n)",
+            "key_path": "aggregate.schedule_completion_rate (paired on env_index)"}
+
+
+def zero_kg_judge(rows: list, drift: dict, its_past_p2a: float, side22_head=None, side22_p2a=None) -> dict:
+    """Apply the 0-kg margin to every DECISIVE row: HALT iff ``worse_by > max(R, 3 SE_diff, |drift| x its / 5000)``
+    on any, or FAST/FAST is lost (the head's side22 class is not FAST on both hands while p2a's was). A decisive row
+    that is missing, or whose R is unknown, FAILS closed. ``drift``: ``{statistic|row: drift}`` (the X12 - X08
+    continuation drift on the same statistic and row, from thresholds.json). Returns the verdict and each row's
+    margin use (the T* notification logs it)."""
+    out, fails = [], []
+    for r in rows:
+        r = dict(r)
+        if r.get("watch"):
+            if r.get("worse_by") is not None and r.get("R") is not None:
+                d = drift.get(f"{r['statistic']}|{r['row']}", 0.0)
+                m = zero_kg_margin(r["R"], r.get("se_diff") or 0.0, d, its_past_p2a)
+                r.update(margin=m, exceeds=bool(r["worse_by"] > m["margin"] + 1e-12))
+            out.append(r)
+            continue
+        if r.get("missing") or r.get("R") is None:
+            r["fails"] = True
+            fails.append(f"{r['statistic']} {r['row']}: " + (r.get("why") or r.get("R_source") or "missing"))
+            out.append(r)
+            continue
+        d = drift.get(f"{r['statistic']}|{r['row']}")
+        if d is None:
+            r["fails"] = True
+            fails.append(f"{r['statistic']} {r['row']}: no recorded drift for this statistic (thresholds.json)")
+            out.append(r)
+            continue
+        m = zero_kg_margin(r["R"], r.get("se_diff") or 0.0, d, its_past_p2a)
+        r.update(drift=d, margin=m, fails=bool(r["worse_by"] > m["margin"] + 1e-12),
+                 margin_used=(r["worse_by"] / m["margin"]) if m["margin"] > 0 else None)
+        if r["fails"]:
+            fails.append(f"{r['statistic']} {r['row']}: worse by {r['worse_by']:.4f} > margin {m['margin']:.4f} "
+                         f"({m['binds']})")
+        out.append(r)
+    side = None
+    if side22_head is not None or side22_p2a is not None:
+        lost = (list(side22_p2a or []) == ["FAST", "FAST"]) and (list(side22_head or []) != ["FAST", "FAST"])
+        side = {"head": side22_head, "p2a": side22_p2a, "fast_fast_lost": lost}
+        if lost:
+            fails.append(f"side22 FAST/FAST lost: head {side22_head} vs p2a {side22_p2a}")
+    return {"verdict": "FAIL" if fails else "PASS", "fails": fails, "rows": out, "side22": side,
+            "its_past_p2a": its_past_p2a}
 
 
 # ============================================================================ builders
@@ -729,7 +896,9 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
         c = field_completion([repo.stamp(e) for e in rows_["field_hard"]])
         kbf[k] = {"value": c["rate"], "n": c["n"], "fails": c["rate"] < line}
     fh_line = {"id": "p2a.capability.field_hard", "stage": "p2a", "kind": "capability", "class": "three_seed",
-               "statistic": "field_hard completion pooled es1-4 (n = 400)",
+               "statistic": "field_hard completion pooled es1-4 (n = 400)", "env_seeds": list(P2A_FIELD_HARD_ENV_SEEDS),
+               "env_seeds_note": "read at es1-4 for this line (CHARTER STOP-0), in addition to the es1-2 rows of the "
+                                 "0-kg row list",
                "key_path": "aggregate.schedule_completion_rate, n_episodes-weighted over env seeds 1-4 (p2_read 'completion')",
                "seed_values": dict(zip(sorted(fh), v)), "R_2SE": Rfh, "G": Gfh, "line": line, "direction": ">=",
                "line_rule": "min - max(R, range, G)", **ts, "seeds_pass": all(x >= line for x in v), "known_bad": kbf,
@@ -791,47 +960,32 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
                     [per_seed[s]["fl_c"]["rate"] for s in seeds], 0.85, True, "binomial SE"))
     out_lines += apr
     # ---------------------------------------------------------------- the paired 0-kg check (X12 vs X08)
+    # CHARTER STOP-0 (2026-10-16): tracking is a one-sided ratio DROP with R at the 99 % guard level; |r - 1| is
+    # WATCH only. The same pure functions (zero_kg_suite_rows / zero_kg_completion_row / zero_kg_judge) are what
+    # gate_read.py applies to a T* candidate against its own p2a head at gate time.
     pr = inputs["drift_pair"]
+    Rg = resolution_R_guard([repo.p(p) for p in inputs["resolution_files"]])
     A = {int(es): suite_episodes(repo.stamp(e)) for es, e in pr["x12"]["suite"].items()}
     B = {int(es): suite_episodes(repo.stamp(e)) for es, e in pr["x08"]["suite"].items()}
-    zk = []
-    stats_ = [(c, "ratio", True) for c in stages["p2a"]["trained_translate"]] + [("move_turn", "ratio", True)] + \
-             [(c, "survival", False) for c in stages["p2a"]["trained_translate"]] + \
-             [("turn", "facing_closed", False), ("turn", "yaw_progress", False)]
-    for es in sorted(A):
-        for c, key, absdev in stats_:
-            ra = [r for r in A[es] if r["cat"] == c]
-            rb = [r for r in B[es] if r["cat"] == c]
-            a, b = _cat_stat(ra, key, absdev), _cat_stat(rb, key, absdev)
-            se = paired_suite_se(A[es], B[es], c, key, absdev)
-            worse = (a - b) if absdev else (b - a)          # positive = X12 worse
-            if key == "survival":
-                Rk = max(R.get(f"cat.{c}.survival", 0.0), binomial_guard_floor((a + b) / 2, len(ra)))
-            elif key == "ratio":
-                Rk = R.get(f"cat.{c}.ratio", 0.0)
-            else:
-                Rk = R.get(f"cat.{c}.{key}", 0.0)
-            zk.append({"statistic": f"{'|ratio-1|' if absdev else key} {c}", "row": f"suite es{es}",
-                       "key_path": f"aggregate.suite.by_category.{c}.{key}.median" if key != "survival" else "own-hold survival",
-                       "x12": a, "x08": b, "worse_by": worse, "se_diff": se, "R": Rk})
-    for row in ("field_hard", "field_light", "ring_obst", "field_turn"):
-        ea = pr["x12"][row][:2] if row == "field_hard" else pr["x12"][row]
-        eb = pr["x08"][row][:2] if row == "field_hard" else pr["x08"][row]
-        ca = {}
-        cb = {}
+    zall = zero_kg_suite_rows(A, B, stages["p2a"]["trained_translate"], R, Rg)
+    for row in ZERO_KG_FIELD_ROWS:
+        nes = ZERO_KG_FIELD_ENV_SEEDS[row]
+        ea, eb = pr["x12"][row][:len(nes)], pr["x08"][row][:len(nes)]
+        ca, cb = {}, {}
         for i, (x, y) in enumerate(zip(ea, eb)):
             ca.update({(i, k): v for k, v in field_episodes(repo.stamp(x)).items()})
             cb.update({(i, k): v for k, v in field_episodes(repo.stamp(y)).items()})
-        a, b = float(np.mean(list(ca.values()))), float(np.mean(list(cb.values())))
-        se = paired_completion_se(ca, cb)
-        nn = len(ca)
-        zk.append({"statistic": f"{row} completion", "row": f"{row} es1-{len(ea)}", "x12": a, "x08": b,
-                   "worse_by": b - a, "se_diff": se, "R": max(2.0 * math.sqrt(a * (1 - a) / nn), 2.0 * math.sqrt(b * (1 - b) / nn)),
-                   "key_path": "aggregate.schedule_completion_rate (paired on env_index)"})
+        zall.append(zero_kg_completion_row(row, ca, cb, nes[:len(ea)]))
+    zk = [z for z in zall if not z.get("watch")]
+    zw = [z for z in zall if z.get("watch")]
     sa = side22_read(s22, repo.stamp(pr["x12"]["side22"]))
     sb = side22_read(s22, repo.stamp(pr["x08"]["side22"]))
-    for z in zk:
+    for z in zk + zw:
+        z["x12"], z["x08"] = z.pop("head"), z.pop("p2a")
         z["drift"] = z["worse_by"]
+        if z.get("R") is None:
+            z["self_check_passes"] = False
+            continue
         z["self_check_its5000"] = zero_kg_margin(z["R"], z["se_diff"], z["drift"], 5000)
         z["self_check_passes"] = z["worse_by"] <= z["self_check_its5000"]["margin"] + 1e-12
         z["by_Np"] = {}
@@ -840,13 +994,17 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
             z["by_Np"][Np] = {**m, "rate": paired_rate(m["margin"], z["se_diff"]),
                               "x12_vs_x08_would_pass": z["worse_by"] <= m["margin"] + 1e-12}
     zero_kg = {"id": "p3a.capability.zero_kg_paired", "stage": "p3a", "kind": "capability", "class": "paired",
-               "rule": "HALT if any statistic is worse than its p2a head (same rows, env seeds) by more than "
-                       "max(R, 3 SE_diff, |drift| * its_past_p2a / 5000), or FAST/FAST is lost",
-               "statistics": zk, "side22_fastfast": {"x12": sa["class"], "x08": sb["class"]},
-               "rate_by_Np": {Np: total(z["by_Np"][Np]["rate"] for z in zk) for Np in (1500, 2500, 3000)},
+               "rule": "HALT if any DECISIVE statistic is worse than its p2a head (same rows, env seeds) by more than "
+                       "max(R, 3 SE_diff, |drift| * its_past_p2a / 5000), or FAST/FAST is lost. Tracking = a one-sided "
+                       "ratio DROP (p2a - head) on every trained translate category and move_turn, R at the 99 % guard "
+                       "level (CHARTER STOP-0 2026-10-16); |r - 1| is WATCH (watch_statistics).",
+               "row_list": ZERO_KG_ROW_LIST, "statistics": zk, "watch_statistics": zw,
+               "drift_by_statistic": {f"{z['statistic']}|{z['row']}": z["drift"] for z in zk + zw},
+               "side22_fastfast": {"x12": sa["class"], "x08": sb["class"]},
+               "rate_by_Np": {Np: total(z["by_Np"][Np]["rate"] for z in zk if "by_Np" in z) for Np in (1500, 2500, 3000)},
                "rate_note": "illustrative: SE_diff is the X12-X08 pair's; at gate time the T* vs own-p2a SE_diff is used. "
                             "Each statistic's margin >= 3 SE_diff, so each rate <= Phi(-3) = 0.00135. FAST/FAST loss is "
-                            "counted under the p3a side22 floor (proxy p2a).",
+                            "counted under the p3a side22 floor (proxy p2a). WATCH statistics are not summed.",
                "drift_margin": "unvalidated (one continuation run)", "known_bad": {}, "unvalidated": True,
                "known_good_self_check": all(z["self_check_passes"] for z in zk), "value_set": "both"}
     out_lines.append(zero_kg)
@@ -957,6 +1115,11 @@ def main(argv=None) -> int:
            "recommended": rec, "lines": res["lines"], "proposals": res["proposals"],
            "sums": summarize(res, watch), "self_check_failures": fails, "provenance": res["provenance"],
            "equality_checks": res["equality_checks"], "R_used": res["R_used"],
+           "zero_kg_statistic": "tracking = one-sided ratio drop (p2a - head), R at the 99 % guard level; |r - 1| "
+                                "WATCH (CHARTER STOP-0 2026-10-16)",
+           "zero_kg_row_list": ZERO_KG_ROW_LIST,
+           "trained_categories_required": "every suite gate row passes --trained-categories from the stage's composed "
+                                          "env; a stamp without it is INVALID (CHARTER STOP-0; gate_read.py gate 0)",
            "floors_apply_to_D1_D2": False,
            "floors_apply_to_D1_D2_note": "D1/D2 rows route the stand net beside a FROZEN T*: the walker floors were "
                                          "already read on T* at its own stage; the stand gates are G1-G5 / K1-K6 only "

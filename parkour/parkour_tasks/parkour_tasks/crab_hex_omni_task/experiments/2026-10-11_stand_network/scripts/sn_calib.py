@@ -101,7 +101,20 @@ FH_POOL = f"{FH}@1-4"               # the pooled field_hard pseudo-row fed to z2
 FT1 = f"{FT}@1"
 EPS = P.EPS
 
-NAMES = {"REFS": "REFS_S1_s18", "HOLD": "P2R_HOLD_s18", "R": "P2R_RSTg_s18", "R_SN": "SN_RSTg_s18",
+def _walker_spec():
+    """The stand DAgger's torch-free spec (``sn_dagger_spec.py``, by path, no bytecode): its ``REFS_NAME`` is the REFS
+    head every stand read anchors on -- ``REFS_S1_s18`` unless ``SN_WALKER_SPEC`` names a new walker (M18 Task 4
+    pipeline step 6, 2026-10-16; DESIGN B6 "readers via the spec")."""
+    import importlib.util  # noqa: PLC0415
+
+    spec = importlib.util.spec_from_file_location("_sn_calib_walker_spec", str(HERE / "sn_dagger_spec.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+WALKER = _walker_spec()
+NAMES = {"REFS": WALKER.REFS_NAME, "HOLD": "P2R_HOLD_s18", "R": "P2R_RSTg_s18", "R_SN": "SN_RSTg_s18",
          "Z1": "P2__Z1_s18", "Z2d": "P2__Z2dR1_s18", "ST2M": "P2R_ST2M_s18", "C0R": "C0R_s18"}
 ROLES = ("REFS", "HOLD", "R", "Z1", "Z2d", "ST2M", "C0R")
 #: validity rule per role: obs0 (D5 obs parity, STAND_OBS=0), tier1 (obs0 + p2r_mode_fails, step-1 heads), rst
