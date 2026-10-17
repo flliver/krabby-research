@@ -70,6 +70,9 @@ void krabby_host_i2c_set_device_present(uint8_t address, int present);
 uint32_t krabby_host_oled_framebuffer_crc32(void);
 void krabby_host_oled_invalidate(void);
 size_t krabby_host_oled_wire_data_bytes_received(void);
+/** Last health-screen draw: controller third live (``ROLE_*`` 1=FRONT, 2=LEFT, 3=RIGHT). */
+int krabby_host_oled_controller_shown(int board_role);
+void krabby_host_set_three_board_follower_telemetry(int left_enabled, int right_enabled);
 
 #ifdef __cplusplus
 }

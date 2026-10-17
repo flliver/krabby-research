@@ -141,6 +141,13 @@ class HostActuatorBridge:
         self._lib.krabby_host_oled_invalidate.restype = None
         self._lib.krabby_host_oled_wire_data_bytes_received.argtypes = []
         self._lib.krabby_host_oled_wire_data_bytes_received.restype = ctypes.c_size_t
+        self._lib.krabby_host_oled_controller_shown.argtypes = [ctypes.c_int]
+        self._lib.krabby_host_oled_controller_shown.restype = ctypes.c_int
+        self._lib.krabby_host_set_three_board_follower_telemetry.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        self._lib.krabby_host_set_three_board_follower_telemetry.restype = None
 
     def reset(self) -> None:
         self._lib.krabby_host_reset()
@@ -280,6 +287,15 @@ class HostActuatorBridge:
 
     def oled_wire_data_bytes_received(self) -> int:
         return int(self._lib.krabby_host_oled_wire_data_bytes_received())
+
+    def oled_controller_shown(self, board_role: int) -> bool:
+        return bool(self._lib.krabby_host_oled_controller_shown(int(board_role)))
+
+    def set_three_board_follower_telemetry(self, *, left: bool = True, right: bool = True) -> None:
+        self._lib.krabby_host_set_three_board_follower_telemetry(
+            1 if left else 0,
+            1 if right else 0,
+        )
 
     def run_three_board_role_election(self) -> list[int]:
         roles = (ctypes.c_int32 * 3)()

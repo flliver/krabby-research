@@ -90,6 +90,9 @@ telemetry joints keep running.
 | `host_multi_board.cpp` | FRONT line appends **`;IMU`**; followers unchanged |
 | `firmware/oled_sim` | Browser viewer; host **`DisplayRenderer` + `sim_ssd1306` Wire** path |
 
+Three-board health screen (controller thirds + missing follower):  
+`tests/unit/firmware/test_host_oled_health_screen_three_board.py`.
+
 ---
 
 ## Verification

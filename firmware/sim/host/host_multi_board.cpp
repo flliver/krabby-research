@@ -1,6 +1,7 @@
 // Three-board leader loop: USB command relay and follower telemetry forward (arduino.ino loop()).
 
 #include "host_battery_telemetry.hpp"
+#include "host_display.hpp"
 #include "host_leader_imu.hpp"
 #include "host_multi_board.hpp"
 
@@ -24,6 +25,8 @@ constexpr size_t kTelemetryLineMax = 512;
 
 bool g_threeBoardLoop = false;
 bool g_singleLeaderEighteen = false;
+bool g_emitLeftFollowerTelemetry = true;
+bool g_emitRightFollowerTelemetry = true;
 unsigned long g_lastTelemetryMs = 0;
 bool g_setupDone = false;
 
@@ -74,7 +77,8 @@ void forwardFullLines(
     BoardHardwareSerial *to,
     char *partial,
     size_t cap,
-    size_t *partialPos)
+    size_t *partialPos,
+    BoardRole noteForOled = ROLE_UNKNOWN)
 {
     if (from == nullptr || to == nullptr || partial == nullptr || partialPos == nullptr)
         return;
@@ -87,7 +91,14 @@ void forwardFullLines(
         if (c == '\n')
         {
             partial[*partialPos] = '\0';
-            if (*partialPos > 0) to->println(static_cast<const char *>(partial));
+            if (*partialPos > 0)
+            {
+                to->println(static_cast<const char *>(partial));
+                if (noteForOled != ROLE_UNKNOWN)
+                {
+                    hostDisplayNoteTelemetryLine(partial, noteForOled);
+                }
+            }
             *partialPos = 0;
             continue;
         }
@@ -381,26 +392,68 @@ void threeBoardFirmwareLoopOnce()
     processCommandStream(g_leftUplink, g_leftManager, nullptr, nullptr);
     processCommandStream(g_rightUplink, g_rightManager, nullptr, nullptr);
 
-    forwardFullLines(&g_frontLeft, &g_usb, g_leftPartial, kTelemetryLineMax, &g_leftPartialPos);
-    forwardFullLines(&g_frontRight, &g_usb, g_rightPartial, kTelemetryLineMax, &g_rightPartialPos);
+    forwardFullLines(
+        &g_frontLeft,
+        &g_usb,
+        g_leftPartial,
+        kTelemetryLineMax,
+        &g_leftPartialPos,
+        ROLE_LEFT);
+    forwardFullLines(
+        &g_frontRight,
+        &g_usb,
+        g_rightPartial,
+        kTelemetryLineMax,
+        &g_rightPartialPos,
+        ROLE_RIGHT);
 
     g_frontManager.updateAll();
     g_leftManager.updateAll();
     g_rightManager.updateAll();
 
-    forwardFullLines(&g_frontLeft, &g_usb, g_leftPartial, kTelemetryLineMax, &g_leftPartialPos);
-    forwardFullLines(&g_frontRight, &g_usb, g_rightPartial, kTelemetryLineMax, &g_rightPartialPos);
+    forwardFullLines(
+        &g_frontLeft,
+        &g_usb,
+        g_leftPartial,
+        kTelemetryLineMax,
+        &g_leftPartialPos,
+        ROLE_LEFT);
+    forwardFullLines(
+        &g_frontRight,
+        &g_usb,
+        g_rightPartial,
+        kTelemetryLineMax,
+        &g_rightPartialPos,
+        ROLE_RIGHT);
 
     const unsigned long nowMs = millis();
     if (nowMs - g_lastTelemetryMs < TELEMETRY_INTERVAL_MS) return;
 
     g_lastTelemetryMs = nowMs;
-    emitTelemetry(ROLE_LEFT, g_leftManager, g_leftUplink);
-    emitTelemetry(ROLE_RIGHT, g_rightManager, g_rightUplink);
+    if (g_emitLeftFollowerTelemetry)
+    {
+        emitTelemetry(ROLE_LEFT, g_leftManager, g_leftUplink);
+    }
+    if (g_emitRightFollowerTelemetry)
+    {
+        emitTelemetry(ROLE_RIGHT, g_rightManager, g_rightUplink);
+    }
     emitTelemetry(ROLE_FRONT, g_frontManager, g_usb);
 
-    forwardFullLines(&g_frontLeft, &g_usb, g_leftPartial, kTelemetryLineMax, &g_leftPartialPos);
-    forwardFullLines(&g_frontRight, &g_usb, g_rightPartial, kTelemetryLineMax, &g_rightPartialPos);
+    forwardFullLines(
+        &g_frontLeft,
+        &g_usb,
+        g_leftPartial,
+        kTelemetryLineMax,
+        &g_leftPartialPos,
+        ROLE_LEFT);
+    forwardFullLines(
+        &g_frontRight,
+        &g_usb,
+        g_rightPartial,
+        kTelemetryLineMax,
+        &g_rightPartialPos,
+        ROLE_RIGHT);
 }
 
 void singleLeaderEighteenFirmwareLoopOnce()
@@ -428,6 +481,14 @@ void threeBoardFirmwareResetLoopState()
     g_setupDone = false;
     g_leftPartialPos = 0;
     g_rightPartialPos = 0;
+    g_emitLeftFollowerTelemetry = true;
+    g_emitRightFollowerTelemetry = true;
+}
+
+void setThreeBoardFollowerTelemetryEnabled(const bool leftEnabled, const bool rightEnabled)
+{
+    g_emitLeftFollowerTelemetry = leftEnabled;
+    g_emitRightFollowerTelemetry = rightEnabled;
 }
 
 LinearActuator *findThreeBoardActuator(const char *name)

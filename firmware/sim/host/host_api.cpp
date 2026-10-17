@@ -10,6 +10,7 @@
 #include "host_board_role.hpp"
 #include "host_display.hpp"
 #include "host_multi_board.hpp"
+#include "src/controller/board_role.h"
 #include "sim_i2c.hpp"
 #include "sim_serial.hpp"
 #include "sim_ssd1306.hpp"
@@ -323,4 +324,19 @@ extern "C" void krabby_host_oled_invalidate(void)
 extern "C" size_t krabby_host_oled_wire_data_bytes_received(void)
 {
     return krabby::sim::simSsd1306().totalDataBytesReceived();
+}
+
+extern "C" int krabby_host_oled_controller_shown(int board_role)
+{
+    if (board_role < ROLE_FRONT || board_role > ROLE_RIGHT) return 0;
+    const auto role = static_cast<BoardRole>(board_role);
+    return krabby::sim::host::hostOledControllerShownFresh(role, millis()) ? 1 : 0;
+}
+
+extern "C" void krabby_host_set_three_board_follower_telemetry(
+    int left_enabled,
+    int right_enabled)
+{
+    krabby::sim::host::setThreeBoardFollowerTelemetryEnabled(
+        left_enabled != 0, right_enabled != 0);
 }
