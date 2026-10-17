@@ -10,13 +10,11 @@ import struct
 
 import pytest
 
-from firmware.sim.current_sense_mapping import DEFAULT_MOVING_NO_CONTACT_ADC
-from firmware.sim.isaac_scene import (
-    advance_sim,
-    get_robot_articulation,
-    make_crab_hex_env,
-    physics_step_ms,
+from firmware.sim.current_sense_mapping import (
+    DEFAULT_LIFT_LOAD_ADC,
+    DEFAULT_MOVING_NO_CONTACT_ADC,
 )
+from firmware.sim.isaac_scene import advance_sim, physics_step_ms
 from tests.integration.firmware.conftest import park_at_default_pose, skip_unless_firmware_isaac
 
 pytestmark = pytest.mark.isaacsim
@@ -26,6 +24,22 @@ EEPROM_ROLE_ADDR = 32
 EEPROM_ROLE_MAGIC = 0xAB
 CAL_MAGIC = 0xDEADBEEF
 JOG_STEPS = 40
+LIFT_SETTLE_STEPS = 120
+LIFT_JOG_STEPS = 200
+LIFT_JOG_PWM = 255
+# OVERVIEW 2g target is ~30 of 1023; allow modest mapping jitter in Isaac.
+LIFT_ADC_MIN = DEFAULT_LIFT_LOAD_ADC - 5
+FRONT_LIFT_ACTUATORS = ("FLHL", "FLKL", "FRHL", "FRKL")
+
+
+def _max_pin_is_over_steps(core, config, actuator_ids: tuple[str, ...], steps: int) -> int:
+    peak = 0
+    for _ in range(steps):
+        core.step()
+        for actuator_id in actuator_ids:
+            slot = config.slot_by_firmware_id(actuator_id)
+            peak = max(peak, core.bridge.analog_read(slot.pin_is))
+    return peak
 
 
 def test_digital_read_en_follows_jog(front_board_rig):
@@ -201,39 +215,6 @@ def test_pwm_jog_changes_pot_hall_and_pin_is(front_board_rig):
     assert core.bridge.analog_read(slot.pin_is) >= is0
 
 
-@pytest.fixture(scope="module")
-def gravity_front_board(crab_hex_play_env):
-    """FRONT ``RobotCore`` on a gravity env for loaded current-sense."""
-    skip_unless_firmware_isaac()
-    from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
-    from firmware.sim.isaac_scene import configure_open_loop_velocity_drive, resolve_front_board_joint_indices
-    from firmware.sim.robot_core import RobotCore
-    from firmware.sim.simulated_robot_config import SimulatedRobotConfig
-
-    try:
-        bridge = load_host_bridge()
-    except HostLibraryNotBuiltError as exc:
-        pytest.skip(str(exc))
-
-    _play_env, _get_robot, _ = crab_hex_play_env
-    env = make_crab_hex_env(num_envs=1, with_gravity=True, fix_base=False)
-    env.reset()
-    robot = get_robot_articulation(env)
-    config = SimulatedRobotConfig.front_board_rev3()
-    indices = resolve_front_board_joint_indices(robot, config)
-    configure_open_loop_velocity_drive(robot, indices.values())
-    core = RobotCore.front_board(
-        env=env,
-        articulation=robot,
-        joint_index_for_name=indices,
-        bridge=bridge,
-        config=config,
-        max_joint_speed=1.5,
-    )
-    yield core, robot, config
-    env.close()
-
-
 def test_pin_is_rises_when_leg_loads_ground(gravity_front_board):
     from firmware.sim.current_sense_mapping import DEFAULT_GROUND_CONTACT_ADC
 
@@ -251,4 +232,21 @@ def test_pin_is_rises_when_leg_loads_ground(gravity_front_board):
     adc = core.bridge.analog_read(slot.pin_is)
     assert adc >= DEFAULT_GROUND_CONTACT_ADC, (
         f"expected pinIS >= {DEFAULT_GROUND_CONTACT_ADC} under load, got {adc}"
+    )
+
+
+def test_pin_is_hits_lift_band_under_significant_load(gravity_front_board):
+    """Mapped pinIS reaches ~30 when front knees/hips drive body lift load (OVERVIEW 2g)."""
+    core, _robot, config = gravity_front_board
+    core.reset()
+
+    for _ in range(LIFT_SETTLE_STEPS):
+        advance_sim(core.env)
+
+    for actuator_id in FRONT_LIFT_ACTUATORS:
+        core.jog(actuator_id, LIFT_JOG_PWM)
+
+    peak = _max_pin_is_over_steps(core, config, FRONT_LIFT_ACTUATORS, LIFT_JOG_STEPS)
+    assert peak >= LIFT_ADC_MIN, (
+        f"expected pinIS near {DEFAULT_LIFT_LOAD_ADC} under lift-scale load, peak {peak}"
     )

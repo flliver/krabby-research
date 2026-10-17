@@ -130,6 +130,38 @@ def eighteen_joint_rig(crab_hex_play_env):
     return core, robot, configs, indices
 
 
+@pytest.fixture(scope="session")
+def gravity_front_board(crab_hex_play_env):
+    """FRONT ``RobotCore`` with gravity enabled on the shared session env."""
+    skip_unless_firmware_isaac()
+    from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
+    from firmware.sim.isaac_scene import configure_open_loop_velocity_drive, set_crab_hex_gravity_enabled
+    from firmware.sim.robot_core import RobotCore
+    from firmware.sim.simulated_robot_config import SimulatedRobotConfig
+
+    try:
+        bridge = load_host_bridge()
+    except HostLibraryNotBuiltError as exc:
+        pytest.skip(f"{exc} (build on the host, it is mounted into the container)")
+
+    env, get_robot, resolve_front = crab_hex_play_env
+    robot = get_robot(env)
+    set_crab_hex_gravity_enabled(env, robot, enabled=True)
+    config = SimulatedRobotConfig.front_board_rev3()
+    indices = resolve_front(robot, config)
+    configure_open_loop_velocity_drive(robot, indices.values())
+    core = RobotCore.front_board(
+        env=env,
+        articulation=robot,
+        joint_index_for_name=indices,
+        bridge=bridge,
+        config=config,
+        max_joint_speed=1.5,
+    )
+    yield core, robot, config
+    set_crab_hex_gravity_enabled(env, robot, enabled=False)
+
+
 def park_at_default_pose(core, robot) -> None:
     """Undo a previous drive so each case starts from the same joint state."""
     import torch

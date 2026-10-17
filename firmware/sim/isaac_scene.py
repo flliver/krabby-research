@@ -180,6 +180,41 @@ def step_env_once(env: Any) -> tuple[Any, ...]:
         return env.step(actions)
 
 
+DEFAULT_WORLD_GRAVITY = (0.0, 0.0, -9.81)
+ZERO_GRAVITY = (0.0, 0.0, 0.0)
+
+
+def set_crab_hex_gravity_enabled(env: Any, articulation: Any, *, enabled: bool) -> None:
+    """Toggle world + robot gravity on the live session env (single Kit boot).
+
+    Firmware Isaac tests spawn with ``with_gravity=False`` for zero-g current-sense bands;
+    loaded-stance tests call this instead of ``gym.make`` a second env.
+    """
+    import numpy as np
+    import torch
+
+    sim = env.unwrapped.sim
+    gravity = DEFAULT_WORLD_GRAVITY if enabled else ZERO_GRAVITY
+    sim.cfg.gravity = gravity
+    sim._gravity_tensor = torch.tensor(gravity, dtype=torch.float32, device=sim.cfg.device)
+
+    physics_scene = sim._physics_context._physics_scene
+    gravity_arr = np.asarray(gravity, dtype=np.float64)
+    magnitude = float(np.linalg.norm(gravity_arr))
+    direction = gravity_arr / magnitude if magnitude != 0.0 else gravity_arr
+    from pxr import Gf
+
+    physics_scene.CreateGravityDirectionAttr(Gf.Vec3f(float(direction[0]), float(direction[1]), float(direction[2])))
+    physics_scene.CreateGravityMagnitudeAttr(magnitude)
+
+    root = articulation.root_physx_view
+    disable_flags = root.get_disable_gravities()
+    disable_val = 0 if enabled else 1
+    data = torch.full(disable_flags.shape, disable_val, device=disable_flags.device, dtype=torch.uint8)
+    indices = torch.arange(disable_flags.shape[1], device=disable_flags.device)
+    root.set_disable_gravities(data, indices)
+
+
 def advance_sim(env: Any) -> None:
     """Advance physics without the task's action manager, keeping caller-written targets."""
     unwrapped = env.unwrapped
