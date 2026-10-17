@@ -1435,8 +1435,13 @@ def motion_quality_metrics(
     action_clip: float | None = None,
     hold_s_nominal: float | None = None,
     touch_ref_n: float = MOTION_TOUCH_REF_N,
+    metric_class: str | None = None,
 ) -> dict | None:
     """The motion-quality block of one episode's OWN hold (``hold["quality"]``); ``None`` if empty.
+
+    ``metric_class`` (opt-in, Task 4 E1): read :data:`MOTION_QUALITY_APPLIES` as that class
+    (:func:`applicability_category`) instead of as ``category``; the block then also records it. ``None``
+    (every pre-E1 row) is the by-name rule, unchanged.
 
     Every array is the hold's window only (time first). The keys of :data:`MOTION_QUALITY_KEYS`
     are always present; a key not defined on ``category`` (:data:`MOTION_QUALITY_APPLIES`) or not
@@ -1481,10 +1486,13 @@ def motion_quality_metrics(
         return None
     dur = n * dt
     loaded = force > touch_ref_n
-    applies = {k: category in cats for k, cats in MOTION_QUALITY_APPLIES.items()}
+    as_cat = applicability_category(category, metric_class)
+    applies = {k: as_cat in cats for k, cats in MOTION_QUALITY_APPLIES.items()}
     out: dict[str, Any] = {k: None for k in MOTION_QUALITY_KEYS}
     extra: dict[str, Any] = {"category": category, "n_steps": n, "duration_s": dur,
                              "touch_ref_n": float(touch_ref_n), "settle_six_down_censored": None}
+    if metric_class is not None:
+        extra["metric_class"] = metric_class
 
     # ---- actions
     acts = None
@@ -1564,7 +1572,7 @@ def motion_quality_metrics(
     for k in MOTION_QUALITY_KEYS:
         if not applies[k]:
             out[k] = None
-    if category != "stand":
+    if as_cat != "stand":
         extra["settle_six_down_censored"] = None
     return {**out, **extra}
 
@@ -1620,6 +1628,31 @@ RIGIDITY_APPLIES: dict[str, frozenset] = {
     **{k: frozenset({"turn"}) for k in ("steps_per_rad_pre", "steps_per_rad_post")},
     "hz_speed_slope": _TRANSLATE | frozenset({"move_turn"}),
 }
+
+# NOTE(Task 4 pipeline E1, 2026-10-16): the OPT-IN ``metric_class`` of a manifest-v3 category
+# (``gait_eval.schedule.METRIC_CLASSES``). The two applicability maps above are keyed on the category
+# NAME, so a category named anything else (a direction-sweep bin ``d022``) reads None for every
+# class-specific key. A category that sets ``metric_class`` is scored as the class's representative
+# below instead; a category that does not (every row written before E1) is looked up by name, unchanged.
+#: ``metric_class`` -> the category whose applicability it borrows. ``translate`` -> ``fwd``: the four
+#: translation categories are interchangeable in every applicability map (asserted below).
+METRIC_CLASS_CATEGORY: dict[str, str] = {"stand": "stand", "translate": "fwd", "turn": "turn",
+                                         "move_turn": "move_turn"}
+for _key, _cats in {**MOTION_QUALITY_APPLIES, **RIGIDITY_APPLIES}.items():
+    # ``fwd`` stands for every translation category only while they share every applicability set.
+    assert len({c in _cats for c in _TRANSLATE}) == 1, f"{_key}: the translation categories disagree"
+del _key, _cats
+
+
+def applicability_category(category: str, metric_class: str | None = None) -> str:
+    """The name the applicability maps are read with: ``category`` itself (no ``metric_class``: the
+    by-name rule every pre-E1 row uses), else the class's representative (:data:`METRIC_CLASS_CATEGORY`)."""
+    if metric_class is None:
+        return category
+    try:
+        return METRIC_CLASS_CATEGORY[metric_class]
+    except KeyError:
+        raise ValueError(f"metric_class {metric_class!r}: expected one of {sorted(METRIC_CLASS_CATEGORY)}") from None
 
 
 def step_tap_runs(loaded: np.ndarray, *,
@@ -1786,8 +1819,13 @@ def rigidity_metrics(
     heading_err: np.ndarray | None = None,
     touch_ref_n: float = MOTION_TOUCH_REF_N,
     min_step_steps: int = RIGIDITY_STEP_MIN_STEPS,
+    metric_class: str | None = None,
 ) -> dict | None:
     """The rigidity block of one episode's OWN hold (``hold["rigidity"]``); ``None`` if empty.
+
+    ``metric_class`` (opt-in, Task 4 E1): read :data:`RIGIDITY_APPLIES` as that class
+    (:func:`applicability_category`) instead of as ``category``; the block then also records it. ``None``
+    (every pre-E1 row) is the by-name rule, unchanged.
 
     Every array is the hold's whole 12-s command window (time first). The keys of
     :data:`RIGIDITY_EPISODE_KEYS` are always present; a key not defined on ``category``
@@ -1838,6 +1876,9 @@ def rigidity_metrics(
                              "touch_ref_n": float(touch_ref_n), "min_step_steps": int(min_step_steps),
                              "closure_s": None, "phase_offset_rad": None, "phase_plv": None,
                              "stance_z_offset_m": None, "swing_apex_n": 0}
+    as_cat = applicability_category(category, metric_class)
+    if metric_class is not None:
+        extra["metric_class"] = metric_class
 
     # ---- steps and taps
     steps, taps, censored = step_tap_runs(loaded, min_step_steps=min_step_steps)
@@ -1896,13 +1937,16 @@ def rigidity_metrics(
             out["steps_per_rad_pre"] = out["steps_per_rad"]
 
     for k in RIGIDITY_EPISODE_KEYS:
-        if category not in RIGIDITY_APPLIES[k]:
+        if as_cat not in RIGIDITY_APPLIES[k]:
             out[k] = None
     return {**out, **extra}
 
 
-def rigidity_pooled_metrics(category: str, blocks: Sequence[dict | None]) -> dict[str, dict]:
+def rigidity_pooled_metrics(category: str, blocks: Sequence[dict | None],
+                            metric_class: str | None = None) -> dict[str, dict]:
     """The across-episode rigidity keys of one category (or one hand of it).
+
+    ``metric_class``: as in :func:`rigidity_metrics` (opt-in; ``None`` = the by-name rule).
 
     ``blocks`` are the category's own-hold :func:`rigidity_metrics` blocks (``None`` entries --
     unmeasured holds -- are skipped). Returns ``{key: {"value", "n", ...}}`` for every
@@ -1918,6 +1962,7 @@ def rigidity_pooled_metrics(category: str, blocks: Sequence[dict | None]) -> dic
     """
     got = [b for b in blocks if b]
     out: dict[str, dict] = {}
+    category = applicability_category(category, metric_class)
     if category in RIGIDITY_APPLIES["hz_speed_slope"]:
         slope, n = ols_slope([b.get("speed_m_s") for b in got], [b.get("gait_hz") for b in got])
     else:

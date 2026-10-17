@@ -130,10 +130,12 @@ def score_episode(
     slip_thresh = float(scenario.get_default("slip_speed_threshold"))
     lin_vel_clip = float(scenario.get_default("lin_vel_clip"))
     ended_in_fall = term_reason in ("fall", "hard_fall")
-    own_label = own_category = None
+    own_label = own_category = own_metric_class = None
     if world and compiled.hold_of_env is not None and scenario.suite is not None:
         own_label = compiled.hold_labels[int(compiled.hold_of_env[env_idx])]
         own_category = scenario.suite.category_of_hold().get(own_label)
+        # Task 4 E1: the opt-in metric_class of a v3 category (None on every other row: the by-name rule).
+        own_metric_class = scenario.suite.metric_class_of_hold().get(own_label)
 
     contact_all = raw["foot_force_norm"][:, env_idx, :] > threshold
     segment_id = compiled.segment_id[:, env_idx]
@@ -226,9 +228,10 @@ def score_episode(
                 entry["quality"] = _quality_block(
                     raw, env_idx, widx, own_category, dt=dt, motion_groups=motion_groups,
                     action_clip=action_clip, hold_s_nominal=float(scenario.schedule[hold_idx].hold_s),
+                    metric_class=own_metric_class,
                 )
                 entry["rigidity"] = _rigidity_block(raw, env_idx, widx, own_category, dt=dt,
-                                                    terrain_mesh=terrain_mesh)
+                                                    terrain_mesh=terrain_mesh, metric_class=own_metric_class)
             if body_cmd is not None:
                 entry["body"] = _body_block(raw, env_idx, widx, segment_id, hold_idx, body_cmd, dt=dt)
             if "adapter_clipped" in raw:
@@ -394,7 +397,7 @@ def _body_block(raw: dict, env_idx: int, widx: np.ndarray, segment_id: np.ndarra
 
 
 def _quality_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, dt: float,
-                   motion_groups, action_clip, hold_s_nominal: float) -> dict | None:
+                   motion_groups, action_clip, hold_s_nominal: float, metric_class: str | None = None) -> dict | None:
     """``motion_quality_metrics`` of one episode's own hold; inputs the harness did not record (an
     older npz: no ``applied_torque`` / ``clock_running`` / ``rod_speed``) leave their metrics
     ``None``."""
@@ -418,11 +421,12 @@ def _quality_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, 
         rod_speed=_opt("rod_speed"),
         action_clip=action_clip,
         hold_s_nominal=hold_s_nominal,
+        metric_class=metric_class,
     )
 
 
 def _rigidity_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *, dt: float,
-                    terrain_mesh: bool) -> dict | None:
+                    terrain_mesh: bool, metric_class: str | None = None) -> dict | None:
     """``rigidity_metrics`` of one episode's own hold; inputs the harness did not record (an older
     npz: no ``clock_phase``) leave their metrics ``None``, and so does ``terrain_z`` off the mesh."""
     def _opt(key):
@@ -438,6 +442,7 @@ def _rigidity_block(raw: dict, env_idx: int, widx: np.ndarray, category: str, *,
         terrain_z=_opt("terrain_z") if terrain_mesh else None,
         clock_phase=_opt("clock_phase"),
         heading_err=_opt("heading_err"),
+        metric_class=metric_class,
     )
 
 
@@ -532,10 +537,10 @@ BODY_CATEGORY_METRIC_SOURCES: dict[str, tuple[str, ...]] = {
 }
 
 
-def _pooled_block(category: str, blocks: list) -> dict[str, dict]:
+def _pooled_block(category: str, blocks: list, metric_class: str | None = None) -> dict[str, dict]:
     """The :data:`CATEGORY_POOLED_KEYS` entries of one category (or hand) in the ``_stats`` shape."""
     out: dict[str, dict] = {}
-    for key, got in M.rigidity_pooled_metrics(category, blocks).items():
+    for key, got in M.rigidity_pooled_metrics(category, blocks, metric_class).items():
         value = got.pop("value")
         out[key] = {"median": value, "mean": value, "p25": None, "p75": None, **got}
     return out
@@ -639,11 +644,14 @@ def _suite_block(episodes: list[dict], suite: dict, stats) -> dict:
         # The across-episode rigidity keys: one statistic over the category's (or hand's) own holds.
         rig = [((e["holds"].get(lab) or {}).get("rigidity"), hand_of_hold[lab])
                for lab in labels for e in own[lab]]
-        block.update(_pooled_block(cat["name"], [b for b, _h in rig]))
+        block.update(_pooled_block(cat["name"], [b for b, _h in rig], cat.get("metric_class")))
         for h in hands:
-            block["by_hand"][h].update(_pooled_block(cat["name"], [b for b, hh in rig if hh == h]))
+            block["by_hand"][h].update(_pooled_block(cat["name"], [b for b, hh in rig if hh == h],
+                                                     cat.get("metric_class")))
         by_category[cat["name"]] = block
 
+    # Task 4 E1: only a suite with an opt-in metric_class records the map (every other aggregate is unchanged).
+    metric_class_of_category = {c["name"]: c["metric_class"] for c in categories if c.get("metric_class") is not None}
     return {
         "waves": suite.get("waves"),
         "wave_seeds": suite.get("wave_seeds"),
@@ -660,6 +668,7 @@ def _suite_block(episodes: list[dict], suite: dict, stats) -> dict:
         "survival_by_hold": survival_by_hold,
         "trained_categories": suite.get("trained_categories"),
         "by_category": by_category,
+        **({"metric_class_of_category": metric_class_of_category} if metric_class_of_category else {}),
     }
 
 
@@ -972,9 +981,11 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
         lines.append("")
         lines.append("motion quality by category (own hold, whole hold; medians; loaded = foot force > "
                      f"{M.MOTION_TOUCH_REF_N:g} N; per-m / per-rad over net displacement / |net yaw|):")
+        mclass = sb.get("metric_class_of_category") or {}
         for name, cat in sb["by_category"].items():
+            as_cat = M.applicability_category(name, mclass.get(name))
             parts = [f"{key}={_median_txt(cat[key])}" for key in M.MOTION_QUALITY_KEYS
-                     if name in M.MOTION_QUALITY_APPLIES[key] and key in cat]
+                     if as_cat in M.MOTION_QUALITY_APPLIES[key] and key in cat]
             lines.append(f"  {name:>9}: " + " ".join(parts))
         # Rigidity (clock-deprecation plan step 3): again only the keys defined on each category.
         lines.append("")
@@ -983,8 +994,9 @@ def summary_text(run_meta: dict, episodes: list[dict]) -> str:
                      f"{M.MOTION_TOUCH_REF_N:g} N; hz_speed_slope / offset_R are one statistic over "
                      "the category's episodes):")
         for name, cat in sb["by_category"].items():
+            as_cat = M.applicability_category(name, mclass.get(name))
             parts = [f"{key}={_median_txt(cat[key])}" for key in M.RIGIDITY_KEYS
-                     if name in M.RIGIDITY_APPLIES[key] and key in cat]
+                     if as_cat in M.RIGIDITY_APPLIES[key] and key in cat]
             lines.append(f"  {name:>9}: " + " ".join(parts))
         if any("net_yaw_ratio" in cat for cat in sb["by_category"].values()):
             # v3 / adapter runs only (the by_category body keys exist only there).

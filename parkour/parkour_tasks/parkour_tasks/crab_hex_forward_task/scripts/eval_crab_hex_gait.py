@@ -25,6 +25,15 @@ on v1 / v2 world rows needs ``world_rate``. Any other pairing is refused (gate 0
 adapter runs add raw ``obs_cmd`` (+ the adapter's series) and a ``body`` block per hold; legacy runs
 gain nothing.
 
+M18 Task 4 pipeline, E1 (2026-10-16; ``crab_hex_omni_task/experiments/2026-10-16_task4_pipeline``): the
+OMNI DEPTH STUDENT runs through the one shared step (``scripts/rsl_rl/modules/omni_student_step.py``, the
+step the trainer / play.py / play_stream_video.py run; no second forward pass here), routed when the role
+resolves to student AND the task's runner cfg marks ``depth_encoder.omni_student`` (cross-checked against the
+checkpoint's own ``params/agent.yaml``, whose ``depth_encoder.zero_depth`` it honours); the forward student
+branch is unchanged. Every row records ``run_meta["payload"]``: the payload reset event's per-env record read
+after the reset that applied it (``null`` when the event is off), plus ``by_wave`` on suite rows; an omni
+student run adds ``run_meta["student"]``.
+
 Launch from ``krabby-research/parkour`` via ``isaaclab.sh -p`` -- see README section 4.1b.
 """
 
@@ -204,6 +213,13 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_contact_sensors import (  # no
     CRAB_HEX_FOOTPAD_BODY_NAMES,
 )
 from scripts.rsl_rl.runner_factory import agent_cfg_to_train_dict, make_on_policy_runner  # noqa: E402
+# Task 4 E1: the ONE omni depth-student step, its routing flag, its runner's knob policy and the payload record.
+from scripts.rsl_rl.modules.omni_student_step import OmniStudentStep, is_omni_student  # noqa: E402
+from parkour_tasks.crab_hex_omni_task.config.crab_hex import omni_student_spec as _OMNI_STUDENT_SPEC  # noqa: E402
+from parkour_tasks.crab_hex_omni_task.config.crab_hex.agents.rsl_rl_ppo_cfg import (  # noqa: E402
+    CrabHexOmniStudentPPORunnerCfg,
+)
+from parkour_tasks.crab_hex_omni_task.mdp.omni_events import PAYLOAD_EVENT_NAME, payload_run_meta  # noqa: E402
 from scripts.rsl_rl.vecenv_wrapper import ParkourRslRlVecEnvWrapper  # noqa: E402
 
 # Command channels the policy can actually observe. observations.py concatenates
@@ -1038,6 +1054,118 @@ def _canon_flips(flags, n_steps) -> list:
     return out
 
 
+# --------------------------------------------------------------------------------------------
+# The omni depth student and the payload record (M18 Task 4 pipeline, E1, 2026-10-16;
+# crab_hex_omni_task/experiments/2026-10-16_task4_pipeline DESIGN §4 E1). Pure helpers (``Path`` /
+# ``hashlib`` / ``yaml`` only, no module globals but these constants), so the unit suite lifts them out
+# of this file with ``ast`` (tests/unit/test_task4_eval.py). The student's per-step computation is NOT
+# here: it is ``OmniStudentStep`` (the trainer's / play.py's), called from the policy branch of main().
+# --------------------------------------------------------------------------------------------
+#: ``run_meta["payload"]["by_wave"]`` (suite rows): the per-env fields a reset re-draws.
+PAYLOAD_PER_DRAW_KEYS = ("resets_per_env", "payload_kg", "payload_com_m", "total_mass_kg", "total_com_m")
+#: When ``run_meta["payload"]`` is read: after the reset that applied the episode's payload.
+PAYLOAD_READ_AT = ("wave 0 (or the single pass), after the wrapper's initial reset -- the reset whose payload "
+                   "draw every recorded episode runs with -- and before step 0; by_wave: the same instant of "
+                   "every wave (after its env.reset())")
+
+
+def _checkpoint_agent_yaml(resume_path) -> "Path | None":
+    """The checkpoint's own ``params/agent.yaml`` (the trainer's dump beside ``model_*.pt``), or None."""
+    path = Path(resume_path).resolve().parent / "params" / "agent.yaml"
+    return path if path.is_file() else None
+
+
+def _load_agent_params(path) -> dict:
+    """A dumped Isaac Lab ``agent.yaml`` as plain data without executing anything: ``!!python/tuple`` -> list,
+    every other ``!!python/...`` tag -> None."""
+    import yaml  # noqa: PLC0415
+
+    class _Loader(yaml.SafeLoader):
+        pass
+
+    _Loader.add_constructor("tag:yaml.org,2002:python/tuple", lambda loader, node: loader.construct_sequence(node))
+    _Loader.add_multi_constructor("tag:yaml.org,2002:python/", lambda loader, suffix, node: None)
+    data = yaml.load(Path(path).read_text(), Loader=_Loader)  # noqa: S506 -- SafeLoader subclass
+    return data if isinstance(data, dict) else {}
+
+
+def _omni_student_route(*, role_student: bool, task_flag: bool, ckpt_params, ckpt_yaml=None) -> "dict | None":
+    """The omni depth-student route of a run, or None (the forward student / a teacher / zero actions).
+
+    The route is taken iff the role resolves to student AND the task's runner cfg marks
+    ``depth_encoder.omni_student``. The checkpoint's own ``params/agent.yaml`` (``ckpt_params``; None when
+    the checkpoint has none beside it) must agree on the flag -- an omni student checkpoint on a forward
+    student task, or a forward one on the omni student task, is refused (gate 0 INVALID) -- and its
+    ``depth_encoder.zero_depth`` (the step-8 zeroed-depth pilot) is honoured. ``--policy-role teacher`` on
+    Student-Play never reaches the check (``role_student`` False): the teacher branch is unchanged.
+    """
+    if not role_student:
+        return None
+    de = ckpt_params.get("depth_encoder") if ckpt_params is not None else None
+    de = de if isinstance(de, dict) else {}
+    ckpt_flag = bool(de.get("omni_student", False))
+    if ckpt_params is not None and ckpt_flag != bool(task_flag):
+        raise SystemExit(
+            f"INVALID EVAL (gate 0): the checkpoint's params/agent.yaml ({ckpt_yaml}) has depth_encoder.omni_student="
+            f"{ckpt_flag} but the task's runner cfg has {bool(task_flag)} -- an omni depth student runs only on "
+            "Isaac-Crab-Hex-Omni-Student(-Play)-v0, a forward student never does")
+    if not task_flag:
+        return None
+    zero = bool(de.get("zero_depth", False))
+    return {"zero_depth": zero,
+            "zero_depth_source": (f"checkpoint params/agent.yaml depth_encoder.zero_depth ({ckpt_yaml})"
+                                  if ckpt_params is not None else
+                                  "default False (no params/agent.yaml beside the checkpoint)"),
+            "checkpoint_agent_yaml": (str(ckpt_yaml) if ckpt_yaml is not None else None)}
+
+
+def _student_runner_knob_check(rl_cfg_entry, student_runner_cls, refusals) -> None:
+    """Gate 0 INVALID, before the agent cfg is built, when the task binds the omni student runner and the process
+    environment sets a runner knob that runner refuses (``omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED``).
+
+    The refusal itself is the runner cfg's (``apply_student_runner_knobs``, a ValueError from its
+    ``__post_init__``); this names the remedy. The harness never strips them itself: writing the environment
+    after Kit startup moves a same-seed eval into a different outcome class (the env-block note in main()),
+    so the ROW RUNNER launches every Isaac-Crab-Hex-Omni-Student* row -- the student's AND T*'s
+    ``--policy-role teacher`` row -- with those keys unset. All of them are runner-side training knobs (losses,
+    optimizer, std clamp / reset, symmetry): none reaches the env cfg or either head's ``act_inference``.
+    ``KRABBY_STD_PARAM`` / ``KRABBY_INIT_STD`` stay (the runner applies them; soft is needed to load std_raw).
+    """
+    if isinstance(rl_cfg_entry, type) and issubclass(rl_cfg_entry, student_runner_cls) and refusals:
+        raise SystemExit(
+            "INVALID EVAL (gate 0): this task binds the omni student runner, which applies only KRABBY_STD_PARAM / "
+            f"KRABBY_INIT_STD and refuses {', '.join(refusals)}. Launch the row with those keys unset (env -u; the "
+            "list is omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED) -- they are runner-side training knobs that "
+            "never reach the env or act_inference.")
+
+
+def _payload_check_read(meta, wave: int, armed: bool) -> None:
+    """Refuse a payload record that would mislead: the env cfg arms the event but the live term gave no record
+    (it would read as "no payload"), or the event has not run a reset yet (the pre-payload body)."""
+    if armed and meta is None:
+        raise SystemExit(f"payload record (wave {wave}): the env cfg arms the payload event but the live event "
+                         "manager has no instantiated term to read -- the record would say 'no payload'")
+    if meta is not None and not armed:
+        raise SystemExit(f"payload record (wave {wave}): a live payload term exists but the env cfg does not arm it")
+    if meta is not None and not meta.get("captured"):
+        raise SystemExit(f"payload record (wave {wave}): the payload event is armed but has not run a reset yet "
+                         "(captured=False) -- the read would describe the body without its payload")
+
+
+def _payload_run_meta_record(reads: list, suite: bool) -> "dict | None":
+    """``run_meta["payload"]``: the FIRST read (``omni_events.payload_run_meta`` after the reset that applied the
+    payload), ``None`` when the payload event is off; on a suite row also ``by_wave`` (each wave's re-draw)."""
+    if not reads or all(r is None for r in reads):
+        return None
+    if any(r is None for r in reads):
+        raise SystemExit("payload record: the payload event is armed in some waves and not in others")
+    out = dict(reads[0])
+    out["read_at"] = PAYLOAD_READ_AT
+    if suite:
+        out["by_wave"] = [{"wave": k, **{key: r.get(key) for key in PAYLOAD_PER_DRAW_KEYS}} for k, r in enumerate(reads)]
+    return out
+
+
 def main() -> None:
     scenario = _resolve_scenario()
     canon_mode = args_cli.canon
@@ -1089,6 +1217,11 @@ def main() -> None:
     )
     applied_overrides = _apply_env_overrides(env_cfg, scenario)
 
+    # Task 4 E1: the omni student runner refuses runner knobs from its cfg's __post_init__; name the remedy
+    # (the row runner strips them at launch; this process never writes the environment for it).
+    _student_runner_knob_check(gym.spec(scenario.task).kwargs.get("rsl_rl_cfg_entry_point"),
+                               CrabHexOmniStudentPPORunnerCfg,
+                               _OMNI_STUDENT_SPEC.student_runner_knob_refusals(_ENVIRON))
     agent_cfg = cli_args.parse_rsl_rl_cfg(scenario.task, args_cli)
     print("[DEBUG] agent_cfg parsed, calling gym.make", flush=True)
     env = ParkourRslRlVecEnvWrapper(
@@ -1137,6 +1270,9 @@ def main() -> None:
     depth_encoder = None
     estimator = None
     is_student = False
+    # Task 4 E1: the shared omni student step (None on every other run) and its checkpoint-derived settings.
+    omni_step = None
+    omni_student_settings = None
     sample_actions_std = None
     if args_cli.sample_actions and args_cli.zero_actions:
         raise SystemExit("--sample-actions and --zero-actions are mutually exclusive")
@@ -1158,6 +1294,17 @@ def main() -> None:
                 raise SystemExit(msg + "\nPass --allow-checkpoint-sha-mismatch to override.")
             print(f"[WARN] {msg}", flush=True)
 
+        # Task 4 E1: the omni depth student route (the same role rule as ``is_student`` below), decided before the
+        # runner is built so a zeroed-depth checkpoint's flag reaches the runner cfg exactly as its training
+        # run's Hydra override put it there (``OmniStudentStep.from_runner`` reads it from ``runner.cfg``).
+        _role_student = (args_cli.policy_role == "student" if args_cli.policy_role != "auto"
+                         else agent_cfg.algorithm.class_name == "DistillationWithExtractor")
+        _ckpt_yaml = _checkpoint_agent_yaml(resume_path) if _role_student else None
+        omni_student_settings = _omni_student_route(
+            role_student=_role_student, task_flag=is_omni_student(agent_cfg),
+            ckpt_params=(_load_agent_params(_ckpt_yaml) if _ckpt_yaml is not None else None), ckpt_yaml=_ckpt_yaml)
+        if omni_student_settings is not None and omni_student_settings["zero_depth"]:
+            agent_cfg.depth_encoder.zero_depth = True
         runner = make_on_policy_runner(env, agent_cfg_to_train_dict(agent_cfg), log_dir=None, device=device)
         print(f"[INFO] loading checkpoint: {resume_path}", flush=True)
         runner.load(resume_path)
@@ -1177,9 +1324,16 @@ def main() -> None:
         if is_student:
             policy = runner.get_inference_depth_policy(device=device)
             depth_encoder = runner.get_depth_encoder_inference_policy(device=device)
+            if omni_student_settings is not None:
+                # Task 4 E1: the ONE shared omni student step (play.py's construction: every network in eval
+                # mode -- the estimator too, whose output the step writes -- then from_runner).
+                runner.get_estimator_inference_policy(device=device)
+                omni_step = OmniStudentStep.from_runner(runner, device=device)
         else:
             policy = runner.get_inference_policy(device=device)
             estimator = runner.get_estimator_inference_policy(device=device)
+        if (omni_student_settings is not None) != (omni_step is not None):
+            raise SystemExit("internal: the omni student route and the resolved role disagree")
         if args_cli.sample_actions:
             if is_student:
                 raise SystemExit("--sample-actions: the depth student is a deterministic actor (no "
@@ -1213,6 +1367,10 @@ def main() -> None:
     delta_yaw_tensor = (
         torch.from_numpy(compiled.delta_yaw).to(device) if compiled.delta_yaw is not None else None
     )
+    if omni_step is not None and delta_yaw_tensor is not None:
+        raise SystemExit(f"scenario {scenario.id!r} injects delta_yaw into obs cols 6-7 (a forward yaw probe); the "
+                         "omni depth student never takes that route (its facing command is cols 6-7 as the env built "
+                         "them; the shared step never writes them)")
     T = compiled.n_steps
 
     cmd_term = unwrapped.command_manager.get_term("base_velocity")
@@ -1374,6 +1532,9 @@ def main() -> None:
     n_steps_all: list[int] = []
     depth_latent = None
     yaw_pred = None
+    # Task 4 E1: omni_events.payload_run_meta per wave (or the single pass), read after the reset that applied it.
+    payload_reads: list = []
+    payload_armed = getattr(getattr(env_cfg, "events", None), PAYLOAD_EVENT_NAME, None) is not None
     print(f"[INFO] scenario={scenario.id} task={scenario.task} envs={num_envs} steps={T} dt={dt:.4f}", flush=True)
 
     for wave in range(n_waves):
@@ -1393,6 +1554,9 @@ def main() -> None:
             term_reason = ["running"] * num_envs
             depth_latent = None
             yaw_pred = None
+        if omni_step is not None:
+            # Task 4 E1: every wave (and the single pass) starts with no GRU state and no held latent.
+            omni_step.reset()
         # Wave > 0 touches env state that the previous wave's inference-mode steps own, so its
         # prologue runs in inference mode too; the single pass keeps today's (no) context.
         with (torch.inference_mode() if suite_mode and wave > 0 else contextlib.nullcontext()):
@@ -1429,6 +1593,10 @@ def main() -> None:
             # obs[:, 10] necessarily lags one step behind vel_command_b (the policy acts on last
             # step's observation).
             obs_reflects_cmd = cmd_term.vel_command_b.clone() if hook_driven else cmd_tensor[0].clone()
+            # Task 4 E1: the payload record of this wave's episodes. Its reset already ran (the wrapper's for wave
+            # 0 / the single pass, env.reset() above for wave > 0); the read touches no sim state (CPU copies).
+            payload_reads.append(payload_run_meta(unwrapped))
+            _payload_check_read(payload_reads[-1], wave, payload_armed)
 
         if canon_on:
             if canon_lr is None:
@@ -1513,18 +1681,24 @@ def main() -> None:
                 if args_cli.zero_actions:
                     actions = torch.zeros(num_envs, n_actions, device=device)
                 elif is_student:
-                    depth_camera = extras["observations"]["depth_camera"].to(device)
-                    # Stay in phase with CrabHexParkourObservations' own 5-step refresh.
-                    if unwrapped.common_step_counter % 5 == 0 or depth_latent is None:
-                        obs_student = obs[:, :num_prop].clone()
-                        obs_student[:, 6:8] = 0
-                        latent_and_yaw = depth_encoder(depth_camera, obs_student)
-                        depth_latent = latent_and_yaw[:, :-2]
-                        yaw_pred = latent_and_yaw[:, -2:]
-                    obs[:, 6:8] = 1.5 * yaw_pred
-                    if delta_yaw_tensor is not None:
-                        obs[:, OBS_IDX_DELTA_NEXT_YAW] = delta_yaw_tensor[t]
-                    actions = policy(obs, hist_encoding=True, scandots_latent=depth_latent)
+                    if omni_step is not None:
+                        # Task 4 E1: the shared omni student step (tile flags -> field pair and the estimator
+                        # write on ITS copy; encode every 5th step; the depth actor). ``obs`` is never written,
+                        # so every recorder below reads the observation the env built.
+                        actions = omni_step.act(obs, extras["observations"], unwrapped.common_step_counter)
+                    else:
+                        depth_camera = extras["observations"]["depth_camera"].to(device)
+                        # Stay in phase with CrabHexParkourObservations' own 5-step refresh.
+                        if unwrapped.common_step_counter % 5 == 0 or depth_latent is None:
+                            obs_student = obs[:, :num_prop].clone()
+                            obs_student[:, 6:8] = 0
+                            latent_and_yaw = depth_encoder(depth_camera, obs_student)
+                            depth_latent = latent_and_yaw[:, :-2]
+                            yaw_pred = latent_and_yaw[:, -2:]
+                        obs[:, 6:8] = 1.5 * yaw_pred
+                        if delta_yaw_tensor is not None:
+                            obs[:, OBS_IDX_DELTA_NEXT_YAW] = delta_yaw_tensor[t]
+                        actions = policy(obs, hist_encoding=True, scandots_latent=depth_latent)
                 elif canon_on:
                     # Mirror canonicalization: the flag NEVER comes from the observation (C / C_mo
                     # heads zero the command slots 8-9). 'cmd' reads the live body command -- on
@@ -1605,6 +1779,9 @@ def main() -> None:
                 # right before this step() call (this step's base command plus any yaw override above).
                 obs_reflects_cmd = cmd_term.vel_command_b.clone()
                 obs, _, dones, extras = env.step(actions)
+                if omni_step is not None:
+                    # Task 4 E1: the GRU state of every env the step just reset (the trainer's / play.py's call).
+                    omni_step.reset(dones)
                 if _clock_stop is not None:
                     # the same gate process_actions applies: the cadence is zero at or below the stop;
                     # a clock the stand-park knob holds at its touchdown (``clock_parked``, only with
@@ -1724,7 +1901,25 @@ def main() -> None:
         "n_steps_per_env": list(n_steps_list),
         "hold_labels": compiled.hold_labels,
         "notes": scenario.notes,
+        # Task 4 E1 (every row): the payload reset event's record (per-env kg / CoM / totals + its knob
+        # values), read after the reset that applied it; None when the event is off.
+        "payload": _payload_run_meta_record(payload_reads, suite_mode),
     }
+    if omni_step is not None:
+        # Omni depth-student runs only (a forward / teacher run's key set is unchanged).
+        _step_mod = Path(sys.modules[OmniStudentStep.__module__].__file__).resolve()
+        run_meta["student"] = {
+            "route": "omni_student_step.OmniStudentStep.act (the trainer / play.py / play_stream_video step)",
+            "module": str(_step_mod),
+            "module_sha256": _sha256(_step_mod),
+            "depth_groups": list(omni_step.groups),
+            "encode_period_steps": int(omni_step.period),
+            "depth_num_prop": int(omni_step.depth_num_prop),
+            "zero_depth": bool(omni_step.zero_depth),
+            "zero_depth_source": omni_student_settings["zero_depth_source"],
+            "checkpoint_agent_yaml": omni_student_settings["checkpoint_agent_yaml"],
+            "gru_reset": "reset() at every wave start, reset(dones) after every env step",
+        }
     if args_cli.sample_actions:
         # Only when set, so a normal run's run_meta key set is unchanged.
         run_meta["sample_actions"] = True

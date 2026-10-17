@@ -46,6 +46,13 @@ and the symbol are both kept. Every hold passes the step-1 ``body_cmd_violations
 Everything v3 lives on its own code path (``Scenario.command_route == "term"``): a v1 / v2 manifest
 parses, validates and compiles exactly as before. The torch command math is loaded lazily, BY PATH,
 only when a v3 manifest is read (:func:`omni_command_math`), so a v1 / v2 reader never imports it.
+
+**Opt-in ``metric_class`` (Task 4 pipeline E1, 2026-10-16).** A v3 category may carry ``metric_class:
+<its kind>`` (:data:`METRIC_CLASSES`): the scoring then applies the motion-quality / rigidity metrics of
+that class instead of looking them up by the category's NAME -- what a direction-sweep bin (``d022``) needs
+to get ``steps_per_m`` / ``swing_apex`` / ``support_feet`` / ``taps_per_m`` / ``step_rate_hz``. A category
+without the key (every row written before E1) parses, records and scores exactly as before; a v1 / v2
+suite refuses it.
 """
 
 from __future__ import annotations
@@ -136,6 +143,17 @@ V3_ROW_KEYS: tuple[str, ...] = ("id", "task", "checkpoint", "role", "kind", "sch
 #: A v3 timeline hold: all three body components EXPLICIT (a missing ``wz`` read as 0 would hide a typo).
 V3_HOLD_KEYS: tuple[str, ...] = ("vx", "vy", "wz", "hold_s", "label")
 V3_CATEGORY_HOLD_KEYS: tuple[str, ...] = ("label", "vx", "vy", "wz", "hand")
+#: OPT-IN v3 category keys (Task 4 pipeline E1, 2026-10-16): absent on every row written before it, and
+#: absent from the parsed record when not given, so those rows parse, compile and score exactly as before.
+V3_CATEGORY_OPTIONAL_KEYS: tuple[str, ...] = ("metric_class",)
+#: ``metric_class`` values. The motion-quality / rigidity metrics are DEFINED per category NAME
+#: (``gait_eval.metrics.MOTION_QUALITY_APPLIES`` / ``RIGIDITY_APPLIES``: per-metre keys on fwd / side / back /
+#: diag, ...), so a category with any other name -- a direction-sweep bin ``d022``, a grid cell -- gets
+#: ``None`` for every one of them. ``metric_class: translate`` scores such a category with the metrics of its
+#: class instead (``gait_eval.metrics.applicability_category``). It must equal the category's ``kind`` (a
+#: class the command does not have would score the wrong metrics), and a category without it keeps the
+#: by-name rule.
+METRIC_CLASSES: tuple[str, ...] = CATEGORY_KINDS
 #: The envelope block's keys (the step-1 ``BodyEnvelope`` fields).
 ENVELOPE_KEYS: tuple[str, ...] = ("w_min", "ceiling", "w_max", "cap")
 #: ``wz`` symbols resolved from the manifest envelope at parse time. ``cap80`` = 0.8 x the coupled
@@ -340,6 +358,8 @@ class Category:
     name: str
     kind: str  # one of CATEGORY_KINDS
     holds: list[CategoryHold] = field(default_factory=list)
+    # Opt-in (v3 rows only; Task 4 E1): score the category with the metrics of this class, not of its name.
+    metric_class: str | None = None
 
 
 @dataclass
@@ -377,6 +397,10 @@ class CategorySuite:
 
     def hand_of_hold(self) -> dict[str, str | None]:
         return {h.label: h.hand for c in self.categories for h in c.holds}
+
+    def metric_class_of_hold(self) -> dict[str, str | None]:
+        """``{label: the hold's category's metric_class}`` -- ``None`` on every category without one."""
+        return {h.label: c.metric_class for c in self.categories for h in c.holds}
 
     def categories_meta(self) -> list[dict[str, Any]]:
         """JSON-able ``[{name, kind, holds: [{label, speed, dir, face, hand}]}]``."""
@@ -419,7 +443,8 @@ class BodyCategorySuite(CategorySuite):
     SETTLE_COMMAND = (0.0, 0.0, 0.0)
 
     def categories_meta(self) -> list[dict[str, Any]]:
-        """JSON-able ``[{name, kind, holds: [{label, vx, vy, wz, wz_symbol, hand}]}]``."""
+        """JSON-able ``[{name, kind, holds: [{label, vx, vy, wz, wz_symbol, hand}]}]``, plus ``metric_class`` on a
+        category that sets it (only then: a row without it records exactly what it always did)."""
         return [
             {
                 "name": c.name,
@@ -429,6 +454,7 @@ class BodyCategorySuite(CategorySuite):
                      "hand": h.hand}
                     for h in c.holds
                 ],
+                **({"metric_class": c.metric_class} if c.metric_class is not None else {}),
             }
             for c in self.categories
         ]
@@ -1005,10 +1031,11 @@ def _parse_body_suite(raw: dict, envelope) -> BodyCategorySuite:
     for ci, cat in enumerate(cats_raw):
         if not isinstance(cat, dict):
             raise ManifestError(f"scenario {sid!r} categories[{ci}]: must be a mapping")
-        extra = sorted(set(cat) - set(CATEGORY_KEYS))
+        extra = sorted(set(cat) - set(CATEGORY_KEYS) - set(V3_CATEGORY_OPTIONAL_KEYS))
         if extra:
             raise ManifestError(f"scenario {sid!r} category {cat.get('name', ci)!r}: a category carries only "
-                                f"{list(CATEGORY_KEYS)}; remove {extra}")
+                                f"{list(CATEGORY_KEYS)} (optional: {list(V3_CATEGORY_OPTIONAL_KEYS)}); "
+                                f"remove {extra}")
         missing = [k for k in CATEGORY_KEYS if cat.get(k) in (None, "")]
         if missing:
             raise ManifestError(f"scenario {sid!r} categories[{ci}]: missing {missing}")
@@ -1027,7 +1054,9 @@ def _parse_body_suite(raw: dict, envelope) -> BodyCategorySuite:
             holds.append(BodyCategoryHold(label=str(hold["label"]), vx=vx, vy=vy, wz=wz,
                                           hand=(str(hold["hand"]) if hold.get("hand") is not None else None),
                                           wz_symbol=sym))
-        categories.append(Category(name=str(cat["name"]), kind=str(cat["kind"]), holds=holds))
+        categories.append(Category(name=str(cat["name"]), kind=str(cat["kind"]), holds=holds,
+                                   metric_class=(str(cat["metric_class"]) if cat.get("metric_class") is not None
+                                                 else None)))
     return BodyCategorySuite(settle_hold_s=float(settle["hold_s"]), settle_label=str(settle.get("label") or "settle"),
                              hold_s=float(raw["hold_s"]), categories=categories)
 
@@ -1181,6 +1210,10 @@ def _validate_body_suite(scenario: Scenario) -> None:
                                 f"(expected one of {list(CATEGORY_KINDS)})")
         if not cat.holds:
             raise ManifestError(f"scenario {sid!r} category {cat.name!r}: no holds")
+        if cat.metric_class is not None and (cat.metric_class not in METRIC_CLASSES or cat.metric_class != cat.kind):
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: metric_class {cat.metric_class!r} must be "
+                                f"one of {list(METRIC_CLASSES)} AND equal the category's kind {cat.kind!r} (the "
+                                "metrics of a class its command does not have would be scored)")
         hands = [h.hand for h in cat.holds]
         bad = [h for h in hands if h is not None and h not in HANDS]
         if bad:
@@ -1395,6 +1428,9 @@ def _validate_suite(scenario: Scenario) -> None:
             )
         if not cat.holds:
             raise ManifestError(f"scenario {sid!r} category {cat.name!r}: no holds")
+        if getattr(cat, "metric_class", None) is not None:
+            raise ManifestError(f"scenario {sid!r} category {cat.name!r}: metric_class is a manifest-v3 category key "
+                                "(Task 4 E1); a v1 / v2 suite is scored by category name")
         hands = [h.hand for h in cat.holds]
         bad = [h for h in hands if h is not None and h not in HANDS]
         if bad:

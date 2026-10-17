@@ -178,3 +178,22 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     velocity). The DESIGN header is annotated. D2's outcome is unchanged.
   - **Integration note:** the Student-Play gym id binds the student runner cfg, which refuses runner knobs, so
     T\*'s `--policy-role teacher` row on Student-Play must launch with the runner-only knobs stripped (steps 5/6).
+- **2026-10-16, step 5 (E1 eval commit) done (opus·xhigh) and checked (fable·high: no blocking defects). eval_sha
+  moves here.**
+  - **Built:**
+    - the harness omni-student route through the shared `OmniStudentStep`, cross-checked against the
+      checkpoint's agent.yaml;
+    - a refusal of Student-Play rows that carry refused runner knobs;
+    - `run_meta["payload"]` (null when off; read in each wave's prologue after the reset);
+    - opt-in `metric_class` (manifest v3);
+    - `PL/rows/scenarios_pl_body.yaml` → `dirsweep__omni_body` (16 bins at 0.22 m/s through `body_hold`).
+  - **Byte identity:**
+    - CPU: 24 manifests / 99 rows identical (fable re-run);
+    - GPU: `E1_suite_0kg` has all 1000 episode npz sha-identical to `A3_suite_0kg`; run_meta adds only
+      `"payload": null`.
+  - **Tests:** 39.
+  - **For the row runner (step 6):**
+    - pass `--policy-role teacher` explicitly for T\* on Student-Play;
+    - a 0-kg `0:0` row carries an armed dict of zero payload, which counts as "no payload";
+    - bundled checkpoints carry no params/agent.yaml, so the zero-depth pilot uses run-dir checkpoints;
+    - judge a row by its `complete.json`, not by the exit code (`t4_eval_row.sh` reported rc=0 on an empty stamp).
