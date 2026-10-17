@@ -214,5 +214,5 @@ Record: date, thing name, launcher version, **`krabby-hal-server-isaac`** wheel 
 | No install flow when **`mcu_present`** is false | Operator starts Isaac manually |
 | No GPU preflight | Container fails on wrong hardware |
 | No automatic resume after sim stop | Restart Isaac by hand |
-| Shadow **`reported_image`** is locomotion image, not isaacsim | UI image field misleading |
+| Shadow **`reported_image`** is locomotion image, not isaacsim | UI image field misleading (still from **`krabby install`** / **`state.json`**) |
 | Fleet live pytest E2E uses bench Jetson HAL, not Isaac **fullsim** | This procedure is the check |

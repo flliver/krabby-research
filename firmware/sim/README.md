@@ -69,3 +69,8 @@ Focus the terminal for keys: **e** / **r** jog extend/retract, **space** coast, 
 Simulated hall edges per stop-to-stop travel live in `hall_encoder_scale.json` (loaded by `hall_encoder.py` and mirrored in `host/hall_encoder_scale.hpp`). Until a physical stop-to-stop measurement is committed, the file keeps the documented placeholder **3200**. After measuring `saf` on real hardware (one joint, mechanical min to max), update `edges_per_full_travel` in the JSON and set the same value on `kHallEdgesPerFullTravel` in `host/hall_encoder_scale.hpp`.
 
 Override at runtime without editing JSON: `KRABBY_HALL_EDGES_PER_FULL_TRAVEL=<n>`.
+
+## Fleet + Isaac fullsim
+
+Fleet teleop on a GPU host uses Isaac HAL **fullsim** separately from this pin/firmware sim
+tree. Procedure and known gaps: [`fleet/FULLSIM-FLEET-TELEOP-SMOKE.md`](../../fleet/FULLSIM-FLEET-TELEOP-SMOKE.md).
