@@ -95,7 +95,7 @@ krabby-research/
 ├── controller/                       # On-robot scripts (gamepad / bring-up) that use the HAL client
 │   └── control_loop.py, cli/, input/, mappers/, scripts/{isaac,jetson}
 │
-├── firmware/                         # MCU firmware (arduino/), MCU port + CLI/GUI tooling
+├── firmware/                         # MCU firmware (arduino/); host sim index: firmware/sim/DOCUMENTATION.md
 ├── krabby/                           # Robot host agent (install, enroll, run, telemetry)
 ├── fleet/                            # Fleet service, portal, infra, CLI (see fleet/README.md)
 ├── teleop/                           # WebRTC teleop: edge/ (robot side) and portal/ (docs/TELEOP.md)

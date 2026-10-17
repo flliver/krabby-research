@@ -6,7 +6,7 @@ This directory contains the Dockerfile for the Isaac Sim container that combines
 
 The Isaac Sim container combines:
 - **Policy inference** (`compute/parkour/`) - Policy wrapper and model inference
-- **HAL server** (`hal/Isaac/`) - Isaac Sim HAL server with simulation integration
+- **HAL server** (`hal/server/isaac/`) - Isaac Sim HAL server with simulation integration
 - **Inference runner** (`images/isaacsim/main.py`) - Combined control loop
 
 All components communicate via **inproc ZMQ** (same process, zero-copy) for optimal performance.
@@ -143,7 +143,9 @@ make test-isaacsim
 
 ### Firmware simulation tests (pytest)
 
-Firmware-in-Isaac work (`firmware/sim/`, scene loader, future closed-loop tests) is meant to run in this image: most dev machines do not have a native Isaac Lab + Sim install, while the container already bundles Isaac Lab, parkour tasks, and the Sim kit.
+Firmware-in-Isaac work (`firmware/sim/`, scene loader, HAL fullsim tests) runs in this image
+(most dev machines lack a native Isaac Lab + Sim install). Doc index:
+[`firmware/sim/DOCUMENTATION.md`](../../firmware/sim/DOCUMENTATION.md).
 
 **Build once** (from repo root):
 

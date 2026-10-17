@@ -62,4 +62,5 @@ Tests refer to **joint names** (`FLHY`) and config slots, not scattered pin inte
 
 ## Further reading
 
-- Pin table, virtual serial, Isaac tests: [README.md](README.md)
+- Doc index (tests, Isaac, HAL fullsim): [DOCUMENTATION.md](DOCUMENTATION.md)
+- Pin table, virtual serial: [README.md](README.md)
