@@ -62,6 +62,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/actuator/test_actuator_current_tracker
     arduino/src/actuator/test_actuator_status
     arduino/src/actuator/test_actuator_identity
+    arduino/src/actuator/test_actuator_role_names
     arduino/test_board_pins
     arduino/test_host_arduino_shim
     arduino/test_host_eeprom
