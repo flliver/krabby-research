@@ -10,6 +10,9 @@
 # portal runs on the same machine (e.g. another container publishing 9000 on the host). Omitting bridge
 # NAT avoids 127.0.0.1 inside the Isaac container pointing at the wrong namespace.
 #
+# Image wheels (krabby-hal-server-isaac 0.1.2+ on PyPI) are the default after make build-isaacsim-image.
+# Set KRABBY_ISAAC_DEV_MOUNTS=1 to bind-mount hal/, compute/, teleop/, and firmware/ over the image.
+#
 # Optional flags (--teleop-ip, --hexapod) may appear anywhere among script arguments.
 # Everything else is passed through to the container entrypoint.
 
@@ -98,17 +101,23 @@ py+=("${passthrough[@]}")
 
 xhost +local:docker 2>/dev/null || true
 
-if [ "$want_hexapod" -eq 1 ]; then
-  exec docker run --rm --gpus all \
-    --network host \
-    -e "DISPLAY=${DISPLAY}" \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v "${REPO_ROOT}/assets:/workspace/assets" \
-    "$IMAGE" "${py[@]}"
-else
-  exec docker run --rm --gpus all \
-    --network host \
-    -e "DISPLAY=${DISPLAY}" \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    "$IMAGE" "${py[@]}"
+docker_mounts=(
+  -v /tmp/.X11-unix:/tmp/.X11-unix
+)
+if [ "${KRABBY_ISAAC_DEV_MOUNTS:-0}" = 1 ]; then
+  docker_mounts+=(
+    -v "${REPO_ROOT}/hal:/workspace/hal"
+    -v "${REPO_ROOT}/compute:/workspace/compute"
+    -v "${REPO_ROOT}/teleop:/workspace/teleop"
+    -v "${REPO_ROOT}/firmware:/workspace/firmware"
+  )
 fi
+if [ "$want_hexapod" -eq 1 ]; then
+  docker_mounts+=(-v "${REPO_ROOT}/assets:/workspace/assets")
+fi
+
+exec docker run --rm --gpus all \
+  --network host \
+  -e "DISPLAY=${DISPLAY}" \
+  "${docker_mounts[@]}" \
+  "$IMAGE" "${py[@]}"

@@ -32,6 +32,17 @@ This package provides an entry point that runs both the IsaacSim HAL server and 
 
 ## Installation
 
+### From PyPI
+
+```bash
+pip install krabby-hal-server-isaac==0.1.2
+```
+
+Pulls **`krabby-data-collection`**, **`krabby-controller`**, **`krabby-teleop-edge`**, and other
+runtime deps from PyPI. The **`krabby-isaacsim`** Docker image bakes the same wheels at
+**`make build-isaacsim-image`** time (local **`make build-wheels`**, not a live PyPI fetch during
+`docker build`).
+
 ### From source (development)
 
 ```bash
@@ -111,6 +122,9 @@ Jetson production opens real USB with **`KrabbyMCUSDK`**; it does not use these 
 18-joint batches on hardware USB. PTY setup for GUI/scripts:
 [`firmware/sim/VIRTUAL_SERIAL.md`](../../../firmware/sim/VIRTUAL_SERIAL.md). Isaac firmware
 pytest: `./images/isaacsim/run_firmware_isaac_pytest.sh` (mounts live `hal/` / `compute/`).
+
+Fleet registration and teleop check (simulated krab, firmware in the loop):
+[`fleet/FULLSIM-FLEET-TELEOP-SMOKE.md`](../../../fleet/FULLSIM-FLEET-TELEOP-SMOKE.md).
 
 ## Components
 

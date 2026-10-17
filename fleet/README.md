@@ -9,6 +9,7 @@ portal, and CLI.
 | [`ENROLL.md`](ENROLL.md) | Enroll one Orin |
 | [`FIELD-TELEOP.md`](FIELD-TELEOP.md) | Field robots — teleop-ready vs agent-only |
 | [`BENCH-TELEOP.md`](BENCH-TELEOP.md) | Bench Orin always-on agent + HAL for teleop CI |
+| [`FULLSIM-FLEET-TELEOP-SMOKE.md`](FULLSIM-FLEET-TELEOP-SMOKE.md) | Simulated krab: fleet registration and teleop check (**fullsim**, procedure + missing pieces) |
 | [`BENCH-SSH.md`](BENCH-SSH.md) | Bench `operator` user + CI SSH pubkey |
 | [`SSH-TUNNEL.md`](SSH-TUNNEL.md) | One SSH source → one Orin |
 | [`OPERATORS.md`](OPERATORS.md) | Add Cognito operator users (CLI + Console) |
