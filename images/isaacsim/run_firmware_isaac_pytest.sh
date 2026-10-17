@@ -5,8 +5,8 @@
 #   ./images/isaacsim/run_firmware_isaac_pytest.sh
 #   ./images/isaacsim/run_firmware_isaac_pytest.sh tests/integration/firmware/ -v
 #
-# Mounts host firmware/, tests/, assets/, and parkour/ over the image so local edits are
-# exercised without rebuilding. Uses /isaac-sim/python.sh (not testenv python alone) so
+# Mounts host firmware/, tests/, hal/, compute/, assets/, and parkour/ over the image so
+# local edits are exercised without rebuilding HAL wheels. Uses /isaac-sim/python.sh (not
 # AppLauncher can construct SimulationApp — same requirement as run_test_runner.sh.
 #
 # Pass/fail is determined on the HOST from build/firmware-isaac-pytest/ (outcomes.jsonl +
@@ -34,6 +34,8 @@ rm -f "$RESULTS_DIR"/{outcomes.jsonl,collected.json,session.json,junit.xml,pytes
 
 docker run --rm --gpus all \
   -v "$REPO_ROOT/firmware:/workspace/firmware" \
+  -v "$REPO_ROOT/hal:/workspace/hal" \
+  -v "$REPO_ROOT/compute:/workspace/compute" \
   -v "$REPO_ROOT/tests:/workspace/tests" \
   -v "$REPO_ROOT/assets:/workspace/assets:ro" \
   -v "$REPO_ROOT/parkour:/workspace/parkour" \

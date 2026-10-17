@@ -12,10 +12,14 @@ from hal.server.isaac.isaacsim_firmware_mcusdk import IsaacSimFirmwareMCUSDK
 from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
 
 
-def test_serial_sdk_loop_uses_hal_krabby_apply_and_firmware_tick():
+def test_serial_sdk_loop_sparse_jog_and_firmware_tick():
     hal_mcu = MagicMock()
+    firmware_mcu = MagicMock()
+    hal_mcu._mcu = firmware_mcu
     core = MagicMock()
-    loop = SerialSdkCommandLoop(hal_mcu, core)
+    core.command_pwm_for_actuator.return_value = 0
+    mcu_joints = KRABBY_HEX_DEFINITION.get_mcu_joints()
+    loop = SerialSdkCommandLoop(hal_mcu, core, mcu_joints=mcu_joints)
     names = KRABBY_HEX_DEFINITION.get_joint_names()
     command = JointCommand(
         _joint_positions=np.zeros(18, dtype=np.float32),
@@ -26,8 +30,8 @@ def test_serial_sdk_loop_uses_hal_krabby_apply_and_firmware_tick():
 
     loop.apply_hal_command(command)
 
-    hal_mcu.apply_command.assert_called_once_with(command)
-    core.tick_firmware_without_physics.assert_called_once()
+    firmware_mcu.send_command_joints_hold.assert_called_once()
+    assert core.tick_firmware_without_physics.call_count >= 1
 
 
 def test_isaac_firmware_mcusdk_uses_apply_hal_command_when_present():
