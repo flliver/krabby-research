@@ -234,6 +234,13 @@ def main():
 
     args.enable_cameras = teleop_enabled
     logger.info("enable_cameras=%s (sim RGB-D sensors only with --teleop-ip)", args.enable_cameras)
+    if teleop_enabled and getattr(args, "headless", False):
+        logger.warning(
+            "Headless + --teleop-ip turns on Isaac RTX/Hydra cameras (Pinhole RGB + ray depth). "
+            "Kit may segfault during Hydra init on some GPUs (e.g. RTX 50xx) or with swap full. "
+            "For fleet teleop smoke, prefer a local session without --headless; use headless only "
+            "for HAL+fullsim without --teleop-ip (joystick/TCP)."
+        )
 
     # Launch IsaacLab
     app_launcher = AppLauncher(args)
@@ -258,19 +265,16 @@ def main():
 
     # Import after AppLauncher to avoid conflicts
     import sys
-    from isaaclab_tasks.utils import parse_env_cfg
-    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
-    
-    # Import parkour_tasks to register gym environments
-    # Add parkour_tasks to sys.path to ensure it's found
+
+    # Register gym envs before parkour_isaaclab.envs (parkour_tasks configs import mdp.rewards).
     parkour_tasks_path = "/workspace/parkour/parkour_tasks"
     if parkour_tasks_path not in sys.path:
         sys.path.insert(0, parkour_tasks_path)
-    
-    # Import packages to register gym environments
-    # This must happen before parse_env_cfg is called
     import isaaclab_tasks  # noqa: F401
     import parkour_tasks  # noqa: F401
+
+    from isaaclab_tasks.utils import parse_env_cfg
+    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
 
     from hal.client.config import HalClientConfig
     from hal.server import HalServerConfig
