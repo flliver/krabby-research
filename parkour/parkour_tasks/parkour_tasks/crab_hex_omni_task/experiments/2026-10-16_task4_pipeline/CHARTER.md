@@ -241,3 +241,29 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     is the nearest saved checkpoint.
   - `check`: R18 shows only N_p / x_rule / manifest_shape_split; F19 shows N_p / split; dry is clean.
   - The lock must be regenerated at the step-8 pin.
+- **2026-10-16, step 8 rules PINNED (before any step-8 output is read).** `preflight/STEPC_RULES.md` (the step-8
+  builder's draft, opus·xhigh) is pinned as written, with these orchestrator decisions (decide-record-notify):
+  1. **C7 dry pass on the reduced spec** (`preflight/stepC/dryspec/`). It keeps the same stage graph, overlays,
+     levels and stand rows, with shorter row lists that still exercise every row kind; ≈ 6 GPU-h.
+  2. **C6 walker = the payload pilot at N_p.** It is non-S1 and its overlay carries `KRABBY_PAYLOAD_*`, so the
+     DAgger-env strip is really tested.
+  3. **C3.3 settle STOP-C = "tips at ≤ 90 kg"** alone, as PLAN says.
+  4. **C3.3 Σ foot force, amended:** read relative to the 0-kg settle's own ratio, |ratio(L) / ratio(0) − 1| ≤ 0.03,
+     not the absolute 1 ± 0.03. A3 measured a steady −2.4…−2.7 % sensor offset at 0–180 kg, so the absolute band
+     would stop on the offset. The realised mass is checked directly (run_meta and the C3.1 readback). Implemented
+     in `scripts/t4_stepC_read.py::chk_C3_settle`.
+  5. **C1.7 forward 3a bridge:** bitwise on the shared record. On a miss, the reconstructed process env is ruled
+     out before the code is called non-inert.
+  6. **C3.6 N_p reads:** suite es1 + es2 at 90 kg. "+N_p" is the nearest saved checkpoint, ≤ 6 its from the
+     stage head (disclosed).
+  7. **Smaller pins as drafted:** smoke vs A2 under the P-early rule (strict bitwise reported); C4.3 parity bands
+     R / G; WATCH-only families re-anchored too; C4.6 split accepted as low-power (the 0.05 floor dominates).
+  - **STOP-C triggers:** the 14 consolidated in STEPC_RULES.md, with trigger 3 per decision 4. Each STOP-C is
+    push-notified, and the user picks: retry, amend in the CHARTER, or accept with disclosure.
+  - **Queue:** `scripts/t4_stepC_queue.sh`, ≈ 26 GPU-h, ordered C1 → C7, one Isaac process at a time.
+  - **TP changes the builder found are needed** (made in a separate commit, installed atomically while the queue
+    runs; C7 regenerates its dry lock after them):
+    - `pipeline.walker_spec_env` → `{"P2_REANCHOR": "1"}` for the X stages;
+    - `thresholds.py` reads `p3a_pilot` / `sweep_anchors`;
+    - a `live.student.loss_rule: kill|watch` switch;
+    - the lock is re-run at the pin.

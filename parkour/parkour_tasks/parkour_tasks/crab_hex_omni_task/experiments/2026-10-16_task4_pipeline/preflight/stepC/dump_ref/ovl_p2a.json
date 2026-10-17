@@ -1,0 +1,2560 @@
+{
+ "Isaac-Crab-Hex-Omni-Teacher-v0": {
+  "agent": {
+   "actor": {},
+   "algorithm": {
+    "action_bound": 1.1,
+    "action_bound_loss_coef": 0.001,
+    "action_bound_loss_ramp": [
+     0.0001,
+     0.001,
+     500
+    ],
+    "class_name": "PPOWithExtractor",
+    "clip_param": 0.2,
+    "dagger_update_freq": 20,
+    "desired_kl": 0.01,
+    "entropy_coef": 0.0025,
+    "gamma": 0.99,
+    "hand_diag_vy_obs_col": 9,
+    "lam": 0.95,
+    "learning_rate": 0.0003,
+    "max_grad_norm": 1.0,
+    "normalize_advantage_per_mini_batch": false,
+    "num_learning_epochs": 5,
+    "num_mini_batches": 16,
+    "optimizer": "adam",
+    "priv_reg_coef_schedual": [
+     0.0,
+     0.1,
+     2000.0,
+     3000.0
+    ],
+    "rnd_cfg": null,
+    "schedule": "adaptive",
+    "share_cnn_encoders": false,
+    "symmetry_cfg": {
+     "data_augmentation_func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_mirror:crab_hex_omni_symmetry_augmentation_fa",
+     "mirror_loss_coeff": 0.5,
+     "use_data_augmentation": false,
+     "use_mirror_loss": true
+    },
+    "use_clipped_value_loss": true,
+    "value_loss_coef": 1.0
+   },
+   "check_for_nan": true,
+   "class_name": "OnPolicyRunner",
+   "clip_actions": 1.0,
+   "critic": {},
+   "depth_encoder": null,
+   "device": "cuda:0",
+   "empirical_normalization": false,
+   "estimator": {
+    "class_name": "DefaultEstimator",
+    "hidden_dims": [
+     128,
+     64
+    ],
+    "learning_rate": 0.0001,
+    "num_hist": 10,
+    "num_priv_explicit": 9,
+    "num_priv_latent": 41,
+    "num_prop": 75,
+    "num_scan": 132,
+    "train_with_estimated_states": true
+   },
+   "experiment_name": "crab_hex_omni_teacher",
+   "load_checkpoint": "model_.*.pt",
+   "load_run": ".*",
+   "logger": "tensorboard",
+   "max_iterations": {},
+   "neptune_project": "isaaclab",
+   "num_steps_per_env": 24,
+   "obs_groups": {},
+   "policy": {
+    "activation": "elu",
+    "actor": {
+     "class_name": "Actor",
+     "num_hist": 10,
+     "num_priv_explicit": 9,
+     "num_priv_latent": 41,
+     "num_prop": 75,
+     "num_scan": 132,
+     "state_history_encoder": {
+      "channel_size": 10,
+      "class_name": "StateHistoryEncoder",
+      "num_hist": 10,
+      "num_priv_explicit": 9,
+      "num_priv_latent": 41,
+      "num_prop": 75,
+      "num_scan": 132
+     }
+    },
+    "actor_hidden_dims": [
+     512,
+     256,
+     128
+    ],
+    "actor_obs_normalization": {},
+    "class_name": "CrabHexActorCriticRMA",
+    "critic_hidden_dims": [
+     512,
+     256,
+     128
+    ],
+    "critic_obs_normalization": {},
+    "init_noise_std": 0.8,
+    "noise_std_type": "soft",
+    "priv_encoder_dims": [
+     64,
+     20
+    ],
+    "scan_encoder_dims": [
+     128,
+     64,
+     32
+    ],
+    "state_dependent_std": false,
+    "tanh_encoder_output": false
+   },
+   "resume": false,
+   "resume_alg_state": true,
+   "run_name": "",
+   "runner_class_name": "OnPolicyRunnerCrabHex",
+   "save_interval": 100,
+   "seed": 42,
+   "wandb_project": "isaaclab"
+  },
+  "env": {
+   "actions": {
+    "joint_pos": {
+     "action_delay_steps": [
+      1,
+      1
+     ],
+     "asset_name": "robot",
+     "class_type": "parkour_tasks.crab_hex_forward_task.mdp.parkour_actions:CrabHexDelayedJointPositionAction",
+     "clip": {
+      ".*_Body_CamShaft_RevoluteJoint": [
+       -1.0,
+       1.0
+      ],
+      ".*_Femur_Tibia_RevoluteJoint": [
+       -4.8,
+       4.8
+      ],
+      ".*_Hip_Femur_RevoluteJoint": [
+       -4.8,
+       4.8
+      ]
+     },
+     "debug_vis": false,
+     "delay_update_global_steps": 192000,
+     "history_length": 8,
+     "joint_names": [
+      ".*_Body_CamShaft_RevoluteJoint",
+      ".*_Hip_Femur_RevoluteJoint",
+      ".*_Femur_Tibia_RevoluteJoint"
+     ],
+     "offset": 0.0,
+     "preserve_order": false,
+     "scale": {
+      ".*_Body_CamShaft_RevoluteJoint": 3.141592653589793,
+      ".*_Femur_Tibia_RevoluteJoint": 0.25,
+      ".*_Hip_Femur_RevoluteJoint": 0.25
+     },
+     "use_default_offset": true,
+     "use_delay": true
+    }
+   },
+   "commands": {
+    "base_velocity": {
+     "ang_vel_max": 0.3,
+     "asset_name": "robot",
+     "class_type": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command:CrabHexOmniCommand",
+     "clips": {
+      "ang_vel_clip": 0.2,
+      "lin_vel_clip": 0.2
+     },
+     "cmd_pool": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+     "current_vel_visualizer_cfg": {
+      "markers": {
+       "arrow": {
+        "activate_contact_sensors": false,
+        "articulation_props": null,
+        "collision_props": null,
+        "copy_from_source": true,
+        "deformable_props": null,
+        "fixed_tendons_props": null,
+        "func": "isaaclab.sim.spawners.from_files.from_files:spawn_from_usd",
+        "joint_drive_props": null,
+        "mass_props": null,
+        "rigid_props": null,
+        "scale": [
+         0.5,
+         0.5,
+         0.5
+        ],
+        "semantic_tags": null,
+        "spatial_tendons_props": null,
+        "usd_path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Props/UIElements/arrow_x.usd",
+        "variants": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          0.0,
+          0.0,
+          1.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/Command/velocity_current"
+     },
+     "debug_vis": false,
+     "dir_band": null,
+     "facing_delta": [
+      0.2,
+      1.2
+     ],
+     "goal_vel_visualizer_cfg": {
+      "markers": {
+       "arrow": {
+        "activate_contact_sensors": false,
+        "articulation_props": null,
+        "collision_props": null,
+        "copy_from_source": true,
+        "deformable_props": null,
+        "fixed_tendons_props": null,
+        "func": "isaaclab.sim.spawners.from_files.from_files:spawn_from_usd",
+        "joint_drive_props": null,
+        "mass_props": null,
+        "rigid_props": null,
+        "scale": [
+         0.5,
+         0.5,
+         0.5
+        ],
+        "semantic_tags": null,
+        "spatial_tendons_props": null,
+        "usd_path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Props/UIElements/arrow_x.usd",
+        "variants": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          0.0,
+          1.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/Command/velocity_goal"
+     },
+     "heading_control_stiffness": 1.5,
+     "ranges": {
+      "heading": [
+       0.0,
+       0.0
+      ],
+      "lin_vel_x": [
+       0.0,
+       0.35
+      ]
+     },
+     "resampling_time_range": [
+      10.0,
+      10.0
+     ],
+     "slot_probs": [
+      0.15,
+      0.55,
+      0.1,
+      0.2
+     ],
+     "small_commands_to_zero": true,
+     "speed_ellipse": [
+      0.35,
+      0.35,
+      0.25
+     ],
+     "stand_frac": 0.2,
+     "travel_dir_range": [
+      -3.141592653589793,
+      3.141592653589793
+     ]
+    }
+   },
+   "curriculum": null,
+   "decimation": 4,
+   "episode_length_s": 40.0,
+   "events": {
+    "base_external_force_torque": {
+     "func": "isaaclab.envs.mdp.events:apply_external_force_torque",
+     "interval_range_s": null,
+     "is_global_time": false,
+     "min_step_count_between_reset": 0,
+     "mode": "reset",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": "body",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "force_range": [
+       0.0,
+       0.0
+      ],
+      "torque_range": [
+       -0.0,
+       0.0
+      ]
+     }
+    },
+    "physics_material": {
+     "func": "parkour_isaaclab.envs.mdp.events:randomize_rigid_body_material",
+     "interval_range_s": null,
+     "is_global_time": false,
+     "min_step_count_between_reset": 0,
+     "mode": "startup",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "friction_range": [
+       0.6,
+       2.0
+      ],
+      "num_buckets": 64
+     }
+    },
+    "push_by_setting_velocity": {
+     "func": "parkour_isaaclab.envs.mdp.events:push_by_setting_velocity",
+     "interval_range_s": [
+      8.0,
+      8.0
+     ],
+     "is_global_time": true,
+     "min_step_count_between_reset": 0,
+     "mode": "interval",
+     "params": {
+      "velocity_range": {
+       "x": [
+        -0.5,
+        0.5
+       ],
+       "y": [
+        -0.5,
+        0.5
+       ]
+      }
+     }
+    },
+    "random_camera_position": null,
+    "randomize_rigid_body_com": {
+     "func": "parkour_isaaclab.envs.mdp.events:randomize_rigid_body_com",
+     "interval_range_s": null,
+     "is_global_time": false,
+     "min_step_count_between_reset": 0,
+     "mode": "startup",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": "body",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "com_range": {
+       "x": [
+        -0.01,
+        0.01
+       ],
+       "y": [
+        -0.01,
+        0.01
+       ],
+       "z": [
+        -0.01,
+        0.01
+       ]
+      }
+     }
+    },
+    "randomize_rigid_body_mass": {
+     "func": "isaaclab.envs.mdp.events:randomize_rigid_body_mass",
+     "interval_range_s": null,
+     "is_global_time": false,
+     "min_step_count_between_reset": 0,
+     "mode": "startup",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": "body",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "mass_distribution_params": [
+       -0.5,
+       1.5
+      ],
+      "operation": "add"
+     }
+    },
+    "reset_robot_joints": {
+     "func": "isaaclab.envs.mdp.events:reset_joints_by_scale",
+     "interval_range_s": null,
+     "is_global_time": false,
+     "min_step_count_between_reset": 0,
+     "mode": "reset",
+     "params": {
+      "position_range": [
+       0.95,
+       1.05
+      ],
+      "velocity_range": [
+       0.0,
+       0.0
+      ]
+     }
+    },
+    "reset_root_state": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.omni_events:reset_root_state_ring",
+     "interval_range_s": null,
+     "is_global_time": false,
+     "min_step_count_between_reset": 0,
+     "mode": "reset",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "offset": 0.0,
+      "yaw_range": [
+       -3.14159,
+       3.14159
+      ]
+     }
+    }
+   },
+   "export_io_descriptors": false,
+   "is_finite_horizon": false,
+   "log_dir": null,
+   "num_rerenders_on_reset": 0,
+   "observations": {
+    "policy": {
+     "concatenate_dim": -1,
+     "concatenate_terms": true,
+     "enable_corruption": false,
+     "extreme_parkour_observations": {
+      "clip": [
+       -100,
+       100
+      ],
+      "flatten_history_dim": true,
+      "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_observations:CrabHexOmniParkourObservations",
+      "history_length": 0,
+      "modifiers": null,
+      "noise": null,
+      "params": {
+       "asset_cfg": {
+        "body_ids": "slice(None, None, None)",
+        "body_names": null,
+        "fixed_tendon_ids": "slice(None, None, None)",
+        "fixed_tendon_names": null,
+        "joint_ids": "slice(None, None, None)",
+        "joint_names": null,
+        "name": "robot",
+        "object_collection_ids": "slice(None, None, None)",
+        "object_collection_names": null,
+        "preserve_order": false
+       },
+       "clock_hide": true,
+       "facing_obs_clip": 0.6,
+       "facing_obs_encoding": "raw",
+       "history_length": 10,
+       "parkour_name": "base_parkour",
+       "sensor_cfg": {
+        "body_ids": "slice(None, None, None)",
+        "body_names": ".*_Footpad",
+        "fixed_tendon_ids": "slice(None, None, None)",
+        "fixed_tendon_names": null,
+        "joint_ids": "slice(None, None, None)",
+        "joint_names": null,
+        "name": "contact_forces",
+        "object_collection_ids": "slice(None, None, None)",
+        "object_collection_names": null,
+        "preserve_order": false
+       }
+      },
+      "scale": null
+     },
+     "flatten_history_dim": true,
+     "history_length": null
+    }
+   },
+   "omni_clock_turn_radius": 1.2,
+   "omni_command": true,
+   "parkours": {
+    "base_parkour": {
+     "arrow_num": 8,
+     "asset_name": "robot",
+     "block_height_tol_m": 0.03,
+     "class_type": "parkour_tasks.crab_hex_omni_task.mdp.omni_parkour_event:OmniParkourEvent",
+     "clear_radius_m": 1.7,
+     "command_name": "base_velocity",
+     "current_arrow_visualizer_cfg": {
+      "markers": {
+       "frame": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.05,
+        "rigid_props": null,
+        "scale": [
+         0.1,
+         0.1,
+         0.1
+        ],
+        "semantic_tags": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          0.0,
+          1.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/Command/current_arrow"
+     },
+     "current_goal_pose_visualizer_cfg": {
+      "markers": {
+       "frame": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.15,
+        "rigid_props": null,
+        "scale": [
+         1.1,
+         1.1,
+         1.1
+        ],
+        "semantic_tags": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          0.0,
+          1.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/Command/current_goal_pose"
+     },
+     "debug_vis": false,
+     "foot_body_names": [
+      ".*_Footpad"
+     ],
+     "freeze_terrain_levels": false,
+     "future_arrow_visualizer_cfg": {
+      "markers": {
+       "frame": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.05,
+        "rigid_props": null,
+        "scale": [
+         0.1,
+         0.1,
+         0.1
+        ],
+        "semantic_tags": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          1.0,
+          0.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/Command/future_arrow"
+     },
+     "future_goal_poses_visualizer_cfg": {
+      "markers": {
+       "frame": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.15,
+        "rigid_props": null,
+        "scale": [
+         1.1,
+         1.1,
+         1.1
+        ],
+        "semantic_tags": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          1.0,
+          0.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/Command/future_goal_poses"
+     },
+     "min_cmd_dist_m": 1.0,
+     "move_down_frac": 0.4,
+     "move_up_frac": 0.7,
+     "n_sectors": 8,
+     "next_goal_threshold": 0.2,
+     "num_future_goal_obs": 2,
+     "reach_goal_delay": 0.1,
+     "ring_outer_radius_m": 4.8
+    }
+   },
+   "recorders": {
+    "dataset_export_dir_path": "/tmp/isaaclab/logs",
+    "dataset_export_mode": {
+     "_name_": "EXPORT_ALL",
+     "_sort_order_": 1,
+     "_value_": 1
+    },
+    "dataset_file_handler_class_type": "isaaclab.utils.datasets.hdf5_dataset_file_handler:HDF5DatasetFileHandler",
+    "dataset_filename": "dataset",
+    "export_in_close": false,
+    "export_in_record_pre_reset": true
+   },
+   "rerender_on_reset": false,
+   "rewards": {
+    "feet_slide": {
+     "func": "isaaclab_tasks.manager_based.locomotion.velocity.mdp.rewards:feet_slide",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "penalty_base_pitch_forward_linear": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:penalty_base_pitch_forward_linear",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "min_forward_speed_cmd": 0.12
+     },
+     "weight": 0.0
+    },
+    "penalty_cam_contact_schedule": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:PenaltyCamContactSchedule",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "penalty_excess_feet_contact_forward": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:penalty_excess_feet_in_contact_forward",
+     "params": {
+      "command_name": "base_velocity",
+      "contact_force_threshold": 0.1,
+      "max_feet_on_ground": 4,
+      "min_forward_speed_cmd": 0.12,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": -0.2
+    },
+    "penalty_foot_idle_when_forward": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:PenaltyFootIdleWhenForward",
+     "params": {
+      "command_name": "base_velocity",
+      "contact_force_threshold": 0.1,
+      "max_idle_steps": 90,
+      "min_forward_speed_cmd": 0.12,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        "FL_Footpad",
+        "FR_Footpad",
+        "ML_Footpad",
+        "MR_Footpad",
+        "RL_Footpad",
+        "RR_Footpad"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": true
+      }
+     },
+     "weight": -0.12
+    },
+    "penalty_lin_vel_y": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:penalty_cross_command_vel_l2",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity"
+     },
+     "weight": -3.0
+    },
+    "penalty_mechanical_power": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:penalty_mechanical_power",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "penalty_motor_direction_reversal": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:PenaltyMotorDirectionReversal",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": [
+        ".*_Body_CamShaft_RevoluteJoint"
+       ],
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "penalty_swing_min_clearance": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:penalty_swing_min_clearance",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "contact_force_threshold": 0.1,
+      "ground_offset_from_root_m": -1.05,
+      "min_clearance_m": 0.04,
+      "min_forward_speed_cmd": 0.12,
+      "parkour_name": "base_parkour",
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "penalty_tibia_deviation_in_stance": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:penalty_joint_deviation_when_in_contact",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": [
+        "FL_Femur_Tibia_RevoluteJoint",
+        "FR_Femur_Tibia_RevoluteJoint",
+        "ML_Femur_Tibia_RevoluteJoint",
+        "MR_Femur_Tibia_RevoluteJoint",
+        "RL_Femur_Tibia_RevoluteJoint",
+        "RR_Femur_Tibia_RevoluteJoint"
+       ],
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": true
+      },
+      "contact_force_threshold": 0.1,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        "FL_Footpad",
+        "FR_Footpad",
+        "ML_Footpad",
+        "MR_Footpad",
+        "RL_Footpad",
+        "RR_Footpad"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": true
+      }
+     },
+     "weight": -0.28
+    },
+    "penalty_tracking_error_l1": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:penalty_tracking_error_l1",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity"
+     },
+     "weight": -2.0
+    },
+    "reward_action_rate": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_action_rate",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": -0.05
+    },
+    "reward_ang_vel_xy": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_ang_vel_xy",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "reward_cam_phase_lock": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:RewardCamPhaseLock",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "speed_ref": 2.8
+     },
+     "weight": 0.0
+    },
+    "reward_clock_schedule": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:RewardClockContactSchedule",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "combine": "product",
+      "command_name": "base_velocity",
+      "force_ref": 100.0,
+      "min_upright_gz": 0.9,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        "FL_Footpad",
+        "FR_Footpad",
+        "ML_Footpad",
+        "MR_Footpad",
+        "RL_Footpad",
+        "RR_Footpad"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": true
+      },
+      "vel_ref": 0.1
+     },
+     "weight": 0.001
+    },
+    "reward_clock_swing_apex": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:RewardClockSwingApex",
+     "params": {
+      "apex_m": 0.08,
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "ground_offset_from_root_m": -1.05,
+      "min_upright_gz": 0.9,
+      "sigma_m": 0.03
+     },
+     "weight": 0.001
+    },
+    "reward_collision": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_collision",
+     "params": {
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        "body",
+        ".*_Hip",
+        ".*_Femur"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": -2.0
+    },
+    "reward_delta_torques": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_delta_torques",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": -1e-06
+    },
+    "reward_dof_error": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_dof_error",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": [
+        ".*_Hip_Femur_RevoluteJoint",
+        ".*_Femur_Tibia_RevoluteJoint"
+       ],
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "reward_facing_turn": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_facing_exp_turn_slot",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "parkour_name": "base_parkour"
+     },
+     "weight": 0.0
+    },
+    "reward_feet_air_time_positive": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_feet_air_time_positive",
+     "params": {
+      "command_name": "base_velocity",
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "threshold": 0.38
+     },
+     "weight": 0.8
+    },
+    "reward_feet_edge": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_feet_edge",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "parkour_name": "base_parkour",
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": -0.3
+    },
+    "reward_feet_stumble": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_feet_stumble",
+     "params": {
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": -1.0
+    },
+    "reward_foot_clearance": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_foot_clearance",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "contact_force_threshold": 0.1,
+      "ground_offset_from_root_m": -1.05,
+      "max_clearance_m": 0.26,
+      "min_clearance_m": 0.07,
+      "min_forward_speed_cmd": 0.12,
+      "parkour_name": "base_parkour",
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "reward_forward_progress_along_command": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_forward_progress_along_command",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "max_speed_scale": 1.05,
+      "min_cmd_norm": 0.12
+     },
+     "weight": 0.6
+    },
+    "reward_lin_vel_z": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_lin_vel_z",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "parkour_name": "base_parkour"
+     },
+     "weight": -0.15
+    },
+    "reward_obstacle_clearance": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_obstacle_clearance_omni",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "max_tilt_gravity_xy_sq": 0.02,
+      "min_forward_speed": 0.1,
+      "min_forward_speed_cmd": 0.12,
+      "min_goal_progress": 0.05,
+      "parkour_name": "base_parkour",
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "reward_one_direction_spin": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:RewardOneDirectionSpin",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": [
+        ".*_Body_CamShaft_RevoluteJoint"
+       ],
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "speed_ref": 2.8
+     },
+     "weight": 0.0
+    },
+    "reward_orientation": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_orientation",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "parkour_name": "base_parkour"
+     },
+     "weight": -0.7
+    },
+    "reward_stance_support_feet_when_forward": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:reward_stance_support_feet_when_forward",
+     "params": {
+      "command_name": "base_velocity",
+      "contact_force_threshold": 0.1,
+      "min_feet_loaded": 3,
+      "min_forward_speed_cmd": 0.12,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": ".*_Footpad",
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "weight": 0.0
+    },
+    "reward_stride_length": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:RewardStrideLength",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "min_cmd_norm": 0.12,
+      "min_phase_duration": 0.1,
+      "power": 2.0,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        "FL_Footpad",
+        "FR_Footpad",
+        "ML_Footpad",
+        "MR_Footpad",
+        "RL_Footpad",
+        "RR_Footpad"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": true
+      }
+     },
+     "weight": 0.5
+    },
+    "reward_tracking_goal_vel": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_tracking_command_vel_on_obstacle",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "parkour_name": "base_parkour"
+     },
+     "weight": 0.0
+    },
+    "reward_tracking_yaw": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_facing_exp",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "command_name": "base_velocity",
+      "parkour_name": "base_parkour"
+     },
+     "weight": 0.2
+    },
+    "reward_tripod_schedule": {
+     "func": "parkour_isaaclab.envs.mdp.rewards:RewardTripodSchedule",
+     "params": {
+      "command_name": "base_velocity",
+      "corr_tau": 0.7,
+      "credit_scale": 1.0,
+      "ema_tau": 0.06,
+      "max_period": 1.4,
+      "min_amp": 0.15,
+      "min_cmd_norm": 0.12,
+      "min_period": 0.3,
+      "sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        "FL_Footpad",
+        "FR_Footpad",
+        "ML_Footpad",
+        "MR_Footpad",
+        "RL_Footpad",
+        "RR_Footpad"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": true
+      },
+      "var_min": 0.01
+     },
+     "weight": 0.0
+    },
+    "reward_yaw_progress": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_yaw_progress",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "clip": null,
+      "command_name": "base_velocity"
+     },
+     "weight": 1.0
+    },
+    "track_ang_vel_z_exp": {
+     "func": "isaaclab.envs.mdp.rewards:track_ang_vel_z_exp",
+     "params": {
+      "command_name": "base_velocity",
+      "std": 0.5
+     },
+     "weight": 1.0
+    },
+    "track_lin_vel_xy_exp": {
+     "func": "isaaclab.envs.mdp.rewards:track_lin_vel_xy_exp",
+     "params": {
+      "command_name": "base_velocity",
+      "std": 0.2
+     },
+     "weight": 1.25
+    }
+   },
+   "scene": {
+    "clone_in_fabric": false,
+    "contact_forces": {
+     "class_type": "parkour_tasks.crab_hex_forward_task.sensors.parkour_hex_contact_sensor:ParkourHexContactSensor",
+     "debug_vis": false,
+     "filter_prim_paths_expr": [],
+     "force_threshold": 1.0,
+     "history_length": 2,
+     "max_contact_data_count_per_prim": 1,
+     "prim_path": "{ENV_REGEX_NS}/Robot/.*",
+     "track_air_time": true,
+     "track_contact_points": false,
+     "track_friction_forces": false,
+     "track_pose": false,
+     "update_period": 0.02,
+     "visualizer_cfg": {
+      "markers": {
+       "contact": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.02,
+        "rigid_props": null,
+        "semantic_tags": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          1.0,
+          0.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       },
+       "no_contact": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.02,
+        "rigid_props": null,
+        "semantic_tags": null,
+        "visible": false,
+        "visual_material": {
+         "diffuse_color": [
+          0.0,
+          1.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/ContactSensor"
+     }
+    },
+    "env_spacing": 1.0,
+    "filter_collisions": true,
+    "height_scanner": {
+     "attach_yaw_only": true,
+     "class_type": "isaaclab.sensors.ray_caster.ray_caster:RayCaster",
+     "debug_vis": false,
+     "drift_range": [
+      0.0,
+      0.0
+     ],
+     "history_length": 0,
+     "max_distance": 1000000.0,
+     "mesh_prim_paths": [
+      "/World/ground"
+     ],
+     "offset": {
+      "pos": [
+       0.0,
+       0.0,
+       20.0
+      ],
+      "rot": [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     "pattern_cfg": {
+      "direction": [
+       0.0,
+       0.0,
+       -1.0
+      ],
+      "func": "isaaclab.sensors.ray_caster.patterns.patterns:grid_pattern",
+      "ordering": "xy",
+      "resolution": 0.3,
+      "size": [
+       2.4,
+       3.4
+      ]
+     },
+     "prim_path": "{ENV_REGEX_NS}/Robot/chassis/body",
+     "ray_alignment": "base",
+     "ray_cast_drift_range": {
+      "x": [
+       0.0,
+       0.0
+      ],
+      "y": [
+       0.0,
+       0.0
+      ],
+      "z": [
+       0.0,
+       0.0
+      ]
+     },
+     "update_period": 0.02,
+     "visualizer_cfg": {
+      "markers": {
+       "hit": {
+        "activate_contact_sensors": false,
+        "collision_props": null,
+        "copy_from_source": true,
+        "func": "isaaclab.sim.spawners.shapes.shapes:spawn_sphere",
+        "mass_props": null,
+        "physics_material": null,
+        "physics_material_path": "material",
+        "radius": 0.02,
+        "rigid_props": null,
+        "semantic_tags": null,
+        "visible": true,
+        "visual_material": {
+         "diffuse_color": [
+          1.0,
+          0.0,
+          0.0
+         ],
+         "emissive_color": [
+          0.0,
+          0.0,
+          0.0
+         ],
+         "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_preview_surface",
+         "metallic": 0.0,
+         "opacity": 1.0,
+         "roughness": 0.5
+        },
+        "visual_material_path": "material"
+       }
+      },
+      "prim_path": "/Visuals/RayCaster"
+     }
+    },
+    "lazy_sensor_update": true,
+    "num_envs": 6144,
+    "replicate_physics": true,
+    "robot": {
+     "actuator_value_resolution_debug_print": false,
+     "actuators": {
+      "body_hip_tracking": {
+       "armature": null,
+       "class_type": "parkour_isaaclab.actuators.parkour_actuator_pd:ParkourDCMotor",
+       "damping": {
+        "FL_Body_Hip_RevoluteJoint": 40.0,
+        "FR_Body_Hip_RevoluteJoint": 40.0,
+        "ML_Body_Hip_RevoluteJoint": 40.0,
+        "MR_Body_Hip_RevoluteJoint": 40.0,
+        "RL_Body_Hip_RevoluteJoint": 40.0,
+        "RR_Body_Hip_RevoluteJoint": 40.0
+       },
+       "dynamic_friction": null,
+       "effort_limit": {
+        "FL_Body_Hip_RevoluteJoint": 600.0,
+        "FR_Body_Hip_RevoluteJoint": 600.0,
+        "ML_Body_Hip_RevoluteJoint": 600.0,
+        "MR_Body_Hip_RevoluteJoint": 600.0,
+        "RL_Body_Hip_RevoluteJoint": 600.0,
+        "RR_Body_Hip_RevoluteJoint": 600.0
+       },
+       "effort_limit_sim": null,
+       "friction": 0.0,
+       "joint_names_expr": [
+        ".*_Body_Hip_RevoluteJoint"
+       ],
+       "saturation_effort": {
+        "FL_Body_Hip_RevoluteJoint": 738.5,
+        "FR_Body_Hip_RevoluteJoint": 738.5,
+        "ML_Body_Hip_RevoluteJoint": 738.5,
+        "MR_Body_Hip_RevoluteJoint": 738.5,
+        "RL_Body_Hip_RevoluteJoint": 738.5,
+        "RR_Body_Hip_RevoluteJoint": 738.5
+       },
+       "stiffness": {
+        "FL_Body_Hip_RevoluteJoint": 2000.0,
+        "FR_Body_Hip_RevoluteJoint": 2000.0,
+        "ML_Body_Hip_RevoluteJoint": 2000.0,
+        "MR_Body_Hip_RevoluteJoint": 2000.0,
+        "RL_Body_Hip_RevoluteJoint": 2000.0,
+        "RR_Body_Hip_RevoluteJoint": 2000.0
+       },
+       "velocity_limit": 15.0,
+       "velocity_limit_sim": null,
+       "viscous_friction": null
+      },
+      "body_hip_yaw": {
+       "armature": null,
+       "class_type": "parkour_isaaclab.actuators.parkour_actuator_pd:ParkourDCMotor",
+       "damping": {
+        "FL_Body_CamShaft_RevoluteJoint": 1.0,
+        "FR_Body_CamShaft_RevoluteJoint": 1.0,
+        "ML_Body_CamShaft_RevoluteJoint": 1.0,
+        "MR_Body_CamShaft_RevoluteJoint": 1.0,
+        "RL_Body_CamShaft_RevoluteJoint": 1.0,
+        "RR_Body_CamShaft_RevoluteJoint": 1.0
+       },
+       "dynamic_friction": null,
+       "effort_limit": {
+        "FL_Body_CamShaft_RevoluteJoint": 20.0,
+        "FR_Body_CamShaft_RevoluteJoint": 20.0,
+        "ML_Body_CamShaft_RevoluteJoint": 20.0,
+        "MR_Body_CamShaft_RevoluteJoint": 20.0,
+        "RL_Body_CamShaft_RevoluteJoint": 20.0,
+        "RR_Body_CamShaft_RevoluteJoint": 20.0
+       },
+       "effort_limit_sim": null,
+       "friction": 0.0,
+       "joint_names_expr": [
+        ".*_Body_CamShaft_RevoluteJoint"
+       ],
+       "saturation_effort": {
+        "FL_Body_CamShaft_RevoluteJoint": 24.0,
+        "FR_Body_CamShaft_RevoluteJoint": 24.0,
+        "ML_Body_CamShaft_RevoluteJoint": 24.0,
+        "MR_Body_CamShaft_RevoluteJoint": 24.0,
+        "RL_Body_CamShaft_RevoluteJoint": 24.0,
+        "RR_Body_CamShaft_RevoluteJoint": 24.0
+       },
+       "stiffness": {
+        "FL_Body_CamShaft_RevoluteJoint": 0.0,
+        "FR_Body_CamShaft_RevoluteJoint": 0.0,
+        "ML_Body_CamShaft_RevoluteJoint": 0.0,
+        "MR_Body_CamShaft_RevoluteJoint": 0.0,
+        "RL_Body_CamShaft_RevoluteJoint": 0.0,
+        "RR_Body_CamShaft_RevoluteJoint": 0.0
+       },
+       "velocity_limit": 8.0,
+       "velocity_limit_sim": null,
+       "viscous_friction": null
+      },
+      "femur_tibia": {
+       "armature": null,
+       "class_type": "isaaclab.actuators.actuator_pd:ImplicitActuator",
+       "damping": {
+        "FL_Femur_Tibia_RevoluteJoint": 200.0,
+        "FR_Femur_Tibia_RevoluteJoint": 200.0,
+        "ML_Femur_Tibia_RevoluteJoint": 200.0,
+        "MR_Femur_Tibia_RevoluteJoint": 200.0,
+        "RL_Femur_Tibia_RevoluteJoint": 200.0,
+        "RR_Femur_Tibia_RevoluteJoint": 200.0
+       },
+       "dynamic_friction": null,
+       "effort_limit": null,
+       "effort_limit_sim": {
+        "FL_Femur_Tibia_RevoluteJoint": 400.0,
+        "FR_Femur_Tibia_RevoluteJoint": 400.0,
+        "ML_Femur_Tibia_RevoluteJoint": 400.0,
+        "MR_Femur_Tibia_RevoluteJoint": 400.0,
+        "RL_Femur_Tibia_RevoluteJoint": 400.0,
+        "RR_Femur_Tibia_RevoluteJoint": 400.0
+       },
+       "friction": 0.0,
+       "joint_names_expr": [
+        ".*_Femur_Tibia_RevoluteJoint"
+       ],
+       "stiffness": {
+        "FL_Femur_Tibia_RevoluteJoint": 6000.0,
+        "FR_Femur_Tibia_RevoluteJoint": 6000.0,
+        "ML_Femur_Tibia_RevoluteJoint": 6000.0,
+        "MR_Femur_Tibia_RevoluteJoint": 6000.0,
+        "RL_Femur_Tibia_RevoluteJoint": 6000.0,
+        "RR_Femur_Tibia_RevoluteJoint": 6000.0
+       },
+       "velocity_limit": null,
+       "velocity_limit_sim": 3.0,
+       "viscous_friction": null
+      },
+      "hip_femur": {
+       "armature": null,
+       "class_type": "isaaclab.actuators.actuator_pd:ImplicitActuator",
+       "damping": {
+        "FL_Hip_Femur_RevoluteJoint": 600.0,
+        "FR_Hip_Femur_RevoluteJoint": 600.0,
+        "ML_Hip_Femur_RevoluteJoint": 600.0,
+        "MR_Hip_Femur_RevoluteJoint": 600.0,
+        "RL_Hip_Femur_RevoluteJoint": 600.0,
+        "RR_Hip_Femur_RevoluteJoint": 600.0
+       },
+       "dynamic_friction": null,
+       "effort_limit": null,
+       "effort_limit_sim": {
+        "FL_Hip_Femur_RevoluteJoint": 1000.0,
+        "FR_Hip_Femur_RevoluteJoint": 1000.0,
+        "ML_Hip_Femur_RevoluteJoint": 1000.0,
+        "MR_Hip_Femur_RevoluteJoint": 1000.0,
+        "RL_Hip_Femur_RevoluteJoint": 1000.0,
+        "RR_Hip_Femur_RevoluteJoint": 1000.0
+       },
+       "friction": 0.0,
+       "joint_names_expr": [
+        ".*_Hip_Femur_RevoluteJoint"
+       ],
+       "stiffness": {
+        "FL_Hip_Femur_RevoluteJoint": 16000.0,
+        "FR_Hip_Femur_RevoluteJoint": 16000.0,
+        "ML_Hip_Femur_RevoluteJoint": 16000.0,
+        "MR_Hip_Femur_RevoluteJoint": 16000.0,
+        "RL_Hip_Femur_RevoluteJoint": 16000.0,
+        "RR_Hip_Femur_RevoluteJoint": 16000.0
+       },
+       "velocity_limit": null,
+       "velocity_limit_sim": 2.0,
+       "viscous_friction": null
+      }
+     },
+     "articulation_root_prim_path": null,
+     "class_type": "isaaclab.assets.articulation.articulation:Articulation",
+     "collision_group": 0,
+     "debug_vis": false,
+     "init_state": {
+      "ang_vel": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "joint_pos": {
+       ".*_Hip_Femur_RevoluteJoint": 0.027169998105984527,
+       "FL_Body_CamShaft_RevoluteJoint": 0.0,
+       "FL_Body_Hip_RevoluteJoint": 0.0,
+       "FL_Femur_Tibia_RevoluteJoint": 0.31020612922871676,
+       "FR_Body_CamShaft_RevoluteJoint": 0.0,
+       "FR_Body_Hip_RevoluteJoint": 0.0,
+       "FR_Femur_Tibia_RevoluteJoint": -0.31020612922871676,
+       "ML_Body_CamShaft_RevoluteJoint": 0.0,
+       "ML_Body_Hip_RevoluteJoint": 0.0,
+       "ML_Femur_Tibia_RevoluteJoint": 0.31020612922871676,
+       "MR_Body_CamShaft_RevoluteJoint": 0.0,
+       "MR_Body_Hip_RevoluteJoint": 0.0,
+       "MR_Femur_Tibia_RevoluteJoint": -0.31020612922871676,
+       "RL_Body_CamShaft_RevoluteJoint": 0.0,
+       "RL_Body_Hip_RevoluteJoint": 0.0,
+       "RL_Femur_Tibia_RevoluteJoint": 0.31020612922871676,
+       "RR_Body_CamShaft_RevoluteJoint": 0.0,
+       "RR_Body_Hip_RevoluteJoint": 0.0,
+       "RR_Femur_Tibia_RevoluteJoint": -0.31020612922871676
+      },
+      "joint_vel": {
+       ".*": 0.0
+      },
+      "lin_vel": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "pos": [
+       0.0,
+       0.0,
+       1.085
+      ],
+      "rot": [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     "prim_path": "{ENV_REGEX_NS}/Robot",
+     "soft_joint_pos_limit_factor": 0.9,
+     "spawn": {
+      "activate_contact_sensors": true,
+      "articulation_props": {
+       "articulation_enabled": null,
+       "enabled_self_collisions": true,
+       "fix_root_link": null,
+       "sleep_threshold": null,
+       "solver_position_iteration_count": 20,
+       "solver_velocity_iteration_count": 6,
+       "stabilization_threshold": null
+      },
+      "collision_props": null,
+      "copy_from_source": true,
+      "deformable_props": null,
+      "fixed_tendons_props": null,
+      "func": "isaaclab.sim.spawners.from_files.from_files:spawn_from_usd",
+      "joint_drive_props": null,
+      "mass_props": null,
+      "rigid_props": {
+       "angular_damping": 0.0,
+       "disable_gravity": false,
+       "enable_gyroscopic_forces": null,
+       "kinematic_enabled": null,
+       "linear_damping": 0.0,
+       "max_angular_velocity": 1000.0,
+       "max_contact_impulse": null,
+       "max_depenetration_velocity": 1.0,
+       "max_linear_velocity": 1000.0,
+       "retain_accelerations": false,
+       "rigid_body_enabled": null,
+       "sleep_threshold": null,
+       "solver_position_iteration_count": null,
+       "solver_velocity_iteration_count": null,
+       "stabilization_threshold": null
+      },
+      "scale": null,
+      "semantic_tags": null,
+      "spatial_tendons_props": null,
+      "usd_path": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/wt_m1a/assets/crab.usda",
+      "variants": null,
+      "visible": true,
+      "visual_material": null,
+      "visual_material_path": "material"
+     }
+    },
+    "sky_light": {
+     "class_type": null,
+     "collision_group": 0,
+     "debug_vis": false,
+     "init_state": {
+      "pos": [
+       0.0,
+       0.0,
+       0.0
+      ],
+      "rot": [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ]
+     },
+     "prim_path": "/World/skyLight",
+     "spawn": {
+      "color": [
+       1.0,
+       1.0,
+       1.0
+      ],
+      "color_temperature": 6500.0,
+      "copy_from_source": true,
+      "enable_color_temperature": false,
+      "exposure": 0.0,
+      "func": "isaaclab.sim.spawners.lights.lights:spawn_light",
+      "intensity": 750.0,
+      "normalize": false,
+      "prim_type": "DomeLight",
+      "semantic_tags": null,
+      "texture_file": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Materials/Textures/Skies/PolyHaven/kloofendal_43d_clear_puresky_4k.hdr",
+      "texture_format": "automatic",
+      "visible": true,
+      "visible_in_primary_ray": true
+     }
+    },
+    "terrain": {
+     "class_type": "parkour_isaaclab.terrains.parkour_terrain_importer:ParkourTerrainImporter",
+     "collision_group": -1,
+     "debug_vis": false,
+     "env_spacing": null,
+     "max_init_terrain_level": 2,
+     "num_envs": 1,
+     "physics_material": {
+      "compliant_contact_damping": 0.0,
+      "compliant_contact_stiffness": 0.0,
+      "dynamic_friction": 1.0,
+      "friction_combine_mode": "average",
+      "func": "isaaclab.sim.spawners.materials.physics_materials:spawn_rigid_body_material",
+      "restitution": 0.0,
+      "restitution_combine_mode": "average",
+      "static_friction": 1.0
+     },
+     "prim_path": "/World/ground",
+     "terrain_generator": {
+      "border_height": 1.0,
+      "border_width": 20,
+      "cache_dir": "/tmp/isaaclab/terrains",
+      "class_type": "isaaclab.terrains.terrain_generator:TerrainGenerator",
+      "color_scheme": "none",
+      "curriculum": true,
+      "difficulty_range": [
+       0.2,
+       1.0
+      ],
+      "horizontal_scale": 0.08,
+      "num_cols": 20,
+      "num_goals": 8,
+      "num_rows": 10,
+      "random_difficulty": false,
+      "seed": null,
+      "size": [
+       10,
+       10
+      ],
+      "slope_threshold": 1.5,
+      "sub_terrains": {
+       "omni_field_dense": {
+        "apply_flat": false,
+        "apply_roughness": true,
+        "bar_fraction": 0.4,
+        "bar_length_range": [
+         1.0,
+         2.0
+        ],
+        "bar_thickness_range": [
+         0.16,
+         0.32
+        ],
+        "border_width": 0.0,
+        "clear_radius": 1.7,
+        "downsampled_scale": 0.075,
+        "edge_width_thresh": 0.05,
+        "field_margin": 0.16,
+        "flat_patch_sampling": null,
+        "function": "parkour_isaaclab.terrains.omni.omni_terrains:omni_field_terrain",
+        "half_valid_width": [
+         0.6,
+         1.2
+        ],
+        "horizontal_scale": 0.05,
+        "hurdle_height_range": "0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
+        "max_tries": 64,
+        "min_gap": 0.0,
+        "n_blocks": 28,
+        "noise_range": [
+         0.02,
+         0.02
+        ],
+        "noise_step": 0.005,
+        "pad_height": 0.0,
+        "pad_width": 0.1,
+        "pit_depth": "0.02 + 0.06 * difficulty",
+        "pit_fraction": 0.2,
+        "platform_height": 0.0,
+        "platform_len": 2.5,
+        "proportion": 0.25,
+        "ring_outer_radius": 4.8,
+        "size": [
+         10.0,
+         10.0
+        ],
+        "slab_side_range": [
+         0.6,
+         1.2
+        ],
+        "slope_threshold": 1.5,
+        "step_height": "0.02 + 0.06 * difficulty",
+        "use_simplified": false,
+        "vertical_edges": true,
+        "vertical_scale": 0.005,
+        "x_range": [
+         0.8,
+         1.5
+        ],
+        "y_range": [
+         -0.4,
+         0.4
+        ]
+       },
+       "omni_field_sparse": {
+        "apply_flat": false,
+        "apply_roughness": true,
+        "bar_fraction": 0.4,
+        "bar_length_range": [
+         1.0,
+         2.0
+        ],
+        "bar_thickness_range": [
+         0.16,
+         0.32
+        ],
+        "border_width": 0.0,
+        "clear_radius": 1.7,
+        "downsampled_scale": 0.075,
+        "edge_width_thresh": 0.05,
+        "field_margin": 0.16,
+        "flat_patch_sampling": null,
+        "function": "parkour_isaaclab.terrains.omni.omni_terrains:omni_field_terrain",
+        "half_valid_width": [
+         0.6,
+         1.2
+        ],
+        "horizontal_scale": 0.05,
+        "hurdle_height_range": "0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
+        "max_tries": 64,
+        "min_gap": 0.0,
+        "n_blocks": 14,
+        "noise_range": [
+         0.02,
+         0.02
+        ],
+        "noise_step": 0.005,
+        "pad_height": 0.0,
+        "pad_width": 0.1,
+        "pit_depth": "0.02 + 0.06 * difficulty",
+        "pit_fraction": 0.2,
+        "platform_height": 0.0,
+        "platform_len": 2.5,
+        "proportion": 0.25,
+        "ring_outer_radius": 4.8,
+        "size": [
+         10.0,
+         10.0
+        ],
+        "slab_side_range": [
+         0.6,
+         1.2
+        ],
+        "slope_threshold": 1.5,
+        "step_height": "0.02 + 0.06 * difficulty",
+        "use_simplified": false,
+        "vertical_edges": true,
+        "vertical_scale": 0.005,
+        "x_range": [
+         0.8,
+         1.5
+        ],
+        "y_range": [
+         -0.4,
+         0.4
+        ]
+       },
+       "parkour_flat": {
+        "apply_flat": false,
+        "apply_roughness": true,
+        "border_width": 0.0,
+        "clear_radius": 1.7,
+        "downsampled_scale": 0.075,
+        "edge_width_thresh": 0.05,
+        "flat_patch_sampling": null,
+        "function": "parkour_isaaclab.terrains.omni.omni_terrains:omni_flat_terrain",
+        "half_valid_width": [
+         0.6,
+         1.2
+        ],
+        "horizontal_scale": 0.05,
+        "noise_range": [
+         0.02,
+         0.02
+        ],
+        "noise_step": 0.005,
+        "pad_height": 0.0,
+        "pad_width": 0.1,
+        "platform_height": 0.0,
+        "platform_len": 2.5,
+        "proportion": 0.5,
+        "ring_outer_radius": 4.8,
+        "size": [
+         10.0,
+         10.0
+        ],
+        "slope_threshold": 1.5,
+        "use_simplified": false,
+        "vertical_scale": 0.005,
+        "x_range": [
+         0.8,
+         1.5
+        ],
+        "y_range": [
+         -0.4,
+         0.4
+        ]
+       }
+      },
+      "terrain_names": [],
+      "use_cache": false,
+      "vertical_scale": 0.005
+     },
+     "terrain_type": "generator",
+     "usd_path": null,
+     "use_terrain_origins": true,
+     "visual_material": {
+      "albedo_brightness": null,
+      "func": "isaaclab.sim.spawners.materials.visual_materials:spawn_from_mdl_file",
+      "mdl_path": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/IsaacLab/Materials/TilesMarbleSpiderWhiteBrickBondHoned/TilesMarbleSpiderWhiteBrickBondHoned.mdl",
+      "project_uvw": true,
+      "texture_scale": [
+       0.25,
+       0.25
+      ]
+     }
+    }
+   },
+   "seed": null,
+   "sim": {
+    "create_stage_in_memory": false,
+    "device": "cuda:0",
+    "dt": 0.005,
+    "enable_scene_query_support": false,
+    "gravity": [
+     0.0,
+     0.0,
+     -9.81
+    ],
+    "log_dir": null,
+    "logging_level": "WARNING",
+    "physics_material": {
+     "compliant_contact_damping": 0.0,
+     "compliant_contact_stiffness": 0.0,
+     "dynamic_friction": 1.0,
+     "friction_combine_mode": "average",
+     "func": "isaaclab.sim.spawners.materials.physics_materials:spawn_rigid_body_material",
+     "restitution": 0.0,
+     "restitution_combine_mode": "average",
+     "static_friction": 1.0
+    },
+    "physics_prim_path": "/physicsScene",
+    "physx": {
+     "bounce_threshold_velocity": 0.5,
+     "enable_ccd": false,
+     "enable_enhanced_determinism": false,
+     "enable_external_forces_every_iteration": true,
+     "enable_stabilization": false,
+     "friction_correlation_distance": 0.025,
+     "friction_offset_threshold": 0.04,
+     "gpu_collision_stack_size": 67108864,
+     "gpu_found_lost_aggregate_pairs_capacity": 33554432,
+     "gpu_found_lost_pairs_capacity": 2097152,
+     "gpu_heap_capacity": 67108864,
+     "gpu_max_num_partitions": 8,
+     "gpu_max_particle_contacts": 1048576,
+     "gpu_max_rigid_contact_count": 8388608,
+     "gpu_max_rigid_patch_count": 2621440,
+     "gpu_max_soft_body_contacts": 1048576,
+     "gpu_temp_buffer_capacity": 16777216,
+     "gpu_total_aggregate_pairs_capacity": 2097152,
+     "max_position_iteration_count": 255,
+     "max_velocity_iteration_count": 255,
+     "min_position_iteration_count": 1,
+     "min_velocity_iteration_count": 0,
+     "solve_articulation_contact_last": false,
+     "solver_type": 1
+    },
+    "render": {
+     "antialiasing_mode": null,
+     "carb_settings": null,
+     "dlss_mode": null,
+     "dome_light_upper_lower_strategy": null,
+     "enable_ambient_occlusion": null,
+     "enable_direct_lighting": null,
+     "enable_dl_denoiser": null,
+     "enable_dlssg": null,
+     "enable_global_illumination": null,
+     "enable_reflections": null,
+     "enable_shadows": null,
+     "enable_translucency": null,
+     "rendering_mode": null,
+     "samples_per_pixel": null
+    },
+    "render_interval": 4,
+    "save_logs_to_file": true,
+    "use_fabric": true
+   },
+   "teleop_devices": {
+    "devices": {}
+   },
+   "terminations": {
+    "crab_failure": {
+     "func": "parkour_tasks.crab_hex_forward_task.config.crab_hex.crab_hex_mdp_terminations:terminate_crab_hex_failure",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "contact_force_threshold": 500.0,
+      "hip_contact_sensor_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": [
+        ".*_Hip"
+       ],
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "contact_forces",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      },
+      "limit_angle": 0.5,
+      "minimum_root_height_z": null
+     },
+     "time_out": false
+    },
+    "total_terminates": {
+     "func": "parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:terminate_episode_no_goals",
+     "params": {
+      "asset_cfg": {
+       "body_ids": "slice(None, None, None)",
+       "body_names": null,
+       "fixed_tendon_ids": "slice(None, None, None)",
+       "fixed_tendon_names": null,
+       "joint_ids": "slice(None, None, None)",
+       "joint_names": null,
+       "name": "robot",
+       "object_collection_ids": "slice(None, None, None)",
+       "object_collection_names": null,
+       "preserve_order": false
+      }
+     },
+     "time_out": true
+    }
+   },
+   "ui_window_class_type": "parkour_isaaclab.envs.parkour_ui:ParkourManagerBasedRLEnvWindow",
+   "viewer": {
+    "asset_name": "robot",
+    "body_name": null,
+    "cam_prim_path": "/OmniverseKit_Persp",
+    "env_index": 0,
+    "eye": [
+     -4.0,
+     0.5,
+     1.55
+    ],
+    "lookat": [
+     0.0,
+     0.0,
+     0.35
+    ],
+    "origin_type": "asset_root",
+    "resolution": [
+     1280,
+     720
+    ]
+   },
+   "wait_for_textures": true,
+   "xr": null
+  }
+ },
+ "_environ": {
+  "KRABBY_ACTION_BOUND": "1.1",
+  "KRABBY_ACTION_BOUND_LOSS": "0.001",
+  "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+  "KRABBY_ACTION_RATE_W": "-0.05",
+  "KRABBY_AIRTIME_W": "0.8",
+  "KRABBY_APEX_W": "0.001",
+  "KRABBY_CLOCK_W": "0.001",
+  "KRABBY_COLLISION_W": "-2.0",
+  "KRABBY_DR_COM": "0.01",
+  "KRABBY_DR_MASS": "-0.5:1.5",
+  "KRABBY_DR_PUSH": "0.5",
+  "KRABBY_EDGE_W": "-0.3",
+  "KRABBY_ENTROPY_COEF": "0.0025",
+  "KRABBY_EPISODE_S": "40",
+  "KRABBY_FIELD_BLOCKS": "14:28",
+  "KRABBY_FIELD_EDGES": "wall",
+  "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+  "KRABBY_FIELD_PAD_R": "1.7",
+  "KRABBY_FLAT_TERRAIN_CURRICULUM": "1",
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+  "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.5",
+  "KRABBY_FLAT_TERRAIN_GEOM": "field",
+  "KRABBY_FLAT_TERRAIN_MODE": "light",
+  "KRABBY_HEX_TEACHER_MODE": "2a",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_LIN_VEL_X": "0.0:0.35",
+  "KRABBY_OMNI_ANG_VEL_MAX": "0.3",
+  "KRABBY_OMNI_ANG_VEL_STD": "0.5",
+  "KRABBY_OMNI_CLOCK_COMBINE": "product",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CLOCK_TURN_R": "1.2",
+  "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+  "KRABBY_OMNI_DIR_BAND": "",
+  "KRABBY_OMNI_FACING": "0.2:1.2",
+  "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+  "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+  "KRABBY_OMNI_PHASE": "2a",
+  "KRABBY_OMNI_RSI_SOURCE": "all",
+  "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_OMNI_YAW_RANGE": "-3.14159:3.14159",
+  "KRABBY_PHASEOUT": "",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PPO_HAND_DIAG": "1",
+  "KRABBY_RESAMPLE_S": "10:10",
+  "KRABBY_RSI_BANK": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/wt_m1a/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/rsi_bank_omni.npz",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_STAND_FRAC": "0.2",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_STRIDE_W": "0.5",
+  "KRABBY_STUMBLE_W": "-1.0",
+  "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+  "KRABBY_TRACK_L1_W": "-2.0",
+  "KRABBY_TRACK_SIGMA2": "0.04",
+  "KRABBY_YAW_PROGRESS_W": "1.0",
+  "KRABBY_YAW_W": "0.2"
+ }
+}
