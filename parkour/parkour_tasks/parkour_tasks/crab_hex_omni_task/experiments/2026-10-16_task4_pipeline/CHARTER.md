@@ -267,3 +267,14 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - `thresholds.py` reads `p3a_pilot` / `sweep_anchors`;
     - a `live.student.loss_rule: kill|watch` switch;
     - the lock is re-run at the pin.
+- **2026-10-16, step-8 TP changes installed** (opus·xhigh; built in a dev copy and installed atomically while the
+  queue ran):
+  - `walker_spec_env` → `P2_REANCHOR=1` for the X stages;
+  - `thresholds.py` reads optional `p3a_pilot` (stable-at-90 and paired 0-kg rates into the p3a sum) and
+    `sweep_anchors` (WATCH-only sweep lines). With both blocks absent, v0 is byte-identical;
+  - `live.student.loss_rule: kill|watch` (`pipeline.yaml` sets `kill`; `check` refuses anything else);
+  - `gen` writes atomically;
+  - lock regenerated (344 files, including the step-8 scripts).
+  - Tests: 93 task4 pipeline/threshold tests pass. In the stand suites only the two no-bytecode tests fail, on
+    the other process's `sh_kin` .pyc.
+  - The reduced dry spec's own lock is created when C7 starts, so it pins these files.

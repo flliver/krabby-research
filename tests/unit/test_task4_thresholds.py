@@ -290,3 +290,129 @@ def test_committed_thresholds_v0_use_the_stop0_semantics():
     fh = next(x for x in d["lines"] if x["id"] == "p2a.capability.field_hard")
     assert fh["env_seeds"] == [1, 2, 3, 4]
     assert d["self_check_failures"] == []
+
+
+# ---------------------------------------------------------------------- v1 inputs (STEPC_RULES V.2)
+PL = REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline"
+
+
+def _sweep_stamp(root: Path, name: str, bins: dict) -> Path:
+    import json as _json
+    d = root / name
+    d.mkdir(parents=True)
+    bc = {c: {k: {"median": v} for k, v in vals.items()} for c, vals in bins.items()}
+    (d / "scenario_metrics.json").write_text(_json.dumps({"aggregate": {"suite": {"by_category": bc}}}))
+    (d / "run_meta.json").write_text("{}")
+    (d / "summary.md").write_text("synthetic\n")
+    return d
+
+
+def test_sweep_anchor_lines_are_watch_only(T, tmp_path):
+    """``sweep_anchors`` -> per-bin |ratio - 1| lines and the max ADJACENT-bin jump (circular) in ratio, tripod and
+    steps_per_m, each <= the anchors' max + range; never decisive, never summed, never self-checked."""
+    names = ["d000", "d090", "d180", "d270"]
+    ratios = {16: [1.00, 0.95, 0.90, 0.97], 17: [0.98, 0.93, 0.85, 0.99], 18: [1.02, 0.96, 0.92, 0.80]}
+    anchors = {}
+    for s, rs in ratios.items():
+        for es, off in ((1, -0.01), (2, 0.01)):          # a seed's value = the mean of its env seeds' medians
+            bins = {c: {"ratio": r + off, "tripod": 0.50 + 0.01 * i, "steps_per_m": 4.0}
+                    for i, (c, r) in enumerate(zip(names, rs))}
+            anchors[f"s{s}_es{es}"] = str(_sweep_stamp(tmp_path, f"s{s}_es{es}", bins))
+    prov = []
+    lines = {x["id"]: x for x in T.sweep_watch_lines(T.Repo(tmp_path), anchors, prov)}
+    assert len(prov) == 6
+    d180 = lines["p2a.watch.sweep.abs_dev.d180"]
+    assert d180["line"] == pytest.approx(0.15 + (0.15 - 0.08))                    # |r-1| = .10 .15 .08
+    assert d180["seed_ratios"]["s17"] == pytest.approx(0.85)
+    jr = lines["p2a.watch.sweep.max_adjacent_jump.ratio"]                         # s18: d270 -> d000 wrap .22
+    assert jr["seed_values"]["s18"] == pytest.approx(0.22) and jr["line"] == pytest.approx(0.22 + (0.22 - 0.07))
+    assert lines["p2a.watch.sweep.max_adjacent_jump.tripod"]["line"] == pytest.approx(0.03)    # the wrap again
+    assert lines["p2a.watch.sweep.max_adjacent_jump.steps_per_m"]["line"] == pytest.approx(0.0)
+    for x in lines.values():
+        assert x["kind"] == "watch" and x["rate"] is None and x["excluded_from_sum"] and x["direction"] == "<="
+    res = {"lines": list(lines.values())}
+    assert T.self_check(res, set()) == [] and not any(x["decisive"] for x in res["lines"])
+    assert T.summarize(res, set())["recommended"]["run_sum"] == 0.0
+    with pytest.raises(ValueError):
+        T.sweep_watch_lines(T.Repo(tmp_path), {"s16-es1": anchors["s16_es1"]}, [])
+    odd = _sweep_stamp(tmp_path, "odd", {"d000": {"ratio": 1.0}})
+    with pytest.raises(ValueError):
+        T.sweep_watch_lines(T.Repo(tmp_path), {"s16_es1": anchors["s16_es1"], "s17_es1": str(odd)}, [])
+
+
+def _recorded_inputs():
+    yaml = pytest.importorskip("yaml")
+    inputs = yaml.safe_load((PL / "threshold_inputs.yaml").read_text())
+    try:
+        s18 = inputs["p3a_apriori_s1"][18]
+        for e in [*s18["suite"].values(), *s18["field_light"].values(), *inputs["drift_pair"]["x12"]["suite"].values()]:
+            if not (REPO / e["stamp"]).is_dir():
+                raise FileNotFoundError(e["stamp"])
+    except (KeyError, FileNotFoundError) as exc:
+        pytest.skip(f"recorded stamps absent: {exc}")
+    return inputs
+
+
+def _pilot_block(inputs: dict, its: float) -> dict:
+    """S1 s18's own 0-kg rows as the 'pilot' L090 rows, and X12 vs X08 (the recorded drift pair) as the 0-kg pair."""
+    s18 = inputs["p3a_apriori_s1"][18]
+    lv = {f"suite@{es}": e for es, e in s18["suite"].items()}
+    lv.update({f"field_light@{es}": e for es, e in s18["field_light"].items()})
+
+    def side(x):
+        m = {f"suite@{es}": e for es, e in x["suite"].items()}
+        m["side22@1"] = x["side22"]
+        for row, n in (("field_hard", 2), ("field_light", 2), ("ring_obst", 2), ("field_turn", 1)):
+            m.update({f"{row}@{i + 1}": e for i, e in enumerate(x[row][:n])})
+        return m
+
+    return {"name": "test: S1 s18 as the pilot", "its_past_p2a": its, "level90": lv,
+            "zero_kg": {"head": side(inputs["drift_pair"]["x12"]), "p2a": side(inputs["drift_pair"]["x08"])}}
+
+
+def test_p3a_pilot_fills_the_p3a_rates(T):
+    """``p3a_pilot``: every p3a.stable90.* rate = payload_apriori_rate(line, mu_pilot, sigma_hat_p2a, SE) with
+    mu_pilot read as payload_read.level_reads reads it, and the paired 0-kg rate = the sum of Phi(-margin / SE_diff)
+    over the pilot pair's decisive statistics. On the recorded X12-vs-X08 pair at 3000 its that sum must equal v0's
+    own rate_by_Np[3000]; nothing outside the p3a terms changes."""
+    import copy
+    import json as _json
+    inputs = _recorded_inputs()
+    v0 = _json.loads((PL / "thresholds_v0.json").read_text())
+    lines = copy.deepcopy(v0["lines"])
+    repo = T.Repo(REPO)
+    R = T.resolution_R([repo.p(p) for p in inputs["resolution_files"]])
+    Rg = T.resolution_R_guard([repo.p(p) for p in inputs["resolution_files"]])
+    s22 = T.load_side22_module(repo.p(inputs["side22_classifier"]))
+    prov = []
+    T.p3a_pilot_rates(repo, _pilot_block(inputs, 3000), lines, R, Rg, s22,
+                      inputs["stages"]["p2a"]["trained_translate"], prov)
+    by0 = {(x["id"], x.get("value_set")): x for x in v0["lines"]}
+    n = 0
+    for x in lines:
+        if x["id"].startswith("p3a.stable90."):
+            n += 1
+            assert "pending" not in x and x["mu_pilot"] == pytest.approx(x["s1_0kg_values"]["18"], abs=1e-12)
+            sig = x["sigma_hat_p2a"]
+            se = sig if x["se_pilot"] is None else x["se_pilot"]
+            assert x["rate"] == pytest.approx(T.payload_apriori_rate(x["line"], x["mu_pilot"], sig, se,
+                                                                     x["direction"] == ">="))
+            assert x["se_stand_in"] == (x["id"].split(".")[2] in ("h_meas", "roll_rms", "pitch_rms")), x["id"]
+        elif x["id"] == "p3a.capability.zero_kg_paired":
+            assert x["rate"] == pytest.approx(by0[(x["id"], "both")]["rate_by_Np"]["3000"], rel=1e-12)
+            assert len(x["pilot_pair"]["per_statistic"]) == 26 and x["pilot_pair"]["unjudged"] == []
+        else:
+            assert x == by0[(x["id"], x.get("value_set"))], x["id"]
+    assert n == 35 and prov and prov[0]["its_past_p2a"] == 3000
+
+
+def test_absent_v1_blocks_reproduce_thresholds_v0_byte_for_byte(T, tmp_path):
+    """No ``p3a_pilot`` / ``sweep_anchors`` block = thresholds_v0.json exactly (the committed file, regenerated)."""
+    import subprocess
+    _recorded_inputs()
+    out = tmp_path / "v0.json"
+    rel = (PL / "threshold_inputs.yaml").relative_to(REPO)
+    r = subprocess.run([sys.executable, "-I", str(TP), "--inputs", str(rel), "--out", str(out), "--self-check"],
+                       cwd=str(REPO), capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert out.read_bytes() == (PL / "thresholds_v0.json").read_bytes()

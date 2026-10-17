@@ -134,6 +134,23 @@ def test_gen_is_byte_stable_and_check_is_clean(P, tspec):
     assert any("s1.env" in x for x in P.gen(tspec, "R18", check=True))
 
 
+def test_gen_rewrites_atomically_and_keeps_the_mode(P, tspec):
+    """A running queue's jobs read the generated files: gen replaces a changed file through a same-dir temp file and
+    os.replace (no partial file, no temp left behind) and keeps the file's mode; an unchanged file is not touched."""
+    P.gen(tspec, "R18")
+    rd = tspec.run_dir("R18")
+    f, g = rd / "envs/s1.env", rd / "envs/p2a.env"
+    want = f.read_text()
+    f.write_text("KRABBY_X=1\n")
+    os.chmod(f, 0o640)
+    ino_g, mt_g = g.stat().st_ino, g.stat().st_mtime_ns
+    P.gen(tspec, "R18")
+    assert f.read_text() == want and (f.stat().st_mode & 0o777) == 0o640
+    assert (g.stat().st_ino, g.stat().st_mtime_ns) == (ino_g, mt_g)
+    assert not [p for p in rd.rglob(".*") if p.is_file()]
+    assert P.gen(tspec, "R18", check=True) == []
+
+
 def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
     """PLAN step 7: ``gen --check`` on the COMMITTED R18 / F19 / dry run dirs (the real spec, nothing copied), and gen
     twice gives identical files. The placeholders (N_p, x_rule, the manifest-shape split) are the spec's own."""
@@ -817,6 +834,68 @@ def test_live_rules_on_synthetic_series():
     assert LW.check("student", stu, tstar_tail={"ep_len": 2000.0, "crab_failure": 0.25})["rc"] == LW.RC_KILL
 
 
+def test_student_loss_rule_watch_reports_and_never_kills():
+    """STEPC_RULES C4.8 / V.3: ``live.student.loss_rule`` kill (default) | watch. With watch the loss rule is computed
+    and reported (``watch``) but never kills; the episode-length / crab_failure / NaN rules still kill."""
+    LW = _load(TP / "live_watch.py", "tp_live_watch")
+    flat = {"Loss_depth/depth_actor_loss": [(i, 10.0) for i in range(300)], **_ser(n=300)}     # never halves
+    tail = {"ep_len": 1500.0, "crab_failure": 0.1}
+    assert LW.DEFAULTS["student"]["loss_rule"] == "kill"
+    k = LW.check("student", flat, tstar_tail=tail)
+    assert k["rc"] == LW.RC_KILL and "depth_actor_loss" in k["fails"][0] and k["watch"] == []
+    w = LW.check("student", flat, tstar_tail=tail, cfg={"student": {"loss_rule": "watch"}})
+    assert w["rc"] == LW.RC_PASS and w["fails"] == [] and "depth_actor_loss" in w["watch"][0]
+    assert w["reads"][0]["reads"]["loss"]["fails"] is True and w["reads"][0]["reads"]["loss"]["loss_rule"] == "watch"
+    wk = LW.check("student", flat, tstar_tail={**tail, "ep_len": 2000.0}, cfg={"student": {"loss_rule": "watch"}})
+    assert wk["rc"] == LW.RC_KILL and "episode length" in wk["fails"][0] and wk["watch"]
+    nan = {**flat, "Loss_depth/depth_actor_loss": [(i, float("nan") if i == 7 else 10.0) for i in range(300)]}
+    assert LW.check("student", nan, cfg={"student": {"loss_rule": "watch"}})["rc"] == LW.RC_KILL
+    r = LW.replay("student", flat, every=50, tstar_tail=tail, cfg={"student": {"loss_rule": "watch"}})
+    assert r["killed_at"] is None and r["watch_first"]["rel"] == 250, r
+    assert LW.replay("student", flat, every=50, tstar_tail=tail)["killed_at"] == 250
+    with pytest.raises(ValueError):
+        LW.check("student", flat, cfg={"student": {"loss_rule": "maybe"}})
+
+
+def test_spec_carries_the_loss_rule_and_check_refuses_a_bad_one(P, S, tspec):
+    assert S.d["live"]["student"]["loss_rule"] == "kill"
+    assert P.graph_problems(tspec) == []
+    tspec.d["live"]["student"]["loss_rule"] = "maybe"
+    assert any("loss_rule" in x for x in P.graph_problems(tspec))
+    del tspec.d["live"]["student"]["loss_rule"]                       # absent = kill (today)
+    assert P.graph_problems(tspec) == []
+
+
+def test_watch_student_reports_a_watch_loss_rule_and_kills_by_default(P, tspec, tmp_path, monkeypatch):
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "R18")
+    ctx = P.Ctx(tspec, "R18")
+    q = P.Queue(ctx)
+    LWm = P.LW()
+    flat = {"Loss_depth/depth_actor_loss": [(i, 10.0) for i in range(300)], **_ser(n=300)}
+    monkeypatch.setattr(LWm, "read_series", lambda rd, tags=None: flat)
+    monkeypatch.setattr(P, "find_student_run", lambda exp, name: tmp_path)
+    monkeypatch.setattr(P, "read_unit", lambda name: None)
+    monkeypatch.setattr(ctx.rt, "sleep", lambda s: None)
+
+    class Proc:
+        def __init__(self):
+            self.n = 0
+
+        def poll(self):
+            self.n += 1
+            return None if self.n < 3 else 0
+
+    tspec.d["live"]["student"]["loss_rule"] = "watch"
+    assert q.watch_student("st", Proc(), {"run_dir": str(tmp_path)}) is False
+    rec = ctx.srec("st")
+    assert rec["live"]["last_rc"] == LWm.RC_PASS and "depth_actor_loss" in rec["live_watch"]["reads"][0]
+    assert not rec.get("live_killed")
+    tspec.d["live"]["student"]["loss_rule"] = "kill"
+    assert q.watch_student("st", Proc(), {"run_dir": str(tmp_path)}) is True
+    assert "depth_actor_loss" in ctx.srec("st")["live_killed"]["fails"][0]
+
+
 X08_RUN = REPO / "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB"
 X60_RUN = REPO / "parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB"
 FWD3A = REPO / "parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01"
@@ -1059,7 +1138,9 @@ def test_status_and_report_cli_on_a_parked_run(P, qctx, tmp_path):
 
 def test_walker_spec_env_is_accepted_by_the_stand_spec(P, tspec, tmp_path):
     """The SN_WALKER_SPEC the queue composes for a stand stage beside T* parses through sn_dagger_spec's own override
-    check (0 kg: the p2a overlay, the run's own candidates file and p2a chain, REFS(T*)); X stages get none."""
+    check (0 kg: the p2a overlay, the run's own candidates file and p2a chain, REFS(T*)). X stages (beside the bundled
+    S1) keep the walker unset (= today) and get only P2_REANCHOR=1: REFH_S1_s18's sidecar predates M1, so without it
+    run_arm.sh's code_guard refuses their rows at the pin code_sha (STEPC_RULES "TP changes" 1)."""
     tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
     P.gen(tspec, "R18")
     ctx = P.Ctx(tspec, "R18")
@@ -1080,7 +1161,9 @@ def test_walker_spec_env_is_accepted_by_the_stand_spec(P, tspec, tmp_path):
     cands = yaml.safe_load((ctx.dir / "candidates.yaml").read_text())
     assert cands["chains"]["R18_p2a"]["stages"][0]["overlay"] == ov["S1_OVERLAY"]
     assert env["SN_WALKER_CK"] == str(ck) and env["P2_REANCHOR"] == "1"
-    assert q.walker_spec_env("sn_ref") == {} and q.walker_spec_env("sh_ref") == {}
+    for sid in ("sn_ref", "sh_ref"):
+        assert tspec.stage(sid)["walker"] == "bundled_s1"
+        assert q.walker_spec_env(sid) == {"P2_REANCHOR": "1"}, sid
 
 
 def test_gate_row_strips_student_runner_knobs_and_merges_a_level_file(tmp_path, P):

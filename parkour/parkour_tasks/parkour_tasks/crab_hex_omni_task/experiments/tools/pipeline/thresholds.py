@@ -1036,8 +1036,239 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
     for x in st_rec:
         x["value_set"] = "recommended"
     out_lines += st_std + st_rec
+    # ---------------------------------------------------------------- v1 inputs (absent = v0's output exactly)
+    if inputs.get("p3a_pilot"):
+        p3a_pilot_rates(repo, inputs["p3a_pilot"], out_lines, R, Rg, s22, stages["p2a"]["trained_translate"],
+                        provenance)
+    if inputs.get("sweep_anchors"):
+        out_lines += sweep_watch_lines(repo, inputs["sweep_anchors"], provenance)
     return {"lines": out_lines, "proposals": proposals, "provenance": provenance, "equality_checks": eq,
             "R_used": R, "field_context_p2a": field_ctx}
+
+
+# ============================================================================ v1: the payload pilot and the sweep anchors
+def _stamp_of(repo: Repo, entry) -> Path:
+    """An input-map stamp: ``{stamp, eval_sha}`` (checked like every other input) or a bare path (completeness only)."""
+    if isinstance(entry, dict):
+        return repo.stamp(entry)
+    d = repo.p(str(entry))
+    for f in ("scenario_metrics.json", "run_meta.json", "summary.md"):
+        if not (d / f).exists():
+            raise FileNotFoundError(f"incomplete stamp {d} (no {f})")
+    return d
+
+
+def boot_se_median(vals, n_boot: int = 2000, seed: int = DEFAULT_SEED):
+    v = np.asarray([x for x in vals if x is not None and np.isfinite(x)], float)
+    if len(v) < 3:
+        return None
+    g = np.random.default_rng(seed)
+    return float(np.median(v[g.integers(0, len(v), (n_boot, len(v)))], axis=1).std())
+
+
+def _row_stamps(repo: Repo, m: dict) -> dict:
+    """``{"<row>@<es>": STAMP}`` (the pipeline's row keys) -> ``{"<row>@<es>": Path}``, each checked by
+    :func:`_stamp_of`."""
+    out = {}
+    for k, e in m.items():
+        row, _, es = str(k).partition("@")
+        if not row or not es.isdigit():
+            raise ValueError(f"p3a_pilot: row key {k!r} is not <row>@<env seed>")
+        out[f"{row}@{int(es)}"] = _stamp_of(repo, e)
+    return out
+
+
+def pilot_stable90_values(st: dict) -> dict:
+    """``{stable90 line id suffix: (value, SE or None)}`` on the pilot's L090 rows (``suite@1/2``,
+    ``field_light@1/2``), read exactly as ``payload_read.level_reads`` reads them (the statistics the v0 lines were
+    built on). SE (as ``t4_stepC_read.apriori_rates``): survival binomial on the category's n; tracking / turn
+    facing_closed the episode-bootstrap SE of the median; field_light completion binomial on the pooled n; h_meas /
+    orientation None (the caller stands sigma_hat(p2a) in, disclosed per line)."""
+    out = {}
+    for es in (1, 2):
+        d = st.get(f"suite@{es}")
+        if d is not None:
+            cats, eps, ho = suite_categories(d), suite_episodes(d), h_meas_and_orientation(d)
+            for c, v in cats.items():
+                if c.startswith("_"):
+                    continue
+                sv, n = v.get("survival"), v.get("n") or 0
+                if sv is not None and n:
+                    out[f"survival.{c}.es{es}"] = (sv, math.sqrt(max(sv * (1 - sv), 1e-6) / n))
+                if v.get("ratio") is not None:
+                    out[f"tracking.{c}.es{es}"] = (abs(v["ratio"] - 1.0),
+                                                   boot_se_median([e["ratio"] for e in eps if e["cat"] == c]))
+            fc = (cats.get("turn") or {}).get("facing_closed")
+            if fc is not None:
+                out[f"turn_fc.es{es}"] = (fc, boot_se_median([e["facing_closed"] for e in eps if e["cat"] == "turn"]))
+            out[f"h_meas.suite.es{es}"] = (ho["h_meas_median"], None)
+            for o in ("roll_rms", "pitch_rms"):
+                out[f"{o}.suite.es{es}"] = (ho[o], None)
+        d = st.get(f"field_light@{es}")
+        if d is not None:
+            ho = h_meas_and_orientation(d)
+            out[f"h_meas.field_light.es{es}"] = (ho["h_meas_median"], None)
+            for o in ("roll_rms", "pitch_rms"):
+                out[f"{o}.field_light.es{es}"] = (ho[o], None)
+    fls = [st[f"field_light@{es}"] for es in (1, 2) if f"field_light@{es}" in st]
+    if fls:
+        c = field_completion(fls)
+        out["field_light_completion"] = (c["rate"], math.sqrt(max(c["rate"] * (1 - c["rate"]), 1e-6) / c["n"]))
+    return out
+
+
+def pilot_zero_kg_rows(head: dict, p2a: dict, trained_translate, R: dict, Rg: dict) -> tuple:
+    """The pilot pair's paired 0-kg rows, composed exactly as ``gate_read.zero_kg_check`` composes them (suite env
+    seeds must match; a field row pairs its env seeds in order and is missing when the counts differ). ``head`` /
+    ``p2a``: ``{"<row>@<es>": Path}``. Returns (rows, side22 class of head, of p2a)."""
+    def by_es(m, row):
+        return [m[k] for k in sorted((k for k in m if k.split("@")[0] == row), key=lambda k: int(k.split("@")[1]))]
+
+    A = {int(k.split("@")[1]): suite_episodes(v) for k, v in head.items() if k.startswith("suite@")}
+    B = {int(k.split("@")[1]): suite_episodes(v) for k, v in p2a.items() if k.startswith("suite@")}
+    if set(A) != set(B) or not A:
+        raise ValueError(f"p3a_pilot zero_kg: suite env seeds differ (head {sorted(A)} vs p2a {sorted(B)})")
+    rows = zero_kg_suite_rows(A, B, trained_translate, R, Rg)
+    for row in ZERO_KG_FIELD_ROWS:
+        ha, pb = by_es(head, row), by_es(p2a, row)
+        ca, cb = {}, {}
+        for i, (x, y) in enumerate(zip(ha, pb)):
+            ca.update({(i, k): v for k, v in field_episodes(x).items()})
+            cb.update({(i, k): v for k, v in field_episodes(y).items()})
+        if len(ha) != len(pb) or not ha:
+            rows.append({"statistic": f"{row} completion", "row": row, "watch": False, "missing": True,
+                         "why": f"{row}: head {len(ha)} vs p2a {len(pb)} stamps"})
+            continue
+        rows.append(zero_kg_completion_row(row, ca, cb, list(range(1, len(ha) + 1))))
+    return rows, by_es(head, "side22"), by_es(p2a, "side22")
+
+
+def p3a_pilot_rates(repo: Repo, pp: dict, out_lines: list, R: dict, Rg: dict, s22, trained_translate,
+                    provenance: list) -> None:
+    """STEPC_RULES V.2 / PLAN Rule "payload a-priori lines": recompute the p3a terms of the run sum from the pilot.
+
+    ``pp`` (threshold_inputs v1 ``p3a_pilot``; STAMP = ``{stamp, eval_sha}`` or a stamp path)::
+
+        name: <label, e.g. the pilot checkpoint at N_p>
+        its_past_p2a: <pilot iteration - the p2a head's iteration>
+        level90: {suite@1: STAMP, suite@2: STAMP, field_light@1: STAMP, field_light@2: STAMP}
+        zero_kg: {head: {<row>@<es>: STAMP, ...}, p2a: {<row>@<es>: STAMP, ...}}   # the 0-kg row list, both sides
+
+    Each ``p3a.stable90.*`` rate becomes ``payload_apriori_rate(line, mu_pilot, sigma_hat_p2a, SE)`` (variance
+    2 sigma_hat(p2a)^2 + SE^2; SE stood in by sigma_hat(p2a) where the statistic has none -- disclosed per line).
+    The paired 0-kg line's rate becomes the sum over its judged DECISIVE statistics of ``paired_rate(margin,
+    SE_diff)`` on the PILOT pair (margin = ``zero_kg_margin`` with the recorded X12 - X08 drift scaled by
+    ``its_past_p2a`` / 5000). Both then count in the p3a stage's sum (``summarize``)."""
+    vals = pilot_stable90_values(_row_stamps(repo, pp["level90"]))
+    name = pp.get("name", "")
+    for x in out_lines:
+        if not x["id"].startswith("p3a.stable90."):
+            continue
+        key = x["id"][len("p3a.stable90."):]
+        if key not in vals or vals[key][0] is None:
+            x["rate_source"] = f"p3a_pilot {name}: no pilot value for {key} (rate stays pending)"
+            continue
+        mu, se = vals[key]
+        sig = x.get("sigma_hat_p2a") or 0.0
+        hib = x["direction"] == ">="
+        x.pop("pending", None)
+        x.update({"rate": payload_apriori_rate(x["line"], mu, sig, sig if se is None else se, hib),
+                  "mu_pilot": mu, "se_pilot": se, "se_stand_in": se is None,
+                  "pilot_passes": bool((mu >= x["line"]) if hib else (mu <= x["line"])),
+                  "rate_source": f"p3a_pilot {name}: Phi((line - mu_pilot) / sqrt(2 sigma_hat_p2a^2 + SE^2))"
+                                 + (" (SE stood in by sigma_hat_p2a)" if se is None else "")})
+    zl = next(x for x in out_lines if x["id"] == "p3a.capability.zero_kg_paired")
+    its = float(pp["its_past_p2a"])
+    rows, s22h, s22p = pilot_zero_kg_rows(_row_stamps(repo, pp["zero_kg"]["head"]),
+                                          _row_stamps(repo, pp["zero_kg"]["p2a"]), trained_translate, R, Rg)
+    ch = side22_read(s22, s22h[0])["class"] if s22h else None
+    cp = side22_read(s22, s22p[0])["class"] if s22p else None
+    judged = zero_kg_judge(rows, zl["drift_by_statistic"], its, side22_head=ch, side22_p2a=cp)
+    if ch is None or cp is None:
+        judged["verdict"] = "FAIL"
+        judged["fails"].append("side22 stamp missing on the head or its p2a")
+    per = []
+    for r in judged["rows"]:
+        if r.get("watch") or r.get("se_diff") is None or not isinstance(r.get("margin"), dict):
+            continue
+        per.append({"statistic": r["statistic"], "row": r["row"], "se_diff": r["se_diff"],
+                    "margin": r["margin"]["margin"], "binds": r["margin"]["binds"], "worse_by": r["worse_by"],
+                    "margin_used": r.get("margin_used"), "rate": paired_rate(r["margin"]["margin"], r["se_diff"])})
+    unjudged = [f"{r['statistic']} {r['row']}" for r in judged["rows"]
+                if not r.get("watch") and not isinstance(r.get("margin"), dict)]
+    used = [p["margin_used"] for p in per if p["margin_used"] is not None]
+    zl["rate"] = total(p["rate"] for p in per)
+    zl["rate_source"] = (f"p3a_pilot {name}: sum over the judged decisive statistics of Phi(-margin / SE_diff) on "
+                         f"the pilot pair, its_past_p2a = {its:g}")
+    zl["pilot_pair"] = {"verdict": judged["verdict"], "fails": judged["fails"], "per_statistic": per,
+                        "unjudged": unjudged, "side22": judged["side22"],
+                        "max_margin_used": max(used) if used else None}
+    provenance.append({"stage": "p3a", "p3a_pilot": name, "its_past_p2a": its,
+                       "rows": sorted(set(pp["level90"]) | set(pp["zero_kg"]["head"]))})
+
+
+#: the sweep's statistics per bin (DESIGN 3.2 p2a row): the ratio (a world head reads the body rows through
+#: ``body_hold``), tripod and the 50 N steps_per_m (``metric_class: translate``); ``by_category.<bin>.<key>.median``
+SWEEP_KEYS = ("ratio", "tripod", "steps_per_m")
+
+
+def sweep_watch_lines(repo: Repo, anchors: dict, provenance: list) -> list:
+    """The WATCH lines of the direction sweep (``dirsweep__omni_body``; DESIGN 3.2 p2a: "per-bin |r-1| line; max
+    adjacent-bin jump in ratio, tripod and steps_per_m <= the anchors' max + range"; PLAN retired the sweep HALT).
+
+    ``anchors``: ``{"s<seed>_es<k>": STAMP}`` (``t4_stepC_read`` C5). A seed's value per bin is the mean of its env
+    seeds' medians. Per bin: ``|ratio - 1| <= tracking_line(seeds)`` (R = 0: no per-bin resolution exists). Per
+    statistic: the max ADJACENT-bin jump (circular, d338 -> d000 included) ``<= max over the seeds + their range``.
+    Every line is ``kind: watch``: rate None, excluded from every sum, never decisive, never self-checked."""
+    by_seed: dict = {}
+    order = None
+    for key, entry in sorted(anchors.items()):
+        seed, sep, es = str(key).partition("_es")
+        if not sep or not seed.startswith("s") or not es.isdigit():
+            raise ValueError(f"sweep_anchors: key {key!r} is not s<seed>_es<env seed>")
+        d = _stamp_of(repo, entry)
+        bc = load_json(d / "scenario_metrics.json")["aggregate"]["suite"]["by_category"]
+        bins = list(bc)
+        order = order or bins
+        if bins != order:
+            raise ValueError(f"sweep anchor {key}: its bins differ from the first anchor's")
+        by_seed.setdefault(seed, []).append(
+            {c: {k: ((bc[c] or {}).get(k) or {}).get("median") for k in SWEEP_KEYS} for c in bins})
+        provenance.append({"stage": "p2a", "row": "dirsweep__omni_body", "sweep_anchor": key,
+                           "stamp": entry["stamp"] if isinstance(entry, dict) else str(entry)})
+
+    def mean(xs):
+        xs = [x for x in xs if x is not None]
+        return float(np.mean(xs)) if xs else None
+
+    seeds = sorted(by_seed)
+    pooled = {s: {c: {k: mean([v[c][k] for v in by_seed[s]]) for k in SWEEP_KEYS} for c in order} for s in seeds}
+    common = {"stage": "p2a", "kind": "watch", "class": "watch", "row": "dirsweep__omni_body", "direction": "<=",
+              "rate": None, "excluded_from_sum": True, "value_set": "both", "known_bad": {}, "seeds_pass": None,
+              "watch": True, "anchor_seeds": seeds}
+    out = []
+    for c in order:
+        rs = [pooled[s][c]["ratio"] for s in seeds]
+        if any(r is None for r in rs):
+            continue
+        out.append({**common, "id": f"p2a.watch.sweep.abs_dev.{c}", "statistic": f"sweep bin {c} |ratio - 1|",
+                    "key_path": f"aggregate.suite.by_category.{c}.ratio.median", "seed_ratios": dict(zip(seeds, rs)),
+                    "line": tracking_line(rs),
+                    "line_rule": "max|x - 1| + range|x - 1| over the anchor seeds (R = 0)"})
+    for k in SWEEP_KEYS:
+        jumps = {}
+        for s in seeds:
+            v = [pooled[s][c][k] for c in order]
+            if v and all(x is not None for x in v):
+                jumps[s] = max(abs(v[i] - v[i - 1]) for i in range(len(v)))
+        if not jumps:
+            continue
+        j = list(jumps.values())
+        out.append({**common, "id": f"p2a.watch.sweep.max_adjacent_jump.{k}",
+                    "statistic": f"sweep max adjacent-bin jump in {k} (circular)",
+                    "key_path": f"aggregate.suite.by_category.<bin>.{k}.median", "seed_values": jumps,
+                    "line": max(j) + (max(j) - min(j)), "line_rule": "the anchor seeds' max + range"})
+    return out
 
 
 def summarize(res: dict, watch_ids: set) -> dict:
@@ -1070,6 +1301,9 @@ def self_check(res: dict, watch_ids: set) -> list:
     line names a failing known-bad or is tagged ``unvalidated`` (the tag is added here, every value set)."""
     fails = []
     for x in res["lines"]:
+        if x.get("kind") == "watch":            # the v1 sweep lines: reported, never decisive, never self-checked
+            x["decisive"] = False
+            continue
         x["decisive"] = x["id"] not in watch_ids or x.get("value_set") == "standard"
         if x["id"] in watch_ids and x.get("value_set") == "recommended":
             x["watch"] = True

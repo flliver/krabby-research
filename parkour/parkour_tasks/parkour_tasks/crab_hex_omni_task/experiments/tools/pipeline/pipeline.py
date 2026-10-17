@@ -232,6 +232,10 @@ def lineage_problems(spec: Spec) -> list[str]:
     return out
 
 
+#: live.student.loss_rule values (live_watch.judge_student): kill = the loss rule kills; watch = reported only
+LOSS_RULES = ("kill", "watch")
+
+
 def graph_problems(spec: Spec) -> list[str]:
     out, seen = [], []
     for st in spec.d["stages"]:
@@ -259,6 +263,9 @@ def graph_problems(spec: Spec) -> list[str]:
             fam = parse_row(key)["family"]
             if fam not in spec.d["rows"]:
                 out.append(f"stage {st['id']}: row family {fam} unknown")
+    lr = ((spec.d.get("live") or {}).get("student") or {}).get("loss_rule", "kill")
+    if lr not in LOSS_RULES:
+        out.append(f"live.student.loss_rule {lr!r}: must be one of {'|'.join(LOSS_RULES)}")
     return out
 
 
@@ -405,9 +412,11 @@ def gen(spec: Spec, run: str, *, check: bool = False) -> list[str]:
             if not p.is_file() or p.read_text() != text:
                 out.append(str(p))
         else:
-            p.parent.mkdir(parents=True, exist_ok=True)
             if not p.is_file() or p.read_text() != text:
-                p.write_text(text)
+                # atomic (a running queue's jobs read these files): temp file in the same dir + os.replace
+                mode = (p.stat().st_mode & 0o777) if p.is_file() else 0o644
+                L.write_text_atomic(p, text)
+                os.chmod(p, mode)
             out.append(str(p))
     if check:
         envd = rd / "envs"
@@ -1585,6 +1594,11 @@ class Queue:
             ser = LW().read_series(rd)
             r = LW().check("student", ser, tstar_tail=tail, cfg=cfg, accepted=tuple(rec.get("accepted_live") or ()))
             rec["live"] = {"last_rc": r["rc"], "last": r.get("last"), "run_dir": str(rd)}
+            if r.get("watch"):              # live.student.loss_rule: watch -- reported, never kills
+                rec["live"]["watch"] = r["watch"]
+                if not rec.get("live_watch"):
+                    rec["live_watch"] = {"at": r.get("last"), "reads": r["watch"]}
+                    ctx.notify("NOTIFY", f"stage={sid} student live WATCH (reported, not a kill): {r['watch'][:2]}")
             ctx.save()
             if r["rc"] != LW().RC_KILL and self.inject(sid, "LIVE"):
                 r = {**r, "rc": LW().RC_KILL, "rule": "injected", "fails": ["dry-pass injected live kill"]}
@@ -1757,10 +1771,13 @@ class Queue:
 
     # -- stand
     def walker_spec_env(self, sid: str) -> dict:
-        """SN_WALKER_SPEC (+ CK / ST, P2_REANCHOR) for a stand stage beside T*; {} beside the bundled S1 (X)."""
+        """SN_WALKER_SPEC (+ CK / ST, P2_REANCHOR) for a stand stage beside T*. Beside the bundled S1 (the X stages)
+        the walker stays unset (= today) and only ``P2_REANCHOR=1`` is set: REFH_S1_s18's sidecar predates M1, so
+        run_arm.sh's code_guard would refuse the X stand rows at the pin code_sha (rc 7) -- the pin guard holds the
+        code state instead (STEPC_RULES "TP changes" 1)."""
         st = self.spec.stage(sid)
         if st.get("walker") != "tstar":
-            return {}
+            return {"P2_REANCHOR": "1"}
         ts = self.tstar()
         h = self.ctx.head(ts["stage"])
         spec = {"S1_CKPT": h["ckpt"], "S1_SHA256": h["sha256"],

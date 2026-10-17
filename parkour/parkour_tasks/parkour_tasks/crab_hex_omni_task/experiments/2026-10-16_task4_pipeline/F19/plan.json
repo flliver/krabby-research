@@ -28,7 +28,7 @@
  ],
  "run": "F19",
  "spec": "pipeline.yaml",
- "spec_sha256": "964c467e1697a6355fb365ac5728912bc726d4a06a7198d2b73a1ec02e3d867e",
+ "spec_sha256": "5b81f58a2f64b40740d50019fc05c7b00d0ab1cb6df83e8c1b644218fca81f11",
  "stages": {
   "bundle": {
    "after": [

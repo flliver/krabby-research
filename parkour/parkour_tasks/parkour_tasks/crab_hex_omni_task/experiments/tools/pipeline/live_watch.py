@@ -16,7 +16,8 @@ DRIVER stages (walker and payload; DESIGN 2.1 "live", phase-2 ``p2_live.py`` col
              early by construction: replayed on X43 it would kill at +300; the dead-walker rule covers s1);
   nan        any non-finite Loss/* value.
 STUDENT (distill; PLAN Gates -> Student -> live checks):
-  loss       Loss_depth/depth_actor_loss rolling-50 at +250 <= 0.5 x the first logged value;
+  loss       Loss_depth/depth_actor_loss rolling-50 at +250 <= 0.5 x the first logged value (``loss_rule``: kill,
+             the default, or watch -- computed and reported under ``watch``, never a kill; STEPC_RULES C4.8 / V.3);
   ep_len     from +250, rolling-50 Train/mean_episode_length >= 0.8 x T*'s training tail (last-200 mean);
   crab       from +250, rolling-50 Episode_Termination/crab_failure <= T*'s tail + 0.10;
   nan        a non-finite depth loss.
@@ -37,6 +38,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 RC_PASS, RC_WAIT, RC_KILL = 0, 2, 3
+LOSS_RULES = ("kill", "watch")
 T_EPLEN = "Train/mean_episode_length"
 T_CRAB = "Episode_Termination/crab_failure"
 T_STD = "PPO/effective_std"
@@ -52,7 +54,7 @@ DEFAULTS = {
     "dead_walker": {"stages": ["s1"], "window": [800, 1000], "track_min": 0.35},
     "resume": {"std_tol": 0.02, "priv_rel": 0.05, "bound_rel": 0.02, "min_points": 5},
     "student": {"loss_at": 250, "loss_roll": 50, "loss_frac": 0.5, "from": 250, "ep_len_frac": 0.8,
-                "crab_failure_margin": 0.10, "roll": 50},
+                "crab_failure_margin": 0.10, "roll": 50, "loss_rule": "kill"},
 }
 
 
@@ -172,8 +174,10 @@ def judge_nan(ser: dict, prefixes=("Loss/", "Loss_depth/")) -> dict:
 def judge_student(ser: dict, first: int, tstar_tail: dict | None, cfg=None) -> dict:
     """PLAN Gates -> Student -> live checks (``tstar_tail``: {ep_len, crab_failure} = T*'s last-200 means)."""
     c = {**DEFAULTS["student"], **(cfg or {})}
+    if c["loss_rule"] not in LOSS_RULES:
+        raise ValueError(f"live_watch: student loss_rule {c['loss_rule']!r} not in {LOSS_RULES}")
     last = last_step(ser)
-    out = {"rule": "student", "fails": [], "reads": {}}
+    out = {"rule": "student", "fails": [], "reads": {}, "watch": []}
     loss = _since(ser.get(T_DEPTH), first)
     if any(not math.isfinite(v) for _, v in loss):
         return {**out, "rc": RC_KILL, "fails": ["non-finite depth_actor_loss"]}
@@ -183,10 +187,12 @@ def judge_student(ser: dict, first: int, tstar_tail: dict | None, cfg=None) -> d
         return {**out, "rc": RC_WAIT, "fails": [f"no {T_DEPTH}"]}
     at = [(s, v) for s, v in loss if s <= first + c["loss_at"]]
     r = roll_mean(at, c["loss_roll"])
-    out["reads"]["loss"] = {"first": loss[0][1], "rolling_at": r}
+    out["reads"]["loss"] = {"first": loss[0][1], "rolling_at": r, "loss_rule": c["loss_rule"]}
     if r is not None and r > c["loss_frac"] * loss[0][1]:
-        out["fails"].append(f"depth_actor_loss rolling-{c['loss_roll']} at +{c['loss_at']} {r:.4f} > "
-                            f"{c['loss_frac']} x first {loss[0][1]:.4f}")
+        msg = (f"depth_actor_loss rolling-{c['loss_roll']} at +{c['loss_at']} {r:.4f} > "
+               f"{c['loss_frac']} x first {loss[0][1]:.4f}")
+        out["reads"]["loss"]["fails"] = True
+        (out["fails"] if c["loss_rule"] == "kill" else out["watch"]).append(msg)
     if tstar_tail and last >= first + c["from"]:
         el = _since(ser.get(T_EPLEN), first + c["from"])
         cf = _since(ser.get(T_CRAB), first + c["from"])
@@ -234,7 +240,7 @@ def check(kind: str, ser: dict, *, stage: str | None = None, first: int | None =
     rc = RC_KILL if kills else (RC_WAIT if waits else RC_PASS)
     return {"rc": rc, "rule": kills[0]["rule"] if kills else None, "fails": [f for r in kills for f in r["fails"]],
             "reads": reads, "first": first, "last": last_step(ser), "unvalidated": True,
-            "accepted": list(accepted)}
+            "accepted": list(accepted), "watch": [w for r in reads for w in (r.get("watch") or [])]}
 
 
 def replay(kind: str, ser: dict, *, every: int = 50, **kw) -> dict:
@@ -242,13 +248,16 @@ def replay(kind: str, ser: dict, *, every: int = 50, **kw) -> dict:
     first, last = first_step(ser), last_step(ser)
     if first is None:
         return {"killed_at": None, "polls": 0}
-    n = 0
+    n, watch = 0, None
     for at in range(first + every, last + 1, every):
         n += 1
         r = check(kind, cut(ser, at), first=first, **kw)
+        if r.get("watch") and watch is None:
+            watch = {"at": at, "rel": at - first, "reads": r["watch"]}
         if r["rc"] == RC_KILL:
-            return {"killed_at": at, "rel": at - first, "rule": r["rule"], "fails": r["fails"], "polls": n}
-    return {"killed_at": None, "polls": n}
+            return {"killed_at": at, "rel": at - first, "rule": r["rule"], "fails": r["fails"], "polls": n,
+                    "watch_first": watch}
+    return {"killed_at": None, "polls": n, "watch_first": watch}
 
 
 def main(argv=None) -> int:
@@ -262,6 +271,8 @@ def main(argv=None) -> int:
         p.add_argument("--source", type=Path, default=None)
         p.add_argument("--tstar", type=Path, default=None)
         p.add_argument("--first", type=int, default=None)
+        p.add_argument("--loss-rule", choices=LOSS_RULES, default=None,
+                       help="student: kill (default) | watch (the loss rule is reported, never kills)")
         if name == "replay":
             p.add_argument("--every", type=int, default=50)
     a = ap.parse_args(argv)
@@ -271,10 +282,11 @@ def main(argv=None) -> int:
     if a.tstar:
         ts = read_series(a.tstar, (T_EPLEN, T_CRAB))
         tt = {"ep_len": tail_mean(ts.get(T_EPLEN)), "crab_failure": tail_mean(ts.get(T_CRAB))}
+    cfg = {"student": {"loss_rule": a.loss_rule}} if a.loss_rule else None
     if a.cmd == "check":
-        res = check(a.kind, ser, stage=a.stage, first=a.first, source=src, tstar_tail=tt)
+        res = check(a.kind, ser, stage=a.stage, first=a.first, source=src, tstar_tail=tt, cfg=cfg)
     else:
-        res = replay(a.kind, ser, every=a.every, stage=a.stage, source=src, tstar_tail=tt)
+        res = replay(a.kind, ser, every=a.every, stage=a.stage, source=src, tstar_tail=tt, cfg=cfg)
     print(json.dumps(res, indent=1, default=str))
     return int(res.get("rc", 0)) if a.cmd == "check" else 0
 
