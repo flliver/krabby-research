@@ -36,3 +36,9 @@ def test_ina228_devices_marked_not_wired():
 def test_imu_telemetry_tag_matches_firmware():
     text = (REPO / "firmware/arduino/src/telemetry.h").read_text(encoding="utf-8")
     assert f'IMU_TELEMETRY_TAG[] = "{IMU_TELEMETRY_TAG}"' in text
+
+
+def test_operator_i2c_scope_doc_lists_lsm6dso_addresses():
+    doc = (REPO / "firmware/sim/I2C_SIM_SCOPE.md").read_text(encoding="utf-8")
+    assert "LSM6DSO" in doc and "0x6B" in doc and "0x6A" in doc
+    assert "i2c_shipping_scope.py" in doc

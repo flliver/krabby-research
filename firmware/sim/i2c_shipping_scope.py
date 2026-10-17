@@ -1,4 +1,4 @@
-"""Shipping-firmware I2C inventory for host simulation (follow shipping code, not older IMU docs).
+"""Shipping-firmware I2C inventory for host simulation.
 
 Keep addresses in sync with:
 - ``firmware/arduino/src/imu/imu_constants.h``
@@ -44,7 +44,7 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
             "firmware/arduino/src/imu/lsm6dso_adapter.h",
             "firmware/arduino/arduino.ino (imuSetup, appendImuMeasurement)",
         ),
-        notes="Some older docs describe BMI270 at 0x68/0x69; shipping uses SparkFun LSM6DSO.",
+        notes="Firmware probes 0x6B then 0x6A (ADR/SA0 jumper); LSM6DSO register burst from 0x20.",
         telemetry_segment=";IMU <ax> <ay> <az> <gx> <gy> <gz> <temp_c> <valid>",
     ),
     I2cDeviceScope(

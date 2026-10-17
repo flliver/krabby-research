@@ -24,14 +24,17 @@ Host role election treats FRONT as IMU-capable via `hostBoardHasFrontImu()` (see
 
 ---
 
-## Devices (planned vs shipping)
+## Devices on the leader bus
 
-| Device | Common design reference | **Shipping firmware** | Sim status |
-|--------|-------------------------|------------------------|------------|
-| IMU | Some docs describe **BMI270** `0x68` / `0x69` | SparkFun **LSM6DSO** **`0x6B` / `0x6A`** | **Simulate LSM6DSO** register map (`SparkFunLSM6DSO`) |
-| OLED | Qwiic 1.3" SSD1306 **`0x3D`** | Same address; **`Ssd1306Adapter`** + `SparkFun_Qwiic_OLED` | **Simulate SSD1306** I2C stream; pixel preview in [`firmware/oled_sim/`](../oled_sim/) |
-| Pack monitor | INA228 **`0x40`** | **Not on Mega firmware** | **Host sim** ACK + `;BATT` from `sim_battery_model` |
-| Midpoint INA228 | **`0x41`** | **Not on Mega firmware** | **Host sim** ACK; midpoint V in `;BATT` |
+| Device | I2C address | Firmware | Host sim `Wire` |
+|--------|-------------|----------|-----------------|
+| IMU (SparkFun LSM6DSO) | **`0x6B`** / **`0x6A`** (ADR jumper) | `lsm6dso_adapter.h`, `hasFrontImu()` | LSM6DSO register model; burst from **`0x20`** |
+| OLED (SSD1306) | **`0x3D`** / **`0x3C`** (jumper) | `Ssd1306Adapter`, `SparkFun_Qwiic_OLED` | SSD1306 command/data stream; preview in [`firmware/oled_sim/`](../oled_sim/) |
+| Pack INA228 | **`0x40`** | Not probed on Mega yet | ACK + `;BATT` via `sim_battery_model` |
+| Midpoint INA228 | **`0x41`** | Not probed on Mega yet | ACK; midpoint fields in `;BATT` |
+
+Unlisted addresses (for example **`0x68`**) are not on the leader bus inventory and
+**NACK** in host sim (`test_host_i2c.cpp`). Full list: [`i2c_shipping_scope.py`](i2c_shipping_scope.py).
 
 There is **no** central `sensors_config.h` in the tree; constants live in `imu_constants.h`,
 `display_constants.h`, and adapter headers.

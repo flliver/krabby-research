@@ -331,7 +331,8 @@ mean "no role elected; front actuator map assumed".
 
 - I2C address **0x6B** (0x6A with the ADR/SA0 jumper cut). Bus runs at **100 kHz**
   for noise margin; the payload per 50 ms telemetry tick is tiny.
-- Later sensors (Qwiic OLED, INA228 ×2) daisy-chain on the same bus.
+- Later sensors (Qwiic OLED, INA228 ×2) daisy-chain on the same bus. Host sim
+  inventory: [`firmware/sim/I2C_SIM_SCOPE.md`](sim/I2C_SIM_SCOPE.md).
 
 ### Telemetry segment
 
