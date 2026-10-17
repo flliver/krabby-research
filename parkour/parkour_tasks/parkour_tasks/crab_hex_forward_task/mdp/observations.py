@@ -37,6 +37,45 @@ _CURRENT_SENSE_GATE_FRACTION = 0.3  # rod speed (fraction of rated) for a full d
 _CURRENT_SENSE_MAX = 1.5  # clip: stall current ~1.5x rated
 
 
+def _find_joints_optional(
+    asset: Articulation,
+    name_keys: list[str],
+    *,
+    preserve_order: bool = True,
+) -> tuple[list[int], list[str]]:
+    """Like ``Articulation.find_joints`` but returns empty lists when patterns miss (ref USD)."""
+    try:
+        ids, names = asset.find_joints(name_keys, preserve_order=preserve_order)
+    except ValueError:
+        return [], []
+    return list(ids), list(names)
+
+
+def _resolve_crab_hex_proprio_joint_ids(
+    asset: Articulation,
+) -> tuple[list[int], list[int], list[int]]:
+    """Cam shaft (optional), hip-pitch, and knee ids for plant or ``crab_hex_ref`` naming."""
+    cam_ids, _ = _find_joints_optional(
+        asset, [".*_Body_CamShaft_RevoluteJoint"], preserve_order=True
+    )
+    pitch_ids, pitch_names = _find_joints_optional(
+        asset, [".*_Hip_Femur_RevoluteJoint"], preserve_order=True
+    )
+    if pitch_ids:
+        knee_ids, _ = _find_joints_optional(
+            asset,
+            [n.replace("_Hip_Femur_", "_Femur_Tibia_") for n in pitch_names],
+            preserve_order=True,
+        )
+        return cam_ids, pitch_ids, knee_ids
+
+    pitch_ids, _ = _find_joints_optional(asset, [".*_hip_pitch"], preserve_order=True)
+    knee_ids, _ = _find_joints_optional(
+        asset, [".*_knee_actuator_joint"], preserve_order=True
+    )
+    return cam_ids, pitch_ids, knee_ids
+
+
 class CrabHexParkourObservations(ExtremeParkourObservations):
     """``ExtremeParkourObservations`` with ``root_lin_vel_b[:, :2] * 2`` (dims 13-14) and the
     gait clock's sin/cos (dims 15-16) in the proprio block."""
@@ -52,18 +91,8 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         # blinding the policy. Wrap those channels to [-pi, pi]: the cam map is 2*pi-periodic
         # (wrapped angle is information-complete), wrap is odd (mirror sign map unchanged),
         # and the obs dim is preserved (checkpoint/history compatible).
-        self._cam_shaft_obs_ids, _ = self.asset.find_joints(
-            [".*_Body_CamShaft_RevoluteJoint"], preserve_order=True
-        )
-        # Current-sense proxy joints, leg-aligned (FL, FR, ML, MR, RL, RR — articulation
-        # order, matching the old contact fill's footpad-body order).
-        pitch_ids, pitch_names = self.asset.find_joints(
-            [".*_Hip_Femur_RevoluteJoint"], preserve_order=True
-        )
-        knee_ids, _ = self.asset.find_joints(
-            [n.replace("_Hip_Femur_", "_Femur_Tibia_") for n in pitch_names],
-            preserve_order=True,
-        )
+        cam_ids, pitch_ids, knee_ids = _resolve_crab_hex_proprio_joint_ids(self.asset)
+        self._cam_shaft_obs_ids = cam_ids
         self._pitch_joint_ids = pitch_ids
         self._knee_joint_ids = knee_ids
 
@@ -78,6 +107,8 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         if self.contact_sensor is None:
             return torch.zeros(self.num_envs, self._num_contact, device=self.device) - 0.5
         action_term = self._env.action_manager.get_term("joint_pos")
+        if not hasattr(action_term, "hip_rod_speed") or not self._pitch_joint_ids:
+            return torch.zeros(self.num_envs, self._num_contact, device=self.device) - 0.5
         tau = self.asset.data.applied_torque
         theta_h = self.asset.data.joint_pos[:, self._pitch_joint_ids]
         theta_k = self.asset.data.joint_pos[:, self._knee_joint_ids]
@@ -137,11 +168,20 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
             delta_yaw = torch.where(on_flat, torch.zeros_like(self.delta_yaw), self.delta_yaw)
             delta_next_yaw = torch.where(on_flat, torch.zeros_like(self.delta_next_yaw), self.delta_next_yaw)
         commands = env.command_manager.get_command("base_velocity")
-        clock_phase = env.action_manager.get_term("joint_pos").clock_phase
+        action_term = env.action_manager.get_term("joint_pos")
+        clock_phase = getattr(action_term, "clock_phase", None)
+        if clock_phase is None:
+            gait_clock_obs = torch.zeros(self.num_envs, 2, device=self.device)
+        else:
+            gait_clock_obs = torch.cat(
+                (torch.sin(clock_phase)[:, None], torch.cos(clock_phase)[:, None]),
+                dim=-1,
+            )
         joint_pos_delta = self.asset.data.joint_pos - self.asset.data.default_joint_pos
-        joint_pos_delta[:, self._cam_shaft_obs_ids] = wrap_to_pi(
-            joint_pos_delta[:, self._cam_shaft_obs_ids]
-        )
+        if self._cam_shaft_obs_ids:
+            joint_pos_delta[:, self._cam_shaft_obs_ids] = wrap_to_pi(
+                joint_pos_delta[:, self._cam_shaft_obs_ids]
+            )
         obs_buf = torch.cat(
             (
                 self.asset.data.root_ang_vel_b * 0.25,
@@ -157,8 +197,8 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 # NOTE(gait-formation-v2 Phase 1): the gait clock, as sin/cos. Under the L/R
                 # mirror a swapped-handedness gait is the same schedule advanced by pi, so
                 # both dims carry mirror sign -1 (see crab_hex_mirror._HEAD_SIGNS).
-                torch.sin(clock_phase)[:, None],
-                torch.cos(clock_phase)[:, None],
+                # Joystick/HAL ``crab_hex_ref.usd`` uses plain joint-position actions (no clock).
+                gait_clock_obs,
                 joint_pos_delta,
                 self.asset.data.joint_vel * 0.05,
                 env.action_manager.get_term("joint_pos").action_history_buf[:, -1],
