@@ -47,6 +47,31 @@ def isaac_joint_name_for_firmware_id(firmware_actuator_id: str) -> str:
     return f"{leg}_{segment_map[segment]}_RevoluteJoint"
 
 
+# ``assets/crab_hex_ref.usd`` (HAL / joystick task) — URDF-style prefixes, 18 actuated DOFs.
+_CRAB_HEX_REF_LEG_PREFIX = {
+    "FL": "lf",
+    "FR": "rf",
+    "ML": "lm",
+    "MR": "rm",
+    "RL": "lr",
+    "RR": "rr",
+}
+_CRAB_HEX_REF_SEGMENT_SUFFIX = {
+    "HY": "hip_yaw",
+    "HL": "hip_pitch",
+    "KL": "knee_actuator_joint",
+}
+
+
+def isaac_joint_name_for_firmware_id_crab_hex_ref(firmware_actuator_id: str) -> str:
+    """Map FLHY-style ids to ``crab_hex_ref.usd`` joint names (``lf_hip_yaw``, …)."""
+    leg = firmware_actuator_id[:2]
+    segment = firmware_actuator_id[2:]
+    prefix = _CRAB_HEX_REF_LEG_PREFIX[leg]
+    suffix = _CRAB_HEX_REF_SEGMENT_SUFFIX[segment]
+    return f"{prefix}_{suffix}"
+
+
 def _rev3_slots_for_firmware_ids(
     firmware_ids: Sequence[str],
 ) -> tuple[SimulatedSlotConfig, ...]:

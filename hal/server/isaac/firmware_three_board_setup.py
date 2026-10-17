@@ -99,9 +99,19 @@ def attach_fullsim_firmware_to_env(
         max_joint_speed=max_joint_speed,
     )
 
-    isaac_joint_for_fw = {
-        slot.firmware_actuator_id: slot.isaac_joint_name for slot in configs.all_slots()
-    }
+    isaac_joint_for_fw = {}
+    for slot in configs.all_slots():
+        if slot.isaac_joint_name in joint_indices:
+            isaac_joint_for_fw[slot.firmware_actuator_id] = slot.isaac_joint_name
+        else:
+            from firmware.sim.simulated_robot_config import (
+                isaac_joint_name_for_firmware_id_crab_hex_ref,
+            )
+
+            ref_name = isaac_joint_name_for_firmware_id_crab_hex_ref(
+                slot.firmware_actuator_id
+            )
+            isaac_joint_for_fw[slot.firmware_actuator_id] = ref_name
     log_firmware_joint_bindings(
         robot_definition,
         joint_indices,
