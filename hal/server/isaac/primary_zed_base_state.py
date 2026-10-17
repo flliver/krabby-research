@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from hal.server.jetson.zed_imu import _quat_multiply, rotate_vector_base_to_sensor
+from hal.server.quat_kinematics import quat_multiply_xyzw, rotate_vector_base_to_sensor
 from hal.server.primary_rgbd_base_state import (
     base_state_from_primary_zed_samples,
     mount_quat_xyzw_primary,
@@ -59,7 +59,7 @@ def isaac_primary_rgbd_base_state(robot: Any) -> tuple[np.ndarray, np.ndarray, n
     """Return ``(base_quat_w, base_ang_vel_b, base_lin_vel_b)`` like Jetson primary ZED."""
     mount = mount_quat_xyzw_primary()
     q_world_base = quat_isaac_wxyz_to_hal_xyzw(_quat_wxyz_from_root(robot))
-    q_world_sensor = _quat_multiply(q_world_base, mount)
+    q_world_sensor = quat_multiply_xyzw(q_world_base, mount)
     omega_sensor = rotate_vector_base_to_sensor(_vec3_from_root(robot, "root_ang_vel_b"), mount)
     lin_sensor = rotate_vector_base_to_sensor(_vec3_from_root(robot, "root_lin_vel_b"), mount)
 

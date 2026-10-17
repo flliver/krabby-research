@@ -6,7 +6,14 @@ from typing import Any, Optional
 
 import numpy as np
 
-from hal.server.jetson.zed_imu import rotate_vector_sensor_to_base
+from hal.server.primary_rgbd_base_state import tracking_lin_vel_sensor_to_base
+
+__all__ = [
+    "positional_tracking_state_ok",
+    "tracking_reference_frame_camera",
+    "parse_zed_tracking_lin_vel_sensor",
+    "tracking_lin_vel_sensor_to_base",
+]
 
 
 def positional_tracking_state_ok(state: Any, sl: Any) -> bool:
@@ -28,11 +35,3 @@ def parse_zed_tracking_lin_vel_sensor(pose: Any) -> Optional[np.ndarray]:
     if v.shape != (3,) or not np.isfinite(v).all():
         return None
     return v
-
-
-def tracking_lin_vel_sensor_to_base(
-    lin_vel_sensor: np.ndarray,
-    mount_quat_base_to_sensor: np.ndarray,
-) -> np.ndarray:
-    """Map tracking-frame linear velocity into the robot base frame."""
-    return rotate_vector_sensor_to_base(lin_vel_sensor, mount_quat_base_to_sensor)
