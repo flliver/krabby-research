@@ -213,7 +213,12 @@ def payload_problems(meta: dict, level_kg) -> list[str]:
         out.append(f"level row zero_frac {pl.get('zero_frac')} / com_xy {pl.get('com_xy')} (want 0 / 0)")
     com = pl.get("payload_com_m")
     if isinstance(com, list) and com:
-        for c in com:
+        # the CoM is checked only where a payload exists: a 0-kg env (the 0:0 level, L000) carries nothing to place,
+        # and the event records its CoM as zeros (CHARTER step-8 note: C1 STOP-C on L000 was this reader, not the code)
+        kgs = kg if isinstance(kg, list) and len(kg) == len(com) else [level_kg] * len(com)
+        for c, k in zip(com, kgs):
+            if abs(float(k)) <= PAYLOAD_TOL:
+                continue
             if not (isinstance(c, list) and len(c) == 3 and abs(c[0]) <= PAYLOAD_TOL and abs(c[1]) <= PAYLOAD_TOL
                     and abs(c[2] - float(pl.get("com_z", 0.309))) <= PAYLOAD_TOL):
                 out.append(f"level row payload CoM {c} != (0, 0, com_z)")

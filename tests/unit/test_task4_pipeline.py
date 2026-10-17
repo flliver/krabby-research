@@ -1434,3 +1434,23 @@ def test_lock_prints_the_freeze_notice_and_flags_a_dirty_pin(P, tspec, monkeypat
     assert P.main(["lock", "--spec", str(tspec.path)]) == 0
     out = capsys.readouterr().out
     assert "NOT A VALID PIN" in out and "commit or stash" in out
+
+
+def test_level_payload_com_is_checked_only_where_a_payload_exists():
+    """CHARTER step 8 (C1 STOP-C, 2026-10-16): the 0:0 level row (L000) records a zero CoM for its zero-mass payload;
+    the level CoM check must skip 0-kg envs, and still refuse a wrong CoM on a loaded level."""
+    import importlib.util
+    from pathlib import Path
+    p = (Path(__file__).resolve().parents[2] / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/"
+         "tools/pipeline/gate_read.py")
+    spec = importlib.util.spec_from_file_location("_t4_gate_read_l000", p)
+    gr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gr)
+    base = {"kg_range": [0.0, 0.0], "zero_frac": 0.0, "com_xy": 0.0, "com_z": 0.309}
+    l000 = {"payload": {**base, "payload_kg": [0.0, 0.0], "payload_com_m": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]}}
+    assert gr.payload_problems(l000, 0) == []
+    l090 = {"payload": {**base, "kg_range": [90.0, 90.0], "payload_kg": [90.0, 90.0],
+                        "payload_com_m": [[0.0, 0.0, 0.309], [0.0, 0.0, 0.0]]}}
+    assert any("CoM" in s for s in gr.payload_problems(l090, 90))
+    l090["payload"]["payload_com_m"] = [[0.0, 0.0, 0.309], [0.0, 0.0, 0.309]]
+    assert gr.payload_problems(l090, 90) == []

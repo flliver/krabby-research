@@ -278,3 +278,20 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - Tests: 93 task4 pipeline/threshold tests pass. In the stand suites only the two no-bytecode tests fail, on
     the other process's `sh_kin` .pyc.
   - The reduced dry spec's own lock is created when C7 starts, so it pins these files.
+- **2026-10-16 23:24, STOP-C at the C1 check → reader fix → re-proved (decide-record-notify).**
+  - **Every C1 bridge passed:**
+    - the 13 cfg dumps;
+    - P-config at all six stages;
+    - P-early against X43 (142/148, under the amended rule);
+    - the post-build smoke against A2 (146/148);
+    - armed 0:0 against off, *strictly* bitwise;
+    - all seven eval rows bitwise: S1 suite / field_hard / suite_body, X43 / X60 / X10 suites, S1 suite armed at
+      L000;
+    - the forward 3a slow row bitwise in its recorded shape. In today's shape it reads 0.75 vs the recorded 0.79,
+      a 0.04 split, as the FWD README predicts.
+  - **The only problem was the gate reader.** `gate_read.payload_problems` demanded a level-row CoM of
+    (0, 0, 0.309) on every env. At the 0:0 level (L000) the payload has zero mass, and the event records its CoM
+    as zeros. The same check would have marked R18's 0-kg curve level INVALID.
+  - **Fix:** the CoM is checked only on envs that carry a payload (kg > tol). A loaded level with a wrong CoM still
+    fails (test added). The rule's intent is unchanged: there is nothing to place at 0 kg.
+  - The lock is regenerated; the C1 check is retried and the queue resumes at C2.
