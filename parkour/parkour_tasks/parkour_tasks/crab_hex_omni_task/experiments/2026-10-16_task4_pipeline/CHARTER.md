@@ -295,3 +295,23 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - **Fix:** the CoM is checked only on envs that carry a payload (kg > tol). A loaded level with a wrong CoM still
     fails (test added). The rule's intent is unchanged: there is nothing to place at 0 kg.
   - The lock is regenerated; the C1 check is retried and the queue resumes at C2.
+- **2026-10-17 13:28, STOP-C at C4.7 "depth helps" (the user's decision; diagnostic rows running meanwhile).**
+  - **Passed so far:**
+    - C1;
+    - C2 (no re-anchor needed);
+    - C3:
+      - readback;
+      - deck-CoM settle: no tip at any level up to 270 kg; Σ foot force within 0.42 % of the 0-kg ratio;
+      - S1 curve; pilot live rules;
+      - N_p = 3000;
+      - the full p3a gate on the pilot: max_stable 135 kg, first unstable 180 kg, limiting factor "stability"
+        (fwd / diag / move_turn survival); the paired 0-kg check passes on every statistic, max margin use 0.47;
+    - C4: cameras; student readback; parity; timing 1.92 h per 1k its.
+  - C4.5 determinism: a same-seed student rerun is NOT a replay (report).
+  - **The fail:** field_hard es1–2, 1000-it pilots from S1. Depth student 0.830, zeroed-depth student 0.815:
+    Δ +0.015 < max(0.05, 2 SE) = 0.069.
+  - **Training logs:** depth_actor_loss over the last 100 its is 0.761 (depth) vs 0.746 (zero); both are flat
+    from about it 400. The depth encoder adds no imitation information at 1000 its.
+  - **The manifest-shape split** is 0.00 (both pairs bitwise).
+  - **Diagnostic (report-only, `scripts/t4_stepC_depthdiag.sh`):** both pilots on field_light@1-2, ring_obst@1-2
+    and field_turn@1, plus the zero pilot's suite@1. It asks whether any omni row is perception-limited at all.
