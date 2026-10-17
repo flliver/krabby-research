@@ -1,4 +1,4 @@
-"""Isaac ``RobotCore`` / ``ThreeBoardRobotCore`` + PTY for KrabbyMCUSDK and the GUI."""
+"""Isaac ``RobotCore`` / ``ThreeBoardRobotCore`` + virtual USB serial for KrabbyMCUSDK and the GUI."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import threading
 import time
 from typing import Any
 
-from firmware.sim.serial_pty_bridge import SimMcuPtyBridge
+from firmware.sim.serial_usb_bridge import open_sim_mcu_usb_bridge
 
 
 class IsaacMcuHost:
@@ -15,7 +15,7 @@ class IsaacMcuHost:
 
     def __init__(self, core: Any) -> None:
         self._core = core
-        self._pty = SimMcuPtyBridge(core.bridge)
+        self._usb_bridge = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self.slave_path: str = ""
@@ -36,7 +36,7 @@ class IsaacMcuHost:
     def start(self) -> str:
         self._core.reset()
         self._core.bridge.firmware_setup()
-        self.slave_path = self._pty.start()
+        self._usb_bridge, self.slave_path = open_sim_mcu_usb_bridge(self._core.bridge)
         self._stop.clear()
         self._thread = threading.Thread(
             target=self._tick_loop,
@@ -51,7 +51,9 @@ class IsaacMcuHost:
         if self._thread is not None:
             self._thread.join(timeout=5.0)
             self._thread = None
-        self._pty.close()
+        if self._usb_bridge is not None:
+            self._usb_bridge.close()
+            self._usb_bridge = None
         self.slave_path = ""
 
     def __enter__(self) -> str:

@@ -87,13 +87,23 @@ class KrabbyMCUSDK:
             # A DTR reset would break three-board role election (followers stay in
             # their assigned roles and stop broadcasting SYNC, so a newly-reset
             # leader can never hear from them).
-            ser = serial.Serial()
-            ser.port = self.port
-            ser.baudrate = self.baud
-            ser.timeout = 0.5
-            ser.dtr = False
-            ser.open()
-            self.ser = ser
+            port = self.port
+            if "://" in str(port):
+                self.ser = serial.serial_for_url(
+                    port,
+                    baudrate=self.baud,
+                    timeout=0.5,
+                    write_timeout=0.5,
+                )
+                self.ser.dtr = False
+            else:
+                ser = serial.Serial()
+                ser.port = port
+                ser.baudrate = self.baud
+                ser.timeout = 0.5
+                ser.dtr = False
+                ser.open()
+                self.ser = ser
             time.sleep(
                 5.0
             )  # wait for boot + 3-board role election before starting reader

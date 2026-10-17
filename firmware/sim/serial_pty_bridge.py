@@ -8,6 +8,8 @@ import sys
 import threading
 from typing import TYPE_CHECKING
 
+from firmware.sim.serial_usb_relay import relay_usb_serial_once
+
 if TYPE_CHECKING:
     from firmware.sim.host_bridge import HostActuatorBridge
 
@@ -17,7 +19,11 @@ class SimMcuPtyBridge:
 
     def __init__(self, bridge: HostActuatorBridge) -> None:
         if not hasattr(os, "openpty"):
-            raise RuntimeError("PTY bridge requires Unix (Linux/macOS); see firmware.mcu_port module docstring")
+            raise RuntimeError(
+                "PTY bridge requires Unix (Linux/macOS). "
+                "On Windows use firmware.sim.serial_tcp_bridge.SimMcuTcpBridge "
+                "or firmware/sim/VIRTUAL_SERIAL.md."
+            )
         self._bridge = bridge
         self._master_fd: int | None = None
         self._slave_fd: int | None = None
@@ -59,19 +65,19 @@ class SimMcuPtyBridge:
             readable, _, _ = select.select([master], [], [], 0.05)
             if master in readable:
                 try:
-                    chunk = os.read(master, 4096)
+                    relay_usb_serial_once(
+                        bridge,
+                        read_client=lambda n: os.read(master, n),
+                        write_client=lambda data: os.write(master, data),
+                    )
                 except OSError:
                     break
-                if chunk:
-                    bridge.serial_usb_rx_write(chunk)
-            while bridge.serial_usb_tx_available() > 0:
-                byte = bridge.serial_usb_tx_read()
-                if byte < 0:
-                    break
-                try:
-                    os.write(master, bytes([byte]))
-                except OSError:
-                    return
+            else:
+                relay_usb_serial_once(
+                    bridge,
+                    read_client=lambda _n: b"",
+                    write_client=lambda data: os.write(master, data),
+                )
 
     def __enter__(self) -> SimMcuPtyBridge:
         self.start()

@@ -25,6 +25,10 @@ Multi-board role election on the host sim is documented in [ROLE_BOOT.md](ROLE_B
 
 I2C sim scope (shipping LSM6DSO + SSD1306, INA228 blockers): [I2C_SIM_SCOPE.md](I2C_SIM_SCOPE.md).
 
+## Virtual serial (SDK / GUI on sim USB)
+
+Linux/macOS use a PTY; Windows uses a localhost `socket://` TCP bridge or an optional com0com pair. See [VIRTUAL_SERIAL.md](VIRTUAL_SERIAL.md). Override with `KRABBY_MCU_PORT`.
+
 ## Core layout
 
 - `simulated_robot_config.py` - FRONT-board pin and Isaac joint table in code.

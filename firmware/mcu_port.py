@@ -17,7 +17,8 @@ def default_port() -> str:
     """
     Best-effort auto-detection of the MCU serial port.
     Priority:
-      1) KRABBY_MCU_PORT env var (explicit override)
+      1) KRABBY_MCU_PORT env var (device path, COMn, or pyserial URL such as
+         socket://127.0.0.1:PORT for sim TCP bridge — see firmware/sim/VIRTUAL_SERIAL.md)
       2) USB VID/PID matching a known board (CH340 adapters often report a
          generic description like "USB Serial" with no manufacturer)
       3) USB description/manufacturer containing common board identifiers
