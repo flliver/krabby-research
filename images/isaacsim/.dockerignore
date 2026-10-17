@@ -17,8 +17,10 @@ build/
 *.swo
 *~
 
-# Exclude test files from production image
+# Exclude test files from production image (keep native firmware CMake tree for libkrabby_host)
 tests/
+!tests/native/
+!tests/native/**
 *.test.py
 *_test.py
 

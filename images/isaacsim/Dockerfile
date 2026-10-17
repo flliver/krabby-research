@@ -128,6 +128,16 @@ COPY parkour/ /workspace/parkour/
 # Note: compute/testing is included in the wheel but we want latest source for development
 COPY compute/ /workspace/compute/
 
+# Python package + host firmware .so for hex --backend fullsim
+COPY firmware/ /workspace/firmware/
+COPY tests/native/firmware /workspace/tests/native/firmware
+RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ \
+    && cmake -S /workspace/tests/native/firmware -B /workspace/build/native-firmware-tests \
+    && cmake --build /workspace/build/native-firmware-tests --target krabby_host \
+    && apt-get purge -y cmake g++ \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy test assets (checkpoints, test data, etc.) to generic test assets directory
 # This directory can be used for any test content files
 RUN mkdir -p /workspace/test_assets/checkpoints

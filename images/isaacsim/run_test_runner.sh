@@ -36,7 +36,7 @@ source /workspace/testenv/bin/activate
 
 # Set up PYTHONPATH
 VENV_SITE_PACKAGES=$(/workspace/testenv/bin/python -c "import site; print(site.getsitepackages()[0])")
-export PYTHONPATH="/workspace/isaaclab/source/isaaclab_tasks:/workspace/isaaclab/source:/workspace/isaaclab/source/isaaclab:/workspace/parkour:/workspace:/isaac-sim/python_packages:${VENV_SITE_PACKAGES}:${PYTHONPATH}"
+export PYTHONPATH="/workspace/isaaclab/source/isaaclab_tasks:/workspace/isaaclab/source:/workspace/isaaclab/source/isaaclab:/workspace/parkour/parkour_tasks:/workspace/parkour:/workspace:/isaac-sim/python_packages:${VENV_SITE_PACKAGES}:${PYTHONPATH}"
 
 # Filter out Isaac Sim arguments before passing to test runner
 filtered_args=()

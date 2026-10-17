@@ -160,24 +160,48 @@ if simulation_app is None:
         traceback.print_exc()
         sys.exit(1)
 
-# Now that Isaac Sim is fully initialized (including CUDA context), we can import Isaac Lab modules
-# This is critical - imports must happen AFTER AppLauncher is ready to avoid Warp CUDA errors
+# Isaac Lab / parkour imports (after AppLauncher). Deferred so test_isaacsim_noop does not
+# need parkour_tasks; register gym envs before parkour_isaaclab.envs (avoids circular import).
+_env_stack_loaded = False
+parse_env_cfg = None
+ParkourManagerBasedRLEnv = None
+IsaacSimHalServer = None
+HalServerConfig = None
+HalClientConfig = None
+ModelWeights = None
+ParkourInferenceClient = None
+torch = None
 
-# Import Isaac Lab and related modules (after AppLauncher initialization)
-from isaaclab_tasks.utils import parse_env_cfg
-from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
-from hal.server.isaac import IsaacSimHalServer
-from hal.server import HalServerConfig
-from hal.client.config import HalClientConfig
-from compute.parkour.policy_interface import ModelWeights
-from compute.parkour.inference_client import ParkourInferenceClient
-import torch
 
-# Import parkour_tasks to register gym environments
-parkour_tasks_path = "/workspace/parkour/parkour_tasks"
-if parkour_tasks_path not in sys.path:
-    sys.path.insert(0, parkour_tasks_path)
-import parkour_tasks  # noqa: F401
+def _import_env_stack() -> None:
+    global _env_stack_loaded
+    global parse_env_cfg, ParkourManagerBasedRLEnv, IsaacSimHalServer, HalServerConfig
+    global HalClientConfig, ModelWeights, ParkourInferenceClient, torch
+    if _env_stack_loaded:
+        return
+    parkour_tasks_path = "/workspace/parkour/parkour_tasks"
+    if parkour_tasks_path not in sys.path:
+        sys.path.insert(0, parkour_tasks_path)
+    import isaaclab_tasks  # noqa: F401
+    import parkour_tasks  # noqa: F401
+    from isaaclab_tasks.utils import parse_env_cfg as _parse_env_cfg
+    from parkour_isaaclab.envs import ParkourManagerBasedRLEnv as _ParkourManagerBasedRLEnv
+    from hal.server.isaac import IsaacSimHalServer as _IsaacSimHalServer
+    from hal.server import HalServerConfig as _HalServerConfig
+    from hal.client.config import HalClientConfig as _HalClientConfig
+    from compute.parkour.policy_interface import ModelWeights as _ModelWeights
+    from compute.parkour.inference_client import ParkourInferenceClient as _ParkourInferenceClient
+    import torch as _torch
+
+    parse_env_cfg = _parse_env_cfg
+    ParkourManagerBasedRLEnv = _ParkourManagerBasedRLEnv
+    IsaacSimHalServer = _IsaacSimHalServer
+    HalServerConfig = _HalServerConfig
+    HalClientConfig = _HalClientConfig
+    ModelWeights = _ModelWeights
+    ParkourInferenceClient = _ParkourInferenceClient
+    torch = _torch
+    _env_stack_loaded = True
 
 def run_test_isaacsim_noop():
     """Simple no-op test to verify Isaac Sim test infrastructure.
@@ -241,6 +265,7 @@ def run_test_isaacsim_create_environment_only():
     creation or during HAL server initialization.
     """
     logger.info("[TEST] test_isaacsim_create_environment_only...")
+    _import_env_stack()
     
     env = None
     try:
@@ -307,6 +332,7 @@ def run_test_isaacsim_hal_server_with_real_isaaclab():
     
     current_step = "[TEST] test_isaacsim_hal_server_with_real_isaaclab"
     logger.info(f"{current_step}...")
+    _import_env_stack()
     
     try:
         # Verify Isaac Sim is accessible
@@ -434,6 +460,7 @@ def run_test_inference_latency_requirement():
     
     current_step = "[TEST] test_inference_latency_requirement"
     logger.info(f"{current_step}...")
+    _import_env_stack()
     
     try:
         # Find checkpoint path
