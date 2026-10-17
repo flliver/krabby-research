@@ -331,3 +331,9 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     rows is perception-limited, so C4.7 cannot discriminate at any training length.
   - This bears on the check's premise, not on the depth build.
   - Put to the user.
+- **2026-10-17, user decision on the C4.7 STOP-C: accept, with disclosure.**
+  - The preflight and the runs proceed; the student stays gated on completion paired against T\*.
+  - The report must state plainly that the student's camera use is **unverified**: no omni row is
+    perception-limited (S1, with its perfect scan, equals a blind student).
+  - Open follow-up for M15 or later: a perception-dependent eval row, with a teacher trained on that terrain.
+  - The queue records the accept (`--accept C4_depth`) and resumes at C4.8.
