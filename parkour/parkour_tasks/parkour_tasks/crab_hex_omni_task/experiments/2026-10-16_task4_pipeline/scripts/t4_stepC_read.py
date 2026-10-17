@@ -811,7 +811,13 @@ def smoke_ok(root: Path, name: str) -> dict:
     sm = C.read_json(d / "smoke.json", {}) or {}
     env = C.read_json(d / "params/krabby_env.json", {}) or {}
     ey = (d / "params/env.yaml").read_text() if (d / "params/env.yaml").is_file() else ""
-    return {"run": str(d), "verdict": sm.get("verdict"), "payload_keys": sorted(k for k in env if k.startswith("KRABBY_PAYLOAD_")),
+    v = sm.get("verdict")
+    # the SN/SH smoke.json nests the record: {"verdict": {"verdict": "PASS", "failed": [...], ...}} (CHARTER step 8:
+    # the C6 STOP-C listed the PASSING SN smoke because the dict was compared with "PASS")
+    if isinstance(v, dict):
+        v = v.get("verdict")
+    return {"run": str(d), "verdict": v, "failed": (sm.get("verdict") or {}).get("failed")
+            if isinstance(sm.get("verdict"), dict) else None, "payload_keys": sorted(k for k in env if k.startswith("KRABBY_PAYLOAD_")),
             "payload_term": "payload_reset" in ey, "final": (sm.get("run") or {}).get("final_checkpoint")}
 
 

@@ -337,3 +337,19 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     perception-limited (S1, with its perfect scan, equals a blind student).
   - Open follow-up for M15 or later: a perception-dependent eval row, with a teacher trained on that terrain.
   - The queue records the accept (`--accept C4_depth`) and resumes at C4.8.
+- **2026-10-17 16:03, STOP-C at C6.1 → two tool bugs fixed → re-proving the SH smoke (decide-record-notify).**
+  - **Already passed:**
+    - C4.8 live rules on the student logs;
+    - C4.9: the distill from the payload-pilot head carries the payload, and its 90-kg row reads 90 kg on every env;
+    - C5: the sweep anchors on S1 s16/17/18 es1–2;
+    - the C6.1 strip: both DAgger env emits carry no `KRABBY_PAYLOAD_*`, and neither run's env has `payload_reset`.
+  - **Bug 1 (stepC reader):** `smoke_ok` compared the nested smoke.json record with "PASS", so it listed the
+    PASSING SN smoke as a problem. Fixed.
+  - **Bug 2 (SH tooling, real for R18/F19):** the SH smoke check `warm_start_zeroed` compared the warm start's sha
+    with the A-mask s17 constant even under the step-6 `--warm-sha` override. A pipeline SH stage warms from its
+    own run's SN head, so its smoke / premise check would FAIL.
+    - Fix in `sh_dagger_core.py`: `build_networks` sets `nets.warm_expected_sha256` (the override, else the A-mask
+      s17 default), and the check compares against it.
+    - It is a Nets attribute only, never saved, so default runs and the SH_T17 replay (X) are unchanged.
+    - SH tests: 127 pass, plus the 2 known no-bytecode failures.
+  - Lock regenerated; `C6_sh_new` and the C6 checks are retried.

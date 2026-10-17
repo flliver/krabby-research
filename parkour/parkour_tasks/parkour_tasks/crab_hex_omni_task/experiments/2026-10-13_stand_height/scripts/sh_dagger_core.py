@@ -215,8 +215,14 @@ def build_networks(policy_cls, est_cls, train_cfg: dict, s1_path, device, *, war
     if not rng_equal(before, save_rng()):
         raise RuntimeError("sh_dagger: the global RNG was not restored after building the networks")
     p0, p1, num_prop, num_hist = priv_cols(train_cfg)
-    return Nets(s1, est, student, p0=p0, p1=p1, num_prop=num_prop, num_hist=num_hist,
+    nets = Nets(s1, est, student, p0=p0, p1=p1, num_prop=num_prop, num_hist=num_hist,
                 s1_estimator_state=est_state, s1_path=s1_path, s1_sha=sha256_file(s1_path), warm=warm)
+    # NOTE(M18 Task 4 step 8, 2026-10-17): the sha the warm start was pinned to -- the A-mask s17 default, or the
+    # --warm-sha override (a pipeline SH stage warms from its own run's SN head). The smoke / premise check
+    # ``warm_start_zeroed`` compares against THIS, not the constant. A Nets attribute only (never saved), so the
+    # default run's records and checkpoints are unchanged.
+    nets.warm_expected_sha256 = warm_sha if warm_sha else SH.STAND_NET_SHA256
+    return nets
 
 
 def trainable_params(student) -> list:
@@ -1752,8 +1758,10 @@ def smoke_checks(tr: "Trainer", *, env_parity: list[str], ckpt: str, env_clip: f
                        "present), the weight table reports a trim column; off: not applied", ok))
     w = tr.nets.warm or {}
     checks.append(_chk("warm_start_zeroed", {"w15_zero_at_start": tr.w15_zero_at_start, "record": w},
-                       "student W[:, 15] == 0 at the start; the warm start's sha is the pinned A-mask s17",
-                       tr.w15_zero_at_start and w.get("sha256") == SH.STAND_NET_SHA256
+                       "student W[:, 15] == 0 at the start; the warm start's sha is the pinned one (A-mask s17, or "
+                       "the --warm-sha override)",
+                       tr.w15_zero_at_start
+                       and w.get("sha256") == getattr(tr.nets, "warm_expected_sha256", SH.STAND_NET_SHA256)
                        and float(w.get("w15_norm_before") or 0) > 0))
     # -- the predecessor's generic checks
     steps = max(1.0, a["rows"])
