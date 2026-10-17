@@ -315,3 +315,19 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - **The manifest-shape split** is 0.00 (both pairs bitwise).
   - **Diagnostic (report-only, `scripts/t4_stepC_depthdiag.sh`):** both pilots on field_light@1-2, ring_obst@1-2
     and field_turn@1, plus the zero pilot's suite@1. It asks whether any omni row is perception-limited at all.
+- **2026-10-17 14:13, depth diagnostic done.** Completion, depth student / blind student / S1 (scan teacher):
+
+  | Row | Depth | Blind | S1 |
+  |---|---|---|---|
+  | field_hard es1 | 0.86 | 0.79 | 0.79 |
+  | field_hard es2 | 0.80 | 0.84 | 0.81 |
+  | field_light es1 | 1.00 | 0.99 | 0.99 |
+  | field_light es2 | 0.98 | 0.96 | 1.00 |
+  | ring_obst es1–2 | 1.00 | 1.00 | 1.00 |
+  | field_turn es1 | 0.98 | 0.98 | 0.99 |
+  | suite es1 | 1.00 | 1.00 | 1.00 |
+
+  - The teacher with a perfect terrain scan does no better than a blind student on any omni row. None of these
+    rows is perception-limited, so C4.7 cannot discriminate at any training length.
+  - This bears on the check's premise, not on the depth build.
+  - Put to the user.
