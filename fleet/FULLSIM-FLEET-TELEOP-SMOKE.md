@@ -90,6 +90,11 @@ On the sim host (repo clone optional if the image is current):
 ./scripts/run_isaac_hal_server.sh --hexapod --teleop-ip 127.0.0.1
 ```
 
+Run **without** `--headless` on the sim host (local `DISPLAY` / `xhost +local:docker` as in
+`scripts/run_isaac_hal_server.sh`). `--teleop-ip` enables sim RGB-D cameras (`enable_cameras`);
+headless + RTX/Hydra has segfaulted on some stacks (RTX 5080, swap exhausted). Headless is fine
+for HAL+fullsim **without** `--teleop-ip` (joystick/TCP smoke only).
+
 Uses wheels baked into **`krabby-isaacsim:latest`** (rebuild after HAL releases:
 `make build-isaacsim-image`). For unreleased HAL edits only, set
 **`KRABBY_ISAAC_DEV_MOUNTS=1`** when running the script from a **krabby-research** clone.
