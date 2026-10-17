@@ -224,3 +224,20 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
       rule would kill X43 at +300);
     - lazy stand controls are not automated (a stand FAIL HALTs as a prompt);
     - an accepted DAgger live kill retrains as `_a<n>`.
+- **2026-10-16, step 7 (CPU test pass + review fixes) done (sonnet·high).**
+  - **Results:** all 196 task4 tests pass. Full `tests/unit`: 21 failed / 5167 passed / 45 errors.
+  - **Attribution** (detached worktrees at base `5d00e2d7` and at `89f04793`): **0** caused by this campaign.
+    - 6 test groups were already failing at the base.
+    - The rest are environmental or come from other sessions' files: missing zmq / serial / tkinter / aiortc
+      packages; the stale `sh_kin` .pyc; another session's facing-ladder `state.json`; the lock test seeing the
+      untracked step-8 scripts.
+  - **Added:**
+    - `TP/bridge_read.py`, a full or aggregate stamp bridge that ignores the `trained_categories` metadata
+      (implementation items 3, 10);
+    - the D14 freeze notice in `pipeline.py lock`;
+    - tests: committed run dirs equal what gen writes; carry env over 88 known-good / 20 C0 stamps; the student
+      live rules replayed on the forward 3a logs, with a positive control (item 9).
+  - All 16 left-for-implementation items are now handled. Item 8: N_p is a multiple of 500, and the "+N_p" read
+    is the nearest saved checkpoint.
+  - `check`: R18 shows only N_p / x_rule / manifest_shape_split; F19 shows N_p / split; dry is clean.
+  - The lock must be regenerated at the step-8 pin.

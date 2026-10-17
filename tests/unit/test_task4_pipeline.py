@@ -134,6 +134,17 @@ def test_gen_is_byte_stable_and_check_is_clean(P, tspec):
     assert any("s1.env" in x for x in P.gen(tspec, "R18", check=True))
 
 
+def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
+    """PLAN step 7: ``gen --check`` on the COMMITTED R18 / F19 / dry run dirs (the real spec, nothing copied), and gen
+    twice gives identical files. The placeholders (N_p, x_rule, the manifest-shape split) are the spec's own."""
+    for run in ("R18", "F19", "dry"):
+        assert P.gen_files(S, run) == P.gen_files(S, run), run
+        assert P.gen(S, run, check=True) == [], run
+    cli = subprocess.run([sys.executable, "-B", str(TP / "pipeline.py"), "gen", "--spec", str(SPEC), "--check"],
+                         capture_output=True, text=True, timeout=300)
+    assert cli.returncode == 0 and "byte-identical" in cli.stdout, cli.stdout + cli.stderr
+
+
 def test_every_driver_stage_resumes_by_reference_in_the_same_file(P, tspec):
     for run in ("R18", "F19", "dry"):
         doc = P.candidates_doc(tspec, run)
@@ -328,6 +339,40 @@ def test_c0_stamps_fail_gate0_on_their_carry_env(tmp_path, G, S):
     env = json.loads((st / "run_meta.json").read_text())["env_vars"]
     p = G.carry_problems(env, "s1", S.d["carry_env"])
     assert any("STD_PARAM" in x for x in p) and any("INIT_STD" in x for x in p)
+
+
+def _stamps_in(doc, stage, path=""):
+    if isinstance(doc, dict):
+        if isinstance(doc.get("stamp"), str):
+            yield stage, doc["stamp"], path
+        for k, v in doc.items():
+            yield from _stamps_in(v, stage, f"{path}/{k}")
+    elif isinstance(doc, list):
+        for i, v in enumerate(doc):
+            yield from _stamps_in(v, stage, f"{path}[{i}]")
+
+
+@needs_stamps
+def test_named_carry_check_on_every_recorded_stamp(G, S):
+    """PLAN left-for-implementation item 2: the named carry env (stage-dependent CLOCK_HIDE; FACING_OBS_CLIP 0.6 on
+    every stamp, P2-era included) PASSES on every recorded known-good stamp of every stage and FAILS on every C0
+    known-bad (STD_PARAM / INIT_STD) -- so Gate 0 can never INVALID a good recorded row on its carry env."""
+    inp = yaml.safe_load((PL / "threshold_inputs.yaml").read_text())
+    n_good = n_bad = 0
+    for stage, d in inp["stages"].items():
+        for st, stamp, path in _stamps_in(d, stage):
+            meta = REPO / stamp / "run_meta.json"
+            if not meta.is_file():
+                continue
+            env = {str(k): str(v) for k, v in json.loads(meta.read_text())["env_vars"].items()}
+            p = G.carry_problems(env, st, S.d["carry_env"])
+            if path.startswith("/known_bad/"):                     # C0 arms; ANCW (known_bad_field) carries a good env
+                n_bad += 1
+                assert p and (any("STD_PARAM" in x for x in p) or any("CLOCK_HIDE" in x for x in p)), (stage, path)
+            else:
+                n_good += 1
+                assert p == [], (stage, path, p)
+    assert n_good >= 80 and n_bad >= 16, (n_good, n_bad)
 
 
 # ============================================================================== golden gate reads
@@ -785,6 +830,22 @@ def test_live_rules_replay_on_recorded_runs():
     assert r["killed_at"] is None, r
     r = LW.replay("student", LW.read_series(FWD3A), every=250)        # the loss rule holds on the forward 3a logs
     assert r["killed_at"] is None, r
+    # PLAN left-for-implementation item 9: EVERY student rule on the forward 3a logs. The episode-length and
+    # crab_failure rules need a T* tail; the forward student's T* is its teacher run (the 3a agent.yaml resumes
+    # 2026-09-07_04-38-50/model_19996.pt, a 20k-head run whose last-200 means are the tail).
+    teacher = REPO / "parkour/logs/rsl_rl/crab_hex_flat_walk/2026-09-07_04-38-50"
+    if not teacher.is_dir():
+        pytest.skip("the forward teacher run dir is absent")
+    ser_t = LW.read_series(teacher)
+    tail = {"ep_len": LW.tail_mean(ser_t[LW.T_EPLEN]), "crab_failure": LW.tail_mean(ser_t[LW.T_CRAB])}
+    assert tail["ep_len"] > 1000 and 0.2 < tail["crab_failure"] < 0.7, tail
+    for every in (50, 250):
+        r = LW.replay("student", LW.read_series(FWD3A), every=every, tstar_tail=tail)
+        assert r["killed_at"] is None and r["polls"] > 10, (every, r)
+    # the rules are live, not vacuous: a 2x tighter T* tail does kill the healthy forward student
+    r = LW.replay("student", LW.read_series(FWD3A), every=250,
+                  tstar_tail={"ep_len": 2.5 * tail["ep_len"], "crab_failure": tail["crab_failure"]})
+    assert r["killed_at"] is not None
 
 
 @needs_stamps
@@ -1211,3 +1272,82 @@ def test_check_reports_the_placeholder_cleanly(P, S):
                        capture_output=True, text=True, timeout=600)
     assert "invalid literal for int()" not in r.stdout + r.stderr
     assert "N_p is a PLACEHOLDER" in r.stdout
+
+
+# ============================================================================== bridges / freeze notice (PLAN step 7)
+def _stamp_with(tmp_path, name, *, metrics, episodes=None):
+    import numpy as np  # noqa: PLC0415
+
+    d = tmp_path / name
+    (d / "raw").mkdir(parents=True)
+    (d / "scenario_metrics.json").write_text(json.dumps(metrics))
+    for i, arrs in enumerate(episodes or []):
+        np.savez(d / "raw" / f"episode_{i:04d}.npz", **arrs)
+    return d
+
+
+def test_bridge_read_ignores_only_the_trained_categories_key(tmp_path):
+    """PLAN left-for-implementation items 3 and 10: a gate row passes --trained-categories, so its aggregate's suite block
+    carries the list where the recorded stamp carries null; that ONE key is excluded from a bridge, nothing else."""
+    import numpy as np  # noqa: PLC0415
+
+    BR = _load(TP / "bridge_read.py", "tp_bridge_read")
+    ep = [{"x": np.arange(5, dtype=np.float32), "y": np.array([np.nan, 1.0])}]
+    m_ref = {"aggregate": {"suite": {"trained_categories": None, "n": 3}, "rate": 0.5}, "episodes": [1, 2],
+             "scenario_id": "s", "run_meta": {"t": 1}}
+    m_new = json.loads(json.dumps(m_ref))
+    m_new["aggregate"]["suite"]["trained_categories"] = ["fwd", "side"]
+    m_new["run_meta"] = {"t": 2}                                        # run_meta is never compared
+    ref = _stamp_with(tmp_path, "ref", metrics=m_ref, episodes=ep)
+    new = _stamp_with(tmp_path, "new", metrics=m_new, episodes=ep)
+    r = BR.compare(ref, new)
+    assert r["bitwise"] and r["ignored_present"] == ["aggregate.suite.trained_categories"]
+    assert not BR.compare(ref, new, ignore=())["bitwise"]
+    assert BR.main(["--ref", str(ref), "--new", str(new)]) == 0
+    assert BR.main(["--ref", str(ref), "--new", str(new), "--no-default-ignore"]) == 1
+    # any other aggregate difference, a raw value, a raw key, an episode count: not equal
+    for patch in (lambda m: m["aggregate"].__setitem__("rate", 0.51),
+                  lambda m: m["aggregate"]["suite"].__setitem__("n", 4),
+                  lambda m: m.__setitem__("episodes", [1, 3])):
+        bad = json.loads(json.dumps(m_new))
+        patch(bad)
+        assert not BR.compare(ref, _stamp_with(tmp_path, f"b{id(patch)}", metrics=bad, episodes=ep))["bitwise"]
+    assert not BR.compare(ref, _stamp_with(tmp_path, "rawval", metrics=m_new,
+                                           episodes=[{**ep[0], "x": ep[0]["x"] + 1}]))["bitwise"]
+    extra = _stamp_with(tmp_path, "rawkey", metrics=m_new, episodes=[{**ep[0], "obs_cmd": np.zeros(2)}])
+    assert not BR.compare(ref, extra)["bitwise"]
+    assert BR.compare(ref, extra, allow_new=("obs_cmd",))["bitwise"]
+    assert not BR.compare(ref, _stamp_with(tmp_path, "fewer", metrics=m_new, episodes=ep * 2))["bitwise"]
+    # the stand rows (item 10): the SH launcher's stamps carry no raw/ set that matches -- aggregates only
+    stand_new = _stamp_with(tmp_path, "stand_new", metrics=m_new, episodes=[])
+    assert BR.compare(ref, stand_new, mode="aggregate")["bitwise"]
+    bad = json.loads(json.dumps(m_new))
+    bad["aggregate"]["rate"] = 0.9
+    assert not BR.compare(ref, _stamp_with(tmp_path, "stand_bad", metrics=bad), mode="aggregate")["bitwise"]
+    with pytest.raises(ValueError):
+        BR.compare(ref, new, mode="bogus")
+
+
+@needs_stamps
+def test_bridge_read_aggregate_mode_on_a_recorded_stand_and_suite_stamp(tmp_path):
+    BR = _load(TP / "bridge_read.py", "tp_bridge_read")
+    sm = json.loads((REFS18 / "scenario_metrics.json").read_text())
+    assert sm["aggregate"]["suite"]["trained_categories"] is None          # the recorded stamps predate the flag
+    twin = tmp_path / "twin"
+    twin.mkdir()
+    sm["aggregate"]["suite"]["trained_categories"] = ["stand", "fwd"]
+    (twin / "scenario_metrics.json").write_text(json.dumps(sm))
+    assert BR.compare(REFS18, twin, mode="aggregate")["bitwise"]
+    assert not BR.compare(REFS18, twin, mode="aggregate", ignore=())["bitwise"]
+
+
+def test_lock_prints_the_freeze_notice_and_flags_a_dirty_pin(P, tspec, monkeypatch, capsys):
+    """PLAN left-for-implementation item 13: the notice says "commit or stash before the pin"."""
+    monkeypatch.setattr(P, "lock_doc", lambda spec: {"files": {}, "dirty_code_eval": []})
+    assert P.main(["lock", "--spec", str(tspec.path)]) == 0
+    out = capsys.readouterr().out
+    assert "FREEZE (D14)" in out and "Commit or stash" in out and "NOT A VALID PIN" not in out
+    monkeypatch.setattr(P, "lock_doc", lambda spec: {"files": {}, "dirty_code_eval": ["parkour/x/mdp/a.py"]})
+    assert P.main(["lock", "--spec", str(tspec.path)]) == 0
+    out = capsys.readouterr().out
+    assert "NOT A VALID PIN" in out and "commit or stash" in out
