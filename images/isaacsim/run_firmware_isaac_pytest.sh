@@ -48,6 +48,7 @@ docker run --rm --gpus all \
   -c '
     set -uo pipefail
     source /workspace/testenv/bin/activate
+    pip install -q pyserial
     VENV_SITE_PACKAGES=$(/workspace/testenv/bin/python -c "import site; print(site.getsitepackages()[0])")
     export PYTHONPATH="/workspace/isaaclab/source/isaaclab_tasks:/workspace/isaaclab/source:/workspace/isaaclab/source/isaaclab:/workspace/parkour:/workspace:/isaac-sim/python_packages:${VENV_SITE_PACKAGES}"
     /isaac-sim/python.sh -m pytest -o log_cli=false --junitxml=/results/junit.xml "$@"
