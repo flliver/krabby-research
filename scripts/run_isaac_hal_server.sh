@@ -4,7 +4,7 @@
 #   ./scripts/run_isaac_hal_server.sh              # Go2 play + krabby-uno-sim (HAL TCP :5555 / :5556 on host)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1     # Go2 play + portal WebRTC (in-process policy; no krabby-uno-sim)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1 --joystick  # Portal + manual drive (start krabby-uno-sim on host)
-#   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD from repo assets/
+#   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD + --backend fullsim (host firmware)
 #
 # Uses Docker --network host (Linux) so HAL and teleop edge can use ws://127.0.0.1:9000/ws/robot when the
 # portal runs on the same machine (e.g. another container publishing 9000 on the host). Omitting bridge
@@ -65,7 +65,7 @@ done
 py=()
 
 if [ "$want_hexapod" -eq 1 ]; then
-  py+=(--usd "$HEX_USD")
+  py+=(--usd "$HEX_USD" --backend fullsim)
   if [ -n "$want_teleop_ip" ]; then
     py+=(--teleop-ip "$want_teleop_ip")
     # Image does not bundle a hex policy; drive over TCP unless user passes --checkpoint …

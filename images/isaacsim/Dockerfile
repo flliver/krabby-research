@@ -159,7 +159,9 @@ ENV PARKOUR_CHECKPOINT_PATH=/workspace/test_assets/checkpoints
 
 # Set entrypoint to HAL server with integrated inference
 # This runs both Isaac Sim HAL server and policy inference in the same process
-# Use wrapper script to properly initialize Isaac Sim
+# Use wrapper script to properly initialize Isaac Sim.
+# run_hal_server.sh injects --backend fullsim for crab hex (--usd / --robot hex / CrabHex task)
+# when the caller did not pass --backend. Go2/quad demos keep direct unless overridden.
 ENTRYPOINT ["/workspace/run_hal_server.sh"]
 
 # Default arguments (can be overridden at runtime)

@@ -88,7 +88,10 @@ Plus all AppLauncher arguments for IsaacSim configuration.
 
 ### Fullsim firmware transport (crab hex)
 
-**`--backend fullsim`** runs three-board host firmware on the hex scene (18 DOFs). Default
+**`--backend fullsim`** runs three-board host firmware on the hex scene (18 DOFs). The
+**`krabby-isaacsim`** entrypoint (`run_hal_server.sh`) adds **`--backend fullsim`** automatically
+for crab hex launches (`--usd`, `--robot hex`, or a `CrabHex` task) when you omit **`--backend`**.
+Pass **`--backend direct`** to force the old Isaac-only path on hex. Default
 **`--firmware-transport in_process`** is usually enough; use **`serial_sdk`** only when you
 need the Jetson/GUI pyserial path in the loop.
 

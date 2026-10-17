@@ -42,6 +42,48 @@ for arg in "$@"; do
     filtered_args+=("$arg")
 done
 
+# Crab hex launches use host firmware in the loop unless the caller sets --backend.
+_hal_has_backend=0
+_hal_hex_launch=0
+_i=0
+while [ "$_i" -lt "${#filtered_args[@]}" ]; do
+    _a="${filtered_args[$_i]}"
+    case "$_a" in
+        --backend|--backend=*)
+            _hal_has_backend=1
+            ;;
+        --usd)
+            _hal_hex_launch=1
+            ;;
+        --robot=hex)
+            _hal_hex_launch=1
+            ;;
+        --robot)
+            _next="${filtered_args[$((_i + 1))]:-}"
+            if [ "$_next" = "hex" ]; then
+                _hal_hex_launch=1
+            fi
+            ;;
+        --task|--task=*)
+            if [ "$_a" = "--task" ]; then
+                _task="${filtered_args[$((_i + 1))]:-}"
+            else
+                _task="${_a#--task=}"
+            fi
+            case "$_task" in
+                *CrabHex*|*crab*hex*|*Crab-Hex*)
+                    _hal_hex_launch=1
+                    ;;
+            esac
+            ;;
+    esac
+    _i=$((_i + 1))
+done
+
+if [ "$_hal_has_backend" -eq 0 ] && [ "$_hal_hex_launch" -eq 1 ]; then
+    filtered_args=(--backend fullsim "${filtered_args[@]}")
+fi
+
 # Use /isaac-sim/python.sh (required for omni modules)
 # AppLauncher will handle Isaac Sim initialization
 exec /isaac-sim/python.sh -m hal.server.isaac.main "${filtered_args[@]}"

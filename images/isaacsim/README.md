@@ -20,6 +20,17 @@ docker build -t krabby-isaacsim:latest .
 
 **Note**: Requires NVIDIA NGC account and authentication to pull the Isaac Sim base image.
 
+## Crab hex and `--backend fullsim`
+
+The image entrypoint (`run_hal_server.sh`) prepends **`--backend fullsim`** when the launch
+looks like the 18-DOF crab ( **`--usd`**, **`--robot hex`**, or a **`CrabHex`** task name) and
+you did not pass **`--backend`**. That routes joint commands through host firmware on the Isaac
+scene; **`--firmware-transport`** defaults to **`in_process`**. Go2/quad examples keep
+**`direct`** unless you set **`--backend`** yourself. See
+[`hal/server/isaac/README.md`](../../hal/server/isaac/README.md) (fullsim transport table).
+
+**`./scripts/run_isaac_hal_server.sh --hexapod`** passes **`--backend fullsim`** explicitly.
+
 ## Running the Container
 
 ```bash
