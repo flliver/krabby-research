@@ -10,3 +10,18 @@ def test_format_status_line_includes_load_and_adc():
     assert "map_adc=  30" in line
     assert "shim=28" in line
     assert "EN" in line
+
+
+def test_format_status_line_shows_wrench_and_effort_breakdown():
+    line = _format_status_line(
+        "FLKL",
+        50.0,
+        30,
+        28,
+        0.12,
+        True,
+        wrench_load_n=10.0,
+        effort_load_n=50.0,
+    )
+    assert "wrench=10.00" in line
+    assert "effort=50.00" in line

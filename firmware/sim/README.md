@@ -49,7 +49,7 @@ GUI **Cur** column over sim MCU: [firmware/gui/CURRENT_SENSE_SIM_DEMO.md](../gui
 
 ## Current-sense tuning (manual)
 
-Tune wrench → `pinIS` breakpoints in `current_sense_mapping.py` (`CurrentSenseBreakpoints`: ADC levels 0 / ~2 / ~4 / ~30 and force thresholds). Run a **windowed** single-env viewer from the repo root (Isaac Lab + GPU; omit `--headless` on `AppLauncher` args to see the scene):
+Tune wrench → `pinIS` breakpoints in `current_sense_mapping.py` (`CurrentSenseBreakpoints`: ADC levels 0 / ~2 / ~4 / ~30, force thresholds, and optional `effort_nm_to_load_n` cross-check against `applied_torque` / `ParkourDCMotor.applied_effort`). Run a **windowed** single-env viewer from the repo root (Isaac Lab + GPU; omit `--headless` on `AppLauncher` args to see the scene):
 
 ```bash
 make -C firmware host-actuator
@@ -58,4 +58,4 @@ python -m firmware.sim.wrench_tuning_viewer
 # optional: --actuator FLHL --jog-pwm 200 --device cuda:0
 ```
 
-Focus the terminal for keys: **e** / **r** jog extend/retract, **space** coast, **q** quit. Each printed line shows incoming wrench load (N), mapped ADC, host `analogRead` shim value, joint velocity, and EN — adjust constants until idle / swing / contact / lift match ~0, ~2, ~4, and ~30.
+Focus the terminal for keys: **e** / **r** jog extend/retract, **space** coast, **q** quit. Each printed line shows effective load (N) with wrench vs effort breakdown when both are available, mapped ADC, host `analogRead` shim value, joint velocity, and EN — adjust constants until idle / swing / contact / lift match ~0, ~2, ~4, and ~30.

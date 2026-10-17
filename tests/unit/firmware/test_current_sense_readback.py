@@ -26,10 +26,12 @@ def test_sync_current_sense_sets_pin_is_from_wrench_and_en():
     row[2] = _TensorCell(150.0)
     joint_vel_row = [_TensorCell(0.0) for _ in range(len(indices))]
     joint_vel_row[flhl.joint_index] = _TensorCell(0.0)
+    torque_row = [_TensorCell(0.0) for _ in range(len(indices))]
     articulation = SimpleNamespace(
         data=SimpleNamespace(
             body_incoming_joint_wrench_b=[[row]],
             joint_vel=[joint_vel_row],
+            applied_torque=[torque_row],
         )
     )
     sync_current_sense_analog_reads(

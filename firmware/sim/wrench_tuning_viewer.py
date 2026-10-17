@@ -19,7 +19,11 @@ from typing import TextIO
 
 import os
 
-from firmware.sim.current_sense_mapping import map_wrench_to_pin_is_adc, wrench_load_newtons
+from firmware.sim.current_sense_mapping import (
+    effective_load_newtons,
+    map_wrench_to_pin_is_adc,
+)
+from firmware.sim.effort_readback import read_applied_joint_torque_nm
 from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
 from firmware.sim.isaac_scene import (
     configure_open_loop_velocity_drive,
@@ -42,11 +46,20 @@ def _format_status_line(
     shim_adc: int | None,
     joint_vel: float,
     en_high: bool,
+    *,
+    wrench_load_n: float | None = None,
+    effort_load_n: float | None = None,
 ) -> str:
     en = "EN" if en_high else "en"
     shim = f" shim={shim_adc}" if shim_adc is not None else ""
+    if wrench_load_n is not None and effort_load_n is not None:
+        load_detail = (
+            f"load={load_n:7.2f}N (wrench={wrench_load_n:.2f} effort={effort_load_n:.2f})"
+        )
+    else:
+        load_detail = f"load={load_n:7.2f}N"
     return (
-        f"{actuator_id}  load={load_n:7.2f}N  map_adc={mapped_adc:4d}{shim}  "
+        f"{actuator_id}  {load_detail}  map_adc={mapped_adc:4d}{shim}  "
         f"dq={joint_vel:+.3f} rad/s  {en}"
     )
 
@@ -171,19 +184,24 @@ def main(argv: list[str] | None = None) -> int:
             wrench = read_body_incoming_wrench(robot, body_index, env_index=0)
             vel = float(robot.data.joint_vel[0, joint_index].item())
             en_high = core.bridge.pin_digital(pin_en) != 0
+            torque_nm = read_applied_joint_torque_nm(robot, joint_index, env_index=0)
+            load_n, wrench_n, effort_n = effective_load_newtons(wrench, torque_nm)
             mapped = map_wrench_to_pin_is_adc(
                 wrench,
                 en_energized=en_high,
                 joint_velocity_rad_s=vel,
+                applied_torque_nm=torque_nm,
             )
             shim_adc = core.bridge.analog_read(slot.pin_is)
             line = _format_status_line(
                 actuator_id,
-                wrench_load_newtons(wrench),
+                load_n,
                 mapped,
                 shim_adc,
                 vel,
                 en_high,
+                wrench_load_n=wrench_n,
+                effort_load_n=effort_n,
             )
             print(line, flush=True)
             simulation_app.update()

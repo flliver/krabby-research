@@ -9,6 +9,7 @@ from firmware.sim.current_sense_mapping import (
     CurrentSenseBreakpoints,
     map_wrench_to_pin_is_adc,
 )
+from firmware.sim.effort_readback import read_applied_joint_torque_nm
 from firmware.sim.host_bridge import HostActuatorBridge
 from firmware.sim.simulated_actuator import SimulatedActuator
 from firmware.sim.wrench_readback import read_body_incoming_wrench
@@ -39,10 +40,16 @@ def sync_current_sense_analog_reads(
         _, _, pin_en = actuator.slot.drive_pins
         en_energized = bridge.pin_digital(pin_en) != 0
         velocity = float(joint_vel[env_index][actuator.joint_index].item())
+        torque_nm = read_applied_joint_torque_nm(
+            articulation,
+            actuator.joint_index,
+            env_index=env_index,
+        )
         adc = map_wrench_to_pin_is_adc(
             wrench,
             en_energized=en_energized,
             joint_velocity_rad_s=velocity,
+            applied_torque_nm=torque_nm,
             breakpoints=breakpoints,
         )
         bridge.set_analog_read(actuator.slot.pin_is, adc)
