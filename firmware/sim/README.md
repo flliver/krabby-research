@@ -1,5 +1,7 @@
 # Firmware <-> IsaacSim pin simulation
 
+Architecture (flat stack, host vs AVR builds): [ARCHITECTURE.md](ARCHITECTURE.md).
+
 Host-side simulation binds Mega2560 drive pins to Isaac Lab articulation joints. Pin numbers for **REV 3** (`KRABBY_PIN_REV=3`, Krabby Uno v0.2) match `firmware/arduino/board_pins.h` and the front-board wiring in `firmware/SETUP.md` section 1.
 
 ## FRONT board - six slots (`ACT_LIST_FRONT`)
