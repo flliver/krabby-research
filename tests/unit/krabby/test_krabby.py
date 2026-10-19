@@ -737,7 +737,10 @@ class TestRunArgvEndToEnd:
         monkeypatch.setattr("krabby.run.fleet_volume_mounts", lambda _cfg: [])
         monkeypatch.setattr("krabby.run.load_config", lambda: {})
         monkeypatch.setattr("krabby.run.installed_image", lambda: "img:tag")
-        monkeypatch.setattr("krabby.run.subprocess.run", lambda cmd: type("R", (), {"returncode": 0})())
+        def fake_subprocess_run(cmd, **kwargs):
+            return type("R", (), {"returncode": 0})()
+
+        monkeypatch.setattr("krabby.run.subprocess.run", fake_subprocess_run)
         monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
         monkeypatch.setattr(sys, "argv", argv)
         krabby_main.main()
