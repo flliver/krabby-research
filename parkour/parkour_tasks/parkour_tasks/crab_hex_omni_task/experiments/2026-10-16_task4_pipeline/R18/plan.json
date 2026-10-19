@@ -30,7 +30,7 @@
  ],
  "run": "R18",
  "spec": "pipeline.yaml",
- "spec_sha256": "400c58f00ac358a1a3cbf601c3bae23eabc197ab6661a363b3634a6ebc8be7d4",
+ "spec_sha256": "97c2d9b69b1b01c4314a619c3ef019b336a9a0b99beef896a0ec430f9f31041b",
  "stages": {
   "bundle": {
    "after": [
@@ -284,7 +284,7 @@
     "field_turn@1",
     "field_turn@2"
    ],
-   "iters": "PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio and survival moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a / p3b / p3c",
+   "iters": 3000,
    "kind": "driver",
    "needs": [
     "p2a"
@@ -331,7 +331,7 @@
     "field_turn@1",
     "field_turn@2"
    ],
-   "iters": "PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio and survival moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a / p3b / p3c",
+   "iters": 3000,
    "kind": "driver",
    "needs": [
     "p3a"
@@ -378,7 +378,7 @@
     "field_turn@1",
     "field_turn@2"
    ],
-   "iters": "PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio and survival moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a / p3b / p3c",
+   "iters": 3000,
    "kind": "driver",
    "needs": [
     "p3b"
@@ -523,8 +523,8 @@
   }
  },
  "thresholds": {
-  "file": "thresholds_v0.json",
-  "version": "v0"
+  "file": "thresholds_v1.json",
+  "version": "v1"
  },
  "walker_seed": 18
 }

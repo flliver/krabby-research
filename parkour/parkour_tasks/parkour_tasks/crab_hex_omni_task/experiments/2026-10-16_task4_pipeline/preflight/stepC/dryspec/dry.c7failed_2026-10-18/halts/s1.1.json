@@ -1,0 +1,102 @@
+{
+ "run": "dry",
+ "stage": "s1",
+ "class": "FAIL",
+ "why": "decisive line(s) failed: ['s1.floor.ratio.fwd.es1', 's1.floor.survival.side.es1', 's1.floor.ratio.side.es1', 's1.floor.survival.back.es1', 's1.floor.ratio.back.es1', 's1.floor.side22_notslow']",
+ "at": "2026-10-17T16:40:06",
+ "status": "accepted",
+ "lines": [
+  {
+   "id": "s1.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.031106829740872192,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.005420877303973632,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "s1.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 0.7,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "s1.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.0033292481907826795,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.000986039652827951,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "s1.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.3,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "s1.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.14333888553413185,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.004375447448711437,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "s1.floor.side22_notslow",
+   "statistic": "side22_25lr feet_ss class, both hands not SLOW / DEAD",
+   "value": [
+    "DEAD",
+    "DEAD"
+   ],
+   "line": "notslow",
+   "rate": 0.03631161710550157,
+   "unvalidated": false
+  }
+ ],
+ "chance_rate_sum": 0.04709398151101459,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/s1.json",
+ "subtree": [
+  "c4",
+  "c5",
+  "c6",
+  "c6x",
+  "p2a",
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-17T16:42:09",
+  "kind": "accept-chance",
+  "why": "C7 dry pass: pre-registered action",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
+}

@@ -416,3 +416,44 @@ def test_absent_v1_blocks_reproduce_thresholds_v0_byte_for_byte(T, tmp_path):
                        cwd=str(REPO), capture_output=True, text=True, timeout=900)
     assert r.returncode == 0, r.stdout + r.stderr
     assert out.read_bytes() == (PL / "thresholds_v0.json").read_bytes()
+
+
+def test_committed_thresholds_v1_is_v0_plus_the_pilot_terms():
+    """The PLAN step-8 freeze: thresholds_v1.json = v0's lines with the p3a stable-at-90 and paired 0-kg rates filled
+    from the payload pilot (model_22993, its_past_p2a 2999) -- equal to t4_stepC_read's cross-check (stepC_read.json
+    v1.p3a_rates) -- plus the 19 WATCH sweep lines; every other line unchanged; the self-check clean."""
+    import json as _json
+    v0 = _json.loads((PL / "thresholds_v0.json").read_text())
+    v1 = _json.loads((PL / "thresholds_v1.json").read_text())
+    assert v1["version"] == "v1" and v1["self_check_failures"] == []
+    sc = _json.loads((PL / "preflight/stepC_read.json").read_text())["v1"]["p3a_rates"]
+    by1 = {(x["id"], x.get("value_set")): x for x in v1["lines"]}
+    n = 0
+    for lid, ref in sc["stable90"]["lines"].items():
+        x = by1[(lid, "both")]
+        assert x["rate"] == pytest.approx(ref["rate"], abs=1e-15) and x["mu_pilot"] == pytest.approx(ref["mu_pilot"])
+        n += 1
+    assert n == 35
+    z = by1[("p3a.capability.zero_kg_paired", "both")]
+    assert z["rate"] == pytest.approx(sc["zero_kg_paired"]["sum"], rel=1e-12) and z["pilot_pair"]["verdict"] == "PASS"
+    assert z["pilot_pair"]["max_margin_used"] == pytest.approx(sc["zero_kg_paired"]["max_margin_used"])
+    watch = [x for x in v1["lines"] if x.get("kind") == "watch"]
+    assert len(watch) == 19 and all(x["rate"] is None and x["excluded_from_sum"] and not x["decisive"] for x in watch)
+    for x in v0["lines"]:
+        y = by1[(x["id"], x.get("value_set"))]
+        if not (x["id"].startswith("p3a.stable90.") or x["id"] == "p3a.capability.zero_kg_paired"):
+            assert y == x, x["id"]
+    p3a = sum(x["rate"] for x in by1.values() if x["id"].startswith("p3a.stable90.")) + z["rate"]
+    for w in ("standard", "recommended"):
+        assert v1["sums"][w]["run_sum"] == pytest.approx(v0["sums"][w]["run_sum"] + p3a, rel=1e-9)
+
+
+def test_thresholds_v1_regenerates_byte_for_byte(T, tmp_path):
+    import subprocess
+    _recorded_inputs()
+    out = tmp_path / "v1.json"
+    rel = (PL / "threshold_inputs_v1.yaml").relative_to(REPO)
+    r = subprocess.run([sys.executable, "-I", str(TP), "--inputs", str(rel), "--out", str(out), "--self-check"],
+                       cwd=str(REPO), capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert out.read_bytes() == (PL / "thresholds_v1.json").read_bytes()

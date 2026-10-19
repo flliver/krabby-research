@@ -1,0 +1,13 @@
+{
+ "check": "C4_timing_check",
+ "class": "stop",
+ "forward_K1_h_per_1k": 1.97,
+ "h_per_1k": 1.9184709919823542,
+ "h_per_1k_span": 1.9135777137059,
+ "n": 180,
+ "projected_5000_its_h": 9.59235495991177,
+ "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_08-21-07_T4C4_timing",
+ "s_per_it": 6.906495571136475,
+ "s_per_it_span": 6.88887976934124,
+ "verdict": "PASS"
+}

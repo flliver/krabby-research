@@ -1,0 +1,187 @@
+{
+ "run": "dry",
+ "stage": "sn",
+ "class": "FAIL",
+ "why": "decisive line(s) failed: ['stand.D1.G1.taps_per_s suite es2', 'stand.D1.G2.homed walkstop es1', 'stand.D1.G2.settled walkstop es1', 'stand.D1.G2.median settle walkstop es1 <= probe + 1.0 s', 'stand.D1.G2.post_settle_ks_m_s walkstop es1', 'stand.D1.G2.homed walkstop es2', 'stand.D1.G2.settled walkstop es2', 'stand.D1.G2.median settle walkstop es2 <= probe + 1.0 s', 'stand.D1.G2.post_settle_ks_m_s walkstop es2', \"stand.D1.G3.walkstop stand falls (count) es1 <= max(1, Z1's count)\", \"stand.D1.G3.walkstop exit-handover falls within 2 s es1 <= max(1, R's)\", \"stand.D1.G3.walkstop stand falls (count) es2 <= max(1, Z1's count)\", \"stand.D1.G3.walkstop exit-handover falls within 2 s es2 <= max(1, R's)\", 'stand.D1.G5.walkstop onset median es1 <= REFS + max(0.3, band)', 'stand.D1.G5.walkstop onset median es2 <= REFS + max(0.3, band)', 'stand.D1.G5.walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)', 'stand.D1.G5.suite es1 |body height - REFS| <= 0.03', 'stand.D1.G5.walkstop es1 |body height - REFS| <= 0.03', 'stand.D1.G5.suite es2 |body height - REFS| <= 0.03', 'stand.D1.G5.walkstop es2 |body height - REFS| <= 0.03']",
+ "at": "2026-10-19T03:23:19",
+ "status": "accepted",
+ "lines": [
+  {
+   "id": "stand.D1.G1.taps_per_s suite es2",
+   "statistic": "taps_per_s suite es2",
+   "value": 1.95833,
+   "line": 1.0,
+   "rate": 0.0,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.homed walkstop es1",
+   "statistic": "homed walkstop es1",
+   "value": null,
+   "line": 0.9,
+   "rate": 2.9594837190438103e-50,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.settled walkstop es1",
+   "statistic": "settled walkstop es1",
+   "value": null,
+   "line": 0.9,
+   "rate": 0.0,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.median settle walkstop es1 <= probe + 1.0 s",
+   "statistic": "median settle walkstop es1 <= probe + 1.0 s",
+   "value": null,
+   "line": 3.92,
+   "rate": 0.0039559747850396055,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.post_settle_ks_m_s walkstop es1",
+   "statistic": "post_settle_ks_m_s walkstop es1",
+   "value": null,
+   "line": 0.5,
+   "rate": 0.00019594655711778304,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.homed walkstop es2",
+   "statistic": "homed walkstop es2",
+   "value": null,
+   "line": 0.9,
+   "rate": 0.0,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.settled walkstop es2",
+   "statistic": "settled walkstop es2",
+   "value": null,
+   "line": 0.9,
+   "rate": 0.0,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.median settle walkstop es2 <= probe + 1.0 s",
+   "statistic": "median settle walkstop es2 <= probe + 1.0 s",
+   "value": null,
+   "line": 3.96,
+   "rate": 0.002152635332791349,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G2.post_settle_ks_m_s walkstop es2",
+   "statistic": "post_settle_ks_m_s walkstop es2",
+   "value": null,
+   "line": 0.5,
+   "rate": 9.79780985031181e-05,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G3.walkstop stand falls (count) es1 <= max(1, Z1's count)",
+   "statistic": "walkstop stand falls (count) es1 <= max(1, Z1's count)",
+   "value": null,
+   "line": 1,
+   "rate": 0.0,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G3.walkstop exit-handover falls within 2 s es1 <= max(1, R's)",
+   "statistic": "walkstop exit-handover falls within 2 s es1 <= max(1, R's)",
+   "value": 0,
+   "line": 1,
+   "rate": 0.0,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G3.walkstop stand falls (count) es2 <= max(1, Z1's count)",
+   "statistic": "walkstop stand falls (count) es2 <= max(1, Z1's count)",
+   "value": null,
+   "line": 1,
+   "rate": 0.0,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G3.walkstop exit-handover falls within 2 s es2 <= max(1, R's)",
+   "statistic": "walkstop exit-handover falls within 2 s es2 <= max(1, R's)",
+   "value": 0,
+   "line": 1,
+   "rate": 0.0,
+   "unvalidated": null
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset median es1 <= REFS + max(0.3, band)",
+   "statistic": "walkstop onset median es1 <= REFS + max(0.3, band)",
+   "value": null,
+   "line": null,
+   "rate": 0.0,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset median es2 <= REFS + max(0.3, band)",
+   "statistic": "walkstop onset median es2 <= REFS + max(0.3, band)",
+   "value": null,
+   "line": null,
+   "rate": 0.0,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)",
+   "statistic": "walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)",
+   "value": null,
+   "line": null,
+   "rate": 0.0,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G5.suite es1 |body height - REFS| <= 0.03",
+   "statistic": "suite es1 |body height - REFS| <= 0.03",
+   "value": 0.035780000000000145,
+   "line": 0.03,
+   "rate": 0.0007892503248880086,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G5.walkstop es1 |body height - REFS| <= 0.03",
+   "statistic": "walkstop es1 |body height - REFS| <= 0.03",
+   "rate": 0.000774534390509917,
+   "unvalidated": true,
+   "why": "clause not in the reader's output"
+  },
+  {
+   "id": "stand.D1.G5.suite es2 |body height - REFS| <= 0.03",
+   "statistic": "suite es2 |body height - REFS| <= 0.03",
+   "value": 0.036129999999999995,
+   "line": 0.03,
+   "rate": 0.0004415738992835436,
+   "unvalidated": true
+  },
+  {
+   "id": "stand.D1.G5.walkstop es2 |body height - REFS| <= 0.03",
+   "statistic": "walkstop es2 |body height - REFS| <= 0.03",
+   "rate": 0.0006238378546647445,
+   "unvalidated": true,
+   "why": "clause not in the reader's output"
+  }
+ ],
+ "chance_rate_sum": 0.00903173124279807,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/sn.json",
+ "subtree": [
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-19T03:23:47",
+  "kind": "accept-chance",
+  "why": "C7 dry pass: pre-registered action",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
+}

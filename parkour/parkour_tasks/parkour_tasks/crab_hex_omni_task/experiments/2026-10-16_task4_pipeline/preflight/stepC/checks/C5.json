@@ -1,0 +1,828 @@
+{
+ "anchors": {
+  "s16_es1": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s16/dirsweep__omni_body/seed001/2026-10-17_18-48-40",
+   "watch": {
+    "dirsweep_body@1": {
+     "d000": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0395029141930174,
+      "survival": 1.0,
+      "tripod": 0.7291351567307873,
+      "yaw_progress": -0.0018837484286019675
+     },
+     "d022": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0190123669070168,
+      "survival": 1.0,
+      "tripod": 0.7595706084997911,
+      "yaw_progress": -0.013058152282610536
+     },
+     "d045": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0127953299274937,
+      "survival": 1.0,
+      "tripod": 0.7859069734330522,
+      "yaw_progress": 0.013992145657539368
+     },
+     "d068": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0259903073683763,
+      "survival": 1.0,
+      "tripod": 0.7418949722225572,
+      "yaw_progress": null
+     },
+     "d090": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0049795506917247,
+      "survival": 1.0,
+      "tripod": 0.718466343146631,
+      "yaw_progress": null
+     },
+     "d112": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0193528020236948,
+      "survival": 1.0,
+      "tripod": 0.7392044354380848,
+      "yaw_progress": null
+     },
+     "d135": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.005886887679268,
+      "survival": 1.0,
+      "tripod": 0.7894419840490732,
+      "yaw_progress": null
+     },
+     "d158": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0154989343258567,
+      "survival": 1.0,
+      "tripod": 0.7735410916316526,
+      "yaw_progress": null
+     },
+     "d180": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0391705802235007,
+      "survival": 1.0,
+      "tripod": 0.7141623007715061,
+      "yaw_progress": -0.0006002742797136307
+     },
+     "d202": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0045268550664073,
+      "survival": 1.0,
+      "tripod": 0.7593806220294581,
+      "yaw_progress": -0.002180089589986142
+     },
+     "d225": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.016924739539776,
+      "survival": 1.0,
+      "tripod": 0.7186022501540648,
+      "yaw_progress": -0.004239811017722278
+     },
+     "d248": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.075620364797837,
+      "survival": 1.0,
+      "tripod": 0.717396287109622,
+      "yaw_progress": -0.004630405933130533
+     },
+     "d270": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.073155469923331,
+      "survival": 1.0,
+      "tripod": 0.6925055687156079,
+      "yaw_progress": 0.010393234156072139
+     },
+     "d292": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0872104844941273,
+      "survival": 1.0,
+      "tripod": 0.7036200808693112,
+      "yaw_progress": -0.005848733808902166
+     },
+     "d315": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0236844923134547,
+      "survival": 1.0,
+      "tripod": 0.6936682537517036,
+      "yaw_progress": -0.004787319339811802
+     },
+     "d338": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.01015390622304,
+      "survival": 1.0,
+      "tripod": 0.7507077249505363,
+      "yaw_progress": null
+     }
+    }
+   }
+  },
+  "s16_es2": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s16/dirsweep__omni_body/seed002/2026-10-17_18-59-56",
+   "watch": {
+    "dirsweep_body@2": {
+     "d000": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0450260846675363,
+      "survival": 1.0,
+      "tripod": 0.7265862187224119,
+      "yaw_progress": -0.010870798455121426
+     },
+     "d022": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0189468170159057,
+      "survival": 1.0,
+      "tripod": 0.766314282305824,
+      "yaw_progress": 0.002418972241381804
+     },
+     "d045": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0108815426391558,
+      "survival": 1.0,
+      "tripod": 0.7817772398316649,
+      "yaw_progress": -0.0001654087191484137
+     },
+     "d068": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.031370391785114,
+      "survival": 1.0,
+      "tripod": 0.7411828349525691,
+      "yaw_progress": null
+     },
+     "d090": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.002192716199729,
+      "survival": 1.0,
+      "tripod": 0.7145893814117763,
+      "yaw_progress": null
+     },
+     "d112": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0219685605640936,
+      "survival": 1.0,
+      "tripod": 0.7373886854000764,
+      "yaw_progress": null
+     },
+     "d135": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.007282437259799,
+      "survival": 1.0,
+      "tripod": 0.7863579080605017,
+      "yaw_progress": null
+     },
+     "d158": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0092918464564709,
+      "survival": 1.0,
+      "tripod": 0.7716099212018732,
+      "yaw_progress": 0.008319823240691965
+     },
+     "d180": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0378852258287847,
+      "survival": 1.0,
+      "tripod": 0.7226965589928995,
+      "yaw_progress": 0.0033548014238476754
+     },
+     "d202": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0081701236687937,
+      "survival": 1.0,
+      "tripod": 0.7513961526826647,
+      "yaw_progress": -0.0019164898246526718
+     },
+     "d225": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0117912050747013,
+      "survival": 1.0,
+      "tripod": 0.7218436138411671,
+      "yaw_progress": -0.003562418237814437
+     },
+     "d248": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0728538863629427,
+      "survival": 1.0,
+      "tripod": 0.7143965103241294,
+      "yaw_progress": -0.004984842140830177
+     },
+     "d270": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0703811997406683,
+      "survival": 1.0,
+      "tripod": 0.6898805976422835,
+      "yaw_progress": 0.004077998032285408
+     },
+     "d292": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.085441194021099,
+      "survival": 1.0,
+      "tripod": 0.7005622648457439,
+      "yaw_progress": -0.0008399272695756876
+     },
+     "d315": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.030376349913833,
+      "survival": 1.0,
+      "tripod": 0.6985840201573199,
+      "yaw_progress": -0.0004496811759000754
+     },
+     "d338": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0094893780776157,
+      "survival": 1.0,
+      "tripod": 0.7483756670707593,
+      "yaw_progress": 0.00445188517915085
+     }
+    }
+   }
+  },
+  "s17_es1": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s17/dirsweep__omni_body/seed001/2026-10-17_19-11-14",
+   "watch": {
+    "dirsweep_body@1": {
+     "d000": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0488837222977714,
+      "survival": 1.0,
+      "tripod": 0.7190788301939379,
+      "yaw_progress": -0.0005246438122412656
+     },
+     "d022": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0331613299877274,
+      "survival": 1.0,
+      "tripod": 0.7472335515808983,
+      "yaw_progress": -7.440848419741716e-05
+     },
+     "d045": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0379030804348974,
+      "survival": 1.0,
+      "tripod": 0.7179330977422422,
+      "yaw_progress": -0.004000452031723778
+     },
+     "d068": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0680463015563872,
+      "survival": 1.0,
+      "tripod": 0.7700769404522454,
+      "yaw_progress": null
+     },
+     "d090": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0683197896747507,
+      "survival": 1.0,
+      "tripod": 0.7835694801960142,
+      "yaw_progress": null
+     },
+     "d112": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0796951995867907,
+      "survival": 1.0,
+      "tripod": 0.7488198720768942,
+      "yaw_progress": 0.018811583460774273
+     },
+     "d135": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 0.994533168141591,
+      "survival": 1.0,
+      "tripod": 0.7458286271074284,
+      "yaw_progress": -0.00022421622941014817
+     },
+     "d158": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 0.9944236913047495,
+      "survival": 1.0,
+      "tripod": 0.7432908708553589,
+      "yaw_progress": 0.00041749283505606395
+     },
+     "d180": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0242286981414566,
+      "survival": 1.0,
+      "tripod": 0.7430253730485167,
+      "yaw_progress": 6.803145158317005e-05
+     },
+     "d202": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0101180003172907,
+      "survival": 1.0,
+      "tripod": 0.7499493970187068,
+      "yaw_progress": 0.0026431950274854897
+     },
+     "d225": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0357325199133647,
+      "survival": 1.0,
+      "tripod": 0.7551100222825947,
+      "yaw_progress": -0.0008222244214266539
+     },
+     "d248": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.056474058658032,
+      "survival": 1.0,
+      "tripod": 0.770748623910549,
+      "yaw_progress": -0.0004358147495392575
+     },
+     "d270": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0547584464794162,
+      "survival": 1.0,
+      "tripod": 0.7762186396521574,
+      "yaw_progress": null
+     },
+     "d292": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0736118852621837,
+      "survival": 1.0,
+      "tripod": 0.7807726305401725,
+      "yaw_progress": null
+     },
+     "d315": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.055147030635239,
+      "survival": 1.0,
+      "tripod": 0.7784633417905861,
+      "yaw_progress": 0.0056091496787433115
+     },
+     "d338": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.034106822743143,
+      "survival": 1.0,
+      "tripod": 0.7607827491554557,
+      "yaw_progress": 0.00032815871894312525
+     }
+    }
+   }
+  },
+  "s17_es2": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s17/dirsweep__omni_body/seed002/2026-10-17_19-22-26",
+   "watch": {
+    "dirsweep_body@2": {
+     "d000": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0417103443615268,
+      "survival": 1.0,
+      "tripod": 0.716820407566972,
+      "yaw_progress": 4.8695181624639625e-05
+     },
+     "d022": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.035287261241005,
+      "survival": 1.0,
+      "tripod": 0.7505699368624501,
+      "yaw_progress": -0.0010315162891691382
+     },
+     "d045": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0334990396643209,
+      "survival": 1.0,
+      "tripod": 0.7165065297785458,
+      "yaw_progress": -0.0039397432610193
+     },
+     "d068": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0682885761004512,
+      "survival": 1.0,
+      "tripod": 0.7699571827681628,
+      "yaw_progress": -0.0024474968055361195
+     },
+     "d090": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0698122494885727,
+      "survival": 1.0,
+      "tripod": 0.7809180201038572,
+      "yaw_progress": null
+     },
+     "d112": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0779482466017452,
+      "survival": 1.0,
+      "tripod": 0.7450737853768876,
+      "yaw_progress": null
+     },
+     "d135": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 0.9946783566628531,
+      "survival": 1.0,
+      "tripod": 0.7398958702922702,
+      "yaw_progress": -0.00020790378835473984
+     },
+     "d158": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 0.9834432132602002,
+      "survival": 1.0,
+      "tripod": 0.7497904092827199,
+      "yaw_progress": 5.036519723944366e-06
+     },
+     "d180": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0231178487826915,
+      "survival": 1.0,
+      "tripod": 0.7369047315734172,
+      "yaw_progress": -0.000948250571941332
+     },
+     "d202": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0071672410809196,
+      "survival": 1.0,
+      "tripod": 0.7499668269952628,
+      "yaw_progress": -0.0019435704310367607
+     },
+     "d225": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.039516819623783,
+      "survival": 1.0,
+      "tripod": 0.7567621782190775,
+      "yaw_progress": -0.0007319436480129203
+     },
+     "d248": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0545958499530719,
+      "survival": 1.0,
+      "tripod": 0.770223085009544,
+      "yaw_progress": -0.0010662835352031478
+     },
+     "d270": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0486953243619728,
+      "survival": 1.0,
+      "tripod": 0.7738426105219196,
+      "yaw_progress": null
+     },
+     "d292": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0727320508587816,
+      "survival": 1.0,
+      "tripod": 0.7809360374642051,
+      "yaw_progress": null
+     },
+     "d315": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0542717276612357,
+      "survival": 1.0,
+      "tripod": 0.7798469991549036,
+      "yaw_progress": 0.003894551467965357
+     },
+     "d338": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0318689770278704,
+      "survival": 1.0,
+      "tripod": 0.7643219919068498,
+      "yaw_progress": 3.3614010161575473e-06
+     }
+    }
+   }
+  },
+  "s18_es1": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed001/2026-10-17_19-33-39",
+   "watch": {
+    "dirsweep_body@1": {
+     "d000": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0983494947305614,
+      "survival": 1.0,
+      "tripod": 0.7500646642807564,
+      "yaw_progress": -0.001002538949251175
+     },
+     "d022": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0171055113398646,
+      "survival": 1.0,
+      "tripod": 0.7487645444692892,
+      "yaw_progress": -0.0007606009021401405
+     },
+     "d045": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0535162015537811,
+      "survival": 1.0,
+      "tripod": 0.7773517734801526,
+      "yaw_progress": -0.005011318617367319
+     },
+     "d068": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.1286131218396669,
+      "survival": 1.0,
+      "tripod": 0.774318095824899,
+      "yaw_progress": null
+     },
+     "d090": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.107250502902156,
+      "survival": 1.0,
+      "tripod": 0.770312717165327,
+      "yaw_progress": null
+     },
+     "d112": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.1192738106512112,
+      "survival": 1.0,
+      "tripod": 0.7681391520370457,
+      "yaw_progress": null
+     },
+     "d135": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.062287558450962,
+      "survival": 1.0,
+      "tripod": 0.7542743799044712,
+      "yaw_progress": -0.010831092617341451
+     },
+     "d158": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0272896535529301,
+      "survival": 1.0,
+      "tripod": 0.7553064433873264,
+      "yaw_progress": -0.004812948405742645
+     },
+     "d180": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0970285405900149,
+      "survival": 1.0,
+      "tripod": 0.7385781352364001,
+      "yaw_progress": -0.003354609643186753
+     },
+     "d202": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0370016296590225,
+      "survival": 1.0,
+      "tripod": 0.7278953570109457,
+      "yaw_progress": -0.01353289233520627
+     },
+     "d225": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0391611147233564,
+      "survival": 1.0,
+      "tripod": 0.7274246496357952,
+      "yaw_progress": -0.0022302688095714356
+     },
+     "d248": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0210736854404123,
+      "survival": 1.0,
+      "tripod": 0.7220938707156038,
+      "yaw_progress": -0.0034605705445366246
+     },
+     "d270": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.029462316818444,
+      "survival": 1.0,
+      "tripod": 0.735556131390749,
+      "yaw_progress": null
+     },
+     "d292": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0230794974193091,
+      "survival": 1.0,
+      "tripod": 0.705079066919541,
+      "yaw_progress": -0.00032342244127784117
+     },
+     "d315": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0540655752307178,
+      "survival": 1.0,
+      "tripod": 0.6922892102397002,
+      "yaw_progress": 0.002629923901986331
+     },
+     "d338": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0664912557742405,
+      "survival": 1.0,
+      "tripod": 0.7355552291881031,
+      "yaw_progress": -0.0003596200318685893
+     }
+    }
+   }
+  },
+  "s18_es2": {
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed002/2026-10-17_19-44-57",
+   "watch": {
+    "dirsweep_body@2": {
+     "d000": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.1043582685435562,
+      "survival": 1.0,
+      "tripod": 0.743972864666362,
+      "yaw_progress": 0.0009512267298186603
+     },
+     "d022": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0174813619875218,
+      "survival": 1.0,
+      "tripod": 0.7497693691115072,
+      "yaw_progress": -0.011943314342352096
+     },
+     "d045": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0458391154822588,
+      "survival": 1.0,
+      "tripod": 0.7714905841436906,
+      "yaw_progress": -0.0006483850668623726
+     },
+     "d068": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.1273757420509165,
+      "survival": 1.0,
+      "tripod": 0.7761678682882478,
+      "yaw_progress": null
+     },
+     "d090": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.1056016666287758,
+      "survival": 1.0,
+      "tripod": 0.765220277281863,
+      "yaw_progress": null
+     },
+     "d112": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.1209325721334968,
+      "survival": 1.0,
+      "tripod": 0.769170234103554,
+      "yaw_progress": null
+     },
+     "d135": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0643384011543133,
+      "survival": 1.0,
+      "tripod": 0.7614573012417305,
+      "yaw_progress": -0.003649927521552387
+     },
+     "d158": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0257203705048528,
+      "survival": 1.0,
+      "tripod": 0.7516657011797974,
+      "yaw_progress": -0.0035007147256422926
+     },
+     "d180": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0890719322533027,
+      "survival": 1.0,
+      "tripod": 0.7273788494076157,
+      "yaw_progress": 0.009065374732017517
+     },
+     "d202": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0432720205279193,
+      "survival": 1.0,
+      "tripod": 0.7237847102718228,
+      "yaw_progress": null
+     },
+     "d225": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0370832805132886,
+      "survival": 1.0,
+      "tripod": 0.7242203858709191,
+      "yaw_progress": -0.00027179646264791465
+     },
+     "d248": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0218391533447466,
+      "survival": 1.0,
+      "tripod": 0.7201505484151014,
+      "yaw_progress": 0.0011800949070822902
+     },
+     "d270": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0261081070277638,
+      "survival": 1.0,
+      "tripod": 0.7411449773001623,
+      "yaw_progress": null
+     },
+     "d292": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0244189213047787,
+      "survival": 1.0,
+      "tripod": 0.7086033496895466,
+      "yaw_progress": -0.006014947003374497
+     },
+     "d315": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0594501102466198,
+      "survival": 1.0,
+      "tripod": 0.7024367984020146,
+      "yaw_progress": -0.010105562396347523
+     },
+     "d338": {
+      "facing_closed": null,
+      "n": 100,
+      "ratio": 1.0626603113448403,
+      "survival": 1.0,
+      "tripod": 0.727250103125776,
+      "yaw_progress": 0.0052925051555079835
+     }
+    }
+   }
+  }
+ },
+ "check": "C5",
+ "class": "report",
+ "incomplete": [],
+ "v1_threshold_inputs": {
+  "sweep_anchors": {
+   "s16_es1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s16/dirsweep__omni_body/seed001/2026-10-17_18-48-40",
+   "s16_es2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s16/dirsweep__omni_body/seed002/2026-10-17_18-59-56",
+   "s17_es1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s17/dirsweep__omni_body/seed001/2026-10-17_19-11-14",
+   "s17_es2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s17/dirsweep__omni_body/seed002/2026-10-17_19-22-26",
+   "s18_es1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed001/2026-10-17_19-33-39",
+   "s18_es2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed002/2026-10-17_19-44-57"
+  }
+ },
+ "verdict": "PASS"
+}

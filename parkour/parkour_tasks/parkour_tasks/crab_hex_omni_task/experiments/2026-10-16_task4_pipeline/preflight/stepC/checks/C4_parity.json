@@ -1,0 +1,125 @@
+{
+ "check": "C4_parity",
+ "class": "stop",
+ "field_hard@1": {
+  "band": 0.10634353953108763,
+  "bitwise": false,
+  "delta": 0.04999999999999993,
+  "refused_keys_present": [],
+  "student_play": 0.84,
+  "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "walk_play": 0.79
+ },
+ "field_hard@2": {
+  "band": 0.09647134276561095,
+  "bitwise": false,
+  "delta": 0.0,
+  "refused_keys_present": [],
+  "student_play": 0.81,
+  "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "walk_play": 0.81
+ },
+ "field_light@1": {
+  "band": 0.05,
+  "bitwise": false,
+  "delta": 0.010000000000000009,
+  "refused_keys_present": [],
+  "student_play": 0.98,
+  "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "walk_play": 0.99
+ },
+ "side22@1": {
+  "bitwise": false,
+  "class": {
+   "student_play": [
+    "FAST",
+    "FAST"
+   ],
+   "walk_play": [
+    "FAST",
+    "FAST"
+   ]
+  },
+  "refused_keys_present": [],
+  "student_play": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C4_S1_SP/side22_25lr__omni/seed001/2026-10-17_12-04-09",
+  "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "walk_play": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/side22_25lr__omni/seed001/2026-10-17_03-35-41"
+ },
+ "suite@1": {
+  "bitwise": false,
+  "problems": [],
+  "refused_keys_present": [],
+  "stats": {
+   "back.ratio": {
+    "band": 0.05257237576823355,
+    "delta": 0.0024437924149363077,
+    "student_play": 1.0897809061989707,
+    "walk_play": 1.0873371137840344
+   },
+   "back.survival": {
+    "band": 0.10499999999999998,
+    "delta": 0.0,
+    "student_play": 1.0,
+    "walk_play": 1.0
+   },
+   "diag.ratio": {
+    "band": 0.02550172235255771,
+    "delta": 0.0005928991458072908,
+    "student_play": 1.0147602686681116,
+    "walk_play": 1.015353167813919
+   },
+   "diag.survival": {
+    "band": 0.14004999999999998,
+    "delta": 0.0,
+    "student_play": 1.0,
+    "walk_play": 1.0
+   },
+   "fwd.ratio": {
+    "band": 0.04100570989921172,
+    "delta": 0.0021428856728880064,
+    "student_play": 1.0520232842852022,
+    "walk_play": 1.0498803986123142
+   },
+   "fwd.survival": {
+    "band": 0.11000000000000004,
+    "delta": 0.0,
+    "student_play": 1.0,
+    "walk_play": 1.0
+   },
+   "move_turn.survival": {
+    "band": 0.10000000000000003,
+    "delta": 0.0,
+    "student_play": 1.0,
+    "walk_play": 1.0
+   },
+   "side.ratio": {
+    "band": 0.017928643218214097,
+    "delta": 0.006986785543320773,
+    "student_play": 1.0579944000876698,
+    "walk_play": 1.051007614544349
+   },
+   "side.survival": {
+    "band": 0.050701576452323587,
+    "delta": 0.0,
+    "student_play": 1.0,
+    "walk_play": 1.0
+   },
+   "turn.facing_closed": {
+    "band": 0.049717408672830365,
+    "delta": 0.0018785714700794154,
+    "student_play": 0.9565839930367958,
+    "walk_play": 0.9584625645068752
+   },
+   "turn.survival": {
+    "band": 0.057524999999999916,
+    "delta": 0.0,
+    "student_play": 1.0,
+    "walk_play": 1.0
+   }
+  },
+  "student_play": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C4_S1_SP/suite__omni/seed001/2026-10-17_11-56-29",
+  "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "walk_play": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36"
+ },
+ "verdict": "PASS"
+}

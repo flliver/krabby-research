@@ -1,0 +1,240 @@
+{
+ "run": "dry",
+ "stage": "c4",
+ "read_at": "2026-10-17T16:51:10",
+ "thresholds": {
+  "file": "thresholds_v0.json",
+  "version": "v0",
+  "sha256": "c57afde0a5c31e148a3905256f34ecf51d6f04f5e158449a23386ea60ca15d23"
+ },
+ "verdict": "HALT",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "c4.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 0.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 9.36303261930304e-16,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "c4.floor.survival.fwd.es1"
+  },
+  {
+   "id": "c4.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.5901553694441822,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.00821241353743709,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c4.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "c4.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 0.075,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c4.floor.survival.side.es1"
+  },
+  {
+   "id": "c4.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.023163219385989146,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0055616355267688895,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "c4.floor.ratio.side.es1"
+  },
+  {
+   "id": "c4.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.2,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 1.8460462444714898e-14,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "c4.floor.survival.back.es1"
+  },
+  {
+   "id": "c4.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.043696140413540654,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.015576776110174707,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c4.floor.ratio.back.es1"
+  },
+  {
+   "id": "c4.floor.side22_notslow",
+   "pass": false,
+   "missing": true,
+   "why": "no side22 stamp"
+  },
+  {
+   "id": "c4.live_collapse",
+   "statistic": "live rules (unvalidated)",
+   "value": null,
+   "pass": true,
+   "unvalidated": true,
+   "rate": null
+  }
+ ],
+ "halt_lines": [
+  "c4.floor.survival.fwd.es1",
+  "c4.floor.survival.side.es1",
+  "c4.floor.ratio.side.es1",
+  "c4.floor.survival.back.es1",
+  "c4.floor.ratio.back.es1",
+  "c4.floor.side22_notslow"
+ ],
+ "watch_flags": [
+  {
+   "id": "c4.floor.survival.fwd.es1",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": 0.0,
+   "line": 0.9
+  },
+  {
+   "id": "c4.floor.ratio.fwd.es1",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": 0.5901553694441822,
+   "line": 0.7
+  },
+  {
+   "id": "c4.floor.survival.side.es1",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": 0.075,
+   "line": 0.9
+  },
+  {
+   "id": "c4.floor.ratio.side.es1",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": 0.023163219385989146,
+   "line": 0.7
+  },
+  {
+   "id": "c4.floor.survival.back.es1",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": 0.2,
+   "line": 0.9
+  },
+  {
+   "id": "c4.floor.ratio.back.es1",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": 0.043696140413540654,
+   "line": 0.7
+  },
+  {
+   "id": "c4.floor.side22_fastfast",
+   "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
+   "value": null,
+   "line": null
+  }
+ ],
+ "watch": {
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 0.2,
+    "ratio": 0.043696140413540654,
+    "facing_closed": null,
+    "yaw_progress": -0.005245590079976788,
+    "tripod": 0.28130359961723883
+   },
+   "diag": {
+    "n": 100,
+    "survival": 0.0,
+    "ratio": 0.2517746961717215,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.34710125906331474
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 0.0,
+    "ratio": 0.5901553694441822,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.3708970935899386
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.025,
+    "ratio": 0.26768389780335183,
+    "facing_closed": 6.166514330763206e-05,
+    "yaw_progress": -0.0015124199369268851,
+    "tripod": 0.3423850426170505
+   },
+   "side": {
+    "n": 200,
+    "survival": 0.075,
+    "ratio": 0.023163219385989146,
+    "facing_closed": null,
+    "yaw_progress": -0.02714436263627387,
+    "tripod": 0.4250891300294407
+   },
+   "stand": {
+    "n": 100,
+    "survival": 0.47,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": -0.02242862338076069,
+    "tripod": 0.15939206471912667
+   },
+   "turn": {
+    "n": 200,
+    "survival": 0.075,
+    "ratio": null,
+    "facing_closed": 0.0041356875252963055,
+    "yaw_progress": 0.0012826925470517028,
+    "tripod": 0.31703383344378444
+   }
+  }
+ },
+ "trained_categories": [
+  "stand",
+  "fwd",
+  "side",
+  "back",
+  "turn",
+  "move_turn"
+ ],
+ "head": {
+  "stage": "c4",
+  "chain": "dry_c4",
+  "xid": "X02",
+  "seed": "18",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-17_16-42-21_seed18_X02_c4_A15pB/model_38.pt",
+  "sha256": "c2dcb41328bc490e8c07c2197b51393cdaf61edfcf2c6464cff7342257963f17",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-17_16-42-21_seed18_X02_c4_A15pB",
+  "iteration": 38,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/dry/seed18_X02_c4_A15pB/suite__omni/seed001/2026-10-17_20-44-20",
+  "recorded_at": "2026-10-17T16:51:10"
+ }
+}

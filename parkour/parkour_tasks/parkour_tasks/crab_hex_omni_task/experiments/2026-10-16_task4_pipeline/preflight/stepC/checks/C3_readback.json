@@ -1,0 +1,39 @@
+{
+ "check": "C3_readback",
+ "class": "stop",
+ "level90": {
+  "base_mass_spread_kg": 0.0,
+  "problems": [],
+  "transitions": {
+   "loaded_to_loaded": 23,
+   "loaded_to_zero": 0,
+   "zero_to_loaded": 0,
+   "zero_to_zero": 0
+  },
+  "worst": {
+   "com_err_m": 2.1649927128830626e-09,
+   "eig_rel_err": 2.4514504251235854e-08,
+   "mass_err_kg": 0.0,
+   "tensor_rel_err": 2.4514504251235854e-08
+  },
+  "zero_share": 0.0
+ },
+ "train": {
+  "base_mass_spread_kg": 1.9319915771484375,
+  "problems": [],
+  "transitions": {
+   "loaded_to_loaded": 38,
+   "loaded_to_zero": 14,
+   "zero_to_loaded": 16,
+   "zero_to_zero": 5
+  },
+  "worst": {
+   "com_err_m": 3.6774799178074247e-09,
+   "eig_rel_err": 3.472751480306249e-07,
+   "mass_err_kg": 2.2680124686758063e-05,
+   "tensor_rel_err": 3.433270586858343e-07
+  },
+  "zero_share": 0.2602739726027397
+ },
+ "verdict": "PASS"
+}

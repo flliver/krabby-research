@@ -1,0 +1,328 @@
+{
+ "run": "dry",
+ "stage": "p2a",
+ "read_at": "2026-10-17T17:43:00",
+ "thresholds": {
+  "file": "thresholds_v0.json",
+  "version": "v0",
+  "sha256": "c57afde0a5c31e148a3905256f34ecf51d6f04f5e158449a23386ea60ca15d23"
+ },
+ "verdict": "HALT",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "p2a.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.fwd.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.04785342868424826,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.009319592588325683,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "p2a.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 0.8,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.side.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.121960301715445,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0013607710937450816,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.side.es1"
+  },
+  {
+   "id": "p2a.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.55,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.back.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.08138501226883424,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.012870970837051268,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.back.es1"
+  },
+  {
+   "id": "p2a.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 0.03,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.diag.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.40888848854432447,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.013629913445113767,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.diag.es1"
+  },
+  {
+   "id": "p2a.floor.es2",
+   "pass": false,
+   "missing": true,
+   "why": "no suite stamp at env seed 2"
+  },
+  {
+   "id": "p2a.floor.side22_fastfast",
+   "thresholds_id": "p2a.floor.side22_fastfast",
+   "statistic": "side22_25lr feet_ss class, both hands FAST/FAST",
+   "value": [
+    "DEAD",
+    "DEAD"
+   ],
+   "medians": {
+    "lat_l_022": 0.011744814897686993,
+    "lat_r_022": 0.01008292565543184,
+    "lat_l_025": 0.01335658003437054,
+    "lat_r_025": 0.009646166078265815
+   },
+   "line": "fastfast",
+   "pass": false,
+   "missing": false,
+   "rate": 0.04454578668986031,
+   "unvalidated": false
+  },
+  {
+   "id": "p2a.capability.field_hard",
+   "pass": false,
+   "missing": true,
+   "why": "field_hard needs env seeds [1, 2, 3, 4], got 1 stamps"
+  },
+  {
+   "id": "p2a.live_collapse",
+   "statistic": "live rules (unvalidated)",
+   "value": null,
+   "pass": true,
+   "unvalidated": true,
+   "rate": null
+  }
+ ],
+ "halt_lines": [
+  "p2a.floor.ratio.fwd.es1",
+  "p2a.floor.survival.side.es1",
+  "p2a.floor.ratio.side.es1",
+  "p2a.floor.survival.back.es1",
+  "p2a.floor.ratio.back.es1",
+  "p2a.floor.survival.diag.es1",
+  "p2a.floor.ratio.diag.es1",
+  "p2a.floor.es2",
+  "p2a.floor.side22_fastfast",
+  "p2a.capability.field_hard"
+ ],
+ "watch_flags": [],
+ "watch": {
+  "field_hard@1": {
+   "completion": 0.0,
+   "n": 100
+  },
+  "side22@1": {
+   "class": [
+    "DEAD",
+    "DEAD"
+   ],
+   "median": {
+    "lat_l_022": 0.011744814897686993,
+    "lat_r_022": 0.01008292565543184,
+    "lat_l_025": 0.01335658003437054,
+    "lat_r_025": 0.009646166078265815
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 0.55,
+    "ratio": 0.08138501226883424,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.06894881927663392
+   },
+   "diag": {
+    "n": 100,
+    "survival": 0.03,
+    "ratio": 0.40888848854432447,
+    "facing_closed": null,
+    "yaw_progress": -0.027213170493875317,
+    "tripod": 0.1326684108643087
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.04785342868424826,
+    "facing_closed": null,
+    "yaw_progress": 0.00040654335031792033,
+    "tripod": 0.13973964144667322
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.91,
+    "ratio": 0.0658825966661403,
+    "facing_closed": -0.08097422949343291,
+    "yaw_progress": -0.010396956753908549,
+    "tripod": 0.14848949497996208
+   },
+   "side": {
+    "n": 200,
+    "survival": 0.8,
+    "ratio": 0.121960301715445,
+    "facing_closed": null,
+    "yaw_progress": -0.027601897290687225,
+    "tripod": 0.041482559842874085
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": -0.013252658443121809,
+    "tripod": 0.05165459710955625
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": -0.024828590609270784,
+    "yaw_progress": -0.003004338059514945,
+    "tripod": 0.0435018326791882
+   }
+  },
+  "suite_body@1": {
+   "back": {
+    "n": 100,
+    "survival": 0.58,
+    "ratio": 0.07603782988106583,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.09359310310468778
+   },
+   "diag": {
+    "n": 100,
+    "survival": 0.01,
+    "ratio": 0.40127299539884653,
+    "facing_closed": null,
+    "yaw_progress": -0.027664579014078927,
+    "tripod": 0.12406042548808664
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.03886946382451491,
+    "facing_closed": null,
+    "yaw_progress": 0.0003158434266713977,
+    "tripod": 0.15921344202498805
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.725,
+    "ratio": 0.060029245504829784,
+    "facing_closed": null,
+    "yaw_progress": -0.005373570109866641,
+    "tripod": 0.20243564466719222
+   },
+   "side": {
+    "n": 200,
+    "survival": 0.76,
+    "ratio": 0.12291558806617404,
+    "facing_closed": null,
+    "yaw_progress": -0.033215841565430726,
+    "tripod": 0.039826961112716226
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": -0.01323205136007358,
+    "tripod": 0.05589303054229286
+   },
+   "turn": {
+    "n": 200,
+    "survival": 0.985,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": -0.004562374902394256,
+    "tripod": 0.14124276938118452
+   }
+  }
+ },
+ "trained_categories": [
+  "stand",
+  "fwd",
+  "side",
+  "back",
+  "diag",
+  "turn",
+  "move_turn"
+ ],
+ "head": {
+  "stage": "p2a",
+  "chain": "dry_p2a",
+  "xid": "X06",
+  "seed": "18",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_17-22-14_seed18_X06_p2a_A15pB/model_114.pt",
+  "sha256": "88347327bcf915922f84347a41f0fa2b2a29af4ec5b3b07db0916f1e4130b419",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_17-22-14_seed18_X06_p2a_A15pB",
+  "iteration": 114,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/dry/seed18_X06_p2a_A15pB/suite__omni/seed001/2026-10-17_21-24-14",
+  "recorded_at": "2026-10-17T17:31:33"
+ }
+}

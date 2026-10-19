@@ -415,3 +415,23 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - student 1.92 h per 1k its, about 9.6 h per 5000-it student;
     - gate rows ≈ 4–11 min each.
   - **Next:** freeze thresholds v1, write the spec values, gen + lock + check, commit, local annotated pin tag.
+- **2026-10-19, thresholds v1 FROZEN and the pin set.**
+  - **v1 = v0 + the pilot terms + the sweep anchors** (`threshold_inputs_v1.yaml` → `thresholds_v1.json`; the
+    self-check passes).
+    - The p3a terms are recomputed from the pilot (model_22993): 35 stable-at-90 rates sum to 0.128, and the
+      paired 0-kg rate is 0.004. Both are identical to the independent `stepC_read` cross-check.
+    - Run sums: standard 2.82 → 2.95; recommended (the approved STOP-0 values) 1.06 → 1.20. Reported, not capped.
+    - The 19 sweep lines are WATCH only.
+    - Every other line is identical to v0.
+  - **Spec (`pipeline.yaml`):**
+    - N_p 3000 (the clamp; the read never settled — disclosed);
+    - x_rule `report_only`;
+    - manifest_shape_split 0.0;
+    - `live.student.loss_rule` kill;
+    - thresholds v1.
+  - `gen` (R18 / F19 / dry: p3a/b/c iters 3000, planned p3a head 22993), then `lock`: 346 files, including
+    `threshold_inputs_v1.yaml` (added to `lock_files`), 0 dirty. `check` is clean on R18, F19 and dry; 108 tests pass.
+  - **The pin is this commit,** with the local annotated tag `task4-pin-2026-10-19`; the tag is never pushed.
+  - **D14 freeze in force from here until F19 ends:** other sessions stay off the code / eval / TP / PL paths and
+    every locked file.
+  - **Next: step 9, R18** (full pipeline + X), ≈ 55–65 GPU-h.

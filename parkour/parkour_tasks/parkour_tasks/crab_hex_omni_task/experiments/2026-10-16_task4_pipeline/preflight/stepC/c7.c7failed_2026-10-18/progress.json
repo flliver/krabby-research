@@ -1,0 +1,13 @@
+{
+ "guard_retried": "2026-10-17T17:01:42",
+ "launched": "2026-10-17T16:26:59",
+ "max_isaac": 2,
+ "max_isaac_at": "2026-10-17T16:27:09",
+ "mode": "reduced",
+ "prepared": "2026-10-17T16:26:57",
+ "qlog_offset": 3623,
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry",
+ "sigterm_done": "2026-10-17T16:51:29",
+ "sigterm_stage": "c5",
+ "spec": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/pipeline.yaml"
+}

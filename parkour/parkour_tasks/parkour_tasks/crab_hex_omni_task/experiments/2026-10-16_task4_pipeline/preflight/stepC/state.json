@@ -1,0 +1,4492 @@
+{
+  "campaign": "stepC",
+  "plant": "A15+B",
+  "phase": "run",
+  "run_no": 0,
+  "keys": {
+    "seed18": {
+      "X01:s1": {
+        "phase": "s1",
+        "tag": "seed18_X01_s1_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-17-33_seed18_X01_s1_A15pB/model_19.pt",
+        "status": "ok",
+        "resume": null,
+        "from_scratch": true,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X01_s1_A15pB_train.log",
+        "wall_h": 0.033335975408554076,
+        "env": {
+          "KRABBY_OMNI_PHASE": "1b",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "0",
+          "KRABBY_PPO_HAND_DIAG": "1"
+        },
+        "xid": "X01",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.000825,
+          "fail_end": 0.000825,
+          "coll_2k": 0.0,
+          "ep_len_2k": 124.78099999999999
+        },
+        "exposure": {
+          "reach_edge_frac": 0.0,
+          "reach_obst_frac": 0.0,
+          "field_frac_mean": 0.0,
+          "field_steps_mean": 0.0,
+          "goals_passed_mean": 0.0,
+          "track_ratio_mean": 0.11082499999999999,
+          "track_ratio_move_mean": 0.11082499999999999,
+          "heading_err_rms_mean": 0.018259999999999995,
+          "block_steps_mean": 0.0,
+          "r_max_mean": 0.07952499999999998,
+          "crab_failure_flat": 0.00232,
+          "crab_failure_obst": 0.0,
+          "ep_steps_flat": 117.388285,
+          "ep_steps_obst": 108.7393,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.03044,
+          "how_far_from_start_point": 0.07691,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.01567,
+          "move_frac_actual": 0.09839,
+          "turn_frac_actual": 0.0,
+          "move_turn_frac_actual": 0.0,
+          "failure_all": 0.000825,
+          "eplen": 124.78099999999999,
+          "mean_reward": 1.8654800000000002,
+          "vloss": 0.01427,
+          "track": 0.04196999999999999,
+          "pool_stand_frac": 0.01567,
+          "pool_stand_draws": 0.160765,
+          "pool_fwd_frac": 0.014044999999999997,
+          "pool_fwd_draws": 0.14514,
+          "pool_side_l_frac": 0.035339999999999996,
+          "pool_side_l_draws": 0.28055499999999994,
+          "pool_side_r_frac": 0.0159,
+          "pool_side_r_draws": 0.18646000000000001,
+          "pool_back_frac": 0.033095,
+          "pool_back_draws": 0.21874500000000002,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.11082499999999999,
+        "track_ratio_move_tail": 0.11082499999999999,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0368,
+          "pool_stand_draws": 0.1875,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0631,
+          "pool_side_l_draws": 0.2917,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0772,
+          "pool_back_draws": 0.5208
+        },
+        "orig_tag": "seed18_X01_s1_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.2:0.8:0:0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X02:c4": {
+        "phase": "c4",
+        "tag": "seed18_X02_c4_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-19-53_seed18_X02_c4_A15pB/model_6018.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/1_fb6k/model_5999.pt",
+        "from_scratch": false,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X02_c4_A15pB_train.log",
+        "wall_h": 0.03333592818842994,
+        "env": {
+          "KRABBY_OMNI_PHASE": "1a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025",
+          "KRABBY_OMNI_SLOTS": "0.15:0.6:0.15:0.1",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:0.6",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "0",
+          "KRABBY_PPO_HAND_DIAG": "1"
+        },
+        "xid": "X02",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.012119999999999999,
+          "fail_end": 0.012119999999999999,
+          "coll_2k": 0.0,
+          "ep_len_2k": 128.572
+        },
+        "exposure": {
+          "reach_edge_frac": 0.0,
+          "reach_obst_frac": 0.0,
+          "field_frac_mean": 0.0,
+          "field_steps_mean": 0.0,
+          "goals_passed_mean": 0.0,
+          "track_ratio_mean": 0.505505,
+          "track_ratio_move_mean": 0.44823,
+          "heading_err_rms_mean": 0.08337,
+          "block_steps_mean": 0.0,
+          "r_max_mean": 0.370885,
+          "crab_failure_flat": 0.05924,
+          "crab_failure_obst": 0.025615,
+          "ep_steps_flat": 120.77417,
+          "ep_steps_obst": 112.95963000000002,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.03044,
+          "how_far_from_start_point": 0.6619500000000001,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.012445,
+          "move_frac_actual": 0.061869999999999994,
+          "turn_frac_actual": 0.017455,
+          "move_turn_frac_actual": 0.02478,
+          "failure_all": 0.012119999999999999,
+          "eplen": 128.572,
+          "mean_reward": 6.572725,
+          "vloss": 0.0030600000000000002,
+          "track": 0.11803999999999999,
+          "pool_stand_frac": 0.012445,
+          "pool_stand_draws": 0.140975,
+          "pool_fwd_frac": 0.01597,
+          "pool_fwd_draws": 0.159725,
+          "pool_side_l_frac": 0.027125,
+          "pool_side_l_draws": 0.18056,
+          "pool_side_r_frac": 0.016989999999999998,
+          "pool_side_r_draws": 0.164585,
+          "pool_back_frac": 0.0017950000000000002,
+          "pool_back_draws": 0.019795,
+          "pool_turn_frac": 0.017455,
+          "pool_turn_draws": 0.18229,
+          "pool_fwd_turn_frac": 0.022075,
+          "pool_fwd_turn_draws": 0.125,
+          "pool_side_l_turn_frac": 0.00221,
+          "pool_side_l_turn_draws": 0.014585,
+          "pool_side_r_turn_frac": 0.000495,
+          "pool_side_r_turn_draws": 0.004165,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.505505,
+        "track_ratio_move_tail": 0.44823,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0,
+          "pool_stand_draws": 0.0,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0,
+          "pool_side_l_draws": 0.0,
+          "pool_side_r_frac": 0.0316,
+          "pool_side_r_draws": 0.1458,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.0,
+          "pool_turn_frac": 0.0,
+          "pool_turn_draws": 0.0,
+          "pool_fwd_turn_frac": 0.1956,
+          "pool_fwd_turn_draws": 0.8542,
+          "pool_side_l_turn_frac": 0.0,
+          "pool_side_l_turn_draws": 0.0,
+          "pool_side_r_turn_frac": 0.0,
+          "pool_side_r_turn_draws": 0.0
+        },
+        "orig_tag": "seed18_X02_c4_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.15:0.1 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X03:c5": {
+        "phase": "c5",
+        "tag": "seed18_X03_c5_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-22-14_seed18_X03_c5_A15pB/model_7517.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/2_c4/model_7498.pt",
+        "from_scratch": false,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X03_c5_A15pB_train.log",
+        "wall_h": 0.033335927261246574,
+        "env": {
+          "KRABBY_OMNI_PHASE": "1a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04",
+          "KRABBY_OMNI_SLOTS": "0.15:0.6:0.1:0.15",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:0.6",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "0",
+          "KRABBY_PPO_HAND_DIAG": "1"
+        },
+        "xid": "X03",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.01253,
+          "fail_end": 0.01253,
+          "coll_2k": 0.0,
+          "ep_len_2k": 127.1875
+        },
+        "exposure": {
+          "reach_edge_frac": 0.009045000000000001,
+          "reach_obst_frac": 0.0,
+          "field_frac_mean": 0.000445,
+          "field_steps_mean": 0.18999000000000002,
+          "goals_passed_mean": 0.009045000000000001,
+          "track_ratio_mean": 0.5315399999999999,
+          "track_ratio_move_mean": 0.43857999999999997,
+          "heading_err_rms_mean": 0.08273,
+          "block_steps_mean": 0.0,
+          "r_max_mean": 0.373165,
+          "crab_failure_flat": 0.07319500000000002,
+          "crab_failure_obst": 0.0,
+          "ep_steps_flat": 120.14672,
+          "ep_steps_obst": 109.17267999999999,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.03044,
+          "how_far_from_start_point": 0.69087,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.012199999999999999,
+          "move_frac_actual": 0.061915,
+          "turn_frac_actual": 0.014174999999999998,
+          "move_turn_frac_actual": 0.028345,
+          "failure_all": 0.01253,
+          "eplen": 127.1875,
+          "mean_reward": 6.645945,
+          "vloss": 0.0025199999999999997,
+          "track": 0.12193499999999999,
+          "pool_stand_frac": 0.012199999999999999,
+          "pool_stand_draws": 0.13784999999999997,
+          "pool_fwd_frac": 0.00819,
+          "pool_fwd_draws": 0.10139000000000001,
+          "pool_side_l_frac": 0.006914999999999999,
+          "pool_side_l_draws": 0.052085000000000006,
+          "pool_side_r_frac": 0.02765,
+          "pool_side_r_draws": 0.184725,
+          "pool_back_frac": 0.010839999999999999,
+          "pool_back_draws": 0.1125,
+          "pool_omni_frac": 0.008335,
+          "pool_omni_draws": 0.087505,
+          "pool_turn_frac": 0.014174999999999998,
+          "pool_turn_draws": 0.151035,
+          "pool_fwd_turn_frac": 0.019575,
+          "pool_fwd_turn_draws": 0.12292,
+          "pool_side_l_turn_frac": 0.00828,
+          "pool_side_l_turn_draws": 0.0375,
+          "pool_side_r_turn_frac": 0.000495,
+          "pool_side_r_turn_draws": 0.004165,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.5315399999999999,
+        "track_ratio_move_tail": 0.43857999999999997,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0,
+          "pool_stand_draws": 0.0,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0,
+          "pool_side_l_draws": 0.0,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.0,
+          "pool_omni_frac": 0.0,
+          "pool_omni_draws": 0.0,
+          "pool_turn_frac": 0.0,
+          "pool_turn_draws": 0.0,
+          "pool_fwd_turn_frac": 0.0642,
+          "pool_fwd_turn_draws": 0.2917,
+          "pool_side_l_turn_frac": 0.164,
+          "pool_side_l_turn_draws": 0.7083,
+          "pool_side_r_turn_frac": 0.0,
+          "pool_side_r_turn_draws": 0.0
+        },
+        "orig_tag": "seed18_X03_c5_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.6:0.1:0.15 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "diag",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X04:c6": {
+        "phase": "c6",
+        "tag": "seed18_X04_c6_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-24-34_seed18_X04_c6_A15pB/model_9016.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/3_c5/model_8997.pt",
+        "from_scratch": false,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X04_c6_A15pB_train.log",
+        "wall_h": 0.033336153030395506,
+        "env": {
+          "KRABBY_OMNI_PHASE": "1a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+          "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:0.6",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "0",
+          "KRABBY_PPO_HAND_DIAG": "1"
+        },
+        "xid": "X04",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.01447,
+          "fail_end": 0.01447,
+          "coll_2k": 0.0,
+          "ep_len_2k": 128.93
+        },
+        "exposure": {
+          "reach_edge_frac": 0.008380000000000002,
+          "reach_obst_frac": 0.008380000000000002,
+          "field_frac_mean": 0.000415,
+          "field_steps_mean": 0.17604,
+          "goals_passed_mean": 0.008380000000000002,
+          "track_ratio_mean": 0.45135,
+          "track_ratio_move_mean": 0.441005,
+          "heading_err_rms_mean": 0.09701,
+          "block_steps_mean": 0.07544999999999999,
+          "r_max_mean": 0.39449,
+          "crab_failure_flat": 0.06305999999999999,
+          "crab_failure_obst": 0.049165,
+          "ep_steps_flat": 121.27955500000003,
+          "ep_steps_obst": 112.93420499999999,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.03044,
+          "how_far_from_start_point": 0.70488,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.009380000000000001,
+          "move_frac_actual": 0.060880000000000004,
+          "turn_frac_actual": 0.0082,
+          "move_turn_frac_actual": 0.037215,
+          "failure_all": 0.01447,
+          "eplen": 128.93,
+          "mean_reward": 6.79269,
+          "vloss": 0.00369,
+          "track": 0.120225,
+          "pool_stand_frac": 0.009380000000000001,
+          "pool_stand_draws": 0.11666500000000002,
+          "pool_fwd_frac": 0.008,
+          "pool_fwd_draws": 0.10104500000000002,
+          "pool_side_l_frac": 0.006914999999999999,
+          "pool_side_l_draws": 0.052085000000000006,
+          "pool_side_r_frac": 0.0108,
+          "pool_side_r_draws": 0.09792000000000001,
+          "pool_back_frac": 0.02695,
+          "pool_back_draws": 0.18073,
+          "pool_omni_frac": 0.008199999999999999,
+          "pool_omni_draws": 0.10521,
+          "pool_turn_frac": 0.0082,
+          "pool_turn_draws": 0.104165,
+          "pool_fwd_turn_frac": 0.01365,
+          "pool_fwd_turn_draws": 0.10156499999999999,
+          "pool_side_l_turn_frac": 0.000445,
+          "pool_side_l_turn_draws": 0.004165,
+          "pool_side_r_turn_frac": 0.000575,
+          "pool_side_r_turn_draws": 0.004165,
+          "pool_omni_turn_frac": 0.022545,
+          "pool_omni_turn_draws": 0.12396,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.45135,
+        "track_ratio_move_tail": 0.441005,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0,
+          "pool_stand_draws": 0.0,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0,
+          "pool_side_l_draws": 0.0,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.0312,
+          "pool_omni_frac": 0.0,
+          "pool_omni_draws": 0.0,
+          "pool_turn_frac": 0.0,
+          "pool_turn_draws": 0.0,
+          "pool_fwd_turn_frac": 0.0244,
+          "pool_fwd_turn_draws": 0.0938,
+          "pool_side_l_turn_frac": 0.0,
+          "pool_side_l_turn_draws": 0.0,
+          "pool_side_r_turn_frac": 0.0,
+          "pool_side_r_turn_draws": 0.0,
+          "pool_omni_turn_frac": 0.1925,
+          "pool_omni_turn_draws": 0.875
+        },
+        "orig_tag": "seed18_X04_c6_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "diag",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X05:c6x": {
+        "phase": "c6x",
+        "tag": "seed18_X05_c6x_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-26-54_seed18_X05_c6x_A15pB/model_11015.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/4_c6/model_10996.pt",
+        "from_scratch": false,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X05_c6x_A15pB_train.log",
+        "wall_h": 0.03333665211995443,
+        "env": {
+          "KRABBY_OMNI_PHASE": "1a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+          "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:0.6",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_CLOCK_W": "0.001",
+          "KRABBY_APEX_W": "0.001",
+          "KRABBY_OMNI_CLOCK_HIDE": "1",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "0",
+          "KRABBY_PPO_HAND_DIAG": "1"
+        },
+        "xid": "X05",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.11935499999999999,
+          "fail_end": 0.11935499999999999,
+          "coll_2k": 0.0,
+          "ep_len_2k": 158.157
+        },
+        "exposure": {
+          "reach_edge_frac": 0.0,
+          "reach_obst_frac": 0.0,
+          "field_frac_mean": 0.0,
+          "field_steps_mean": 0.0,
+          "goals_passed_mean": 0.0,
+          "track_ratio_mean": 0.43986000000000003,
+          "track_ratio_move_mean": 0.427395,
+          "heading_err_rms_mean": 0.0895,
+          "block_steps_mean": 0.0,
+          "r_max_mean": 0.45729499999999995,
+          "crab_failure_flat": 0.31145500000000004,
+          "crab_failure_obst": 0.25242,
+          "ep_steps_flat": 138.08497500000001,
+          "ep_steps_obst": 134.57344999999998,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.03044,
+          "how_far_from_start_point": 0.5152349999999999,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.006974999999999999,
+          "move_frac_actual": 0.068705,
+          "turn_frac_actual": 0.0060799999999999995,
+          "move_turn_frac_actual": 0.028499999999999998,
+          "failure_all": 0.11935499999999999,
+          "eplen": 158.157,
+          "mean_reward": 5.261004999999999,
+          "vloss": 0.009855,
+          "track": 0.10360500000000002,
+          "pool_stand_frac": 0.006974999999999999,
+          "pool_stand_draws": 0.096875,
+          "pool_fwd_frac": 0.023860000000000003,
+          "pool_fwd_draws": 0.20972,
+          "pool_side_l_frac": 0.0024999999999999996,
+          "pool_side_l_draws": 0.024480000000000002,
+          "pool_side_r_frac": 0.00495,
+          "pool_side_r_draws": 0.056245,
+          "pool_back_frac": 0.011455000000000002,
+          "pool_back_draws": 0.11718999999999999,
+          "pool_omni_frac": 0.02594,
+          "pool_omni_draws": 0.19428000000000004,
+          "pool_turn_frac": 0.0060799999999999995,
+          "pool_turn_draws": 0.09097,
+          "pool_fwd_turn_frac": 0.01371,
+          "pool_fwd_turn_draws": 0.106595,
+          "pool_side_l_turn_frac": 0.000555,
+          "pool_side_l_turn_draws": 0.00521,
+          "pool_side_r_turn_frac": 0.000285,
+          "pool_side_r_turn_draws": 0.002085,
+          "pool_omni_turn_frac": 0.013945000000000003,
+          "pool_omni_turn_draws": 0.08802,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.43986000000000003,
+        "track_ratio_move_tail": 0.427395,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0,
+          "pool_stand_draws": 0.0,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0,
+          "pool_side_l_draws": 0.0,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.1458,
+          "pool_omni_frac": 0.0103,
+          "pool_omni_draws": 0.0417,
+          "pool_turn_frac": 0.0,
+          "pool_turn_draws": 0.0,
+          "pool_fwd_turn_frac": 0.0331,
+          "pool_fwd_turn_draws": 0.1875,
+          "pool_side_l_turn_frac": 0.0,
+          "pool_side_l_turn_draws": 0.0,
+          "pool_side_r_turn_frac": 0.0,
+          "pool_side_r_turn_draws": 0.0,
+          "pool_omni_turn_frac": 0.1457,
+          "pool_omni_turn_draws": 0.625
+        },
+        "orig_tag": "seed18_X05_c6x_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_APEX_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_CLOCK_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CLOCK_HIDE=1 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:0.6 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "diag",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X06:p2a": {
+        "phase": "p2a",
+        "tag": "seed18_X06_p2a_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+        "mode": "2a",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_22-29-14_seed18_X06_p2a_A15pB/model_15014.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/5_c6x_clockfree/model_14995.pt",
+        "from_scratch": false,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X06_p2a_A15pB_train.log",
+        "wall_h": 0.033335911962721086,
+        "env": {
+          "KRABBY_OMNI_PHASE": "2a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+          "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:1.2",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_CLOCK_W": "0.001",
+          "KRABBY_APEX_W": "0.001",
+          "KRABBY_OMNI_CLOCK_HIDE": "1",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "-0.05",
+          "KRABBY_PPO_HAND_DIAG": "1",
+          "KRABBY_PHASEOUT": "",
+          "KRABBY_FLAT_TERRAIN_GEOM": "field",
+          "KRABBY_FIELD_PAD_R": "1.7",
+          "KRABBY_FIELD_BLOCKS": "14:28",
+          "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+          "KRABBY_FIELD_EDGES": "wall",
+          "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+          "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"
+        },
+        "xid": "X06",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.014050000000000002,
+          "fail_end": 0.014050000000000002,
+          "coll_2k": -0.00034,
+          "ep_len_2k": 135.33049999999997
+        },
+        "exposure": {
+          "reach_edge_frac": 0.019545,
+          "reach_obst_frac": 0.06164000000000001,
+          "field_frac_mean": 0.0027749999999999997,
+          "field_steps_mean": 1.12401,
+          "goals_passed_mean": 0.019545,
+          "track_ratio_mean": 0.49037499999999995,
+          "track_ratio_move_mean": 0.5227949999999999,
+          "heading_err_rms_mean": 0.18480999999999997,
+          "block_steps_mean": 4.70759,
+          "r_max_mean": 0.42630500000000005,
+          "crab_failure_flat": 0.06893,
+          "crab_failure_obst": 0.08784499999999998,
+          "ep_steps_flat": 107.97908500000001,
+          "ep_steps_obst": 140.451525,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.0668349999999998,
+          "how_far_from_start_point": 0.7093349999999999,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.025729999999999996,
+          "move_frac_actual": 0.045365,
+          "turn_frac_actual": 0.008360000000000001,
+          "move_turn_frac_actual": 0.037540000000000004,
+          "failure_all": 0.014050000000000002,
+          "eplen": 135.33049999999997,
+          "mean_reward": 4.80534,
+          "vloss": 0.00301,
+          "track": 0.11812,
+          "pool_stand_frac": 0.025729999999999996,
+          "pool_stand_draws": 0.21771000000000001,
+          "pool_fwd_frac": 0.0058,
+          "pool_fwd_draws": 0.133335,
+          "pool_side_l_frac": 0.0027199999999999998,
+          "pool_side_l_draws": 0.020829999999999998,
+          "pool_side_r_frac": 0.015400000000000002,
+          "pool_side_r_draws": 0.137505,
+          "pool_back_frac": 0.00252,
+          "pool_back_draws": 0.02916,
+          "pool_omni_frac": 0.018915,
+          "pool_omni_draws": 0.12395500000000001,
+          "pool_turn_frac": 0.008360000000000001,
+          "pool_turn_draws": 0.045835,
+          "pool_fwd_turn_frac": 0.00529,
+          "pool_fwd_turn_draws": 0.035414999999999995,
+          "pool_side_l_turn_frac": 0.012275,
+          "pool_side_l_turn_draws": 0.12082999999999999,
+          "pool_side_r_turn_frac": 0.0062250000000000005,
+          "pool_side_r_turn_draws": 0.03541999999999999,
+          "pool_omni_turn_frac": 0.013739999999999999,
+          "pool_omni_turn_draws": 0.091665,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.49037499999999995,
+        "track_ratio_move_tail": 0.5227949999999999,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0,
+          "pool_stand_draws": 0.0,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0,
+          "pool_side_l_draws": 0.0,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.0,
+          "pool_omni_frac": 0.0,
+          "pool_omni_draws": 0.0,
+          "pool_turn_frac": 0.0846,
+          "pool_turn_draws": 0.375,
+          "pool_fwd_turn_frac": 0.0247,
+          "pool_fwd_turn_draws": 0.1042,
+          "pool_side_l_turn_frac": 0.0487,
+          "pool_side_l_turn_draws": 0.2083,
+          "pool_side_r_turn_frac": 0.0538,
+          "pool_side_r_turn_draws": 0.2292,
+          "pool_omni_turn_frac": 0.0197,
+          "pool_omni_turn_draws": 0.0833
+        },
+        "orig_tag": "seed18_X06_p2a_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_teacher",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "field generator installed (omni_field_sparse/omni_field_dense sub-terrains, no omni_ring_*) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=-0.05 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_APEX_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_CLOCK_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_BLOCKS=14:28 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_EDGES=wall in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_KINDS=0.4:0.4:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_PAD_R=1.7 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FLAT_TERRAIN_DIFF=0.20:1.0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FLAT_TERRAIN_GEOM=field in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CLOCK_HIDE=1 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:1.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PHASEOUT= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_TERRAIN_PROMOTE=0.7:0.4 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "diag",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X07:s1": {
+        "phase": "s1",
+        "tag": "seed18_X07_s1_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+        "mode": null,
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-31-35_seed18_X07_s1_A15pB/model_19.pt",
+        "status": "ok",
+        "resume": null,
+        "from_scratch": true,
+        "iters": 20,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X07_s1_A15pB_train.log",
+        "wall_h": 0.03333614918920729,
+        "env": {
+          "KRABBY_OMNI_PHASE": "1b",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "0",
+          "KRABBY_PPO_HAND_DIAG": "1",
+          "KRABBY_PAYLOAD_KG": "0:0",
+          "KRABBY_PAYLOAD_ZERO_FRAC": "1",
+          "KRABBY_PAYLOAD_COM_XY": "0",
+          "KRABBY_PAYLOAD_COM_Z": "0.309"
+        },
+        "xid": "X07",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.000825,
+          "fail_end": 0.000825,
+          "coll_2k": 0.0,
+          "ep_len_2k": 124.78099999999999
+        },
+        "exposure": {
+          "reach_edge_frac": 0.0,
+          "reach_obst_frac": 0.0,
+          "field_frac_mean": 0.0,
+          "field_steps_mean": 0.0,
+          "goals_passed_mean": 0.0,
+          "track_ratio_mean": 0.11082499999999999,
+          "track_ratio_move_mean": 0.11082499999999999,
+          "heading_err_rms_mean": 0.018259999999999995,
+          "block_steps_mean": 0.0,
+          "r_max_mean": 0.07952499999999998,
+          "crab_failure_flat": 0.00232,
+          "crab_failure_obst": 0.0,
+          "ep_steps_flat": 117.388285,
+          "ep_steps_obst": 108.7393,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 1.03044,
+          "how_far_from_start_point": 0.07691,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.01567,
+          "move_frac_actual": 0.09839,
+          "turn_frac_actual": 0.0,
+          "move_turn_frac_actual": 0.0,
+          "failure_all": 0.000825,
+          "eplen": 124.78099999999999,
+          "mean_reward": 1.8654800000000002,
+          "vloss": 0.01427,
+          "track": 0.04196999999999999,
+          "pool_stand_frac": 0.01567,
+          "pool_stand_draws": 0.160765,
+          "pool_fwd_frac": 0.014044999999999997,
+          "pool_fwd_draws": 0.14514,
+          "pool_side_l_frac": 0.035339999999999996,
+          "pool_side_l_draws": 0.28055499999999994,
+          "pool_side_r_frac": 0.0159,
+          "pool_side_r_draws": 0.18646000000000001,
+          "pool_back_frac": 0.033095,
+          "pool_back_draws": 0.21874500000000002,
+          "prints": 20
+        },
+        "track_ratio_tail": 0.11082499999999999,
+        "track_ratio_move_tail": 0.11082499999999999,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.0368,
+          "pool_stand_draws": 0.1875,
+          "pool_fwd_frac": 0.0,
+          "pool_fwd_draws": 0.0,
+          "pool_side_l_frac": 0.0631,
+          "pool_side_l_draws": 0.2917,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0772,
+          "pool_back_draws": 0.5208
+        },
+        "orig_tag": "seed18_X07_s1_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_flat_walk",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "ring generator installed (omni_ring_sparse/dense sub-terrain) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.2:0.8:0:0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_COM_XY=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_COM_Z=0.309 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_KG=0:0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_ZERO_FRAC=1 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X08:p3a": {
+        "phase": "p3a",
+        "tag": "seed18_X08_p3a_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+        "mode": "2a",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_01-22-30_seed18_X08_p3a_A15pB/model_20093.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt",
+        "from_scratch": false,
+        "iters": 100,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X08_p3a_A15pB_train.log",
+        "wall_h": 0.06666972928576999,
+        "env": {
+          "KRABBY_OMNI_PHASE": "2a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+          "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:1.2",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_CLOCK_W": "0.001",
+          "KRABBY_APEX_W": "0.001",
+          "KRABBY_OMNI_CLOCK_HIDE": "1",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "-0.05",
+          "KRABBY_PPO_HAND_DIAG": "1",
+          "KRABBY_PHASEOUT": "",
+          "KRABBY_FLAT_TERRAIN_GEOM": "field",
+          "KRABBY_FIELD_PAD_R": "1.7",
+          "KRABBY_FIELD_BLOCKS": "14:28",
+          "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+          "KRABBY_FIELD_EDGES": "wall",
+          "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+          "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+          "KRABBY_PAYLOAD_KG": "0:90",
+          "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+          "KRABBY_PAYLOAD_COM_XY": "0.10",
+          "KRABBY_PAYLOAD_COM_Z": "0.309"
+        },
+        "xid": "X08",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.13038699999999992,
+          "fail_end": 0.13038699999999992,
+          "coll_2k": -0.0014220000000000003,
+          "ep_len_2k": 841.4026000000001
+        },
+        "exposure": {
+          "reach_edge_frac": 0.76875,
+          "reach_obst_frac": 0.678725,
+          "field_frac_mean": 0.36219499999999993,
+          "field_steps_mean": 465.69789999999995,
+          "goals_passed_mean": 1.1753300000000002,
+          "track_ratio_mean": 0.8363750000000001,
+          "track_ratio_move_mean": 0.8662449999999999,
+          "heading_err_rms_mean": 0.21260500000000002,
+          "block_steps_mean": 257.512735,
+          "r_max_mean": 2.4763749999999995,
+          "crab_failure_flat": 0.24092999999999995,
+          "crab_failure_obst": 0.22767500000000002,
+          "ep_steps_flat": 971.5596499999999,
+          "ep_steps_obst": 1014.1564649999998,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 2.020735,
+          "how_far_from_start_point": 2.02972,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.16676,
+          "move_frac_actual": 0.4811399999999999,
+          "turn_frac_actual": 0.0638,
+          "move_turn_frac_actual": 0.20794,
+          "failure_all": 0.24981,
+          "eplen": 1583.7859999999998,
+          "mean_reward": 56.856269999999995,
+          "vloss": 0.0060659999999999985,
+          "track": 0.959055,
+          "pool_stand_frac": 0.16676,
+          "pool_stand_draws": 0.19083999999999998,
+          "pool_fwd_frac": 0.13497499999999996,
+          "pool_fwd_draws": 0.13774999999999998,
+          "pool_side_l_frac": 0.03436,
+          "pool_side_l_draws": 0.042045,
+          "pool_side_r_frac": 0.07215999999999999,
+          "pool_side_r_draws": 0.080415,
+          "pool_back_frac": 0.080415,
+          "pool_back_draws": 0.07771000000000003,
+          "pool_omni_frac": 0.15919,
+          "pool_omni_draws": 0.15302000000000002,
+          "pool_turn_frac": 0.0638,
+          "pool_turn_draws": 0.06238499999999999,
+          "pool_fwd_turn_frac": 0.040005,
+          "pool_fwd_turn_draws": 0.069215,
+          "pool_side_l_turn_frac": 0.050685,
+          "pool_side_l_turn_draws": 0.06271,
+          "pool_side_r_turn_frac": 0.047585,
+          "pool_side_r_turn_draws": 0.055900000000000005,
+          "pool_omni_turn_frac": 0.06965999999999999,
+          "pool_omni_turn_draws": 0.068025,
+          "prints": 100
+        },
+        "track_ratio_tail": 0.7802500000000001,
+        "track_ratio_move_tail": 0.7920150000000001,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.3021,
+          "pool_stand_draws": 0.2417,
+          "pool_fwd_frac": 0.1146,
+          "pool_fwd_draws": 0.0917,
+          "pool_side_l_frac": 0.0208,
+          "pool_side_l_draws": 0.0167,
+          "pool_side_r_frac": 0.0,
+          "pool_side_r_draws": 0.0,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.0,
+          "pool_omni_frac": 0.2292,
+          "pool_omni_draws": 0.1833,
+          "pool_turn_frac": 0.0,
+          "pool_turn_draws": 0.0,
+          "pool_fwd_turn_frac": 0.0,
+          "pool_fwd_turn_draws": 0.075,
+          "pool_side_l_turn_frac": 0.0,
+          "pool_side_l_turn_draws": 0.125,
+          "pool_side_r_turn_frac": 0.3125,
+          "pool_side_r_turn_draws": 0.25,
+          "pool_omni_turn_frac": 0.0208,
+          "pool_omni_turn_draws": 0.0167
+        },
+        "orig_tag": "seed18_X08_p3a_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_teacher",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "field generator installed (omni_field_sparse/omni_field_dense sub-terrains, no omni_ring_*) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=-0.05 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_APEX_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_CLOCK_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_BLOCKS=14:28 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_EDGES=wall in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_KINDS=0.4:0.4:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_PAD_R=1.7 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FLAT_TERRAIN_DIFF=0.20:1.0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FLAT_TERRAIN_GEOM=field in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CLOCK_HIDE=1 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:1.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_COM_XY=0.10 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_COM_Z=0.309 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_KG=0:90 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_ZERO_FRAC=0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PHASEOUT= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_TERRAIN_PROMOTE=0.7:0.4 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "diag",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      },
+      "X09:p3a": {
+        "phase": "p3a",
+        "tag": "seed18_X09_p3a_A15pB",
+        "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+        "mode": "2a",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22993.pt",
+        "status": "ok",
+        "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt",
+        "from_scratch": false,
+        "iters": 3000,
+        "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X09_p3a_A15pB_train.log",
+        "wall_h": 1.2667324521144232,
+        "env": {
+          "KRABBY_OMNI_PHASE": "2a",
+          "KRABBY_PLANT": "A15+B"
+        },
+        "overlay": {
+          "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+          "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+          "KRABBY_OMNI_DIR_BAND": "",
+          "KRABBY_OMNI_FACING": "0.2:1.2",
+          "KRABBY_YAW_W": "0.2",
+          "KRABBY_CLOCK_W": "0.001",
+          "KRABBY_APEX_W": "0.001",
+          "KRABBY_OMNI_CLOCK_HIDE": "1",
+          "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+          "KRABBY_RSI_FRAC": "0",
+          "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+          "KRABBY_ACTION_BOUND_LOSS": "0.001",
+          "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+          "KRABBY_ACTION_BOUND": "1.1",
+          "KRABBY_STD_PARAM": "soft",
+          "KRABBY_INIT_STD": "0.8",
+          "KRABBY_ENTROPY_COEF": "0.0025",
+          "KRABBY_ACTION_RATE_W": "-0.05",
+          "KRABBY_PPO_HAND_DIAG": "1",
+          "KRABBY_PHASEOUT": "",
+          "KRABBY_FLAT_TERRAIN_GEOM": "field",
+          "KRABBY_FIELD_PAD_R": "1.7",
+          "KRABBY_FIELD_BLOCKS": "14:28",
+          "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+          "KRABBY_FIELD_EDGES": "wall",
+          "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+          "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+          "KRABBY_PAYLOAD_KG": "0:90",
+          "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+          "KRABBY_PAYLOAD_COM_XY": "0.10",
+          "KRABBY_PAYLOAD_COM_Z": "0.309"
+        },
+        "xid": "X09",
+        "kind": "reference",
+        "seed": "18",
+        "evals": {},
+        "smoke": {
+          "fail_2k": 0.22139600000000004,
+          "fail_end": 0.29717799999999994,
+          "coll_2k": -0.001869,
+          "ep_len_2k": 1795.6725
+        },
+        "exposure": {
+          "reach_edge_frac": 0.9499700000000002,
+          "reach_obst_frac": 0.840935,
+          "field_frac_mean": 0.5176399999999999,
+          "field_steps_mean": 918.433455,
+          "goals_passed_mean": 1.6832400000000003,
+          "track_ratio_mean": 0.8094149999999999,
+          "track_ratio_move_mean": 0.8322900000000002,
+          "heading_err_rms_mean": 0.19694999999999996,
+          "block_steps_mean": 468.73132,
+          "r_max_mean": 3.36522,
+          "crab_failure_flat": 0.261215,
+          "crab_failure_obst": 0.38074,
+          "ep_steps_flat": 1733.3388400000003,
+          "ep_steps_obst": 1635.440855,
+          "rsi_frac_actual": 0.0,
+          "terrain_levels": 6.116915,
+          "how_far_from_start_point": 1.9512549999999997,
+          "current_goal_idx": 0.0,
+          "stand_frac_actual": 0.13202000000000003,
+          "move_frac_actual": 0.48014999999999997,
+          "turn_frac_actual": 0.07187,
+          "move_turn_frac_actual": 0.16803,
+          "failure_all": 0.27764,
+          "eplen": 1761.375,
+          "mean_reward": 61.156490000000005,
+          "vloss": 0.008309500000000003,
+          "track": 0.8642000000000001,
+          "pool_stand_frac": 0.13202000000000003,
+          "pool_stand_draws": 0.14611999999999997,
+          "pool_fwd_frac": 0.13218500000000002,
+          "pool_fwd_draws": 0.13773500000000002,
+          "pool_side_l_frac": 0.093915,
+          "pool_side_l_draws": 0.08842999999999998,
+          "pool_side_r_frac": 0.08183499999999999,
+          "pool_side_r_draws": 0.088245,
+          "pool_back_frac": 0.075505,
+          "pool_back_draws": 0.09313999999999999,
+          "pool_omni_frac": 0.09667,
+          "pool_omni_draws": 0.138565,
+          "pool_turn_frac": 0.07187,
+          "pool_turn_draws": 0.10823499999999997,
+          "pool_fwd_turn_frac": 0.06709999999999999,
+          "pool_fwd_turn_draws": 0.05915499999999999,
+          "pool_side_l_turn_frac": 0.026454999999999996,
+          "pool_side_l_turn_draws": 0.035675000000000005,
+          "pool_side_r_turn_frac": 0.019770000000000003,
+          "pool_side_r_turn_draws": 0.031325000000000006,
+          "pool_omni_turn_frac": 0.054694999999999994,
+          "pool_omni_turn_draws": 0.07337500000000001,
+          "prints": 3000
+        },
+        "track_ratio_tail": 0.8219209999999996,
+        "track_ratio_move_tail": 0.8443372000000008,
+        "pool_series_tail": {
+          "pool_stand_frac": 0.1042,
+          "pool_stand_draws": 0.1528,
+          "pool_fwd_frac": 0.125,
+          "pool_fwd_draws": 0.139,
+          "pool_side_l_frac": 0.1354,
+          "pool_side_l_draws": 0.0752,
+          "pool_side_r_frac": 0.1146,
+          "pool_side_r_draws": 0.0618,
+          "pool_back_frac": 0.0,
+          "pool_back_draws": 0.091,
+          "pool_omni_frac": 0.0625,
+          "pool_omni_draws": 0.1551,
+          "pool_turn_frac": 0.0417,
+          "pool_turn_draws": 0.1167,
+          "pool_fwd_turn_frac": 0.0625,
+          "pool_fwd_turn_draws": 0.0583,
+          "pool_side_l_turn_frac": 0.0625,
+          "pool_side_l_turn_draws": 0.0371,
+          "pool_side_r_turn_frac": 0.0,
+          "pool_side_r_turn_draws": 0.0272,
+          "pool_omni_turn_frac": 0.0423,
+          "pool_omni_turn_draws": 0.0859
+        },
+        "orig_tag": "seed18_X09_p3a_A15pB",
+        "checks": [
+          [
+            "plant is A15+B (params/env.yaml usd path)",
+            true
+          ],
+          [
+            "episode_length_s 40 in params",
+            true
+          ],
+          [
+            "experiment crab_hex_omni_teacher",
+            true
+          ],
+          [
+            "exposure telemetry logged (Metrics/base_parkour/reach_obst_frac)",
+            true
+          ],
+          [
+            "gait income telemetry logged (Episode_Reward/reward_clock_schedule)",
+            true
+          ],
+          [
+            "mirror-symmetry loss active (Loss/symmetry or mirror)",
+            true
+          ],
+          [
+            "terrain-promotion telemetry logged (Metrics/base_parkour/track_ratio_mean)",
+            true
+          ],
+          [
+            "yaw-progress reward logged (Episode_Reward/reward_yaw_progress)",
+            true
+          ],
+          [
+            "yaw-progress telemetry logged (Metrics/base_velocity/yaw_progress)",
+            true
+          ],
+          [
+            "omni parkour class (OmniParkourEvent) in params/env.yaml",
+            true
+          ],
+          [
+            "omni reset func (reset_root_state_ring) in params/env.yaml",
+            true
+          ],
+          [
+            "omni command class (CrabHexOmniCommand) in params/env.yaml",
+            true
+          ],
+          [
+            "omni obs func (CrabHexOmniParkourObservations) in params/env.yaml",
+            true
+          ],
+          [
+            "field generator installed (omni_field_sparse/omni_field_dense sub-terrains, no omni_ring_*) in params/env.yaml",
+            true
+          ],
+          [
+            "omni RSI bank path (rsi_bank_omni.npz) in params/env.yaml",
+            false
+          ]
+        ],
+        "overlay_checks": [
+          [
+            "overlay KRABBY_ACTION_BOUND=1.1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_LOSS=0.001 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ACTION_RATE_W=-0.05 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_APEX_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_CLOCK_W=0.001 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_ENTROPY_COEF=0.0025 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_BLOCKS=14:28 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_EDGES=wall in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_KINDS=0.4:0.4:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FIELD_PAD_R=1.7 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FLAT_TERRAIN_DIFF=0.20:1.0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_FLAT_TERRAIN_GEOM=field in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_INIT_STD=0.8 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CLOCK_HIDE=1 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_CMD_POOL=stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_DIR_BAND= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_FACING=0.2:1.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_MIRROR_IMAGES=fa in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SLOTS=0.15:0.55:0.1:0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_COM_XY=0.10 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_COM_Z=0.309 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_KG=0:90 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PAYLOAD_ZERO_FRAC=0.25 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PHASEOUT= in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_PPO_HAND_DIAG=1 in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_RSI_FRAC=0 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_STD_PARAM=soft in params/agent.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_TERRAIN_PROMOTE=0.7:0.4 in params/env.yaml",
+            true
+          ],
+          [
+            "overlay KRABBY_YAW_W=0.2 in params/env.yaml",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_LOSS consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND_RAMP consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_ACTION_BOUND consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_STD_PARAM consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_INIT_STD consumed",
+            true
+          ],
+          [
+            "log: [KNOB] KRABBY_PPO_HAND_DIAG consumed",
+            true
+          ],
+          [
+            "log: no PPO-construction field dropped by the runner",
+            true
+          ],
+          [
+            "log: Mean action_bound printed (the bound loss ran)",
+            true
+          ]
+        ],
+        "categories": {
+          "decisive": [
+            "stand",
+            "fwd",
+            "side",
+            "back",
+            "diag",
+            "turn",
+            "move_turn"
+          ],
+          "previous": []
+        },
+        "floor": {
+          "passed": true,
+          "why": "no floor at this stage"
+        },
+        "retention": []
+      }
+    }
+  },
+  "current": {
+    "tag": "seed18_X09_p3a_A15pB",
+    "phase": "2a",
+    "iters": 3000,
+    "kind": "rl",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/logs/seed18_X09_p3a_A15pB_train.log",
+    "resume": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt",
+    "target_final": 22993,
+    "started": "2026-10-17T02:52:10",
+    "extra_env": {
+      "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+      "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+      "KRABBY_OMNI_DIR_BAND": "",
+      "KRABBY_OMNI_FACING": "0.2:1.2",
+      "KRABBY_YAW_W": "0.2",
+      "KRABBY_CLOCK_W": "0.001",
+      "KRABBY_APEX_W": "0.001",
+      "KRABBY_OMNI_CLOCK_HIDE": "1",
+      "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+      "KRABBY_RSI_FRAC": "0",
+      "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+      "KRABBY_ACTION_BOUND_LOSS": "0.001",
+      "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+      "KRABBY_ACTION_BOUND": "1.1",
+      "KRABBY_STD_PARAM": "soft",
+      "KRABBY_INIT_STD": "0.8",
+      "KRABBY_ENTROPY_COEF": "0.0025",
+      "KRABBY_ACTION_RATE_W": "-0.05",
+      "KRABBY_PPO_HAND_DIAG": "1",
+      "KRABBY_PHASEOUT": "",
+      "KRABBY_FLAT_TERRAIN_GEOM": "field",
+      "KRABBY_FIELD_PAD_R": "1.7",
+      "KRABBY_FIELD_BLOCKS": "14:28",
+      "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+      "KRABBY_FIELD_EDGES": "wall",
+      "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+      "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+      "KRABBY_PAYLOAD_KG": "0:90",
+      "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+      "KRABBY_PAYLOAD_COM_XY": "0.10",
+      "KRABBY_PAYLOAD_COM_Z": "0.309"
+    }
+  },
+  "ladder": {
+    "candidates_sha256": "c22448fe567bae56fbb56651e58d5f81a3110c18c7c145ca4fad6d8be858dc2c",
+    "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+    "unit": "cands-stepC-1792219929",
+    "resolution_ids": [
+      "D01"
+    ],
+    "pending": [],
+    "user_choice": {},
+    "experiments": {
+      "X01": {
+        "xid": "X01",
+        "kind": "reference",
+        "candidate": "PC_s1_s18",
+        "seed": "18",
+        "label": "ref:PC_s1_s18 s18",
+        "chain": "PC_s1_s18",
+        "base_recipe_id": "416fa9161a53",
+        "recipe_id": "416fa9161a53",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "s1": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "0",
+            "KRABBY_PPO_HAND_DIAG": "1"
+          }
+        },
+        "started": "2026-10-16T22:17:23",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-17-33_seed18_X01_s1_A15pB/model_19.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X01:s1"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "s1"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "s1",
+            "base": "1b",
+            "iters": 20,
+            "from_scratch": true,
+            "resume_from": "scratch",
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "0",
+              "KRABBY_PPO_HAND_DIAG": "1"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "fwd",
+              "side",
+              "stand"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "s1": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 0.6,
+            "encoding": "raw",
+            "notes": [
+              "turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X02": {
+        "xid": "X02",
+        "kind": "reference",
+        "candidate": "PC_c4_s18",
+        "seed": "18",
+        "label": "ref:PC_c4_s18 s18",
+        "chain": "PC_c4_s18",
+        "base_recipe_id": "997dba04d3c4",
+        "recipe_id": "997dba04d3c4",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "c4": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025",
+            "KRABBY_OMNI_SLOTS": "0.15:0.6:0.15:0.1",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:0.6",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "0",
+            "KRABBY_PPO_HAND_DIAG": "1"
+          }
+        },
+        "started": "2026-10-16T22:19:43",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-19-53_seed18_X02_c4_A15pB/model_6018.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X02:c4"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "c4"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "c4",
+            "base": "1a",
+            "iters": 20,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/1_fb6k/model_5999.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025",
+              "KRABBY_OMNI_SLOTS": "0.15:0.6:0.15:0.1",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:0.6",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "0",
+              "KRABBY_PPO_HAND_DIAG": "1"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "c4": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 0.6,
+            "encoding": "raw",
+            "notes": [
+              "turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X03": {
+        "xid": "X03",
+        "kind": "reference",
+        "candidate": "PC_c5_s18",
+        "seed": "18",
+        "label": "ref:PC_c5_s18 s18",
+        "chain": "PC_c5_s18",
+        "base_recipe_id": "8f54fb86216f",
+        "recipe_id": "8f54fb86216f",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "c5": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04",
+            "KRABBY_OMNI_SLOTS": "0.15:0.6:0.1:0.15",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:0.6",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "0",
+            "KRABBY_PPO_HAND_DIAG": "1"
+          }
+        },
+        "started": "2026-10-16T22:22:03",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-22-14_seed18_X03_c5_A15pB/model_7517.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X03:c5"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "c5"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "c5",
+            "base": "1a",
+            "iters": 20,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/2_c4/model_7498.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04",
+              "KRABBY_OMNI_SLOTS": "0.15:0.6:0.1:0.15",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:0.6",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "0",
+              "KRABBY_PPO_HAND_DIAG": "1"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "diag",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "c5": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "diag": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 0.6,
+            "encoding": "raw",
+            "notes": [
+              "omni 0.150: fwd, side, back, diag decisive by uniform-bearing support",
+              "turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X04": {
+        "xid": "X04",
+        "kind": "reference",
+        "candidate": "PC_c6_s18",
+        "seed": "18",
+        "label": "ref:PC_c6_s18 s18",
+        "chain": "PC_c6_s18",
+        "base_recipe_id": "d65f523d99ea",
+        "recipe_id": "d65f523d99ea",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "c6": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+            "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:0.6",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "0",
+            "KRABBY_PPO_HAND_DIAG": "1"
+          }
+        },
+        "started": "2026-10-16T22:24:23",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-24-34_seed18_X04_c6_A15pB/model_9016.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X04:c6"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "c6"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "c6",
+            "base": "1a",
+            "iters": 20,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/3_c5/model_8997.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+              "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:0.6",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "0",
+              "KRABBY_PPO_HAND_DIAG": "1"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "diag",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "c6": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "diag": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 0.6,
+            "encoding": "raw",
+            "notes": [
+              "omni 0.140: fwd, side, back, diag decisive by uniform-bearing support",
+              "turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X05": {
+        "xid": "X05",
+        "kind": "reference",
+        "candidate": "PC_c6x_s18",
+        "seed": "18",
+        "label": "ref:PC_c6x_s18 s18",
+        "chain": "PC_c6x_s18",
+        "base_recipe_id": "c5e3b5ee7997",
+        "recipe_id": "c5e3b5ee7997",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "c6x": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+            "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:0.6",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_CLOCK_W": "0.001",
+            "KRABBY_APEX_W": "0.001",
+            "KRABBY_OMNI_CLOCK_HIDE": "1",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "0",
+            "KRABBY_PPO_HAND_DIAG": "1"
+          }
+        },
+        "started": "2026-10-16T22:26:44",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-26-54_seed18_X05_c6x_A15pB/model_11015.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X05:c6x"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "c6x"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "c6x",
+            "base": "1a",
+            "iters": 20,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/4_c6/model_10996.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+              "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:0.6",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_CLOCK_W": "0.001",
+              "KRABBY_APEX_W": "0.001",
+              "KRABBY_OMNI_CLOCK_HIDE": "1",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "0",
+              "KRABBY_PPO_HAND_DIAG": "1"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "diag",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "c6x": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "diag": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 0.6,
+            "encoding": "raw",
+            "notes": [
+              "omni 0.140: fwd, side, back, diag decisive by uniform-bearing support",
+              "turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X06": {
+        "xid": "X06",
+        "kind": "reference",
+        "candidate": "PC_p2a_s18",
+        "seed": "18",
+        "label": "ref:PC_p2a_s18 s18",
+        "chain": "PC_p2a_s18",
+        "base_recipe_id": "512c4327bf5a",
+        "recipe_id": "512c4327bf5a",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "p2a": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+            "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:1.2",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_CLOCK_W": "0.001",
+            "KRABBY_APEX_W": "0.001",
+            "KRABBY_OMNI_CLOCK_HIDE": "1",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "-0.05",
+            "KRABBY_PPO_HAND_DIAG": "1",
+            "KRABBY_PHASEOUT": "",
+            "KRABBY_FLAT_TERRAIN_GEOM": "field",
+            "KRABBY_FIELD_PAD_R": "1.7",
+            "KRABBY_FIELD_BLOCKS": "14:28",
+            "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+            "KRABBY_FIELD_EDGES": "wall",
+            "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+            "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"
+          }
+        },
+        "started": "2026-10-16T22:29:04",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_22-29-14_seed18_X06_p2a_A15pB/model_15014.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X06:p2a"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "p2a"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "p2a",
+            "base": "2a",
+            "iters": 20,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/5_c6x_clockfree/model_14995.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+              "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:1.2",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_CLOCK_W": "0.001",
+              "KRABBY_APEX_W": "0.001",
+              "KRABBY_OMNI_CLOCK_HIDE": "1",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "-0.05",
+              "KRABBY_PPO_HAND_DIAG": "1",
+              "KRABBY_PHASEOUT": "",
+              "KRABBY_FLAT_TERRAIN_GEOM": "field",
+              "KRABBY_FIELD_PAD_R": "1.7",
+              "KRABBY_FIELD_BLOCKS": "14:28",
+              "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+              "KRABBY_FIELD_EDGES": "wall",
+              "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+              "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "diag",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "p2a": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "diag": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 1.2,
+            "encoding": "raw",
+            "notes": [
+              "omni 0.140: fwd, side, back, diag decisive by uniform-bearing support",
+              "turn: demand 1.571 rad > FACING band 1.200; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X07": {
+        "xid": "X07",
+        "kind": "reference",
+        "candidate": "PC_s1pay00_s18",
+        "seed": "18",
+        "label": "ref:PC_s1pay00_s18 s18",
+        "chain": "PC_s1pay00_s18",
+        "base_recipe_id": "5791c2a32076",
+        "recipe_id": "5791c2a32076",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "s1": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "0",
+            "KRABBY_PPO_HAND_DIAG": "1",
+            "KRABBY_PAYLOAD_KG": "0:0",
+            "KRABBY_PAYLOAD_ZERO_FRAC": "1",
+            "KRABBY_PAYLOAD_COM_XY": "0",
+            "KRABBY_PAYLOAD_COM_Z": "0.309"
+          }
+        },
+        "started": "2026-10-16T22:31:24",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-31-35_seed18_X07_s1_A15pB/model_19.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X07:s1"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "s1"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "s1",
+            "base": "1b",
+            "iters": 20,
+            "from_scratch": true,
+            "resume_from": "scratch",
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_SLOTS": "0.2:0.8:0:0",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "0",
+              "KRABBY_PPO_HAND_DIAG": "1",
+              "KRABBY_PAYLOAD_KG": "0:0",
+              "KRABBY_PAYLOAD_ZERO_FRAC": "1",
+              "KRABBY_PAYLOAD_COM_XY": "0",
+              "KRABBY_PAYLOAD_COM_Z": "0.309"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "fwd",
+              "side",
+              "stand"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "s1": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 0.6,
+            "encoding": "raw",
+            "notes": [
+              "turn: demand 1.571 rad > FACING band 0.600; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X08": {
+        "xid": "X08",
+        "kind": "reference",
+        "candidate": "PT_p3a_s18",
+        "seed": "18",
+        "label": "ref:PT_p3a_s18 s18",
+        "chain": "PT_p3a_s18",
+        "base_recipe_id": "420cd41eb866",
+        "recipe_id": "420cd41eb866",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "p3a": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+            "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:1.2",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_CLOCK_W": "0.001",
+            "KRABBY_APEX_W": "0.001",
+            "KRABBY_OMNI_CLOCK_HIDE": "1",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "-0.05",
+            "KRABBY_PPO_HAND_DIAG": "1",
+            "KRABBY_PHASEOUT": "",
+            "KRABBY_FLAT_TERRAIN_GEOM": "field",
+            "KRABBY_FIELD_PAD_R": "1.7",
+            "KRABBY_FIELD_BLOCKS": "14:28",
+            "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+            "KRABBY_FIELD_EDGES": "wall",
+            "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+            "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+            "KRABBY_PAYLOAD_KG": "0:90",
+            "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+            "KRABBY_PAYLOAD_COM_XY": "0.10",
+            "KRABBY_PAYLOAD_COM_Z": "0.309"
+          }
+        },
+        "started": "2026-10-17T01:22:19",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_01-22-30_seed18_X08_p3a_A15pB/model_20093.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X08:p3a"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "p3a"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "p3a",
+            "base": "2a",
+            "iters": 100,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+              "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:1.2",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_CLOCK_W": "0.001",
+              "KRABBY_APEX_W": "0.001",
+              "KRABBY_OMNI_CLOCK_HIDE": "1",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "-0.05",
+              "KRABBY_PPO_HAND_DIAG": "1",
+              "KRABBY_PHASEOUT": "",
+              "KRABBY_FLAT_TERRAIN_GEOM": "field",
+              "KRABBY_FIELD_PAD_R": "1.7",
+              "KRABBY_FIELD_BLOCKS": "14:28",
+              "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+              "KRABBY_FIELD_EDGES": "wall",
+              "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+              "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+              "KRABBY_PAYLOAD_KG": "0:90",
+              "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+              "KRABBY_PAYLOAD_COM_XY": "0.10",
+              "KRABBY_PAYLOAD_COM_Z": "0.309"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "diag",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "p3a": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "diag": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 1.2,
+            "encoding": "raw",
+            "notes": [
+              "omni 0.140: fwd, side, back, diag decisive by uniform-bearing support",
+              "turn: demand 1.571 rad > FACING band 1.200; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      },
+      "X09": {
+        "xid": "X09",
+        "kind": "reference",
+        "candidate": "PP_p3a_s18",
+        "seed": "18",
+        "label": "ref:PP_p3a_s18 s18",
+        "chain": "PP_p3a_s18",
+        "base_recipe_id": "419551582703",
+        "recipe_id": "419551582703",
+        "base_rank": {
+          "upto": null,
+          "inclusive": false
+        },
+        "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+        "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+        "overlay_by_stage": {
+          "p3a": {
+            "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+            "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+            "KRABBY_OMNI_DIR_BAND": "",
+            "KRABBY_OMNI_FACING": "0.2:1.2",
+            "KRABBY_YAW_W": "0.2",
+            "KRABBY_CLOCK_W": "0.001",
+            "KRABBY_APEX_W": "0.001",
+            "KRABBY_OMNI_CLOCK_HIDE": "1",
+            "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+            "KRABBY_RSI_FRAC": "0",
+            "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+            "KRABBY_ACTION_BOUND_LOSS": "0.001",
+            "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+            "KRABBY_ACTION_BOUND": "1.1",
+            "KRABBY_STD_PARAM": "soft",
+            "KRABBY_INIT_STD": "0.8",
+            "KRABBY_ENTROPY_COEF": "0.0025",
+            "KRABBY_ACTION_RATE_W": "-0.05",
+            "KRABBY_PPO_HAND_DIAG": "1",
+            "KRABBY_PHASEOUT": "",
+            "KRABBY_FLAT_TERRAIN_GEOM": "field",
+            "KRABBY_FIELD_PAD_R": "1.7",
+            "KRABBY_FIELD_BLOCKS": "14:28",
+            "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+            "KRABBY_FIELD_EDGES": "wall",
+            "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+            "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+            "KRABBY_PAYLOAD_KG": "0:90",
+            "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+            "KRABBY_PAYLOAD_COM_XY": "0.10",
+            "KRABBY_PAYLOAD_COM_Z": "0.309"
+          }
+        },
+        "started": "2026-10-17T02:52:10",
+        "inflight": null,
+        "status": "ok",
+        "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22993.pt",
+        "eval_dirs": [],
+        "recs": [
+          "X09:p3a"
+        ],
+        "decision": null,
+        "eligibility": null,
+        "stages": [
+          "p3a"
+        ],
+        "eval_carry": [],
+        "adopted": [],
+        "anchor": null,
+        "stage_specs": [
+          {
+            "stage": "p3a",
+            "base": "2a",
+            "iters": 3000,
+            "from_scratch": false,
+            "resume_from": {
+              "checkpoint": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt"
+            },
+            "overlay": {
+              "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+              "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+              "KRABBY_OMNI_DIR_BAND": "",
+              "KRABBY_OMNI_FACING": "0.2:1.2",
+              "KRABBY_YAW_W": "0.2",
+              "KRABBY_CLOCK_W": "0.001",
+              "KRABBY_APEX_W": "0.001",
+              "KRABBY_OMNI_CLOCK_HIDE": "1",
+              "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+              "KRABBY_RSI_FRAC": "0",
+              "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+              "KRABBY_ACTION_BOUND_LOSS": "0.001",
+              "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+              "KRABBY_ACTION_BOUND": "1.1",
+              "KRABBY_STD_PARAM": "soft",
+              "KRABBY_INIT_STD": "0.8",
+              "KRABBY_ENTROPY_COEF": "0.0025",
+              "KRABBY_ACTION_RATE_W": "-0.05",
+              "KRABBY_PPO_HAND_DIAG": "1",
+              "KRABBY_PHASEOUT": "",
+              "KRABBY_FLAT_TERRAIN_GEOM": "field",
+              "KRABBY_FIELD_PAD_R": "1.7",
+              "KRABBY_FIELD_BLOCKS": "14:28",
+              "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+              "KRABBY_FIELD_EDGES": "wall",
+              "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+              "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+              "KRABBY_PAYLOAD_KG": "0:90",
+              "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+              "KRABBY_PAYLOAD_COM_XY": "0.10",
+              "KRABBY_PAYLOAD_COM_Z": "0.309"
+            },
+            "eval": [],
+            "categories": [
+              "back",
+              "diag",
+              "fwd",
+              "move_turn",
+              "side",
+              "stand",
+              "turn"
+            ],
+            "floor": {
+              "kind": "none"
+            },
+            "previous_holds": [],
+            "previous_categories": []
+          }
+        ],
+        "supersedes": [],
+        "trained_categories_by_stage": {
+          "p3a": {
+            "decisive": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "present": [
+              "stand",
+              "fwd",
+              "side",
+              "back",
+              "diag",
+              "turn",
+              "move_turn"
+            ],
+            "watch": {},
+            "hands": {
+              "side": [
+                "l",
+                "r"
+              ],
+              "turn": [
+                "l",
+                "r"
+              ],
+              "move_turn": [
+                "l",
+                "r"
+              ]
+            },
+            "demand": {
+              "stand": 1.0,
+              "fwd": 1.0,
+              "side": 1.0,
+              "back": 1.0,
+              "diag": 1.0,
+              "turn": 1.0,
+              "move_turn": 1.0
+            },
+            "source": "pool",
+            "facing_band_hi": 1.2,
+            "encoding": "raw",
+            "notes": [
+              "omni 0.140: fwd, side, back, diag decisive by uniform-bearing support",
+              "turn: demand 1.571 rad > FACING band 1.200; encoding raw clips at 0.6"
+            ]
+          }
+        },
+        "screen": {},
+        "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+      }
+    },
+    "squashed": {},
+    "applied_overrides": [],
+    "stage_trace": {},
+    "d03": null,
+    "eval_sha_history": [
+      {
+        "from": null,
+        "to": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+        "why": null,
+        "at": "2026-10-16T22:17:23",
+        "alias": null
+      }
+    ],
+    "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+    "references": {
+      "PC_s1_s18": [
+        {
+          "xid": "X01",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-17-33_seed18_X01_s1_A15pB/model_19.pt",
+          "stage_ckpts": {
+            "s1": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-17-33_seed18_X01_s1_A15pB/model_19.pt"
+          },
+          "recipe_id": "416fa9161a53",
+          "chain": "PC_s1_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:19:23"
+        }
+      ],
+      "PC_c4_s18": [
+        {
+          "xid": "X02",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-19-53_seed18_X02_c4_A15pB/model_6018.pt",
+          "stage_ckpts": {
+            "c4": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-19-53_seed18_X02_c4_A15pB/model_6018.pt"
+          },
+          "recipe_id": "997dba04d3c4",
+          "chain": "PC_c4_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:21:43"
+        }
+      ],
+      "PC_c5_s18": [
+        {
+          "xid": "X03",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-22-14_seed18_X03_c5_A15pB/model_7517.pt",
+          "stage_ckpts": {
+            "c5": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-22-14_seed18_X03_c5_A15pB/model_7517.pt"
+          },
+          "recipe_id": "8f54fb86216f",
+          "chain": "PC_c5_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:24:03"
+        }
+      ],
+      "PC_c6_s18": [
+        {
+          "xid": "X04",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-24-34_seed18_X04_c6_A15pB/model_9016.pt",
+          "stage_ckpts": {
+            "c6": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-24-34_seed18_X04_c6_A15pB/model_9016.pt"
+          },
+          "recipe_id": "d65f523d99ea",
+          "chain": "PC_c6_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:26:23"
+        }
+      ],
+      "PC_c6x_s18": [
+        {
+          "xid": "X05",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-26-54_seed18_X05_c6x_A15pB/model_11015.pt",
+          "stage_ckpts": {
+            "c6x": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-26-54_seed18_X05_c6x_A15pB/model_11015.pt"
+          },
+          "recipe_id": "c5e3b5ee7997",
+          "chain": "PC_c6x_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:28:44"
+        }
+      ],
+      "PC_p2a_s18": [
+        {
+          "xid": "X06",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_22-29-14_seed18_X06_p2a_A15pB/model_15014.pt",
+          "stage_ckpts": {
+            "p2a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_22-29-14_seed18_X06_p2a_A15pB/model_15014.pt"
+          },
+          "recipe_id": "512c4327bf5a",
+          "chain": "PC_p2a_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:31:04"
+        }
+      ],
+      "PC_s1pay00_s18": [
+        {
+          "xid": "X07",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-31-35_seed18_X07_s1_A15pB/model_19.pt",
+          "stage_ckpts": {
+            "s1": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_22-31-35_seed18_X07_s1_A15pB/model_19.pt"
+          },
+          "recipe_id": "5791c2a32076",
+          "chain": "PC_s1pay00_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-16T22:33:24"
+        }
+      ],
+      "PT_p3a_s18": [
+        {
+          "xid": "X08",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_01-22-30_seed18_X08_p3a_A15pB/model_20093.pt",
+          "stage_ckpts": {
+            "p3a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_01-22-30_seed18_X08_p3a_A15pB/model_20093.pt"
+          },
+          "recipe_id": "420cd41eb866",
+          "chain": "PT_p3a_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-17T01:26:19"
+        }
+      ],
+      "PP_p3a_s18": [
+        {
+          "xid": "X09",
+          "seed": "18",
+          "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22993.pt",
+          "stage_ckpts": {
+            "p3a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22993.pt"
+          },
+          "recipe_id": "419551582703",
+          "chain": "PP_p3a_s18",
+          "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+          "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+          "floor_watch": [],
+          "at": "2026-10-17T04:08:12"
+        }
+      ]
+    }
+  }
+}

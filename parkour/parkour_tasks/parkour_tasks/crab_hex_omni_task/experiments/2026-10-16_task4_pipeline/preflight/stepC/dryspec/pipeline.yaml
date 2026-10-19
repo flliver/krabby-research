@@ -796,6 +796,8 @@ stand:
   sh_manifest: experiments/2026-10-13_stand_height/scenarios_sh.yaml
 live:
   poll_s: 30
+  progress_watchdog_min: 30
+  term_grace_s: 120
   collapse:
     after: 300
     roll: 200
@@ -825,3 +827,4 @@ live:
     ep_len_frac: 0.8
     crab_failure_margin: 0.1
     roll: 50
+    loss_rule: kill

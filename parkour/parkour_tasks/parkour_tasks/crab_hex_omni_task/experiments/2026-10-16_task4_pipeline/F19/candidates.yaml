@@ -476,9 +476,7 @@ chains:
     stages:
     - stage: p3a
       base: 2a
-      iters: 'PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio
-        and survival moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a /
-        p3b / p3c'
+      iters: 3000
       from_scratch: false
       resume_from:
         reference: F19_p2a
@@ -532,9 +530,7 @@ chains:
     stages:
     - stage: p3b
       base: 2a
-      iters: 'PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio
-        and survival moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a /
-        p3b / p3c'
+      iters: 3000
       from_scratch: false
       resume_from:
         reference: F19_p3a
@@ -588,9 +584,7 @@ chains:
     stages:
     - stage: p3c
       base: 2a
-      iters: 'PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio
-        and survival moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a /
-        p3b / p3c'
+      iters: 3000
       from_scratch: false
       resume_from:
         reference: F19_p3b

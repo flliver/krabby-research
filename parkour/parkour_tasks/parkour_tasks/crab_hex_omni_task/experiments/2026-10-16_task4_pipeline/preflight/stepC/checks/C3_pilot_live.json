@@ -1,0 +1,36 @@
+{
+ "check": "C3_pilot_live",
+ "class": "stop",
+ "first": 19994,
+ "last": 22993,
+ "max_crab_failure_roll": 0.36312662735581397,
+ "min_ep_len_over_kill_line": 1.7466921128957829,
+ "note": "calibration under load: margins reported (unvalidated rule)",
+ "pilot_run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB",
+ "replay": {
+  "killed_at": null,
+  "polls": 59,
+  "watch_first": null
+ },
+ "resume_read": {
+  "fails": [],
+  "rc": 0,
+  "reads": {
+   "Loss/action_bound_coef": {
+    "fork_first": 0.0010000000474974513,
+    "source_last": 0.0010000000474974513
+   },
+   "Loss/priv_reg_coef": {
+    "fork_first": 0.10000000149011612,
+    "source_last": 0.10000000149011612
+   },
+   "std": {
+    "fork_first": 0.8196024298667908,
+    "source_last": 0.8196230530738831
+   }
+  },
+  "rule": "resume"
+ },
+ "source_tail_ep_len": 1876.7796960449218,
+ "verdict": "PASS"
+}

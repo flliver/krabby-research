@@ -1,0 +1,249 @@
+{
+ "armed00_vs_off": {
+  "differ": [],
+  "kg_mean_max": 0.0,
+  "only_armed_tags": [
+   "Payload/kg_mean",
+   "Payload/loaded_frac"
+  ],
+  "pass": true,
+  "payload_term_in_env_yaml": true,
+  "strict_bitwise": true
+ },
+ "check": "C1",
+ "class": "stop",
+ "dumps": {
+  "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/dumps",
+  "ref": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dump_ref",
+  "targets": {
+   "ovl_c4": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "ovl_c5": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "ovl_c6": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "ovl_c6x": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "ovl_fb6k": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "ovl_p2a": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_1a": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_1b": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_1c": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_2a": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_2b": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_2c": {
+    "identical": true,
+    "payload_term_present": false
+   },
+   "preset_2c_clockheld": {
+    "identical": true,
+    "payload_term_present": false
+   }
+  }
+ },
+ "pconfig": {
+  "c4": {
+   "not_allowed": [],
+   "pass": true
+  },
+  "c5": {
+   "not_allowed": [],
+   "pass": true
+  },
+  "c6": {
+   "not_allowed": [],
+   "pass": true
+  },
+  "c6x": {
+   "not_allowed": [],
+   "pass": true
+  },
+  "p2a": {
+   "not_allowed": [],
+   "pass": true
+  },
+  "s1": {
+   "not_allowed": [],
+   "pass": true
+  }
+ },
+ "pearly_vs_X43": {
+  "bitwise": 142,
+  "design_bitwise": "142/144 bitwise (DESIGN 112/116)",
+  "differ": [
+   {
+    "first_step": 0,
+    "max_abs": 2.9802322387695312e-08,
+    "max_ulp": 1,
+    "rule": "<= 4 ULP when every other non-timing tag is bitwise (STOP-0 amendment)",
+    "tag": "Loss/hist_latent",
+    "tolerated": true
+   },
+   {
+    "first_step": 1,
+    "max_abs": 1.3113021850585938e-06,
+    "max_ulp": 44,
+    "rule": "|d| <= 2e-06",
+    "tag": "Loss/priv_reg",
+    "tolerated": true
+   }
+  ],
+  "pass": true,
+  "shared": 148
+ },
+ "rows": {
+  "C1_S1_field_hard": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_S1/field_hard__omni/seed001/2026-10-17_02-41-04"
+  },
+  "C1_S1_suite": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_S1/suite__omni/seed001/2026-10-17_02-33-54"
+  },
+  "C1_S1_suite_L000": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "payload_problems": [],
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_S1L000/suite__omni/seed001/2026-10-17_03-12-55"
+  },
+  "C1_S1_suite_body": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_S1body/suite__omni_body/seed001/2026-10-17_02-44-45"
+  },
+  "C1_X10_suite": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_X10/suite__omni/seed001/2026-10-17_03-05-54"
+  },
+  "C1_X43_suite": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_X43/suite__omni/seed001/2026-10-17_02-51-48"
+  },
+  "C1_X60_suite": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": null,
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": null,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_X60/suite__omni/seed001/2026-10-17_02-58-51"
+  },
+  "C1_fwd3a_cur": {
+   "completion": 0.75,
+   "expected": "0.75 / 25 falls (FWD policy README)",
+   "n": 100,
+   "split_vs_recorded_0.79": 0.040000000000000036,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_cur/slow__A15pB/seed001/2026-10-17_03-21-36"
+  },
+  "C1_fwd3a_old": {
+   "aggregate_keys_differ": null,
+   "allowed_new_raw_keys": [
+    "clock_cmd_speed",
+    "clock_running",
+    "rod_speed"
+   ],
+   "bitwise": true,
+   "metrics_equal_whole": true,
+   "n_value_mismatch": 0,
+   "new_only_aggregate_keys": [],
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_old/slow__A15pB/seed001/2026-10-17_03-19-58"
+  }
+ },
+ "s1_vs_A2": {
+  "design_bitwise": "146/148 bitwise (DESIGN 112/116)",
+  "differ": [
+   {
+    "first_step": 0,
+    "max_abs": 2.9802322387695312e-08,
+    "max_ulp": 1,
+    "rule": "<= 4 ULP when every other non-timing tag is bitwise (STOP-0 amendment)",
+    "tag": "Loss/hist_latent",
+    "tolerated": true
+   },
+   {
+    "first_step": 1,
+    "max_abs": 1.430511474609375e-06,
+    "max_ulp": 48,
+    "rule": "|d| <= 2e-06",
+    "tag": "Loss/priv_reg",
+    "tolerated": true
+   }
+  ],
+  "pass": true,
+  "strict_bitwise": false
+ },
+ "verdict": "PASS"
+}

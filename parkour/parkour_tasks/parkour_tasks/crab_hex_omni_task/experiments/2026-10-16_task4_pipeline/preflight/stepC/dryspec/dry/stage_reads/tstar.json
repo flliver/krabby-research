@@ -1,0 +1,19 @@
+{
+ "stage": "p3a",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-59-28_seed18_X07_p3a_A15pB/model_133.pt",
+ "sha256": "0f30014ebee3b74e25d13b678fafafccb37fbb8c88a81978fa1ccb3cfce180ff",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-59-28_seed18_X07_p3a_A15pB",
+ "iteration": 133,
+ "max_stable": null,
+ "candidates": [
+  {
+   "stage": "p3a",
+   "max_stable": null,
+   "zero_kg": "FAIL",
+   "accepted": true,
+   "max_margin_used": 3.4343872503237782
+  }
+ ],
+ "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/dry/seed18_X07_p3a_A15pB/suite__omni/seed001/2026-10-19_06-01-27",
+ "label": "sim plant, force side not enforced"
+}

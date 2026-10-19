@@ -1,0 +1,260 @@
+{
+ "check": "C4_camera",
+ "class": "stop",
+ "field": {
+  "front": {
+   "attr": "depth_camera_front",
+   "axis_quat_deg_max": 0.01978234015405178,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 1.9836541414260864,
+   "band_hi_min": 1.8879215717315674,
+   "band_lo_max": 0.3794324994087219,
+   "band_lo_median": 0.3793288767337799,
+   "block_envs": 255,
+   "block_rays": 5598,
+   "cover_share": 1.0,
+   "in_range_rays_median": 2920,
+   "n_reads": 256,
+   "pitch_down_deg": 55.0,
+   "predicted_band": {
+    "from": 0.37,
+    "look_axis": "+x",
+    "rows_hitting_ground_within_2m": 0.77,
+    "to": 1.98
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.5,
+    "look_axis": "+x",
+    "met": true,
+    "to": 1.2
+   },
+   "yaw_deg": 0.0
+  },
+  "left": {
+   "attr": "depth_camera_left",
+   "axis_quat_deg_max": 0.02797645516693592,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 2.2494285106658936,
+   "band_hi_min": 2.1829330921173096,
+   "band_lo_max": 0.634598433971405,
+   "band_lo_median": 0.6344565153121948,
+   "block_envs": 253,
+   "block_rays": 11066,
+   "cover_share": 1.0,
+   "in_range_rays_median": 3572,
+   "n_reads": 256,
+   "pitch_down_deg": 54.0,
+   "predicted_band": {
+    "from": 0.62,
+    "if_v_is_55deg": {
+     "from": 0.8,
+     "to": 2.24
+    },
+    "look_axis": "+y",
+    "rows_hitting_ground_within_2m": 0.74,
+    "to": 2.24
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.75,
+    "look_axis": "+y",
+    "met": true,
+    "note": "front target re-based on the side face (0.610 + 0.14 .. 0.610 + 0.84 m); covers the toe envelope (~1.55 m lateral) only partly -- the band continues to 2.24 m",
+    "to": 1.45
+   },
+   "yaw_deg": 90.0
+  },
+  "rear": {
+   "attr": "depth_camera_rear",
+   "axis_quat_deg_max": 0.02797645516693592,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 1.9777604341506958,
+   "band_hi_min": 1.9223065376281738,
+   "band_lo_max": 0.37963157892227173,
+   "band_lo_median": 0.37946945428848267,
+   "block_envs": 251,
+   "block_rays": 6948,
+   "cover_share": 1.0,
+   "in_range_rays_median": 3569,
+   "n_reads": 256,
+   "pitch_down_deg": 54.0,
+   "predicted_band": {
+    "from": 0.37,
+    "look_axis": "-x",
+    "rows_hitting_ground_within_2m": 0.74,
+    "to": 1.98
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.5,
+    "look_axis": "-x",
+    "met": true,
+    "to": 1.2
+   },
+   "yaw_deg": 180.0
+  },
+  "right": {
+   "attr": "depth_camera_right",
+   "axis_quat_deg_max": 0.01978234015405178,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 2.2494497299194336,
+   "band_hi_min": 2.1311593055725098,
+   "band_lo_max": 0.6345672011375427,
+   "band_lo_median": 0.634463906288147,
+   "block_envs": 255,
+   "block_rays": 12763,
+   "cover_share": 1.0,
+   "in_range_rays_median": 3573,
+   "n_reads": 256,
+   "pitch_down_deg": 54.0,
+   "predicted_band": {
+    "from": 0.62,
+    "if_v_is_55deg": {
+     "from": 0.8,
+     "to": 2.24
+    },
+    "look_axis": "-y",
+    "rows_hitting_ground_within_2m": 0.74,
+    "to": 2.24
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.75,
+    "look_axis": "-y",
+    "met": true,
+    "to": 1.45
+   },
+   "yaw_deg": -90.0
+  }
+ },
+ "field_block_envs_total": 1014,
+ "flat": {
+  "front": {
+   "attr": "depth_camera_front",
+   "axis_quat_deg_max": 0.01978234015405178,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 1.9844486713409424,
+   "band_hi_min": 1.9155337810516357,
+   "band_lo_max": 0.37943950295448303,
+   "band_lo_median": 0.3793356418609619,
+   "block_envs": 256,
+   "block_rays": 11190,
+   "cover_share": 1.0,
+   "in_range_rays_median": 2921,
+   "n_reads": 256,
+   "pitch_down_deg": 55.0,
+   "predicted_band": {
+    "from": 0.37,
+    "look_axis": "+x",
+    "rows_hitting_ground_within_2m": 0.77,
+    "to": 1.98
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.5,
+    "look_axis": "+x",
+    "met": true,
+    "to": 1.2
+   },
+   "yaw_deg": 0.0
+  },
+  "left": {
+   "attr": "depth_camera_left",
+   "axis_quat_deg_max": 0.02797645516693592,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 2.250988006591797,
+   "band_hi_min": 2.201547861099243,
+   "band_lo_max": 0.6345771551132202,
+   "band_lo_median": 0.6344656944274902,
+   "block_envs": 255,
+   "block_rays": 13250,
+   "cover_share": 1.0,
+   "in_range_rays_median": 3566,
+   "n_reads": 256,
+   "pitch_down_deg": 54.0,
+   "predicted_band": {
+    "from": 0.62,
+    "if_v_is_55deg": {
+     "from": 0.8,
+     "to": 2.24
+    },
+    "look_axis": "+y",
+    "rows_hitting_ground_within_2m": 0.74,
+    "to": 2.24
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.75,
+    "look_axis": "+y",
+    "met": true,
+    "note": "front target re-based on the side face (0.610 + 0.14 .. 0.610 + 0.84 m); covers the toe envelope (~1.55 m lateral) only partly -- the band continues to 2.24 m",
+    "to": 1.45
+   },
+   "yaw_deg": 90.0
+  },
+  "rear": {
+   "attr": "depth_camera_rear",
+   "axis_quat_deg_max": 0.02797645516693592,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 1.9746129512786865,
+   "band_hi_min": 1.9146445989608765,
+   "band_lo_max": 0.3796316981315613,
+   "band_lo_median": 0.37946856021881104,
+   "block_envs": 256,
+   "block_rays": 13785,
+   "cover_share": 1.0,
+   "in_range_rays_median": 3556,
+   "n_reads": 256,
+   "pitch_down_deg": 54.0,
+   "predicted_band": {
+    "from": 0.37,
+    "look_axis": "-x",
+    "rows_hitting_ground_within_2m": 0.74,
+    "to": 1.98
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.5,
+    "look_axis": "-x",
+    "met": true,
+    "to": 1.2
+   },
+   "yaw_deg": 180.0
+  },
+  "right": {
+   "attr": "depth_camera_right",
+   "axis_quat_deg_max": 0.02797645516693592,
+   "axis_rays_deg_max": 0.01978234015405178,
+   "band_hi_median": 2.251481533050537,
+   "band_hi_min": 2.1937952041625977,
+   "band_lo_max": 0.6345927715301514,
+   "band_lo_median": 0.6344623565673828,
+   "block_envs": 255,
+   "block_rays": 13260,
+   "cover_share": 1.0,
+   "in_range_rays_median": 3568,
+   "n_reads": 256,
+   "pitch_down_deg": 54.0,
+   "predicted_band": {
+    "from": 0.62,
+    "if_v_is_55deg": {
+     "from": 0.8,
+     "to": 2.24
+    },
+    "look_axis": "-y",
+    "rows_hitting_ground_within_2m": 0.74,
+    "to": 2.24
+   },
+   "sees_something_share": 1.0,
+   "target_4b": {
+    "from": 0.75,
+    "look_axis": "-y",
+    "met": true,
+    "to": 1.45
+   },
+   "yaw_deg": -90.0
+  }
+ },
+ "verdict": "PASS"
+}

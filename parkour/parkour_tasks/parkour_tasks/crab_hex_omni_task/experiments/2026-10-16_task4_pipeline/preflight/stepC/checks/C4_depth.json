@@ -1,0 +1,34 @@
+{
+ "check": "C4_depth",
+ "class": "stop",
+ "depth_completion": 0.83,
+ "depth_helps": false,
+ "diff": 0.015000000000000013,
+ "incomplete": [],
+ "manifest_shape_split": {
+  "binds": "never below the 0.05 floor",
+  "low_power": false,
+  "rows": {
+   "field_hard_es1": {
+    "abs": 0.0,
+    "bitwise": true,
+    "block": 0.86,
+    "no_block": 0.86
+   },
+   "suite_es1": {
+    "abs": 0.0,
+    "bitwise": true,
+    "block": 1.0,
+    "no_block": 1.0
+   }
+  },
+  "value": 0.0
+ },
+ "problems": [
+  "depth - zeroed field_hard es1-2 = +0.015 < max(0.05, 2 SE) = 0.069"
+ ],
+ "required": 0.06870618585687896,
+ "se_diff": 0.03435309292843948,
+ "verdict": "FAIL",
+ "zero_completion": 0.815
+}

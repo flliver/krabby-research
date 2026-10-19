@@ -1,0 +1,450 @@
+{
+ "run": "dry",
+ "stage": "sn_ref",
+ "read_at": "2026-10-19T00:00:00",
+ "thresholds": {
+  "file": "thresholds_v0.json",
+  "version": "v0",
+  "sha256": "c57afde0a5c31e148a3905256f34ecf51d6f04f5e158449a23386ea60ca15d23"
+ },
+ "verdict": "PASS",
+ "decisive": [
+  {
+   "id": "stand.D1.G1.steps_per_s suite es1",
+   "statistic": "steps_per_s suite es1",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 1.04167,
+   "line": 0.5,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.clearance_m suite es1",
+   "statistic": "clearance_m suite es1",
+   "rate": 9.308644794891248e-09,
+   "unvalidated": null,
+   "value": 0.01384,
+   "line": 0.05,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.off_ground_share suite es1",
+   "statistic": "off_ground_share suite es1",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0.18409,
+   "line": 0.1,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.hover_episodes_per_100 suite es1",
+   "statistic": "hover_episodes_per_100 suite es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 25.0,
+   "line": 5.0,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.taps_per_s suite es1",
+   "statistic": "taps_per_s suite es1",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 2.45833,
+   "line": 1.0,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.ks_m_s suite es1",
+   "statistic": "ks_m_s suite es1",
+   "rate": 0.00017992719114717475,
+   "unvalidated": null,
+   "value": 0.3777,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.steps_per_s suite es2",
+   "statistic": "steps_per_s suite es2",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0.83333,
+   "line": 0.5,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.clearance_m suite es2",
+   "statistic": "clearance_m suite es2",
+   "rate": 9.308644794891248e-09,
+   "unvalidated": null,
+   "value": 0.01261,
+   "line": 0.05,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.off_ground_share suite es2",
+   "statistic": "off_ground_share suite es2",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0.16682,
+   "line": 0.1,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.hover_episodes_per_100 suite es2",
+   "statistic": "hover_episodes_per_100 suite es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 19.0,
+   "line": 5.0,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.taps_per_s suite es2",
+   "statistic": "taps_per_s suite es2",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 1.91667,
+   "line": 1.0,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G1.ks_m_s suite es2",
+   "statistic": "ks_m_s suite es2",
+   "rate": 1.163243242561982e-05,
+   "unvalidated": null,
+   "value": 0.35124,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.homed walkstop es1",
+   "statistic": "homed walkstop es1",
+   "rate": 2.9594837190438103e-50,
+   "unvalidated": null,
+   "value": 0.0,
+   "line": 0.9,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.settled walkstop es1",
+   "statistic": "settled walkstop es1",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0.00333,
+   "line": 0.9,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.median settle walkstop es1 <= probe + 1.0 s",
+   "statistic": "median settle walkstop es1 <= probe + 1.0 s",
+   "rate": 0.0039559747850396055,
+   "unvalidated": null,
+   "value": 0.1,
+   "line": 3.92,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.post_settle_ks_m_s walkstop es1",
+   "statistic": "post_settle_ks_m_s walkstop es1",
+   "rate": 0.00019594655711778304,
+   "unvalidated": null,
+   "value": null,
+   "line": 0.5,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.homed walkstop es2",
+   "statistic": "homed walkstop es2",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0.0,
+   "line": 0.9,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.settled walkstop es2",
+   "statistic": "settled walkstop es2",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0.0,
+   "line": 0.9,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.median settle walkstop es2 <= probe + 1.0 s",
+   "statistic": "median settle walkstop es2 <= probe + 1.0 s",
+   "rate": 0.002152635332791349,
+   "unvalidated": null,
+   "value": null,
+   "line": 3.96,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G2.post_settle_ks_m_s walkstop es2",
+   "statistic": "post_settle_ks_m_s walkstop es2",
+   "rate": 9.79780985031181e-05,
+   "unvalidated": null,
+   "value": null,
+   "line": 0.5,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G3.walkstop stand falls (count) es1 <= max(1, Z1's count)",
+   "statistic": "walkstop stand falls (count) es1 <= max(1, Z1's count)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 1,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G3.suite stand falls es1 == 0",
+   "statistic": "suite stand falls es1 == 0",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G3.walkstop exit-handover falls within 2 s es1 <= max(1, R's)",
+   "statistic": "walkstop exit-handover falls within 2 s es1 <= max(1, R's)",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G3.walkstop stand falls (count) es2 <= max(1, Z1's count)",
+   "statistic": "walkstop stand falls (count) es2 <= max(1, Z1's count)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G3.suite stand falls es2 == 0",
+   "statistic": "suite stand falls es2 == 0",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G3.walkstop exit-handover falls within 2 s es2 <= max(1, R's)",
+   "statistic": "walkstop exit-handover falls within 2 s es2 <= max(1, R's)",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G4.field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE)",
+   "statistic": "field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE)",
+   "rate": 0.05134880670048788,
+   "unvalidated": true,
+   "value": 0.8175,
+   "line": 0.7125,
+   "direction": ">=",
+   "pass": true,
+   "line_rule": "REFS(T*) - max(0.10, 2 SE) (CHARTER STOP-0 relaxed G4)"
+  },
+  {
+   "id": "stand.D1.G4.field_turn es1 completion >= REFS - max(0.05, band)",
+   "statistic": "field_turn es1 completion >= REFS - max(0.05, band)",
+   "rate": 0.029368351339801622,
+   "unvalidated": true,
+   "value": 0.93,
+   "line": 0.89,
+   "direction": ">=",
+   "pass": true,
+   "line_rule": "REFS(T*) - max(0.10, 2 SE) (CHARTER STOP-0 relaxed G4)"
+  },
+  {
+   "id": "stand.D1.G4.field_turn__omni@1 stand-fall rate <= HOLD + 2 SE(diff)",
+   "statistic": "field_turn__omni@1 stand-fall rate <= HOLD + 2 SE(diff)",
+   "rate": 0.000394591421750799,
+   "unvalidated": true,
+   "value": 0.05,
+   "line": 0.04415880433163923,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G4.field_hard__omni@1-4 stand-fall rate <= HOLD + 2 SE(diff)",
+   "statistic": "field_hard__omni@1-4 stand-fall rate <= HOLD + 2 SE(diff)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset median es1 <= REFS + max(0.3, band)",
+   "statistic": "walkstop onset median es1 <= REFS + max(0.3, band)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.14,
+   "line": 0.44,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset stalls es1 <= REFS + 1",
+   "statistic": "walkstop onset stalls es1 <= REFS + 1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset median es2 <= REFS + max(0.3, band)",
+   "statistic": "walkstop onset median es2 <= REFS + max(0.3, band)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.14,
+   "line": 0.44,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset stalls es2 <= REFS + 1",
+   "statistic": "walkstop onset stalls es2 <= REFS + 1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)",
+   "statistic": "walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.14,
+   "line": 0.44,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.suite es1 |body height - REFS| <= 0.03",
+   "statistic": "suite es1 |body height - REFS| <= 0.03",
+   "rate": 0.0007892503248880086,
+   "unvalidated": true,
+   "value": 0.040959999999999885,
+   "line": 0.03,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop es1 |body height - REFS| <= 0.03",
+   "statistic": "walkstop es1 |body height - REFS| <= 0.03",
+   "rate": 0.000774534390509917,
+   "unvalidated": true,
+   "value": 0.04188999999999998,
+   "line": 0.03,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.suite es2 |body height - REFS| <= 0.03",
+   "statistic": "suite es2 |body height - REFS| <= 0.03",
+   "rate": 0.0004415738992835436,
+   "unvalidated": true,
+   "value": 0.04086999999999996,
+   "line": 0.03,
+   "pass": false,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D1.G5.walkstop es2 |body height - REFS| <= 0.03",
+   "statistic": "walkstop es2 |body height - REFS| <= 0.03",
+   "rate": 0.0006238378546647445,
+   "unvalidated": true,
+   "value": 0.04085000000000005,
+   "line": 0.03,
+   "pass": false,
+   "state": "eval"
+  }
+ ],
+ "halt_lines": [
+  "stand.D1.G1.steps_per_s suite es1",
+  "stand.D1.G1.off_ground_share suite es1",
+  "stand.D1.G1.hover_episodes_per_100 suite es1",
+  "stand.D1.G1.taps_per_s suite es1",
+  "stand.D1.G1.steps_per_s suite es2",
+  "stand.D1.G1.off_ground_share suite es2",
+  "stand.D1.G1.hover_episodes_per_100 suite es2",
+  "stand.D1.G1.taps_per_s suite es2",
+  "stand.D1.G2.homed walkstop es1",
+  "stand.D1.G2.settled walkstop es1",
+  "stand.D1.G2.post_settle_ks_m_s walkstop es1",
+  "stand.D1.G2.homed walkstop es2",
+  "stand.D1.G2.settled walkstop es2",
+  "stand.D1.G2.median settle walkstop es2 <= probe + 1.0 s",
+  "stand.D1.G2.post_settle_ks_m_s walkstop es2",
+  "stand.D1.G4.field_turn__omni@1 stand-fall rate <= HOLD + 2 SE(diff)",
+  "stand.D1.G5.suite es1 |body height - REFS| <= 0.03",
+  "stand.D1.G5.walkstop es1 |body height - REFS| <= 0.03",
+  "stand.D1.G5.suite es2 |body height - REFS| <= 0.03",
+  "stand.D1.G5.walkstop es2 |body height - REFS| <= 0.03"
+ ],
+ "head": {
+  "stage": "sn_ref",
+  "name": "SN_T4dry_sn_ref_s17",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4dry_sn_ref_s17/model_20.pt",
+  "sha256": "6c0c1586faf17c9b7f891a267f814465342ab8a54aab8b6bcecaace0f7e2759f",
+  "refs": "REFS_S1_s18",
+  "calib": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/stand/sn_ref_calib.json",
+  "bridge": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/stand/sn_ref_bridge.json",
+  "train_log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4dry_sn_ref_s17/train_log.jsonl"
+ },
+ "notes": [],
+ "x": {
+  "rule": "report_only",
+  "sha256": "6c0c1586faf17c9b7f891a267f814465342ab8a54aab8b6bcecaace0f7e2759f",
+  "ref_sha256": "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff",
+  "sha_equal": false,
+  "loss_curve_equal": false,
+  "curves_compared": true,
+  "bitwise": false,
+  "verdict": "REPORT-ONLY",
+  "decisive": false,
+  "feeds_stop_r": false
+ }
+}

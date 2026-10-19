@@ -1,0 +1,23 @@
+{
+ "check": "C6_det",
+ "class": "report",
+ "meaning": "bitwise: X decides on file sha + loss curves (replay_read.x_read); report_only: X is read against the K lines, never feeds STOP-R, never holds F19",
+ "pairs": {
+  "sh": {
+   "bitwise": false,
+   "loss_curve_equal": true,
+   "matches_recorded_prefix": true,
+   "n_rows": 100,
+   "sha_equal": false
+  },
+  "sn": {
+   "bitwise": false,
+   "loss_curve_equal": true,
+   "matches_recorded_prefix": true,
+   "n_rows": 100,
+   "sha_equal": false
+  }
+ },
+ "verdict": "PASS",
+ "x_rule": "report_only"
+}

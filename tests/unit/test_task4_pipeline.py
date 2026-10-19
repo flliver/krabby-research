@@ -86,8 +86,9 @@ def tspec(tmp_path, P):
     """A copy of the spec + thresholds in a temp campaign dir (run dirs land there), N_p set."""
     d = tmp_path / "camp"
     d.mkdir()
-    for n in ("thresholds_v0.json", "threshold_inputs.yaml"):
-        shutil.copy(PL / n, d / n)
+    for n in ("thresholds_v0.json", "thresholds_v1.json", "threshold_inputs.yaml", "threshold_inputs_v1.yaml"):
+        if (PL / n).is_file():
+            shutil.copy(PL / n, d / n)
     doc = yaml.safe_load(SPEC.read_text())
     doc["N_p"] = 2500
     doc["x_rule"] = "report_only"
@@ -246,13 +247,26 @@ def test_lineage_overlays_are_verbatim_and_a_drift_is_refused(P, S, tspec):
     assert any("s1" in x for x in P.lineage_problems(bad))
 
 
+def _with_placeholders(P, tspec):
+    """The spec as it was before the PLAN step-8 freeze: N_p, x_rule and the manifest-shape split are PLACEHOLDERs."""
+    t = copy.deepcopy(tspec)
+    t.d["N_p"] = "PLACEHOLDER: PLAN step 8 payload pilot sets it"
+    t.d["x_rule"] = "PLACEHOLDER: PLAN step 8 determinism smoke"
+    next(x for x in t.d["stages"] if x["id"] == "sel")["completion_margin"]["manifest_shape_split"] = \
+        "PLACEHOLDER: measured at PLAN step 8"
+    return t
+
+
 def test_placeholders_refused_for_official_runs_only(P, S, tspec):
-    probs = P.placeholder_problems(S, "R18")
+    ph = _with_placeholders(P, tspec)
+    probs = P.placeholder_problems(ph, "R18")
     assert any("N_p" in x for x in probs) and any("x_rule" in x for x in probs)
     assert any("manifest_shape_split" in x for x in probs)
-    assert not any("x_rule" in x for x in P.placeholder_problems(S, "F19"))   # F19 has no X replay
-    assert P.placeholder_problems(S, "dry") == []
+    assert not any("x_rule" in x for x in P.placeholder_problems(ph, "F19"))  # F19 has no X replay
+    assert P.placeholder_problems(ph, "dry") == []
     assert P.placeholder_problems(tspec, "R18") == []
+    for run in ("R18", "F19", "dry"):                       # the committed spec is FROZEN (PLAN step 8 values)
+        assert P.placeholder_problems(S, run) == [], run
     t = copy.deepcopy(tspec)
     t.d["N_p"] = 1700
     assert any("multiple of 500" in x for x in P.placeholder_problems(t, "R18"))
@@ -669,7 +683,7 @@ def test_the_lock_pins_every_out_of_hash_dependency(P, S):
     files = {P.L.rel(p) for p in P.lock_files(S)}
     for want in ("experiments/tools/pipeline/pipeline.py", "experiments/tools/pipeline/gate_row.sh",
                  "experiments/2026-10-16_task4_pipeline/pipeline.yaml",
-                 "experiments/2026-10-16_task4_pipeline/thresholds_v0.json",
+                 "experiments/2026-10-16_task4_pipeline/thresholds_v1.json",
                  "experiments/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml",
                  "experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml",
                  "experiments/2026-10-01_ppo_construction/scenarios_turn_band.yaml",
@@ -1038,7 +1052,7 @@ def test_gate_reads_rehearsed_on_recorded_s1_rows(P, tspec, monkeypatch):
     ids = {d["id"] for d in r["decisive"]}
     assert "p2a.capability.field_hard" in ids and "p2a.floor.side22_fastfast" in ids
     assert {f"p2a.floor.survival.{c}.es{e}" for c in ("fwd", "side", "back", "diag") for e in (1, 2)} <= ids
-    assert json.loads(Path(r["path"]).read_text())["thresholds"]["version"] == "v0"
+    assert json.loads(Path(r["path"]).read_text())["thresholds"]["version"] == "v1"
     r = P.gate_payload(ctx, "p3a")
     assert r["verdict"] == P.GR.PASS, (r["halt_lines"], r.get("zero_kg"))
     assert r["max_stable"] == 90 and ctx.srec("p3a")["zero_kg"]["verdict"] == "PASS"
@@ -1350,11 +1364,30 @@ def test_shell_patterns_equal_tp_lib(L):
     assert not L.isaac_busy(f"{py} -I /x/2026/scripts/sn_calib.py --head SN_x --json /y")
 
 
-def test_check_reports_the_placeholder_cleanly(P, S):
-    r = subprocess.run([sys.executable, "-I", str(TP / "pipeline.py"), "check", "--spec", str(SPEC), "--run", "F19"],
+def test_check_reports_the_placeholder_cleanly(P, S, tspec):
+    ph = _with_placeholders(P, tspec)
+    ph.path.write_text(yaml.safe_dump(ph.d, sort_keys=False))
+    P.gen(P.Spec(ph.path), "F19")
+    r = subprocess.run([sys.executable, "-I", str(TP / "pipeline.py"), "check", "--spec", str(ph.path), "--run", "F19"],
                        capture_output=True, text=True, timeout=600)
     assert "invalid literal for int()" not in r.stdout + r.stderr
     assert "N_p is a PLACEHOLDER" in r.stdout
+
+
+def test_the_committed_spec_is_the_step8_freeze(P, S):
+    """PLAN step 8 -> v1 (stepC_read.json patch): N_p 3000, x_rule report_only, the student manifest-shape split 0.0,
+    live.student.loss_rule kill, thresholds_v1.json (its version = the spec's; self-check clean)."""
+    assert S.d["N_p"] == 3000 and S.d["x_rule"] == "report_only"
+    assert S.stage("sel")["completion_margin"]["manifest_shape_split"] == 0.0
+    assert S.d["live"]["student"]["loss_rule"] == "kill"
+    assert S.d["thresholds"] == {"file": "thresholds_v1.json", "version": "v1"}
+    th = json.loads(S.thresholds_path().read_text())
+    assert th["version"] == "v1" and th["self_check_failures"] == []
+    patch = json.loads((PL / "preflight/stepC_read.json").read_text())["patch"]["pipeline.yaml"]
+    assert patch["N_p"] == S.d["N_p"] and patch["x_rule"] == S.d["x_rule"]
+    assert patch["stages[sel].completion_margin.manifest_shape_split"] == 0.0
+    for sid in ("p3a", "p3b", "p3c"):
+        assert S.iters("R18", sid) == 3000 and S.iters("F19", sid) == 3000
 
 
 # ============================================================================== bridges / freeze notice (PLAN step 7)

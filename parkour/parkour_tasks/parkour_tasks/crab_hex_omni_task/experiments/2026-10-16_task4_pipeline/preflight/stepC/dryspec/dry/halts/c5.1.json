@@ -1,0 +1,103 @@
+{
+ "run": "dry",
+ "stage": "c5",
+ "class": "FAIL",
+ "why": "decisive line(s) failed: ['c5.floor.survival.fwd.es1', 'c5.floor.ratio.fwd.es1', 'c5.floor.ratio.side.es1', 'c5.floor.survival.back.es1', 'c5.floor.ratio.back.es1', 'c5.floor.ratio.diag.es1', 'c5.floor.side22_notslow']",
+ "at": "2026-10-19T01:13:36",
+ "status": "accepted",
+ "lines": [
+  {
+   "id": "c5.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 0.49,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 1.5176240024016331e-31,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c5.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.08296750696859809,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.005773276636080611,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c5.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.058943185370936506,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.0018168607604551077,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c5.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.39,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 2.472813500379137e-25,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c5.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.22698800837299743,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.00649420531567031,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c5.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.05065590969319132,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.008290938849785195,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c5.floor.side22_notslow",
+   "why": "no side22 stamp"
+  }
+ ],
+ "chance_rate_sum": 0.02237528156199122,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/c5.json",
+ "subtree": [
+  "c6",
+  "c6x",
+  "p2a",
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-19T01:14:36",
+  "kind": "accept-chance",
+  "why": "C7 dry pass: pre-registered action",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
+}

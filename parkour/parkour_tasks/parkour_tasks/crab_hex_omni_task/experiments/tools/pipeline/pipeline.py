@@ -510,7 +510,7 @@ def lock_files(spec: Spec) -> list[Path]:
         files.add(L.TOOLS / n)
     files.add(spec.path)
     files.add(spec.thresholds_path())
-    for n in ("threshold_inputs.yaml", "cameras.yaml"):
+    for n in ("threshold_inputs.yaml", "threshold_inputs_v1.yaml", "cameras.yaml"):
         if (spec.dir / n).is_file():
             files.add(spec.dir / n)
     for sub in ("scripts", "rows"):

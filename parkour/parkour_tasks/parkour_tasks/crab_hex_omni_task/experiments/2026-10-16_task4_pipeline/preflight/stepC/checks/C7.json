@@ -1,0 +1,147 @@
+{
+ "check": "C7",
+ "class": "stop",
+ "dry": {
+  "checks": {
+   "gate_records": {
+    "ok": true,
+    "present": {
+     "c4": true,
+     "c5": true,
+     "c6": true,
+     "c6x": true,
+     "p2a": true,
+     "p3a": true,
+     "p3b": true,
+     "s1": true
+    }
+   },
+   "gen_chaining": {
+    "ok": true
+   },
+   "injection_effects": {
+    "c4_fail_line": true,
+    "c5_invalid_rerun": true,
+    "c6_guard_halt": true,
+    "ok": true,
+    "sn_live_then_fresh_run": true,
+    "st_live_then_fresh_run": true
+   },
+   "injections_fired": {
+    "fired": [
+     "c4:FAIL",
+     "c5:INVALID",
+     "c6:GUARD",
+     "sn:LIVE",
+     "st:LIVE"
+    ],
+    "ok": true,
+    "want": [
+     "c4:FAIL",
+     "c5:INVALID",
+     "c6:GUARD",
+     "sn:LIVE",
+     "st:LIVE"
+    ]
+   },
+   "no_forbidden_halts": {
+    "found": [],
+    "ok": true
+   },
+   "one_isaac_at_a_time": {
+    "max_seen": 1,
+    "ok": true
+   },
+   "sigterm_resume_attach": {
+    "done": true,
+    "ok": true,
+    "stage": "c5"
+   },
+   "terminal_statuses": {
+    "bundle": {
+     "ok": true,
+     "status": "blocked"
+    },
+    "c4": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "c5": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "c6": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "c6x": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "p2a": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "p3a": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "p3b": {
+     "ok": true,
+     "status": "ceiling"
+    },
+    "p3c": {
+     "ok": true,
+     "status": "skipped"
+    },
+    "s1": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "sel": {
+     "ok": true,
+     "status": "halt"
+    },
+    "sh": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "sh_ref": {
+     "ok": true,
+     "status": "pass"
+    },
+    "sn": {
+     "ok": true,
+     "status": "accepted"
+    },
+    "sn_ref": {
+     "ok": true,
+     "status": "pass"
+    },
+    "st": {
+     "ok": true,
+     "status": "pass"
+    },
+    "tstar": {
+     "ok": true,
+     "status": "pass"
+    }
+   }
+  },
+  "driver_failures": [],
+  "mode": "reduced",
+  "open_halts": {
+   "sel": {
+    "class": "STUDENT",
+    "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/sel.1.json",
+    "status": "open"
+   }
+  },
+  "pipeline_status": "parked",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry",
+  "spec": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/pipeline.yaml",
+  "verdict": "PASS",
+  "written_at": "2026-10-19T04:44:39"
+ },
+ "verdict": "PASS"
+}

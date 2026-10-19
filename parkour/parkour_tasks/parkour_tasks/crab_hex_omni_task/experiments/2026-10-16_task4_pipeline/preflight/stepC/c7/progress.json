@@ -1,0 +1,20 @@
+{
+ "guard_retried": "2026-10-19T01:14:46",
+ "isaac_lines_at_max": [
+  "/home/nickmagus/krabby/isaac_venv/bin/python /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py --unit cands-dry-1792379342 --campaign-dir /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_he",
+  "/home/nickmagus/krabby/isaac_venv/bin/python /home/nickmagus/krabby/krabby-research/parkour/scripts/rsl_rl/train.py --task Isaac-Crab-Hex-Omni-Walk-v0 --headless --num_envs 256 --seed 18 --max_iterations 20 --run_name seed18_X01_s1_A15pB"
+ ],
+ "launched": "2026-10-18T23:09:02",
+ "max_isaac": 1,
+ "max_isaac_at": "2026-10-18T23:09:12",
+ "max_isaac_lines": [
+  "/home/nickmagus/krabby/isaac_venv/bin/python /home/nickmagus/krabby/krabby-research/parkour/scripts/rsl_rl/train.py --task Isaac-Crab-Hex-Omni-Walk-v0 --headless --num_envs 256 --seed 18 --max_iterations 20 --run_name seed18_X01_s1_A15pB"
+ ],
+ "mode": "reduced",
+ "prepared": "2026-10-18T23:08:59",
+ "qlog_offset": 3086,
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry",
+ "sigterm_done": "2026-10-19T01:04:33",
+ "sigterm_stage": "c5",
+ "spec": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/pipeline.yaml"
+}

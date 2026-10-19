@@ -30,7 +30,7 @@
  ],
  "run": "dry",
  "spec": "pipeline.yaml",
- "spec_sha256": "400c58f00ac358a1a3cbf601c3bae23eabc197ab6661a363b3634a6ebc8be7d4",
+ "spec_sha256": "97c2d9b69b1b01c4314a619c3ef019b336a9a0b99beef896a0ec430f9f31041b",
  "stages": {
   "bundle": {
    "after": [
@@ -523,8 +523,8 @@
   }
  },
  "thresholds": {
-  "file": "thresholds_v0.json",
-  "version": "v0"
+  "file": "thresholds_v1.json",
+  "version": "v1"
  },
  "walker_seed": 18
 }

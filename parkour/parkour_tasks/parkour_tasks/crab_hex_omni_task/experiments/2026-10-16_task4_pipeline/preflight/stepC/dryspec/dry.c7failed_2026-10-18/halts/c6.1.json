@@ -1,0 +1,34 @@
+{
+ "run": "dry",
+ "stage": "c6",
+ "class": "GUARD",
+ "why": "dry-pass injected GUARD",
+ "at": "2026-10-17T17:01:32",
+ "status": "retried",
+ "lines": [],
+ "chance_rate_sum": null,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": null,
+ "subtree": [
+  "c6x",
+  "p2a",
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "retry"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-17T17:01:42",
+  "kind": "retry",
+  "why": "C7 dry pass: pre-registered action"
+ }
+}

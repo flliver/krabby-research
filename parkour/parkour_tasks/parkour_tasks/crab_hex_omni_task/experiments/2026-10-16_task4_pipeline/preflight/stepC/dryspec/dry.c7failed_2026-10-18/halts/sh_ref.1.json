@@ -1,0 +1,17 @@
+{
+ "run": "dry",
+ "stage": "sh_ref",
+ "class": "DRIVER",
+ "why": "sh_dagger.sh rc=0; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4dry_sh_ref_s17/model_5000.pt missing",
+ "at": "2026-10-17T16:42:06",
+ "status": "open",
+ "lines": [],
+ "chance_rate_sum": null,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": null,
+ "subtree": [],
+ "options": [
+  "retry",
+  "abort"
+ ]
+}

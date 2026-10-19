@@ -8,12 +8,15 @@ notes: 'M18 Task 4 pipeline spec (PLAN.md Shape; DESIGN.md section 2). The ONE d
   in the SAME file), check verifies it (overlay shas against the shipped lineage files, placeholders, the lock), run executes
   it. PLAN wins over this file.'
 plant: A15+B
+# thresholds v1 (frozen at PLAN step 8: thresholds_v0 + the payload pilot's p3a terms + the sweep WATCH lines;
+# threshold_inputs_v1.yaml). v0 stays on disk as the record.
 thresholds:
-  file: thresholds_v0.json
-  version: v0
+  file: thresholds_v1.json
+  version: v1
 lock: pipeline.lock.json
-N_p: 'PLACEHOLDER: PLAN step 8 payload pilot sets it (DESIGN 2.2: the first pilot read whose 90-kg translate ratio and survival
-  moved < R from the previous read, rounded up to 500, clamped to [1500, 3000]); the same N_p for p3a / p3b / p3c'
+# N_p: PLAN step 8 C3.6 (preflight/stepC_read.json v1.N_p): no pilot read settled within R of the read 500 its earlier,
+# so N_p = the clamp's 3000 (not_converged, disclosed); the same N_p for p3a / p3b / p3c
+N_p: 3000
 runs:
   R18:
     dir: R18
@@ -749,7 +752,7 @@ stages:
   completion_margin:
     floor: 0.05
     se_mult: 2.0
-    manifest_shape_split: 'PLACEHOLDER: measured at PLAN step 8'
+    manifest_shape_split: 0.0          # PLAN step 8 C4.6 (stepC_read.json v1.manifest_shape_split)
   rank: prescreen floor misses (incl. the 90-kg stable lines), then field_hard completion (desc), then mean |ratio - 1|
     over the trained translate categories (asc), then the earlier checkpoint
 - id: sn
@@ -864,8 +867,8 @@ bundled_s1:
   sha256: 968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c
   notes: 'X runs with SN_WALKER_SPEC unset: the stand tools'' own S1 constants (the X08 run dir file, byte-identical to
     this bundled copy)'
-x_rule: 'PLACEHOLDER: PLAN step 8 (2x100-it same-seed SN / SH determinism smoke): ''bitwise'' (X decides on file sha + loss
-  curves) or ''report_only'''
+# x_rule: PLAN step 8 C6.2 (stepC_read.json v1.x_rule): same-seed SN / SH smokes are not bitwise -> X is report-only
+x_rule: report_only
 stand:
   sn_scripts: experiments/2026-10-11_stand_network/scripts
   sh_scripts: experiments/2026-10-13_stand_height/scripts
