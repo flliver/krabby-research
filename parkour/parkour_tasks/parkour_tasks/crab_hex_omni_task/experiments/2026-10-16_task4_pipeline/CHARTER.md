@@ -481,3 +481,11 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   clean. This commit is the amended pin, with local annotated tag `task4-pin-2026-10-19b`. The three GUARD halts
   are cleared with `continue --retry`. The relaunched queue runs the new code: p2a's gate is read now, and p3a
   onward has working live rules.
+- **2026-10-19 16:48, R18 resumed on the amended pin.**
+  - The first retry hit a second, correct guard: the run had recorded the lock's sha when it started.
+  - Resolved with the pipeline's own amend path: `continue --amend p2a --charter <this entry>` recorded the
+    amendment (old → new lock sha) and moved the run's pin to `ffaf7cf85b7e`. Then sn_ref / sh_ref were retried
+    and the queue relaunched on the new code.
+  - **p2a gate: WATCH.** Every decisive line PASSES; the only flag is `p2a.live_collapse` (the live watch never
+    ran on p2a).
+  - The queue continues with the X stand replay (sn_ref, sh_ref), then p3a.
