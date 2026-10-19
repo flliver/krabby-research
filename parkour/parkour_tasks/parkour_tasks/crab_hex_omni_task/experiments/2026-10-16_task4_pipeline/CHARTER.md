@@ -374,3 +374,20 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     Why: a hang must not park the queue for days. The stated purpose, protecting the cache, is kept by the grace
     periods and the post-kill check.
   - The fixes are being built (TP, opus); then C7 re-runs on a clean dry dir.
+- **2026-10-18/19, C7 fixes installed (opus·xhigh, atomic):**
+  1. **`stop_trainer`.** It signals the trainer pid itself, never `timeout`: SIGTERM, 120 s, SIGTERM, 120 s, and
+     SIGKILL only as a last resort. A SIGKILL is recorded and notified, and opens a DerivedDataCache watch (size,
+     growth, the corrupted-block log symptom) that blocks the next Kit launch with a GUARD HALT on a symptom.
+     A progress watchdog (30 min, `live.progress_watchdog_min`) catches silent hangs as INFRA.
+  2. **Judged checkpoints** follow the launched iterations (`model_<iters>.pt`).
+     - Latent bug found while fixing: the X stages had no stand / height / k5 rows or controls spec (a KeyError
+       after a successful train). They now inherit their D stage's lists, as DESIGN says.
+  3. **`pre_launch`** runs the full-pattern wait-idle (incl. sn_ / sh_, no give-up) before EVERY Isaac launch;
+     `STOP_PIPELINE` stops without launching.
+     - The C7 "2 Isaac" was a sampler artefact: the driver supervisor `run_candidates.py` and its `train.py` were
+       counted as two. Fixed in `t4_stepC_dry.py` (`tp_lib.kit_lines`).
+  - **Tests:** 105 task4 pipeline / threshold tests pass. The lock is regenerated (345 files); `gen --check` is
+    byte-stable.
+  - PLAN.md's stop-rule sentence is updated to the amendment.
+  - **C7 re-run:** the failed dry artefacts are renamed with the suffix `.c7failed_2026-10-18` (nothing deleted),
+    then `t4_stepC_queue.sh --retry C7_dry` and `--only C7`.

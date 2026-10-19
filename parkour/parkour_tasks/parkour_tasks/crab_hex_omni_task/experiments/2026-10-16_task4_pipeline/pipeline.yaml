@@ -877,6 +877,10 @@ stand:
   sh_manifest: experiments/2026-10-13_stand_height/scenarios_sh.yaml
 live:
   poll_s: 120
+  # non-driver stages (distill, DAgger): no new train log / tfevents / checkpoint for this long -> the stop procedure
+  # (SIGTERM the trainer pid, term_grace_s, SIGTERM, term_grace_s, SIGKILL last resort) and an INFRA HALT
+  progress_watchdog_min: 30
+  term_grace_s: 120
   collapse:
     after: 300
     roll: 200

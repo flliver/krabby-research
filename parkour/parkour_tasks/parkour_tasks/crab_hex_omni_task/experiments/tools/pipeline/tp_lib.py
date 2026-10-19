@@ -66,6 +66,18 @@ def isaac_busy(ps_text: str | None = None) -> bool:
     return bool(isaac_lines(ps_text))
 
 
+#: a campaign driver (``run_candidates.py`` / ``run_phases.py``) is a CPU supervisor: it never boots Kit itself; its
+#: one train / eval child does. The busy check (:func:`isaac_lines`) counts it, conservatively; a COUNT of Kit
+#: processes (one Isaac process at a time) must not, or every driver stage reads as two.
+SUPERVISOR_PAT = r"^[^ ]*[i]saac_venv/bin/python3?( -[^ ]+)* [^ ]*(run_phases|run_candidates)\.py"
+
+
+def kit_lines(ps_text: str | None = None) -> list[str]:
+    """The Isaac lines that are Kit processes: :func:`isaac_lines` minus the driver supervisors."""
+    sup = re.compile(SUPERVISOR_PAT)
+    return [ln for ln in isaac_lines(ps_text) if not sup.search(ln)]
+
+
 # ---------------------------------------------------------------------------------------------- loaders
 def load_by_path(path: Path, name: str):
     """A module by path, no bytecode, registered in ``sys.modules`` (dataclasses / pickles need it)."""

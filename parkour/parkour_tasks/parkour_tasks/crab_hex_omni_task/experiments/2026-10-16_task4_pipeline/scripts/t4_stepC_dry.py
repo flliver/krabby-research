@@ -7,8 +7,11 @@ It does what the orchestrator would do at every prompt, by a pre-registered tabl
   OFFICIAL mode never re-locks PL/pipeline.lock.json (the orchestrator re-locks before C7: the step-8 scripts in
   PL/scripts/ are lock inputs). Then ``<run dir>/INJECT.json`` from ``SC/INJECT.json`` (c4 FAIL, c5 INVALID, c6 GUARD,
   st LIVE, sn LIVE).
-* launch ``pipeline.py run``; while the queue runs, sample ``ps`` (anchored ISAAC_PAT minus NONKIT_PAT) for the
-  one-Isaac-process rule; ONCE, while a driver stage after s1 is ``training`` with its unit active, SIGTERM the QUEUE
+* launch ``pipeline.py run``; while the queue runs, sample ``ps`` for the one-Isaac-process rule: the count is of KIT
+  processes (``tp_lib.kit_lines``: anchored ISAAC_PAT minus NONKIT_PAT minus the driver supervisor -- a driver stage
+  is ``run_candidates.py`` + its one train / eval child, and counting both read every driver stage as two: the
+  2026-10-17 C7 "2 at 16:27:09" was s1's driver + its own train.py, Kit log kit_20261017_162700); the lines at the
+  max are recorded; ONCE, while a driver stage after s1 is ``training`` with its unit active, SIGTERM the QUEUE
   process (a plain python, never Kit -- the driver unit keeps training) and relaunch ``run``: the resumed queue must
   ATTACH to the running driver (``T4PIPE ATTACH``), not relaunch it.
 * when the queue parks: every open HALT gets its table action -- FAIL / LIVE -> ``continue --accept-chance``; the
@@ -113,9 +116,11 @@ def main(argv=None) -> int:
         qpid = P.queue_pid(ctx)
         prog = progress()
         if qpid:
-            n = len(C.isaac_lines())
+            kl = C.TL().kit_lines()
+            n = len(kl)
             if n > int(prog.get("max_isaac", 0)):
-                progress({"max_isaac": n, "max_isaac_at": now()})
+                progress({"max_isaac": n, "max_isaac_at": now(), "max_isaac_lines": [ln[:300] for ln in kl],
+                          "isaac_lines_at_max": [ln[:300] for ln in C.isaac_lines()]})
             if not prog.get("sigterm_done"):
                 for sid in ("c5", "c6x", "c6"):
                     r = (st.get("stages") or {}).get(sid) or {}

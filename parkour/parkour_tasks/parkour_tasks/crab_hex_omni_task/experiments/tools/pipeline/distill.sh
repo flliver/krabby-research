@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Task 4 pipeline: launch ONE omni depth-student distillation (train.py on Isaac-Crab-Hex-Omni-Student-v0, resuming
 # T*'s checkpoint) on the GPU. The SH/sh_dagger.sh launcher pattern: busy check, Kit DerivedDataCache guard, every
-# KRABBY_* of the parent unset, a memory-capped `systemd-run --user --scope`, `timeout --signal=TERM` (SIGTERM only,
-# never a follow-up KILL; stop it with `systemctl --user kill --signal=SIGTERM <unit>.scope`).
+# KRABBY_* of the parent unset, a memory-capped `systemd-run --user --scope`, `timeout --signal=TERM` (the wall bound:
+# one SIGTERM to the trainer). A running distill is stopped by the queue's pipeline.stop_trainer (CHARTER 2026-10-18):
+# SIGTERM to the train.py pid ITSELF -- never the scope: a scope-wide signal also reaches `timeout`, which re-forwards
+# it (the C7 hang) -- 120 s, SIGTERM again, 120 s, and SIGKILL only as the last resort (recorded + notified).
 #
 #   distill.sh --name NAME --checkpoint T*_CKPT --env-file ENV --seed S --iterations N [--num-envs 192]
 #              [--task Isaac-Crab-Hex-Omni-Student-v0] [--experiment crab_hex_omni_student] [--wait-idle]

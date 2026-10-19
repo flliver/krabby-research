@@ -261,7 +261,11 @@ step 0. Where this plan differs, this plan wins; the difference is the camera la
     HALT and its rate disclosed in the CHARTER and the report;
   - abort;
   - amend the line in a CHARTER entry that discloses the number.
-  Non-driver stages (distill, DAgger) are stopped by graceful SIGTERM, never SIGKILL.
+  Non-driver stages (distill, DAgger) are stopped the way `run_phases._stop_child` stops a driver's trainer
+  (CHARTER 2026-10-18 amendment of "graceful SIGTERM, never SIGKILL"): SIGTERM the trainer pid (never the
+  scope), wait 120 s, SIGTERM again, wait 120 s, and SIGKILL only as the last resort. A SIGKILL is recorded and
+  notified, and the DerivedDataCache is checked before the next Kit launch; a progress watchdog (30 min) turns a
+  silent hang into an INFRA HALT.
 
 ## Steps
 

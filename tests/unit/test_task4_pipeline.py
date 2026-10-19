@@ -1454,3 +1454,386 @@ def test_level_payload_com_is_checked_only_where_a_payload_exists():
     assert any("CoM" in s for s in gr.payload_problems(l090, 90))
     l090["payload"]["payload_com_m"] = [[0.0, 0.0, 0.309], [0.0, 0.0, 0.309]]
     assert gr.payload_problems(l090, 90) == []
+
+
+# ============================================================================== C7 defects (CHARTER 2026-10-18)
+PYI = "/home/nickmagus/krabby/isaac_venv/bin/python"
+
+
+class StopRT:
+    """A fake runtime for the stop procedure: the clock advances with sleep; ``procs`` = {pid: {args, alive,
+    terms_to_exit}}; ``scopes`` = {unit: {pids}}; every signal is recorded."""
+    poll_s = 60
+
+    def __init__(self, t0=None):
+        import time as _time
+        self.t = float(t0 if t0 is not None else _time.time())
+        self.procs, self.scopes, self.signals, self.scope_terms, self.logs = {}, {}, [], [], []
+        self.busy, self.spawned, self.ran = [], [], []
+        self.events = []
+
+    def time(self):
+        return self.t
+
+    def sleep(self, s):
+        self.t += float(s)
+
+    def isaac_busy(self):
+        self.events.append("busy?")
+        return self.busy.pop(0) if self.busy else False
+
+    def ps_pid_args(self):
+        return [(p, d["args"]) for p, d in self.procs.items() if d["alive"]]
+
+    def scope_pids(self, unit):
+        return set(self.scopes.get(unit, ()))
+
+    def pid_alive(self, pid):
+        return bool(self.procs.get(pid, {}).get("alive"))
+
+    def signal(self, pid, sig):
+        import signal as _sig
+        self.signals.append((pid, sig, self.t))
+        d = self.procs.get(pid)
+        if not d or not d["alive"]:
+            return
+        if sig == _sig.SIGKILL:
+            d["alive"] = False
+        elif sig == _sig.SIGTERM:
+            d["terms"] = d.get("terms", 0) + 1
+            if d.get("terms_to_exit") and d["terms"] >= d["terms_to_exit"]:
+                d["alive"] = False
+
+    def term_scope(self, unit):
+        self.scope_terms.append(unit)
+
+    def unit_active(self, unit):
+        return False
+
+    def kit_logs(self):
+        return list(self.logs)
+
+    def read_head(self, p, n=8 << 20):
+        return Path(p).read_text()
+
+    def notify_hook(self, text):
+        return None
+
+    def spawn(self, cmd, *, env=None, log=None):
+        self.events.append("spawn")
+        self.spawned.append(cmd)
+        return self.launcher
+
+    def run(self, cmd, *, env=None, log=None, timeout=None):
+        self.events.append("run")
+        self.ran.append(cmd)
+        return 0, ""
+
+
+class Launcher:
+    """The launcher bash (distill.sh / s[nh]_dagger.sh): alive while its trainer pid is."""
+
+    def __init__(self, rt, pid):
+        self.rt, self.pid, self.terminated = rt, pid, False
+
+    def poll(self):
+        return None if (not self.terminated and (self.pid is None or self.rt.pid_alive(self.pid))) else 0
+
+    def wait(self):
+        return 0
+
+    def terminate(self):
+        self.terminated = True
+
+
+def _stop_rt(terms_to_exit, unit="tp-distill-T4R18_st-1", name="T4R18_st"):
+    rt = StopRT()
+    rt.procs[4241] = {"args": f"timeout --signal=TERM 172800 {PYI} /r/parkour/scripts/rsl_rl/train.py --run_name {name}",
+                      "alive": True}
+    rt.procs[4242] = {"args": f"{PYI} /r/parkour/scripts/rsl_rl/train.py --task S --headless --run_name {name}",
+                      "alive": True, "terms_to_exit": terms_to_exit}
+    rt.scopes[unit] = {4241, 4242}
+    rt.launcher = Launcher(rt, 4242)
+    return rt
+
+
+def test_stop_trainer_signals_the_trainer_pid_twice_then_sigkills_as_the_last_resort(P):
+    """CHARTER 2026-10-18 (C7 defect 1): SIGTERM the trainer python's OWN pid (never the scope: ``timeout`` would
+    re-forward it), wait TERM_GRACE_S, SIGTERM again, wait, and only then SIGKILL."""
+    import signal as _sig
+    rt = _stop_rt(terms_to_exit=1)
+    r = P.stop_trainer(rt, unit="tp-distill-T4R18_st-1", match=None, proc=rt.launcher)
+    assert [s[:2] for s in rt.signals] == [(4242, _sig.SIGTERM)] and not r["sigkill"] and r["terms"] == 1
+    assert rt.procs[4241]["alive"] and rt.scope_terms == []                  # timeout is never signalled
+    rt = _stop_rt(terms_to_exit=2)
+    r = P.stop_trainer(rt, unit="tp-distill-T4R18_st-1", match=None, proc=rt.launcher)
+    assert [s[:2] for s in rt.signals] == [(4242, _sig.SIGTERM)] * 2 and not r["sigkill"]
+    assert rt.signals[1][2] - rt.signals[0][2] >= P.TERM_GRACE_S
+    rt = _stop_rt(terms_to_exit=None)                                         # the C7 hang: SIGTERM never ends it
+    r = P.stop_trainer(rt, unit="tp-distill-T4R18_st-1", match=None, proc=rt.launcher)
+    assert [s[:2] for s in rt.signals] == [(4242, _sig.SIGTERM), (4242, _sig.SIGTERM), (4242, _sig.SIGKILL)]
+    assert rt.signals[2][2] - rt.signals[0][2] >= 2 * P.TERM_GRACE_S and r["sigkill"] and r["exited"]
+    # no scope yet: the trainer is found by its command line; a launcher still before its trainer is SIGTERMed itself
+    rt = _stop_rt(terms_to_exit=1)
+    rt.scopes.clear()
+    r = P.stop_trainer(rt, unit=None, match=lambda a: "--run_name T4R18_st" in a, proc=rt.launcher)
+    assert r["pids"] == [4242] and not rt.procs[4242]["alive"]
+    rt = StopRT()
+    rt.launcher = Launcher(rt, None)
+    r = P.stop_trainer(rt, unit=None, match=lambda a: False, proc=rt.launcher)
+    assert r["pids"] == [] and r["launcher_terminated"] and rt.signals == []
+
+
+def _student_ctx(P, tspec, tmp_path, monkeypatch, rt, *, ser=None):
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "R18")
+    ctx = P.Ctx(tspec, "R18")
+    ctx.rt = rt
+    LWm = P.LW()
+    healthy = {"Loss_depth/depth_actor_loss": [(i, 10.0 if i < 5 else 1.0) for i in range(300)], **_ser(n=300)}
+    monkeypatch.setattr(LWm, "read_series", lambda rd, tags=None: ser if ser is not None else healthy)
+    rd = tmp_path / "2026-10-18_00-00-00_T4R18_st"
+    rd.mkdir()
+    ev = rd / "events.out.tfevents.1"
+    ev.write_text("x")
+    os.utime(ev, (rt.t, rt.t))
+    monkeypatch.setattr(P, "find_student_run", lambda exp, name: rd)
+    monkeypatch.setattr(P, "read_unit", lambda name: "tp-distill-T4R18_st-1")
+    monkeypatch.setattr(P, "ddc_gb", lambda: 39.0)
+    return ctx, rd
+
+
+def test_a_student_live_kill_stops_the_trainer_pid_and_records_a_sigkill(P, tspec, tmp_path, monkeypatch):
+    import signal as _sig
+    rt = _stop_rt(terms_to_exit=None)
+    flat = {"Loss_depth/depth_actor_loss": [(i, 10.0) for i in range(300)], **_ser(n=300)}     # the loss rule kills
+    ctx, rd = _student_ctx(P, tspec, tmp_path, monkeypatch, rt, ser=flat)
+    q = P.Queue(ctx)
+    assert q.watch_student("st", rt.launcher, {"run_dir": str(tmp_path)}) is True
+    rec = ctx.srec("st")
+    assert [s[:2] for s in rt.signals] == [(4242, _sig.SIGTERM), (4242, _sig.SIGTERM), (4242, _sig.SIGKILL)]
+    assert rt.scope_terms == [] and rt.procs[4241]["alive"]                     # never the scope / timeout
+    assert rec["stops"][0]["sigkill"] and rec["sigkill"]["pids"] == [4242] and rec["fresh_run_on_retry"]
+    assert ctx.state["ddc_watch"]["stage"] == "st" and ctx.state["ddc_watch"]["ddc_gb_at_kill"] == 39.0
+    assert any("SIGKILLed" in ln for ln in _sentinels(ctx, "NOTIFY"))
+    assert ctx.state["halts"]["st"]["class"] == "LIVE"
+
+
+def test_the_progress_watchdog_stops_a_silent_distill_and_halts_infra(P, tspec, tmp_path, monkeypatch):
+    rt = _stop_rt(terms_to_exit=1)
+    ctx, rd = _student_ctx(P, tspec, tmp_path, monkeypatch, rt)          # healthy series, tfevents never move
+    assert P.Queue(ctx).watch_student("st", rt.launcher, {"run_dir": str(tmp_path)}) is True
+    h = json.loads((P.L.REPO / ctx.state["halts"]["st"]["record"]).read_text())
+    assert h["class"] == "INFRA" and "no training progress" in h["why"] and "watchdog 30 min" in h["why"]
+    assert 30 * 60 < rt.t - os.stat(rd / "events.out.tfevents.1").st_mtime <= 35 * 60
+    assert not ctx.srec("st").get("sigkill") and "ddc_watch" not in ctx.state
+    # the retry trains afresh (_a2): the stopped run's records stay unambiguous
+    assert P.do_continue(ctx.spec, "R18", retry="st", relaunch=False) == 0
+    ctx2 = P.Ctx(ctx.spec, "R18")
+    assert ctx2.srec("st")["distill_attempt"] == 2 and ctx2.srec("st")["status"] == "pending"
+    assert "fresh_run_on_retry" not in ctx2.srec("st")
+
+
+def test_progress_keeps_the_watchdog_quiet(P, tspec, tmp_path, monkeypatch):
+    rt = _stop_rt(terms_to_exit=1)
+    ctx, rd = _student_ctx(P, tspec, tmp_path, monkeypatch, rt)
+    q = P.Queue(ctx)
+    for _ in range(60):                                                 # an hour of polls, a new tfevents write each
+        rt.sleep(60)
+        os.utime(rd / "events.out.tfevents.1", (rt.t, rt.t))
+        assert q.stall_s(rt.t - 3600, P.student_progress_files(rd)) is None
+    assert q.stall_s(rt.t - 3600, []) == pytest.approx(3600)              # nothing ever written: from the launch
+
+
+def test_dagger_watchdog_and_injected_kill_stop_by_pid(P, tspec, tmp_path, monkeypatch):
+    import signal as _sig
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "R18")
+    ctx = P.Ctx(tspec, "R18")
+    runs = tmp_path / "runs"
+    name = "SN_T4R18_sn_s17"
+    rt = StopRT()
+    out = runs / name
+    rt.procs[7001] = {"args": f"timeout --signal=TERM 14400 {PYI} /s/sn_dagger.py --headless --out {out}", "alive": True}
+    rt.procs[7002] = {"args": f"{PYI} /s/sn_dagger.py --headless --mode dagger --out {out}", "alive": True,
+                      "terms_to_exit": 1}
+    rt.scopes["sn-dagger-x-1"] = {7001, 7002}
+    rt.launcher = Launcher(rt, 7002)
+    ctx.rt = rt
+    monkeypatch.setattr(P, "ddc_gb", lambda: 39.0)
+    out.mkdir(parents=True)
+    (out / "train_log.jsonl").write_text('{"it": 1}\n')
+    os.utime(out / "train_log.jsonl", (rt.t, rt.t))
+    (runs / f"{name}.unit").write_text("sn-dagger-x-1\n")
+    q = P.Queue(ctx)
+    assert q.train_dagger("sn", tmp_path / "sn_dagger.sh", tmp_path / "sn_dagger.py", runs, name,
+                          ["--mode", "dagger", "--iterations", "4000"], {}) is None
+    assert rt.events[:2] == ["busy?", "spawn"]                               # the idle check right before the launch
+    assert [s[:2] for s in rt.signals] == [(7002, _sig.SIGTERM)] and rt.procs[7001]["alive"]
+    h = ctx.state["halts"]["sn"]
+    assert h["class"] == "INFRA" and ctx.srec("sn")["fresh_run_on_retry"]
+    assert P.do_continue(ctx.spec, "R18", retry="sn", relaunch=False) == 0
+    ctx2 = P.Ctx(ctx.spec, "R18")
+    assert ctx2.srec("sn")["dagger_attempt"] == 2 and P.Queue(ctx2).dagger_name(name, "sn") == name + "_a2"
+
+
+def _kit_log(d: Path, start: float, text: str) -> Path:
+    import time as _time
+    p = d / f"kit_{_time.strftime('%Y%m%d_%H%M%S', _time.localtime(start))}.log"
+    p.write_text(text)
+    return p
+
+
+def test_after_a_sigkill_the_cache_is_checked_before_the_next_kit_launch(P, tspec, tmp_path, monkeypatch):
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "R18")
+    ctx = P.Ctx(tspec, "R18")
+    rt = StopRT()
+    ctx.rt = rt
+    gb = {"v": 39.0}
+    monkeypatch.setattr(P, "ddc_gb", lambda: gb["v"])
+    P.pre_launch(ctx, "c4", "driver")                                         # no watch: nothing to check
+    ctx.state["ddc_watch"] = {"stage": "st", "at": "t", "at_epoch": rt.t, "ddc_gb_at_kill": 39.0}
+    _kit_log(tmp_path, rt.t - 600, "Found 9 deleted or corrupted blocks, rewriting index\n")   # BEFORE the kill
+    rt.logs = sorted(tmp_path.glob("kit_*.log"))
+    P.pre_launch(ctx, "c4", "driver")                                         # an older log is not "the next"
+    bad = _kit_log(tmp_path, rt.t + 5, "[omni.datastore] Found 9 deleted or corrupted blocks, rewriting index\n")
+    rt.logs = [bad]
+    with pytest.raises(P.Halted):
+        P.pre_launch(ctx, "c4", "driver")
+    h = json.loads((P.L.REPO / ctx.state["halts"]["c4"]["record"]).read_text())
+    assert h["class"] == "GUARD" and "quarantine" in h["why"] and h["options"] == ["retry"]
+    # the user quarantines the cache and retries: the watch re-arms on the NEXT Kit start
+    assert P.do_continue(ctx.spec, "R18", retry="c4", relaunch=False) == 0
+    ctx = P.Ctx(ctx.spec, "R18")
+    ctx.rt = rt
+    w = ctx.state["ddc_watch"]
+    assert "symptom" not in w and w["previous_symptom"] and w["at_epoch"] > rt.t - 1e6
+    w["at_epoch"] = rt.t
+    rt.t += 1
+    rt.logs = [_kit_log(tmp_path, rt.t + 1, "app ready\n")]
+    P.pre_launch(ctx, "c4", "driver")                                         # clean but young: the watch stays open
+    assert not ctx.state["ddc_watch"].get("closed_at")
+    rt.t += P.DDC_LOG_SETTLE_S + 5
+    P.pre_launch(ctx, "c4", "driver")
+    assert ctx.state["ddc_watch"]["closed_at"]                                # one clean Kit start closes it
+    ctx.state["ddc_watch"] = {"stage": "st", "at": "t", "at_epoch": rt.t, "ddc_gb_at_kill": 39.0}
+    gb["v"] = 39.0 + P.DDC_GROWTH_GB + 1
+    with pytest.raises(P.Halted):
+        P.pre_launch(ctx, "c4", "driver")                                     # the cache grew since the kill
+
+
+def test_one_isaac_at_a_time_waits_with_no_give_up_before_every_launch(P, qctx, monkeypatch):
+    """C7 defect 3: the queue's own full-pattern wait (every sn_ / sh_ tool included) runs immediately before EVERY
+    Isaac launch, never gives up, and a STOP request stops the queue without launching."""
+    ctx, rt, verdicts, done = qctx
+    ev, busy = [], [True] * 2000                                               # an hour+ of another branch's Kit
+
+    def isaac_busy():
+        ev.append("check")
+        return busy.pop(0) if busy else False
+
+    real_launch, real_run = rt.launch_driver, rt.run
+    monkeypatch.setattr(rt, "isaac_busy", isaac_busy)
+    monkeypatch.setattr(rt, "launch_driver", lambda *a: (ev.append("launch"), real_launch(*a))[1])
+    monkeypatch.setattr(rt, "run", lambda *a, **k: (ev.append("launch"), real_run(*a, **k))[1])
+    assert P.Queue(ctx).loop() == "done"
+    assert ev.count("launch") > 10 and ev[0] == "check" and ev.count("check") >= 2000
+    for i, e in enumerate(ev):
+        if e == "launch":
+            assert ev[i - 1] == "check", i                                     # immediately before every launch
+    assert len(_sentinels(ctx, "WAIT")) == 1
+
+
+def test_a_stop_request_while_waiting_launches_nothing(P, qctx, monkeypatch):
+    ctx, rt, verdicts, done = qctx
+    n = {"k": 0}
+
+    def isaac_busy():
+        n["k"] += 1
+        if n["k"] == 3:
+            (ctx.dir / "STOP_PIPELINE").write_text("")
+        return True
+
+    monkeypatch.setattr(rt, "isaac_busy", isaac_busy)
+    assert P.Queue(ctx).loop() == "stopped"
+    assert rt.launched == [] and ctx.state["status"] == "stopped" and ctx.srec("s1")["status"] == "training"
+
+
+def test_kit_lines_count_a_driver_and_its_trainer_as_one(L):
+    """The C7 sampler's '2 Isaac processes' at 16:27:09 was the s1 driver (a CPU supervisor) + its own train.py (Kit
+    log kit_20261017_162700): isaac_lines (the busy check) counts both, conservatively; kit_lines counts Kits."""
+    ps = "\n".join([f"{PYI} /x/tools/run_candidates.py --unit cands-dry-1 --campaign-dir /d",
+                    f"{PYI} /x/parkour/scripts/rsl_rl/train.py --task T --headless",
+                    f"timeout --signal=TERM 172800 {PYI} /x/parkour/scripts/rsl_rl/train.py --task S",
+                    f"{PYI} -I /x/tools/pipeline/pipeline.py _queue --spec s --run R18"])
+    assert len(L.isaac_lines(ps)) == 2 and len(L.kit_lines(ps)) == 1
+    assert len(L.kit_lines(ps + f"\n{PYI} /s/sh_dagger.py --headless --out /r/SH_x")) == 2
+
+
+def test_stand_stages_expect_the_checkpoint_of_their_launched_iterations(P, tspec, tmp_path, monkeypatch):
+    """C7 defect 2: sn_ref / sh_ref (and sn / sh) judge model_<launched iterations>.pt -- the dry pass's 20-it
+    stand-in writes model_20.pt, not model_4000.pt."""
+    assert P.Queue(P.Ctx(tspec, "R18")).judged_name("sn_ref") == "model_4000.pt"
+    assert P.Queue(P.Ctx(tspec, "R18")).judged_name("sh") == "model_5000.pt"
+    assert P.Queue(P.Ctx(tspec, "dry")).judged_name("sn_ref") == "model_20.pt"
+    assert P.Queue(P.Ctx(tspec, "dry")).judged_name("sh_ref") == "model_20.pt"
+    assert P.graph_problems(tspec) == []
+    tspec.stage("sn")["judged"] = "model_3500.pt"
+    assert any("judged model_3500.pt" in x for x in P.graph_problems(tspec))
+    # X runs "as D1 / D2 but beside the bundled S1": it takes the row lists it does not name from its D stage
+    cfg = P.stand_stage_cfg(tspec, "sh_ref")
+    assert "height_rows" not in tspec.stage("sh_ref") and cfg["height_rows"] == tspec.stage("sh")["height_rows"]
+    assert cfg["k5_rows"] == tspec.stage("sh")["k5_rows"] and cfg["controls_spec"] == tspec.stage("sh")["controls_spec"]
+    assert P.stand_stage_cfg(tspec, "sn_ref")["stand_rows"] == tspec.stage("sn")["stand_rows"]
+    rows = tspec.stage("sn").pop("stand_rows")
+    assert {x.split(":")[0] for x in P.graph_problems(tspec) if "stand_rows" in x} >= {"stage sn", "stage sn_ref"}
+    tspec.stage("sn")["stand_rows"] = rows
+    # the X stage on the dry run: a 20-it DAgger run that wrote model_20.pt proceeds (no DRIVER HALT)
+    tspec.stage("sn")["judged"] = "model_4000.pt"
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "dry")
+    ctx = P.Ctx(tspec, "dry")
+    ctx.rt = StopRT()
+    monkeypatch.setattr(P, "guard_problems", lambda *a, **k: [])
+    monkeypatch.setattr(P, "ddc_gb", lambda: 0.0)
+    runs = tmp_path / "sn_runs"
+    paths = {"sn_runs": runs, "sn_scripts": tmp_path / "sn_scripts", "p2_run_arm": tmp_path / "run_arm.sh"}
+    monkeypatch.setattr(P.Queue, "stand_paths", lambda self: paths)
+    trained = []
+
+    def fake_train(self, sid, launcher, trainer, runs_, name, args, env):
+        it = int(args[args.index("--iterations") + 1])
+        (runs_ / name).mkdir(parents=True, exist_ok=True)
+        (runs_ / name / f"model_{it}.pt").write_bytes(b"x")
+        trained.append((name, it))
+        return 0
+
+    monkeypatch.setattr(P.Queue, "train_dagger", fake_train)
+    monkeypatch.setattr(P, "stand_gate", lambda ctx, sid, which, rec, x=False: {"verdict": "PASS", "x": {"verdict": "report_only"}})
+    q = P.Queue(ctx)
+    q.ex_dagger_sn("sn_ref")
+    assert trained == [("SN_T4dry_sn_ref_s17", 20)]
+    assert ctx.srec("sn_ref")["status"] == "pass" and "sn_ref" not in ctx.state["halts"]
+    assert ctx.head("sn_ref")["ckpt"].endswith("SN_T4dry_sn_ref_s17/model_20.pt")
+    assert ctx.rt.events.count("busy?") >= 1 and ctx.rt.events.index("busy?") < ctx.rt.events.index("run")
+    # and sh_ref: trained, table, height + K5 rows (its D stage's lists), read -- no KeyError, no DRIVER HALT
+    tab = tmp_path / "sh_table"
+    (tab / "T1").mkdir(parents=True)
+    (tab / "LATEST").write_text("T1\n")
+    paths.update({"sh_runs": tmp_path / "sh_runs", "sh_scripts": tmp_path / "sh_scripts", "sh_table_out": tab})
+    ctx.rt.events.clear()
+    q.ex_dagger_sh("sh_ref")
+    assert trained[-1] == ("SH_T4dry_sh_ref_s17", 20) and ctx.srec("sh_ref")["status"] == "pass"
+    assert ctx.head("sh_ref")["ckpt"].endswith("SH_T4dry_sh_ref_s17/model_20.pt")
+    ran = [" ".join(map(str, c)) for c in ctx.rt.ran]
+    assert any("sh_eval_rows.sh" in c and "hwalkstop__omni@1" in c for c in ran), ran
+    ev = ctx.rt.events                       # table, height rows, K5 rows (Isaac) each right after the idle check;
+    runs = [i for i, e in enumerate(ev) if e == "run"]          # then sh_read + sn_calib (CPU reads)
+    assert len(runs) == 5 and all(ev[i - 1] == "busy?" for i in runs[:3]) and ev[runs[3] - 1] == "run"
+
+
+def test_the_spec_carries_the_watchdog_and_the_grace(P, S, tspec):
+    assert S.d["live"]["progress_watchdog_min"] == 30 and S.d["live"]["term_grace_s"] == 120
+    tspec.d["live"]["progress_watchdog_min"] = 0
+    assert any("progress_watchdog_min" in x for x in P.graph_problems(tspec))
