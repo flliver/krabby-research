@@ -1,0 +1,736 @@
+{
+ "pass": false,
+ "design_bitwise": "55/144 bitwise (DESIGN 112/116)",
+ "shared": 148,
+ "bitwise": 55,
+ "tags_old": 148,
+ "tags_new": 152,
+ "only_old": [],
+ "only_new": [
+  "Metrics/base_parkour/demote_count",
+  "Metrics/base_parkour/promote_count",
+  "Metrics/base_parkour/terrain_levels_obst",
+  "Metrics/base_parkour/track_ratio_obst_p50"
+ ],
+ "timing_ignored": [
+  "Perf/collection time",
+  "Perf/learning_time",
+  "Perf/total_fps",
+  "Train/mean_episode_length/time"
+ ],
+ "n_differ": 89,
+ "differ": [
+  {
+   "tag": "Loss/hist_latent",
+   "max_abs": 0.015061214566230774,
+   "max_ulp": 7498227,
+   "first_step": 0,
+   "tolerated": false,
+   "rule": "<= 4 ULP when every other non-timing tag is bitwise (STOP-0 amendment)"
+  },
+  {
+   "tag": "Loss/priv_reg",
+   "max_abs": 0.09779737889766693,
+   "max_ulp": 13692668,
+   "first_step": 1,
+   "tolerated": false,
+   "rule": "|d| <= 2e-06"
+  },
+  {
+   "tag": "Episode_Reward/penalty_lin_vel_y",
+   "max_abs": 0.035263200756162405,
+   "max_ulp": 24058197,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_clock_schedule",
+   "max_abs": 0.27592574805021286,
+   "max_ulp": 13605286,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_delta_torques",
+   "max_abs": 0.19676857441663742,
+   "max_ulp": 15653344,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_lin_vel_z",
+   "max_abs": 0.0005038556701038033,
+   "max_ulp": 11820798,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/entropy",
+   "max_abs": 0.17943572998046875,
+   "max_ulp": 94076,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/estimator",
+   "max_abs": 0.0017059091478586197,
+   "max_ulp": 915853,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/learning_rate",
+   "max_abs": 0.00024628905885037966,
+   "max_ulp": 39753949,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/surrogate",
+   "max_abs": 0.012343141483142972,
+   "max_ulp": 2102849507,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/symmetry",
+   "max_abs": 0.007354459725320339,
+   "max_ulp": 4554663,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/value_function",
+   "max_abs": 0.016775213181972504,
+   "max_ulp": 8441317,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/far_from_current_goal",
+   "max_abs": 0.04329395294189453,
+   "max_ulp": 181588,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/how_far_from_start_point",
+   "max_abs": 0.10975474119186401,
+   "max_ulp": 3236903,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/yaw_progress",
+   "max_abs": 0.006449667504057288,
+   "max_ulp": 15094206,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/clip_frac",
+   "max_abs": 0.11803385615348816,
+   "max_ulp": 7471104,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/exec_action_rate",
+   "max_abs": 0.09420037269592285,
+   "max_ulp": 395105,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/exec_change",
+   "max_abs": 0.007939726114273071,
+   "max_ulp": 4262608,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/explained_var",
+   "max_abs": 0.04803270101547241,
+   "max_ulp": 805855,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/grad_clip_share",
+   "max_abs": 0.32499998807907104,
+   "max_ulp": 5452595,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/grad_norm",
+   "max_abs": 3.0507917404174805,
+   "max_ulp": 14142388,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/kl_mb0",
+   "max_abs": 0.00033618370071053505,
+   "max_ulp": 8262258,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/kl_mean",
+   "max_abs": 0.00874614529311657,
+   "max_ulp": 7172925,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/lr_applied",
+   "max_abs": 0.00022133423044579104,
+   "max_ulp": 23079326,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/mu_med_cam",
+   "max_abs": 0.03498920798301697,
+   "max_ulp": 3803356,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/mu_med_rod",
+   "max_abs": 0.06520876288414001,
+   "max_ulp": 2271851,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Policy/mean_noise_std",
+   "max_abs": 0.00804603099822998,
+   "max_ulp": 134990,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Train/mean_reward",
+   "max_abs": 8.030075073242188,
+   "max_ulp": 2444054,
+   "first_step": 20,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/penalty_tibia_deviation_in_stance",
+   "max_abs": 0.03544570552185178,
+   "max_ulp": 24971464,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/penalty_tracking_error_l1",
+   "max_abs": 0.3753374218940735,
+   "max_ulp": 15498724,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_clock_swing_apex",
+   "max_abs": 0.19235914945602417,
+   "max_ulp": 45143161,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_forward_progress_along_command",
+   "max_abs": 0.0344742750748992,
+   "max_ulp": 28919348,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_orientation",
+   "max_abs": 0.0063610447105020285,
+   "max_ulp": 1150624853,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_yaw_progress",
+   "max_abs": 0.0036366124113555998,
+   "max_ulp": 2184660612,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/track_ang_vel_z_exp",
+   "max_abs": 0.6235422194004059,
+   "max_ulp": 13686673,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/track_lin_vel_xy_exp",
+   "max_abs": 0.35126811265945435,
+   "max_ulp": 14982960,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/heading_err_rms_mean",
+   "max_abs": 0.002404823899269104,
+   "max_ulp": 645540,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/r_max_mean",
+   "max_abs": 0.03886312246322632,
+   "max_ulp": 1304030,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/track_ratio_mean",
+   "max_abs": 0.03191831707954407,
+   "max_ulp": 1317898,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/track_ratio_mean_norsi",
+   "max_abs": 0.03191831707954407,
+   "max_ulp": 1317898,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/track_ratio_move_mean",
+   "max_abs": 0.03191831707954407,
+   "max_ulp": 1317898,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/track_ratio_move_mean_norsi",
+   "max_abs": 0.03191831707954407,
+   "max_ulp": 1317898,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/error_vel_xy",
+   "max_abs": 0.750963568687439,
+   "max_ulp": 15511454,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/error_vel_yaw",
+   "max_abs": 0.341479554772377,
+   "max_ulp": 19687683,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/facing_err_abs",
+   "max_abs": 0.06160695571452379,
+   "max_ulp": 20934450,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/effective_std",
+   "max_abs": 0.008046090602874756,
+   "max_ulp": 134991,
+   "first_step": 21,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/penalty_excess_feet_contact_forward",
+   "max_abs": 0.016070842160843313,
+   "max_ulp": 41972125,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/penalty_foot_idle_when_forward",
+   "max_abs": 4.397894859313965,
+   "max_ulp": 68889345,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_feet_air_time_positive",
+   "max_abs": 0.0009534155033179559,
+   "max_ulp": 974564753,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Reward/reward_stride_length",
+   "max_abs": 0.00012653810290430556,
+   "max_ulp": 930409315,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Termination/crab_failure",
+   "max_abs": 0.16748046875,
+   "max_ulp": 3462485,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Episode_Termination/total_terminates",
+   "max_abs": 0.16748046875,
+   "max_ulp": 8699904,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/crab_failure_flat",
+   "max_abs": 0.1273895502090454,
+   "max_ulp": 3507580,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/crab_failure_hazard_flat",
+   "max_abs": 0.2154979705810547,
+   "max_ulp": 3615456,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/ep_steps_flat",
+   "max_abs": 89.296142578125,
+   "max_ulp": 1463028,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/move_frac_actual",
+   "max_abs": 0.6670973896980286,
+   "max_ulp": 31664927,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_back_draws",
+   "max_abs": 0.3541666567325592,
+   "max_ulp": 1041439026,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_back_frac",
+   "max_abs": 0.45340877026319504,
+   "max_ulp": 1049624499,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_fwd_draws",
+   "max_abs": 0.3611111110076308,
+   "max_ulp": 1048645351,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_fwd_frac",
+   "max_abs": 0.2994348406791687,
+   "max_ulp": 1047876856,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_side_l_draws",
+   "max_abs": 0.3680555410683155,
+   "max_ulp": 1051372203,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_side_r_draws",
+   "max_abs": 0.3856647312641144,
+   "max_ulp": 1049275051,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_side_r_frac",
+   "max_abs": 0.7678276747465134,
+   "max_ulp": 1046767421,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_stand_draws",
+   "max_abs": 0.3749999701976776,
+   "max_ulp": 1049135241,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_stand_frac",
+   "max_abs": 0.3505803048610687,
+   "max_ulp": 1051950915,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/stand_frac_actual",
+   "max_abs": 0.3505803048610687,
+   "max_ulp": 1051950915,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Train/mean_episode_length",
+   "max_abs": 279.699951171875,
+   "max_ulp": 3532800,
+   "first_step": 23,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/crab_failure_hazard_obst",
+   "max_abs": 0.277756929397583,
+   "max_ulp": 4659988,
+   "first_step": 24,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/crab_failure_obst",
+   "max_abs": 0.09154835343360901,
+   "max_ulp": 3431479,
+   "first_step": 24,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/ep_steps_obst",
+   "max_abs": 150.05889892578125,
+   "max_ulp": 2458565,
+   "first_step": 24,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/pool_side_l_frac",
+   "max_abs": 0.4895852096378803,
+   "max_ulp": 1053818755,
+   "first_step": 24,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/hand_adv_mean_l",
+   "max_abs": 0.27426691353321075,
+   "max_ulp": 2168893230,
+   "first_step": 25,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/hand_adv_mean_r",
+   "max_abs": 0.2749587306752801,
+   "max_ulp": 2160801131,
+   "first_step": 25,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/hand_frac_l",
+   "max_abs": 0.034912109375,
+   "max_ulp": 2342912,
+   "first_step": 25,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/hand_frac_r",
+   "max_abs": 0.08984375,
+   "max_ulp": 5537792,
+   "first_step": 25,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/hand_grad_cos",
+   "max_abs": 0.2720179818570614,
+   "max_ulp": 2163707889,
+   "first_step": 25,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/sat1_rod",
+   "max_abs": 0.0814480185508728,
+   "max_ulp": 946048569,
+   "first_step": 38,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Loss/action_bound",
+   "max_abs": 0.2689347267150879,
+   "max_ulp": 934556830,
+   "first_step": 40,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_velocity/recap_frac",
+   "max_abs": 0.0594998262822628,
+   "max_ulp": 1030993431,
+   "first_step": 60,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/sat15_rod",
+   "max_abs": 0.0422634556889534,
+   "max_ulp": 986710016,
+   "first_step": 65,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/sat1_cam",
+   "max_abs": 0.0005967881879769266,
+   "max_ulp": 974942663,
+   "first_step": 85,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "PPO/lock_rod",
+   "max_abs": 0.00014919704699423164,
+   "max_ulp": 958165447,
+   "first_step": 155,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/block_steps_mean",
+   "max_abs": 1.002687931060791,
+   "max_ulp": 1065375764,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/field_frac_mean",
+   "max_abs": 0.00014743268548045307,
+   "max_ulp": 958044201,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/field_steps_mean",
+   "max_abs": 0.2450331300497055,
+   "max_ulp": 1048242679,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/goals_passed_mean",
+   "max_abs": 0.006622516084462404,
+   "max_ulp": 1004077489,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/obst_coverage_2",
+   "max_abs": 0.006622516084462404,
+   "max_ulp": 1004077489,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/reach_edge_frac",
+   "max_abs": 0.006622516084462404,
+   "max_ulp": 1004077489,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  },
+  {
+   "tag": "Metrics/base_parkour/reach_obst_frac",
+   "max_abs": 0.010666892863810062,
+   "max_ulp": 1009697841,
+   "first_step": 161,
+   "tolerated": false,
+   "rule": "bitwise"
+  }
+ ]
+}

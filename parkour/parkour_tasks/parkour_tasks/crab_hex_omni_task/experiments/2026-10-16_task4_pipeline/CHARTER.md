@@ -435,3 +435,49 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - **D14 freeze in force from here until F19 ends:** other sessions stay off the code / eval / TP / PL paths and
     every locked file.
   - **Next: step 9, R18** (full pipeline + X), ≈ 55–65 GPU-h.
+- **2026-10-19 ~16:00, R18 status check → two findings** (ultracode workflow `wf_d7f95df4-b25`: opus fix, fable
+  verify, opus analysis).
+  - **Progress:** s1, c4, c5, c6 and c6x are gate PASS; p2a trained to 19994 and its gate rows are finishing.
+  - **Finding 1, the driver live watch never ran.** `pipeline.driver_run_dir` built `LOG_ROOT/<exp>/<timestamp>`
+    from train.py's "Exact experiment name" line, but the run dir is `<timestamp>_<run_name>`. Every poll returned
+    None, so `watch_driver` never ran the live rules, the P-live check or a driver LIVE injection, on any driver
+    stage. No stage record has a `live` key.
+    - The C7 dry pass could not expose this: no driver LIVE injection, and 20-it windows end inside one poll.
+    - The driver's own watchdogs (stall / NaN / dead walker) did run.
+    - After the fact (`R18/replay/live_posthoc.json`), the pipeline's live rules would not have killed any of the
+      six finished stages.
+    - Every walker gate's `live_collapse` line passed vacuously (value None).
+  - **Finding 2, P-live would have FAILED → STOP-R** (`R18/replay/s1_plive_posthoc.json`). R18 s1 vs X43 over
+    steps 0–200: 55 / 144 tags bitwise; the trajectory diverges from iteration 20. Steps 0–19 stay P-early PASS.
+  - **The cause (analysis, consistent with all evidence):**
+    - Only `actor.history_encoder` differs at `model_0`, by about 1e-6. It is the only Conv1d / cuDNN module, and
+      `train.py` sets `cudnn.deterministic=False`.
+    - Its numerics differ by build: X43 → Phase-A smoke is 2 ULP in step-0 `hist_latent`; X43 → the pin is 1 ULP.
+    - The history encoder first drives actions in the iteration-20 DAgger rollout (`it % 20 == 0`), which matches
+      the onset.
+    - Within the pinned build, five seed-18 s1 runs are bitwise through step 19 with identical `model_0`.
+    - PLAN's premise "bitwise to ≈ 1905" never held. Phase A's 20-it window could not see it, and the STOP-A
+      reading "the 2-ULP hist_latent did not move the trajectory" was true only to step 19.
+  - **User decisions (2026-10-19):**
+    1. **STOP-R accepted with disclosure.** R18 continues as a statistical second sample. Its "process
+       reproduced" verdict is: P-config PASS (6 stages), P-early PASS, P-live FAIL (iteration 20; cuDNN
+       history-encoder numerics). The report restates the reproducibility claim: same build and seed are bitwise
+       (verified to step 19); across builds, reproduction is statistical.
+    2. **Install the live-watch fix now** as a recorded re-pin. The verified patch:
+       - `driver_window` / `driver_run_dir` resolve the exact `<ts>_<run_name>` dir, never guessing;
+       - `driver_stamp` uses the driver's recorded evals;
+       - 6 regression tests;
+       - the gate flags a missing / non-PASS live read as WATCH instead of a vacuous pass.
+       114 tests pass. Procedure: the old queue's guard HALTs p2a GUARD on the drifted locked file; relock; commit;
+       `continue --retry p2a` relaunches the queue on the new code.
+  - **Follow-ups (not run):**
+    - `run_phases.interrupted_phase` (omni / forward / sideways) has the same timestamp-only lookup (off the TP
+      path).
+    - `find_student_run` takes the newest `*_<name>` dir, so a same-name retry can read the old dir briefly.
+    - Short driver windows (< 1 poll) get no live read.
+    - Making training deterministic (`cudnn.deterministic`) is a future option.
+- **2026-10-19 16:48, re-pin (live-watch fix).** The old queue's guard HALTed p2a / sn_ref / sh_ref GUARD on the
+  drifted `pipeline.py`, as planned, and parked. Relocked with the fix (`pipeline.lock.json`); `check --run R18` is
+  clean. This commit is the amended pin, with local annotated tag `task4-pin-2026-10-19b`. The three GUARD halts
+  are cleared with `continue --retry`. The relaunched queue runs the new code: p2a's gate is read now, and p3a
+  onward has working live rules.

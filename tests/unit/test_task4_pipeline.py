@@ -1047,8 +1047,14 @@ def test_gate_reads_rehearsed_on_recorded_s1_rows(P, tspec, monkeypatch):
             ctx.srec("p3a")["curve"] = {"0": True, "45": True, "90": True, "135": False}
         P.L.write_json_atomic(ctx.rows_path(sid), recs)
     monkeypatch.setattr(P, "gate0", lambda ctx, sid, stamps, expects: [])
+    # no live record: the live line is vacuous, so the gate reads WATCH with exactly that flag (CHARTER 2026-10-19)
     r = P.gate_walker(ctx, "p2a")
-    assert r["verdict"] == P.GR.PASS, r["halt_lines"]
+    assert r["verdict"] == P.GR.WATCH, r["halt_lines"]
+    assert [f["id"] for f in r["watch_flags"]] == ["p2a.live_collapse"]
+    # a PASS live read clears it
+    ctx.srec("p2a")["live"] = {"last_rc": P.LW().RC_PASS, "last": 19994}
+    r = P.gate_walker(ctx, "p2a")
+    assert r["verdict"] == P.GR.PASS, (r["halt_lines"], r["watch_flags"])
     ids = {d["id"] for d in r["decisive"]}
     assert "p2a.capability.field_hard" in ids and "p2a.floor.side22_fastfast" in ids
     assert {f"p2a.floor.survival.{c}.es{e}" for c in ("fwd", "side", "back", "diag") for e in (1, 2)} <= ids
@@ -1870,3 +1876,220 @@ def test_the_spec_carries_the_watchdog_and_the_grace(P, S, tspec):
     assert S.d["live"]["progress_watchdog_min"] == 30 and S.d["live"]["term_grace_s"] == 120
     tspec.d["live"]["progress_watchdog_min"] = 0
     assert any("progress_watchdog_min" in x for x in P.graph_problems(tspec))
+
+
+# ============================================================================== the driver's run dir (R18 live-watch fix)
+#: R18's REAL records (2026-10-19): the driver's ``state.json`` current while p2a TRAINED (the eval that followed keeps
+#: started / resume / target_final / phase and swaps kind / tag / iters / log -- R18_EVAL_CURRENT is that record
+#: verbatim but for extra_env), and the two train.py lines of ``R18/logs/seed18_X06_p2a_A15pB_train.log`` (lines
+#: 56-57; the root line's path is re-pointed at the fake LOG_ROOT). The run dir train.py made from them is
+#: ``crab_hex_omni_teacher/2026-10-19_12-25-59_seed18_X06_p2a_A15pB``: the "Exact experiment name" line carries the
+#: timestamp ONLY, so the old ``driver_run_dir`` built ``.../2026-10-19_12-25-59`` and returned None on every poll.
+R18_TS = "2026-10-19_12-25-59"
+R18_TAG = "seed18_X06_p2a_A15pB"
+R18_RESUME = ("/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"
+              "2026-10-19_10-17-50_seed18_X05_c6x_A15pB/model_14995.pt")
+R18_EVAL_CURRENT = {"tag": "seed18_X06_p2a_A15pB_suite__omni", "phase": "2a", "iters": 1000, "kind": "eval",
+                    "log": "{logs}/seed18_X06_p2a_A15pB_suite__omni_eval.log", "resume": R18_RESUME,
+                    "target_final": 19994, "started": "2026-10-19T12:25:48"}
+R18_TRAIN_LOG_LINES = ("[INFO] Logging experiment in directory: {root}",
+                       "Exact experiment name requested from command line: 2026-10-19_12-25-59")
+
+
+class LiveRT(FakeRT):
+    """The driver unit stays active for ``polls`` polls (``on_poll(n)`` runs at each); a stopped unit is inactive."""
+
+    def __init__(self, ctx_dir, pin, tmp, polls=0, on_poll=None):
+        super().__init__(ctx_dir, pin, tmp)
+        self.polls, self.on_poll, self.n = polls, on_poll, 0
+
+    def unit_active(self, unit):
+        if unit in self.killed or self.n >= self.polls:
+            return False
+        self.n += 1
+        if self.on_poll:
+            self.on_poll(self.n)
+        return True
+
+
+def _drv_ctx(P, tspec, tmp_path, monkeypatch, run, polls=0, on_poll=None):
+    pin = {"code_sha": "c" * 64, "eval_sha": "e" * 64}
+    tspec.lock_path().write_text(json.dumps(pin))
+    P.gen(tspec, run)
+    ctx = P.Ctx(tspec, run)
+    ctx.rt = LiveRT(ctx.dir, pin, tmp_path, polls, on_poll)
+    monkeypatch.setattr(P.L, "LOG_ROOT", tmp_path / "rsl_rl")
+    monkeypatch.setattr(P, "ddc_watch_problem", lambda ctx: None)
+    return ctx
+
+
+def _drv_window(P, ctx, sid, *, xid, tag, ts, root_line=True, current=None):
+    """The driver's records of one training window of stage ``sid`` (state.json ladder + current, the train log)."""
+    chain, seed = ctx.spec.chain(ctx.run, sid), ctx.spec.seed(ctx.run, sid)
+    exp = P.L.rc().ph.PHASES[ctx.spec.stage(sid)["base"]].experiment
+    root = P.L.LOG_ROOT / exp
+    logs = ctx.dir / "logs"
+    logs.mkdir(parents=True, exist_ok=True)
+    log = logs / f"{tag}_train.log"
+    lines = [ln.format(root=root) for ln in R18_TRAIN_LOG_LINES[0 if root_line else 1:]]
+    log.write_text("[KNOB] KRABBY_ENTROPY_COEF=0.0025 consumed\n" + "\n".join(lines).replace(R18_TS, ts) + "\n")
+    cur = current or {"tag": tag, "phase": ctx.spec.stage(sid)["base"], "iters": 5000, "kind": "rl", "log": str(log),
+                      "resume": R18_RESUME, "target_final": 19994, "started": "2026-10-19T12:25:48"}
+    st = {"current": cur, "ladder": {"experiments": {
+        xid: {"xid": xid, "kind": "reference", "chain": chain, "seed": str(seed), "stages": [sid]},
+        "X99": {"xid": "X99", "kind": "reference", "chain": "other_chain", "seed": str(seed), "stages": ["c6x"]}}},
+        "keys": {f"seed{seed}": {}}}
+    (ctx.dir / "state.json").write_text(json.dumps(st))
+    return root, log, st
+
+
+def test_driver_run_dir_resolves_the_r18_suffixed_run_dir(P, tspec, tmp_path, monkeypatch):
+    ctx = _drv_ctx(P, tspec, tmp_path, monkeypatch, "R18")
+    root, log, st = _drv_window(P, ctx, "p2a", xid="X06", tag=R18_TAG, ts=R18_TS)
+    assert root.name == "crab_hex_omni_teacher"                       # the experiment R18's train log names
+    assert P.driver_run_dir(ctx, "p2a") is None                       # train.py printed, the runner has no dir yet
+    assert ctx.srec("p2a")["live_resolve"]["state"] == "pending"
+    real = root / f"{R18_TS}_{R18_TAG}"
+    for d in (real, root / f"2026-10-19_01-35-18_{R18_TAG}",           # the dry pass's run of the same name
+              root.parent / "crab_hex_omni_flat_walk" / f"{R18_TS}_{R18_TAG}"):
+        d.mkdir(parents=True)
+    assert P.driver_run_dir(ctx, "p2a") == real
+    assert not (root / R18_TS).exists()                               # what the old lookup built
+    assert ctx.srec("p2a")["live_resolve"]["run_dir"] == str(real)
+    # without the root line the stage's phase experiment is the root: same answer
+    _drv_window(P, ctx, "p2a", xid="X06", tag=R18_TAG, ts=R18_TS, root_line=False)
+    assert P.driver_run_dir(ctx, "p2a") == real
+    # the driver's EVAL of the window it just trained (R18's real current now): the dir resolved in training holds
+    ok = ctx.srec("p2a")["live_resolve"]
+    ev = dict(R18_EVAL_CURRENT, log=R18_EVAL_CURRENT["log"].format(logs=ctx.dir / "logs"))
+    st["current"] = ev
+    (ctx.dir / "state.json").write_text(json.dumps(st))
+    assert P.driver_run_dir(ctx, "p2a") == real
+    assert P.driver_window(ctx, "p2a", None)["state"] == "pending"    # no training-time resolution: never guessed
+    assert P.driver_window(ctx, "p2a", {**ok, "window": {**ok["window"], "started": "x"}})["state"] == "pending"
+    # once the driver records the window, its checkpoint must lie in the dir
+    rec = {"phase": "p2a", "tag": R18_TAG, "log": str(log), "ckpt": str(real / "model_19994.pt")}
+    st["current"] = {"tag": R18_TAG, "phase": "2a", "iters": 5000, "kind": "rl", "log": str(log), "resume": R18_RESUME,
+                     "target_final": 19994, "started": "2026-10-19T12:25:48"}
+    st["keys"]["seed18"] = {"X06:p2a": rec}
+    (ctx.dir / "state.json").write_text(json.dumps(st))
+    assert P.driver_run_dir(ctx, "p2a") == real
+    rec["ckpt"] = str(root / f"2026-10-19_01-35-18_{R18_TAG}" / "model_19994.pt")
+    (ctx.dir / "state.json").write_text(json.dumps(st))
+    assert P.driver_window(ctx, "p2a")["state"] == "mismatch" and P.driver_run_dir(ctx, "p2a") is None
+
+
+def test_driver_run_dir_never_guesses(P, tspec, tmp_path, monkeypatch):
+    ctx = _drv_ctx(P, tspec, tmp_path, monkeypatch, "R18")
+    root, log, st = _drv_window(P, ctx, "p2a", xid="X06", tag=R18_TAG, ts=R18_TS)
+    # a stale current of ANOTHER stage's window (e.g. the previous driver's) is not this stage's
+    assert P.driver_window(ctx, "c6x")["state"] == "pending"
+    # same second, another run name only: a mismatch, said and notified once (not per poll), never read
+    (root / f"{R18_TS}_seed18_X07_p3a_A15pB").mkdir(parents=True)
+    assert P.driver_run_dir(ctx, "p2a") is None and P.driver_run_dir(ctx, "p2a") is None
+    notes = [json.loads(x) for x in ctx.notify_path.read_text().splitlines()]
+    assert len([n for n in notes if "mismatch" in n["text"]]) == 1
+    # the infra retry (log / tag <tag>_r2) keeps the run_name: both dirs present = ambiguous
+    tag2 = f"{R18_TAG}_r2"
+    _drv_window(P, ctx, "p2a", xid="X06", tag=tag2, ts="2026-10-19_12-40-00")
+    (root / f"2026-10-19_12-40-00_{R18_TAG}").mkdir()
+    assert P.driver_run_dir(ctx, "p2a") == root / f"2026-10-19_12-40-00_{R18_TAG}"
+    (root / f"2026-10-19_12-40-00_{tag2}").mkdir()
+    w = P.driver_window(ctx, "p2a")
+    assert w["state"] == "ambiguous" and w["run_dir"] is None and P.driver_run_dir(ctx, "p2a") is None
+    # a log whose train.py lines name another experiment root
+    _drv_window(P, ctx, "p2a", xid="X06", tag=R18_TAG, ts=R18_TS)
+    log.write_text(log.read_text().replace("crab_hex_omni_teacher", "crab_hex_omni_flat_walk"))
+    assert P.driver_window(ctx, "p2a")["state"] == "mismatch"
+
+
+def _fake_series(upto: int, crab: float = 0.2) -> dict:
+    steps = range(0, upto + 1)
+    return {"Loss/surrogate": [(s, 0.01) for s in steps], "Train/mean_episode_length": [(s, 500.0) for s in steps],
+            "Episode_Termination/crab_failure": [(s, crab) for s in steps],
+            "Metrics/base_parkour/track_ratio_mean": [(s, 0.8) for s in steps]}
+
+
+@pytest.mark.parametrize("p_live_pass", [False, True])
+def test_watch_driver_reads_the_live_rules_and_p_live_at_plus_at(P, tspec, tmp_path, monkeypatch, p_live_pass):
+    upto = {"n": 0}
+    reads, pearly_calls, checks = [], [], []
+
+    def on_poll(n):
+        upto["n"] = 100 * n
+
+    ctx = _drv_ctx(P, tspec, tmp_path, monkeypatch, "R18", polls=4, on_poll=on_poll)
+    root, log, st = _drv_window(P, ctx, "s1", xid="X01", tag="seed18_X01_s1_A15pB", ts="2026-10-19_05-12-46")
+    rd = root / "2026-10-19_05-12-46_seed18_X01_s1_A15pB"
+    rd.mkdir(parents=True)
+    lw, rr = P.LW(), P.RR()
+    real_check = lw.check
+    monkeypatch.setattr(lw, "read_series", lambda run_dir, tags=None: (reads.append(Path(run_dir)),
+                                                                        _fake_series(upto["n"]))[1])
+    monkeypatch.setattr(lw, "check", lambda *a, **k: (checks.append(k.get("stage")), real_check(*a, **k))[1])
+
+    def pearly(new, old, steps=range(20)):
+        pearly_calls.append((Path(new), Path(old), list(steps)))
+        return {"pass": p_live_pass, "design_bitwise": "55/144 bitwise", "differ": [] if p_live_pass else
+                [{"tag": "Loss/entropy", "first_step": 20, "tolerated": False}]}
+    monkeypatch.setattr(rr, "pearly", pearly)
+    at = int(tspec.d["live"]["p_live"]["at"])
+    assert at == 200 and tspec.run("R18")["p_live"]
+    killed = P.Queue(ctx).watch_driver("s1", "cands-R18-1")
+    rec = ctx.srec("s1")
+    assert reads and set(reads) == {rd} and checks and set(checks) == {"s1"}      # the live check ran on the run
+    assert rec["live"]["run_dir"] == str(rd) and rec["live"]["last_rc"] in (P.LW().RC_PASS, P.LW().RC_WAIT)
+    ref = P.L.REPO / tspec.d["live"]["p_live"]["reference_run"]
+    assert pearly_calls == [(rd, ref, list(range(0, at + 1)))]                 # once, at +at, never before
+    assert rec["p_live_done"] is True and rec["p_live"]["pass"] is p_live_pass
+    if p_live_pass:
+        assert killed is False and rec["live"]["last"] == 400 and "s1" not in ctx.state["halts"]
+        assert ctx.rt.killed == []
+    else:
+        assert killed is True and rec["live"]["last"] == at
+        assert rec["live_killed"]["rule"] == "p_live" and ctx.rt.killed == ["cands-R18-1"]
+        assert ctx.state["halts"]["s1"]["class"] == "STOP-R"
+
+
+def test_dry_pass_driver_live_injection_is_reachable(P, tspec, tmp_path, monkeypatch):
+    qrun = "dry"
+    made = {}
+
+    def on_poll(n):
+        if n == 2:                                     # the runner creates the dir after the first poll
+            made["rd"].mkdir(parents=True)
+
+    ctx = _drv_ctx(P, tspec, tmp_path, monkeypatch, qrun, polls=5, on_poll=on_poll)
+    seed = ctx.spec.seed(qrun, "c4")
+    root, log, st = _drv_window(P, ctx, "c4", xid="X02", tag=f"seed{seed}_X02_c4_A15pB", ts="2026-10-19_00-55-24")
+    made["rd"] = root / f"2026-10-19_00-55-24_seed{seed}_X02_c4_A15pB"
+    monkeypatch.setattr(P.LW(), "read_series", lambda run_dir, tags=None: _fake_series(300))
+    (ctx.dir / "INJECT.json").write_text(json.dumps({"c4": ["LIVE"]}))
+    assert P.Queue(ctx).watch_driver("c4", "cands-dry-1") is True
+    rec = ctx.srec("c4")
+    assert ctx.rt.n == 2                                # poll 1: no dir yet (no injection); poll 2: resolved -> kill
+    assert rec["live"]["run_dir"] == str(made["rd"]) and rec["live_killed"]["rule"] == "injected"
+    assert ctx.state["halts"]["c4"]["class"] == "LIVE" and "c4:LIVE" in ctx.state["injected"]
+    assert ctx.rt.killed == ["cands-dry-1"]
+
+
+def test_driver_stamp_takes_the_drivers_recorded_eval(P, tspec, tmp_path, monkeypatch):
+    """A continued window (``<tag>_c``) is evaluated under its ORIGINAL tag: the run-dir-derived name misses it."""
+    ctx = _drv_ctx(P, tspec, tmp_path, monkeypatch, "R18")
+    monkeypatch.setattr(P.L, "EVAL_ROOT", tmp_path / "gait_eval")
+    ck = tmp_path / "rsl_rl/crab_hex_omni_teacher" / f"{R18_TS}_{R18_TAG}_c" / "model_19994.pt"
+    ck.parent.mkdir(parents=True)
+    ck.write_bytes(b"x")
+    stamp = tmp_path / "gait_eval" / ctx.dir.name / R18_TAG / "suite__omni" / "seed001" / "2026-10-19_18-30-02"
+    stamp.mkdir(parents=True)
+    (stamp / "run_meta.json").write_text("{}")
+    head = {"xid": "X06", "seed": "18", "ckpt": str(ck), "stage_ckpts": {"p2a": str(ck)}, "chain": "R18_p2a"}
+    st = {"current": {}, "ladder": {"experiments": {"X06": {"chain": "R18_p2a", "seed": "18", "stages": ["p2a"]}}},
+          "keys": {"seed18": {"X06:p2a": {"phase": "p2a", "tag": f"{R18_TAG}_c", "ckpt": str(ck),
+                                          "evals": {"suite": {"run_dir": str(stamp)}}}}}}
+    (ctx.dir / "state.json").write_text(json.dumps(st))
+    assert P.driver_stamp(ctx, head) == stamp
+    assert P.driver_stamp(ctx, head, row="side22_25lr__omni") is None
+    st["keys"]["seed18"]["X06:p2a"]["evals"] = {}                    # no record: the name-derived fallback
+    (ctx.dir / "state.json").write_text(json.dumps(st))
+    assert P.driver_stamp(ctx, head) is None

@@ -1014,22 +1014,160 @@ def reference_head(ctx: Ctx, chain: str, seed: int) -> dict | None:
     return recs[-1] if recs else None
 
 
-def driver_run_dir(ctx: Ctx, sid: str) -> Path | None:
-    """The running training window's run dir, from the driver's ``current.log`` ("Exact experiment name ...")."""
-    cur = driver_state(ctx).get("current") or {}
-    log = Path(cur.get("log") or "")
+#: ``parkour/scripts/rsl_rl/train.py`` prints the experiment root, then ONLY the timestamp half of the run dir: the dir
+#: itself is ``<timestamp>_<run_name>`` whenever ``--run_name`` is given, and the driver always gives it
+#: (``run_candidates``: ``run_name=train_tag``). ``run_phases.train_retry`` keeps that run_name on its infra retry,
+#: whose log / current tag is ``<train_tag>_r2``.
+RE_TRAIN_EXP_ROOT = re.compile(r"\[INFO\] Logging experiment in directory: (\S+)")
+RE_TRAIN_EXACT_NAME = re.compile(r"Exact experiment name requested from command line: (\S+)")
+TRAIN_LOG_SUFFIX = "_train.log"
+DRIVER_RETRY_TAG_SUFFIX = "_r2"
+#: the two train.py lines sit in the first ~60 lines of a train log; past this many bytes the whole log is read
+TRAIN_LOG_HEAD_BYTES = 4 << 20
+
+
+def _train_log_text(log: Path) -> str:
+    with open(log, "rb") as fh:
+        head = fh.read(TRAIN_LOG_HEAD_BYTES).decode(errors="ignore")
+    if RE_TRAIN_EXACT_NAME.search(head) or log.stat().st_size <= TRAIN_LOG_HEAD_BYTES:
+        return head
+    return log.read_text(errors="ignore")
+
+
+def _driver_stage_recs(ds: dict, xid: str) -> list[dict]:
+    """The driver's per-stage records (``state.json`` keys[<seed key>]["<xid>:<stage>"]) of experiment ``xid``."""
+    return [r for recs in (ds.get("keys") or {}).values() for k, r in (recs or {}).items()
+            if isinstance(r, dict) and str(k).split(":", 1)[0] == xid]
+
+
+def driver_window(ctx: Ctx, sid: str, prev: dict | None = None) -> dict:
+    """The driver's running (or just-finished) training window of driver stage ``sid``, resolved to its run dir.
+
+    ``{"state": ok | pending | ambiguous | mismatch, "run_dir": str | None, "why": str, "window": {...}}``; only
+    ``ok`` carries a run dir. The dir is resolved from the driver's own records, never guessed:
+
+    * the window must be this stage's: ``state.json`` current names a ``<tag>_train.log`` whose tag carries an
+      experiment id (``_<xid>_``) the driver registered for this stage's chain and seed (a stale current from the
+      previous stage's driver, a bootstrap, an eval or a replay is ``pending``);
+    * that log's own train.py lines give the experiment root (cross-checked against the stage's phase experiment)
+      and the run's timestamp; the dir is the ONE ``<root>/<timestamp>_<run_name>`` whose run_name is the window's
+      tag (or the tag minus the driver's ``_r2`` infra-retry suffix). A timestamp match carrying another name is a
+      ``mismatch``, two matches are ``ambiguous`` -- neither is read;
+    * once the driver has recorded the window (same log), its checkpoint must lie in that dir (else ``mismatch``);
+    * while the driver EVALUATES the window it just trained (current kind ``eval`` keeps the train record's started /
+      resume / target_final / phase), the dir ``prev`` resolved for that same window stays valid.
+
+    ``pending`` = the window or its dir does not exist yet (train.py prints the timestamp a few seconds before the
+    runner creates the dir)."""
+    ds = driver_state(ctx)
+    cur = ds.get("current") or {}
+    chain, seed = ctx.spec.chain(ctx.run, sid), ctx.spec.seed(ctx.run, sid)
+    win = {k: cur.get(k) for k in ("started", "resume", "target_final", "phase")}
+
+    def out(state: str, why: str, rd: Path | None = None, **extra) -> dict:
+        return {"state": state, "run_dir": str(rd) if rd is not None else None, "why": why, "window": win, **extra}
+
+    exps = (ds.get("ladder") or {}).get("experiments") or {}
+    xids = sorted(x for x, e in exps.items()
+                  if isinstance(e, dict) and e.get("chain") == chain and str(e.get("seed")) == str(seed))
+    if not xids:
+        return out("pending", f"the driver has not registered chain {chain} s{seed} yet")
+    log = Path(str(cur.get("log") or ""))
+    if not log.name.endswith(TRAIN_LOG_SUFFIX):
+        if (cur.get("kind") == "eval" and prev and prev.get("state") == "ok" and prev.get("window") == win
+                and prev.get("run_dir") and Path(prev["run_dir"]).is_dir()):
+            return out("ok", f"the driver is evaluating the window it just trained ({cur.get('tag')}): "
+                             f"{Path(prev['run_dir']).name} as resolved during training", Path(prev["run_dir"]),
+                       tag=prev.get("tag"), log=prev.get("log"))
+        return out("pending", f"no training window: current is {cur.get('kind')} {cur.get('tag')}")
+    tag = str(cur.get("tag") or "")
+    if log.name != f"{tag}{TRAIN_LOG_SUFFIX}":
+        return out("mismatch", f"state.json current tag {tag!r} does not name its log {log.name}")
+    mine = [x for x in xids if f"_{x}_" in f"_{tag}_"]
+    if not mine:
+        return out("pending", f"the current window {tag} is not chain {chain}'s ({', '.join(xids)})")
+    if len(mine) > 1:
+        return out("ambiguous", f"the window tag {tag} carries several experiments of chain {chain}: {mine}")
     if not log.is_file():
-        return None
-    m = re.search(r"Exact experiment name requested from command line: (\S+)", log.read_text(errors="ignore"))
-    if not m:
-        return None
+        return out("pending", f"{log.name} is not written yet")
+    txt = _train_log_text(log)
+    stamps = sorted(set(RE_TRAIN_EXACT_NAME.findall(txt)))
+    if not stamps:
+        return out("pending", f"train.py has not printed its run name in {log.name} yet")
+    if len(stamps) > 1:
+        return out("ambiguous", f"{log.name} names several runs {stamps}")
+    ts = stamps[0]
     exp = L.rc().ph.PHASES[ctx.spec.stage(sid)["base"]].experiment
-    d = L.LOG_ROOT / exp / m.group(1)
-    return d if d.is_dir() else None
+    want_root = L.LOG_ROOT / exp
+    roots = sorted(set(RE_TRAIN_EXP_ROOT.findall(txt)))
+    if len(roots) > 1:
+        return out("ambiguous", f"{log.name} names several experiment roots {roots}")
+    root = Path(roots[0]) if roots else want_root
+    if root.resolve() != want_root.resolve():
+        return out("mismatch", f"{log.name} logs to {root}, stage {sid}'s phase experiment is {want_root}")
+    try:
+        names = sorted(p.name for p in root.iterdir() if p.is_dir() and (p.name == ts or p.name.startswith(f"{ts}_")))
+    except OSError:
+        names = []
+    if not names:
+        return out("pending", f"no run dir {root.name}/{ts}_* yet")
+    expect = {tag}
+    if tag.endswith(DRIVER_RETRY_TAG_SUFFIX):
+        expect.add(tag[:-len(DRIVER_RETRY_TAG_SUFFIX)])
+    hits = [n for n in names if n[len(ts) + 1:] in expect]
+    if len(hits) > 1:
+        return out("ambiguous", f"{root.name} holds several dirs of window {tag}: {hits}")
+    if not hits:
+        return out("mismatch", f"{root.name}/{ts}* holds {names}, none carries the run_name {sorted(expect)}")
+    rd = root / hits[0]
+    for r in _driver_stage_recs(ds, mine[0]):
+        if str(r.get("log") or "") == str(log) and r.get("ckpt") and Path(r["ckpt"]).parent != rd:
+            return out("mismatch", f"the driver recorded {r['ckpt']} for {log.name}, not a checkpoint of {rd}")
+    return out("ok", f"{rd.name} ({log.name})", rd, tag=tag, log=str(log))
+
+
+def driver_run_dir(ctx: Ctx, sid: str) -> Path | None:
+    """The run dir of the driver's running (or just-finished) training window of ``sid`` (:func:`driver_window`), or
+    None. The resolution is kept in the stage record (``live_resolve``); an ``ambiguous`` / ``mismatch`` read is said
+    and notified once per distinct reason (the live rules are then NOT read -- never on a guessed run)."""
+    rec = ctx.srec(sid)
+    prev = rec.get("live_resolve")
+    res = driver_window(ctx, sid, prev)
+    if (res["state"], res["why"], res["run_dir"]) != tuple((prev or {}).get(k) for k in ("state", "why", "run_dir")):
+        rec["live_resolve"] = {**res, "at": L.now_iso()}
+        ctx.save()
+        if res["state"] in ("ambiguous", "mismatch"):
+            ctx.notify("NOTIFY", f"stage={sid} live watch: the driver's run dir is {res['state']} ({res['why']}) -- "
+                                 "the live rules are not read until it resolves")
+        elif res["state"] == "ok" and (prev or {}).get("run_dir") != res["run_dir"]:
+            ctx.say("LIVE", f"stage={sid} run_dir={res['run_dir']}")
+    return Path(res["run_dir"]) if res["state"] == "ok" else None
 
 
 def driver_stamp(ctx: Ctx, head: dict, row: str = "suite__omni", es: int = 1) -> Path | None:
-    """The driver's own stage-eval stamp of a head (``gait_eval/omni_phases/<run dir>/<tag>/<row>/seed00k/``)."""
+    """The driver's own stage-eval stamp of a head (``gait_eval/omni_phases/<run dir>/<tag>/<row>/seed00k/<ts>``).
+
+    The driver's record first: the stage record's ``evals[*].run_dir`` (keys["<xid>:<stage>"]), the stamp the driver
+    scored. Its eval tag is the window's ORIGINAL tag, which differs from the run dir's run_name on a continued
+    (``_c``), re-run (``_w``) or experiment-retried (``_e2``) window, so the name-derived lookup below is only the
+    fallback for a head the driver recorded without evals."""
+    want = (row, f"seed{es:03d}")
+    ds = driver_state(ctx)
+    recorded = []
+    for st, ck in (head.get("stage_ckpts") or {}).items():
+        if str(ck) != str(head.get("ckpt")):
+            continue
+        for r in _driver_stage_recs(ds, str(head.get("xid"))):
+            if r.get("phase") == st and str(r.get("ckpt")) == str(ck):
+                recorded += [Path(e["run_dir"]) for e in (r.get("evals") or {}).values()
+                             if isinstance(e, dict) and e.get("run_dir")]
+    recorded = sorted({p for p in recorded if tuple(p.parts[-3:-1]) == want and (p / "run_meta.json").is_file()})
+    if len(recorded) == 1:
+        return recorded[0]
+    if len(recorded) > 1:
+        ctx.notify("NOTIFY", f"driver_stamp: {len(recorded)} recorded {row} es{es} stamps for {head.get('ckpt')} "
+                             f"({[p.name for p in recorded]}): none taken")
+        return None
     tag = Path(head["ckpt"]).parent.name.split("_", 2)[-1]
     d = L.EVAL_ROOT / ctx.dir.name / tag / row / f"seed{es:03d}"
     hits = sorted(p for p in d.glob("*/") if (p / "run_meta.json").is_file()) if d.is_dir() else []
@@ -1219,6 +1357,12 @@ def gate_walker(ctx: Ctx, sid: str) -> dict:
         std = GR.walker_decisive(sid, stamps, trained, th, standard=True)
         flags = [{"id": d["id"], "why": "misses the STANDARD (0.90 / 0.70 / FAST-FAST) line (WATCH)",
                   "value": d.get("value"), "line": d.get("line")} for d in std if not d.get("pass")]
+    # CHARTER 2026-10-19 (R18 live-watch defect): a stage whose live watch never ran -- no rec["live"] -- or whose last
+    # read was not RC_PASS is flagged WATCH instead of passing the live line silently
+    if live.get("last_rc") != LW().RC_PASS:
+        flags.append({"id": f"{sid}.live_collapse", "why": "the live watch has no PASS read for this stage "
+                      "(never ran or last read not RC_PASS) -- the live line is vacuous (WATCH)",
+                      "value": live.get("last_rc"), "line": None})
     verdict = GR.verdict_of(dec, g0, watch_flags=flags)
     res = {"verdict": verdict, "gate0": g0, "decisive": dec, "halt_lines": [d["id"] for d in dec if not d.get("pass")],
            "watch_flags": flags, "watch": GR.watch_reads(sid, {k: v for k, v in stamps.items() if Path(v).is_dir()},
