@@ -59,7 +59,7 @@ Open the Discord link (or Actions) and check which **stage** failed: for Artifac
 | --- | --- | --- |
 | Discord `FAIL: publish-firmware` | Firmware tests, compile, or S3 upload failed | Open **View run**; fix the named step; push again. Scheduled daily builds use `release/*`, so they can stay green while `main` is red. |
 | Discord `FAIL: publish-locomotion` | Docker build/push, OIDC, or smoke (`--teleop-ip`) failed | Fix Dockerfile/pins or AWS role; push again. Artifact health will not run until this is green. |
-| Discord `FAIL: artifact-health` with `locomotion-image` and hint mentions **rate limit** / `toomanyrequests` | Anonymous ECR Public (or Docker) pull quota exhausted on the runner | **Re-run** the Artifact health job (Actions → Re-run failed jobs). Not an image bug. |
+| Discord `FAIL: artifact-health` with `locomotion-image` and hint mentions **rate limit** / `toomanyrequests` | ECR Public (or Docker) pull quota exhausted despite OIDC login — rare shared-runner flake | **Re-run** the Artifact health job (Actions → Re-run failed jobs). Not an image bug. |
 | Discord `FAIL: artifact-health` with `locomotion-image` (other) | ECR pull or `--help` / `--teleop-ip` smoke failed | Confirm the tag exists in ECR; inspect `--help` in the log; fix image or smoke expectation. |
 | Discord `FAIL: artifact-health` with `packages` | `pip install` / import failed for a cold-start package | Check PyPI / package version on that channel; fix packaging or the smoke import. |
 | Discord `FAIL: artifact-health` with `firmware-artifact` | S3 `latest.json` / manifest / HEX HEAD failed | Confirm the channel artifact on S3; fix firmware publish or the channel the check uses. |

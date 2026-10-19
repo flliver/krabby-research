@@ -56,6 +56,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       fail_kind: ${{ steps.smoke.outputs.fail_kind }}
     steps:
@@ -63,6 +66,17 @@ jobs:
         uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
 
       - name: Pull and smoke-start channel tags
         id: smoke
