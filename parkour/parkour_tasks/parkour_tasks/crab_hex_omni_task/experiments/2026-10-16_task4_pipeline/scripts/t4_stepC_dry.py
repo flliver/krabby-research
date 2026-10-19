@@ -249,7 +249,9 @@ def finish(S, a, fail: list) -> int:
         chain_ok = chain_ok and rf == exp
         prev = s
     checks["gen_chaining"] = {"ok": chain_ok}
-    ok = not fail and all(v.get("ok") for v in checks.values())
+    # terminal_statuses is a per-stage map with no top-level "ok" (CHARTER 2026-10-19: the C7 re-run read FAIL on
+    # this alone, every check having passed); it is judged stage by stage below
+    ok = not fail and all(v.get("ok") for k, v in checks.items() if k != "terminal_statuses")
     for k, v in checks["terminal_statuses"].items():
         ok = ok and v["ok"]
     v = {"verdict": "PASS" if ok else "FAIL", "mode": a.mode, "spec": str(S.path), "run_dir": str(ctx.dir),

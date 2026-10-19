@@ -391,3 +391,27 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - PLAN.md's stop-rule sentence is updated to the amendment.
   - **C7 re-run:** the failed dry artefacts are renamed with the suffix `.c7failed_2026-10-18` (nothing deleted),
     then `t4_stepC_queue.sh --retry C7_dry` and `--only C7`.
+- **2026-10-19 04:45, step 8 (Phase C) complete: C1–C7 PASS**, apart from C4.7, which the user accepted with
+  disclosure.
+  - **The C7 dry-pass re-run (5.6 h) passed every check:**
+    - all five injections fired with their effects: c4 FAIL; c5 INVALID rerun; c6 GUARD; st LIVE and sn LIVE,
+      each followed by a fresh `_a<n>` retrain;
+    - no forbidden HALT; at most one Isaac process;
+    - the SIGTERM resume ATTACHed;
+    - every stage ended in an allowed terminal status: p3b ceiling, p3c skipped, sn_ref / sh_ref pass, sel's
+      STUDENT HALT left open as pre-registered, bundle blocked.
+    - The first verdict read FAIL only because of a verdict bug in `t4_stepC_dry.py`: the per-stage
+      `terminal_statuses` map has no top-level `ok`. It was fixed and recomputed from the recorded state; the C7
+      check then PASSED.
+  - **Step-8 values for v1 / spec (`preflight/stepC_read.json`):**
+    - N_p = 3000;
+    - x_rule = `report_only` (same-seed SN / SH smokes are not bitwise);
+    - manifest-shape split = 0.00, so the student completion margin stays at its 0.05 floor;
+    - `live.student.loss_rule` = kill (validated on the forward 3a logs and the depth pilot);
+    - collapse under load: min episode-length / kill line 1.75, max crab_failure 0.36 (reported);
+    - C2 re-anchor: none.
+  - **Measured budget:**
+    - payload stage ≈ 1.3 h per 3000 its;
+    - student 1.92 h per 1k its, about 9.6 h per 5000-it student;
+    - gate rows ≈ 4–11 min each.
+  - **Next:** freeze thresholds v1, write the spec values, gen + lock + check, commit, local annotated pin tag.
