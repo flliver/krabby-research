@@ -353,3 +353,24 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - It is a Nets attribute only, never saved, so default runs and the SH_T17 replay (X) are unchanged.
     - SH tests: 127 pass, plus the 2 known no-bytecode failures.
   - Lock regenerated; `C6_sh_new` and the C6 checks are retried.
+- **2026-10-18 22:28, STOP-C at C7: the dry pass hit its 30-h bound. It found three real pipeline defects.**
+  - **Passed first:** C6.1 (after the SH fix) and C6.2 determinism. x_rule = `report_only`: same-seed SN / SH
+    smokes are not bitwise.
+  - **Behaved exactly as designed (C7):** the c4 FAIL, the c5 INVALID-then-rerun and the c6 GUARD injections fired
+    with the right effects; the SIGTERM resume ATTACHed at c5; p3b ended as a measured ceiling, p3c was skipped,
+    and tstar passed.
+  - **Defect 1, stop hang.** The injected st LIVE kill (`systemctl kill --signal=SIGTERM` on the distill scope,
+    30 s after launch) left train.py hung for 28 h at 100 % CPU. A single later SIGTERM to the python pid ended it
+    in 10 s; no SIGKILL was used. The Kit cache is 39 GB, with no corruption symptom.
+  - **Defect 2, X expected checkpoint.** sn_ref / sh_ref DRIVER-HALTed. They trained the dry 20 its, but the
+    pipeline expected `model_4000.pt` / `model_5000.pt`.
+  - **Defect 3, overlap.** Two Isaac processes overlapped at the C6 → C7 handoff. `launch_candidates.sh`'s wait
+    pattern omits the sn_ / sh_ DAgger pythons and gives up after 10 min.
+  - **Rule amendment (decide-record-notify).** PLAN's "non-driver stages are stopped by graceful SIGTERM, never
+    SIGKILL" now follows the repo's own `run_phases._stop_child`, which every driver stage already uses:
+    - SIGTERM the trainer pid, wait 120 s, SIGTERM again, wait 120 s, and SIGKILL only as a last resort;
+    - a SIGKILL is recorded and notified, and the DerivedDataCache is checked before the next Kit launch;
+    - a progress watchdog turns a silent hang into an INFRA HALT.
+    Why: a hang must not park the queue for days. The stated purpose, protecting the cache, is kept by the grace
+    periods and the post-kill check.
+  - The fixes are being built (TP, opus); then C7 re-runs on a clean dry dir.
