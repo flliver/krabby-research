@@ -69,7 +69,12 @@ def identity_files_present() -> bool:
     return CERT_PATH.exists() and KEY_PATH.exists() and ROOT_CA_PATH.exists() and CONFIG_PATH.exists()
 
 
-def build_mqtt_connection(thing_name: str, endpoint: str) -> Any:
+def build_mqtt_connection(
+    thing_name: str,
+    endpoint: str,
+    *,
+    on_connection_resumed: Any | None = None,
+) -> Any:
     """mTLS MQTT connection to IoT Core, cert/key/CA read from IOT_DIR.
 
     Uses the AWS IoT Device SDK v2's `mtls_from_path` builder. The underlying
@@ -89,7 +94,11 @@ def build_mqtt_connection(thing_name: str, endpoint: str) -> Any:
         print(f"[!]   MQTT connection interrupted: {error} — reconnecting ...")
 
     def _on_connection_resumed(connection, return_code, session_present, **kwargs):
-        print(f"[ok]  MQTT connection resumed (return_code={return_code}, session_present={session_present})")
+        print(
+            f"[ok]  MQTT connection resumed (return_code={return_code}, session_present={session_present})"
+        )
+        if on_connection_resumed is not None:
+            on_connection_resumed(connection, return_code, session_present, **kwargs)
 
     return mqtt_connection_builder.mtls_from_path(
         endpoint=endpoint,

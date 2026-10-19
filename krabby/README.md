@@ -12,7 +12,7 @@ On Orin, use a user venv (system `pip install` fails with `PermissionError`):
 python3 -m venv ~/.venv-krabby
 source ~/.venv-krabby/bin/activate
 pip install -U pip
-pip install 'krabby-launcher>=0.1.23'
+pip install 'krabby-launcher>=0.1.24'
 ```
 
 Host setup (`krabby install`) needs sudo with the venv binary — see [Start on boot](#start-on-boot).

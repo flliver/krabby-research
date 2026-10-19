@@ -262,8 +262,24 @@ def _tunneling() -> Any:
     return boto3.client("iotsecuretunneling", region_name=AWS_REGION)
 
 
-def _open_or_reuse_ssh_tunnel(client: Any, thing_name: str) -> tuple[str, str]:
+def _close_open_tunnels(client: Any, thing_name: str) -> None:
+    listed = client.list_tunnels(thingName=thing_name, maxResults=100)
+    for summary in listed.get("tunnelSummaries") or []:
+        if summary.get("status") != "OPEN":
+            continue
+        tunnel_id = summary.get("tunnelId")
+        if not tunnel_id:
+            continue
+        try:
+            client.close_tunnel(tunnelId=tunnel_id, delete=True)
+        except Exception:  # noqa: BLE001 — best-effort before OpenTunnel
+            pass
+
+
+def _open_or_reuse_ssh_tunnel(client: Any, thing_name: str, *, force_open: bool = False) -> tuple[str, str]:
     """Return (tunnel_id, source_access_token), preferring Rotate over OpenTunnel."""
+    if force_open:
+        _close_open_tunnels(client, thing_name)
     listed = client.list_tunnels(thingName=thing_name, maxResults=100)
     open_ids = [
         s["tunnelId"]
@@ -271,7 +287,13 @@ def _open_or_reuse_ssh_tunnel(client: Any, thing_name: str) -> tuple[str, str]:
         if s.get("status") == "OPEN" and s.get("tunnelId")
     ]
     if open_ids:
-        tunnel_id = open_ids[0]
+        keep, extras = open_ids[0], open_ids[1:]
+        for tunnel_id in extras:
+            try:
+                client.close_tunnel(tunnelId=tunnel_id, delete=True)
+            except Exception:  # noqa: BLE001 — duplicate OPEN cleanup
+                pass
+        tunnel_id = keep
         rotated = client.rotate_tunnel_access_token(
             tunnelId=tunnel_id,
             clientMode="ALL",
@@ -285,6 +307,25 @@ def _open_or_reuse_ssh_tunnel(client: Any, thing_name: str) -> tuple[str, str]:
         timeoutConfig={"maxLifetimeTimeoutMinutes": 720},
     )
     return tunnel["tunnelId"], tunnel["sourceAccessToken"]
+
+
+def _open_ssh_tunnel_with_destination(
+    client: Any, thing_name: str, *, wait_timeout: float = 60.0
+) -> tuple[str, str]:
+    """Rotate or OpenTunnel, then wait for bench destination localproxy."""
+    tunnel_id, source_token = _open_or_reuse_ssh_tunnel(client, thing_name)
+    try:
+        _wait_tunnel_destination_connected(
+            client, tunnel_id, thing_name, timeout=wait_timeout
+        )
+        return tunnel_id, source_token
+    except AssertionError:
+        pass
+    # Stale OPEN tunnel or missed MQTT notify — fresh OpenTunnel re-notifies the device.
+    _close_open_tunnels(client, thing_name)
+    tunnel_id, source_token = _open_or_reuse_ssh_tunnel(client, thing_name, force_open=True)
+    _wait_tunnel_destination_connected(client, tunnel_id, thing_name, timeout=wait_timeout)
+    return tunnel_id, source_token
 
 
 def _parse_indexed_shadow(shadow: Any) -> dict[str, Any]:
@@ -485,9 +526,8 @@ def test_secure_tunnel_source_proxy_reaches_ssh():
     """
     assert shutil.which(_LOCALPROXY_BIN), f"{_LOCALPROXY_BIN} not on PATH (required for bench E2E)"
     client = _tunneling()
-    tunnel_id, source_token = _open_or_reuse_ssh_tunnel(client, BENCH_THING_NAME)
     # Secure Tunneling: destination must connect before source (DescribeTunnel gate).
-    _wait_tunnel_destination_connected(client, tunnel_id, BENCH_THING_NAME)
+    tunnel_id, source_token = _open_ssh_tunnel_with_destination(client, BENCH_THING_NAME)
     proc: subprocess.Popen | None = None
     stderr_chunks: list[bytes] = []
     local_port = 0

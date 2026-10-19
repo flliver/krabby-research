@@ -126,20 +126,18 @@ def _publish_shadow_report(shadow_client: Any, thing_name: str, teleop_shim: Tel
     shadow_client.publish_update_shadow(request, mqtt.QoS.AT_LEAST_ONCE)
 
 
-def cmd_agent() -> None:
+def _subscribe_agent_mqtt(
+    connection: Any,
+    shadow_client: Any,
+    thing_name: str,
+    teleop_shim: TeleopSignalingShim,
+    *,
+    resubscribe: bool,
+) -> None:
+    """Register shadow, Secure Tunnel notify, and teleop signaling subscriptions."""
     from awscrt import mqtt
     from awsiot import iotshadow
 
-    config = _iot.load_config()
-    thing_name = config["thing_name"]
-    endpoint = config["endpoint"]
-
-    print(f"Connecting to {endpoint} as {thing_name} ...")
-    connection = _iot.build_mqtt_connection(thing_name, endpoint)
-    connection.connect().result()
-    print(f"[ok]  connected as {thing_name}")
-
-    shadow_client = iotshadow.IotShadowClient(connection)
     shadow_client.subscribe_to_update_shadow_accepted(
         request=iotshadow.UpdateShadowSubscriptionRequest(thing_name=thing_name),
         qos=mqtt.QoS.AT_LEAST_ONCE,
@@ -157,10 +155,52 @@ def cmd_agent() -> None:
         qos=mqtt.QoS.AT_LEAST_ONCE,
         callback=_on_tunnel_notify,
     )
-    print(f"[ok]  subscribed to {tunnels_notify_topic}")
+    verb = "resubscribed" if resubscribe else "subscribed"
+    print(f"[ok]  {verb} to {tunnels_notify_topic}")
+
+    if resubscribe:
+        teleop_shim.resubscribe_mqtt()
+    else:
+        teleop_shim.start(connection, thing_name)
+
+
+def cmd_agent() -> None:
+    from awsiot import iotshadow
+
+    config = _iot.load_config()
+    thing_name = config["thing_name"]
+    endpoint = config["endpoint"]
 
     teleop_shim = TeleopSignalingShim()
-    teleop_shim.start(connection, thing_name)
+    shadow_client_holder: list[Any] = []
+
+    def _on_mqtt_resumed(connection: Any, return_code: Any, session_present: Any, **kwargs: Any) -> None:
+        if not shadow_client_holder:
+            return
+        print(
+            f"[+]   MQTT resumed — re-registering IoT subscriptions "
+            f"(session_present={session_present})"
+        )
+        _subscribe_agent_mqtt(
+            connection,
+            shadow_client_holder[0],
+            thing_name,
+            teleop_shim,
+            resubscribe=True,
+        )
+
+    print(f"Connecting to {endpoint} as {thing_name} ...")
+    connection = _iot.build_mqtt_connection(
+        thing_name, endpoint, on_connection_resumed=_on_mqtt_resumed
+    )
+    connection.connect().result()
+    print(f"[ok]  connected as {thing_name}")
+
+    shadow_client = iotshadow.IotShadowClient(connection)
+    shadow_client_holder.append(shadow_client)
+    _subscribe_agent_mqtt(
+        connection, shadow_client, thing_name, teleop_shim, resubscribe=False
+    )
 
     print(f"      reporting shadow state every {SHADOW_REPORT_INTERVAL_SECS}s. Ctrl-C to stop.")
     try:

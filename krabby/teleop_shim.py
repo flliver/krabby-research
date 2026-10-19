@@ -176,6 +176,28 @@ class TeleopSignalingShim:
         print(f"[ok]  teleop signaling shim listening on {self.ws_url}")
         print(f"      point the WebRTC edge agent at it with --teleop-ip {self._host}")
 
+    def resubscribe_mqtt(self) -> None:
+        """Re-subscribe signaling/in after MQTT reconnect (session may not persist)."""
+        if self._connection is None or self._thing_name is None:
+            return
+        in_topic = signaling_in_topic(self._thing_name)
+        try:
+            _await_crt(
+                self._connection.subscribe(
+                    topic=in_topic,
+                    qos=self._qos_at_least_once,
+                    callback=self._on_mqtt_in,
+                ),
+                timeout=30.0,
+            )
+        except Exception as exc:
+            print(
+                f"[err] teleop signaling resubscribe failed topic={in_topic}: {exc}",
+                file=sys.stderr,
+            )
+            return
+        print(f"[ok]  resubscribed to {in_topic}")
+
     def stop(self) -> None:
         """Stop the local WS server (MQTT connection is owned by the agent)."""
         self._stop.set()
