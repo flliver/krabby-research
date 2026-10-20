@@ -1,5 +1,9 @@
 # Device enroll (Orin)
 
+**Canonical per-device enroll guide.** Account/AWS deploy and fleet ops live in
+[`SETUP-FLEET.md`](SETUP-FLEET.md); that doc links here for onboarding and must
+not be treated as a second enroll procedure.
+
 One-time onboarding of a Jetson Orin into AWS IoT Core: thing, device cert
 (CSR on-device), policy attach, identity files, and `krabby-agent.service`.
 
@@ -129,8 +133,10 @@ identity layout under `/etc/krabby/iot/`.
 
 ## Next
 
-SSH from one source: [`SSH-TUNNEL.md`](SSH-TUNNEL.md). Console / SearchIndex:
-[`README.md`](README.md).
+Fleet HAL / portal Open teleop on an enrolled host: [`FIELD-TELEOP.md`](FIELD-TELEOP.md)
+(`krabby run` with `/etc/krabby/iot/` present). SSH from one source:
+[`SSH-TUNNEL.md`](SSH-TUNNEL.md). Account/AWS deploy (not enroll steps):
+[`SETUP-FLEET.md`](SETUP-FLEET.md). Console / SearchIndex: [`README.md`](README.md).
 
 ## Troubleshooting
 
