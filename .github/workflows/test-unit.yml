@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  actions: read     # list failed steps for Discord detail
 
 concurrency:
   group: unit-tests-${{ github.event.pull_request.number || github.ref }}
@@ -83,3 +84,48 @@ jobs:
       - name: Run all unit tests
         run: |
           pytest tests/unit/ -q --timeout=60 --timeout-method=thread
+
+      # FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Discord notify
+        if: success() || failure()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import os
+          import subprocess
+          from krabby_bench._discord import notify_ci_result
+
+          ok = os.environ.get("JOB_STATUS") == "success"
+          branch = (
+              os.environ.get("GITHUB_HEAD_REF")
+              or os.environ.get("GITHUB_REF_NAME")
+              or ""
+          )
+          if not branch:
+              try:
+                  branch = subprocess.check_output(
+                      ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
+                  ).strip()
+              except Exception:
+                  branch = ""
+
+          notify_ci_result(
+              ok=ok,
+              title="unit-tests",
+              failed_stage=(None if ok else "test"),
+              branch=branch,
+              detail=(
+                  "Python unit suite green again."
+                  if ok
+                  else "Python unit suite (tests/unit/) failed."
+              ),
+              collapse_consecutive_pass=True,
+          )
+          PY

@@ -188,28 +188,31 @@ jobs:
 
           echo "All verification checks passed."
 
-      # Discord on red publish (Artifact health only starts after this workflow succeeds).
-      - name: Set up Python (Discord on failure)
-        if: failure()
+      # Discord: FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Set up Python (Discord notify)
+        if: success() || failure()
         continue-on-error: true
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - name: Discord on failure
-        if: failure()
+      - name: Discord notify
+        if: success() || failure()
         continue-on-error: true
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
           pip install -q requests
           pip install -q -e ./bench
           python - <<'PY'
+          import os
           import subprocess
           from krabby_bench._discord import notify_ci_result
 
+          ok = os.environ.get("JOB_STATUS") == "success"
           try:
               branch = subprocess.check_output(
                   ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
@@ -218,13 +221,18 @@ jobs:
               branch = ""
 
           notify_ci_result(
-              ok=False,
+              ok=ok,
               title="publish-locomotion",
-              failed_stage="build-and-push",
+              failed_stage=(None if ok else "build-and-push"),
               branch=branch,
               detail=(
-                  "Locomotion image was not published. Artifact health will not run "
-                  "until this workflow is green."
+                  "Locomotion publish green again."
+                  if ok
+                  else (
+                      "Locomotion image was not published. Artifact health will not run "
+                      "until this workflow is green."
+                  )
               ),
+              collapse_consecutive_pass=True,
           )
           PY

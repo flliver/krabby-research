@@ -3,8 +3,8 @@
 Posts on success and failure. Skips cleanly when DISCORD_WEBHOOK_URL is unset
 so local and stubbed-CI runs do not require a secret.
 
-Artifact health can collapse consecutive PASSes (FAIL always; PASS only after a
-non-green prior run) so the daily schedule does not spam Discord.
+CI workflows collapse consecutive PASSes (FAIL always; PASS only after a
+non-green prior run) so green schedules / pushes do not spam Discord.
 """
 from __future__ import annotations
 
@@ -415,8 +415,25 @@ def notify_harness_result(
     commit: str = "",
     subject: str = "",
     webhook_url: Optional[str] = None,
+    collapse_consecutive_pass: bool = True,
 ) -> bool:
-    """Notify Discord about a four-stage harness outcome."""
+    """Notify Discord about a four-stage harness outcome.
+
+    FAIL always; when ``collapse_consecutive_pass`` is True, PASS only after a
+    non-green prior workflow run (same rule as ``notify_ci_result``).
+    """
+    if collapse_consecutive_pass and ok:
+        prev = previous_workflow_run_conclusion()
+        if should_collapse_consecutive_pass(
+            ok=True,
+            collapse_consecutive_pass=True,
+            previous_conclusion=prev,
+        ):
+            log.info(
+                "Discord skipped: consecutive PASS for krabby-bench harness "
+                "(prior run was success)"
+            )
+            return False
     return post_discord(
         webhook_url,
         ok=ok,

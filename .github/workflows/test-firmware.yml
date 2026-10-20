@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  actions: read     # list failed steps / prior run for Discord
 
 concurrency:
   group: firmware-tests-${{ github.event.pull_request.number || github.ref }}
@@ -34,3 +35,39 @@ jobs:
       - name: Run Python firmware tests
         if: ${{ !cancelled() }}
         run: python -m pytest -q tests/unit/firmware --timeout=60 --timeout-method=thread
+
+      # FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Discord notify
+        if: success() || failure()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import os
+          from krabby_bench._discord import notify_ci_result
+
+          ok = os.environ.get("JOB_STATUS") == "success"
+          branch = (
+              os.environ.get("GITHUB_HEAD_REF")
+              or os.environ.get("GITHUB_REF_NAME")
+              or ""
+          )
+          notify_ci_result(
+              ok=ok,
+              title="firmware-tests",
+              failed_stage=(None if ok else "test"),
+              branch=branch,
+              detail=(
+                  "Firmware unit/native suite green again."
+                  if ok
+                  else "Firmware native or Python unit tests failed."
+              ),
+              collapse_consecutive_pass=True,
+          )
+          PY

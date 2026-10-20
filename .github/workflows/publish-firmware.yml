@@ -115,28 +115,31 @@ jobs:
       - name: Publish to S3
         run: PYTHONPATH=. python firmware/scripts/publish_firmware.py
 
-      # Discord on red publish (Artifact health only runs after locomotion succeeds).
-      - name: Set up Python (Discord on failure)
-        if: failure()
+      # Discord: FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Set up Python (Discord notify)
+        if: success() || failure()
         continue-on-error: true
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - name: Discord on failure
-        if: failure()
+      - name: Discord notify
+        if: success() || failure()
         continue-on-error: true
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
           pip install -q requests
           pip install -q -e ./bench
           python - <<'PY'
+          import os
           import subprocess
           from krabby_bench._discord import notify_ci_result
 
+          ok = os.environ.get("JOB_STATUS") == "success"
           try:
               branch = subprocess.check_output(
                   ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
@@ -145,10 +148,15 @@ jobs:
               branch = ""
 
           notify_ci_result(
-              ok=False,
+              ok=ok,
               title="publish-firmware",
-              failed_stage="build-and-publish",
+              failed_stage=(None if ok else "build-and-publish"),
               branch=branch,
-              detail="Firmware tests failed or HEX was not uploaded to S3.",
+              detail=(
+                  "Firmware publish green again."
+                  if ok
+                  else "Firmware tests failed or HEX was not uploaded to S3."
+              ),
+              collapse_consecutive_pass=True,
           )
           PY
