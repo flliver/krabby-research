@@ -500,3 +500,19 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - The X stand replay finished (report-only).
   - Analysis workflow `wf_c17b5887-5ce` (opus analysis, fable independent re-derivation, opus synthesis) is
     running; the user then decides.
+- **2026-10-20, user decision on the R18 p3a HALT: accept as chance (disclosed).**
+  - Analysis (`wf_c17b5887-5ce`): the HALT is real. Two independent re-derivations reproduce the gate exactly.
+    It is not eval noise (z 15.8 / 13.6) and not a high baseline (R18's p2a move_turn 0.789 < S1's 0.807).
+  - **Best reading: the known continuation drift on move_turn ratio, arriving faster than the margin's linear
+    3000/5000 scaling allows.**
+    - The head ends at X12's no-payload level (0.729 / 0.732 vs 0.749 / 0.748).
+    - In the same window, move_turn facing_closed rose +0.08, turn facing +0.03 and yaw_progress +0.015.
+    - Every other decisive statistic held or improved: fields 0.765 → 0.84 (field_hard), survival 1.0, FAST/FAST
+      kept, stable at 90 kg.
+    - Caveat: the pilot from S1 dropped only 0.008, and there is no calibrated chance rate for this line.
+  - **Disclosure for the report:** p3a's paired 0-kg check FAILED on move_turn ratio (margin use 1.66 / 1.52). It
+    was accepted as continuation drift; R18 stays eligible as the deliverable, with this disclosed. Optional
+    follow-up: ~3000 its of no-payload continuation from R18's p2a would separate payload-accelerated from
+    ordinary drift.
+  - **X replay:** sn_ref and sh_ref PASS (report-only). The loss curves equal the SN_Amask_s17 / SH_T17 records
+    exactly; the weight shas differ.
