@@ -123,9 +123,12 @@ See [bench/README.md](bench/README.md) for config reference and forced-failure t
 
 ## Further reading
 
+Host setup for kit bring-up is **this quick-start** (`krabby install` above), not a second path. [docs/JETSON_DEPLOYMENT.md](docs/JETSON_DEPLOYMENT.md) is advanced Jetson/Docker/ZED/policy reference only.
+
 | Document | Contents |
 |----------|----------|
 | [docs/CI-FAILURES.md](docs/CI-FAILURES.md) | What to do when publish / Artifact health / Discord CI fails |
+| [docs/JETSON_DEPLOYMENT.md](docs/JETSON_DEPLOYMENT.md) | Advanced Jetson: SSH, GPU Docker, ZED, custom policy deploy (not kit install) |
 | [firmware/SETUP.md](firmware/SETUP.md) | S3 firmware store, V protocol, three-board update procedure |
 | [images/locomotion/README.md](images/locomotion/README.md) | Production Docker image, ECR tags, pin bumping |
 | [krabby/README.md](krabby/README.md) | Full `krabby` CLI reference |

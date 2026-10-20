@@ -1,5 +1,7 @@
 # Jetson Deployment Guide
 
+**Not the kit install path.** For cold-start bring-up on Orin (launcher, udev, dialout, boot unit, firmware, gamepad), use the root [README Software quick-start](../README.md#software-quick-start) — `pip install krabby-launcher` then `krabby install`. This document is advanced reference: SSH, Docker Engine, NVIDIA Container Toolkit, ZED, and custom policy deploy.
+
 This guide explains how to build and deploy the parkour policy runtime on Jetson Orin hardware.
 
 ## System Requirements

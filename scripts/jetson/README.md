@@ -2,8 +2,13 @@
 
 Scripts for getting a fresh NVIDIA Jetson Orin (Ubuntu 22.04 / jammy, arm64)
 ready to run the Krabby locomotion stack. Run them from the repo root, on the
-Jetson. See [docs/JETSON_DEPLOYMENT.md](../../docs/JETSON_DEPLOYMENT.md) for the
-full guide.
+Jetson.
+
+**Kit / operator path:** prefer the root [README](../../README.md) Software
+quick-start (user venv + `krabby install`). This directory automates Docker/GPU
+host prep and an alternate system-wide bootstrap; it is not a competing
+first-install guide. For SSH, ZED, and custom policy deploy detail, see
+[docs/JETSON_DEPLOYMENT.md](../../docs/JETSON_DEPLOYMENT.md).
 
 ## Quick start
 
