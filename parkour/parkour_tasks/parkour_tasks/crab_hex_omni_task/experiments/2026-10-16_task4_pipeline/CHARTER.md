@@ -489,3 +489,14 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - **p2a gate: WATCH.** Every decisive line PASSES; the only flag is `p2a.live_collapse` (the live watch never
     ran on p2a).
   - The queue continues with the X stand replay (sn_ref, sh_ref), then p3a.
+- **2026-10-20 02:12, R18 HALT at p3a (FAIL, `p3a.capability.zero_kg_paired`), the user's decision.**
+  - The paired 0-kg check fails on **move_turn ratio only**:
+    - suite es1: worse by 0.0608 vs a margin of 0.0367 (R binds);
+    - suite es2: worse by 0.0565 vs 0.0372 (scaled drift binds);
+    - max margin use 1.66.
+  - Every other 0-kg statistic and every p3a floor passes; p3a is stable at 90 kg.
+  - Context: the zero-lever continuation (X12 − X08, 5000 its, no payload) itself drops move_turn by
+    0.057 / 0.062, and the margin scales that by 3000 / 5000.
+  - The X stand replay finished (report-only).
+  - Analysis workflow `wf_c17b5887-5ce` (opus analysis, fable independent re-derivation, opus synthesis) is
+    running; the user then decides.
