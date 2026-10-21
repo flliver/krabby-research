@@ -526,3 +526,27 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - **2026-10-21 06:23, HALT at sn (D1, FAIL):** `stand.D1.G1.taps_per_s` on suite es1 and es2 reads 1.04167
     against its line; the recorded chance rate is 0.0 (suspect).
   - Analysis workflow `wf_b6c04135-191` is running; the user decides.
+- **2026-10-21, R18 SN HALT and T\* review → user decisions** (analysis workflow `wf_b6c04135-191`).
+  - **SN HALT is real and small.**
+    - Half the R18 stand net's suite stands tap ≥ 13 times in 12 s, vs 2–15 % for every S1-era stand net. These
+      are full ~40-ms unloads with ~1 mm lift, mainly on feet FL / RR.
+    - It is the stand net's own steady-state chatter: T\* never acts on those rows, and T\* alone taps less than S1.
+    - The recorded chance rate of 0.0 was a degenerate fixed-t artefact (three recorded seeds all exactly 0). A
+      re-eval of this head would fail about 54 % / 76 % of the time.
+    - Every other D1 line passes. G5 body height has thin margins (0.3–2 mm) because REFS(T\*) stands 2.6 cm taller.
+  - **Decision 1: amend.** SN G1 taps/s and steps/s (suite es1 / es2) become WATCH, like the STOP-0 G2 stillness
+    lines; SH's K5 / K6 stays the decisive stillness test on the shipping stand net.
+    - Disclosed numbers: G1 taps/s 1.042 / 1.125 (line ≤ 1); share of episodes with ≥ 13 taps 50 % / 53 %.
+  - **Decision 2: keep T\* = p3a.**
+    - p3b (135-kg ceiling) also failed its paired 0-kg check, more mildly: turn yaw_progress es2 dropped 0.0100 vs a
+      margin of 0.0091 (use 1.10, z ≈ 10).
+    - The queue excluded p3b silently, without a notification. That is disclosed here, and the T\* notification is
+      being fixed.
+  - **Being implemented** as thresholds v1.1 plus TP fixes, then a re-pin and `continue --amend sn`
+    (workflow `wf_fdf94607-da9`):
+    - stand_gate records WATCH lines instead of dropping them;
+    - degenerate lines report "rate unknown", not 0.0;
+    - the T\* record lists every payload head;
+    - the student full block computes the "tracking + 0.05" WATCH.
+  - **The student veto clip is rendered:** `R18/clip/student_c27000_field_hard.mp4` (30 s, 0 kg, wall field, no
+    resets) plus a 960p copy. It is a veto only, never a gate.
