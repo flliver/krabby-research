@@ -10,7 +10,10 @@ Pinned here (PLAN "Gates -> Rule -> Self-checks"):
 * the Poisson count line (K4: lambda = 8/6 -> ~4.65 % per read at <= 3) and its gamma-Poisson sensitivity;
 * the paired line Phi(-margin / SE), the student's two-block product, and the 0-kg margin with the drift scaled by
   its_past_p2a / 5000;
-* the payload a-priori formula and resolution.binomial_guard_floor's values (0.0717 / 0.0507).
+* the payload a-priori formula and resolution.binomial_guard_floor's values (0.0717 / 0.0507);
+* thresholds v1.1 (CHARTER 2026-10-21): the inputs = v1 + the four SN G1 WATCH ids; a degenerate fixed-t line's rate
+  is None + 'degenerate/unvalidated' and the sums count it out explicitly; v1.1 = v1 line for line otherwise and
+  regenerates byte for byte (v0 / v1 still do: their maps keep the plain read).
 
 The module is loaded by path (TP has no ``__init__.py``) with bytecode writing off.
 """
@@ -117,6 +120,48 @@ def test_fixed_line_t_rate_degenerate(T):
     assert T.fixed_line_t_rate([0.0, 0.0, 0.0], 0.0, 0.5, higher_is_better=False)["rate"] == 0.0
     assert T.fixed_line_t_rate([1.0, 1.0, 1.0], 0.0, 0.5, higher_is_better=False)["rate"] == 1.0
     assert T.fixed_line_t_rate([1.0, 1.0, 1.0], 0.0, 0.5)["degenerate"] is True
+
+
+def test_degenerate_line_rate_is_none_and_the_sums_say_so(T):
+    """CHARTER 2026-10-21 decision C: a fixed-t line with sigma_hat 0 (all recorded seeds exactly 0, R = 0 -- R18's SN
+    G1 taps/s) has no modelled rate: 'unvalidated' mode reports rate None + 'degenerate/unvalidated' (not the plain
+    0.0) and the sums exclude it EXPLICITLY; 'legacy_zero' (v0 / v1) leaves everything as it was."""
+    import copy
+    fr = T.fixed_line_t_rate([0.0, 0.0, 0.0], 0.0, 1.0, higher_is_better=False)
+    deg = {"id": "stand.D1.G1.taps_per_s suite es1", "stage": "D1 (SN)", "kind": "stand", "class": "fixed_t",
+           "value_set": "standard", **fr}
+    flo = {"id": "s1.floor.ratio.fwd.es1", "stage": "s1", "kind": "floor", "class": "fixed_t", "value_set": "standard",
+           "rate": 0.0, "sigma_hat": 0.0, "t": None}             # a floor ratio line carries sigma_hat, not the flag
+    ok = {"id": "stand.D1.G1.ks_m_s suite es1", "stage": "D1 (SN)", "kind": "stand", "class": "fixed_t",
+          "value_set": "standard", **T.fixed_line_t_rate([0.10, 0.11, 0.09], 0.0, 0.5, higher_is_better=False)}
+    lines = [deg, flo, ok]
+    assert [T.is_degenerate(x) for x in lines] == [True, True, False]
+    assert T.is_degenerate({"class": "fixed_t", "per_median": {"lat_l_022": {"degenerate": True}}, "rate": 0.1})
+    legacy = copy.deepcopy(lines)
+    assert T.mark_degenerate(legacy, "legacy_zero") == {} and legacy == lines
+    plain = T.mark_degenerate(lines, "unvalidated")
+    assert plain == {"stand.D1.G1.taps_per_s suite es1|standard": 0.0, "s1.floor.ratio.fwd.es1|standard": 0.0}
+    for x in (deg, flo):
+        assert x["rate"] is None and x["rate_status"] == "degenerate/unvalidated" == T.DEGENERATE
+        assert x["unvalidated"] is True and x["degenerate"] is True and "plain read would be 0" in x["rate_note"]
+    assert ok["rate"] > 0 and "rate_status" not in ok
+    res = {"lines": lines, "degenerate_mode": "unvalidated", "degenerate_plain_reads": plain}
+    s = T.summarize(res, set())["standard"]
+    assert s["run_sum"] == pytest.approx(ok["rate"])
+    assert s["by_stage"]["D1 (SN)"] == {"sum": pytest.approx(ok["rate"]), "union": pytest.approx(ok["rate"]),
+                                        "n_reads": 1, "sum_sensitivity": pytest.approx(ok["rate"]),
+                                        "n_excluded_degenerate": 1}
+    assert s["by_stage"]["s1"]["n_reads"] == 0 and s["by_stage"]["s1"]["n_excluded_degenerate"] == 1
+    ex = s["excluded_degenerate"]
+    assert ex["n"] == 2 and ex["plain_read_total"] == 0.0
+    assert ex["ids"] == {"D1 (SN)": ["stand.D1.G1.taps_per_s suite es1"], "s1": ["s1.floor.ratio.fwd.es1"]}
+    old = T.summarize({"lines": legacy}, set())["standard"]
+    assert "excluded_degenerate" not in old and old["by_stage"]["D1 (SN)"]["n_reads"] == 2
+    assert T.degenerate_mode({"version": "v0"}) == T.degenerate_mode({"version": "v1"}) == "legacy_zero"
+    assert T.degenerate_mode({"version": "v1.1"}) == "unvalidated"
+    assert T.degenerate_mode({"version": "v1", "degenerate_fixed_t": "unvalidated"}) == "unvalidated"
+    with pytest.raises(ValueError):
+        T.degenerate_mode({"version": "v1.1", "degenerate_fixed_t": "zero"})
 
 
 # ---------------------------------------------------------------------- binomial survival floors
@@ -457,3 +502,81 @@ def test_thresholds_v1_regenerates_byte_for_byte(T, tmp_path):
                        cwd=str(REPO), capture_output=True, text=True, timeout=900)
     assert r.returncode == 0, r.stdout + r.stderr
     assert out.read_bytes() == (PL / "thresholds_v1.json").read_bytes()
+
+
+# ---------------------------------------------------------------------- v1.1 (CHARTER 2026-10-21, R18 SN HALT)
+G1_WATCH_IDS = ["stand.D1.G1.taps_per_s suite es1", "stand.D1.G1.taps_per_s suite es2",
+                "stand.D1.G1.steps_per_s suite es1", "stand.D1.G1.steps_per_s suite es2"]
+DEGENERATE_DIFF = {"rate", "rate_status", "rate_note", "unvalidated", "degenerate"}
+
+
+def test_threshold_inputs_v1_1_is_v1_plus_the_four_watch_ids():
+    """Decision A: threshold_inputs_v1_1.yaml = v1 + the four SN G1 stillness ids on recommended.watch (a note citing
+    the CHARTER decision) + degenerate_fixed_t: unvalidated (decision C); nothing else changes."""
+    yaml = pytest.importorskip("yaml")
+    a = yaml.safe_load((PL / "threshold_inputs_v1.yaml").read_text())
+    b = yaml.safe_load((PL / "threshold_inputs_v1_1.yaml").read_text())
+    assert b["version"] == "v1.1" and b["degenerate_fixed_t"] == "unvalidated"
+    assert set(b) - set(a) == {"v1_1_created", "v1_1_note", "degenerate_fixed_t"} and not set(a) - set(b)
+    assert all(a[k] == b[k] for k in a if k not in ("version", "recommended"))
+    ra, rb = dict(a["recommended"]), dict(b["recommended"])
+    assert rb.pop("watch") == ra.pop("watch") + G1_WATCH_IDS
+    note = rb.pop("watch_note_v1_1")
+    assert "CHARTER 2026-10-21" in note and "K5 / K6" in note and ra == rb
+
+
+def test_committed_thresholds_v1_1_is_v1_plus_the_amendment():
+    """thresholds_v1_1.json = v1 line for line except (A) the four SN G1 ids are WATCH in the recommended set (not
+    decisive, out of the recommended sums) and (C) every degenerate fixed-t line (sigma_hat 0) reads rate None +
+    'degenerate/unvalidated' instead of the plain 0.0 -- 26 per value set, all stand clauses; the run sums are v1's
+    (every excluded plain read was 0.0) with the exclusions counted; the self-check is clean."""
+    import json as _json
+    v1 = _json.loads((PL / "thresholds_v1.json").read_text())
+    v11 = _json.loads((PL / "thresholds_v1_1.json").read_text())
+    assert v11["version"] == "v1.1" and v11["self_check_failures"] == []
+    assert v11["recommended"]["watch"] == v1["recommended"]["watch"] + G1_WATCH_IDS
+    assert [(x["id"], x.get("value_set")) for x in v11["lines"]] == [(x["id"], x.get("value_set")) for x in v1["lines"]]
+    for k in v1:
+        if k not in ("version", "inputs", "recommended", "lines", "sums"):
+            assert v11[k] == v1[k], k
+    n_deg = {"standard": 0, "recommended": 0}
+    for x, y in zip(v1["lines"], v11["lines"]):
+        if x == y:
+            continue
+        d = {k for k in set(x) | set(y) if x.get(k) != y.get(k)}
+        assert x["rate"] == 0.0 and x.get("degenerate") is True and x["class"] == "fixed_t", x["id"]
+        assert y["rate"] is None and y["rate_status"] == "degenerate/unvalidated" and y["unvalidated"] is True
+        assert x["kind"] == "stand" and x.get("sigma_hat") == 0.0
+        if x["id"] in G1_WATCH_IDS and x["value_set"] == "recommended":
+            assert d == DEGENERATE_DIFF - {"degenerate"} | {"decisive", "watch"}, (x["id"], d)
+            assert y["decisive"] is False and y["watch"] is True and x["decisive"] is True
+        else:
+            assert d <= DEGENERATE_DIFF, (x["id"], d)
+        n_deg[x["value_set"]] += 1
+    assert n_deg == {"standard": 26, "recommended": 26}
+    taps = next(x for x in v11["lines"] if x["id"] == "stand.D1.G1.taps_per_s suite es1"
+                and x["value_set"] == "standard")
+    assert taps["rate"] is None and taps["seed_values"] == {"16": 0.0, "17": 0.0, "18": 0.0} and taps["decisive"]
+    for w, n_ex in (("standard", 26), ("recommended", 22)):
+        a, b = v1["sums"][w], v11["sums"][w]
+        for k in ("run_sum", "run_union", "run_sum_sensitivity"):
+            assert b[k] == a[k], (w, k)
+        assert b["excluded_degenerate"]["n"] == n_ex and b["excluded_degenerate"]["plain_read_total"] == 0.0
+        for st, s in a["by_stage"].items():
+            t = b["by_stage"][st]
+            assert t["sum"] == s["sum"] and t["n_reads"] + t["n_excluded_degenerate"] + (
+                4 if (w == "recommended" and st == "D1 (SN)") else 0) == s["n_reads"], (w, st)
+    assert v11["sums"]["recommended"]["by_stage"]["D1 (SN)"]["n_reads"] == 28
+    assert v11["degenerate_fixed_t"]["mode"] == "unvalidated" and len(v11["degenerate_fixed_t"]["plain_reads"]) == 52
+
+
+def test_thresholds_v1_1_regenerates_byte_for_byte(T, tmp_path):
+    import subprocess
+    _recorded_inputs()
+    out = tmp_path / "v1_1.json"
+    rel = (PL / "threshold_inputs_v1_1.yaml").relative_to(REPO)
+    r = subprocess.run([sys.executable, "-I", str(TP), "--inputs", str(rel), "--out", str(out), "--self-check"],
+                       cwd=str(REPO), capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "degenerate lines excluded (rate None): standard 26, recommended 22" in r.stdout
+    assert out.read_bytes() == (PL / "thresholds_v1_1.json").read_bytes()

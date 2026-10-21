@@ -10,9 +10,12 @@ notes: 'M18 Task 4 pipeline spec (PLAN.md Shape; DESIGN.md section 2). The ONE d
 plant: A15+B
 # thresholds v1 (frozen at PLAN step 8: thresholds_v0 + the payload pilot's p3a terms + the sweep WATCH lines;
 # threshold_inputs_v1.yaml). v0 stays on disk as the record.
+# thresholds v1.1 (CHARTER 2026-10-21, R18 SN HALT -> user decisions 1 / C): v1 + the SN G1 taps/s and steps/s lines
+# (suite es1 / es2) on the WATCH list + degenerate fixed-t lines reported as rate None ('degenerate/unvalidated');
+# threshold_inputs_v1_1.yaml. v1 stays on disk as the record (R18's gates up to sn cite its sha).
 thresholds:
-  file: thresholds_v1.json
-  version: v1
+  file: thresholds_v1_1.json
+  version: v1.1
 lock: pipeline.lock.json
 # N_p: PLAN step 8 C3.6 (preflight/stepC_read.json v1.N_p): no pilot read settled within R of the read 500 its earlier,
 # so N_p = the clamp's 3000 (not_converged, disclosed); the same N_p for p3a / p3b / p3c

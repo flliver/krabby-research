@@ -14,8 +14,9 @@ selection state machine (PLAN Gates -> Student; DESIGN 3.5 where PLAN does not s
   student floor lines of thresholds.json: 0.90 / 0.70 + side22 FAST/FAST) AND, on field_hard / field_light / ring_obst
   / field_turn (whole schedule, every translate category -- the four cameras cover back), completion >= T* -
   max(0.05, 2 SE_diff, the manifest-shape split measured at step 8), T* read with ``--policy-role teacher`` on
-  Student-Play in the same manifest shape and env seeds (so the pair is real). WATCH: the tracking lines + 0.05 and
-  stable at min(90, T*'s max_stable).
+  Student-Play in the same manifest shape and env seeds (so the pair is real). WATCH: the tracking lines + 0.05
+  (:func:`tracking_watch`: the student vs T* on the paired tracking statistics, recorded in gates/sel.json, a miss is
+  a WATCH flag, never a FAIL) and stable at min(90, T*'s max_stable).
 The student-completion line's chance rate is a LOWER bound (no recorded run measures distillation-seed variance).
 
     select_student.py candidates --run-dir DIR --start ITER [--offsets 1000,2000,...]
@@ -106,6 +107,57 @@ def completion_pairs(student: dict, tstar: dict, cfg: dict) -> list[dict]:
         out.append({"row": row, "student": pa, "tstar": pb, "se_diff": se, **m, "line": pb - m["margin"],
                     "pass": pa >= pb - m["margin"] - 1e-12})
     return out
+
+
+#: PLAN Gates -> Student "WATCH: tracking lines + 0.05": the slack on the paired tracking statistics
+TRACKING_WATCH_MARGIN = 0.05
+TRACKING_WATCH_RULE = ("PLAN Gates -> Student 'WATCH: tracking lines + 0.05' (CHARTER 2026-10-21 decision E): the "
+                       "student vs T* (Student-Play, --policy-role teacher, same rows / env seeds) on the 0-kg check's "
+                       "paired tracking statistics, per suite env seed and per trained translate category + move_turn: "
+                       "ratio (one-sided drop, T* - student <= 0.05) and |ratio - 1| (student - T* <= 0.05). WATCH "
+                       "only.")
+
+
+def tracking_watch(student: dict, tstar: dict, trained, margin: float = TRACKING_WATCH_MARGIN) -> dict:
+    """The student full block's tracking WATCH (PLAN Gates -> Student; CHARTER 2026-10-21 decision E).
+
+    ``student`` / ``tstar``: ``{env seed: thresholds.suite_episodes(stamp)}`` on the same suite rows and env seeds.
+    Per env seed and per tracking category (``trained`` translate categories + move_turn), the paired statistics of
+    the 0-kg check (thresholds.zero_kg_*): ``ratio <c>`` -- the one-sided DROP, worse_by = T* - student (the decisive
+    form at the 0-kg check) -- and the mirrored ``|ratio-1| <c>``, worse_by = student - T*; each passes while
+    worse_by <= ``margin``. ``se_diff`` is the env-clustered paired bootstrap SE (reported). WATCH only: a miss (or
+    a missing read) is a flag, never a FAIL. Returns ``{rule, margin, rows, flags}``."""
+    TH = _lib().thresholds_mod()
+    cats = [c for c in (trained or []) if c in TRANSLATE] + ["move_turn"]
+    rows = []
+    for es in sorted(set(student) | set(tstar)):
+        A, B = student.get(es), tstar.get(es)
+        for c in cats:
+            for absdev in (False, True):
+                base = {"id": f"student.watch.tracking.{'abs_dev' if absdev else 'ratio'}.{c}.es{es}",
+                        "statistic": f"{'|ratio-1|' if absdev else 'ratio'} {c}", "row": f"suite es{es}",
+                        "category": c, "env_seed": es, "watch": True, "margin": margin,
+                        "direction": "<=" if absdev else ">=",
+                        "key_path": f"aggregate.suite.by_category.{c}.ratio.median (per-episode hold ratios, paired)"}
+                a = b = None
+                if A is not None and B is not None:
+                    a = TH._cat_stat([r for r in A if r["cat"] == c], "ratio", absdev)
+                    b = TH._cat_stat([r for r in B if r["cat"] == c], "ratio", absdev)
+                if a is None or b is None:
+                    why = (f"no suite es{es} stamp on the {'student' if A is None else 'T*'}" if A is None or B is None
+                           else f"no {c} episode with a ratio on the {'student' if a is None else 'T*'}")
+                    rows.append({**base, "student": a, "tstar": b, "value": a, "line": None, "worse_by": None,
+                                 "pass": False, "missing": True, "why": why})
+                    continue
+                worse = (a - b) if absdev else (b - a)
+                rows.append({**base, "student": a, "tstar": b, "value": a,
+                             "line": (b + margin) if absdev else (b - margin), "worse_by": worse,
+                             "se_diff": TH.paired_suite_se(A, B, c, "ratio", absdev),
+                             "pass": bool(worse <= margin + 1e-12), "missing": False})
+    flags = [{"id": r["id"], "why": (f"tracking WATCH (+{margin:g} vs T*): no read ({r['why']})" if r.get("missing")
+                                     else f"tracking WATCH: worse than T* by {r['worse_by']:.4f} > {margin:g}"),
+              "value": r.get("value"), "line": r.get("line")} for r in rows if not r["pass"]]
+    return {"rule": TRACKING_WATCH_RULE, "margin": margin, "rows": rows, "flags": flags}
 
 
 def next_action(state: dict, max_failed: int = 2) -> dict:

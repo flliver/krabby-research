@@ -510,7 +510,7 @@ def lock_files(spec: Spec) -> list[Path]:
         files.add(L.TOOLS / n)
     files.add(spec.path)
     files.add(spec.thresholds_path())
-    for n in ("threshold_inputs.yaml", "threshold_inputs_v1.yaml", "cameras.yaml"):
+    for n in ("threshold_inputs.yaml", "threshold_inputs_v1.yaml", "threshold_inputs_v1_1.yaml", "cameras.yaml"):
         if (spec.dir / n).is_file():
             files.add(spec.dir / n)
     for sub in ("scripts", "rows"):
@@ -1186,16 +1186,52 @@ def dependents(ctx: Ctx, sid: str) -> list[str]:
     return out
 
 
+def _modelled_rate(x: dict) -> bool:
+    """A HALT line with a modelled chance rate: a number AND not a degenerate line (decision C: a degenerate line's
+    rate is None in v1.1; a v0 / v1 line's plain 0.0 is caught by its ``rate_status`` / ``degenerate`` mark)."""
+    return isinstance(x.get("rate"), (int, float)) and not isinstance(x.get("rate"), bool) and not GR.is_degenerate(x)
+
+
+def watch_reads_text(flags) -> str:
+    """``id=value (line L)`` per WATCH flag (a notification carries the reads, not only the ids)."""
+    def num(v):
+        return f"{v:.4g}" if isinstance(v, float) else str(v)
+    return "; ".join(f"{f.get('id')}={num(f.get('value'))} (line {num(f.get('line'))})" for f in (flags or [])) or "-"
+
+
+def chance_text(rec: dict) -> str:
+    """The ``chance=`` field of a HALT notification: never a bare 0.0 / sum for a line without a modelled rate."""
+    um = rec.get("chance_rate_unmodelled") or []
+    s = rec.get("chance_rate_sum")
+    if not um:
+        return f"chance={s}"
+    kinds = sorted({u.get("rate_status") or "no rate" for u in um})
+    tail = f"{len(um)} unmodelled: {', '.join(kinds)}"
+    return f"chance={s} ({tail})" if s is None else f"chance={s} (+{tail})"
+
+
 def halt(ctx: Ctx, sid: str, klass: str, why: str, *, lines: list | None = None, gate: str | None = None,
          resumable: tuple = ("accept-chance", "amend", "abort")) -> dict:
-    lines = lines or []
-    rates = [x.get("rate") for x in lines if isinstance(x.get("rate"), (int, float))]
+    """A HALT record + sentinel + park. ``chance_rate_sum`` sums the MODELLED rates of the failed lines only; every line
+    without one -- a degenerate fixed-t line (rate None + ``rate_status`` 'degenerate/unvalidated', CHARTER 2026-10-21
+    decision C), a live kill, a drift line -- is listed in ``chance_rate_unmodelled`` and named in the notification, so
+    a HALT never quotes 'chance=0.0' for an unmodelled line."""
+    lines = [dict(x) for x in (lines or [])]
+    for x in lines:
+        if GR.is_degenerate(x):                   # a v0 / v1 gate record's plain 0.0: no modelled rate
+            x.update(rate=None, rate_status=GR.DEGENERATE)
+    rates = [x.get("rate") for x in lines if _modelled_rate(x)]
+    unmod = [{"id": x.get("id"), "rate_status": x.get("rate_status")} for x in lines if not _modelled_rate(x)]
     rec = {"run": ctx.run, "stage": sid, "class": klass, "why": why, "at": L.now_iso(), "status": "open",
-           "lines": [{k: x.get(k) for k in ("id", "statistic", "value", "line", "direction", "rate", "unvalidated",
-                                             "env_seed", "why") if k in x} for x in lines],
+           "lines": [{k: x.get(k) for k in ("id", "statistic", "value", "line", "direction", "rate", "rate_status",
+                                             "unvalidated", "env_seed", "why") if k in x} for x in lines],
            "chance_rate_sum": sum(rates) if rates else None,
+           "chance_rate_unmodelled": unmod,
            "chance_rate_note": ("each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; "
-                                "reported, not capped); live-kill and drift lines are unvalidated (no rate)"),
+                                "reported, not capped), summed over the lines WITH a modelled rate; "
+                                "chance_rate_unmodelled lists the rest -- degenerate fixed-t lines (sigma_hat 0: rate "
+                                "None, 'degenerate/unvalidated', CHARTER 2026-10-21 decision C), live-kill and drift "
+                                "lines (unvalidated, no rate)"),
            "gate": gate, "subtree": dependents(ctx, sid), "options": list(resumable)}
     n = len(list((ctx.dir / "halts").glob(f"{sid}.*.json"))) + 1 if (ctx.dir / "halts").is_dir() else 1
     p = ctx.dir / "halts" / f"{sid}.{n}.json"
@@ -1204,7 +1240,7 @@ def halt(ctx: Ctx, sid: str, klass: str, why: str, *, lines: list | None = None,
     ctx.set_status(sid, "halt", f"{klass}: {why}")
     first = rec["lines"][0] if rec["lines"] else {}
     ctx.notify("HALT", f"stage={sid} class={klass} record={L.rel(p)} line={first.get('id')} read={first.get('value')} "
-                       f"chance={rec['chance_rate_sum']} why={why[:200]}", stage=sid, record=L.rel(p))
+                       f"{chance_text(rec)} why={why[:200]}", stage=sid, record=L.rel(p))
     return rec
 
 
@@ -1737,7 +1773,8 @@ class Queue:
             ctx.set_status(sid, "pass", "gate PASS")
         elif v == GR.WATCH:
             ctx.set_status(sid, "pass", "gate PASS + WATCH")
-            ctx.notify("NOTIFY", f"stage={sid} PASS with WATCH flags {[f['id'] for f in res.get('watch_flags', [])]}")
+            ctx.notify("NOTIFY", f"stage={sid} PASS with WATCH flags {[f['id'] for f in res.get('watch_flags', [])]} "
+                                 f"reads {watch_reads_text(res.get('watch_flags'))}")
         elif v == GR.CEILING:
             ctx.set_status(sid, "ceiling", f"measured ceiling (max_stable {res.get('max_stable')})")
             ctx.notify("NOTIFY", f"stage={sid} measured ceiling max_stable={res.get('max_stable')} "
@@ -1935,35 +1972,100 @@ class Queue:
         return False
 
     # -- T*
-    def ex_tstar(self, sid: str) -> None:
+    TSTAR_RULE = ("PLAN Payload -> T*: the trained payload head with the highest max_stable that passes its paired "
+                  "0-kg check -- or whose 0-kg HALT the user accepted as chance -- tried in descending max_stable "
+                  "(ties to the earlier stage); HALT only if none passes")
+
+    def tstar_considered(self, sid: str) -> tuple:
+        """Every payload head of the T* stage's candidate list, judged (CHARTER 2026-10-21 decision D: the T* record
+        and its notification list EVERY head considered, not only the eligible ones -- p3b's 0-kg FAIL was dropped
+        silently in R18). Returns (considered: one entry per TRAINED head with max_stable, its 0-kg verdict, the
+        failing statistics, the max margin use, accepted or not, eligible, and why; not_trained: the candidates with
+        no head). The selection rule itself is unchanged."""
         ctx = self.ctx
-        cands = []
+        considered, not_trained = [], []
         for c in self.spec.stage(sid)["candidates"]:
             r = ctx.state["stages"].get(c) or {}
-            if r.get("status") not in ("pass", "accepted", "ceiling") or not ctx.head(c):
+            st = r.get("status", "pending")
+            if st not in ("pass", "accepted", "ceiling") or not ctx.head(c):
+                not_trained.append({"stage": c, "status": st,
+                                    "why": f"not considered: no trained head (status {st}"
+                                           + (f": {r['history'][-1].get('why')}" if r.get("history") else "") + ")"})
                 continue
-            zk = (r.get("zero_kg") or {}).get("verdict")
-            accepted = r.get("status") == "accepted"
-            if zk != "PASS" and not accepted:
-                continue
-            cands.append({"stage": c, "max_stable": r.get("max_stable"), "zero_kg": zk, "accepted": accepted,
-                          "max_margin_used": (r.get("zero_kg") or {}).get("max_margin_used")})
+            zk = r.get("zero_kg") or {}
+            verdict = zk.get("verdict")
+            accepted = st == "accepted"
+            mmu = zk.get("max_margin_used")
+            considered.append({"stage": c, "status": st, "max_stable": r.get("max_stable"), "zero_kg": verdict,
+                               "zero_kg_fails": list(zk.get("fails") or []), "max_margin_used": mmu,
+                               "accepted": accepted, "eligible": verdict == "PASS" or accepted,
+                               "gate": (r.get("gate") or {}).get("path"),
+                               "halt": (ctx.state.get("halts") or {}).get(c)})
         order = self.spec.stage(sid)["candidates"]
-        cands.sort(key=lambda x: (-(x["max_stable"] if x["max_stable"] is not None else -1), order.index(x["stage"])))
-        if not cands:
-            halt(ctx, sid, "FAIL", "no trained payload head passes its paired 0-kg check (T*)",
-                 lines=[{"id": "tstar.none", "statistic": "T* candidates", "value": None}])
+        elig = sorted((x for x in considered if x["eligible"]),
+                      key=lambda x: (-(x["max_stable"] if x["max_stable"] is not None else -1),
+                                     order.index(x["stage"])))
+        t = elig[0] if elig else None
+        for x in considered:
+            use = f"max margin use {x['max_margin_used']:.2f}" if isinstance(x["max_margin_used"], (int, float)) \
+                else "no margin use recorded"
+            zk = f"paired 0-kg check {x['zero_kg']} ({use}" + (f"; fails: {'; '.join(x['zero_kg_fails'])}"
+                                                               if x["zero_kg_fails"] else "") + ")"
+            x["chosen"] = t is not None and x["stage"] == t["stage"]
+            if x["chosen"]:
+                x["why"] = (f"CHOSEN: the highest max_stable ({x['max_stable']}) among the eligible heads; {zk}"
+                            + ("; its 0-kg HALT was accepted as chance by the user (disclosed)"
+                               if x["accepted"] and x["zero_kg"] != "PASS" else ""))
+            elif x["eligible"]:
+                tie = x["max_stable"] == t["max_stable"]
+                x["why"] = (f"eligible, not chosen: max_stable {x['max_stable']} "
+                            + (f"ties T* ({t['stage']}) and the earlier stage wins" if tie
+                               else f"< T*'s {t['max_stable']} ({t['stage']})") + f"; {zk}")
+            else:
+                x["why"] = (f"EXCLUDED: {zk}, and no HALT of it was accepted as chance (status {x['status']}"
+                            + ("; a payload ceiling stage never HALTs, so this 0-kg FAIL reached no HALT"
+                               if x["status"] == "ceiling" else "") + ")")
+        return considered, not_trained, t
+
+    @staticmethod
+    def tstar_summary(considered: list, not_trained: list) -> str:
+        """One clause per head for the T* notification."""
+        out = []
+        for x in considered:
+            use = f"{x['max_margin_used']:.2f}" if isinstance(x["max_margin_used"], (int, float)) else "-"
+            tag = "CHOSEN" if x.get("chosen") else ("eligible" if x["eligible"] else "EXCLUDED")
+            fails = f" fails [{'; '.join(x['zero_kg_fails'])}]" if x["zero_kg_fails"] else ""
+            out.append(f"{x['stage']}: max_stable={x['max_stable']} 0-kg={x['zero_kg']} margin_use={use}"
+                       f"{' accepted-as-chance' if x['accepted'] else ''}{fails} -> {tag}")
+        out += [f"{x['stage']}: not trained ({x['status']})" for x in not_trained]
+        return " | ".join(out)
+
+    def ex_tstar(self, sid: str) -> None:
+        ctx = self.ctx
+        considered, not_trained, t = self.tstar_considered(sid)
+        summary = self.tstar_summary(considered, not_trained)
+        if t is None:
+            halt(ctx, sid, "FAIL", f"no trained payload head passes its paired 0-kg check (T*): {summary}",
+                 lines=[{"id": "tstar.none", "statistic": "T* candidates", "value": None}]
+                 + [{"id": f"tstar.{x['stage']}.zero_kg", "statistic": f"{x['stage']} paired 0-kg check",
+                     "value": x["max_margin_used"], "line": 1.0, "direction": "<=", "rate": None,
+                     "unvalidated": True, "why": x["why"]} for x in considered])
             return
-        t = cands[0]
+        cands = [{"stage": x["stage"], "max_stable": x["max_stable"], "zero_kg": x["zero_kg"],
+                  "accepted": x["accepted"], "max_margin_used": x["max_margin_used"]} for x in considered
+                 if x["eligible"]]
+        cands.sort(key=lambda x: (-(x["max_stable"] if x["max_stable"] is not None else -1),
+                                  self.spec.stage(sid)["candidates"].index(x["stage"])))
         h = ctx.head(t["stage"])
         rec = {"stage": t["stage"], "ckpt": h["ckpt"], "sha256": h["sha256"], "run_dir": h["run_dir"],
                "iteration": h["iteration"], "max_stable": t["max_stable"], "candidates": cands,
+               "considered": considered, "not_trained": not_trained, "rule": self.TSTAR_RULE,
                "driver_stamp": h.get("driver_stamp"), "label": PR().LABEL}
         L.write_json_atomic(ctx.stage_read_path(sid), rec)
         ctx.state["tstar"] = rec
         ctx.set_status(sid, "pass", f"T* = {t['stage']} (max_stable {t['max_stable']})")
         ctx.notify("NOTIFY", f"T*={t['stage']} max_stable={t['max_stable']} 0-kg margin used "
-                             f"{t.get('max_margin_used')} ({PR().LABEL})")
+                             f"{t.get('max_margin_used')} ({PR().LABEL}); heads considered: {summary}")
 
     def tstar(self) -> dict:
         return self.ctx.head("tstar")
@@ -2141,8 +2243,11 @@ class Queue:
                 L.write_json_atomic(ctx.stage_read_path(sid), sel)
                 ctx.state["selected_student"] = sel
                 ctx.set_status(sid, "pass", f"selected {act['cand']}")
+                g = L.read_json(ctx.dir / "gates" / f"{sid}.json") or {}
+                wf = ((g.get("blocks") or {}).get(act["cand"]) or {}).get("watch_flags") or []
                 ctx.notify("NOTIFY", f"student selected {act['cand']} (iter {c['iter']}); one headless clip goes "
-                                     "to the user for a veto (never a gate)")
+                                     "to the user for a veto (never a gate); WATCH flags "
+                                     + (f"{[f['id'] for f in wf]} reads {watch_reads_text(wf)}" if wf else "none"))
                 return
             if act["do"] == "halt":
                 g = L.read_json(ctx.dir / "gates" / f"{sid}.json") or {}
@@ -2213,16 +2318,28 @@ class Queue:
                             "direction": ">=", "pass": p["pass"], "rate": None, "unvalidated": True,
                             "rate_note": "paired; a lower bound (no distillation-seed variance)", **p})
         th_doc = json.loads(self.spec.thresholds_path().read_text())
-        watch = {"stable_at": lvl, "level": PR().level_reads(lstamps, th_doc, trained_translate=[
-            c for c in trained if c in GR.TRANSLATE])} if not g0 else {}
+        watch, flags = {}, []
+        if not g0:
+            watch = {"stable_at": lvl, "level": PR().level_reads(lstamps, th_doc, trained_translate=[
+                c for c in trained if c in GR.TRANSLATE])}
+            # PLAN Gates -> Student "WATCH: tracking lines + 0.05" (CHARTER 2026-10-21 decision E): the student vs T*
+            # on the paired tracking statistics of the suite rows (both read on Student-Play) -- WATCH only
+            sa = {int(k.split("@")[1]): TH.suite_episodes(Path(v)) for k, v in stamps.items() if k.startswith("suite@")}
+            sb = {int(k.split("@")[1]): TH.suite_episodes(Path(v)) for k, v in tst_stamps.items()
+                  if k.startswith("suite@")}
+            watch["tracking"] = SS().tracking_watch(sa, sb, trained)
+            flags = watch["tracking"]["flags"]
         ok = not g0 and all(d.get("pass") for d in dec)
-        blk = {"cand": cid, "pass": ok, "gate0": g0, "decisive": dec, "watch": watch}
+        blk = {"cand": cid, "pass": ok, "gate0": g0, "decisive": dec, "watch": watch, "watch_flags": flags,
+               "verdict": GR.verdict_of(dec, g0, watch_flags=flags)}
         g = L.read_json(ctx.dir / "gates" / f"{sid}.json") or {"blocks": {}}
         g.setdefault("blocks", {})[cid] = blk
-        g["verdict"] = GR.PASS if ok else g.get("verdict", GR.HALT)
+        g["verdict"] = (GR.WATCH if flags else GR.PASS) if ok else g.get("verdict", GR.HALT)
         g["failed_lines"] = [d for d in dec if not d.get("pass")] or g0
+        g["watch_flags"] = flags if ok else g.get("watch_flags", [])
         write_gate(ctx, sid, g)
-        ctx.say("BLOCK", f"stage={sid} cand={cid} pass={ok} failed={[d['id'] for d in dec if not d.get('pass')]}")
+        ctx.say("BLOCK", f"stage={sid} cand={cid} pass={ok} failed={[d['id'] for d in dec if not d.get('pass')]} "
+                         f"watch_flags={[f['id'] for f in flags]}")
         return blk
 
     # -- stand
@@ -2608,12 +2725,18 @@ def sh_read_spec(spec: Spec, st: dict, name: str, table_dir: Path, refs: str) ->
 
 def stand_gate(ctx: Ctx, sid: str, which: str, rec: dict, *, x: bool = False) -> dict:
     """The stand lines of thresholds.json (D1 = SN G1-G5 on sn_calib's head row, D2 = SH K1-K6 on sh_read's head
-    gates), K4 at <= 3 / 800 per env seed (D9) and the relaxed G4 recomputed on REFS(T*) (CHARTER STOP-0)."""
+    gates), K4 at <= 3 / 800 per env seed (D9) and the relaxed G4 recomputed on REFS(T*) (CHARTER STOP-0).
+
+    A thresholds ``watch`` id (the STOP-0 G2 post-settle stillness lines; the SN G1 taps / steps lines from v1.1,
+    CHARTER 2026-10-21 decision 1) is never decisive, but it is READ and RECORDED like a decisive clause
+    (``watch_lines``: value, line, pass) and a miss raises a WATCH flag (``watch_flags``, gate_walker's shape), so the
+    verdict is WATCH, not PASS (CHARTER 2026-10-21 decision B; before it the watch lines were dropped silently).
+    A degenerate line's rate is None + ``rate_status`` (decision C), never its plain 0.0."""
     th = ctx.thresholds()
     watch = th.watch_ids
-    lines = [x_ for x_ in th.lines if x_.get("stage") == ("D1 (SN)" if which == "D1" else "D2 (SH)")
-             and x_.get("kind") == "stand" and x_["id"] not in watch]
-    dec, notes = [], []
+    stand = [x_ for x_ in th.lines if x_.get("stage") == ("D1 (SN)" if which == "D1" else "D2 (SH)")
+             and x_.get("kind") == "stand"]
+    dec, wrd, notes = [], [], []
     # the STOP-0 relaxed G4 (REFS(T*) - max(0.10, 2 SE)) applies to its clauses wherever they are read: D1's G4 and
     # K5's G4 (thresholds.json carries it as a recommended stand override on the SN.G4.<clause> key)
     relaxed = {k.split(".", 2)[2] for k in ((th.doc.get("recommended") or {}).get("stand_overrides") or {})
@@ -2621,27 +2744,35 @@ def stand_gate(ctx: Ctx, sid: str, which: str, rec: dict, *, x: bool = False) ->
     if which == "D1":
         doc = L.read_json(Path(rec["calib"])) or {}
         row = ((doc.get("rows") or {}).get(rec["name"]) or {}).get("gates") or {}
-        for ln in lines:
+
+        def read(ln):
             g, cl = ln["gate"], ln["clause"]
             c = ((row.get(g) or {}).get("clauses") or {}).get(cl)
-            dec.append(stand_clause(ln, c, rec, relaxed_g4=(g == "G4" and cl in relaxed)))
+            return stand_clause(ln, c, rec, relaxed_g4=(g == "G4" and cl in relaxed))
     else:
         doc = L.read_json(Path(rec["read"])) or {}
         gates = doc.get("gates") or {}
         k5 = L.read_json(Path(rec["k5_calib"])) if rec.get("k5_calib") else None
         k5row = (((k5 or {}).get("rows") or {}).get(f"{rec['name']}z") or {}).get("gates") or {}
-        for ln in lines:
+
+        def read(ln):
             if ln["gate"].startswith("K5/"):
                 g = ln["gate"].split("/", 1)[1]
                 c = ((k5row.get(g) or {}).get("clauses") or {}).get(ln["clause"])
-                dec.append(stand_clause({**ln, "gate": g}, c, rec, relaxed_g4=(g == "G4" and ln["clause"] in relaxed)))
-                continue
+                return stand_clause({**ln, "gate": g}, c, rec, relaxed_g4=(g == "G4" and ln["clause"] in relaxed))
             c = ((gates.get(ln["gate"]) or {}).get(rec["name"]) or {}).get("clauses", {}).get(ln["clause"])
-            dec.append(stand_clause(ln, c, rec))
+            return stand_clause(ln, c, rec)
         notes.append({"sh_read_K5_verdicts": {g: v.get("value") for g, v in
                                               (((gates.get("K5") or {}).get(rec["name"]) or {}).get("clauses")
                                                or {}).items()}})
-    res = {"verdict": GR.verdict_of(dec, []), "decisive": dec, "halt_lines": [d["id"] for d in dec if not d.get("pass")],
+    for ln in stand:
+        if ln["id"] in watch:
+            wrd.append({**read(ln), "watch": True})
+        else:
+            dec.append(read(ln))
+    flags = GR.watch_flags_of(wrd, "misses its WATCH line (thresholds 'watch' list: recorded, never decisive)")
+    res = {"verdict": GR.verdict_of(dec, [], watch_flags=flags), "decisive": dec,
+           "halt_lines": [d["id"] for d in dec if not d.get("pass")], "watch_lines": wrd, "watch_flags": flags,
            "head": rec, "notes": notes}
     if x:
         cmp_ = ctx.spec.stage(sid).get("compare") or {}
@@ -2657,8 +2788,11 @@ def stand_gate(ctx: Ctx, sid: str, which: str, rec: dict, *, x: bool = False) ->
 
 def stand_clause(ln: dict, c: dict | None, rec: dict, *, relaxed_g4: bool = False) -> dict:
     """One stand clause: the relaxed G4 (recomputed on REFS(T*) from the clause's own REFS read), the override line
-    when thresholds.json carries one (K4 <= 3 / 800), else the clause's own verdict at its S1-era line."""
-    base = {"id": ln["id"], "statistic": ln.get("clause"), "rate": ln.get("rate"), "unvalidated": ln.get("unvalidated")}
+    when thresholds.json carries one (K4 <= 3 / 800), else the clause's own verdict at its S1-era line. The rate is
+    the line's (None + ``rate_status`` for a degenerate line: GR.rate_fields, decision C)."""
+    rf = GR.rate_fields(ln)
+    base = {"id": ln["id"], "statistic": ln.get("clause"), **rf,
+            "unvalidated": True if rf.get("rate_status") else ln.get("unvalidated")}
     if c is None:
         return {**base, "pass": False, "missing": True, "why": "clause not in the reader's output"}
     v = c.get("value")

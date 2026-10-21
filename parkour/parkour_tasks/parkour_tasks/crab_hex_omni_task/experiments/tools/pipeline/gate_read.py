@@ -29,7 +29,12 @@ DECISIVE LINES (thresholds.json, the ``recommended`` / ``both`` value sets minus
 * p3a: stable at 90 (``payload_read.py``) and the paired 0-kg check against the run's own p2a head
   (``thresholds.zero_kg_*``, the same functions the threshold self-check runs);
 * live collapse: the stage's live-watch record (a kill already HALTed the stage).
-Every decisive read carries its chance-HALT rate (thresholds.json), so a HALT record can quote it.
+Every decisive read carries its chance-HALT rate (thresholds.json), so a HALT record can quote it -- except a
+DEGENERATE fixed-t line (sigma_hat 0: every recorded seed equal), whose rate is ``None`` with ``rate_status``
+``"degenerate/unvalidated"`` whatever thresholds version wrote it (:func:`rate_fields`; CHARTER 2026-10-21 decision C:
+the plain 0.0 read let the R18 SN HALT quote "chance 0.0" for an unmodelled line).
+A thresholds ``watch`` id is never decisive, but its read is RECORDED (``watch_lines``) and a miss raises a WATCH flag
+(verdict WATCH, not PASS; :func:`verdict_of`).
 
     gate_read.py --spec PL/pipeline.yaml --run R18 --stage p2a [--thresholds FILE] [--out FILE]
     gate_read.py --spec PL/pipeline.yaml --lines-only --stage p2a --thresholds T.json --stamp suite@1=DIR --stamp field_hard@1=DIR ... [--trained fwd,side,...]
@@ -67,6 +72,31 @@ EXIT = {PASS: 0, WATCH: 2, HALT: 3, CEILING: 2, INVALID: 4, GUARD: 5}
 TRANSLATE = ("fwd", "side", "back", "diag")
 COMPLETE_MARKERS = ("complete.json", "p2_complete.json", "tp_row.json")
 PAYLOAD_TOL = 1e-6
+#: thresholds.DEGENERATE (the same string; thresholds.py is not imported here -- the gate view stays numpy-free)
+DEGENERATE = "degenerate/unvalidated"
+
+
+def is_degenerate(x) -> bool:
+    """thresholds.is_degenerate (the same predicate, pinned equal by a unit test): a fixed-t line with sigma_hat 0 --
+    marked (``rate_status``), flagged by fixed_line_t_rate (``degenerate``; the stand clauses of v0 / v1 carry it with
+    the plain 0.0 rate), a floor ratio line with ``sigma_hat`` 0, or a side22 line with a degenerate median."""
+    if not isinstance(x, dict):
+        return False
+    if x.get("rate_status") == DEGENERATE or x.get("degenerate") is True:
+        return True
+    if any(isinstance(v, dict) and v.get("degenerate") is True for v in (x.get("per_median") or {}).values()):
+        return True
+    return x.get("class") == "fixed_t" and x.get("sigma_hat") == 0.0
+
+
+def rate_fields(x) -> dict:
+    """A thresholds line's chance rate as a gate / HALT record carries it: ``{"rate": None, "rate_status":
+    DEGENERATE}`` for a degenerate line (never its plain 0.0), else ``{"rate": <rate>}`` (None for no line)."""
+    if x is None:
+        return {"rate": None}
+    if is_degenerate(x):
+        return {"rate": None, "rate_status": DEGENERATE}
+    return {"rate": x.get("rate")}
 
 
 # ============================================================================== thresholds view
@@ -111,12 +141,16 @@ class Thresholds:
         return out
 
     def rate(self, lid: str):
-        x = self.by_id(lid)
-        return None if x is None else x.get("rate")
+        """The line's chance rate; None for no line AND for a degenerate one (:func:`rate_fields`)."""
+        return rate_fields(self.by_id(lid))["rate"]
+
+    def rate_status(self, lid: str):
+        """DEGENERATE for a degenerate fixed-t line, else None."""
+        return rate_fields(self.by_id(lid)).get("rate_status")
 
     def unvalidated(self, lid: str) -> bool:
         x = self.by_id(lid)
-        return bool(x and x.get("unvalidated"))
+        return bool(x and (x.get("unvalidated") or is_degenerate(x)))
 
 
 # ============================================================================== stamp readers
@@ -285,7 +319,7 @@ def stamp_problems(stamp: Path, expect: dict) -> list[str]:
 
 # ============================================================================== decisive lines
 def _line(lid, statistic, value, line, direction, *, th: Thresholds | None, env_seed=None, extra=None,
-          rate=None, unvalidated=None) -> dict:
+          rate=None, unvalidated=None, rate_status=None) -> dict:
     ok = None
     if value is not None and line is not None:
         ok = (value >= line - 1e-12) if direction == ">=" else (value <= line + 1e-12)
@@ -293,6 +327,10 @@ def _line(lid, statistic, value, line, direction, *, th: Thresholds | None, env_
            "pass": bool(ok) if ok is not None else False, "missing": value is None,
            "rate": th.rate(lid) if (th is not None and rate is None) else rate,
            "unvalidated": th.unvalidated(lid) if (th is not None and unvalidated is None) else bool(unvalidated)}
+    if rate_status is None and th is not None and rate is None:
+        rate_status = th.rate_status(lid)
+    if rate_status is not None:                      # a degenerate line: rate None, never a plain 0.0 (decision C)
+        rec.update(rate=None, rate_status=rate_status, unvalidated=True)
     if env_seed is not None:
         rec["env_seed"] = env_seed
     if extra:
@@ -327,12 +365,12 @@ def floor_reads(stage: str, th_stage: str, suites: dict, trained: list | None, t
             rid = f"{th_stage}.floor.ratio.{c}.es{es}"
             out.append(_line(sid.replace(th_stage, stage, 1), f"translate survival, {c}", e.get("survival"),
                              fv["survival"], ">=", th=None, env_seed=es,
-                             rate=th.rate(sid), unvalidated=th.unvalidated(sid),
+                             rate=th.rate(sid), unvalidated=th.unvalidated(sid), rate_status=th.rate_status(sid),
                              extra={"thresholds_id": sid, **({"no_thresholds_line": True} if th.by_id(sid) is None
                                                             else {})}))
             out.append(_line(rid.replace(th_stage, stage, 1), f"translate ratio, {c}", e.get("ratio"),
                              fv["ratio"], ">=", th=None, env_seed=es,
-                             rate=th.rate(rid), unvalidated=th.unvalidated(rid),
+                             rate=th.rate(rid), unvalidated=th.unvalidated(rid), rate_status=th.rate_status(rid),
                              extra={"thresholds_id": rid, **({"no_thresholds_line": True} if th.by_id(rid) is None
                                                             else {})}))
     return out
@@ -357,7 +395,8 @@ def side22_floor(stage: str, th_stage: str, stamp: Path | None, th: Thresholds, 
             "statistic": "side22_25lr feet_ss class, both hands" + (" FAST/FAST" if kind == "fastfast" else
                                                                    " not SLOW / DEAD"),
             "value": cls, "medians": r["median"], "line": kind, "pass": bool(ok), "missing": False,
-            "rate": th.rate(lid), "unvalidated": th.unvalidated(lid)}
+            "rate": th.rate(lid), "unvalidated": th.unvalidated(lid),
+            **({"rate_status": th.rate_status(lid)} if th.rate_status(lid) else {})}
 
 
 def field_hard_line(stage: str, stamps: list, th: Thresholds, *, require_env_seeds: bool = True) -> dict:
@@ -371,8 +410,10 @@ def field_hard_line(stage: str, stamps: list, th: Thresholds, *, require_env_see
         return {"id": f"{stage}.capability.field_hard", "pass": False, "missing": True,
                 "why": f"field_hard needs env seeds {want}, got {len(stamps)} stamps"}
     c = completion(stamps)
+    rf = rate_fields(x)
     return _line(f"{stage}.capability.field_hard", "field_hard completion pooled es1-4 (n = 400)", c["rate"],
-                 x["line"], ">=", th=None, rate=x.get("rate"), unvalidated=x.get("unvalidated"),
+                 x["line"], ">=", th=None, rate=rf["rate"], unvalidated=x.get("unvalidated"),
+                 rate_status=rf.get("rate_status"),
                  extra={"thresholds_id": "p2a.capability.field_hard", "n": c["n"], "per_env_seed": c["per_env_seed"]})
 
 
@@ -427,6 +468,18 @@ def verdict_of(decisive: list, gate0: list, *, ceiling_on_fail: bool = False, wa
     if any(not d.get("pass") for d in decisive):
         return CEILING if ceiling_on_fail else HALT
     return WATCH if watch_flags else PASS
+
+
+def watch_flags_of(reads: list, why: str) -> list:
+    """The WATCH flags (gate_walker's shape: ``id`` / ``why`` / ``value`` / ``line``) of the recorded WATCH reads that
+    miss their line -- reported (verdict WATCH), never decisive. A missing read is flagged too (it cannot pass)."""
+    out = []
+    for r in reads:
+        if r.get("pass"):
+            continue
+        w = f"{why}: no read ({r.get('why') or 'missing'})" if r.get("missing") else why
+        out.append({"id": r["id"], "why": w, "value": r.get("value"), "line": r.get("line")})
+    return out
 
 
 def watch_reads(stage: str, stamps: dict, rows_spec: dict) -> dict:

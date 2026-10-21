@@ -19,6 +19,12 @@ READ CLASSES AND THEIR MODELS (PLAN "Gates -> Rule -> Self-checks")
   ``sigma_hat^2 = (range/1.693)^2 + (R/1.96)^2`` (:func:`sigma_hat`). ~6.6 % at r = 0, ~1 % at r = 2.
 * ``fixed_t``     -- a fixed line (the lowered floors' ratio lines, the side22 FAST medians, the
   S1-era stand lines): ``P(T_2 < (line - mean) / (sigma_hat * sqrt(1 + 1/3)))`` (:func:`fixed_line_t_rate`).
+  DEGENERATE (``sigma_hat`` 0: every recorded seed equal, R = 0): the predictive t is undefined, so there is no
+  modelled rate. From thresholds v1.1 (input key ``degenerate_fixed_t: unvalidated``; CHARTER 2026-10-21 decision C)
+  such a line reports ``rate: None`` + ``rate_status: "degenerate/unvalidated"`` and every sum excludes it EXPLICITLY
+  (``n_excluded_degenerate`` per stage, ``excluded_degenerate`` per value set) -- the plain read (0.0 when the seeds
+  pass) let a HALT quote "chance 0.0" for an unmodelled line (R18 SN G1 taps/s). ``legacy_zero`` (the v0 / v1 default)
+  keeps the plain read, so the frozen v0 / v1 files regenerate byte for byte.
 * ``binomial``    -- survival floors and other proportions: the pooled recorded misses over the three
   seeds give ``p``; rate = ``P(Bin(n_read, p) > n_read * (1 - floor))`` (:func:`binomial_floor_rate`).
   Sensitivity (reported, not summed): the Jeffreys beta-binomial predictive (:func:`betabinom_floor_rate`).
@@ -52,6 +58,7 @@ import json
 import math
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -81,6 +88,13 @@ RATIO_CANDIDATES = (0.70, 0.60, 0.50, 0.40)
 STANDARD_FLOORS = {"survival": 0.90, "ratio": 0.70}
 SIDE22_FAST = {"m22": 0.155, "m25": 0.175}      # side22_classify.GATE["fast"]
 SIDE22_SLOW = {"m22": 0.13, "m25": 0.145}       # side22_classify.GATE["slow"]
+
+#: CHARTER 2026-10-21 decision C: the rate status of a degenerate fixed-t line (sigma_hat 0) -- no modelled chance rate.
+#: gate_read.py carries the same string (and the same predicate, :func:`is_degenerate`; pinned equal by a unit test).
+DEGENERATE = "degenerate/unvalidated"
+#: ``unvalidated`` = rate None + DEGENERATE, excluded from the sums explicitly (v1.1 on); ``legacy_zero`` = the plain
+#: 0.0 / 1.0 read (what v0 / v1 were written with)
+DEGENERATE_MODES = ("unvalidated", "legacy_zero")
 
 
 # ============================================================================ models (pure)
@@ -144,6 +158,50 @@ def fixed_line_t_rate(values, R: float, line: float, higher_is_better: bool = Tr
         return {"rate": 0.0 if ok else 1.0, "t": None, "sigma_hat": 0.0, "degenerate": True}
     t = ((line - mean) if higher_is_better else (mean - line)) / (s * math.sqrt(1.0 + 1.0 / n))
     return {"rate": float(sps.t.cdf(t, df=n - 1)), "t": float(-t), "sigma_hat": s, "degenerate": False}
+
+
+def is_degenerate(x: dict) -> bool:
+    """Is ``x`` (a thresholds line) a DEGENERATE fixed-t line -- sigma_hat 0, so no modelled rate?
+
+    True for a line already marked (``rate_status`` DEGENERATE), a line carrying :func:`fixed_line_t_rate`'s own
+    ``degenerate`` flag (the stand clauses), a fixed-t line whose top-level ``sigma_hat`` is 0 (the floor ratio lines),
+    and a side22 line any of whose medians is degenerate. gate_read.is_degenerate is the same predicate."""
+    if not isinstance(x, dict):
+        return False
+    if x.get("rate_status") == DEGENERATE or x.get("degenerate") is True:
+        return True
+    if any(isinstance(v, dict) and v.get("degenerate") is True for v in (x.get("per_median") or {}).values()):
+        return True
+    return x.get("class") == "fixed_t" and x.get("sigma_hat") == 0.0
+
+
+def degenerate_mode(inputs: dict) -> str:
+    """``inputs.degenerate_fixed_t`` (one of :data:`DEGENERATE_MODES`). Absent: ``legacy_zero`` for the frozen v0 / v1
+    input maps (they regenerate byte for byte), ``unvalidated`` for every later version (CHARTER 2026-10-21 C)."""
+    m = inputs.get("degenerate_fixed_t")
+    if m is None:
+        m = "legacy_zero" if str(inputs.get("version", "v0")) in ("v0", "v1") else "unvalidated"
+    if m not in DEGENERATE_MODES:
+        raise ValueError(f"degenerate_fixed_t {m!r} (want one of {DEGENERATE_MODES})")
+    return m
+
+
+def mark_degenerate(lines: list, mode: str) -> dict:
+    """CHARTER 2026-10-21 decision C on every degenerate fixed-t line (``mode`` 'unvalidated'): ``rate`` None,
+    ``rate_status`` DEGENERATE, ``unvalidated`` True, and a ``rate_note`` naming the plain read it replaces. Returns
+    ``{"<id>|<value_set>": the plain read}`` (empty in ``legacy_zero`` mode, where nothing changes)."""
+    plain = {}
+    if mode != "unvalidated":
+        return plain
+    for x in lines:
+        if x.get("rate") is None or not is_degenerate(x):
+            continue
+        plain[f"{x['id']}|{x.get('value_set')}"] = x["rate"]
+        x.update(rate=None, rate_status=DEGENERATE, degenerate=True, unvalidated=True,
+                 rate_note=(f"sigma_hat = 0 (every recorded seed equal, R = 0): the n = 3 predictive t is undefined, "
+                            f"so no chance rate is modelled (the plain read would be {x['rate']:g}); excluded from "
+                            "every sum, counted in n_excluded_degenerate (CHARTER 2026-10-21 decision C)"))
+    return plain
 
 
 def max_ok_misses(n: int, floor: float) -> int:
@@ -1042,8 +1100,11 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
                         provenance)
     if inputs.get("sweep_anchors"):
         out_lines += sweep_watch_lines(repo, inputs["sweep_anchors"], provenance)
+    # ---------------------------------------------------------------- v1.1: degenerate fixed-t lines (decision C)
+    mode = degenerate_mode(inputs)
+    plain = mark_degenerate(out_lines, mode)
     return {"lines": out_lines, "proposals": proposals, "provenance": provenance, "equality_checks": eq,
-            "R_used": R, "field_context_p2a": field_ctx}
+            "R_used": R, "field_context_p2a": field_ctx, "degenerate_mode": mode, "degenerate_plain_reads": plain}
 
 
 # ============================================================================ v1: the payload pilot and the sweep anchors
@@ -1275,24 +1336,52 @@ def summarize(res: dict, watch_ids: set) -> dict:
     """Per-stage and run sums for the standard and recommended value sets (decisive reads only).
     ``run_sum`` uses each read's PLAN model; ``run_sum_sensitivity`` swaps in the Jeffreys
     predictive (beta-binomial / gamma-Poisson) where a line carries one -- zero-count and zero-miss
-    lines are 0 under the plain model but not under the predictive one."""
+    lines are 0 under the plain model but not under the predictive one.
+
+    ``degenerate_mode`` 'unvalidated' (v1.1 on; CHARTER 2026-10-21 C): a degenerate fixed-t line (rate None,
+    ``rate_status`` DEGENERATE) is NOT summed and is counted explicitly -- ``n_excluded_degenerate`` per stage (a
+    stage whose every read is degenerate still gets a row) and ``excluded_degenerate`` {n, ids, plain_read_total}
+    per value set, so the arithmetic says what it leaves out. A WATCH id is excluded as WATCH first (recommended
+    set). In 'legacy_zero' mode the output is v0 / v1's exactly."""
+    explicit = res.get("degenerate_mode") == "unvalidated"
+    plain = res.get("degenerate_plain_reads") or {}
     out = {}
     for which in ("standard", "recommended"):
-        by, sens = {}, {}
+        by, sens, deg = {}, {}, {}
         for x in res["lines"]:
-            if x.get("value_set") not in (which, "both") or x.get("rate") is None or x.get("excluded_from_sum"):
+            if x.get("value_set") not in (which, "both") or x.get("excluded_from_sum"):
                 continue
             if which == "recommended" and x["id"] in watch_ids:
+                continue
+            if x.get("rate") is None:
+                if explicit and x.get("rate_status") == DEGENERATE:
+                    deg.setdefault(x["stage"], []).append(x)
                 continue
             by.setdefault(x["stage"], []).append(x["rate"])
             rs = x.get("rate_sensitivity") or {}
             alt = rs.get("betabinom_jeffreys", rs.get("nb_jeffreys"))
             sens.setdefault(x["stage"], []).append(x["rate"] if alt is None else alt)
-        out[which] = {"by_stage": {k: {"sum": total(v), "union": union(v), "n_reads": len(v),
-                                       "sum_sensitivity": total(sens[k])} for k, v in by.items()},
+        stages = list(by) + [k for k in deg if k not in by]
+        by_stage = {}
+        for k in stages:
+            v = by.get(k, [])
+            by_stage[k] = {"sum": total(v), "union": union(v), "n_reads": len(v),
+                           "sum_sensitivity": total(sens.get(k, []))}
+            if explicit:
+                by_stage[k]["n_excluded_degenerate"] = len(deg.get(k, []))
+        out[which] = {"by_stage": by_stage,
                       "run_sum": total(r for v in by.values() for r in v),
                       "run_union": union(r for v in by.values() for r in v),
                       "run_sum_sensitivity": total(r for v in sens.values() for r in v)}
+        if explicit:
+            ids = {k: [x["id"] for x in v] for k, v in deg.items()}
+            pr = [plain.get(f"{x['id']}|{x.get('value_set')}") for v in deg.values() for x in v]
+            out[which]["excluded_degenerate"] = {
+                "n": sum(len(v) for v in deg.values()), "ids": ids,
+                "plain_read_total": total(pr),
+                "note": "degenerate fixed-t lines (sigma_hat 0): rate None, NOT in run_sum / run_union / n_reads / "
+                        "run_sum_sensitivity; plain_read_total = what the plain 0.0 / 1.0 reads would have added "
+                        "(CHARTER 2026-10-21 decision C)"}
     return out
 
 
@@ -1359,9 +1448,34 @@ def main(argv=None) -> int:
                                          "already read on T* at its own stage; the stand gates are G1-G5 / K1-K6 only "
                                          "(G4 / K5-G4 carry the walls). PLAN left-for-implementation item 15.",
            "field_context_p2a": res["field_context_p2a"]}
-    a.out.write_text(json.dumps(doc, indent=1, default=_json_default))
+    if res["degenerate_mode"] == "unvalidated":      # v1.1 on (absent from the frozen v0 / v1 files)
+        doc["degenerate_fixed_t"] = {
+            "mode": res["degenerate_mode"], "rate_status": DEGENERATE,
+            "rule": "a fixed-t line whose sigma_hat is 0 (every recorded seed equal, R = 0) has no modelled chance "
+                    "rate: rate None + rate_status, excluded from every sum and counted "
+                    "(sums.<set>.excluded_degenerate, by_stage.<stage>.n_excluded_degenerate); gate_read / the HALT "
+                    "record carry the status, never a 0.0 (CHARTER 2026-10-21 decision C)",
+            "plain_reads": res["degenerate_plain_reads"]}
+    # atomic: a temp file in the same dir + os.replace (a running gate may read thresholds.json)
+    fd, tmp = tempfile.mkstemp(dir=str(Path(a.out).resolve().parent), prefix=f".{Path(a.out).name}.")
+    try:
+        with os.fdopen(fd, "w") as fh:
+            fh.write(json.dumps(doc, indent=1, default=_json_default))
+        um = os.umask(0)
+        os.umask(um)
+        os.chmod(tmp, 0o666 & ~um)                    # what write_text gave (mkstemp is 0600)
+        os.replace(tmp, a.out)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
     print(f"wrote {a.out}: {len(res['lines'])} lines; run sum standard {doc['sums']['standard']['run_sum']:.3f} "
-          f"recommended {doc['sums']['recommended']['run_sum']:.3f}; self-check failures {len(fails)}")
+          f"recommended {doc['sums']['recommended']['run_sum']:.3f}; self-check failures {len(fails)}"
+          + (f"; degenerate lines excluded (rate None): standard {doc['sums']['standard']['excluded_degenerate']['n']}"
+             f", recommended {doc['sums']['recommended']['excluded_degenerate']['n']}"
+             if "degenerate_fixed_t" in doc else ""))
     for f in fails:
         print("  SELF-CHECK:", f)
     return 1 if (a.self_check and fails) else 0

@@ -16,7 +16,11 @@ Pinned (PLAN step 6 / 7; DESIGN 9):
 * the stand overrides unset = today; the driver-side payload knobs (parsers, dump checks both directions, KG needs its
   companions); gate_row.sh refusals and key stripping; the Isaac pattern never matches a TP tool;
 * live_watch replays on recorded tfevents; payload_read on S1's 0-kg stamps; replay_read's amended P-early rule;
-  select_student's candidate mapping and its 2-block HALT.
+  select_student's candidate mapping and its 2-block HALT;
+* CHARTER 2026-10-21 (R18 SN HALT -> decisions A-E): R18's real sn records re-gated under thresholds v1.1 read WATCH
+  (G1 taps / steps recorded as WATCH lines, the G2 misses flagged); a degenerate line's rate is None + status in the
+  gate and HALT records (no 'chance=0.0'); the T* record lists every payload head (p3b's margin use 1.10); the student
+  full block records the tracking + 0.05 WATCH in gates/sel.json.
 """
 from __future__ import annotations
 
@@ -86,7 +90,8 @@ def tspec(tmp_path, P):
     """A copy of the spec + thresholds in a temp campaign dir (run dirs land there), N_p set."""
     d = tmp_path / "camp"
     d.mkdir()
-    for n in ("thresholds_v0.json", "thresholds_v1.json", "threshold_inputs.yaml", "threshold_inputs_v1.yaml"):
+    for n in ("thresholds_v0.json", "thresholds_v1.json", "thresholds_v1_1.json", "threshold_inputs.yaml",
+              "threshold_inputs_v1.yaml", "threshold_inputs_v1_1.yaml"):
         if (PL / n).is_file():
             shutil.copy(PL / n, d / n)
     doc = yaml.safe_load(SPEC.read_text())
@@ -683,7 +688,8 @@ def test_the_lock_pins_every_out_of_hash_dependency(P, S):
     files = {P.L.rel(p) for p in P.lock_files(S)}
     for want in ("experiments/tools/pipeline/pipeline.py", "experiments/tools/pipeline/gate_row.sh",
                  "experiments/2026-10-16_task4_pipeline/pipeline.yaml",
-                 "experiments/2026-10-16_task4_pipeline/thresholds_v1.json",
+                 "experiments/2026-10-16_task4_pipeline/thresholds_v1_1.json",
+                 "experiments/2026-10-16_task4_pipeline/threshold_inputs_v1_1.yaml",
                  "experiments/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml",
                  "experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml",
                  "experiments/2026-10-01_ppo_construction/scenarios_turn_band.yaml",
@@ -695,7 +701,14 @@ def test_the_lock_pins_every_out_of_hash_dependency(P, S):
         assert any(f.endswith(want) for f in files), want
     assert "assets/crab.usda" in files
     committed = json.loads((PL / "pipeline.lock.json").read_text())
-    assert set(committed["files"]) == files and committed["external"]
+    assert committed["external"]
+    # CHARTER 2026-10-21 (thresholds v1.1): the spec points at thresholds_v1_1.json before the re-pin rewrites the lock
+    # (`pipeline.py lock`, the next step of the amendment). Until then the committed lock may lag the spec by EXACTLY
+    # that swap -- nothing else; after the re-pin the sets are equal again.
+    exp = "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/"
+    pending = ({exp + "thresholds_v1_1.json", exp + "threshold_inputs_v1_1.yaml"}, {exp + "thresholds_v1.json"})
+    lag = (files - set(committed["files"]), set(committed["files"]) - files)
+    assert lag in ((set(), set()), pending), lag
 
 
 # ============================================================================== stand overrides unset = today
@@ -1058,7 +1071,7 @@ def test_gate_reads_rehearsed_on_recorded_s1_rows(P, tspec, monkeypatch):
     ids = {d["id"] for d in r["decisive"]}
     assert "p2a.capability.field_hard" in ids and "p2a.floor.side22_fastfast" in ids
     assert {f"p2a.floor.survival.{c}.es{e}" for c in ("fwd", "side", "back", "diag") for e in (1, 2)} <= ids
-    assert json.loads(Path(r["path"]).read_text())["thresholds"]["version"] == "v1"
+    assert json.loads(Path(r["path"]).read_text())["thresholds"]["version"] == "v1.1"
     r = P.gate_payload(ctx, "p3a")
     assert r["verdict"] == P.GR.PASS, (r["halt_lines"], r.get("zero_kg"))
     assert r["max_stable"] == 90 and ctx.srec("p3a")["zero_kg"]["verdict"] == "PASS"
@@ -1080,11 +1093,16 @@ def test_stand_gate_rehearsed_on_the_recorded_heads(P, tspec, tmp_path):
     P.gen(tspec, "F19")
     ctx = P.Ctx(tspec, "F19")
     r = P.stand_gate(ctx, "sn", "D1", {"name": "SN_Amask_s17", "calib": str(sn_head), "ckpt": "x"})
-    assert r["verdict"] == P.GR.PASS, r["halt_lines"]
+    assert r["verdict"] == P.GR.PASS, (r["halt_lines"], r["watch_flags"])
     g4 = next(d for d in r["decisive"] if d["id"].startswith("stand.D1.G4.field_hard es1+2+3+4 completion"))
     assert g4["line"] == pytest.approx(0.8125 - 0.10) and g4["value"] == pytest.approx(0.805)
     assert not any("post_settle_steps_per_s walkstop" in d["id"] for d in r["decisive"] if d["id"].startswith(
         "stand.D1.G2"))
+    # decision B: the WATCH lines are read and RECORDED (the known-good head passes every one: no flag)
+    w = {d["id"]: d for d in r["watch_lines"]}
+    assert set(w) == set(json.loads(tspec.thresholds_path().read_text())["recommended"]["watch"])
+    assert all(d["pass"] and d["watch"] and d["value"] is not None for d in w.values()) and r["watch_flags"] == []
+    assert w["stand.D1.G2.post_settle_taps_per_s walkstop es1"]["value"] == pytest.approx(0.7431)
     inp = yaml.safe_load((PL / "threshold_inputs.yaml").read_text())
     k5 = {"rows": {"SH_T17z": {"gates": {}}}}
     for g, cls in inp["stand"]["k5_sn_calib"]["gates"].items():
@@ -1111,6 +1129,250 @@ def test_stand_gate_rehearsed_on_the_recorded_heads(P, tspec, tmp_path):
     bp.write_text(json.dumps(bad))
     r = P.stand_gate(ctx, "sh", "D2", {"name": "SH_T17", "read": str(bp), "k5_calib": str(kp), "ckpt": "x"})
     assert r["verdict"] == P.GR.HALT and any("K4.miss es2" in x for x in r["halt_lines"])
+
+
+# ============================================================================== CHARTER 2026-10-21 decisions A-E
+R18 = PL / "R18"
+G1_WATCH = {"stand.D1.G1.taps_per_s suite es1": 1.04167, "stand.D1.G1.taps_per_s suite es2": 1.125,
+            "stand.D1.G1.steps_per_s suite es1": 0.08333, "stand.D1.G1.steps_per_s suite es2": 0.20833}
+
+
+def _r18_sn_head():
+    g = R18 / "gates/sn.json"
+    if not g.is_file():
+        pytest.skip("R18 sn gate record absent")
+    head = json.loads(g.read_text())["head"]
+    if not Path(head["calib"]).is_file():
+        pytest.skip("R18 sn_calib.json absent")
+    return head
+
+
+def _thresholds_spec(P, tspec, file: str, version: str):
+    tspec.d["thresholds"] = {"file": file, "version": version}
+    return tspec
+
+
+def test_r18_sn_regated_under_v1_1_reads_watch_with_the_g1_values(P, tspec):
+    """Decisions A + B on R18's REAL sn records (stand/sn_calib.json, the head of gates/sn.json): under thresholds v1.1
+    the SN G1 taps/s and steps/s lines are WATCH, so the stage reads WATCH, not HALT; every WATCH line is RECORDED with
+    its value, line and pass (G1 taps 1.04167 / 1.125 miss, G1 steps 0.08333 / 0.20833 pass, and the STOP-0 G2
+    post-settle lines that the old gate dropped silently miss too) and each miss is a WATCH flag."""
+    head = _r18_sn_head()
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "F19")
+    ctx = P.Ctx(tspec, "F19")
+    assert ctx.spec.d["thresholds"]["version"] == "v1.1"
+    r = P.stand_gate(ctx, "sn", "D1", head)
+    assert r["verdict"] == P.GR.WATCH and r["halt_lines"] == [], r["halt_lines"]
+    assert all(d["pass"] for d in r["decisive"])
+    w = {d["id"]: d for d in r["watch_lines"]}
+    assert not set(w) & {d["id"] for d in r["decisive"]}
+    for lid, v in G1_WATCH.items():
+        assert w[lid]["value"] == pytest.approx(v) and w[lid]["watch"] is True
+        assert w[lid]["pass"] is ("steps_per_s" in lid)
+        assert w[lid]["line"] == (0.5 if "steps_per_s" in lid else 1.0)
+    post = {k: d["value"] for k, d in w.items() if ".G2.post_settle_" in k}
+    assert post == pytest.approx({"stand.D1.G2.post_settle_steps_per_s walkstop es1": 0.74787,
+                                  "stand.D1.G2.post_settle_steps_per_s walkstop es2": 0.79636,
+                                  "stand.D1.G2.post_settle_taps_per_s walkstop es1": 1.61294,
+                                  "stand.D1.G2.post_settle_taps_per_s walkstop es2": 1.86675})
+    flags = {f["id"]: f for f in r["watch_flags"]}
+    assert set(flags) == {"stand.D1.G1.taps_per_s suite es1", "stand.D1.G1.taps_per_s suite es2", *post}
+    assert flags["stand.D1.G1.taps_per_s suite es2"]["value"] == pytest.approx(1.125)
+    rec = json.loads(Path(r["path"]).read_text())
+    assert rec["verdict"] == "WATCH" and rec["thresholds"]["version"] == "v1.1"
+    assert {d["id"] for d in rec["watch_lines"]} == set(w) and len(rec["watch_flags"]) == 6
+    # decision C on the decisive side: a degenerate line carries rate None + its status, never the plain 0.0
+    og = next(d for d in r["decisive"] if d["id"] == "stand.D1.G1.off_ground_share suite es1")
+    assert og["rate"] is None and og["rate_status"] == "degenerate/unvalidated" and og["unvalidated"] is True
+    assert w["stand.D1.G1.taps_per_s suite es1"]["rate"] is None
+    # the WATCH verdict notifies with the reads (apply: PASS + WATCH, the subtree continues)
+    ctx.rt = FakeRT(ctx.dir, {}, ctx.dir)
+    P.Queue(ctx).apply("sn", r)
+    assert ctx.state["stages"]["sn"]["status"] == "pass"
+    note = [json.loads(x) for x in ctx.notify_path.read_text().splitlines()][-1]["text"]
+    assert "stand.D1.G1.taps_per_s suite es1=1.042 (line 1)" in note
+
+
+def test_r18_sn_under_v1_halts_with_no_chance_zero(P, tspec, tmp_path):
+    """Decision C on the OLD thresholds (v1, the file the R18 HALT was read with): the two G1 taps lines still fail,
+    but their rate is None + 'degenerate/unvalidated' (v1's lines carry the degenerate flag with the plain 0.0), and the
+    HALT record sums no rate for them and names them unmodelled -- the notification never says chance=0.0. The G2
+    WATCH misses are recorded beside the HALT (decision B)."""
+    head = _r18_sn_head()
+    _thresholds_spec(P, tspec, "thresholds_v1.json", "v1")
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "F19")
+    ctx = P.Ctx(tspec, "F19")
+    ctx.rt = FakeRT(ctx.dir, {}, tmp_path)
+    r = P.stand_gate(ctx, "sn", "D1", head)
+    assert r["verdict"] == P.GR.HALT
+    assert r["halt_lines"] == ["stand.D1.G1.taps_per_s suite es1", "stand.D1.G1.taps_per_s suite es2"]
+    fails = [d for d in r["decisive"] if not d["pass"]]
+    assert all(d["rate"] is None and d["rate_status"] == "degenerate/unvalidated" for d in fails)
+    assert len(r["watch_flags"]) == 4                 # the G2 post-settle misses, recorded (they were dropped)
+    P.Queue(ctx).apply("sn", r)
+    rec = json.loads((ctx.dir / "halts/sn.1.json").read_text())
+    assert rec["chance_rate_sum"] is None
+    assert [u["id"] for u in rec["chance_rate_unmodelled"]] == r["halt_lines"]
+    assert all(x["rate"] is None and x["rate_status"] == "degenerate/unvalidated" for x in rec["lines"])
+    halt_line = [ln for ln in ctx.qlog.read_text().splitlines() if ln.startswith("T4PIPE HALT ")][-1]
+    assert "chance=0.0" not in halt_line and "chance=None (2 unmodelled: degenerate/unvalidated)" in halt_line
+
+
+def test_halt_chance_sums_only_modelled_rates(P, qctx):
+    """A HALT with a modelled line and a degenerate one (a v1-style record: plain 0.0 + the degenerate flag, or the
+    v1.1 rate None + status): the sum is the modelled rate alone and the degenerate line is listed unmodelled."""
+    ctx, rt, verdicts, done = qctx
+    lines = [{"id": "c4.floor.ratio.side.es1", "value": 0.41, "line": 0.5, "rate": 0.0056},
+             {"id": "stand.x", "value": 1.1, "line": 1.0, "rate": 0.0, "degenerate": True},
+             {"id": "stand.y", "value": 1.2, "line": 1.0, "rate": None, "rate_status": "degenerate/unvalidated"}]
+    rec = P.halt(ctx, "c4", "FAIL", "test", lines=lines)
+    assert rec["chance_rate_sum"] == pytest.approx(0.0056)
+    assert [u["id"] for u in rec["chance_rate_unmodelled"]] == ["stand.x", "stand.y"]
+    assert rec["lines"][1]["rate"] is None and rec["lines"][1]["rate_status"] == "degenerate/unvalidated"
+    assert P.chance_text(rec) == "chance=0.0056 (+2 unmodelled: degenerate/unvalidated)"
+
+
+def test_gate_read_degenerate_predicate_equals_the_thresholds_one(P, G):
+    """gate_read.is_degenerate (numpy-free) == thresholds.is_degenerate on every line of v1 and v1.1; v1's degenerate
+    lines (plain 0.0) and v1.1's (rate None) read as rate None + status through the gate's Thresholds view."""
+    TH = P.L.thresholds_mod()
+    assert G.DEGENERATE == TH.DEGENERATE
+    for n in ("thresholds_v1.json", "thresholds_v1_1.json"):
+        doc = json.loads((PL / n).read_text())
+        assert all(G.is_degenerate(x) == TH.is_degenerate(x) for x in doc["lines"])
+        th = G.Thresholds(doc)
+        lid = "stand.D1.G1.off_ground_share suite es1"
+        assert th.rate(lid) is None and th.rate_status(lid) == G.DEGENERATE and th.unvalidated(lid)
+        assert th.rate("stand.D1.G1.ks_m_s suite es1") > 0 and th.rate_status("stand.D1.G1.ks_m_s suite es1") is None
+    assert sum(G.is_degenerate(x) for x in json.loads((PL / "thresholds_v1.json").read_text())["lines"]) == 52
+
+
+def _r18_state_into(ctx, stages=("p3a", "p3b", "p3c")):
+    st = json.loads((R18 / "pipeline_state.json").read_text())
+    for s in stages:
+        ctx.state["stages"][s] = copy.deepcopy(st["stages"][s])
+        if s in st["halts"]:
+            ctx.state["halts"][s] = copy.deepcopy(st["halts"][s])
+        src = R18 / "stage_reads" / f"{s}.json"
+        if src.is_file():
+            dst = ctx.stage_read_path(s)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_text(src.read_text())
+    ctx.save()
+
+
+def test_tstar_record_lists_every_payload_head(P, tspec, tmp_path):
+    """Decision D on R18's REAL payload records: T* stays p3a (rule unchanged), and the T* record and its notification
+    list EVERY head considered -- p3a (max_stable 90, 0-kg FAIL accepted as chance, margin use 1.66, CHOSEN) and p3b
+    (max_stable 135, 0-kg FAIL on turn yaw_progress es2, margin use 1.10, not accepted -> EXCLUDED, with why); p3c is
+    listed as not trained."""
+    if not (R18 / "pipeline_state.json").is_file() or not (R18 / "stage_reads/p3b.json").is_file():
+        pytest.skip("R18 records absent")
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "R18")
+    ctx = P.Ctx(tspec, "R18")
+    ctx.rt = FakeRT(ctx.dir, {}, tmp_path)
+    _r18_state_into(ctx)
+    P.Queue(ctx).ex_tstar("tstar")
+    rec = json.loads(ctx.stage_read_path("tstar").read_text())
+    assert rec["stage"] == "p3a" and rec["max_stable"] == 90
+    assert [c["stage"] for c in rec["candidates"]] == ["p3a"]                 # the eligible list, as before
+    by = {x["stage"]: x for x in rec["considered"]}
+    assert list(by) == ["p3a", "p3b"]
+    a, b = by["p3a"], by["p3b"]
+    assert a["chosen"] and a["accepted"] and a["eligible"] and a["zero_kg"] == "FAIL" and a["max_stable"] == 90
+    assert a["max_margin_used"] == pytest.approx(1.6567, abs=1e-4) and "CHOSEN" in a["why"]
+    assert len(a["zero_kg_fails"]) == 2 and all("move_turn" in f for f in a["zero_kg_fails"])
+    assert not b["chosen"] and not b["accepted"] and not b["eligible"] and b["status"] == "ceiling"
+    assert b["max_stable"] == 135 and b["zero_kg"] == "FAIL" and round(b["max_margin_used"], 2) == 1.10
+    assert b["zero_kg_fails"] == ["yaw_progress turn suite es2: worse by 0.0100 > margin 0.0091 (drift_scaled)"]
+    assert b["why"].startswith("EXCLUDED: paired 0-kg check FAIL (max margin use 1.10; fails: yaw_progress turn")
+    assert "no HALT of it was accepted as chance" in b["why"] and "ceiling" in b["why"]
+    assert [x["stage"] for x in rec["not_trained"]] == ["p3c"] and rec["not_trained"][0]["status"] == "skipped"
+    note = [json.loads(x) for x in ctx.notify_path.read_text().splitlines()][-1]["text"]
+    assert note.startswith("T*=p3a max_stable=90")
+    assert "p3a: max_stable=90 0-kg=FAIL margin_use=1.66 accepted-as-chance" in note and "-> CHOSEN" in note
+    assert "p3b: max_stable=135 0-kg=FAIL margin_use=1.10" in note and "-> EXCLUDED" in note
+    assert "p3c: not trained (skipped)" in note
+    # the selection rule is unchanged: had p3b passed its 0-kg check, the higher max_stable would win
+    ctx.state["stages"]["p3b"]["zero_kg"]["verdict"] = "PASS"
+    ctx.state["stages"]["p3b"]["zero_kg"]["fails"] = []
+    P.Queue(ctx).ex_tstar("tstar")
+    rec = json.loads(ctx.stage_read_path("tstar").read_text())
+    assert rec["stage"] == "p3b" and [c["stage"] for c in rec["candidates"]] == ["p3b", "p3a"]
+    assert {x["stage"]: x["chosen"] for x in rec["considered"]} == {"p3a": False, "p3b": True}
+    assert "eligible, not chosen" in rec["considered"][0]["why"]
+
+
+def _suite_eps(cat, ratios, env0=0):
+    return [{"env": env0 + i, "cat": cat, "surv": True, "ratio": r, "facing_closed": None, "yaw_progress": None}
+            for i, r in enumerate(ratios)]
+
+
+def test_tracking_watch_is_paired_and_watch_only(P):
+    """Decision E, the pure read: per env seed and per tracking category (trained translate + move_turn), the
+    one-sided ratio drop (T* - student <= 0.05) and |ratio - 1| (student - T* <= 0.05); a miss or a missing read is a
+    flag, nothing is ever a FAIL."""
+    SS = P.SS()
+    t = {1: (_suite_eps("fwd", [1.0] * 9) + _suite_eps("side", [0.95] * 9, 100)
+             + _suite_eps("move_turn", [0.80] * 9, 200))}
+    s = {1: (_suite_eps("fwd", [0.93] * 9) + _suite_eps("side", [0.97] * 9, 100)
+             + _suite_eps("move_turn", [0.78] * 9, 200))}
+    out = SS.tracking_watch(s, t, ["fwd", "side", "turn"])
+    rows = {r["id"]: r for r in out["rows"]}
+    assert len(rows) == 6 and out["margin"] == 0.05 and "WATCH only" in out["rule"]
+    fwd = rows["student.watch.tracking.ratio.fwd.es1"]
+    assert fwd["worse_by"] == pytest.approx(0.07) and fwd["line"] == pytest.approx(0.95) and not fwd["pass"]
+    assert rows["student.watch.tracking.abs_dev.fwd.es1"]["worse_by"] == pytest.approx(0.07)
+    assert rows["student.watch.tracking.ratio.side.es1"]["pass"]                 # the student tracks better
+    assert rows["student.watch.tracking.abs_dev.side.es1"]["worse_by"] == pytest.approx(-0.02)
+    assert rows["student.watch.tracking.ratio.move_turn.es1"]["pass"]            # 0.02 <= 0.05
+    assert {f["id"] for f in out["flags"]} == {"student.watch.tracking.ratio.fwd.es1",
+                                               "student.watch.tracking.abs_dev.fwd.es1"}
+    miss = SS.tracking_watch({1: s[1]}, {1: t[1], 2: t[1]}, ["fwd"])
+    assert [r["pass"] for r in miss["rows"] if r["env_seed"] == 2] == [False] * 4
+    assert all(r["missing"] for r in miss["rows"] if r["env_seed"] == 2)
+
+
+def test_student_full_block_records_the_tracking_watch(P, tspec, tmp_path, monkeypatch):
+    """Decision E end to end on R18's RECORDED selection rows (c27000 and T* on Student-Play): full_block computes the
+    tracking + 0.05 WATCH and writes it into gates/sel.json; the decisive reads are R18's recorded ones (unchanged)."""
+    rows_p, gate_p = R18 / "stage_reads/sel.rows.json", R18 / "gates/sel.json"
+    if not (rows_p.is_file() and gate_p.is_file()):
+        pytest.skip("R18 selection records absent")
+    recs = json.loads(rows_p.read_text())
+    if not all(Path(v["stamp"]).is_dir() for v in recs.values()):
+        pytest.skip("R18 selection stamps absent")
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
+    P.gen(tspec, "R18")
+    ctx = P.Ctx(tspec, "R18")
+    ctx.rt = FakeRT(ctx.dir, {}, tmp_path)
+    monkeypatch.setattr(P, "run_row", lambda ctx_, sid, job: Path(recs[job["key"]]["stamp"]))
+    monkeypatch.setattr(P.Queue, "student_gate0", lambda self, *a, **k: [])
+    st = ctx.spec.stage("sel")
+    tst = {k: Path(recs[f"tstar:{k}"]["stamp"]) for k in st["full_block_rows"]}
+    ts = {"stage": "p3a", "max_stable": 90, "ckpt": "unused"}
+    blk = P.Queue(ctx).full_block("sel", "c27000", {"ckpt": "unused"}, tst, ts, P.student_refused_keys(),
+                                  ctx.thresholds())
+    g = json.loads((ctx.dir / "gates/sel.json").read_text())
+    b = g["blocks"]["c27000"]
+    old = json.loads(gate_p.read_text())["blocks"]["c27000"]
+    assert b["pass"] is True and [d["id"] for d in b["decisive"]] == [d["id"] for d in old["decisive"]]
+    assert [d.get("value") for d in b["decisive"]] == [d.get("value") for d in old["decisive"]]
+    tw = b["watch"]["tracking"]
+    trained = [c for c in ctx.plan["stages"]["p3a"]["trained"] if c in ("fwd", "side", "back", "diag")]
+    assert len(tw["rows"]) == 2 * (len(trained) + 1) * 2 and not any(r["missing"] for r in tw["rows"])
+    TH = P.L.thresholds_mod()
+    sa = TH.suite_episodes(Path(recs["c27000:suite@2"]["stamp"]))
+    sb = TH.suite_episodes(Path(recs["tstar:suite@2"]["stamp"]))
+    r = next(x for x in tw["rows"] if x["id"] == "student.watch.tracking.ratio.move_turn.es2")
+    assert r["student"] == pytest.approx(TH._cat_stat([e for e in sa if e["cat"] == "move_turn"], "ratio"))
+    assert r["tstar"] == pytest.approx(TH._cat_stat([e for e in sb if e["cat"] == "move_turn"], "ratio"))
+    assert all(x["pass"] == (x["worse_by"] <= 0.05 + 1e-12) for x in tw["rows"])
+    assert b["watch_flags"] == tw["flags"] == g["watch_flags"]
+    assert g["verdict"] == ("WATCH" if tw["flags"] else "PASS") and blk["watch_flags"] == tw["flags"]
 
 
 @pytest.mark.parametrize("qrun", ["dry"])
@@ -1382,13 +1644,14 @@ def test_check_reports_the_placeholder_cleanly(P, S, tspec):
 
 def test_the_committed_spec_is_the_step8_freeze(P, S):
     """PLAN step 8 -> v1 (stepC_read.json patch): N_p 3000, x_rule report_only, the student manifest-shape split 0.0,
-    live.student.loss_rule kill, thresholds_v1.json (its version = the spec's; self-check clean)."""
+    live.student.loss_rule kill; thresholds amended to v1.1 (CHARTER 2026-10-21: the SN G1 stillness WATCH lines +
+    degenerate rates None) -- its version = the spec's; self-check clean."""
     assert S.d["N_p"] == 3000 and S.d["x_rule"] == "report_only"
     assert S.stage("sel")["completion_margin"]["manifest_shape_split"] == 0.0
     assert S.d["live"]["student"]["loss_rule"] == "kill"
-    assert S.d["thresholds"] == {"file": "thresholds_v1.json", "version": "v1"}
+    assert S.d["thresholds"] == {"file": "thresholds_v1_1.json", "version": "v1.1"}
     th = json.loads(S.thresholds_path().read_text())
-    assert th["version"] == "v1" and th["self_check_failures"] == []
+    assert th["version"] == "v1.1" and th["self_check_failures"] == []
     patch = json.loads((PL / "preflight/stepC_read.json").read_text())["patch"]["pipeline.yaml"]
     assert patch["N_p"] == S.d["N_p"] and patch["x_rule"] == S.d["x_rule"]
     assert patch["stages[sel].completion_margin.manifest_shape_split"] == 0.0

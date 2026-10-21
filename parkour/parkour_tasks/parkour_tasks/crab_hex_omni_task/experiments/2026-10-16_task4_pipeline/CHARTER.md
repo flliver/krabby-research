@@ -550,3 +550,25 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - the student full block computes the "tracking + 0.05" WATCH.
   - **The student veto clip is rendered:** `R18/clip/student_c27000_field_hard.mp4` (30 s, 0 kg, wall field, no
     resets) plus a 960p copy. It is a veto only, never a gate.
+- **2026-10-21, re-pin v1.1** (workflow `wf_fdf94607-da9`: opus build, fable verify OK).
+  - **thresholds v1.1** (`threshold_inputs_v1_1.yaml` → `thresholds_v1_1.json`):
+    - the four SN G1 stillness lines (taps/s, steps/s, suite es1–2) move to WATCH in the recommended set;
+    - degenerate fixed-t lines (52) report rate None, "degenerate/unvalidated", instead of 0.0;
+    - every other line is identical to v1; the run sums are numerically unchanged (1.197 recommended).
+  - **TP:**
+    - `stand_gate` records WATCH lines and flags;
+    - HALT records quote unmodelled rates as unmodelled;
+    - the T\* record and notification list every payload head (p3a CHOSEN at 1.66; p3b EXCLUDED at 1.10; p3c not
+      trained);
+    - the student full block records the "tracking + 0.05" WATCH.
+  - **Tests:** 125 pass. The verifier re-gated R18's records under v1.1:
+    - sn → WATCH: 6 flags (G1 taps 1.042 / 1.125; G2 post-settle steps 0.748 / 0.796, taps 1.613 / 1.867); every
+      decisive line passes;
+    - every other stage is unchanged;
+    - the student's tracking WATCH shows no flag (worst gap +0.015).
+  - Lock rewritten (347 files); `check` is clean on R18, F19 and dry. Pin = this commit, local tag
+    `task4-pin-2026-10-21c`. R18 continues with `continue --amend sn`, which re-gates sn under v1.1.
+  - R18's own T\* record (written before D) lists only p3a. The p3b exclusion is disclosed in this CHARTER, and F19
+    gets the full listing.
+  - **Open (scope, not decided):** survival-floor lines with zero recorded misses still carry a modelled rate
+    of 0.0.
