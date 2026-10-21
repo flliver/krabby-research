@@ -516,3 +516,13 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     ordinary drift.
   - **X replay:** sn_ref and sh_ref PASS (report-only). The loss curves equal the SN_Amask_s17 / SH_T17 records
     exactly; the weight shas differ.
+- **2026-10-20/21, R18 progress after the p3a accept.**
+  - **p3b:** CEILING. max_stable 135 kg; limiting factor budget_bound (still improving at N_p 3000); sim plant,
+    force side not enforced.
+  - **p3c:** skipped.
+  - **T\* = p3a** (max_stable 90; its 0-kg check failed and was accepted as chance). Under review: why not p3b.
+  - **st / sel:** the depth student distilled from T\* (≈ 9.8 h); selection picked c27000. One headless clip goes
+    to the user for a veto.
+  - **2026-10-21 06:23, HALT at sn (D1, FAIL):** `stand.D1.G1.taps_per_s` on suite es1 and es2 reads 1.04167
+    against its line; the recorded chance rate is 0.0 (suspect).
+  - Analysis workflow `wf_b6c04135-191` is running; the user decides.
