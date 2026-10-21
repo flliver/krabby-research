@@ -81,10 +81,10 @@ Status: `open` · `in progress` · `done` · `returned` · `out of scope`. `Cumu
 | 24 | K31 | known | Enrollment documented in `ENROLL.md` and `SETUP-FLEET.md` | yes (which is current?) | drift; Task 1 had to pick one | 2 | 0.5 | AI; Human | done — Task 1 friction-log fleet path used `ENROLL.md` only (`krabby enroll` → agent → `krabby run`); `SETUP-FLEET.md` is account/ops + pointers (no enroll commands / no bare HAL); root README splits account setup vs enroll |
 | 25 | K34 | known | `DEVELOPER.md` untitled; sim-only half of development | no | real-robot dev path undocumented | 3 | 1.5 | AI; Human | done — H1; Orin half = README Start here + editable-dev only (no duplicate kit table); sim/training labeled |
 | 26 | F14 | friction | Dev/stable override inconsistent: `--image main-latest` vs firmware channel `main` | no (confusing) | ~5–15 min; every operator wanting the dev line | 2 | 2 | AI CLI/docs; Human | done — `--channel main\|release` on install/update/run/firmware (image tag + S3 branch); `--image` advanced override; CLI unit tests for `update`/`firmware update --channel` |
-| 27 | K27 | known | Root README interleaves user / developer / infra | yes (cold-start clarity) | every new user; residual after F1/F2 line fixes | 3 | — | AI + Human | open |
-| 28 | K30 | known | `firmware/SETUP.md` milestone title + four audiences | no | confusion every firmware reader | 3 | — | AI; Human | open |
-| 29 | K32 | known | `SETUP-FLEET.md` mixes account setup and per-robot ops | no | infra vs operator confusion | 3 | — | AI; Human | open |
-| 30 | K35 | known | Image/package READMEs mix consumer and maintainer | no | wrong audience sections | 2 | — | AI; Human | open |
+| 27 | K35 | known | Image/package READMEs mix consumer and maintainer | no | wrong audience sections | 2 | 1 | AI; Human | done |
+| 28 | K27 | known | Root README interleaves user / developer / infra | yes (cold-start clarity) | every new user; residual after F1/F2 line fixes | 3 | — | AI + Human | open |
+| 29 | K30 | known | `firmware/SETUP.md` milestone title + four audiences | no | confusion every firmware reader | 3 | — | AI; Human | open |
+| 30 | K32 | known | `SETUP-FLEET.md` mixes account setup and per-robot ops | no | infra vs operator confusion | 3 | — | AI; Human | open |
 | 31 | K19 | known | Gamepad launch hard-codes Jetson HAL backend | yes (non-Jetson gamepad) | cannot launch other backends via that path | 16 | — | AI; Human | open |
 | 32 | K16 | known | Observation timestamps not propagated (`None`) | no | incomplete teleop latency accounting | 2 | — | AI; Human | open |
 | 33 | K18 | known | Gamepad path tested on macOS only (Orin partly covered in T1) | partial | Linux/Windows still thin | 4 | — | Hardware; Human | open |

@@ -133,7 +133,7 @@ Host setup for kit bring-up is **this quick-start** (`krabby install` above), no
 | [docs/CI-FAILURES.md](docs/CI-FAILURES.md) | What to do when publish / Artifact health / Discord CI fails |
 | [docs/JETSON_DEPLOYMENT.md](docs/JETSON_DEPLOYMENT.md) | Advanced Jetson: SSH, GPU Docker, ZED, custom policy deploy (not kit install) |
 | [firmware/SETUP.md](firmware/SETUP.md) | S3 firmware store, V protocol, three-board update procedure |
-| [images/locomotion/README.md](images/locomotion/README.md) | Production Docker image, ECR tags, pin bumping |
+| [images/locomotion/README.md](images/locomotion/README.md) | Locomotion image (maintainers: tags, pins, Dockerfiles) |
 | [krabby/README.md](krabby/README.md) | Full `krabby` CLI reference |
 | [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) | Gamepad E2E guide |
 | [bench/README.md](bench/README.md) | Bench watchdog setup and alerter config |

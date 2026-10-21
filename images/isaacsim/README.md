@@ -1,5 +1,7 @@
 # Isaac Sim Container
 
+**Audience:** maintainers / local build only. This image is not published to ECR; every consumer builds it themselves.
+
 This directory contains the Dockerfile for the Isaac Sim container that combines inference logic and Isaac Sim HAL server for simulation testing.
 
 ## Overview

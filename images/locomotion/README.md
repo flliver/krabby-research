@@ -1,18 +1,12 @@
 # Locomotion Container
 
-## Canonical install path
+## Kit operators
 
-```bash
-python3 -m venv ~/.venv-krabby && source ~/.venv-krabby/bin/activate
-pip install -U pip && pip install krabby-launcher
-sudo -E env PATH="$PATH" "$(which krabby)" install   # pull release-latest, udev + dialout
-krabby firmware show      # verify boards
-krabby run                # start the full stack (HAL server + gamepad client + controller)
-```
-
-`krabby run` starts the HAL server **and** the krabby-uno client/controller together, wiring GPU flags, serial + input device passthrough, and ZMQ ports automatically. See [krabby/README.md](../../krabby/README.md) for the full CLI reference.
+To install and run the published image on a kit host, follow the root [README.md](../../README.md) Software quick-start (`krabby install` / `krabby run`). CLI details: [krabby/README.md](../../krabby/README.md). The rest of this document is for image maintainers.
 
 ---
+
+## Maintainers
 
 This directory contains two Dockerfiles for the Jetson Orin robot deployment.
 
@@ -21,9 +15,7 @@ This directory contains two Dockerfiles for the Jetson Orin robot deployment.
 | **Dev** | `Dockerfile` | Monorepo `COPY` (local wheels) | No |
 | **Production** | `Dockerfile.release` | PyPI packages (pinned versions) | Yes |
 
----
-
-## Dev Image
+### Dev Image
 
 For developers iterating on HAL or compute code locally. Builds directly from the monorepo — no PyPI version bump required to test changes.
 
@@ -38,9 +30,7 @@ docker run --rm --gpus all \
     --checkpoint /workspace/checkpoints/checkpoint.pt
 ```
 
----
-
-## Production Image
+### Production Image
 
 Installs Krabby packages from PyPI with pinned versions. Bundled with `avrdude`, `arduino-cli` (Mega 2560 core, same pin as firmware CI), and `krabby-firmware` so MCU flashing works from inside the container without host-side flash tools.
 
@@ -52,7 +42,7 @@ docker buildx build --platform linux/arm64 \
 docker run --rm --network host krabby-locomotion-release:ci --help | grep teleop-ip
 ```
 
-### Pulling from ECR Public
+#### Pulling from ECR Public
 
 No AWS credentials required — ECR Public allows anonymous pulls.
 
@@ -72,7 +62,7 @@ docker pull ${ECR}:<sha7>
 docker pull ${ECR}:0.2.9
 ```
 
-### Running
+#### Running
 
 ```bash
 docker run --rm --gpus all \
@@ -89,7 +79,7 @@ docker run --rm --gpus all \
     krabby-firmware show
 ```
 
-### Tag Scheme
+#### Tag Scheme
 
 | Tag | Updated on |
 |-----|-----------|
@@ -103,7 +93,7 @@ In addition to per-commit pushes, a daily scheduled build (`on: schedule`, 07:30
 rebuilds and publishes the newest `release/*` branch, keeping `release-latest` fresh
 even on quiet days. GitHub may delay or skip scheduled runs under load.
 
-### PyPI Packages
+#### PyPI Packages
 
 Pinned in `requirements.release.txt`:
 
@@ -119,25 +109,23 @@ krabby-firmware==0.2.9
 
 `krabby-data-collection` is not yet published to PyPI and is excluded from the production image. Fleet teleop requires **`krabby-teleop-edge`** (pinned in `requirements.release.txt`).
 
-### Bumping Pins
+#### Bumping Pins
 
 1. Edit the `==` versions in `requirements.release.txt`
 2. Push to `main` or a `release/*` branch
 3. CI builds and pushes the new image automatically
 4. On publish success, **Artifact health** runs — it waits so it can **pull** the new image (`main-latest` / `release-latest`) and smoke it (see `bench/README.md` → CI: artifact health)
 
-### Bundled Flash Tooling
+#### Bundled Flash Tooling
 
 The production image includes:
 - `avrdude` (via apt) — for direct AVR flashing
 - `arduino-cli` 1.1.1 (ARM64) + `arduino:avr` Mega 2560 core — same pin as firmware CI
 - `krabby-firmware` — `show`, `update`, and `install` subcommands
 
-Host-side `udev` rules and `dialout` group membership are not handled by the container; run `krabby --install` on the host (Task 3).
+Host-side `udev` rules and `dialout` group membership are not handled by the container; run `krabby install` on the host.
 
----
-
-## Overview
+### Overview
 
 Both images combine:
 - **Policy inference** (`krabby-compute-parkour`) — policy wrapper and model inference
@@ -146,14 +134,14 @@ Both images combine:
 
 All components communicate via **inproc ZMQ** (same process, zero-copy).
 
-## Configuration
+### Configuration
 
 - **Base image**: `nvcr.io/nvidia/pytorch:25.10-py3-igpu` (JetPack 6+)
 - **Architecture**: ARM64 (aarch64) for Jetson
 - **Communication**: inproc ZMQ (same process)
 - **Control rate**: 100+ Hz
 
-## Notes
+### Notes
 
 - ZED SDK Python bindings (`pyzed`) require ZED SDK installed on the system (via NVIDIA installer). The Dockerfile installs it automatically.
 - If ZED SDK is not available, the code gracefully falls back to mock camera mode.
