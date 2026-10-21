@@ -1,0 +1,10 @@
+{
+ "stage": "sn_ref",
+ "name": "SN_T4R18_sn_ref_s17",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4R18_sn_ref_s17/model_4000.pt",
+ "sha256": "4c070edc619822467e8c12b8b4b8088e170c74f4aa771553f5658f195d1ca6cb",
+ "refs": "REFS_S1_s18",
+ "calib": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sn_ref_calib.json",
+ "bridge": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sn_ref_bridge.json",
+ "train_log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4R18_sn_ref_s17/train_log.jsonl"
+}

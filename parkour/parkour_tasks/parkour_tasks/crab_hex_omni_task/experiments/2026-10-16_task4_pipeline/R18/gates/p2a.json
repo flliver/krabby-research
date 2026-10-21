@@ -1,0 +1,1313 @@
+{
+ "run": "R18",
+ "stage": "p2a",
+ "read_at": "2026-10-19T16:48:47",
+ "thresholds": {
+  "file": "thresholds_v1.json",
+  "version": "v1",
+  "sha256": "2c89f953bc1686f032cf75b22dcbf496f7b55e16000b408cddf103ad551f297d"
+ },
+ "verdict": "WATCH",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "p2a.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.fwd.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.969100524611033,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.009319592588325683,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "p2a.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.side.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 1.0378810912827876,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0013607710937450816,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.side.es1"
+  },
+  {
+   "id": "p2a.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.back.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.976546395618308,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.012870970837051268,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.back.es1"
+  },
+  {
+   "id": "p2a.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.survival.diag.es1"
+  },
+  {
+   "id": "p2a.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.9723482228020088,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.013629913445113767,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p2a.floor.ratio.diag.es1"
+  },
+  {
+   "id": "p2a.floor.survival.fwd.es2",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.survival.fwd.es2"
+  },
+  {
+   "id": "p2a.floor.ratio.fwd.es2",
+   "statistic": "translate ratio, fwd",
+   "value": 0.962439768834717,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0095953910178814,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.ratio.fwd.es2"
+  },
+  {
+   "id": "p2a.floor.survival.side.es2",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.survival.side.es2"
+  },
+  {
+   "id": "p2a.floor.ratio.side.es2",
+   "statistic": "translate ratio, side",
+   "value": 1.0392955717163515,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.002009614485109632,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.ratio.side.es2"
+  },
+  {
+   "id": "p2a.floor.survival.back.es2",
+   "statistic": "translate survival, back",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.survival.back.es2"
+  },
+  {
+   "id": "p2a.floor.ratio.back.es2",
+   "statistic": "translate ratio, back",
+   "value": 0.9772303492592265,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.013733721824122226,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.ratio.back.es2"
+  },
+  {
+   "id": "p2a.floor.survival.diag.es2",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.survival.diag.es2"
+  },
+  {
+   "id": "p2a.floor.ratio.diag.es2",
+   "statistic": "translate ratio, diag",
+   "value": 0.970841143248576,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.012787063637716947,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p2a.floor.ratio.diag.es2"
+  },
+  {
+   "id": "p2a.floor.side22_fastfast",
+   "thresholds_id": "p2a.floor.side22_fastfast",
+   "statistic": "side22_25lr feet_ss class, both hands FAST/FAST",
+   "value": [
+    "FAST",
+    "FAST"
+   ],
+   "medians": {
+    "lat_l_022": 0.2253277753660115,
+    "lat_r_022": 0.235845547235855,
+    "lat_l_025": 0.2501843521537807,
+    "lat_r_025": 0.2580885707767694
+   },
+   "line": "fastfast",
+   "pass": true,
+   "missing": false,
+   "rate": 0.04454578668986031,
+   "unvalidated": false
+  },
+  {
+   "id": "p2a.capability.field_hard",
+   "statistic": "field_hard completion pooled es1-4 (n = 400)",
+   "value": 0.7,
+   "line": 0.635,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.04338065845313875,
+   "unvalidated": false,
+   "thresholds_id": "p2a.capability.field_hard",
+   "n": 400,
+   "per_env_seed": [
+    0.78,
+    0.75,
+    0.67,
+    0.6
+   ]
+  },
+  {
+   "id": "p2a.live_collapse",
+   "statistic": "live rules (unvalidated)",
+   "value": null,
+   "pass": true,
+   "unvalidated": true,
+   "rate": null
+  }
+ ],
+ "halt_lines": [],
+ "watch_flags": [
+  {
+   "id": "p2a.live_collapse",
+   "why": "the live watch has no PASS read for this stage (never ran or last read not RC_PASS) -- the live line is vacuous (WATCH)",
+   "value": null,
+   "line": null
+  }
+ ],
+ "watch": {
+  "dirsweep_body@1": {
+   "d000": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9803506355622372,
+    "facing_closed": null,
+    "yaw_progress": -0.0031180227088043466,
+    "tripod": 0.6447702280231455
+   },
+   "d022": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9858468429687446,
+    "facing_closed": null,
+    "yaw_progress": -0.002003136866835238,
+    "tripod": 0.6543120637461762
+   },
+   "d045": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0076331052144283,
+    "facing_closed": null,
+    "yaw_progress": -0.00622963038624271,
+    "tripod": 0.7002162867457106
+   },
+   "d068": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0229075792915396,
+    "facing_closed": null,
+    "yaw_progress": -0.005237400538999564,
+    "tripod": 0.6581240379366851
+   },
+   "d090": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.008923196692896,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6571972505421912
+   },
+   "d112": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0336840634823898,
+    "facing_closed": null,
+    "yaw_progress": -0.005659987560582456,
+    "tripod": 0.6836805812255065
+   },
+   "d135": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0139824536697701,
+    "facing_closed": null,
+    "yaw_progress": -0.0072924966552730406,
+    "tripod": 0.7066384922949778
+   },
+   "d158": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9842500455977177,
+    "facing_closed": null,
+    "yaw_progress": -0.004125144373382697,
+    "tripod": 0.6475029346073221
+   },
+   "d180": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9765150279048626,
+    "facing_closed": null,
+    "yaw_progress": -0.005933627765625715,
+    "tripod": 0.6206187404491708
+   },
+   "d202": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0099491500357747,
+    "facing_closed": null,
+    "yaw_progress": -0.002240701265706262,
+    "tripod": 0.6432915851786019
+   },
+   "d225": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0378270772027882,
+    "facing_closed": null,
+    "yaw_progress": -0.0012450778324689185,
+    "tripod": 0.6666063193564773
+   },
+   "d248": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0407862760707873,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6912960585081709
+   },
+   "d270": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0599993674128716,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7006103749175077
+   },
+   "d292": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0608455919976039,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6902616807425619
+   },
+   "d315": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.05423061129558,
+    "facing_closed": null,
+    "yaw_progress": -0.003908981298616923,
+    "tripod": 0.670419025649711
+   },
+   "d338": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0132117912937135,
+    "facing_closed": null,
+    "yaw_progress": -0.0017175840869269989,
+    "tripod": 0.6485343083337187
+   }
+  },
+  "dirsweep_body@2": {
+   "d000": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9868398695040037,
+    "facing_closed": null,
+    "yaw_progress": -0.001885962787610526,
+    "tripod": 0.6471573520826133
+   },
+   "d022": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9851197075113209,
+    "facing_closed": null,
+    "yaw_progress": -0.0016286709474359726,
+    "tripod": 0.6493990816835602
+   },
+   "d045": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0083188931273162,
+    "facing_closed": null,
+    "yaw_progress": -0.007527121736522593,
+    "tripod": 0.6993808454995423
+   },
+   "d068": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.02584937437117,
+    "facing_closed": null,
+    "yaw_progress": -0.0033865142938529335,
+    "tripod": 0.6604853595259951
+   },
+   "d090": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0140396332310317,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.665690062363951
+   },
+   "d112": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0332440407063463,
+    "facing_closed": null,
+    "yaw_progress": -0.002927653939307978,
+    "tripod": 0.6803730103815693
+   },
+   "d135": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0127563391362377,
+    "facing_closed": null,
+    "yaw_progress": -0.006937030213162169,
+    "tripod": 0.6960424884492478
+   },
+   "d158": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9855083329567604,
+    "facing_closed": null,
+    "yaw_progress": -0.0028116995552315924,
+    "tripod": 0.6482084166771792
+   },
+   "d180": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9790060019885442,
+    "facing_closed": null,
+    "yaw_progress": -0.003668578216513874,
+    "tripod": 0.611298145637512
+   },
+   "d202": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.004064901759359,
+    "facing_closed": null,
+    "yaw_progress": -0.003114011959263646,
+    "tripod": 0.6336752582740155
+   },
+   "d225": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0423067530735557,
+    "facing_closed": null,
+    "yaw_progress": -0.0025687415162911234,
+    "tripod": 0.6670016554589278
+   },
+   "d248": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0418395885829204,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6896961929880316
+   },
+   "d270": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.057785749931465,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7038310051488281
+   },
+   "d292": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0609157494381436,
+    "facing_closed": null,
+    "yaw_progress": -0.008674472072194298,
+    "tripod": 0.6933543645241764
+   },
+   "d315": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0556785137647666,
+    "facing_closed": null,
+    "yaw_progress": -0.0023391675974896832,
+    "tripod": 0.6561801357382528
+   },
+   "d338": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0155628727555683,
+    "facing_closed": null,
+    "yaw_progress": -0.0013932397419937018,
+    "tripod": 0.6392522597427657
+   }
+  },
+  "field_hard@1": {
+   "completion": 0.78,
+   "n": 100
+  },
+  "field_hard@2": {
+   "completion": 0.75,
+   "n": 100
+  },
+  "field_hard@3": {
+   "completion": 0.67,
+   "n": 100
+  },
+  "field_hard@4": {
+   "completion": 0.6,
+   "n": 100
+  },
+  "field_light@1": {
+   "completion": 0.98,
+   "n": 100
+  },
+  "field_light@2": {
+   "completion": 0.95,
+   "n": 100
+  },
+  "field_suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 0.99,
+    "ratio": 0.9740015502006912,
+    "facing_closed": null,
+    "yaw_progress": -0.001709882485769827,
+    "tripod": 0.6452107881499112
+   },
+   "diag": {
+    "n": 100,
+    "survival": 0.99,
+    "ratio": 0.947162659873938,
+    "facing_closed": null,
+    "yaw_progress": -0.009351682697187636,
+    "tripod": 0.6729644211440315
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 0.99,
+    "ratio": 0.9359648659909902,
+    "facing_closed": null,
+    "yaw_progress": 0.00015741188756444237,
+    "tripod": 0.6166153300172862
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.99,
+    "ratio": 0.7671788929430978,
+    "facing_closed": 0.6402372074058151,
+    "yaw_progress": 0.08340451959630324,
+    "tripod": 0.6167608168473049
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0164051981689761,
+    "facing_closed": null,
+    "yaw_progress": -0.04914718995698625,
+    "tripod": 0.6582882515893425
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": -0.006386033525424344,
+    "tripod": 0.8182558740129168
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.9166037436534492,
+    "yaw_progress": 0.13475195164294218,
+    "tripod": 0.8052227673169461
+   }
+  },
+  "field_turn@1": {
+   "completion": 0.92,
+   "n": 100
+  },
+  "field_turn@2": {
+   "completion": 0.99,
+   "n": 100
+  },
+  "grid_body@1": {
+   "g_v0_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.007375651822340759,
+    "tripod": 0.8035964774183734
+   },
+   "g_v0_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.0643351800334554,
+    "tripod": 0.8020302147993046
+   },
+   "g_v0_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.12027872142370491,
+    "tripod": 0.8012843542070047
+   },
+   "g_v0_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.15765298928023672,
+    "tripod": 0.7970522528429191
+   },
+   "g_v0p22_fwd_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9821498098408623,
+    "facing_closed": null,
+    "yaw_progress": -0.0026146504929764735,
+    "tripod": 0.6487298468244926
+   },
+   "g_v0p22_fwd_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9189937979501244,
+    "facing_closed": null,
+    "yaw_progress": 0.04786022632655412,
+    "tripod": 0.5538382769148504
+   },
+   "g_v0p22_fwd_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.8684299170573058,
+    "facing_closed": null,
+    "yaw_progress": 0.05852242136427739,
+    "tripod": 0.5421029746189239
+   },
+   "g_v0p22_fwd_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.8475566829153914,
+    "facing_closed": null,
+    "yaw_progress": 0.06261565160597704,
+    "tripod": 0.5343891757172905
+   },
+   "g_v0p22_lat_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.015611972192509,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.655782785360348
+   },
+   "g_v0p22_lat_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0087162335746847,
+    "facing_closed": null,
+    "yaw_progress": 0.047104444004202384,
+    "tripod": 0.6763901661818662
+   },
+   "g_v0p22_lat_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9618689774781728,
+    "facing_closed": null,
+    "yaw_progress": 0.09092584971261139,
+    "tripod": 0.7318726714221191
+   },
+   "g_v0p22_lat_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9283319723586303,
+    "facing_closed": null,
+    "yaw_progress": 0.11368818457020052,
+    "tripod": 0.7622012940540479
+   },
+   "g_v0p3_fwd_w0": {
+    "n": 100,
+    "survival": 0.99,
+    "ratio": 0.8852030095316156,
+    "facing_closed": null,
+    "yaw_progress": -0.0019397321019502829,
+    "tripod": 0.46652613673440174
+   },
+   "g_v0p3_fwd_w0p08": {
+    "n": 100,
+    "survival": 0.98,
+    "ratio": 0.7955649335218021,
+    "facing_closed": null,
+    "yaw_progress": 0.02982335717294137,
+    "tripod": 0.4066670743475656
+   },
+   "g_v0p3_fwd_w0p15": {
+    "n": 100,
+    "survival": 0.93,
+    "ratio": 0.7495486270279463,
+    "facing_closed": null,
+    "yaw_progress": 0.035140259536531326,
+    "tripod": 0.39072424301512254
+   },
+   "g_v0p3_fwd_w0p3": {
+    "n": 100,
+    "survival": 0.87,
+    "ratio": 0.7285363991089221,
+    "facing_closed": null,
+    "yaw_progress": 0.04050142713394238,
+    "tripod": 0.36877630538974154
+   },
+   "g_v0p3_lat_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9182865910742355,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7438334092959336
+   },
+   "g_v0p3_lat_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9099076156682112,
+    "facing_closed": null,
+    "yaw_progress": 0.048167558372606056,
+    "tripod": 0.7266856952558027
+   },
+   "g_v0p3_lat_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.8451646733486391,
+    "facing_closed": null,
+    "yaw_progress": 0.08351644734720765,
+    "tripod": 0.7157573475162416
+   },
+   "g_v0p3_lat_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.7865262555158954,
+    "facing_closed": null,
+    "yaw_progress": 0.10128576730364161,
+    "tripod": 0.6853265918965032
+   }
+  },
+  "grid_body@2": {
+   "g_v0_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.8055737376959995
+   },
+   "g_v0_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.0643461109994001,
+    "tripod": 0.795409513672936
+   },
+   "g_v0_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.12059183331288689,
+    "tripod": 0.8038402204742434
+   },
+   "g_v0_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.1583757667343068,
+    "tripod": 0.7959283838953812
+   },
+   "g_v0p22_fwd_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9783484180639328,
+    "facing_closed": null,
+    "yaw_progress": -0.0016330411623872026,
+    "tripod": 0.6473309191389713
+   },
+   "g_v0p22_fwd_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9174775886462272,
+    "facing_closed": null,
+    "yaw_progress": 0.04832093596634238,
+    "tripod": 0.5624293400892828
+   },
+   "g_v0p22_fwd_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.869098892999964,
+    "facing_closed": null,
+    "yaw_progress": 0.05887944023236381,
+    "tripod": 0.5415207723410213
+   },
+   "g_v0p22_fwd_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.8451438411505516,
+    "facing_closed": null,
+    "yaw_progress": 0.06219548276359681,
+    "tripod": 0.5333421360083591
+   },
+   "g_v0p22_lat_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0145554958128766,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6667525740563799
+   },
+   "g_v0p22_lat_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0023603585921148,
+    "facing_closed": null,
+    "yaw_progress": 0.04771032773448583,
+    "tripod": 0.6742254360028319
+   },
+   "g_v0p22_lat_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9711040075415464,
+    "facing_closed": null,
+    "yaw_progress": 0.09278175270586791,
+    "tripod": 0.7317132740556784
+   },
+   "g_v0p22_lat_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9366496266667836,
+    "facing_closed": null,
+    "yaw_progress": 0.11591112946180065,
+    "tripod": 0.7657156732876431
+   },
+   "g_v0p3_fwd_w0": {
+    "n": 100,
+    "survival": 0.96,
+    "ratio": 0.8955893992671468,
+    "facing_closed": null,
+    "yaw_progress": -0.001275371668501601,
+    "tripod": 0.47681957042570433
+   },
+   "g_v0p3_fwd_w0p08": {
+    "n": 100,
+    "survival": 0.91,
+    "ratio": 0.7881264811566668,
+    "facing_closed": null,
+    "yaw_progress": 0.03019243224059622,
+    "tripod": 0.3977891323652953
+   },
+   "g_v0p3_fwd_w0p15": {
+    "n": 100,
+    "survival": 0.92,
+    "ratio": 0.746458934260499,
+    "facing_closed": null,
+    "yaw_progress": 0.03629184027044608,
+    "tripod": 0.3884333035078408
+   },
+   "g_v0p3_fwd_w0p3": {
+    "n": 100,
+    "survival": 0.88,
+    "ratio": 0.7260019101548717,
+    "facing_closed": null,
+    "yaw_progress": 0.04090791996526523,
+    "tripod": 0.3786554084987566
+   },
+   "g_v0p3_lat_w0": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9198001327958492,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7490660476368394
+   },
+   "g_v0p3_lat_w0p08": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9046784733109506,
+    "facing_closed": null,
+    "yaw_progress": 0.04607761245944725,
+    "tripod": 0.7220000426485678
+   },
+   "g_v0p3_lat_w0p15": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.8404782431207207,
+    "facing_closed": null,
+    "yaw_progress": 0.08257499302011492,
+    "tripod": 0.7199267638595964
+   },
+   "g_v0p3_lat_w0p3": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.7989524949314919,
+    "facing_closed": null,
+    "yaw_progress": 0.09740235915791542,
+    "tripod": 0.6924741786878572
+   }
+  },
+  "ring_obst@1": {
+   "completion": 1.0,
+   "n": 100
+  },
+  "ring_obst@2": {
+   "completion": 0.99,
+   "n": 100
+  },
+  "side22@1": {
+   "class": [
+    "FAST",
+    "FAST"
+   ],
+   "median": {
+    "lat_l_022": 0.2253277753660115,
+    "lat_r_022": 0.235845547235855,
+    "lat_l_025": 0.2501843521537807,
+    "lat_r_025": 0.2580885707767694
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.976546395618308,
+    "facing_closed": null,
+    "yaw_progress": -0.003470831896414198,
+    "tripod": 0.6250542681522779
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9723482228020088,
+    "facing_closed": null,
+    "yaw_progress": -0.010639880459115231,
+    "tripod": 0.6858873556373946
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.969100524611033,
+    "facing_closed": null,
+    "yaw_progress": -0.0014816703430066507,
+    "tripod": 0.6304029435828412
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.7893875663661705,
+    "facing_closed": 0.642672736306755,
+    "yaw_progress": 0.0839113530171259,
+    "tripod": 0.6231891593807553
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0378810912827876,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6813039233821989
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.018930182957168046,
+    "tripod": 0.8045834376940917
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.9333953605108556,
+    "yaw_progress": 0.14299775727620384,
+    "tripod": 0.7938491530467404
+   }
+  },
+  "suite@2": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9772303492592265,
+    "facing_closed": null,
+    "yaw_progress": -0.0030657194089144467,
+    "tripod": 0.6343538826506643
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.970841143248576,
+    "facing_closed": null,
+    "yaw_progress": -0.01092980716153654,
+    "tripod": 0.6976950537602947
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.962439768834717,
+    "facing_closed": null,
+    "yaw_progress": -0.0007026834478522887,
+    "tripod": 0.6291882599753358
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.7888666318355656,
+    "facing_closed": 0.6441242214864806,
+    "yaw_progress": 0.0837373533458837,
+    "tripod": 0.619928595810348
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0392955717163515,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6871136471459545
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": -0.004531789571046829,
+    "tripod": 0.8024242487853783
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.9354062494242941,
+    "yaw_progress": 0.1416698123644547,
+    "tripod": 0.7939788921924124
+   }
+  },
+  "suite_body@1": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9766627924551772,
+    "facing_closed": null,
+    "yaw_progress": -0.0013583274405008475,
+    "tripod": 0.6235103461001272
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9716470861880484,
+    "facing_closed": null,
+    "yaw_progress": -0.011698911544797044,
+    "tripod": 0.688971621477531
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9681379207020456,
+    "facing_closed": null,
+    "yaw_progress": -0.002478684372826532,
+    "tripod": 0.6051831231441399
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.87912467931836,
+    "facing_closed": null,
+    "yaw_progress": 0.05973288873365733,
+    "tripod": 0.6212823854069314
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.036697773943849,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6802107272285878
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.007375651822340759,
+    "tripod": 0.8035964774183734
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.13552158563206848,
+    "tripod": 0.7951759207896979
+   }
+  },
+  "suite_body@2": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9746570451573522,
+    "facing_closed": null,
+    "yaw_progress": -0.0024333917602364506,
+    "tripod": 0.619412739759969
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9759949371060415,
+    "facing_closed": null,
+    "yaw_progress": -0.011935359285144326,
+    "tripod": 0.6909534102803951
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9680045268752357,
+    "facing_closed": null,
+    "yaw_progress": -0.0006728611851223943,
+    "tripod": 0.6054762413299906
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.8844478721511151,
+    "facing_closed": null,
+    "yaw_progress": 0.06134756616249267,
+    "tripod": 0.6230617919977122
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0362364029454667,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.6794065335892461
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.8055737376959995
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.134950263512235,
+    "tripod": 0.7981564852601082
+   }
+  },
+  "turnlevels_body@1": {
+   "turn_0p08": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.06917792499740073,
+    "tripod": 0.7976732633165187
+   },
+   "turn_0p15": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.1242934007447396,
+    "tripod": 0.7958143536404384
+   },
+   "turn_ceiling": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.13520814851148122,
+    "tripod": 0.7951759207896979
+   },
+   "turn_w_max": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.14885579358393097,
+    "tripod": 0.7944200292882908
+   },
+   "turn_w_min": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.045781020032575295,
+    "tripod": 0.8022833004440829
+   }
+  },
+  "turnlevels_body@2": {
+   "turn_0p08": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.06930847626113489,
+    "tripod": 0.8031241979426509
+   },
+   "turn_0p15": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.12361952991895174,
+    "tripod": 0.7972953132511249
+   },
+   "turn_ceiling": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.134950263512235,
+    "tripod": 0.798936634842591
+   },
+   "turn_w_max": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.14952385397099144,
+    "tripod": 0.793241570036198
+   },
+   "turn_w_min": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": 0.04618938585706144,
+    "tripod": 0.8036252471013108
+   }
+  }
+ },
+ "trained_categories": [
+  "stand",
+  "fwd",
+  "side",
+  "back",
+  "diag",
+  "turn",
+  "move_turn"
+ ],
+ "head": {
+  "stage": "p2a",
+  "chain": "R18_p2a",
+  "xid": "X06",
+  "seed": "18",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_12-25-59_seed18_X06_p2a_A15pB/model_19994.pt",
+  "sha256": "12f69eded251c8ad6686aaed48e707e6fb3c29ec485561d002ea4d311106c1be",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_12-25-59_seed18_X06_p2a_A15pB",
+  "iteration": 19994,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/R18/seed18_X06_p2a_A15pB/suite__omni/seed001/2026-10-19_18-30-02",
+  "recorded_at": "2026-10-19T14:37:54"
+ }
+}

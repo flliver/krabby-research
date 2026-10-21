@@ -1,0 +1,1207 @@
+{
+ "schema": 1,
+ "run": "R18",
+ "created": "2026-10-19T05:12:34",
+ "status": "done",
+ "pin": {
+  "lock_sha256": "d92a551956f9869a5ddcd195942c57620b65b685cc068f8d66543807311633bc",
+  "at": "2026-10-19T05:12:34",
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+ },
+ "stages": {
+  "s1": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T05:12:34",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-19T07:37:07",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-19T07:40:45",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-19T07:40:47",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-R18-1792401154",
+   "process_reproduced": true,
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/s1.json"
+   }
+  },
+  "c4": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T07:40:47",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-19T08:24:55",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-19T08:28:34",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-19T08:28:36",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-R18-1792410047",
+   "process_reproduced": true,
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/c4.json"
+   }
+  },
+  "c5": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T08:28:36",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-19T09:12:38",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-19T09:16:15",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-19T09:16:17",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-R18-1792412916",
+   "process_reproduced": true,
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/c5.json"
+   }
+  },
+  "c6": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T09:16:17",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-19T10:10:19",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-19T10:17:37",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-19T10:17:38",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-R18-1792415777",
+   "process_reproduced": true,
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/c6.json"
+   }
+  },
+  "c6x": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T10:17:38",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-19T11:57:42",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-19T12:25:46",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-19T12:25:47",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-R18-1792419458",
+   "process_reproduced": true,
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/c6x.json"
+   }
+  },
+  "p2a": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T12:25:47",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-19T14:37:54",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "gate",
+     "to": "halt",
+     "why": "GUARD: locked file drifted: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/pipeline.py (5d2121021b45 -> 912e18e55ffb)"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "halt",
+     "to": "gate",
+     "why": "retry after GUARD"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "gate",
+     "to": "halt",
+     "why": "GUARD: pipeline.lock.json changed since the run was pinned (d4516ad7d007)"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "halt",
+     "to": "gate",
+     "why": "amended (CHARTER 2026-10-19 16:48 re-pin (live-watch fix, user decision); commit ce5fb385, tag task4-pin-2026-10-19b): re-gated under the amended spec / thresholds"
+    },
+    {
+     "at": "2026-10-19T16:48:47",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS + WATCH"
+    }
+   ],
+   "unit": "cands-R18-1792427147",
+   "process_reproduced": true,
+   "gate": {
+    "verdict": "WATCH",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/p2a.json"
+   }
+  },
+  "p3a": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-19T22:49:00",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-20T00:12:52",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-20T02:12:27",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['p3a.capability.zero_kg_paired']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-R18-1792464540",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed18_X07_p3a_A15pB_suite__omni): 2026-10-19_22-49-12_seed18_X07_p3a_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-19T22:49:01",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_12-25-59_seed18_X06_p2a_A15pB/model_19994.pt",
+     "target_final": 22993,
+     "phase": "2a"
+    },
+    "tag": "seed18_X07_p3a_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/logs/seed18_X07_p3a_A15pB_train.log",
+    "at": "2026-10-20T00:06:34"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 22993,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB"
+   },
+   "curve": {
+    "0": true,
+    "45": true,
+    "90": true,
+    "135": false
+   },
+   "zero_kg": {
+    "verdict": "FAIL",
+    "max_margin_used": 1.6567394089763856,
+    "fails": [
+     "ratio move_turn suite es1: worse by 0.0608 > margin 0.0367 (R)",
+     "ratio move_turn suite es2: worse by 0.0565 > margin 0.0372 (drift_scaled)"
+    ]
+   },
+   "max_stable": 90,
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/p3a.json"
+   }
+  },
+  "p3b": {
+   "status": "ceiling",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-20T11:38:05",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-20T13:58:34",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-20T13:58:44",
+     "from": "gate",
+     "to": "ceiling",
+     "why": "measured ceiling (max_stable 135)"
+    }
+   ],
+   "unit": "cands-R18-1792505533",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-20_10-12-25_seed18_X08_p3b_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed18_X08_p3b_A15pB_suite__omni): 2026-10-20_10-12-25_seed18_X08_p3b_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-20T10:12:14",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB/model_22993.pt",
+     "target_final": 25992,
+     "phase": "2a"
+    },
+    "tag": "seed18_X08_p3b_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/logs/seed18_X08_p3b_A15pB_train.log",
+    "at": "2026-10-20T11:31:47"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 25992,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-20_10-12-25_seed18_X08_p3b_A15pB"
+   },
+   "curve": {
+    "0": true,
+    "45": true,
+    "90": true,
+    "135": true,
+    "180": false
+   },
+   "zero_kg": {
+    "verdict": "FAIL",
+    "max_margin_used": 1.0999330819649604,
+    "fails": [
+     "yaw_progress turn suite es2: worse by 0.0100 > margin 0.0091 (drift_scaled)"
+    ]
+   },
+   "max_stable": 135,
+   "gate": {
+    "verdict": "CEILING",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/p3b.json"
+   }
+  },
+  "p3c": {
+   "status": "skipped",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-20T13:58:44",
+     "from": "pending",
+     "to": "skipped",
+     "why": "['p3b'] ended without a head to build on"
+    }
+   ]
+  },
+  "tstar": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-20T13:58:44",
+     "from": "pending",
+     "to": "pass",
+     "why": "T* = p3a (max_stable 90)"
+    }
+   ]
+  },
+  "st": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-20T13:58:44",
+     "from": "pending",
+     "to": "training",
+     "why": "distill"
+    },
+    {
+     "at": "2026-10-20T23:46:05",
+     "from": "training",
+     "to": "pass",
+     "why": "student trained (5 candidates)"
+    }
+   ],
+   "live": {
+    "last_rc": 0,
+    "last": 27992,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st"
+   },
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st",
+   "trained": {
+    "rc": 0,
+    "at": "2026-10-20T23:46:05"
+   }
+  },
+  "sel": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-20T23:46:05",
+     "from": "pending",
+     "to": "rows",
+     "why": "prescreen"
+    },
+    {
+     "at": "2026-10-21T03:26:07",
+     "from": "rows",
+     "to": "pass",
+     "why": "selected c27000"
+    }
+   ],
+   "prescreen": {
+    "c24000": {
+     "iter": 24000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_24000.pt",
+     "misses": 0,
+     "field_hard": 0.795,
+     "mean_abs_dev": 0.02332661785544443
+    },
+    "c25000": {
+     "iter": 25000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_25000.pt",
+     "misses": 0,
+     "field_hard": 0.845,
+     "mean_abs_dev": 0.02745147802517603
+    },
+    "c26000": {
+     "iter": 26000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_26000.pt",
+     "misses": 0,
+     "field_hard": 0.87,
+     "mean_abs_dev": 0.02997801474486697
+    },
+    "c27000": {
+     "iter": 27000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_27000.pt",
+     "misses": 0,
+     "field_hard": 0.9,
+     "mean_abs_dev": 0.024770114336809396
+    },
+    "c27992": {
+     "iter": 27992,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_27992.pt",
+     "misses": 0,
+     "field_hard": 0.82,
+     "mean_abs_dev": 0.01994002427774333
+    }
+   },
+   "ranked": [
+    "c27000",
+    "c26000",
+    "c25000",
+    "c27992",
+    "c24000"
+   ],
+   "blocks": {
+    "c27000": "PASS"
+   }
+  },
+  "sn": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-21T03:26:07",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SN"
+    },
+    {
+     "at": "2026-10-21T05:45:59",
+     "from": "training",
+     "to": "rows",
+     "why": "SN trained"
+    },
+    {
+     "at": "2026-10-21T06:23:31",
+     "from": "rows",
+     "to": "gate",
+     "why": "SN read"
+    },
+    {
+     "at": "2026-10-21T06:23:31",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['stand.D1.G1.taps_per_s suite es1', 'stand.D1.G1.taps_per_s suite es2']"
+    },
+    {
+     "at": "2026-10-21T11:44:05",
+     "from": "halt",
+     "to": "gate",
+     "why": "amended (CHARTER 2026-10-21 SN HALT decision (amend: SN G1 stillness to WATCH) + re-pin v1.1, tag task4-pin-2026-10-21c): re-gated under the amended spec / thresholds"
+    },
+    {
+     "at": "2026-10-21T11:44:05",
+     "from": "gate",
+     "to": "rows",
+     "why": "SN trained"
+    },
+    {
+     "at": "2026-10-21T11:44:33",
+     "from": "rows",
+     "to": "gate",
+     "why": "SN read"
+    },
+    {
+     "at": "2026-10-21T11:44:33",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS + WATCH"
+    }
+   ],
+   "steps": {
+    "refs": true,
+    "rows": true
+   },
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     1333,
+     2000
+    ],
+    "stop": false,
+    "reasons": null
+   },
+   "gate": {
+    "verdict": "WATCH",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/sn.json"
+   }
+  },
+  "sh": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-21T06:23:31",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-21T11:44:05",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: sn amended"
+    },
+    {
+     "at": "2026-10-21T11:44:33",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SH"
+    },
+    {
+     "at": "2026-10-21T14:10:35",
+     "from": "training",
+     "to": "rows",
+     "why": "SH trained"
+    },
+    {
+     "at": "2026-10-21T15:20:28",
+     "from": "rows",
+     "to": "gate",
+     "why": "SH read"
+    },
+    {
+     "at": "2026-10-21T15:20:28",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: [\"stand.D2.K4.miss es1 <= max(1, R_h's)\", \"stand.D2.K4.miss es2 <= max(1, R_h's)\", \"stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin0 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin4 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.settled share bin4 es2 >= R_h's - max(0.05, 2 SE)\"]"
+    },
+    {
+     "at": "2026-10-21T15:51:25",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "steps": {
+    "table": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-21_14-10-35_full",
+    "hrows": true,
+    "k5rows": true
+   },
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     1666,
+     2500
+    ],
+    "stop": false,
+    "reasons": []
+   },
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/sh.json"
+   }
+  },
+  "bundle": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a retried"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a amended"
+    },
+    {
+     "at": "2026-10-20T02:12:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-20T10:12:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-21T06:23:31",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sh']"
+    },
+    {
+     "at": "2026-10-21T11:44:05",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: sn amended"
+    },
+    {
+     "at": "2026-10-21T15:20:28",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sh']"
+    },
+    {
+     "at": "2026-10-21T15:51:25",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: sh accepted"
+    },
+    {
+     "at": "2026-10-21T15:51:25",
+     "from": "pending",
+     "to": "pass",
+     "why": "deliverable.json written"
+    }
+   ]
+  },
+  "sn_ref": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:43",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SN"
+    },
+    {
+     "at": "2026-10-19T16:47:44",
+     "from": "training",
+     "to": "halt",
+     "why": "GUARD: locked file drifted: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/pipeline.py (5d2121021b45 -> 912e18e55ffb)"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "halt",
+     "to": "training",
+     "why": "retry after GUARD"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "training",
+     "to": "halt",
+     "why": "GUARD: pipeline.lock.json changed since the run was pinned (d4516ad7d007)"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "halt",
+     "to": "training",
+     "why": "retry after GUARD"
+    },
+    {
+     "at": "2026-10-19T18:32:47",
+     "from": "training",
+     "to": "rows",
+     "why": "SN trained"
+    },
+    {
+     "at": "2026-10-19T19:10:07",
+     "from": "rows",
+     "to": "gate",
+     "why": "SN read"
+    },
+    {
+     "at": "2026-10-19T19:10:07",
+     "from": "gate",
+     "to": "pass",
+     "why": "X REPORT-ONLY"
+    }
+   ],
+   "steps": {
+    "rows": true
+   },
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     1333,
+     2000
+    ],
+    "stop": false,
+    "reasons": null
+   }
+  },
+  "sh_ref": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-19T16:47:44",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SH"
+    },
+    {
+     "at": "2026-10-19T16:47:44",
+     "from": "training",
+     "to": "halt",
+     "why": "GUARD: locked file drifted: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/pipeline.py (5d2121021b45 -> 912e18e55ffb)"
+    },
+    {
+     "at": "2026-10-19T16:48:17",
+     "from": "halt",
+     "to": "training",
+     "why": "retry after GUARD"
+    },
+    {
+     "at": "2026-10-19T16:48:18",
+     "from": "training",
+     "to": "halt",
+     "why": "GUARD: pipeline.lock.json changed since the run was pinned (d4516ad7d007)"
+    },
+    {
+     "at": "2026-10-19T16:48:45",
+     "from": "halt",
+     "to": "training",
+     "why": "retry after GUARD"
+    },
+    {
+     "at": "2026-10-19T21:38:10",
+     "from": "training",
+     "to": "rows",
+     "why": "SH trained"
+    },
+    {
+     "at": "2026-10-19T22:48:59",
+     "from": "rows",
+     "to": "gate",
+     "why": "SH read"
+    },
+    {
+     "at": "2026-10-19T22:49:00",
+     "from": "gate",
+     "to": "pass",
+     "why": "X REPORT-ONLY"
+    }
+   ],
+   "steps": {
+    "table": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-19_21-38-10_full",
+    "hrows": true,
+    "k5rows": true
+   },
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     1666,
+     2500
+    ],
+    "stop": false,
+    "reasons": []
+   }
+  }
+ },
+ "halts": {
+  "p2a": {
+   "class": "GUARD",
+   "status": "amended",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts/p2a.2.json"
+  },
+  "sn_ref": {
+   "class": "GUARD",
+   "status": "retried",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts/sn_ref.2.json"
+  },
+  "sh_ref": {
+   "class": "GUARD",
+   "status": "retried",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts/sh_ref.2.json"
+  },
+  "p3a": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts/p3a.1.json"
+  },
+  "sn": {
+   "class": "FAIL",
+   "status": "amended",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts/sn.1.json"
+  },
+  "sh": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts/sh.1.json"
+  }
+ },
+ "accepted": [
+  {
+   "stage": "p3a",
+   "class": "FAIL",
+   "at": "2026-10-20T10:12:13",
+   "why": "user 2026-10-20: accept as chance -- move_turn ratio continuation drift (margin use 1.66/1.52), every other statistic held or improved; disclosed (CHARTER)",
+   "chance_rate_sum": null
+  },
+  {
+   "stage": "sh",
+   "class": "FAIL",
+   "at": "2026-10-21T15:51:25",
+   "why": "user 2026-10-21: accept, disclose -- lazy R_h control beside T*: K6 bins 1/4 walker-caused (control fails the same lines); residual K4 miss 13/10 vs control 7/3 (0 exit falls) + K6 bin0 es2 homed 0.925 vs 0.94; CHARTER e44064cb",
+   "chance_rate_sum": 0.14773477453990433
+  }
+ ],
+ "amendments": [
+  {
+   "stage": "p2a",
+   "at": "2026-10-19T16:48:45",
+   "charter": "CHARTER 2026-10-19 16:48 re-pin (live-watch fix, user decision); commit ce5fb385, tag task4-pin-2026-10-19b",
+   "old_lock_sha256": "d4516ad7d007155159ed6826a6fb01d31ccc58eb539381223f79ff94896dbe5b",
+   "new_lock_sha256": "ffaf7cf85b7e29112e9419dc3823ebc61fb2441e728196969d0848ffc5d535ae"
+  },
+  {
+   "stage": "sn",
+   "at": "2026-10-21T11:44:05",
+   "charter": "CHARTER 2026-10-21 SN HALT decision (amend: SN G1 stillness to WATCH) + re-pin v1.1, tag task4-pin-2026-10-21c",
+   "old_lock_sha256": "ffaf7cf85b7e29112e9419dc3823ebc61fb2441e728196969d0848ffc5d535ae",
+   "new_lock_sha256": "d92a551956f9869a5ddcd195942c57620b65b685cc068f8d66543807311633bc"
+  }
+ ],
+ "tstar": {
+  "stage": "p3a",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB/model_22993.pt",
+  "sha256": "b5a237cc98d5e0ffa24e69f6d5b9d5e3dc4e7b53615ae82b026bb04185afc3a3",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB",
+  "iteration": 22993,
+  "max_stable": 90,
+  "candidates": [
+   {
+    "stage": "p3a",
+    "max_stable": 90,
+    "zero_kg": "FAIL",
+    "accepted": true,
+    "max_margin_used": 1.6567394089763856
+   }
+  ],
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/R18/seed18_X07_p3a_A15pB/suite__omni/seed001/2026-10-20_04-05-14",
+  "label": "sim plant, force side not enforced"
+ },
+ "selected_student": {
+  "cand": "c27000",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_27000.pt",
+  "sha256": "07c9e316777e920d1f1708e9e39e934864dcdb6d4efcc5b815b1a2a6c4e9aaf3",
+  "iter": 27000,
+  "tstar": "p3a"
+ }
+}

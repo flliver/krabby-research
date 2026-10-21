@@ -4,7 +4,7 @@
  "class": "FAIL",
  "why": "decisive line(s) failed: [\"stand.D2.K4.miss es1 <= max(1, R_h's)\", \"stand.D2.K4.miss es2 <= max(1, R_h's)\", \"stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin0 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.homed share bin4 es2 >= R_h's - max(0.05, 2 SE)\", \"stand.D2.K6.settled share bin4 es2 >= R_h's - max(0.05, 2 SE)\"]",
  "at": "2026-10-21T15:20:28",
- "status": "open",
+ "status": "accepted",
  "lines": [
   {
    "id": "stand.D2.K4.miss es1 <= max(1, R_h's)",
@@ -100,5 +100,12 @@
   "accept-chance",
   "amend",
   "abort"
- ]
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-21T15:51:25",
+  "kind": "accept-chance",
+  "why": "user 2026-10-21: accept, disclose -- lazy R_h control beside T*: K6 bins 1/4 walker-caused (control fails the same lines); residual K4 miss 13/10 vs control 7/3 (0 exit falls) + K6 bin0 es2 homed 0.925 vs 0.94; CHARTER e44064cb",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
 }

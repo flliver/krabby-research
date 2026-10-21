@@ -1,0 +1,22 @@
+{
+ "run": "R18",
+ "stage": "sh_ref",
+ "class": "GUARD",
+ "why": "pipeline.lock.json changed since the run was pinned (d4516ad7d007)",
+ "at": "2026-10-19T16:48:18",
+ "status": "retried",
+ "lines": [],
+ "chance_rate_sum": null,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": null,
+ "subtree": [],
+ "options": [
+  "retry"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-19T16:48:45",
+  "kind": "retry",
+  "why": "re-pin 2026-10-19b (run pin amended at p2a)"
+ }
+}
