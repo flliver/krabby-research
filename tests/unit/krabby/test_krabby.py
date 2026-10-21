@@ -18,6 +18,7 @@ from krabby._state import (
     save_state,
     installed_image,
 )
+from krabby.firmware import apply_channel_to_firmware_args, pop_channel_flag
 
 
 class TestResolveImageRef:
@@ -38,6 +39,118 @@ class TestResolveImageRef:
     def test_ecr_uri_with_tag_returned_as_is(self):
         uri = f"{ECR_REPO}:some-tag"
         assert resolve_image_ref(uri) == uri
+
+    def test_channel_main_maps_to_main_latest(self):
+        assert resolve_image_ref(channel="main") == f"{ECR_REPO}:main-latest"
+
+    def test_channel_release_maps_to_release_latest(self):
+        assert resolve_image_ref(channel="release") == f"{ECR_REPO}:release-latest"
+
+    def test_channel_and_image_mutually_exclusive(self):
+        import pytest
+        with pytest.raises(ValueError, match="--channel or --image"):
+            resolve_image_ref("main-latest", channel="main")
+
+
+class TestChannelFirmwareArgs:
+    def test_pop_channel_from_update(self):
+        ch, rest = pop_channel_flag(["update", "--channel", "main", "/dev/ttyACM0"])
+        assert ch == "main"
+        assert rest == ["update", "/dev/ttyACM0"]
+
+    def test_apply_main_injects_branch(self):
+        assert apply_channel_to_firmware_args(["update"], "main") == ["update", "main"]
+        assert apply_channel_to_firmware_args(
+            ["update", "/dev/ttyACM0"], "main"
+        ) == ["update", "main", "/dev/ttyACM0"]
+
+    def test_apply_release_omits_branch(self):
+        assert apply_channel_to_firmware_args(["update"], "release") == ["update"]
+        assert apply_channel_to_firmware_args(
+            ["update", "/dev/ttyACM0"], "release"
+        ) == ["update", "/dev/ttyACM0"]
+
+    def test_apply_release_keeps_specific_release_branch(self):
+        assert apply_channel_to_firmware_args(
+            ["update", "release/0.2.17"], "release"
+        ) == ["update", "release/0.2.17"]
+
+
+class TestChannelCli:
+    """Argv → command path for ``--channel`` on update and firmware update."""
+
+    def test_update_channel_main_pulls_main_latest(self, monkeypatch):
+        from krabby import __main__ as krabby_main
+
+        captured = {}
+
+        def fake_pull(ref):
+            captured["ref"] = ref
+            return "sha256:deadbeef"
+
+        monkeypatch.setattr("krabby.update.pull", fake_pull)
+        monkeypatch.setattr("krabby.update.save_state", lambda ref, digest: None)
+        monkeypatch.setattr(sys, "argv", ["krabby", "update", "--channel", "main"])
+        krabby_main.main()
+        assert captured["ref"] == f"{ECR_REPO}:main-latest"
+
+    def test_update_channel_release_pulls_release_latest(self, monkeypatch):
+        from krabby import __main__ as krabby_main
+
+        captured = {}
+
+        def fake_pull(ref):
+            captured["ref"] = ref
+            return "sha256:deadbeef"
+
+        monkeypatch.setattr("krabby.update.pull", fake_pull)
+        monkeypatch.setattr("krabby.update.save_state", lambda ref, digest: None)
+        monkeypatch.setattr(sys, "argv", ["krabby", "update", "--channel", "release"])
+        krabby_main.main()
+        assert captured["ref"] == f"{ECR_REPO}:release-latest"
+
+    def _firmware_capture(self, monkeypatch, argv):
+        from krabby import __main__ as krabby_main
+
+        captured = {}
+
+        def fake_firmware_cmd(ref, args, interactive=False):
+            captured["ref"] = ref
+            captured["args"] = list(args)
+            return ["docker"]
+
+        monkeypatch.setattr("krabby.firmware.firmware_cmd", fake_firmware_cmd)
+        monkeypatch.setattr(
+            "krabby.firmware.subprocess.run",
+            lambda cmd: type("R", (), {"returncode": 0})(),
+        )
+        monkeypatch.setattr("krabby.firmware.sys.exit", lambda _code: None)
+        monkeypatch.setattr(sys, "argv", argv)
+        krabby_main.main()
+        return captured
+
+    def test_firmware_update_channel_main_on_subparser(self, monkeypatch):
+        # ``krabby firmware --channel main update``
+        captured = self._firmware_capture(
+            monkeypatch, ["krabby", "firmware", "--channel", "main", "update"]
+        )
+        assert captured["ref"] == f"{ECR_REPO}:main-latest"
+        assert captured["args"] == ["update", "main"]
+
+    def test_firmware_update_channel_main_in_remainder(self, monkeypatch):
+        # ``krabby firmware update --channel main`` (flag inside REMAINDER)
+        captured = self._firmware_capture(
+            monkeypatch, ["krabby", "firmware", "update", "--channel", "main"]
+        )
+        assert captured["ref"] == f"{ECR_REPO}:main-latest"
+        assert captured["args"] == ["update", "main"]
+
+    def test_firmware_update_channel_release_omits_branch(self, monkeypatch):
+        captured = self._firmware_capture(
+            monkeypatch, ["krabby", "firmware", "--channel", "release", "update"]
+        )
+        assert captured["ref"] == f"{ECR_REPO}:release-latest"
+        assert captured["args"] == ["update"]
 
 
 class TestStateRoundtrip:
@@ -263,7 +376,9 @@ class TestInstallLaunchFlag:
         cap = {}
         monkeypatch.setattr(
             "krabby.install.cmd_install",
-            lambda image_ref=None, launch_on_startup=True: cap.update(image=image_ref, launch=launch_on_startup),
+            lambda image_ref=None, channel=None, launch_on_startup=True: cap.update(
+                image=image_ref, channel=channel, launch=launch_on_startup
+            ),
         )
         monkeypatch.setattr(sys, "argv", argv)
         krabby_main.main()

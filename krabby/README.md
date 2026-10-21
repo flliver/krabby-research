@@ -2,7 +2,8 @@
 
 CLI for installing, updating, and running the Krabby locomotion stack on a Jetson Orin host.
 
-PyPI package name is `krabby-launcher` (the `krabby` name was already taken); the installed command is still `krabby`.
+**Install package:** `krabby-launcher` on PyPI. **CLI command:** `krabby`.  
+`pip install krabby` is a **different, unrelated** (long-abandoned) project — it will not give you this CLI. The short name was unavailable when this package was published.
 
 ## Install
 
@@ -24,20 +25,26 @@ Fleet onboarding and teleop: [`fleet/ENROLL.md`](../fleet/ENROLL.md),
 
 ```
 krabby install            # pull release-latest, set up udev + dialout, enable boot autostart
-krabby install --image <ref>          # pull a specific tag or digest
+krabby install --channel main     # dev line (image main-latest)
+krabby install --channel release  # stable line (default; image release-latest)
+krabby install --image <ref>      # specific tag or digest (not with --channel)
 krabby install --no-launch-on-startup # set up the host but DON'T start on boot
 
 krabby update             # re-pull the last installed image
-krabby update --image <ref>    # pull a different tag
+krabby update --channel main      # switch to / refresh the dev line
+krabby update --image <ref>       # specific tag or digest (not with --channel)
 
 krabby run                # locomotion HAL (fleet-enrolled: portal/inference + teleop to agent shim)
+krabby run --channel main      # run the dev image
 krabby run --gamepad-only      # gamepad stack: HAL + krabby-uno (non-fleet / explicit)
 krabby run -- --device-id 1    # forward client args to krabby-uno (gamepad mode)
 krabby run -- --checkpoint /path/to/ckpt.pt   # inference mode (policy checkpoint)
 
 krabby firmware show           # run krabby-firmware show inside the container
 krabby firmware show <branch>  # list a branch's builds newest-first, paged
-krabby firmware update         # run krabby-firmware update inside the container
+krabby firmware update         # latest release/* HEX (stable)
+krabby firmware update --channel main     # HEX from S3 main (dev)
+krabby firmware update --channel release  # newest release/* HEX
 krabby firmware <args>         # any krabby-firmware subcommand/flags
 
 krabby pair-pro                # pair official Nintendo Pro (BT); third-party → USB / see CONNECT_PRO_CONTROLLER.md
@@ -145,25 +152,31 @@ The unit starts the **gamepad** stack. ⚠️ On boot the stack goes live; if a 
 is paired/connected it can drive the robot unattended. To run a policy instead, edit
 `ExecStart` in the unit to `krabby run -- --checkpoint /path/to/ckpt.pt`.
 
-## Image refs
+## Channels and image refs
 
-The default image is pulled from ECR:
+| Channel | Locomotion image tag | Firmware S3 |
+| --- | --- | --- |
+| `release` (default) | `release-latest` | newest `release/*` |
+| `main` | `main-latest` | branch `main` |
+
+```
+krabby install --channel main
+krabby firmware update --channel main
+```
+
+The default image (no `--channel` / `--image`) is:
 
 ```
 public.ecr.aws/t7t7b3i3/krabby-locomotion:release-latest
 ```
 
-`release-latest` tracks the newest `release/*` build — the stable channel for kit
-owners (CI moves the tag on each release build; see `images/locomotion/README.md`).
-Use `--image main-latest` to follow the development line instead.
-
-A bare tag (e.g. `--image v1.2.3`) is expanded to the full ECR URI automatically.
-Pass a fully-qualified URI to use a different registry entirely.
+`--image` selects a bare tag or full URI. Do not pass `--channel` and `--image`
+together.
 
 ## State
 
 The last installed image ref and digest are recorded at `~/.config/krabby/state.json`.
-`krabby update` and `krabby run` read this file when `--image` is omitted.
+`krabby update` and `krabby run` read this file when `--channel` / `--image` are omitted.
 
 ## GPU
 

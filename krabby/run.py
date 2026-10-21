@@ -40,14 +40,18 @@ def _clear_krabby_container() -> None:
 
 def cmd_run(
     image_ref: Optional[str] = None,
+    channel: Optional[str] = None,
     extra_args: Optional[list[str]] = None,
     entrypoint: Optional[str] = None,
     extra_mounts: Optional[list[str]] = None,
     gamepad_only: bool = False,
 ) -> None:
-    if image_ref is None:
+    if image_ref is None and channel is None:
         image_ref = installed_image()
-    ref = resolve_image_ref(image_ref)
+    try:
+        ref = resolve_image_ref(image_ref, channel=channel)
+    except ValueError as exc:
+        sys.exit(str(exc))
     extra_args = list(extra_args or [])
     # argparse REMAINDER keeps the `--` separator: `krabby run -- --checkpoint x`
     # parses to ["--", "--checkpoint", "x"]. Strip one leading `--` so it doesn't

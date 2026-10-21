@@ -35,6 +35,8 @@ Full robot assembly notes are in the Milestone 12 deliverables. This repo covers
 
 ### 1. Install the CLI
 
+The PyPI package is **`krabby-launcher`**. The command it installs is `krabby`. Do **not** run `pip install krabby` — that is a different, unrelated project on PyPI.
+
 On Orin (and other hosts where system Python is not writable), create a user venv first — bare `pip install` into system Python fails with `PermissionError`:
 
 ```bash
