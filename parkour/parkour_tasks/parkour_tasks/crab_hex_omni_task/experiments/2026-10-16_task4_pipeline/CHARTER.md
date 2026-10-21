@@ -572,3 +572,34 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     gets the full listing.
   - **Open (scope, not decided):** survival-floor lines with zero recorded misses still carry a modelled rate
     of 0.0.
+- **2026-10-21 15:20, R18 HALT at sh (SH, D2), plus the lazy stand control (DESIGN §3.6).**
+  - **The HALT.** SH_T4R18_sh_s17 (paired with T\* = p3a) fails two families:
+    - K4 restore misses: 13 / 10 per 800 (line ≤ 3, D9). There were 0 exit falls and the onset is within its line.
+    - K6 homed / settled share: bin 1 (0.844–0.970 m) 0.83–0.86, bin 4 (1.221–1.346 m) 0.88–0.89, and bin 0 es2
+      homed 0.925. The S1-era R_h lines are 0.84–0.95.
+    - K1, K2, K3, K5 and K6 stillness pass. The modelled chance sum is 0.148, mostly K4 es2; the K6 rates
+      (≤ 1e-9) come from the S1-era R_h values.
+  - **Context.** The recorded S1-paired seeds SH_T16/17/18 missed 0–3 and homed 0.98–1.0 in every bin. X (the same
+    recipe beside S1, this build) reproduces SH_T17's K4 / K6 aggregates exactly. During training the T\*-paired run
+    homes like X (R_h slice ≈ 0.84–0.85, student ≈ 0.85; tail loss 0.0026 vs 0.0021).
+  - **Lazy control, run by hand** (the queue does not automate it):
+    - R_h ran beside T\* on hwalkstop / hraise es1–2 as `SH_RH_T4R18` (4 rows, 15:23–15:46, all rc 0).
+    - The head was re-read against it: `R18/stand/sh_lazy_rh_read{_spec.json,.json,.md}`.
+  - **The control degrades beside T\*.**
+    - K4 misses: 7 / 3 (beside S1: 1 / 1).
+    - K6 homed: bin 1 0.81 / 0.75 (beside S1: 0.93 / 0.97); bin 4 0.885 / 0.85 (beside S1: 0.995 / 0.955).
+    - The control fails the same K6 bin-1 / bin-4 lines, and its es1 K4 count fails ≤ 3. That part is walker-caused.
+  - **Re-anchored on the control** (DESIGN: if the control fails the same line, the line re-anchors on it):
+    - every K6 cell passes except bin 0 es2 homed, 0.925 vs 0.94 (the control there is 0.99; settled 0.96 passes);
+    - the head beats its teacher in bins 1 and 4;
+    - K4 still fails: 13 / 10 vs max(1, R_h) = 7 / 3. That is 1.9× / 3.3× the teacher, against up to 3× in the
+      recorded S1 seeds (SH_T18 es2: 3 vs 1).
+  - **Per DESIGN, "otherwise → HALT":** the HALT stands on K4 miss (both seeds) and K6 bin 0 es2 homed.
+    User decision pending.
+  - **Decision (user, 2026-10-21): accept, disclose.**
+    - R18 continues to bundle and stays eligible as the deliverable. The lines stay unchanged (no re-pin).
+    - Disclosed in the report:
+      - K4 misses 13 / 10 vs the control's 7 / 3, with 0 exit falls;
+      - K6 bin 0 es2 homed 0.925 vs 0.94;
+      - the walker-caused K6 bin 1 / bin 4 drop.
+    - If F19's SH fails the same lines, the same lazy R_h control runs by hand (≈ 25 min) before its prompt.
