@@ -1,0 +1,14 @@
+{
+ "stage": "c4",
+ "chain": "F19_c4",
+ "xid": "X02",
+ "seed": "19",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_18-21-11_seed19_X02_c4_A15pB/model_7498.pt",
+ "sha256": "0cbab2c4127a14d324e1724bf3ee09437d8311699bdb83338573ee9deb1da0fa",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_18-21-11_seed19_X02_c4_A15pB",
+ "iteration": 7498,
+ "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+ "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+ "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X02_c4_A15pB/suite__omni/seed001/2026-10-21_22-57-11",
+ "recorded_at": "2026-10-21T19:05:37"
+}

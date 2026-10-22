@@ -1,0 +1,43 @@
+{
+ "run": "F19",
+ "stage": "p3a",
+ "class": "FAIL",
+ "why": "decisive line(s) failed: ['p3a.capability.zero_kg_paired']",
+ "at": "2026-10-22T06:50:25",
+ "status": "open",
+ "lines": [
+  {
+   "id": "p3a.capability.zero_kg_paired",
+   "statistic": "paired 0-kg check vs the run's own p2a",
+   "value": 2.7098692720929014,
+   "line": 1.0,
+   "direction": "<=",
+   "rate": null,
+   "unvalidated": true
+  }
+ ],
+ "chance_rate_sum": null,
+ "chance_rate_unmodelled": [
+  {
+   "id": "p3a.capability.zero_kg_paired",
+   "rate_status": null
+  }
+ ],
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped), summed over the lines WITH a modelled rate; chance_rate_unmodelled lists the rest -- degenerate fixed-t lines (sigma_hat 0: rate None, 'degenerate/unvalidated', CHARTER 2026-10-21 decision C), live-kill and drift lines (unvalidated, no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3a.json",
+ "subtree": [
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ]
+}

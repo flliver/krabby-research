@@ -1,0 +1,243 @@
+{
+ "run": "F19",
+ "stage": "c5",
+ "read_at": "2026-10-21T19:57:27",
+ "thresholds": {
+  "file": "thresholds_v1_1.json",
+  "version": "v1.1",
+  "sha256": "9b9b729eaf51f4b31ab9239adcaa8bec3681028f913a6a233f284f9fddab8fc4"
+ },
+ "verdict": "PASS",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "c5.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 1.5176240024016331e-31,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.fwd.es1"
+  },
+  {
+   "id": "c5.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.9029175898163513,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.005773276636080611,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "c5.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.side.es1"
+  },
+  {
+   "id": "c5.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.9949536985705304,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0018168607604551077,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.side.es1"
+  },
+  {
+   "id": "c5.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.99,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 2.472813500379137e-25,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.back.es1"
+  },
+  {
+   "id": "c5.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.8885244835778423,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.00649420531567031,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.back.es1"
+  },
+  {
+   "id": "c5.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.diag.es1"
+  },
+  {
+   "id": "c5.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.9422335048467059,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.008290938849785195,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.diag.es1"
+  },
+  {
+   "id": "c5.floor.side22_notslow",
+   "thresholds_id": "c5.floor.side22_notslow",
+   "statistic": "side22_25lr feet_ss class, both hands not SLOW / DEAD",
+   "value": [
+    "FAST",
+    "FAST"
+   ],
+   "medians": {
+    "lat_l_022": 0.22552810112625618,
+    "lat_r_022": 0.22091889573205847,
+    "lat_l_025": 0.24383535403069578,
+    "lat_r_025": 0.24329564240755386
+   },
+   "line": "notslow",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0724599038767888,
+   "unvalidated": true
+  },
+  {
+   "id": "c5.live_collapse",
+   "statistic": "live rules (unvalidated)",
+   "value": 0,
+   "pass": true,
+   "unvalidated": true,
+   "rate": null
+  }
+ ],
+ "halt_lines": [],
+ "watch_flags": [],
+ "watch": {
+  "side22@1": {
+   "class": [
+    "FAST",
+    "FAST"
+   ],
+   "median": {
+    "lat_l_022": 0.22552810112625618,
+    "lat_r_022": 0.22091889573205847,
+    "lat_l_025": 0.24383535403069578,
+    "lat_r_025": 0.24329564240755386
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 0.99,
+    "ratio": 0.8885244835778423,
+    "facing_closed": null,
+    "yaw_progress": -0.001238967546476581,
+    "tripod": 0.6943934261073448
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9422335048467059,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7674739078735524
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9029175898163513,
+    "facing_closed": null,
+    "yaw_progress": -0.007333774492144585,
+    "tripod": 0.7033705441476591
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.885,
+    "ratio": 0.6589640221294912,
+    "facing_closed": 0.09075499873294318,
+    "yaw_progress": 0.01252901353480862,
+    "tripod": 0.5157030398664757
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.9949536985705304,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7953841994471629
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.39010822565543773
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.2577138124160189,
+    "yaw_progress": 0.03390393666924562,
+    "tripod": 0.727782129297144
+   }
+  }
+ },
+ "trained_categories": [
+  "stand",
+  "fwd",
+  "side",
+  "back",
+  "diag",
+  "turn",
+  "move_turn"
+ ],
+ "head": {
+  "stage": "c5",
+  "chain": "F19_c5",
+  "xid": "X03",
+  "seed": "19",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-09-27_seed19_X03_c5_A15pB/model_8997.pt",
+  "sha256": "cb071610ed9983072351522dcfaec23cdae9e87f3632b5f8455279ad5dda5871",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-09-27_seed19_X03_c5_A15pB",
+  "iteration": 8997,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X03_c5_A15pB/suite__omni/seed001/2026-10-21_23-45-28",
+  "recorded_at": "2026-10-21T19:53:48"
+ }
+}

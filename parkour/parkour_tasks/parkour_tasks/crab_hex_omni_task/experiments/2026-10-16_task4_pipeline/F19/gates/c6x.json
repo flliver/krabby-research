@@ -1,0 +1,293 @@
+{
+ "run": "F19",
+ "stage": "c6x",
+ "read_at": "2026-10-21T23:06:01",
+ "thresholds": {
+  "file": "thresholds_v1_1.json",
+  "version": "v1.1",
+  "sha256": "9b9b729eaf51f4b31ab9239adcaa8bec3681028f913a6a233f284f9fddab8fc4"
+ },
+ "verdict": "PASS",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "c6x.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.survival.fwd.es1"
+  },
+  {
+   "id": "c6x.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.9864691744260385,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0018260468205130783,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "c6x.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.survival.side.es1"
+  },
+  {
+   "id": "c6x.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 1.0258618556846235,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.004314771833954672,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.ratio.side.es1"
+  },
+  {
+   "id": "c6x.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.survival.back.es1"
+  },
+  {
+   "id": "c6x.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.9825057191743118,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.005174832582693344,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.ratio.back.es1"
+  },
+  {
+   "id": "c6x.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.survival.diag.es1"
+  },
+  {
+   "id": "c6x.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.9746942053710019,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0023848506573832416,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c6x.floor.ratio.diag.es1"
+  },
+  {
+   "id": "c6x.floor.side22_notslow",
+   "thresholds_id": "c6x.floor.side22_notslow",
+   "statistic": "side22_25lr feet_ss class, both hands not SLOW / DEAD",
+   "value": [
+    "FAST",
+    "FAST"
+   ],
+   "medians": {
+    "lat_l_022": 0.23067802092313597,
+    "lat_r_022": 0.22598158462529133,
+    "lat_l_025": 0.26064444519700214,
+    "lat_r_025": 0.2394524212967975
+   },
+   "line": "notslow",
+   "pass": true,
+   "missing": false,
+   "rate": 0.006321526977745795,
+   "unvalidated": false
+  },
+  {
+   "id": "c6x.live_collapse",
+   "statistic": "live rules (unvalidated)",
+   "value": 0,
+   "pass": true,
+   "unvalidated": true,
+   "rate": null
+  }
+ ],
+ "halt_lines": [],
+ "watch_flags": [],
+ "watch": {
+  "field_hard@1": {
+   "completion": 0.6,
+   "n": 100
+  },
+  "field_hard@2": {
+   "completion": 0.49,
+   "n": 100
+  },
+  "field_light@1": {
+   "completion": 0.95,
+   "n": 100
+  },
+  "field_light@2": {
+   "completion": 0.98,
+   "n": 100
+  },
+  "ring_obst@1": {
+   "completion": 0.93,
+   "n": 100
+  },
+  "ring_obst@2": {
+   "completion": 0.96,
+   "n": 100
+  },
+  "side22@1": {
+   "class": [
+    "FAST",
+    "FAST"
+   ],
+   "median": {
+    "lat_l_022": 0.23067802092313597,
+    "lat_r_022": 0.22598158462529133,
+    "lat_l_025": 0.26064444519700214,
+    "lat_r_025": 0.2394524212967975
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9825057191743118,
+    "facing_closed": null,
+    "yaw_progress": 9.017558176103129e-05,
+    "tripod": 0.5532784765537124
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9746942053710019,
+    "facing_closed": null,
+    "yaw_progress": -0.0427895188331604,
+    "tripod": 0.662179321427034
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9864691744260385,
+    "facing_closed": null,
+    "yaw_progress": 0.001044005560486213,
+    "tripod": 0.5554620843450295
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.515,
+    "ratio": 0.56985056992177,
+    "facing_closed": 0.3872523252066415,
+    "yaw_progress": 0.06092724115545284,
+    "tripod": 0.33621578308817046
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0258618556846235,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7627993700756086
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7587390114644973
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.4409177643177542,
+    "yaw_progress": 0.05764767778484384,
+    "tripod": 0.7425089789339672
+   }
+  },
+  "turn_band@1": {
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7587390114644973
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.9619172220355642,
+    "yaw_progress": 0.1173393230796041,
+    "tripod": 0.7508576382633712
+   },
+   "turn_mid": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.8767815223802664,
+    "yaw_progress": 0.07511074000296228,
+    "tripod": 0.7454512701537039
+   }
+  }
+ },
+ "trained_categories": [
+  "stand",
+  "fwd",
+  "side",
+  "back",
+  "diag",
+  "turn",
+  "move_turn"
+ ],
+ "head": {
+  "stage": "c6x",
+  "chain": "F19_c6x",
+  "xid": "X05",
+  "seed": "19",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_20-59-46_seed19_X05_c6x_A15pB/model_14995.pt",
+  "sha256": "94ca58e58e5d9359dae792768b63d44496300bd891d44a5ecbeaf4112c89b692",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_20-59-46_seed19_X05_c6x_A15pB",
+  "iteration": 14995,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X05_c6x_A15pB/suite__omni/seed001/2026-10-22_02-29-49",
+  "recorded_at": "2026-10-21T22:38:13"
+ }
+}

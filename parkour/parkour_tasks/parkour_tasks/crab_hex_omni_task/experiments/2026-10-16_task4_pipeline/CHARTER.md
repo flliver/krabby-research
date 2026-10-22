@@ -603,3 +603,26 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
       - K6 bin 0 es2 homed 0.925 vs 0.94;
       - the walker-caused K6 bin 1 / bin 4 drop.
     - If F19's SH fails the same lines, the same lazy R_h control runs by hand (≈ 25 min) before its prompt.
+- **2026-10-22 06:50, F19 HALT at p3a: paired 0-kg check.**
+  - F19 s1 through p2a are all gate PASS, and p2a's field_hard passes. p3a is stable at 90 kg.
+  - The paired 0-kg check fails 7 statistics, max margin use 2.71 (R18's p3a: 2 statistics, 1.66). Survival is 1.000
+    at both heads. Facing, field completion and side22 pass.
+  - **Ratio medians, p2a → p3a (es1 / es2):**
+    - fwd 1.046 → 1.000 / 1.058 → 0.999;
+    - back 1.061 → 1.029 / 1.059 → 1.028;
+    - side 1.065 → 1.019 / 1.064 → 1.025;
+    - diag 0.997 → 0.959 / 0.999 → 0.963;
+    - move_turn 0.786 → 0.687 / 0.791 → 0.694.
+    - R18 for comparison: move_turn 0.789 → 0.729 / 0.789 → 0.732; its fwd / back / side / diag did not drop.
+  - **Reading:**
+    - F19's p2a overshoots command on fwd / back / side (1.05–1.07). p3a moves those toward 1.0, so |r − 1|
+      improves, but the STOP-0 one-sided drop rule counts it as worse. That rule is a gate-semantics finding for the
+      report, not changed here.
+    - The real 0-kg losses are diag (−0.035 to −0.038 vs margin 0.029) and move_turn (−0.097 to −0.099 vs margin
+      0.037). That is the same move_turn mechanism as R18's accepted HALT, about 1.7× larger.
+  - User decision pending.
+  - **Decision (user, 2026-10-22): accept, disclose.**
+    - F19 continues and stays eligible as the deliverable.
+    - The report discloses:
+      - the move_turn and diag 0-kg losses;
+      - the one-sided ratio rule failing overshoot corrections.
