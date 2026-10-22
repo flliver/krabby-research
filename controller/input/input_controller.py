@@ -7,6 +7,8 @@ logical layout (left stick, right stick, triggers, shoulder buttons, stick click
 
 After idle Bluetooth power-off (or USB unplug), the pad may reappear as a new SDL device.
 This class detects disconnect and reopens the controller without restarting the process.
+If no pad is present at start (stack before controller), it keeps running and opens on
+hotplug / periodic joystick rescan the same way.
 
 Testing:
 --------
@@ -305,7 +307,7 @@ class InputController:
                 if self._controller is None:
                     device_index = getattr(event, "device_index", None)
                     if device_index is not None and self._try_open_controller(device_index):
-                        logger.info("Gamepad reconnected (CONTROLLERDEVICEADDED)")
+                        logger.info("Gamepad connected (CONTROLLERDEVICEADDED)")
 
     def _controller_still_attached(self) -> bool:
         """Return True if the open controller reports attached."""
@@ -320,9 +322,10 @@ class InputController:
         """Main event loop running in background thread.
 
         Uses pygame SDL2 Game Controller API. Initializes pygame and controller
-        subsystem, opens the selected controller-capable device, and polls state
-        at fixed rate. On disconnect (idle BT sleep, unplug), zeros state and
-        reopens when the pad returns without requiring a process restart.
+        subsystem, opens a controller when available, and polls state at fixed
+        rate. If none is present at start — or after disconnect (idle BT sleep,
+        unplug) — zeros state and opens/reopens on hotplug or periodic rescan
+        without requiring a process restart.
         """
         sleep_time = 1.0 / self._update_rate_hz
 
@@ -349,26 +352,16 @@ class InputController:
         device_count = sdl2_controller.get_count()
         logger.debug(f"Found {device_count} joystick(s)")
 
-        if device_count == 0:
-            logger.error(
-                "No controller-capable device found. Make sure your controller is connected."
-            )
-            logger.error("Try running with --list to verify the controller is detected.")
-            self._running = False
-            if not pygame_was_initialized:
-                pygame.quit()
-            return
-
+        # Do not exit when empty: cold-start (stack before pad) and mid-session
+        # disconnect share the wait/rescan path below.
         if not self._try_open_controller(self._device_id):
-            logger.error(
-                "No supported game controller at device_id=%s. "
-                "Use --list to see controller-capable devices.",
+            logger.warning(
+                "No controller-capable device at start "
+                "(device_id=%s, joystick_count=%s). "
+                "Waiting for connect / Home-wake / USB replug…",
                 self._device_id,
+                device_count,
             )
-            self._running = False
-            if not pygame_was_initialized:
-                pygame.quit()
-            return
 
         last_scan_time = 0.0
         last_wait_log_time = 0.0
@@ -390,12 +383,12 @@ class InputController:
                         last_scan_time = now
                         self._refresh_joystick_subsystem()
                         if self._try_open_controller():
-                            logger.info("Gamepad reconnected after rescan")
+                            logger.info("Gamepad connected after rescan")
                         elif now - last_wait_log_time >= _RECONNECT_LOG_INTERVAL_S:
                             last_wait_log_time = now
                             logger.info(
-                                "Waiting for gamepad reconnect "
-                                "(press Home after idle sleep, or replug USB)…"
+                                "Waiting for gamepad "
+                                "(connect, press Home after idle sleep, or replug USB)…"
                             )
                     # Keep publishing zeros so mappers do not hold last stick values.
                     self._clear_state()

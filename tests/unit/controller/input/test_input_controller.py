@@ -213,3 +213,76 @@ class TestInputControllerReconnect:
         mock_ctl.attached.return_value = True
         self.ic._controller = mock_ctl
         assert self.ic._controller_still_attached() is True
+
+    @patch("controller.input.input_controller.sdl2_controller")
+    @patch("controller.input.input_controller.pygame")
+    def test_event_loop_waits_when_no_device_at_start(self, mock_pygame, mock_sdl):
+        """Cold-start with no pad must keep running (rescan path), not exit."""
+        mock_pygame.get_init.return_value = True
+        mock_pygame.joystick.get_init.return_value = True
+        mock_pygame.event.get.return_value = []
+        mock_sdl.get_init.return_value = True
+        mock_sdl.get_count.return_value = 0
+
+        self.ic._running = True
+        self.ic._update_rate_hz = 50.0
+        self.ic._device_id = 0
+
+        # Stop shortly after the first wait/rescan tick.
+        def _stop_soon(*_args, **_kwargs):
+            self.ic._running = False
+
+        with patch.object(self.ic, "_refresh_joystick_subsystem", side_effect=_stop_soon):
+            self.ic._event_loop()
+
+        assert self.ic._controller is None
+        # Early-return path used to call pygame.quit() when it owned init; we
+        # started with get_init True so quit must not have been forced by exit.
+        mock_pygame.quit.assert_not_called()
+        mock_sdl.get_count.assert_called()
+
+    @patch("controller.input.input_controller.sdl2_controller")
+    @patch("controller.input.input_controller.pygame")
+    def test_event_loop_opens_after_rescan_from_empty_start(self, mock_pygame, mock_sdl):
+        """After empty start, first successful rescan opens the controller."""
+        mock_pygame.get_init.return_value = True
+        mock_pygame.joystick.get_init.return_value = True
+        mock_pygame.event.get.return_value = []
+        mock_sdl.get_init.return_value = True
+
+        mock_ctl = MagicMock()
+        mock_ctl.attached.return_value = True
+        mock_joy = MagicMock()
+        mock_joy.get_instance_id.return_value = 1
+        mock_ctl.as_joystick.return_value = mock_joy
+
+        # debug get_count + initial try_open see 0; rescan try_open sees 1.
+        count_calls = {"n": 0}
+
+        def get_count():
+            count_calls["n"] += 1
+            return 0 if count_calls["n"] <= 2 else 1
+
+        mock_sdl.get_count.side_effect = get_count
+        mock_sdl.is_controller.return_value = True
+        mock_sdl.Controller.return_value = mock_ctl
+        mock_sdl.name_forindex.return_value = "Late Pad"
+
+        self.ic._running = True
+        self.ic._update_rate_hz = 50.0
+        self.ic._device_id = 0
+
+        seen = {"ctl": None}
+
+        def capture_and_stop(controller):
+            seen["ctl"] = controller
+            self.ic._running = False
+
+        with patch.object(self.ic, "_refresh_joystick_subsystem"):
+            with patch.object(
+                self.ic, "_update_state_controller", side_effect=capture_and_stop
+            ):
+                self.ic._event_loop()
+
+        assert seen["ctl"] is mock_ctl
+        mock_sdl.Controller.assert_called()
