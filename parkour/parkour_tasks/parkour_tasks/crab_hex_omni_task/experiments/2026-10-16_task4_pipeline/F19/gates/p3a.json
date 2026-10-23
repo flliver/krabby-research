@@ -257,17 +257,15 @@
    "direction": "<=",
    "pass": false,
    "fails": [
-    "ratio side suite es1: worse by 0.0458 > margin 0.0212 (R)",
-    "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+    "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
-    "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R)",
-    "ratio side suite es2: worse by 0.0386 > margin 0.0212 (R)",
-    "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+    "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
    ],
    "rate": null,
    "unvalidated": true,
-   "rate_note": "paired: <= Phi(-3) per statistic (thresholds.json); drift margin unvalidated"
+   "rate_note": "paired: <= Phi(-3) per statistic (thresholds.json); drift margin unvalidated",
+   "regated_under": "v1.2"
   }
  ],
  "halt_lines": [
@@ -286,14 +284,125 @@
   "verdict": "FAIL",
   "max_margin_used": 2.7098692720929014,
   "fails": [
-   "ratio side suite es1: worse by 0.0458 > margin 0.0212 (R)",
-   "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+   "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
    "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
-   "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R)",
-   "ratio side suite es2: worse by 0.0386 > margin 0.0212 (R)",
-   "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+   "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
    "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
-  ]
+  ],
+  "translate_statistic": "track_err",
+  "thresholds_version": "v1.2",
+  "watch_exceeds": [
+   "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+   "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+   "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+   "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+   "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+   "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+   "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+  ],
+  "watch_reads": [
+   {
+    "statistic": "ratio fwd",
+    "row": "suite es1",
+    "head": 1.0000353747805426,
+    "p2a": 1.0464079091335667,
+    "worse_by": 0.04637253435302413,
+    "margin": 0.05080366659411929,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio side",
+    "row": "suite es1",
+    "head": 1.0188299925988131,
+    "p2a": 1.0645890758415073,
+    "worse_by": 0.045759083242694176,
+    "margin": 0.021192113444669265,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio back",
+    "row": "suite es1",
+    "head": 1.0291167111799806,
+    "p2a": 1.0608539524460237,
+    "worse_by": 0.03173724126604305,
+    "margin": 0.06167028713341018,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio diag",
+    "row": "suite es1",
+    "head": 0.958518164248751,
+    "p2a": 0.9965317287189133,
+    "worse_by": 0.03801356447016224,
+    "margin": 0.02906521009413416,
+    "exceeds": true
+   },
+   {
+    "statistic": "|ratio-1| move_turn",
+    "row": "suite es1",
+    "head": 0.3133199841995915,
+    "p2a": 0.21394033086038944,
+    "worse_by": 0.09937965333920207,
+    "margin": 0.03667322787953111,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio fwd",
+    "row": "suite es2",
+    "head": 0.9987757216283486,
+    "p2a": 1.0580851244398124,
+    "worse_by": 0.059309402811463796,
+    "margin": 0.05080366659411929,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio side",
+    "row": "suite es2",
+    "head": 1.0250703385419224,
+    "p2a": 1.0636473701165796,
+    "worse_by": 0.038577031574657195,
+    "margin": 0.021192113444669265,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio back",
+    "row": "suite es2",
+    "head": 1.0279023586345144,
+    "p2a": 1.0589976729748471,
+    "worse_by": 0.031095314340332747,
+    "margin": 0.06167028713341018,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio diag",
+    "row": "suite es2",
+    "head": 0.9629888203353627,
+    "p2a": 0.9985475312131666,
+    "worse_by": 0.035558710877803934,
+    "margin": 0.02906521009413416,
+    "exceeds": true
+   },
+   {
+    "statistic": "|ratio-1| move_turn",
+    "row": "suite es2",
+    "head": 0.3061547105003649,
+    "p2a": 0.20891761461691982,
+    "worse_by": 0.09723709588344509,
+    "margin": 0.037199569293217744,
+    "exceeds": true
+   }
+  ],
+  "regated": {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   }
+  }
  },
  "watch": {
   "field_hard@1": {
@@ -470,5 +579,153 @@
   "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
   "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X07_p3a_A15pB/suite__omni/seed001/2026-10-22_08-43-55",
   "recorded_at": "2026-10-22T04:51:34"
- }
+ },
+ "zero_kg_thresholds": {
+  "file": "thresholds_v1_2.json",
+  "version": "v1.2",
+  "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+ },
+ "regates": [
+  {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   },
+   "previous_record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/history/p3a.1.json",
+   "verdict_before": "HALT",
+   "verdict_after": "HALT",
+   "zero_kg_before": {
+    "verdict": "FAIL",
+    "max_margin_used": 2.7098692720929014,
+    "fails": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (R)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (R)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ]
+   },
+   "zero_kg_after": {
+    "verdict": "FAIL",
+    "max_margin_used": 2.7098692720929014,
+    "fails": [
+     "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ],
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "watch_exceeds": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+    ],
+    "watch_reads": [
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es1",
+      "head": 1.0000353747805426,
+      "p2a": 1.0464079091335667,
+      "worse_by": 0.04637253435302413,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es1",
+      "head": 1.0188299925988131,
+      "p2a": 1.0645890758415073,
+      "worse_by": 0.045759083242694176,
+      "margin": 0.021192113444669265,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es1",
+      "head": 1.0291167111799806,
+      "p2a": 1.0608539524460237,
+      "worse_by": 0.03173724126604305,
+      "margin": 0.06167028713341018,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es1",
+      "head": 0.958518164248751,
+      "p2a": 0.9965317287189133,
+      "worse_by": 0.03801356447016224,
+      "margin": 0.02906521009413416,
+      "exceeds": true
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es1",
+      "head": 0.3133199841995915,
+      "p2a": 0.21394033086038944,
+      "worse_by": 0.09937965333920207,
+      "margin": 0.03667322787953111,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es2",
+      "head": 0.9987757216283486,
+      "p2a": 1.0580851244398124,
+      "worse_by": 0.059309402811463796,
+      "margin": 0.05080366659411929,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es2",
+      "head": 1.0250703385419224,
+      "p2a": 1.0636473701165796,
+      "worse_by": 0.038577031574657195,
+      "margin": 0.021192113444669265,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es2",
+      "head": 1.0279023586345144,
+      "p2a": 1.0589976729748471,
+      "worse_by": 0.031095314340332747,
+      "margin": 0.06167028713341018,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es2",
+      "head": 0.9629888203353627,
+      "p2a": 0.9985475312131666,
+      "worse_by": 0.035558710877803934,
+      "margin": 0.02906521009413416,
+      "exceeds": true
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es2",
+      "head": 0.3061547105003649,
+      "p2a": 0.20891761461691982,
+      "worse_by": 0.09723709588344509,
+      "margin": 0.037199569293217744,
+      "exceeds": true
+     }
+    ]
+   },
+   "note": "only the paired 0-kg check was re-read; every other line is the original gate read (thresholds above)"
+  }
+ ]
 }

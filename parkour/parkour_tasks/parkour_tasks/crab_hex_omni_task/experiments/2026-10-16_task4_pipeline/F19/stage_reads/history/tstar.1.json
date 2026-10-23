@@ -1,0 +1,72 @@
+{
+ "stage": "p3a",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB/model_22993.pt",
+ "sha256": "1090c284aabd3ce6d77f5303c51aee87fb98954260774129dbc82854d12aed9c",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB",
+ "iteration": 22993,
+ "max_stable": 90,
+ "candidates": [
+  {
+   "stage": "p3a",
+   "max_stable": 90,
+   "zero_kg": "FAIL",
+   "accepted": true,
+   "max_margin_used": 2.7098692720929014
+  }
+ ],
+ "considered": [
+  {
+   "stage": "p3a",
+   "status": "accepted",
+   "max_stable": 90,
+   "zero_kg": "FAIL",
+   "zero_kg_fails": [
+    "ratio side suite es1: worse by 0.0458 > margin 0.0212 (R)",
+    "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+    "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+    "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R)",
+    "ratio side suite es2: worse by 0.0386 > margin 0.0212 (R)",
+    "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+    "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+   ],
+   "max_margin_used": 2.7098692720929014,
+   "accepted": true,
+   "eligible": true,
+   "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3a.json",
+   "halt": {
+    "class": "FAIL",
+    "status": "accepted",
+    "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/p3a.1.json"
+   },
+   "chosen": true,
+   "why": "CHOSEN: the highest max_stable (90) among the eligible heads; paired 0-kg check FAIL (max margin use 2.71; fails: ratio side suite es1: worse by 0.0458 > margin 0.0212 (R); ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R); ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R); ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R); ratio side suite es2: worse by 0.0386 > margin 0.0212 (R); ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R); ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)); its 0-kg HALT was accepted as chance by the user (disclosed)"
+  },
+  {
+   "stage": "p3b",
+   "status": "ceiling",
+   "max_stable": 135,
+   "zero_kg": "FAIL",
+   "zero_kg_fails": [
+    "ratio back suite es1: worse by 0.0684 > margin 0.0617 (R)",
+    "ratio back suite es2: worse by 0.0714 > margin 0.0617 (R)"
+   ],
+   "max_margin_used": 1.1582885511060392,
+   "accepted": false,
+   "eligible": false,
+   "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3b.json",
+   "halt": null,
+   "chosen": false,
+   "why": "EXCLUDED: paired 0-kg check FAIL (max margin use 1.16; fails: ratio back suite es1: worse by 0.0684 > margin 0.0617 (R); ratio back suite es2: worse by 0.0714 > margin 0.0617 (R)), and no HALT of it was accepted as chance (status ceiling; a payload ceiling stage never HALTs, so this 0-kg FAIL reached no HALT)"
+  }
+ ],
+ "not_trained": [
+  {
+   "stage": "p3c",
+   "status": "skipped",
+   "why": "not considered: no trained head (status skipped: ['p3b'] ended without a head to build on)"
+  }
+ ],
+ "rule": "PLAN Payload -> T*: the trained payload head with the highest max_stable that passes its paired 0-kg check -- or whose 0-kg HALT the user accepted as chance -- tried in descending max_stable (ties to the earlier stage); HALT only if none passes",
+ "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X07_p3a_A15pB/suite__omni/seed001/2026-10-22_08-43-55",
+ "label": "sim plant, force side not enforced"
+}

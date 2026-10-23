@@ -256,12 +256,118 @@
  },
  "label": "sim plant, force side not enforced",
  "zero_kg": {
-  "verdict": "FAIL",
-  "max_margin_used": 1.1582885511060392,
-  "fails": [
-   "ratio back suite es1: worse by 0.0684 > margin 0.0617 (R)",
-   "ratio back suite es2: worse by 0.0714 > margin 0.0617 (R)"
-  ]
+  "verdict": "PASS",
+  "max_margin_used": 0.6619605845918585,
+  "fails": [],
+  "translate_statistic": "track_err",
+  "thresholds_version": "v1.2",
+  "watch_exceeds": [
+   "ratio back suite es1: worse by 0.0684 > margin 0.0617 (WATCH)",
+   "ratio back suite es2: worse by 0.0714 > margin 0.0617 (WATCH)"
+  ],
+  "watch_reads": [
+   {
+    "statistic": "ratio fwd",
+    "row": "suite es1",
+    "head": 1.0094380978073707,
+    "p2a": 1.0464079091335667,
+    "worse_by": 0.036969811326196034,
+    "margin": 0.05080366659411929,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio side",
+    "row": "suite es1",
+    "head": 1.0616556971840145,
+    "p2a": 1.0645890758415073,
+    "worse_by": 0.002933378657492769,
+    "margin": 0.03152549558647399,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio back",
+    "row": "suite es1",
+    "head": 0.9925020300903125,
+    "p2a": 1.0608539524460237,
+    "worse_by": 0.06835192235571119,
+    "margin": 0.06167028713341018,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio diag",
+    "row": "suite es1",
+    "head": 1.0143931941077997,
+    "p2a": 0.9965317287189133,
+    "worse_by": -0.017861465388886444,
+    "margin": 0.02906521009413416,
+    "exceeds": false
+   },
+   {
+    "statistic": "|ratio-1| move_turn",
+    "row": "suite es1",
+    "head": 0.25936795258958356,
+    "p2a": 0.21394033086038944,
+    "worse_by": 0.04542762172919412,
+    "margin": 0.06862587106633122,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio fwd",
+    "row": "suite es2",
+    "head": 1.009235526984244,
+    "p2a": 1.0580851244398124,
+    "worse_by": 0.048849597455568494,
+    "margin": 0.05080366659411929,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio side",
+    "row": "suite es2",
+    "head": 1.0619978619256942,
+    "p2a": 1.0636473701165796,
+    "worse_by": 0.0016495081908853848,
+    "margin": 0.023069802837461094,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio back",
+    "row": "suite es2",
+    "head": 0.9875656854447961,
+    "p2a": 1.0589976729748471,
+    "worse_by": 0.07143198753005109,
+    "margin": 0.06167028713341018,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio diag",
+    "row": "suite es2",
+    "head": 1.0116977374635336,
+    "p2a": 0.9985475312131666,
+    "worse_by": -0.013150206250367003,
+    "margin": 0.02906521009413416,
+    "exceeds": false
+   },
+   {
+    "statistic": "|ratio-1| move_turn",
+    "row": "suite es2",
+    "head": 0.2578282141039445,
+    "p2a": 0.20891761461691982,
+    "worse_by": 0.0489105994870247,
+    "margin": 0.07439913858643549,
+    "exceeds": false
+   }
+  ],
+  "regated": {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   }
+  }
  },
  "watch": {
   "field_hard@1": {
@@ -467,5 +573,138 @@
   "class": 0,
   "name": "budget_bound",
   "why": "training tail still rising at N_p"
- }
+ },
+ "zero_kg_thresholds": {
+  "file": "thresholds_v1_2.json",
+  "version": "v1.2",
+  "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+ },
+ "regates": [
+  {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   },
+   "previous_record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/history/p3b.1.json",
+   "verdict_before": "CEILING",
+   "verdict_after": "CEILING",
+   "zero_kg_before": {
+    "verdict": "FAIL",
+    "max_margin_used": 1.1582885511060392,
+    "fails": [
+     "ratio back suite es1: worse by 0.0684 > margin 0.0617 (R)",
+     "ratio back suite es2: worse by 0.0714 > margin 0.0617 (R)"
+    ]
+   },
+   "zero_kg_after": {
+    "verdict": "PASS",
+    "max_margin_used": 0.6619605845918585,
+    "fails": [],
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "watch_exceeds": [
+     "ratio back suite es1: worse by 0.0684 > margin 0.0617 (WATCH)",
+     "ratio back suite es2: worse by 0.0714 > margin 0.0617 (WATCH)"
+    ],
+    "watch_reads": [
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es1",
+      "head": 1.0094380978073707,
+      "p2a": 1.0464079091335667,
+      "worse_by": 0.036969811326196034,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es1",
+      "head": 1.0616556971840145,
+      "p2a": 1.0645890758415073,
+      "worse_by": 0.002933378657492769,
+      "margin": 0.03152549558647399,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es1",
+      "head": 0.9925020300903125,
+      "p2a": 1.0608539524460237,
+      "worse_by": 0.06835192235571119,
+      "margin": 0.06167028713341018,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es1",
+      "head": 1.0143931941077997,
+      "p2a": 0.9965317287189133,
+      "worse_by": -0.017861465388886444,
+      "margin": 0.02906521009413416,
+      "exceeds": false
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es1",
+      "head": 0.25936795258958356,
+      "p2a": 0.21394033086038944,
+      "worse_by": 0.04542762172919412,
+      "margin": 0.06862587106633122,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es2",
+      "head": 1.009235526984244,
+      "p2a": 1.0580851244398124,
+      "worse_by": 0.048849597455568494,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es2",
+      "head": 1.0619978619256942,
+      "p2a": 1.0636473701165796,
+      "worse_by": 0.0016495081908853848,
+      "margin": 0.023069802837461094,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es2",
+      "head": 0.9875656854447961,
+      "p2a": 1.0589976729748471,
+      "worse_by": 0.07143198753005109,
+      "margin": 0.06167028713341018,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es2",
+      "head": 1.0116977374635336,
+      "p2a": 0.9985475312131666,
+      "worse_by": -0.013150206250367003,
+      "margin": 0.02906521009413416,
+      "exceeds": false
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es2",
+      "head": 0.2578282141039445,
+      "p2a": 0.20891761461691982,
+      "worse_by": 0.0489105994870247,
+      "margin": 0.07439913858643549,
+      "exceeds": false
+     }
+    ]
+   },
+   "note": "only the paired 0-kg check was re-read; every other line is the original gate read (thresholds above)"
+  }
+ ]
 }
