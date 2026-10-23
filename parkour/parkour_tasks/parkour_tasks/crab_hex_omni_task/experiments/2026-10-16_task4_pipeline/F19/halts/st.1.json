@@ -1,0 +1,21 @@
+{
+ "run": "F19",
+ "stage": "st",
+ "class": "DRIVER",
+ "why": "distill.sh rc=134, run dir /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_15-02-05_T4F19_st, last checkpoint 26800 (want >= 27992)",
+ "at": "2026-10-22T22:41:11",
+ "status": "open",
+ "lines": [],
+ "chance_rate_sum": null,
+ "chance_rate_unmodelled": [],
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped), summed over the lines WITH a modelled rate; chance_rate_unmodelled lists the rest -- degenerate fixed-t lines (sigma_hat 0: rate None, 'degenerate/unvalidated', CHARTER 2026-10-21 decision C), live-kill and drift lines (unvalidated, no rate)",
+ "gate": null,
+ "subtree": [
+  "sel",
+  "bundle"
+ ],
+ "options": [
+  "retry",
+  "abort"
+ ]
+}

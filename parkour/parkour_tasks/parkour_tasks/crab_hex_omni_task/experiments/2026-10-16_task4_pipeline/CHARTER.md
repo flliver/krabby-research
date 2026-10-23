@@ -626,3 +626,25 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - The report discloses:
       - the move_turn and diag 0-kg losses;
       - the one-sided ratio rule failing overshoot corrections.
+- **2026-10-22, F19 p3b (15:02) and T\*, then a user amendment (22:36).**
+  - **p3b:** measured ceiling, max_stable 135 kg, limiting factor budget_bound (still rising at N_p). p3c skipped.
+  - **T\* = p3a** (90 kg), because p3b was EXCLUDED by its paired 0-kg check (margin use 1.16).
+    - Its only failing statistic is back ratio: 1.061 → 0.993 at es1 and 1.059 → 0.988 at es2 (drop 0.068 / 0.071
+      vs margin 0.062). That is p2a's overshoot moving to 1.0; |r − 1| improves 0.061 → 0.007 / 0.059 → 0.012.
+    - Every other p3b 0-kg line passes:
+      - move_turn drops 0.045 / 0.049 vs margin 0.069 / 0.074;
+      - diag 0.997 → 1.014;
+      - on |r − 1|, the worst cell is diag +0.011 vs 0.026.
+    - At 0 kg, p3b is better than p3a: move_turn 0.74 vs 0.69, diag ≈ 1.0 vs 0.96.
+    - Recomputed with `gate_read.zero_kg_check` on F19's stamps.
+  - **Decision (user, 2026-10-22): amend + switch now.**
+    - **Thresholds v1.2:** the decisive 0-kg statistic for translate ratios becomes the change in tracking error,
+      worse_by = |r_head − 1| − |r_p2a − 1|, failing on an increase only. Its margin keeps the PLAN form (99 % guard
+      R, 3·SE_diff, X12 − X08 drift scaled), each computed on |r − 1|.
+    - move_turn stays a one-sided ratio drop. The raw drop is kept as a WATCH read.
+    - F19: the distill from p3a was stopped at ≈ it 26800 by SIGTERM on the trainer pid (exited in 10 s, rc 134, no
+      SIGKILL). The queue parked with HALT st.1 (DRIVER) and STOP_PIPELINE.
+    - Then the F19 payload heads are re-gated under v1.2 (expected T\* = p3b, 135 kg); student, selection and stand
+      re-run fresh from p3b.
+    - R18 must be unchanged under v1.2: its p3a fails on move_turn and its p3b on yaw_progress, so T\* = p3a.
+  - Build + verify + re-pin follow.
