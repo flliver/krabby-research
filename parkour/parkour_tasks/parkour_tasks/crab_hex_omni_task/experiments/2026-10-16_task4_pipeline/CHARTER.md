@@ -648,3 +648,34 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
       re-run fresh from p3b.
     - R18 must be unchanged under v1.2: its p3a fails on move_turn and its p3b on yaw_progress, so T\* = p3a.
   - Build + verify + re-pin follow.
+- **2026-10-23, thresholds v1.2 + T\* retarget built and verified.** Workflow `wf_aa635741-bfb`: opus·xhigh build,
+  2 fable·high verifiers, 0 blocking.
+  - **`thresholds_v1_2.json`** (sha 969b2988), from `threshold_inputs_v1_2.yaml`:
+    - The 0-kg paired line's decisive translate statistic is `track_err <c>`, worse_by = |r_head − 1| − |r_p2a − 1|,
+      failing on an increase only. R is the 99 % guard R of cat.<c>.ratio; SE_diff is the paired bootstrap on |r − 1|;
+      drift is X12 − X08 on |r − 1| (equal to v1.1's WATCH |r − 1| drift).
+    - move_turn keeps the one-sided ratio drop. The raw translate drop `ratio <c>` is a WATCH read.
+    - Every other line is identical to v1.1, and the run sums are unchanged (recommended 1.197). Self-check PASS;
+      known-bads unchanged.
+  - **Re-gated under v1.2.** The verifiers' independent reader matches to 4 decimals.
+    - F19 p3b: PASS, max use 0.66 (move_turn). The raw back drop (0.068 / 0.071) is WATCH.
+    - F19 p3a: FAIL (track_err diag 0.038 / 0.036 > 0.029; move_turn 0.099 / 0.097). It stays accepted.
+    - R18 p3a: FAIL (move_turn only). R18 p3b: FAIL (yaw_progress es2 only). R18's T\* stays p3a.
+  - **TP:** `continue --amend st --retarget-tstar`:
+    - re-gates every trained payload head's 0-kg check; the old gate, T\* and halt records are copied to history/;
+    - re-picks T\* with the existing rule;
+    - gives st a fresh distill `T4F19_st_a2`; the p3a run dir stays as a record (superseded);
+    - resets sel / sn / sh / bundle;
+    - closes st.1 as amended and moves the pin. It refuses if T\* is unchanged.
+  - 14 new tests; task4 suite 249 pass.
+  - **Disclosures:**
+    - (a) The step-8 pilot pair (PP_p3a_s18 vs S1 s18, a rate source and not a gate) reads FAIL under v1.2 on
+      track_err back. Its back overshoot grew from 1.087 to 1.162; this is the intended case.
+    - (b) The student full block's +0.05 tracking WATCH still includes a raw one-sided ratio row. An overshooting T\*
+      can raise that WATCH for a student that tracks closer to 1.0. It is reported only; the report names it.
+    - (c) The re-gated p3a / p3b gate headers keep v1.1, and their 0-kg sub-records say v1.2.
+    - (d) R18's walker gates re-read today as WATCH (`live_collapse` flag added 2026-10-19), not as recorded PASS.
+      This is pre-existing and no decisive line moves.
+  - **Pin:** `gen` (R18 / F19 / dry plan.json → v1.2), lock 348 files, check clean on R18 / F19 / dry. The pin is
+    this commit, local tag `task4-pin-2026-10-23`. Then STOP_PIPELINE is removed and
+    `continue --run F19 --amend st --retarget-tstar` relaunches F19 from T\* = p3b.

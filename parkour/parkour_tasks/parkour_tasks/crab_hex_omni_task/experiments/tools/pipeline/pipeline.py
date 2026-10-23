@@ -26,6 +26,15 @@ Everything a run is comes from the spec (``--spec <campaign>/pipeline.yaml``; no
            depend on it, then PARKS.
   continue --accept-chance STAGE | --amend STAGE --charter TEXT | --retry STAGE | --abort  (PLAN On FAIL: a HALT
            is a prompt; an accepted one lets the run continue from the halted stage and stays eligible, disclosed)
+  continue --amend STAGE --retarget-tstar --charter TEXT [--why TEXT] [--no-relaunch]  (CHARTER 2026-10-22, F19 p3b
+           -> "amend + switch now"; :func:`do_retarget_tstar`): after a re-pin whose thresholds change the paired 0-kg
+           check, ONE command re-gates every trained payload head's 0-kg check under the current thresholds (stage
+           statuses unchanged, previous records kept under ``history/``), re-picks T* by the existing rule, resets
+           everything built on T* to fresh runs (the open HALT at STAGE closes as amended) and moves the pin like
+           --amend; refused, with nothing written, when T* would not change. It never deletes STOP_PIPELINE: remove it
+           before the command (which relaunches the queue), or pass --no-relaunch and remove it before ``run``. F19:
+           ``continue --run F19 --amend st --retarget-tstar --charter 'CHARTER 2026-10-22 F19 p3b: amend + switch now
+           (thresholds v1.2)' --why '...'``.
   status / gate / report.
 Stopping (CHARTER 2026-10-18 rule amendment; PLAN's "never SIGKILL" for non-driver stages now follows
 ``run_phases._stop_child``): a driver stage is stopped with ``systemctl --user stop`` (the driver's own SIGTERM path,
@@ -510,7 +519,8 @@ def lock_files(spec: Spec) -> list[Path]:
         files.add(L.TOOLS / n)
     files.add(spec.path)
     files.add(spec.thresholds_path())
-    for n in ("threshold_inputs.yaml", "threshold_inputs_v1.yaml", "threshold_inputs_v1_1.yaml", "cameras.yaml"):
+    for n in ("threshold_inputs.yaml", "threshold_inputs_v1.yaml", "threshold_inputs_v1_1.yaml",
+              "threshold_inputs_v1_2.yaml", "cameras.yaml"):
         if (spec.dir / n).is_file():
             files.add(spec.dir / n)
     for sub in ("scripts", "rows"):
@@ -1466,6 +1476,59 @@ def head_zero_kg_stamps(ctx: Ctx, sid: str) -> dict:
     return out
 
 
+def zero_kg_of(ctx: Ctx, sid: str, th) -> dict:
+    """The paired 0-kg check (PLAN Payload 3f) of payload head ``sid`` against the run's own p2a head under the
+    thresholds view ``th`` (gate_read.zero_kg_check: the line's translate mode, its drift). One call site for the gate
+    and for the T* retarget re-gate (:func:`do_retarget_tstar`), so the two cannot read the check differently."""
+    trained = ctx.plan["stages"][sid]["trained"]
+    return GR.zero_kg_check(head_zero_kg_stamps(ctx, sid), p2a_zero_kg_stamps(ctx),
+                            [c for c in trained if c in GR.TRANSLATE], th, its_past_p2a(ctx, sid),
+                            resolution_files(ctx))
+
+
+def zero_kg_record(zk: dict) -> dict:
+    """The stage record's ``zero_kg`` (what T* reads): the verdict, the max margin use, the failing statistics and the
+    translate mode / thresholds version that produced them (records stay unambiguous across a re-gate), plus the
+    WATCH reads (from v1.2 the raw translate ratio drop: CHARTER 2026-10-22 keeps it reported, never decisive, so a
+    record still shows a speed drop) and the WATCH rows that exceed their margin (``watch_exceeds``)."""
+    reads, exceeds = [], []
+    for r in zk.get("rows") or []:
+        if not r.get("watch") or r.get("worse_by") is None:
+            continue
+        m = (r.get("margin") or {}).get("margin") if isinstance(r.get("margin"), dict) else None
+        reads.append({"statistic": r["statistic"], "row": r["row"], "head": r.get("head"), "p2a": r.get("p2a"),
+                      "worse_by": r["worse_by"], "margin": m, "exceeds": bool(r.get("exceeds"))})
+        if r.get("exceeds"):
+            exceeds.append(f"{r['statistic']} {r['row']}: worse by {r['worse_by']:.4f} > margin {m:.4f} (WATCH)")
+    return {"verdict": zk["verdict"], "max_margin_used": zk.get("max_margin_used"), "fails": zk["fails"],
+            "translate_statistic": zk.get("translate_statistic"), "thresholds_version": zk.get("thresholds_version"),
+            "watch_exceeds": exceeds, "watch_reads": reads}
+
+
+def zero_kg_line(sid: str, zk: dict) -> dict:
+    """The payload gate's decisive 0-kg line (p3a: ``required_level`` set)."""
+    return {"id": f"{sid}.capability.zero_kg_paired", "statistic": "paired 0-kg check vs the run's own p2a",
+            "value": zk.get("max_margin_used"), "line": 1.0, "direction": "<=", "pass": zk["verdict"] == "PASS",
+            "fails": zk["fails"], "rate": None, "unvalidated": True,
+            "rate_note": "paired: <= Phi(-3) per statistic (thresholds.json); drift margin unvalidated"}
+
+
+def payload_verdict(ctx: Ctx, sid: str, dec: list, g0: list, ms) -> tuple:
+    """A payload stage's verdict and flags from its decisive lines (PLAN Payload: a p3b / p3c floor miss -- or a
+    max_stable below the stage's own top -- is a measured CEILING, never a HALT). Returns (verdict, watch flags)."""
+    g = ctx.spec.stage(sid).get("gate") or {}
+    top = g.get("top_level")
+    ceiling = bool(g.get("ceiling_on_fail"))
+    reached_top = ms is not None and top is not None and ms >= top
+    flags = []
+    if ceiling and not reached_top:
+        flags.append({"id": f"{sid}.ceiling", "why": f"max_stable {ms} < its own top {top}: a measured ceiling"})
+    verdict = GR.verdict_of(dec, g0, ceiling_on_fail=ceiling, watch_flags=flags)
+    if verdict in (GR.PASS, GR.WATCH) and ceiling and not reached_top:
+        verdict = GR.CEILING
+    return verdict, flags
+
+
 def gate_payload(ctx: Ctx, sid: str, curve: dict | None = None) -> dict:
     st = ctx.spec.stage(sid)
     g = st.get("gate") or {}
@@ -1493,26 +1556,11 @@ def gate_payload(ctx: Ctx, sid: str, curve: dict | None = None) -> dict:
                         f"<= {req})", "value": ms, "line": req, "direction": ">=",
                         "pass": ms is not None and ms >= req, "rate": None, "unvalidated": True,
                         "rate_note": "pending step 8 (payload a-priori: the pilot value as the mean)"})
-        zk = GR.zero_kg_check(head_zero_kg_stamps(ctx, sid), p2a_zero_kg_stamps(ctx),
-                              [c for c in trained if c in GR.TRANSLATE], th, its_past_p2a(ctx, sid),
-                              resolution_files(ctx))
-        ctx.srec(sid)["zero_kg"] = {"verdict": zk["verdict"], "max_margin_used": zk.get("max_margin_used"),
-                                    "fails": zk["fails"]}
-        zline = {"id": f"{sid}.capability.zero_kg_paired", "statistic": "paired 0-kg check vs the run's own p2a",
-                 "value": zk.get("max_margin_used"), "line": 1.0, "direction": "<=", "pass": zk["verdict"] == "PASS",
-                 "fails": zk["fails"], "rate": None, "unvalidated": True,
-                 "rate_note": "paired: <= Phi(-3) per statistic (thresholds.json); drift margin unvalidated"}
+        zk = zero_kg_of(ctx, sid, th)
+        ctx.srec(sid)["zero_kg"] = zero_kg_record(zk)
         if req is not None:
-            dec.append(zline)
-    top = g.get("top_level")
-    ceiling = bool(g.get("ceiling_on_fail"))
-    reached_top = ms is not None and top is not None and ms >= top
-    flags = []
-    if ceiling and not reached_top:
-        flags.append({"id": f"{sid}.ceiling", "why": f"max_stable {ms} < its own top {top}: a measured ceiling"})
-    verdict = GR.verdict_of(dec, g0, ceiling_on_fail=ceiling, watch_flags=flags)
-    if verdict in (GR.PASS, GR.WATCH) and ceiling and not reached_top:
-        verdict = GR.CEILING
+            dec.append(zero_kg_line(sid, zk))
+    verdict, flags = payload_verdict(ctx, sid, dec, g0, ms)
     res = {"verdict": verdict, "gate0": g0, "decisive": dec, "halt_lines": [d["id"] for d in dec if not d.get("pass")],
            "watch_flags": flags, "max_stable": ms, "curve": curve, "label": PR().LABEL,
            "zero_kg": ctx.srec(sid).get("zero_kg"),
@@ -1998,6 +2046,7 @@ class Queue:
             mmu = zk.get("max_margin_used")
             considered.append({"stage": c, "status": st, "max_stable": r.get("max_stable"), "zero_kg": verdict,
                                "zero_kg_fails": list(zk.get("fails") or []), "max_margin_used": mmu,
+                               "zero_kg_watch": list(zk.get("watch_exceeds") or []),
                                "accepted": accepted, "eligible": verdict == "PASS" or accepted,
                                "gate": (r.get("gate") or {}).get("path"),
                                "halt": (ctx.state.get("halts") or {}).get(c)})
@@ -2035,8 +2084,9 @@ class Queue:
             use = f"{x['max_margin_used']:.2f}" if isinstance(x["max_margin_used"], (int, float)) else "-"
             tag = "CHOSEN" if x.get("chosen") else ("eligible" if x["eligible"] else "EXCLUDED")
             fails = f" fails [{'; '.join(x['zero_kg_fails'])}]" if x["zero_kg_fails"] else ""
+            watch = (f" WATCH [{'; '.join(x['zero_kg_watch'])}]" if x.get("zero_kg_watch") else "")
             out.append(f"{x['stage']}: max_stable={x['max_stable']} 0-kg={x['zero_kg']} margin_use={use}"
-                       f"{' accepted-as-chance' if x['accepted'] else ''}{fails} -> {tag}")
+                       f"{' accepted-as-chance' if x['accepted'] else ''}{fails}{watch} -> {tag}")
         out += [f"{x['stage']}: not trained ({x['status']})" for x in not_trained]
         return " | ".join(out)
 
@@ -2874,11 +2924,16 @@ def preflight(spec: Spec, run: str) -> list[str]:
 
 
 def do_continue(spec: Spec, run: str, *, accept=None, amend=None, charter=None, retry=None, abort=False,
-                why: str = "", relaunch: bool = True) -> int:
+                why: str = "", relaunch: bool = True, retarget_tstar: bool = False) -> int:
     ctx = Ctx(spec, run)
     if queue_pid(ctx):
         print("the queue is running: continue acts on a parked run only", file=sys.stderr)
         return 3
+    if retarget_tstar:
+        if not amend:
+            print("--retarget-tstar goes with --amend STAGE", file=sys.stderr)
+            return 2
+        return do_retarget_tstar(ctx, amend, charter=charter, why=why, relaunch=relaunch)
     if abort:
         ctx.state["status"] = "aborted"
         for sid, h in ctx.state["halts"].items():
@@ -2980,6 +3035,278 @@ def do_continue(spec: Spec, run: str, *, accept=None, amend=None, charter=None, 
     return launch_queue(spec, run) if relaunch else 0
 
 
+# ============================================================================== continue --amend STAGE --retarget-tstar
+def history_copy(p: Path) -> str | None:
+    """Copy record ``p`` VERBATIM to ``<its dir>/history/<stem>.<k>.json`` (the next free k; never overwritten) and
+    return its repo path -- a superseded record is kept, never lost (CHARTER 2026-10-22)."""
+    p = Path(p)
+    if not p.is_file():
+        return None
+    d = p.parent / "history"
+    k = 1
+    while (d / f"{p.stem}.{k}.json").exists():
+        k += 1
+    q = d / f"{p.stem}.{k}.json"
+    L.write_text_atomic(q, p.read_text())
+    return L.rel(q)
+
+
+def distill_run_name(run: str, sid: str, attempt: int) -> str:
+    """ex_distill's run name: ``T4<run>_<sid>``, ``_a<n>`` from the second attempt on."""
+    return f"T4{run}_{sid}" + (f"_a{attempt}" if attempt > 1 else "")
+
+
+def retarget_problems(ctx: Ctx, sid: str, tsid: str | None, *, charter: str | None, relaunch: bool) -> list[str]:
+    """Why ``continue --amend <sid> --retarget-tstar`` refuses (nothing is written when any holds)."""
+    spec = ctx.spec
+    out = []
+    if not charter:
+        out.append("--amend needs --charter (the CHARTER entry that records the decision)")
+    if tsid is None:
+        out.append(f"run {ctx.run} has no T* stage (kind tstar)")
+        return out
+    h = (ctx.state.get("halts") or {}).get(sid)
+    if h is None or h.get("status") != "open":
+        out.append(f"no open HALT at {sid}")
+    scope = [tsid] + dependents(ctx, tsid)
+    if sid not in scope:
+        out.append(f"--retarget-tstar re-picks T*: the amended HALT must be at {tsid} or a stage built on it "
+                   f"({', '.join(scope)}), not {sid}")
+    other = sorted(s for s, x in (ctx.state.get("halts") or {}).items() if x.get("status") == "open" and s != sid)
+    if other:
+        out.append(f"other open HALT(s) {other}: one decision per command -- resolve them first")
+    if (ctx.dir / "STOP_PIPELINE").exists() and relaunch:
+        out.append("STOP_PIPELINE is present, so the relaunched queue would stop at once. This command never deletes "
+                   "it: remove it first (the main thread / the user), or pass --no-relaunch and remove it before "
+                   "`pipeline.py run`")
+    th = spec.thresholds_path()
+    if not th.is_file():
+        out.append(f"thresholds file {th} missing")
+    elif json.loads(th.read_text()).get("version") != spec.d["thresholds"]["version"]:
+        out.append(f"thresholds file version {json.loads(th.read_text()).get('version')} != spec "
+                   f"{spec.d['thresholds']['version']} (which thresholds re-gate is ambiguous)")
+    for d in scope:
+        if spec.stage(d)["kind"] == "distill":
+            name = distill_run_name(ctx.run, d, int(ctx.srec(d).get("distill_attempt", 1)))
+            u = read_unit(name)
+            if u and ctx.rt.unit_active(f"{u}.scope"):
+                out.append(f"{d}: the distill scope {u} ({name}) is still active -- stop its trainer first")
+    return out
+
+
+def do_retarget_tstar(ctx: Ctx, sid: str, *, charter: str | None, why: str = "", relaunch: bool = True) -> int:
+    """``continue --run <run> --amend <sid> --retarget-tstar --charter '<CHARTER ref>' --why '...'`` (CHARTER
+    2026-10-22, F19 p3b -> USER DECISION "amend + switch now"): a thresholds amendment that changes the paired 0-kg
+    check re-picks T* in ONE recorded command, after the re-pin (``pipeline.py lock``; the run's pin moves exactly as
+    ``--amend`` moves it). ``sid`` is the stage holding the run's open HALT (F19: ``st.1``, DRIVER -- the p3a-based
+    distill stopped by SIGTERM on its trainer pid), which must be T* itself or a stage built on it.
+
+    a. RE-GATE: every TRAINED head of T*'s candidate list (p3a, p3b; p3c only if trained) re-reads its paired 0-kg
+       check under the CURRENT thresholds file (:func:`zero_kg_of`, the gate's own call). Its stage record's
+       ``zero_kg`` is replaced (the previous one appended to ``zero_kg_history``); its gate record is copied verbatim
+       to ``gates/history/<stage>.<k>.json`` first, then updated in place (``zero_kg``, the decisive 0-kg line where
+       the stage has one, the verdict recomputed by :func:`payload_verdict`, a ``regates`` entry naming the copy and
+       both verdicts). The STAGE STATUS NEVER CHANGES: an accepted head stays ``accepted`` (its accepted HALT record
+       is annotated with the re-gate, never reopened), a ceiling stays ``ceiling`` (a measured ceiling, unrelated to
+       the 0-kg check).
+    b. T*: :meth:`Queue.ex_tstar` -- the existing rule and code path (the highest max_stable that passes its 0-kg
+       check, accepted-as-chance heads eligible) -- writes the T* record and its NOTIFY listing every head; the
+       previous record is kept under ``stage_reads/history/`` and summarised in ``state.tstar_history``.
+    c. RESET: every stage built on T* (F19: st, sel, sn, sh, bundle) goes back to ``pending`` with no stale step
+       record: its record keys move to ``superseded`` (with the run name it trained under), its stage read / rows /
+       gate records move to ``history/`` (copied verbatim, then removed), ``state.selected_student`` moves to
+       ``superseded_selected_student``; a distill / DAgger stage that had started trains AFRESH under the next
+       attempt (``distill_attempt`` + 1 -> ``T4F19_st_a2``) -- the stopped run dir is never resumed and stays on disk
+       as a record. The HALT closes as ``amended`` with the CHARTER reference.
+    d. PIN: ``state.amendments`` gains the entry (old / new lock sha, T* from / to, the thresholds file) and the pin's
+       lock sha moves to the current lock, exactly like ``--amend``.
+    e. REFUSES (exit 2, nothing written): no --charter; no open HALT at ``sid`` or ``sid`` not T* / built on it;
+       another open HALT; STOP_PIPELINE present with a relaunch (the command never deletes it: the main thread removes
+       it, or passes --no-relaunch and removes it before ``pipeline.py run``); the thresholds file's version is not
+       the spec's; a distill scope still active; no trained candidate; a re-gate error; the re-gated T* is NONE or
+       UNCHANGED (then nothing is reset). The queue running is refused by :func:`do_continue` (exit 3).
+    It touches only ``ctx``'s run dir (never another run's state)."""
+    spec = ctx.spec
+    tsid = next((s["id"] for s in spec.stages(ctx.run) if s["kind"] == "tstar"), None)
+    probs = retarget_problems(ctx, sid, tsid, charter=charter, relaunch=relaunch)
+    if probs:
+        print("retarget refused (nothing written):\n  " + "\n  ".join(probs), file=sys.stderr)
+        return 2
+    th_path = spec.thresholds_path()
+    th = GR.Thresholds.load(th_path)
+    th_rec = {"file": th_path.name, "version": spec.d["thresholds"]["version"], "sha256": L.sha256_file(th_path)}
+    q = Queue(ctx)
+    # -- a. re-gate in memory first: nothing is written until T* is known to change
+    regated = {}
+    for c in spec.stage(tsid)["candidates"]:
+        r = ctx.state["stages"].get(c) or {}
+        if r.get("status") not in ("pass", "accepted", "ceiling") or not ctx.head(c):
+            continue                                  # not trained: ex_tstar lists it as before
+        try:
+            regated[c] = zero_kg_of(ctx, c, th)
+        except Exception as exc:  # noqa: BLE001  (a refusal, never a half-written record)
+            print(f"retarget refused (nothing written): the {c} 0-kg re-gate raised {type(exc).__name__}: {exc}",
+                  file=sys.stderr)
+            return 2
+    if not regated:
+        print("retarget refused (nothing written): no trained payload head to re-gate", file=sys.stderr)
+        return 2
+    old_t = (ctx.state.get("tstar") or {}).get("stage")
+    live = ctx.state
+    sim = copy.deepcopy(live)
+    for c, zk in regated.items():
+        sim["stages"][c]["zero_kg"] = zero_kg_record(zk)
+    ctx.state = sim
+    try:
+        _considered, _nt, t = q.tstar_considered(tsid)
+    finally:
+        ctx.state = live
+    if t is None or t["stage"] == old_t:
+        print(f"retarget refused (nothing written): under thresholds {th_rec['version']} the re-gated T* would be "
+              + ("NONE (no trained head passes and none is accepted)" if t is None else f"UNCHANGED ({old_t})")
+              + "; verdicts: " + "; ".join(f"{c} {zk['verdict']} (max margin use {zk.get('max_margin_used')})"
+                                           for c, zk in regated.items()), file=sys.stderr)
+        return 2
+    PR()                                       # ex_tstar's label module: loaded before the first write
+    at = L.now_iso()
+    tag = {"at": at, "kind": "retarget_tstar", "charter": charter, "why": why, "thresholds": th_rec}
+    say = []
+    # -- a. the payload heads' records (status unchanged)
+    for c, zk in regated.items():
+        r = ctx.srec(c)
+        before = r.get("zero_kg")
+        after = {**zero_kg_record(zk), "regated": tag}
+        r.setdefault("zero_kg_history", []).append({**(before or {}), "superseded_at": at,
+                                                    "superseded_by_thresholds": th_rec["version"],
+                                                    "charter": charter})
+        r["zero_kg"] = after
+        gp = ctx.dir / "gates" / f"{c}.json"
+        g = L.read_json(gp)
+        if g is not None:
+            prev = history_copy(gp)
+            v_before = g.get("verdict")
+            for d in g.get("decisive") or []:
+                if d.get("id") == f"{c}.capability.zero_kg_paired":
+                    d.update({**zero_kg_line(c, zk), "regated_under": th_rec["version"]})
+            if not g.get("gate0"):
+                g["verdict"], g["watch_flags"] = payload_verdict(ctx, c, g.get("decisive") or [], [],
+                                                                 g.get("max_stable"))
+                g["halt_lines"] = [d["id"] for d in g.get("decisive") or [] if not d.get("pass")]
+            g["zero_kg"] = after
+            g["zero_kg_thresholds"] = th_rec
+            g.setdefault("regates", []).append({**tag, "previous_record": prev, "verdict_before": v_before,
+                                                "verdict_after": g["verdict"], "zero_kg_before": before,
+                                                "zero_kg_after": zero_kg_record(zk),
+                                                "note": "only the paired 0-kg check was re-read; every other line "
+                                                        "is the original gate read (thresholds above)"})
+            L.write_json_atomic(gp, g)
+            if r.get("gate"):
+                r["gate"] = {**r["gate"], "verdict": g["verdict"],
+                             "regated": {"at": at, "verdict_before": v_before, "thresholds": th_rec["version"]}}
+        hh = (ctx.state.get("halts") or {}).get(c)
+        if hh and hh.get("status") == "accepted":
+            hp = L.REPO / hh["record"]
+            hr = L.read_json(hp) or {}
+            hr.setdefault("regates", []).append({
+                **tag, "zero_kg": zero_kg_record(zk),
+                "note": (f"the accepted HALT stands (status 'accepted' unchanged): under thresholds "
+                         f"{th_rec['version']} the paired 0-kg check reads {zk['verdict']}"
+                         + (f" on {zk['fails']}" if zk["fails"] else ""))})
+            L.write_json_atomic(hp, hr)
+        r["history"].append({"at": at, "from": r.get("status"), "to": r.get("status"),
+                             "why": f"0-kg re-gated under thresholds {th_rec['version']} ({charter}): "
+                                    f"{(before or {}).get('verdict')} -> {zk['verdict']}; status unchanged"})
+        say.append(f"{c} 0-kg {(before or {}).get('verdict')} -> {zk['verdict']} "
+                   f"(max margin use {zk.get('max_margin_used')})")
+    # -- b. the previous T* record is kept
+    prev_ts = history_copy(ctx.stage_read_path(tsid))
+    old_rec = ctx.state.get("tstar") or {}
+    ctx.state.setdefault("tstar_history", []).append(
+        {**{k: old_rec.get(k) for k in ("stage", "ckpt", "sha256", "iteration", "max_stable")},
+         "superseded_at": at, "previous_record": prev_ts, "charter": charter,
+         "superseded_by_thresholds": th_rec["version"]})
+    # -- c. reset everything built on T*
+    fresh, reset = {}, []
+    for d in dependents(ctx, tsid):
+        r = ctx.srec(d)
+        kind = spec.stage(d)["kind"]
+        stale = {k: v for k, v in r.items() if k not in ("status", "history", "superseded")}
+        started = bool(stale) or r.get("status") not in ("pending", "blocked", "skipped")
+        new = {"status": "pending", "history": r["history"], "superseded": list(r.get("superseded") or [])}
+        if started:
+            entry = {"at": at, "charter": charter, "status": r.get("status"), "records": stale}
+            if kind == "distill":
+                n = int(r.get("distill_attempt", 1))
+                entry["run_name"] = distill_run_name(ctx.run, d, n)
+                new["distill_attempt"] = fresh[d] = n + 1
+            elif kind in ("dagger_sn", "dagger_sh"):
+                n = int(r.get("dagger_attempt", 1))
+                new["dagger_attempt"] = fresh[d] = n + 1
+            moved = []
+            for p in (ctx.stage_read_path(d), ctx.rows_path(d), ctx.dir / "gates" / f"{d}.json"):
+                cp = history_copy(p)
+                if cp:
+                    p.unlink()
+                    moved.append(cp)
+            entry["records_moved_to"] = moved
+            new["superseded"].append(entry)
+        if not new["superseded"]:
+            new.pop("superseded")
+        new["history"].append({"at": at, "from": r.get("status"), "to": "pending",
+                               "why": f"T* retargeted {old_t} -> {t['stage']} ({charter}): "
+                                      + ("a fresh run" + (f" (attempt {fresh[d]})" if d in fresh else "")
+                                         if started else "reset, nothing had run")})
+        ctx.state["stages"][d] = new
+        reset.append(d)
+    if "selected_student" in ctx.state:
+        ctx.state.setdefault("superseded_selected_student", []).append(
+            {"at": at, "charter": charter, "record": ctx.state.pop("selected_student")})
+    # -- c. the HALT closes as amended
+    h = ctx.state["halts"][sid]
+    rec_p = L.REPO / h["record"]
+    rec = L.read_json(rec_p) or {}
+    rec["status"] = "amended"
+    rec["resolution"] = {"by": "user", "at": at, "kind": "amend", "charter": charter, "why": why,
+                         "retarget_tstar": {"from": old_t, "to": t["stage"], "thresholds": th_rec,
+                                            "regated": {c: zk["verdict"] for c, zk in regated.items()},
+                                            "reset": reset, "fresh_attempts": fresh}}
+    h["status"] = "amended"
+    L.write_json_atomic(rec_p, rec)
+    # -- d. the pin moves exactly like --amend
+    lp = spec.lock_path()
+    new_lock = L.sha256_file(lp) if lp.is_file() else None
+    ctx.state["amendments"].append({"stage": sid, "at": at, "charter": charter,
+                                    "old_lock_sha256": (ctx.state.get("pin") or {}).get("lock_sha256"),
+                                    "new_lock_sha256": new_lock, "kind": "retarget_tstar",
+                                    "tstar_from": old_t, "tstar_to": t["stage"], "thresholds": th_rec})
+    if ctx.state.get("pin"):
+        ctx.state["pin"]["lock_sha256"] = new_lock
+    # -- b. T* through the existing rule and code path (writes the record + the NOTIFY listing every head)
+    ctx.srec(tsid)["history"].append({"at": at, "from": ctx.srec(tsid).get("status"), "to": "gate",
+                                      "why": f"re-pick: payload heads' 0-kg re-gated under thresholds "
+                                             f"{th_rec['version']} ({charter})"})
+    ctx.srec(tsid)["status"] = "gate"
+    q.ex_tstar(tsid)
+    trec = ctx.head(tsid) or {}
+    trec["retarget"] = {**tag, "from": old_t, "previous_record": prev_ts}
+    L.write_json_atomic(ctx.stage_read_path(tsid), trec)
+    ctx.state["tstar"] = trec
+    ctx.save()
+    stop = (ctx.dir / "STOP_PIPELINE").exists()
+    runs = [distill_run_name(ctx.run, d, n) if spec.stage(d)["kind"] == "distill" else f"{d} attempt {n}"
+            for d, n in fresh.items()]
+    msg = (f"continue: {sid} amended ({charter}) -- T* retargeted {old_t} -> {t['stage']} (max_stable "
+           f"{t['max_stable']}) under thresholds {th_rec['version']}; " + "; ".join(say) + f"; reset {reset}"
+           + (f"; fresh runs {runs}" if runs else ""))
+    ctx.notify("NOTIFY", msg)
+    print(msg)
+    if not relaunch:
+        print("not relaunched (--no-relaunch)" + ("; STOP_PIPELINE is still present: remove it, then "
+                                                  f"`pipeline.py run --run {ctx.run}`" if stop else ""))
+        return 0
+    return launch_queue(spec, ctx.run)
+
+
 def status_text(spec: Spec, run: str) -> str:
     ctx = Ctx(spec, run)
     s = ctx.state
@@ -3013,6 +3340,10 @@ def main(argv=None) -> int:
     ap.add_argument("--abort", action="store_true")
     ap.add_argument("--why", default="")
     ap.add_argument("--no-relaunch", action="store_true")
+    ap.add_argument("--retarget-tstar", action="store_true",
+                    help="with --amend STAGE (T* or a stage built on it): re-gate the payload heads' paired 0-kg check "
+                         "under the current thresholds, re-pick T*, reset T*'s subtree to fresh runs, move the pin; "
+                         "refused when T* would not change (CHARTER 2026-10-22; do_retarget_tstar)")
     a = ap.parse_args(argv)
     spec = Spec(a.spec)
     if a.cmd == "gen":
@@ -3082,8 +3413,10 @@ def main(argv=None) -> int:
     if a.cmd == "continue":
         if sum(bool(x) for x in (a.accept_chance, a.amend, a.retry, a.abort)) != 1:
             ap.error("continue takes exactly one of --accept-chance / --amend / --retry / --abort")
+        if a.retarget_tstar and not a.amend:
+            ap.error("--retarget-tstar goes with --amend STAGE")
         return do_continue(spec, a.run, accept=a.accept_chance, amend=a.amend, charter=a.charter, retry=a.retry,
-                           abort=a.abort, why=a.why, relaunch=not a.no_relaunch)
+                           abort=a.abort, why=a.why, relaunch=not a.no_relaunch, retarget_tstar=a.retarget_tstar)
     if a.cmd == "status":
         print(status_text(spec, a.run))
         return 0

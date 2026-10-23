@@ -27,7 +27,9 @@ DECISIVE LINES (thresholds.json, the ``recommended`` / ``both`` value sets minus
   miss there is a measured CEILING (``gate.ceiling_on_fail``), never a HALT;
 * p2a: field_hard completion pooled es1-4 (n = 400) >= the three-seed line;
 * p3a: stable at 90 (``payload_read.py``) and the paired 0-kg check against the run's own p2a head
-  (``thresholds.zero_kg_*``, the same functions the threshold self-check runs);
+  (``thresholds.zero_kg_*``, the same functions the threshold self-check runs, in the translate mode the thresholds
+  line records: the one-sided ratio drop to v1.1, ``track_err`` = |r_head - 1| - |r_p2a - 1| from v1.2, CHARTER
+  2026-10-22);
 * live collapse: the stage's live-watch record (a kill already HALTed the stage).
 Every decisive read carries its chance-HALT rate (thresholds.json), so a HALT record can quote it -- except a
 DEGENERATE fixed-t line (sigma_hat 0: every recorded seed equal), whose rate is ``None`` with ``rate_status``
@@ -424,20 +426,27 @@ def zero_kg_check(head: dict, p2a: dict, trained_translate: list, th: Thresholds
 
     ``head`` / ``p2a``: ``{"suite": {es: stamp}, "side22": stamp, "<field row>": [stamps in env-seed order]}`` on
     the SAME rows and env seeds. Uses thresholds.zero_kg_suite_rows / zero_kg_completion_row / zero_kg_judge and the
-    drift recorded in thresholds.json (``drift_by_statistic``)."""
+    drift recorded in thresholds.json (``drift_by_statistic``), in the translate mode the line records
+    (``translate_statistic``; absent = ``ratio_drop``, the v0 - v1.1 one-sided drop; ``track_err`` from v1.2, CHARTER
+    2026-10-22: |r_head - 1| - |r_p2a - 1| on every trained translate category, move_turn still the drop)."""
     TH = L.thresholds_mod()
     z = th.by_id("p3a.capability.zero_kg_paired")
     if z is None or "drift_by_statistic" not in z:
         return {"verdict": "FAIL", "fails": ["thresholds.json has no zero_kg_paired line with drift_by_statistic "
                                              "(regenerate thresholds with the STOP-0 semantics)"], "rows": []}
+    mode = z.get("translate_statistic", "ratio_drop")
+    if mode not in TH.ZERO_KG_TRANSLATE_MODES:
+        return {"verdict": "FAIL", "fails": [f"thresholds.json zero_kg_paired translate_statistic {mode!r} is not one "
+                                             f"of {TH.ZERO_KG_TRANSLATE_MODES}"], "rows": [],
+                "translate_statistic": mode}
     R = TH.resolution_R([L.absp(p) for p in resolution_files])
     Rg = TH.resolution_R_guard([L.absp(p) for p in resolution_files])
     A = {int(es): TH.suite_episodes(Path(s)) for es, s in head["suite"].items()}
     B = {int(es): TH.suite_episodes(Path(s)) for es, s in p2a["suite"].items()}
     if set(A) != set(B):
         return {"verdict": "FAIL", "fails": [f"suite env seeds differ: head {sorted(A)} vs p2a {sorted(B)}"],
-                "rows": []}
-    rows = TH.zero_kg_suite_rows(A, B, trained_translate, R, Rg)
+                "rows": [], "translate_statistic": mode}
+    rows = TH.zero_kg_suite_rows(A, B, trained_translate, R, Rg, translate=mode)
     for row in TH.ZERO_KG_FIELD_ROWS:
         ha, pb = head.get(row) or [], p2a.get(row) or []
         ca, cb = {}, {}
@@ -458,6 +467,8 @@ def zero_kg_check(head: dict, p2a: dict, trained_translate: list, th: Thresholds
     used = [r.get("margin_used") for r in res["rows"] if not r.get("watch") and r.get("margin_used") is not None]
     res["max_margin_used"] = max(used) if used else None
     res["rate_note"] = z.get("rate_note")
+    res["translate_statistic"] = mode
+    res["thresholds_version"] = th.version
     return res
 
 

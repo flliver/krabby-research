@@ -28,7 +28,7 @@
  ],
  "run": "F19",
  "spec": "pipeline.yaml",
- "spec_sha256": "0428ac9df1cbc663d208e709e02a0174f396fc6b8fce9e74e5cd3e598fb99121",
+ "spec_sha256": "2395be1471eb0daf863a73abba37a812c15e88df27144fff5f7e58fa621e7028",
  "stages": {
   "bundle": {
    "after": [
@@ -499,8 +499,8 @@
   }
  },
  "thresholds": {
-  "file": "thresholds_v1_1.json",
-  "version": "v1.1"
+  "file": "thresholds_v1_2.json",
+  "version": "v1.2"
  },
  "walker_seed": 19
 }

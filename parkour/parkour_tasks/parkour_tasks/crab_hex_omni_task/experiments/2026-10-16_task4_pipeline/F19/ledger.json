@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "entries": [
+    {
+      "id": "D01",
+      "kind": "measurement",
+      "candidate": null,
+      "question": "what turn rate can this plant actually deliver?",
+      "options": [
+        "RECORD"
+      ],
+      "chosen": "RECORD",
+      "status": "final",
+      "evidence": {
+        "turn_rate": {
+          "yaw_smoke_3_training_rad_s": 0.086,
+          "yaw_smoke_3_eval_rad_s": [
+            0.063,
+            0.094
+          ],
+          "per_head_yaw_progress_at_5000_it": [
+            0.09,
+            0.1
+          ],
+          "kinematic_bound_rad_s": [
+            0.15,
+            0.18
+          ],
+          "shipped_ang_vel_max": 0.3,
+          "note": "the commanded cap is ~2x the plant's estimated turn ceiling, and the move+turn slot is infeasible at any commandable speed (walk floor 0.21 m/s => omega <= 0.01 rad/s at r_foot 1.2 m) -- so move+turn is scored relatively and every cap candidate is screened directly instead of probed"
+        }
+      },
+      "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+      "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+      "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+      "decided_at": "2026-10-21T15:52:18",
+      "decided_by": "record",
+      "history": []
+    }
+  ]
+}

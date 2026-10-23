@@ -13,9 +13,14 @@ plant: A15+B
 # thresholds v1.1 (CHARTER 2026-10-21, R18 SN HALT -> user decisions 1 / C): v1 + the SN G1 taps/s and steps/s lines
 # (suite es1 / es2) on the WATCH list + degenerate fixed-t lines reported as rate None ('degenerate/unvalidated');
 # threshold_inputs_v1_1.yaml. v1 stays on disk as the record (R18's gates up to sn cite its sha).
+# thresholds v1.2 (CHARTER 2026-10-22, F19 p3b -> user decision "amend + switch now"): v1.1 + the paired 0-kg check reads
+# every trained translate category as track_err = |r_head - 1| - |r_p2a - 1| (an increase fails; R = 99 % guard R, SE /
+# drift on |r - 1|), move_turn still the one-sided drop, the raw translate drop WATCH; threshold_inputs_v1_2.yaml. v1.1
+# stays on disk as the record (R18's gates and F19's up to p3b cite its sha; F19 re-gates p3a / p3b with
+# `continue --amend st --retarget-tstar`).
 thresholds:
-  file: thresholds_v1_1.json
-  version: v1.1
+  file: thresholds_v1_2.json
+  version: v1.2
 lock: pipeline.lock.json
 # N_p: PLAN step 8 C3.6 (preflight/stepC_read.json v1.N_p): no pilot read settled within R of the read 500 its earlier,
 # so N_p = the clamp's 3000 (not_converged, disclosed); the same N_p for p3a / p3b / p3c

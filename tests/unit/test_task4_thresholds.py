@@ -13,7 +13,13 @@ Pinned here (PLAN "Gates -> Rule -> Self-checks"):
 * the payload a-priori formula and resolution.binomial_guard_floor's values (0.0717 / 0.0507);
 * thresholds v1.1 (CHARTER 2026-10-21): the inputs = v1 + the four SN G1 WATCH ids; a degenerate fixed-t line's rate
   is None + 'degenerate/unvalidated' and the sums count it out explicitly; v1.1 = v1 line for line otherwise and
-  regenerates byte for byte (v0 / v1 still do: their maps keep the plain read).
+  regenerates byte for byte (v0 / v1 still do: their maps keep the plain read);
+* thresholds v1.2 (CHARTER 2026-10-22, F19 p3b -> "amend + switch now"): every trained translate category's decisive
+  0-kg statistic is ``track_err <c>`` = |r_head - 1| - |r_p2a - 1| (an overshoot moving toward 1.0 passes, an
+  undershoot or an overshoot growing fails, 1.06 -> 0.94 reads 0), R = the 99 % guard R, SE / drift on |r - 1|;
+  move_turn is unchanged; the raw translate drop is a WATCH row; v1.2 = v1.1 line for line except the 0-kg line, its
+  drift carries the track_err keys (recomputed from X12 / X08), the self-check and every golden known-bad are v1.1's,
+  and it regenerates byte for byte.
 
 The module is loaded by path (TP has no ``__init__.py``) with bytecode writing off.
 """
@@ -580,3 +586,233 @@ def test_thresholds_v1_1_regenerates_byte_for_byte(T, tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "degenerate lines excluded (rate None): standard 26, recommended 22" in r.stdout
     assert out.read_bytes() == (PL / "thresholds_v1_1.json").read_bytes()
+
+
+# ---------------------------------------------------------------------- v1.2 (CHARTER 2026-10-22, F19 p3b -> amend)
+R_T = {"cat.fwd.ratio": 0.04, "cat.move_turn.ratio": 0.03}
+RG_T = {"cat.fwd.ratio": 0.05, "cat.move_turn.ratio": 0.04}
+
+
+def _fwd_pair(head_fwd: float, p2a_fwd: float, n: int = 50, mt=(0.8, 0.8)):
+    """A synthetic paired suite (one env seed): fwd at a constant ratio (head vs p2a), move_turn, and the turn rows."""
+    head = {1: _eps("fwd", [head_fwd] * n) + _eps("move_turn", [mt[0]] * n, 100)}
+    p2a = {1: _eps("fwd", [p2a_fwd] * n) + _eps("move_turn", [mt[1]] * n, 100)}
+    return head, p2a
+
+
+def _judge(T, head, p2a, translate, its=2500, drift=None):
+    rows = T.zero_kg_suite_rows(head, p2a, ["fwd"], R_T, RG_T, translate=translate)
+    d = {f"{r['statistic']}|{r['row']}": 0.0 for r in rows}
+    d.update(drift or {})
+    return rows, T.zero_kg_judge(rows, d, its)
+
+
+def test_track_err_mode_reads_and_defaults(T):
+    """The input key and its defaults: the frozen v0 / v1 / v1.1 maps read ratio_drop (byte-for-byte regeneration),
+    every later version track_err; an unknown mode is refused (by the map reader and by the row builder)."""
+    assert T.ZERO_KG_TRANSLATE_MODES == ("ratio_drop", "track_err")
+    for v in ("v0", "v1", "v1.1"):
+        assert T.zero_kg_translate_mode({"version": v}) == "ratio_drop"
+    assert T.zero_kg_translate_mode({"version": "v1.2"}) == "track_err"
+    assert T.zero_kg_translate_mode({"version": "v1.1", "zero_kg_translate_statistic": "track_err"}) == "track_err"
+    with pytest.raises(ValueError):
+        T.zero_kg_translate_mode({"version": "v1.2", "zero_kg_translate_statistic": "abs"})
+    h, p = _fwd_pair(1.0, 1.0)
+    with pytest.raises(ValueError):
+        T.zero_kg_suite_rows(h, p, ["fwd"], R_T, RG_T, translate="abs")
+
+
+def test_track_err_overshoot_moving_toward_one_passes(T):
+    """F19 p3b's back line in miniature: p2a overshoots (1.06), the head tracks (1.00). track_err reads -0.06 and
+    passes; the raw drop (0.06 > R 0.05) is still RECORDED as a WATCH row that exceeds its margin, never decisive. The
+    same pair under the v1.1 rule (ratio_drop) fails -- the defect the amendment removes."""
+    head, p2a = _fwd_pair(1.00, 1.06)
+    rows, j = _judge(T, head, p2a, "track_err")
+    dec = {r["statistic"]: r for r in rows if not r["watch"]}
+    wat = {r["statistic"]: r for r in rows if r["watch"]}
+    te = dec["track_err fwd"]
+    assert te["worse_by"] == pytest.approx(-0.06) and te["key"] == "track_err" and te["category"] == "fwd"
+    assert te["head"] == pytest.approx(0.0) and te["p2a"] == pytest.approx(0.06)
+    assert te["R"] == pytest.approx(0.05) and "@guard (99 %) on |r - 1|" in te["R_source"]
+    assert te["key_path"] == "|aggregate.suite.by_category.fwd.ratio.median - 1|"
+    assert te["worse_by_rule"].startswith("|head - 1| - |p2a - 1|")
+    assert "ratio fwd" not in dec and "|ratio-1| fwd" not in dec and "|ratio-1| fwd" not in wat
+    raw = wat["ratio fwd"]                               # the WATCH raw-drop row
+    assert raw["worse_by"] == pytest.approx(0.06) and raw["R"] == pytest.approx(0.05) and raw["key"] == "ratio"
+    assert "WATCH raw drop" in raw["R_source"] and raw["worse_by_rule"].startswith("p2a - head")
+    assert j["verdict"] == "PASS" and j["fails"] == []
+    assert next(r for r in j["rows"] if r["statistic"] == "ratio fwd")["exceeds"] is True
+    _rows, j_old = _judge(T, head, p2a, "ratio_drop")
+    assert j_old["verdict"] == "FAIL" and j_old["fails"][0].startswith("ratio fwd suite es1")
+
+
+def test_track_err_undershoot_growing_fails(T):
+    """An undershoot growing (0.98 -> 0.90: |r - 1| 0.02 -> 0.10) fails on track_err by 0.08 > 0.05, and a growth
+    inside the margin (0.98 -> 0.95) passes; the margin keeps the PLAN form (drift on the new key, scaled by its)."""
+    rows, j = _judge(T, *_fwd_pair(0.90, 0.98), "track_err")
+    assert j["verdict"] == "FAIL" and j["fails"] == ["track_err fwd suite es1: worse by 0.0800 > margin 0.0500 (R)"]
+    assert next(r for r in j["rows"] if r["statistic"] == "track_err fwd")["margin_used"] == pytest.approx(1.6)
+    assert _judge(T, *_fwd_pair(0.95, 0.98), "track_err")[1]["verdict"] == "PASS"
+    drift = {"track_err fwd|suite es1": 0.09}                                  # X12 - X08 on |r - 1| over 5000 its
+    assert _judge(T, *_fwd_pair(0.90, 0.98), "track_err", its=5000, drift=drift)[1]["verdict"] == "PASS"
+    assert _judge(T, *_fwd_pair(0.90, 0.98), "track_err", its=2000, drift=drift)[1]["verdict"] == "FAIL"
+
+
+def test_track_err_overshoot_growing_fails(T):
+    """An overshoot growing (1.02 -> 1.10) is an increase in tracking error: FAIL on track_err, while the v1.1 one-sided
+    drop never failed a faster head."""
+    _rows, j = _judge(T, *_fwd_pair(1.10, 1.02), "track_err")
+    assert j["verdict"] == "FAIL" and j["fails"][0].startswith("track_err fwd suite es1: worse by 0.0800")
+    assert _judge(T, *_fwd_pair(1.10, 1.02), "ratio_drop")[1]["verdict"] == "PASS"
+
+
+def test_track_err_crossing_one_reads_no_change(T):
+    """1.06 -> 0.94 crosses 1.0 at the same distance: track_err reads 0 (PASS); the raw drop (0.12) is the WATCH row."""
+    rows, j = _judge(T, *_fwd_pair(0.94, 1.06), "track_err")
+    te = next(r for r in rows if r["statistic"] == "track_err fwd")
+    assert te["worse_by"] == pytest.approx(0.0, abs=1e-12)
+    assert j["verdict"] == "PASS"
+    raw = next(r for r in j["rows"] if r["statistic"] == "ratio fwd")
+    assert raw["watch"] and raw["worse_by"] == pytest.approx(0.12) and raw["exceeds"]
+
+
+def test_track_err_leaves_move_turn_survival_and_facing_unchanged(T):
+    """move_turn stays EXACTLY the v1.1 one-sided ratio drop (same worse_by, R, SE_diff, key); survival and facing rows
+    and the |ratio-1| move_turn WATCH row are the v1.1 rows; the decisive row count is the same in both modes. A
+    move_turn drop beyond its margin fails in both."""
+    head, p2a = _fwd_pair(1.0, 1.06, mt=(0.70, 0.80))
+    old = T.zero_kg_suite_rows(head, p2a, ["fwd"], R_T, RG_T, translate="ratio_drop")
+    new = T.zero_kg_suite_rows(head, p2a, ["fwd"], R_T, RG_T, translate="track_err")
+    strip = lambda r: {k: v for k, v in r.items() if k != "worse_by_rule"}  # noqa: E731
+    by_old = {(r["statistic"], r["watch"]): r for r in old}
+    by_new = {(r["statistic"], r["watch"]): strip(r) for r in new}
+    same = [("ratio move_turn", False), ("survival fwd", False), ("facing_closed turn", False),
+            ("yaw_progress turn", False), ("|ratio-1| move_turn", True)]
+    for k in same:
+        assert by_new[k] == by_old[k], k
+    assert by_new[("ratio move_turn", False)]["R"] == pytest.approx(0.04)
+    assert sum(not r["watch"] for r in old) == sum(not r["watch"] for r in new) == 5
+    assert {r["statistic"] for r in new if r["watch"]} == {"ratio fwd", "|ratio-1| move_turn"}
+    for mode in ("ratio_drop", "track_err"):
+        _rows, j = _judge(T, head, p2a, mode)
+        assert any(f.startswith("ratio move_turn suite es1: worse by 0.1000") for f in j["fails"]), mode
+
+
+def test_track_err_fails_closed(T):
+    """A track_err row without a 99 % guard R, or read against a drift map with no track_err key (a pre-v1.2 file),
+    FAILS closed; a missing category reads missing (FAIL)."""
+    head, p2a = _fwd_pair(1.0, 1.0)
+    rows = T.zero_kg_suite_rows(head, p2a, ["fwd"], R_T, {"cat.move_turn.ratio": 0.04}, translate="track_err")
+    j = T.zero_kg_judge(rows, {f"{r['statistic']}|{r['row']}": 0.0 for r in rows}, 2500)
+    assert j["verdict"] == "FAIL" and any(f.startswith("track_err fwd") and "guard" in f for f in j["fails"])
+    old = T.zero_kg_suite_rows(head, p2a, ["fwd"], R_T, RG_T, translate="ratio_drop")
+    v11_drift = {f"{r['statistic']}|{r['row']}": 0.0 for r in old}
+    new = T.zero_kg_suite_rows(head, p2a, ["fwd"], R_T, RG_T, translate="track_err")
+    j = T.zero_kg_judge(new, v11_drift, 2500)
+    assert j["verdict"] == "FAIL" and j["fails"] == ["track_err fwd suite es1: no recorded drift for this statistic "
+                                                     "(thresholds.json)"]
+    rows = T.zero_kg_suite_rows({1: _eps("move_turn", [0.8] * 5, 100)}, {1: _eps("move_turn", [0.8] * 5, 100)},
+                                ["fwd"], R_T, RG_T, translate="track_err")
+    assert next(r for r in rows if r["statistic"] == "track_err fwd")["missing"] is True
+
+
+def test_threshold_inputs_v1_2_is_v1_1_plus_the_translate_mode():
+    """threshold_inputs_v1_2.yaml = v1.1 + zero_kg_translate_statistic: track_err (+ the version and a note citing the
+    CHARTER 2026-10-22 decision, and a header comment); every other key is v1.1's."""
+    yaml = pytest.importorskip("yaml")
+    text = (PL / "threshold_inputs_v1_2.yaml").read_text()
+    a = yaml.safe_load((PL / "threshold_inputs_v1_1.yaml").read_text())
+    b = yaml.safe_load(text)
+    assert text.startswith("# thresholds v1.2 inputs (CHARTER 2026-10-22")
+    assert b["version"] == "v1.2" and b["zero_kg_translate_statistic"] == "track_err"
+    assert set(b) - set(a) == {"v1_2_created", "v1_2_note", "zero_kg_translate_statistic"} and not set(a) - set(b)
+    assert all(a[k] == b[k] for k in a if k != "version")
+    assert "CHARTER 2026-10-22" in b["v1_2_note"] and "amend + switch now" in b["v1_2_note"]
+
+
+def _zl(doc):
+    return next(x for x in doc["lines"] if x["id"] == "p3a.capability.zero_kg_paired")
+
+
+def test_committed_thresholds_v1_2_is_v1_1_plus_the_track_err_line():
+    """thresholds_v1_2.json = v1.1 line for line except the paired 0-kg line; the top level differs only in version /
+    inputs / the zero_kg_statistic text; every sum is v1.1's (the per-statistic rates are ~1e-19, so the p3a pilot
+    rate is unchanged); the self-check is clean; every golden known-bad reads as in v1.1 (the failing ones still fail).
+    The step-8 pilot pair (PP_p3a_s18 vs S1 s18, a recorded read, not a gate) reads FAIL under the new rule on
+    track_err back only -- its back overshoot GREW (1.087 -> 1.162) -- disclosed by this test."""
+    import json as _json
+    a = _json.loads((PL / "thresholds_v1_1.json").read_text())
+    b = _json.loads((PL / "thresholds_v1_2.json").read_text())
+    assert b["version"] == "v1.2" and b["self_check_failures"] == []
+    assert {k for k in set(a) | set(b) if a.get(k) != b.get(k)} == {"version", "inputs", "zero_kg_statistic", "lines"}
+    assert "track_err" in b["zero_kg_statistic"] and "CHARTER 2026-10-22" in b["zero_kg_statistic"]
+    assert [(x["id"], x.get("value_set")) for x in a["lines"]] == [(x["id"], x.get("value_set")) for x in b["lines"]]
+    diff = [x["id"] for x, y in zip(a["lines"], b["lines"]) if x != y]
+    assert diff == ["p3a.capability.zero_kg_paired"]
+    kb = lambda d: [(x["id"], x.get("value_set"), k, v.get("fails"))  # noqa: E731
+                    for x in d["lines"] for k, v in sorted((x.get("known_bad") or {}).items())]
+    assert kb(a) == kb(b) and sum(1 for *_r, f in kb(b) if f) > 0
+    assert a["sums"] == b["sums"]
+    za, zb = _zl(a), _zl(b)
+    assert zb["translate_statistic"] == "track_err" and "translate_statistic" not in za
+    assert zb["known_good_self_check"] is True and zb["rate"] == za["rate"]
+    assert {k for k in set(za) | set(zb) if za.get(k) != zb.get(k)} == {
+        "rule", "statistics", "watch_statistics", "drift_by_statistic", "rate_by_Np", "pilot_pair",
+        "translate_statistic", "translate_statistic_note"}
+    for k in ("1500", "2500", "3000"):
+        assert zb["rate_by_Np"][k] == pytest.approx(za["rate_by_Np"][k], rel=1e-12)
+    assert za["pilot_pair"]["verdict"] == "PASS"
+    assert zb["pilot_pair"]["verdict"] == "FAIL"
+    assert all(f.startswith("track_err back") for f in zb["pilot_pair"]["fails"])
+    assert len(zb["pilot_pair"]["per_statistic"]) == 26 and zb["pilot_pair"]["unjudged"] == []
+
+
+def test_committed_thresholds_v1_2_drift_is_recomputed_on_the_new_statistic():
+    """The new decisive rows and their drift: one ``track_err <c>|suite es<k>`` key per trained translate category and
+    env seed, drift = |r_X12 - 1| - |r_X08 - 1| from the same X12 / X08 stamps (equal to v1.1's |ratio-1| WATCH drift,
+    the same quantity, and to the recorded medians), SE_diff on |r - 1| (v1.1's WATCH SE, the same bootstrap), R = the
+    99 % guard R (v1.1's decisive ratio R). move_turn's rows are v1.1's exactly; the WATCH raw-drop rows are v1.1's
+    decisive ratio rows marked WATCH."""
+    import json as _json
+    za = _zl(_json.loads((PL / "thresholds_v1_1.json").read_text()))
+    zb = _zl(_json.loads((PL / "thresholds_v1_2.json").read_text()))
+    tt = ["fwd", "side", "back", "diag"]
+    da, db = za["drift_by_statistic"], zb["drift_by_statistic"]
+    assert {f"track_err {c}|suite es{k}" for c in tt for k in (1, 2)} <= set(db)
+    assert not any(k.startswith("|ratio-1| ") and "move_turn" not in k for k in db)
+    dec_a = {(s["statistic"], s["row"]): s for s in za["statistics"]}
+    wat_a = {(s["statistic"], s["row"]): s for s in za["watch_statistics"]}
+    dec_b = {(s["statistic"], s["row"]): s for s in zb["statistics"]}
+    wat_b = {(s["statistic"], s["row"]): s for s in zb["watch_statistics"]}
+    for c in tt:
+        for k in (1, 2):
+            row = f"suite es{k}"
+            te = dec_b[(f"track_err {c}", row)]
+            abs_a, rat_a = wat_a[(f"|ratio-1| {c}", row)], dec_a[(f"ratio {c}", row)]
+            assert db[f"track_err {c}|{row}"] == te["drift"] == abs_a["drift"]
+            assert te["drift"] == pytest.approx(abs(rat_a["x12"] - 1.0) - abs(rat_a["x08"] - 1.0), abs=1e-15)
+            assert te["se_diff"] == abs_a["se_diff"] and te["R"] == rat_a["R"] and "@guard" in te["R_source"]
+            assert te["self_check_passes"] is True and te["key"] == "track_err" and te["watch"] is False
+            raw = wat_b[(f"ratio {c}", row)]
+            assert {kk for kk in set(raw) | set(rat_a) if raw.get(kk) != rat_a.get(kk)} == {"watch", "R_source",
+                                                                                           "worse_by_rule"}
+            assert db[f"ratio {c}|{row}"] == da[f"ratio {c}|{row}"]
+    for k in (1, 2):
+        for key, src_b, src_a in ((("ratio move_turn", f"suite es{k}"), dec_b, dec_a),
+                                  (("|ratio-1| move_turn", f"suite es{k}"), wat_b, wat_a)):
+            assert {kk: v for kk, v in src_b[key].items() if kk != "worse_by_rule"} == src_a[key], key
+    for s in za["statistics"]:                          # survival / facing / completion rows: v1.1's
+        if not s["statistic"].startswith("ratio "):
+            assert {kk: v for kk, v in dec_b[(s["statistic"], s["row"])].items() if kk != "worse_by_rule"} == s
+
+
+def test_thresholds_v1_2_regenerates_byte_for_byte(T, tmp_path):
+    import subprocess
+    _recorded_inputs()
+    out = tmp_path / "v1_2.json"
+    rel = (PL / "threshold_inputs_v1_2.yaml").relative_to(REPO)
+    r = subprocess.run([sys.executable, "-I", str(TP), "--inputs", str(rel), "--out", str(out), "--self-check"],
+                       cwd=str(REPO), capture_output=True, text=True, timeout=900)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "self-check failures 0" in r.stdout
+    assert out.read_bytes() == (PL / "thresholds_v1_2.json").read_bytes()

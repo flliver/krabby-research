@@ -4,7 +4,7 @@
  "class": "FAIL",
  "why": "decisive line(s) failed: ['p3a.capability.zero_kg_paired']",
  "at": "2026-10-22T06:50:25",
- "status": "open",
+ "status": "accepted",
  "lines": [
   {
    "id": "p3a.capability.zero_kg_paired",
@@ -39,5 +39,12 @@
   "accept-chance",
   "amend",
   "abort"
- ]
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-22T11:13:48",
+  "kind": "accept-chance",
+  "why": "user 2026-10-22: accept, disclose -- paired 0-kg: move_turn 0.79->0.69, diag 1.00->0.96 (real); fwd/back/side drops = p2a overshoot 1.05-1.07 moving to 1.0 (one-sided rule artefact); survival 1.0; CHARTER 7113e84c",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
 }

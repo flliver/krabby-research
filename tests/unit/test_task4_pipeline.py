@@ -20,7 +20,11 @@ Pinned (PLAN step 6 / 7; DESIGN 9):
 * CHARTER 2026-10-21 (R18 SN HALT -> decisions A-E): R18's real sn records re-gated under thresholds v1.1 read WATCH
   (G1 taps / steps recorded as WATCH lines, the G2 misses flagged); a degenerate line's rate is None + status in the
   gate and HALT records (no 'chance=0.0'); the T* record lists every payload head (p3b's margin use 1.10); the student
-  full block records the tracking + 0.05 WATCH in gates/sel.json.
+  full block records the tracking + 0.05 WATCH in gates/sel.json;
+* CHARTER 2026-10-22 (F19 p3b -> amend + switch now, thresholds v1.2): ``continue --amend st --retarget-tstar``
+  re-gates the payload heads' 0-kg check (statuses unchanged, previous records kept), re-picks T* by the existing rule,
+  resets T*'s subtree to a fresh distill (T4F19_st_a2), closes the HALT as amended and moves the pin; every refusal
+  writes nothing (STOP_PIPELINE never deleted); on copies of the recorded runs F19's T* becomes p3b and R18's stays p3a.
 """
 from __future__ import annotations
 
@@ -90,8 +94,9 @@ def tspec(tmp_path, P):
     """A copy of the spec + thresholds in a temp campaign dir (run dirs land there), N_p set."""
     d = tmp_path / "camp"
     d.mkdir()
-    for n in ("thresholds_v0.json", "thresholds_v1.json", "thresholds_v1_1.json", "threshold_inputs.yaml",
-              "threshold_inputs_v1.yaml", "threshold_inputs_v1_1.yaml"):
+    for n in ("thresholds_v0.json", "thresholds_v1.json", "thresholds_v1_1.json", "thresholds_v1_2.json",
+              "threshold_inputs.yaml", "threshold_inputs_v1.yaml", "threshold_inputs_v1_1.yaml",
+              "threshold_inputs_v1_2.yaml"):
         if (PL / n).is_file():
             shutil.copy(PL / n, d / n)
     doc = yaml.safe_load(SPEC.read_text())
@@ -160,12 +165,28 @@ def test_gen_rewrites_atomically_and_keeps_the_mode(P, tspec):
 def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
     """PLAN step 7: ``gen --check`` on the COMMITTED R18 / F19 / dry run dirs (the real spec, nothing copied), and gen
     twice gives identical files. The placeholders (N_p, x_rule, the manifest-shape split) are the spec's own."""
+    lagging = []
     for run in ("R18", "F19", "dry"):
         assert P.gen_files(S, run) == P.gen_files(S, run), run
-        assert P.gen(S, run, check=True) == [], run
+        drift = P.gen(S, run, check=True)
+        if drift:
+            # CHARTER 2026-10-22 (thresholds v1.2): the spec points at thresholds_v1_2.json before the re-pin's
+            # `pipeline.py gen` rewrites the committed run dirs. Until then a run's plan.json may lag the spec by
+            # EXACTLY the spec sha + the thresholds swap (v1.1 -> v1.2) -- nothing else; after the re-pin gen --check
+            # is clean.
+            assert drift == [str(S.run_dir(run) / "plan.json")], (run, drift)
+            want = json.loads(P.gen_files(S, run)["plan.json"])
+            have = json.loads((S.run_dir(run) / "plan.json").read_text())
+            assert {k for k in set(want) | set(have) if want.get(k) != have.get(k)} == {"spec_sha256", "thresholds"}
+            assert have["thresholds"] == {"file": "thresholds_v1_1.json", "version": "v1.1"}, run
+            assert want["thresholds"] == {"file": "thresholds_v1_2.json", "version": "v1.2"}, run
+            lagging.append(run)
     cli = subprocess.run([sys.executable, "-B", str(TP / "pipeline.py"), "gen", "--spec", str(SPEC), "--check"],
                          capture_output=True, text=True, timeout=300)
-    assert cli.returncode == 0 and "byte-identical" in cli.stdout, cli.stdout + cli.stderr
+    if lagging:
+        assert cli.returncode == 1 and all(f"{r}/plan.json" in cli.stdout for r in lagging), cli.stdout + cli.stderr
+    else:
+        assert cli.returncode == 0 and "byte-identical" in cli.stdout, cli.stdout + cli.stderr
 
 
 def test_every_driver_stage_resumes_by_reference_in_the_same_file(P, tspec):
@@ -688,8 +709,9 @@ def test_the_lock_pins_every_out_of_hash_dependency(P, S):
     files = {P.L.rel(p) for p in P.lock_files(S)}
     for want in ("experiments/tools/pipeline/pipeline.py", "experiments/tools/pipeline/gate_row.sh",
                  "experiments/2026-10-16_task4_pipeline/pipeline.yaml",
-                 "experiments/2026-10-16_task4_pipeline/thresholds_v1_1.json",
+                 "experiments/2026-10-16_task4_pipeline/thresholds_v1_2.json",
                  "experiments/2026-10-16_task4_pipeline/threshold_inputs_v1_1.yaml",
+                 "experiments/2026-10-16_task4_pipeline/threshold_inputs_v1_2.yaml",
                  "experiments/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml",
                  "experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml",
                  "experiments/2026-10-01_ppo_construction/scenarios_turn_band.yaml",
@@ -702,11 +724,11 @@ def test_the_lock_pins_every_out_of_hash_dependency(P, S):
     assert "assets/crab.usda" in files
     committed = json.loads((PL / "pipeline.lock.json").read_text())
     assert committed["external"]
-    # CHARTER 2026-10-21 (thresholds v1.1): the spec points at thresholds_v1_1.json before the re-pin rewrites the lock
+    # CHARTER 2026-10-22 (thresholds v1.2): the spec points at thresholds_v1_2.json before the re-pin rewrites the lock
     # (`pipeline.py lock`, the next step of the amendment). Until then the committed lock may lag the spec by EXACTLY
     # that swap -- nothing else; after the re-pin the sets are equal again.
     exp = "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/"
-    pending = ({exp + "thresholds_v1_1.json", exp + "threshold_inputs_v1_1.yaml"}, {exp + "thresholds_v1.json"})
+    pending = ({exp + "thresholds_v1_2.json", exp + "threshold_inputs_v1_2.yaml"}, {exp + "thresholds_v1_1.json"})
     lag = (files - set(committed["files"]), set(committed["files"]) - files)
     assert lag in ((set(), set()), pending), lag
 
@@ -1071,7 +1093,7 @@ def test_gate_reads_rehearsed_on_recorded_s1_rows(P, tspec, monkeypatch):
     ids = {d["id"] for d in r["decisive"]}
     assert "p2a.capability.field_hard" in ids and "p2a.floor.side22_fastfast" in ids
     assert {f"p2a.floor.survival.{c}.es{e}" for c in ("fwd", "side", "back", "diag") for e in (1, 2)} <= ids
-    assert json.loads(Path(r["path"]).read_text())["thresholds"]["version"] == "v1.1"
+    assert json.loads(Path(r["path"]).read_text())["thresholds"]["version"] == "v1.2"
     r = P.gate_payload(ctx, "p3a")
     assert r["verdict"] == P.GR.PASS, (r["halt_lines"], r.get("zero_kg"))
     assert r["max_stable"] == 90 and ctx.srec("p3a")["zero_kg"]["verdict"] == "PASS"
@@ -1158,6 +1180,7 @@ def test_r18_sn_regated_under_v1_1_reads_watch_with_the_g1_values(P, tspec):
     its value, line and pass (G1 taps 1.04167 / 1.125 miss, G1 steps 0.08333 / 0.20833 pass, and the STOP-0 G2
     post-settle lines that the old gate dropped silently miss too) and each miss is a WATCH flag."""
     head = _r18_sn_head()
+    _thresholds_spec(P, tspec, "thresholds_v1_1.json", "v1.1")      # the file this test is about (the spec is v1.2)
     tspec.lock_path().write_text(json.dumps({"code_sha": "c", "eval_sha": "e"}))
     P.gen(tspec, "F19")
     ctx = P.Ctx(tspec, "F19")
@@ -1239,7 +1262,7 @@ def test_gate_read_degenerate_predicate_equals_the_thresholds_one(P, G):
     lines (plain 0.0) and v1.1's (rate None) read as rate None + status through the gate's Thresholds view."""
     TH = P.L.thresholds_mod()
     assert G.DEGENERATE == TH.DEGENERATE
-    for n in ("thresholds_v1.json", "thresholds_v1_1.json"):
+    for n in ("thresholds_v1.json", "thresholds_v1_1.json", "thresholds_v1_2.json"):
         doc = json.loads((PL / n).read_text())
         assert all(G.is_degenerate(x) == TH.is_degenerate(x) for x in doc["lines"])
         th = G.Thresholds(doc)
@@ -1645,13 +1668,14 @@ def test_check_reports_the_placeholder_cleanly(P, S, tspec):
 def test_the_committed_spec_is_the_step8_freeze(P, S):
     """PLAN step 8 -> v1 (stepC_read.json patch): N_p 3000, x_rule report_only, the student manifest-shape split 0.0,
     live.student.loss_rule kill; thresholds amended to v1.1 (CHARTER 2026-10-21: the SN G1 stillness WATCH lines +
-    degenerate rates None) -- its version = the spec's; self-check clean."""
+    degenerate rates None), then v1.2 (CHARTER 2026-10-22: the 0-kg track_err statistic) -- its version = the spec's;
+    self-check clean."""
     assert S.d["N_p"] == 3000 and S.d["x_rule"] == "report_only"
     assert S.stage("sel")["completion_margin"]["manifest_shape_split"] == 0.0
     assert S.d["live"]["student"]["loss_rule"] == "kill"
-    assert S.d["thresholds"] == {"file": "thresholds_v1_1.json", "version": "v1.1"}
+    assert S.d["thresholds"] == {"file": "thresholds_v1_2.json", "version": "v1.2"}
     th = json.loads(S.thresholds_path().read_text())
-    assert th["version"] == "v1.1" and th["self_check_failures"] == []
+    assert th["version"] == "v1.2" and th["self_check_failures"] == []
     patch = json.loads((PL / "preflight/stepC_read.json").read_text())["patch"]["pipeline.yaml"]
     assert patch["N_p"] == S.d["N_p"] and patch["x_rule"] == S.d["x_rule"]
     assert patch["stages[sel].completion_margin.manifest_shape_split"] == 0.0
@@ -2356,3 +2380,286 @@ def test_driver_stamp_takes_the_drivers_recorded_eval(P, tspec, tmp_path, monkey
     st["keys"]["seed18"]["X06:p2a"]["evals"] = {}                    # no record: the name-derived fallback
     (ctx.dir / "state.json").write_text(json.dumps(st))
     assert P.driver_stamp(ctx, head) is None
+
+
+# ============================================================================== continue --amend STAGE --retarget-tstar
+CHARTER_REF = "CHARTER 2026-10-22 F19 p3b: amend + switch now (thresholds v1.2)"
+
+
+def _snapshot(d: Path) -> dict:
+    return {p.relative_to(d).as_posix(): p.read_bytes() for p in sorted(d.rglob("*")) if p.is_file()}
+
+
+def _retarget_ready(P, qctx, monkeypatch):
+    """A synthetic F19 at the 2026-10-22 decision, built by the queue itself: p3a 0-kg FAIL -> HALT, accepted as chance
+    (max_stable 90); p3b a measured ceiling at 135 whose 0-kg FAIL reached no HALT (excluded); T* = p3a; the p3a-based
+    distill HALTed DRIVER with STOP_PIPELINE written (the queue stops before sel / sn). Returns the parked Ctx."""
+    ctx, rt, verdicts, done = qctx
+
+    def gate(c, sid, **kw):
+        if (c.spec.stage(sid).get("gate") or {}).get("class") != "payload":
+            return {"verdict": P.GR.PASS, "gate0": [], "decisive": [], "halt_lines": []}
+        ms = {"p3a": 90, "p3b": 135, "p3c": 180}[sid]
+        zk = {"verdict": "FAIL", "max_margin_used": {"p3a": 2.71, "p3b": 1.16}[sid],
+              "fails": ["ratio back suite es1: worse by 0.0684 > margin 0.0617 (R)"],
+              "translate_statistic": "ratio_drop", "thresholds_version": "v1.1"}
+        c.srec(sid)["max_stable"] = ms
+        c.srec(sid)["zero_kg"] = dict(zk)
+        dec = [P.zero_kg_line(sid, zk)] if sid == "p3a" else []
+        v, flags = P.payload_verdict(c, sid, dec, [], ms)
+        res = {"verdict": v, "gate0": [], "decisive": dec, "halt_lines": [d["id"] for d in dec if not d["pass"]],
+               "watch_flags": flags, "max_stable": ms, "zero_kg": dict(zk)}
+        res["path"] = str(P.write_gate(c, sid, res))
+        return res
+
+    def distill_stopped(self, sid):
+        self.ctx.srec(sid)["live"] = {"last_rc": 0, "last": 26833, "run_dir": "/x/2026-10-22_15-02-05_T4F19_st"}
+        (self.ctx.dir / "STOP_PIPELINE").write_text("")
+        P.halt(self.ctx, sid, "DRIVER", "distill.sh rc=134, last checkpoint 26800 (want >= 27992)",
+               resumable=("retry", "abort"))
+
+    monkeypatch.setattr(P, "gate_stage", gate)
+    monkeypatch.setattr(P.Queue, "ex_distill", distill_stopped)
+    assert P.Queue(ctx).loop() == "parked"
+    assert P.do_continue(ctx.spec, "F19", accept="p3a", why="chance", relaunch=False) == 0
+    c2 = P.Ctx(ctx.spec, "F19")
+    c2.rt = rt
+    assert P.Queue(c2).loop() == "stopped"
+    c3 = P.Ctx(ctx.spec, "F19")
+    st = c3.state["stages"]
+    assert (st["p3a"]["status"], st["p3b"]["status"], st["p3c"]["status"]) == ("accepted", "ceiling", "skipped")
+    assert c3.state["tstar"]["stage"] == "p3a" and st["st"]["status"] == "halt"
+    assert all(st[s]["status"] == "pending" for s in ("sel", "sn", "sh", "bundle"))
+    assert c3.state["halts"]["st"]["status"] == "open" and (c3.dir / "STOP_PIPELINE").exists()
+    return c3, rt
+
+
+def _fake_regate(P, monkeypatch, verdicts: dict):
+    """zero_kg_of -> a canned re-gate per head (the real one reads eval stamps; pinned on F19's own records below)."""
+    calls = []
+
+    def zk_of(ctx, sid, th):
+        calls.append((sid, th.version))
+        v = verdicts[sid]
+        return {"verdict": v, "max_margin_used": 2.71 if v == "FAIL" else 0.66,
+                "fails": ["track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)"] if v == "FAIL" else [],
+                "rows": [], "translate_statistic": "track_err", "thresholds_version": th.version}
+    monkeypatch.setattr(P, "zero_kg_of", zk_of)
+    return calls
+
+
+def test_retarget_tstar_regates_switches_tstar_and_resets_the_subtree(P, qctx, monkeypatch, tmp_path):
+    """CHARTER 2026-10-22 (F19 p3b -> amend + switch now): ONE command on a synthetic F19 --
+    a. re-gates p3a / p3b's paired 0-kg check under the CURRENT thresholds (v1.2): p3a stays 'accepted' (its accepted
+       HALT annotated, its gate record still HALT), p3b stays 'ceiling' with zero_kg PASS; every previous record kept
+       (zero_kg_history, gates/history/ copies byte for byte);
+    b. T* = p3b (max_stable 135) through the existing rule, the record + NOTIFY listing every head, the old T* kept;
+    c. st -> a FRESH distill (attempt 2: T4F19_st_a2; the stopped run's records under 'superseded'), sel / sn / sh /
+       bundle pending with no stale record; st.1 closed 'amended' with the CHARTER reference;
+    d. the pin moves to the new lock sha like --amend; STOP_PIPELINE is never deleted; another run is untouched.
+    Then (STOP_PIPELINE removed by the 'main thread') the queue runs the fresh distill from p3b under _a2."""
+    ctx, rt = _retarget_ready(P, qctx, monkeypatch)
+    P.gen(ctx.spec, "R18")
+    r18 = _snapshot(ctx.spec.run_dir("R18"))
+    old_gate = {s: (ctx.dir / "gates" / f"{s}.json").read_bytes() for s in ("p3a", "p3b")}
+    old_tstar = ctx.stage_read_path("tstar").read_bytes()
+    old_pin = ctx.state["pin"]["lock_sha256"]
+    ctx.spec.lock_path().write_text(json.dumps({"code_sha": "c" * 64, "eval_sha": "e" * 64, "re": "pin"}))
+    new_pin = P.L.sha256_file(ctx.spec.lock_path())
+    calls = _fake_regate(P, monkeypatch, {"p3a": "FAIL", "p3b": "PASS"})
+    assert P.do_continue(ctx.spec, "F19", amend="st", charter=CHARTER_REF, why="v1.2", relaunch=False,
+                         retarget_tstar=True) == 0
+    assert calls == [("p3a", "v1.2"), ("p3b", "v1.2")]                 # p3c (skipped) is not re-gated
+    c = P.Ctx(ctx.spec, "F19")
+    s = c.state["stages"]
+    # a. the payload heads: statuses unchanged, the 0-kg record replaced, the previous kept
+    assert s["p3a"]["status"] == "accepted" and s["p3b"]["status"] == "ceiling"
+    assert s["p3a"]["zero_kg"]["verdict"] == "FAIL" and s["p3b"]["zero_kg"]["verdict"] == "PASS"
+    assert s["p3b"]["zero_kg"]["translate_statistic"] == "track_err"
+    assert s["p3b"]["zero_kg"]["regated"]["thresholds"]["version"] == "v1.2"
+    assert s["p3b"]["zero_kg"]["regated"]["charter"] == CHARTER_REF
+    assert [h["verdict"] for h in s["p3b"]["zero_kg_history"]] == ["FAIL"]
+    assert s["p3b"]["zero_kg_history"][0]["thresholds_version"] == "v1.1"
+    assert s["p3b"]["history"][-1]["to"] == "ceiling" and "FAIL -> PASS" in s["p3b"]["history"][-1]["why"]
+    for sid in ("p3a", "p3b"):
+        assert (c.dir / "gates" / "history" / f"{sid}.1.json").read_bytes() == old_gate[sid]
+    ga = json.loads((c.dir / "gates/p3a.json").read_text())
+    gb = json.loads((c.dir / "gates/p3b.json").read_text())
+    assert ga["verdict"] == "HALT" and ga["halt_lines"] == ["p3a.capability.zero_kg_paired"]
+    assert ga["regates"][0]["verdict_before"] == "HALT" and ga["regates"][0]["previous_record"].endswith("p3a.1.json")
+    assert gb["verdict"] == "CEILING" and gb["zero_kg"]["verdict"] == "PASS"
+    assert gb["zero_kg_thresholds"]["version"] == "v1.2"
+    assert gb["regates"][0]["zero_kg_before"]["verdict"] == "FAIL" and gb["thresholds"]["version"] == "v1.2"
+    hp3a = json.loads((c.dir / "halts/p3a.1.json").read_text())
+    assert hp3a["status"] == "accepted" and "accepted HALT stands" in hp3a["regates"][0]["note"]
+    assert c.state["halts"]["p3a"]["status"] == "accepted"
+    # b. T* through the existing path: the record + NOTIFY list every head; the old record kept
+    t = json.loads(c.stage_read_path("tstar").read_text())
+    assert t["stage"] == "p3b" and t["max_stable"] == 135 and c.state["tstar"]["stage"] == "p3b"
+    assert {x["stage"]: x["chosen"] for x in t["considered"]} == {"p3a": False, "p3b": True}
+    assert [x["stage"] for x in t["not_trained"]] == ["p3c"]
+    assert t["retarget"]["from"] == "p3a" and t["retarget"]["charter"] == CHARTER_REF
+    assert (c.dir / "stage_reads/history/tstar.1.json").read_bytes() == old_tstar
+    assert c.state["tstar_history"][0]["stage"] == "p3a" and c.state["tstar_history"][0]["max_stable"] == 90
+    assert s["tstar"]["status"] == "pass" and s["tstar"]["history"][-1]["why"] == "T* = p3b (max_stable 135)"
+    notes = [json.loads(x)["text"] for x in c.notify_path.read_text().splitlines()]
+    tn = [n for n in notes if n.startswith("T*=p3b max_stable=135")]
+    assert tn and "p3a: max_stable=90 0-kg=FAIL" in tn[-1] and "p3b: max_stable=135 0-kg=PASS" in tn[-1]
+    assert "-> CHOSEN" in tn[-1] and "p3c: not trained (skipped)" in tn[-1]
+    assert notes[-1].startswith("continue: st amended (" + CHARTER_REF) and "T* retargeted p3a -> p3b" in notes[-1]
+    assert "T4F19_st_a2" in notes[-1]
+    # c. the subtree: a fresh distill, nothing stale
+    assert s["st"]["status"] == "pending" and s["st"]["distill_attempt"] == 2
+    assert not {"live", "trained", "run_dir", "live_killed"} & set(s["st"])
+    sup = s["st"]["superseded"][0]
+    assert sup["run_name"] == "T4F19_st" and sup["records"]["live"]["last"] == 26833 and sup["status"] == "halt"
+    for d in ("sel", "sn", "sh", "bundle"):
+        assert set(s[d]) == {"status", "history"} and s[d]["status"] == "pending", d
+    hst = json.loads((c.dir / "halts/st.1.json").read_text())
+    assert c.state["halts"]["st"]["status"] == "amended" and hst["status"] == "amended"
+    assert hst["resolution"]["charter"] == CHARTER_REF and hst["resolution"]["retarget_tstar"]["to"] == "p3b"
+    assert hst["resolution"]["retarget_tstar"]["fresh_attempts"] == {"st": 2}
+    # d. the pin, STOP_PIPELINE, the other run
+    am = c.state["amendments"][-1]
+    assert (am["stage"], am["kind"], am["tstar_from"], am["tstar_to"]) == ("st", "retarget_tstar", "p3a", "p3b")
+    assert am["old_lock_sha256"] == old_pin and am["new_lock_sha256"] == new_pin != old_pin
+    assert c.state["pin"]["lock_sha256"] == new_pin
+    assert (c.dir / "STOP_PIPELINE").exists()
+    assert _snapshot(ctx.spec.run_dir("R18")) == r18
+    # the main thread removes STOP_PIPELINE and relaunches: the fresh distill trains from p3b under _a2
+    (c.dir / "STOP_PIPELINE").unlink()
+    seen = []
+
+    def distill_ok(self, sid):
+        n = int(self.ctx.srec(sid).get("distill_attempt", 1))
+        seen.append((self.tstar()["stage"], P.distill_run_name(self.ctx.run, sid, n)))
+        self.ctx.set_status(sid, "pass", "fake distill")
+    monkeypatch.setattr(P.Queue, "ex_distill", distill_ok)
+    c.rt = rt
+    assert P.Queue(c).loop() == "done"
+    assert seen == [("p3b", "T4F19_st_a2")]
+    assert P.Ctx(ctx.spec, "F19").state["stages"]["bundle"]["status"] == "pass"
+
+
+def test_retarget_tstar_refusals_write_nothing(P, qctx, monkeypatch):
+    """Every refusal exits non-zero with the run dir byte-identical: STOP_PIPELINE present with a relaunch (the command
+    never deletes it), the re-gated T* UNCHANGED, no --charter, no open HALT at the stage, another open HALT, a stage
+    outside T*'s subtree, --retarget-tstar without --amend (function and CLI), the queue running (exit 3)."""
+    ctx, rt = _retarget_ready(P, qctx, monkeypatch)
+    calls = _fake_regate(P, monkeypatch, {"p3a": "FAIL", "p3b": "FAIL"})
+    before = _snapshot(ctx.dir)
+
+    def cont(**kw):
+        args = {"amend": "st", "charter": CHARTER_REF, "relaunch": False, "retarget_tstar": True, **kw}
+        return P.do_continue(ctx.spec, "F19", **args)
+
+    assert cont(relaunch=True) == 2 and calls == []                          # STOP_PIPELINE: refused before re-gate
+    assert cont() == 2 and [x[0] for x in calls] == ["p3a", "p3b"]           # T* unchanged (p3b still fails)
+    assert cont(charter=None) == 2
+    assert cont(amend="sel") == 2                                            # no open HALT there
+    assert cont(amend="p3b") == 2                                            # not T* / built on it (and no HALT)
+    assert P.do_continue(ctx.spec, "F19", retry="st", relaunch=False, retarget_tstar=True) == 2
+    assert _snapshot(ctx.dir) == before
+    with pytest.raises(SystemExit) as e:
+        P.main(["continue", "--spec", str(ctx.spec.path), "--run", "F19", "--retry", "st", "--retarget-tstar"])
+    assert e.value.code == 2
+    st = json.loads(ctx.state_path.read_text())
+    st["halts"]["sh"] = {"class": "FAIL", "status": "open", "record": "x"}
+    ctx.state_path.write_text(json.dumps(st))
+    _fake_regate(P, monkeypatch, {"p3a": "FAIL", "p3b": "PASS"})
+    assert cont() == 2                                                       # another open HALT
+    st["halts"].pop("sh")
+    ctx.state_path.write_text(json.dumps(st))
+    before = _snapshot(ctx.dir)
+    proc = _fake_queue_proc(ctx.dir, "F19")
+    try:
+        (ctx.dir / "queue.pid").write_text(f"{proc.pid}\n")
+        assert cont() == 3
+    finally:
+        proc.terminate()
+        proc.wait(timeout=30)
+        (ctx.dir / "queue.pid").unlink()
+    assert _snapshot(ctx.dir) == before
+
+
+R18 = PL / "R18"
+F19 = PL / "F19"
+
+
+def _copy_run_records(src: Path, dst: Path) -> None:
+    """The records a retarget reads, copied from a REAL run dir into a scratch run dir (gen writes plan / envs there);
+    every halt record path in the copied state points at the copy, so nothing outside the scratch dir is written."""
+    for sub in ("stage_reads", "gates", "halts"):
+        for p in (src / sub).glob("*.json"):
+            q = dst / sub / p.name
+            q.parent.mkdir(parents=True, exist_ok=True)
+            q.write_bytes(p.read_bytes())
+    st = json.loads((src / "pipeline_state.json").read_text())
+    for h in st["halts"].values():
+        h["record"] = str(dst / "halts" / Path(h["record"]).name)
+    (dst / "pipeline_state.json").write_text(json.dumps(st, indent=1))
+    if (src / "STOP_PIPELINE").exists():
+        (dst / "STOP_PIPELINE").write_text("")
+
+
+def test_retarget_tstar_on_a_copy_of_the_recorded_f19_and_r18_runs(P, tspec, tmp_path, capsys):
+    """CPU preview on COPIES of the real records (the eval stamps they name, read-only; no Kit): under thresholds v1.2
+    F19's p3a still FAILS its paired 0-kg check (track_err diag + move_turn: its HALT stays accepted) and p3b PASSES
+    (max margin use 0.66, move_turn) -> T* = p3b, max_stable 135, a fresh T4F19_st_a2; R18's p3a (move_turn) and p3b
+    (yaw_progress es2) still FAIL -> T* unchanged = p3a, so a retarget on R18 is refused with nothing written. The real
+    F19 / R18 dirs are byte-identical afterwards."""
+    pytest.importorskip("scipy")
+    need = [F19 / "pipeline_state.json", F19 / "stage_reads/p3b.rows.json", R18 / "pipeline_state.json",
+            R18 / "stage_reads/p3b.rows.json"]
+    if not all(p.is_file() for p in need):
+        pytest.skip("F19 / R18 records absent")
+    real = {r: _snapshot(d) for r, d in (("F19", F19), ("R18", R18))}
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c" * 64, "eval_sha": "e" * 64}))
+    assert tspec.d["thresholds"]["version"] == "v1.2"
+    for run, src in (("F19", F19), ("R18", R18)):
+        P.gen(tspec, run)
+        _copy_run_records(src, tspec.run_dir(run))
+    ctx = P.Ctx(tspec, "F19")
+    ctx.rt = FakeRT(ctx.dir, {}, tmp_path)
+    assert ctx.state["halts"]["st"]["status"] == "open" and ctx.state["tstar"]["stage"] == "p3a"
+    rc = P.do_retarget_tstar(ctx, "st", charter=CHARTER_REF, why="preview", relaunch=False)
+    assert rc == 0, capsys.readouterr().err
+    c = P.Ctx(tspec, "F19")
+    s = c.state["stages"]
+    za, zb = s["p3a"]["zero_kg"], s["p3b"]["zero_kg"]
+    assert za["verdict"] == "FAIL" and za["translate_statistic"] == "track_err" and za["thresholds_version"] == "v1.2"
+    assert sorted(f.split(":")[0] for f in za["fails"]) == sorted(
+        ["track_err diag suite es1", "track_err diag suite es2", "ratio move_turn suite es1",
+         "ratio move_turn suite es2"])
+    assert za["max_margin_used"] == pytest.approx(2.7099, abs=1e-3)
+    assert zb["verdict"] == "PASS" and zb["fails"] == [] and zb["max_margin_used"] == pytest.approx(0.662, abs=1e-3)
+    # the raw translate drop stays RECORDED (WATCH, never decisive): p3b's back speed drop is in the record and the NOTIFY
+    assert zb["watch_exceeds"] == ["ratio back suite es1: worse by 0.0684 > margin 0.0617 (WATCH)",
+                                   "ratio back suite es2: worse by 0.0714 > margin 0.0617 (WATCH)"]
+    assert {(w["statistic"], w["row"]) for w in zb["watch_reads"]} == {
+        (f"ratio {c}", f"suite es{k}") for c in ("fwd", "side", "back", "diag") for k in (1, 2)} | {
+        ("|ratio-1| move_turn", "suite es1"), ("|ratio-1| move_turn", "suite es2")}
+    assert any(w.startswith("ratio side suite es1") for w in za["watch_exceeds"])
+    note = [json.loads(x)["text"] for x in c.notify_path.read_text().splitlines() if '"T*=p3b' in x][-1]
+    assert "p3b: max_stable=135 0-kg=PASS margin_use=0.66 WATCH [ratio back suite es1: worse by 0.0684" in note
+    assert s["p3b"]["zero_kg_history"][0]["fails"] == ["ratio back suite es1: worse by 0.0684 > margin 0.0617 (R)",
+                                                       "ratio back suite es2: worse by 0.0714 > margin 0.0617 (R)"]
+    assert s["p3a"]["status"] == "accepted" and s["p3b"]["status"] == "ceiling"
+    t = c.state["tstar"]
+    assert t["stage"] == "p3b" and t["max_stable"] == 135 and t["iteration"] == 25992
+    assert s["st"]["distill_attempt"] == 2 and s["st"]["superseded"][0]["run_name"] == "T4F19_st"
+    assert json.loads((c.dir / "gates/p3b.json").read_text())["verdict"] == "CEILING"
+    assert json.loads((c.dir / "gates/p3a.json").read_text())["verdict"] == "HALT"
+    # R18: the re-gated T* is p3a again -> refused, nothing written
+    r18 = P.Ctx(tspec, "R18")
+    r18.rt = FakeRT(r18.dir, {}, tmp_path)
+    st = r18.state
+    st["halts"]["st"] = {"class": "DRIVER", "status": "open", "record": str(r18.dir / "halts/st.9.json")}
+    r18.save()
+    before = _snapshot(r18.dir)
+    capsys.readouterr()
+    assert P.do_retarget_tstar(r18, "st", charter=CHARTER_REF, why="preview", relaunch=False) == 2
+    err = capsys.readouterr().err
+    assert "UNCHANGED (p3a)" in err and "p3a FAIL" in err and "p3b FAIL" in err, err
+    assert _snapshot(r18.dir) == before
+    assert {r: _snapshot(d) for r, d in (("F19", F19), ("R18", R18))} == real

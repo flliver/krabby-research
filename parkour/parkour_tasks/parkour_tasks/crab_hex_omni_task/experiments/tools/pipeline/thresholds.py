@@ -33,7 +33,14 @@ READ CLASSES AND THEIR MODELS (PLAN "Gates -> Rule -> Self-checks")
 * ``paired``      -- the 0-kg check and the student completion: ``Phi(-margin / SE_diff)``
   (:func:`paired_rate`); the student's HALT needs two failed blocks -> ``p_block^2`` (lower bound).
   The 0-kg check's tracking statistic is a one-sided ratio DROP (p2a - head) with R at the 99 % GUARD level
-  (:func:`resolution_R_guard`; CHARTER STOP-0 2026-10-16); ``|r - 1|`` is reported as WATCH only. Its pure
+  (:func:`resolution_R_guard`; CHARTER STOP-0 2026-10-16); ``|r - 1|`` is reported as WATCH only. From thresholds
+  v1.2 (input key ``zero_kg_translate_statistic: track_err``; CHARTER 2026-10-22, F19 p3b -> "amend + switch now")
+  every TRAINED TRANSLATE category reads ``track_err <c>`` instead: the change in tracking error
+  ``|r_head - 1| - |r_p2a - 1|`` on the same per-category median ratio, failing on an increase only (the one-sided
+  drop failed F19's payload heads for moving p2a's 1.05-1.07 overshoot toward 1.0), with the 99 % guard R of
+  ``cat.<c>.ratio``, SE_diff and the X12 - X08 drift all on ``|r - 1|``; move_turn stays the one-sided ratio drop,
+  and the raw translate drop is kept as a WATCH read (:data:`ZERO_KG_TRANSLATE_MODES`). The mode is recorded on the
+  0-kg line (``translate_statistic``), so a gate applies the semantics of the file it reads. Its pure
   pieces (:func:`zero_kg_suite_rows`, :func:`zero_kg_completion_row`, :func:`zero_kg_judge`) are the ones
   ``gate_read.py`` applies at gate time, so the self-check and the gate cannot drift apart.
 * ``payload_apriori`` -- pending step 8 (no pilot yet): formula ``Phi((line - mu_pilot) /
@@ -95,6 +102,13 @@ DEGENERATE = "degenerate/unvalidated"
 #: ``unvalidated`` = rate None + DEGENERATE, excluded from the sums explicitly (v1.1 on); ``legacy_zero`` = the plain
 #: 0.0 / 1.0 read (what v0 / v1 were written with)
 DEGENERATE_MODES = ("unvalidated", "legacy_zero")
+#: The DECISIVE 0-kg statistic of a trained translate category (input key ``zero_kg_translate_statistic``; recorded on
+#: the 0-kg line as ``translate_statistic``). ``ratio_drop`` (v0 - v1.1, CHARTER STOP-0 2026-10-16): ``ratio <c>``, a
+#: one-sided ratio DROP ``p2a - head``. ``track_err`` (v1.2 on, CHARTER 2026-10-22 decision "amend + switch now"):
+#: ``track_err <c>`` = ``|r_head - 1| - |r_p2a - 1|`` (an INCREASE in tracking error fails; a head that moves an
+#: overshoot toward 1.0 never does), and ``ratio <c>`` -- the same raw drop as before -- becomes a WATCH read. move_turn
+#: is the one-sided ratio drop in both modes.
+ZERO_KG_TRANSLATE_MODES = ("ratio_drop", "track_err")
 
 
 # ============================================================================ models (pure)
@@ -183,6 +197,18 @@ def degenerate_mode(inputs: dict) -> str:
         m = "legacy_zero" if str(inputs.get("version", "v0")) in ("v0", "v1") else "unvalidated"
     if m not in DEGENERATE_MODES:
         raise ValueError(f"degenerate_fixed_t {m!r} (want one of {DEGENERATE_MODES})")
+    return m
+
+
+def zero_kg_translate_mode(inputs: dict) -> str:
+    """``inputs.zero_kg_translate_statistic`` (one of :data:`ZERO_KG_TRANSLATE_MODES`). Absent: ``ratio_drop`` for the
+    frozen v0 / v1 / v1.1 input maps (they regenerate byte for byte), ``track_err`` for every later version (CHARTER
+    2026-10-22: thresholds v1.2)."""
+    m = inputs.get("zero_kg_translate_statistic")
+    if m is None:
+        m = "ratio_drop" if str(inputs.get("version", "v0")) in ("v0", "v1", "v1.1") else "track_err"
+    if m not in ZERO_KG_TRANSLATE_MODES:
+        raise ValueError(f"zero_kg_translate_statistic {m!r} (want one of {ZERO_KG_TRANSLATE_MODES})")
     return m
 
 
@@ -489,34 +515,62 @@ def resolution_R_guard(paths: list) -> dict:
 
 
 #: The paired 0-kg check's DECISIVE statistics per suite env seed (PLAN Payload -> 0-kg check; CHARTER STOP-0
-#: 2026-10-16): tracking = a one-sided ratio DROP on every trained translate category and move_turn (R at the
-#: 99 % guard level), survival per trained translate category, turn facing_closed and yaw_progress. Each is
-#: (category, key); higher is better for every one, so ``worse_by = p2a - head``.
-def zero_kg_decisive_stats(trained_translate) -> list:
-    return ([(c, "ratio") for c in trained_translate] + [("move_turn", "ratio")]
-            + [(c, "survival") for c in trained_translate]
-            + [("turn", "facing_closed"), ("turn", "yaw_progress")])
+#: 2026-10-16): tracking on every trained translate category and move_turn (R at the 99 % guard level), survival per
+#: trained translate category, turn facing_closed and yaw_progress. Each is (category, key, form): form ``drop`` reads
+#: the raw median, higher is better, ``worse_by = p2a - head``; form ``absdev`` reads ``|median - 1|``, lower is
+#: better, ``worse_by = head - p2a``. Translate tracking per ``translate`` (:data:`ZERO_KG_TRANSLATE_MODES`):
+#: ``ratio_drop`` -> ``(c, "ratio", "drop")`` (v0 - v1.1); ``track_err`` -> ``(c, "track_err", "absdev")`` (v1.2 on,
+#: CHARTER 2026-10-22). move_turn is ``("move_turn", "ratio", "drop")`` in both modes.
+def zero_kg_decisive_stats(trained_translate, translate: str = "ratio_drop") -> list:
+    tr = ([(c, "track_err", "absdev") for c in trained_translate] if translate == "track_err"
+          else [(c, "ratio", "drop") for c in trained_translate])
+    return (tr + [("move_turn", "ratio", "drop")]
+            + [(c, "survival", "drop") for c in trained_translate]
+            + [("turn", "facing_closed", "drop"), ("turn", "yaw_progress", "drop")])
 
 
-#: WATCH-only statistics of the 0-kg check (CHARTER STOP-0: ``|r - 1|`` is reported, never decisive).
-def zero_kg_watch_stats(trained_translate) -> list:
-    return [(c, "ratio") for c in trained_translate] + [("move_turn", "ratio")]
+#: WATCH-only statistics of the 0-kg check (reported, never decisive). ``ratio_drop`` (CHARTER STOP-0): ``|r - 1|``
+#: on every trained translate category and move_turn. ``track_err`` (CHARTER 2026-10-22): the translate ``|r - 1|``
+#: is decisive now (``track_err <c>``), so the WATCH reads are the old raw translate DROP (``ratio <c>``: records still
+#: show a speed drop) and ``|ratio-1| move_turn`` as before.
+def zero_kg_watch_stats(trained_translate, translate: str = "ratio_drop") -> list:
+    if translate == "track_err":
+        return [(c, "ratio", "drop") for c in trained_translate] + [("move_turn", "ratio", "absdev")]
+    return [(c, "ratio", "absdev") for c in trained_translate] + [("move_turn", "ratio", "absdev")]
 
 
-def zero_kg_R(cat: str, key: str, R: dict, Rg: dict, n: int, p_mean: float | None, *, watch: bool = False) -> dict:
-    """The R term of one 0-kg statistic, and where it came from.
+def zero_kg_stat_name(cat: str, key: str, form: str) -> str:
+    """``ratio <c>`` (the raw drop), ``|ratio-1| <c>`` (|r - 1|, 95 % block R; WATCH), ``track_err <c>`` (|r - 1|,
+    99 % guard R; decisive from v1.2), ``<key> <c>`` otherwise. One name per quantity: a record never reuses a name
+    for a different statistic (``drift_by_statistic`` is keyed ``<name>|<row>``)."""
+    return f"|ratio-1| {cat}" if (key == "ratio" and form == "absdev") else f"{key} {cat}"
 
-    * ratio (decisive): the 99 % guard R (:func:`resolution_R_guard`); a category without one -> ``None`` (the
-      caller fails the check closed -- an R silently read as 0 would turn every statistic into a 3 SE line).
-    * ratio (WATCH |r - 1|): the 95 % block R, as before the STOP-0 decision.
+
+def zero_kg_R(cat: str, key: str, R: dict, Rg: dict, n: int, p_mean: float | None, *, watch: bool = False,
+              form: str | None = None) -> dict:
+    """The R term of one 0-kg statistic, and where it came from (``form`` None = the pre-v1.2 reading: a WATCH ratio
+    row is the |r - 1| one).
+
+    * ratio, form drop (decisive; from v1.2 also the WATCH raw drop): the 99 % guard R (:func:`resolution_R_guard`);
+      a category without one -> ``None`` (the caller fails a decisive row closed -- an R silently read as 0 would turn
+      every statistic into a 3 SE line).
+    * ratio, form absdev (WATCH |r - 1|): the 95 % block R, as before the STOP-0 decision.
+    * track_err (decisive from v1.2): the 99 % guard R of ``cat.<c>.ratio`` -- |r - 1| is a function of the same
+      median, so it shares its resolution (CHARTER 2026-10-22); no guard entry -> ``None`` (fails closed).
     * survival: max(guard R, binomial guard G(n) at the pooled share).
     * facing_closed / yaw_progress: the 95 % block R (unchanged by the STOP-0 decision)."""
-    if key == "ratio":
-        if watch:
+    if key in ("ratio", "track_err"):
+        absdev = (form == "absdev") if form is not None else watch
+        if key == "ratio" and watch and absdev:
             return {"R": R.get(f"cat.{cat}.ratio", 0.0), "R_source": f"cat.{cat}.ratio (95 % block; WATCH)"}
         if f"cat.{cat}.ratio" not in Rg:
             return {"R": None, "R_source": f"no 99 % guard entry for cat.{cat}.ratio"}
-        return {"R": Rg[f"cat.{cat}.ratio"], "R_source": f"cat.{cat}.ratio@guard (99 %)"}
+        src = f"cat.{cat}.ratio@guard (99 %)"
+        if key == "track_err":
+            src += " on |r - 1| (the same median's resolution; CHARTER 2026-10-22)"
+        elif watch:
+            src += "; WATCH raw drop (v1.2, CHARTER 2026-10-22)"
+        return {"R": Rg[f"cat.{cat}.ratio"], "R_source": src}
     if key == "survival":
         g = binomial_guard_floor(1.0 if p_mean is None else p_mean, max(int(n), 1))
         r = R.get(f"cat.{cat}.survival", 0.0)
@@ -524,34 +578,58 @@ def zero_kg_R(cat: str, key: str, R: dict, Rg: dict, n: int, p_mean: float | Non
     return {"R": R.get(f"cat.{cat}.{key}", 0.0), "R_source": f"cat.{cat}.{key} (95 % block)"}
 
 
-def zero_kg_suite_rows(head_eps: dict, p2a_eps: dict, trained_translate, R: dict, Rg: dict) -> list:
+#: ``worse_by_rule`` of a v1.2 row (recorded from v1.2 on, so a record says which difference it read)
+ZERO_KG_WORSE_RULE = {"drop": "p2a - head (a one-sided drop)",
+                      "absdev": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)"}
+
+
+def zero_kg_suite_rows(head_eps: dict, p2a_eps: dict, trained_translate, R: dict, Rg: dict,
+                       translate: str = "ratio_drop") -> list:
     """The suite part of the paired 0-kg check, as rows (pure on :func:`suite_episodes` lists per env seed).
 
-    ``head_eps`` / ``p2a_eps``: ``{env_seed: suite_episodes(stamp)}`` for the same env seeds. Every DECISIVE row
+    ``head_eps`` / ``p2a_eps``: ``{env_seed: suite_episodes(stamp)}`` for the same env seeds. A form-``drop`` row
     reads ``worse_by = p2a - head`` on the raw statistic (a one-sided drop: a head that tracks or survives better is
-    never failed); the WATCH rows (``watch: True``) read ``|r - 1|`` with ``worse_by = head - p2a``. ``se_diff`` is
-    the env-clustered paired bootstrap SE (:func:`paired_suite_se`)."""
+    never failed); a form-``absdev`` row reads ``|r - 1|`` with ``worse_by = head - p2a`` (an increase in tracking
+    error; a head whose ratio moves toward 1.0 is never failed, and 1.06 -> 0.94 reads 0). ``translate``
+    (:data:`ZERO_KG_TRANSLATE_MODES`) picks the decisive translate statistic: ``ratio_drop`` (v0 - v1.1: decisive
+    ``ratio <c>``, WATCH ``|ratio-1| <c>``) or ``track_err`` (v1.2, CHARTER 2026-10-22: decisive ``track_err <c>``,
+    WATCH the raw ``ratio <c>`` drop); move_turn, survival and facing read the same in both. ``se_diff`` is the
+    env-clustered paired bootstrap SE (:func:`paired_suite_se`) of the row's own statistic (on |r - 1| for absdev)."""
+    if translate not in ZERO_KG_TRANSLATE_MODES:
+        raise ValueError(f"translate {translate!r} (want one of {ZERO_KG_TRANSLATE_MODES})")
     rows = []
     for es in sorted(set(head_eps) & set(p2a_eps)):
         A, B = head_eps[es], p2a_eps[es]
-        for watch, stats_ in ((False, zero_kg_decisive_stats(trained_translate)),
-                              (True, zero_kg_watch_stats(trained_translate))):
-            for c, key in stats_:
+        for watch, stats_ in ((False, zero_kg_decisive_stats(trained_translate, translate)),
+                              (True, zero_kg_watch_stats(trained_translate, translate))):
+            for c, key, form in stats_:
+                src = "ratio" if key == "track_err" else key        # the episode field the statistic is read from
+                absdev = form == "absdev"
+                name = zero_kg_stat_name(c, key, form)
                 ra = [r for r in A if r["cat"] == c]
                 rb = [r for r in B if r["cat"] == c]
-                a, b = _cat_stat(ra, key, watch), _cat_stat(rb, key, watch)
+                a, b = _cat_stat(ra, src, absdev), _cat_stat(rb, src, absdev)
                 if a is None or b is None:
-                    rows.append({"statistic": f"{'|ratio-1|' if watch else key} {c}", "row": f"suite es{es}",
+                    rows.append({"statistic": name, "row": f"suite es{es}",
                                  "watch": watch, "head": a, "p2a": b, "worse_by": None, "missing": True})
                     continue
-                se = paired_suite_se(A, B, c, key, watch)
-                worse = (a - b) if watch else (b - a)
-                Rk = zero_kg_R(c, key, R, Rg, len(ra), (a + b) / 2.0 if key == "survival" else None, watch=watch)
-                rows.append({"statistic": f"{'|ratio-1|' if watch else key} {c}", "row": f"suite es{es}",
-                             "category": c, "key": key, "watch": watch,
-                             "key_path": (f"aggregate.suite.by_category.{c}.{key}.median" if key != "survival"
-                                          else "own-hold survival (n_steps >= prologue + settle + hold)"),
-                             "head": a, "p2a": b, "worse_by": worse, "se_diff": se, **Rk})
+                se = paired_suite_se(A, B, c, src, absdev)
+                worse = (a - b) if absdev else (b - a)
+                Rk = zero_kg_R(c, key, R, Rg, len(ra), (a + b) / 2.0 if key == "survival" else None, watch=watch,
+                               form=form)
+                if key == "survival":
+                    kp = "own-hold survival (n_steps >= prologue + settle + hold)"
+                elif key == "track_err":
+                    kp = f"|aggregate.suite.by_category.{c}.ratio.median - 1|"
+                else:
+                    kp = f"aggregate.suite.by_category.{c}.{key}.median"
+                row = {"statistic": name, "row": f"suite es{es}",
+                       "category": c, "key": key, "watch": watch,
+                       "key_path": kp,
+                       "head": a, "p2a": b, "worse_by": worse, "se_diff": se, **Rk}
+                if translate != "ratio_drop":              # v1.2 on (absent from the frozen v0 - v1.1 records)
+                    row["worse_by_rule"] = ZERO_KG_WORSE_RULE[form]
+                rows.append(row)
     return rows
 
 
@@ -1019,13 +1097,17 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
     out_lines += apr
     # ---------------------------------------------------------------- the paired 0-kg check (X12 vs X08)
     # CHARTER STOP-0 (2026-10-16): tracking is a one-sided ratio DROP with R at the 99 % guard level; |r - 1| is
-    # WATCH only. The same pure functions (zero_kg_suite_rows / zero_kg_completion_row / zero_kg_judge) are what
-    # gate_read.py applies to a T* candidate against its own p2a head at gate time.
+    # WATCH only. From v1.2 (CHARTER 2026-10-22) the translate categories read track_err = |r_head - 1| - |r_p2a - 1|
+    # instead (move_turn stays the drop; the raw translate drop is WATCH), so the drift below is recomputed on the
+    # new statistic from the same X12 / X08 stamps (drift_by_statistic carries its "track_err <c>|<row>" keys). The
+    # same pure functions (zero_kg_suite_rows / zero_kg_completion_row / zero_kg_judge) are what gate_read.py applies
+    # to a T* candidate against its own p2a head at gate time, in the mode recorded on the line (translate_statistic).
+    zmode = zero_kg_translate_mode(inputs)
     pr = inputs["drift_pair"]
     Rg = resolution_R_guard([repo.p(p) for p in inputs["resolution_files"]])
     A = {int(es): suite_episodes(repo.stamp(e)) for es, e in pr["x12"]["suite"].items()}
     B = {int(es): suite_episodes(repo.stamp(e)) for es, e in pr["x08"]["suite"].items()}
-    zall = zero_kg_suite_rows(A, B, stages["p2a"]["trained_translate"], R, Rg)
+    zall = zero_kg_suite_rows(A, B, stages["p2a"]["trained_translate"], R, Rg, translate=zmode)
     for row in ZERO_KG_FIELD_ROWS:
         nes = ZERO_KG_FIELD_ENV_SEEDS[row]
         ea, eb = pr["x12"][row][:len(nes)], pr["x08"][row][:len(nes)]
@@ -1065,6 +1147,23 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
                             "counted under the p3a side22 floor (proxy p2a). WATCH statistics are not summed.",
                "drift_margin": "unvalidated (one continuation run)", "known_bad": {}, "unvalidated": True,
                "known_good_self_check": all(z["self_check_passes"] for z in zk), "value_set": "both"}
+    if zmode == "track_err":                           # v1.2 on (absent from the frozen v0 - v1.1 files)
+        zero_kg["rule"] = (
+            "HALT if any DECISIVE statistic is worse than its p2a head (same rows, env seeds) by more than "
+            "max(R, 3 SE_diff, |drift| * its_past_p2a / 5000), or FAST/FAST is lost. Translate tracking (every trained "
+            "translate category) = track_err <c>: worse_by = |r_head - 1| - |r_p2a - 1| on the per-category median "
+            "ratio, failing on an INCREASE in tracking error only -- a head that moves p2a's overshoot toward 1.0 "
+            "never fails (CHARTER 2026-10-22, F19 p3b: user decision 'amend + switch now', thresholds v1.2); "
+            "R = the 99 % guard R of cat.<c>.ratio, SE_diff and the X12 - X08 drift on |r - 1|. move_turn = a "
+            "one-sided ratio DROP (p2a - head), R at the 99 % guard level (CHARTER STOP-0 2026-10-16), unchanged. "
+            "WATCH (watch_statistics): the raw translate ratio drop (ratio <c>, as decisive before v1.2) and "
+            "|ratio-1| move_turn.")
+        zero_kg["translate_statistic"] = zmode
+        zero_kg["translate_statistic_note"] = (
+            "gate_read.zero_kg_check applies the mode recorded here (absent = ratio_drop, the v0 - v1.1 semantics). "
+            "drift_by_statistic carries the new track_err <c>|<row> keys beside the WATCH ratio <c>|<row> ones (the "
+            "same raw-drop quantity and drift as v1.1's decisive ratio rows), so a track_err read of a pre-v1.2 file "
+            "fails closed (no recorded drift for its statistic)")
     out_lines.append(zero_kg)
     # ---------------------------------------------------------------- student completion (formula only)
     stu = []
@@ -1097,14 +1196,15 @@ def build(inputs: dict, repo: Repo, table: ThreeSeedTable, rec_floors: dict, sta
     # ---------------------------------------------------------------- v1 inputs (absent = v0's output exactly)
     if inputs.get("p3a_pilot"):
         p3a_pilot_rates(repo, inputs["p3a_pilot"], out_lines, R, Rg, s22, stages["p2a"]["trained_translate"],
-                        provenance)
+                        provenance, translate=zmode)
     if inputs.get("sweep_anchors"):
         out_lines += sweep_watch_lines(repo, inputs["sweep_anchors"], provenance)
     # ---------------------------------------------------------------- v1.1: degenerate fixed-t lines (decision C)
     mode = degenerate_mode(inputs)
     plain = mark_degenerate(out_lines, mode)
     return {"lines": out_lines, "proposals": proposals, "provenance": provenance, "equality_checks": eq,
-            "R_used": R, "field_context_p2a": field_ctx, "degenerate_mode": mode, "degenerate_plain_reads": plain}
+            "R_used": R, "field_context_p2a": field_ctx, "degenerate_mode": mode, "degenerate_plain_reads": plain,
+            "zero_kg_translate": zmode}
 
 
 # ============================================================================ v1: the payload pilot and the sweep anchors
@@ -1178,10 +1278,12 @@ def pilot_stable90_values(st: dict) -> dict:
     return out
 
 
-def pilot_zero_kg_rows(head: dict, p2a: dict, trained_translate, R: dict, Rg: dict) -> tuple:
+def pilot_zero_kg_rows(head: dict, p2a: dict, trained_translate, R: dict, Rg: dict,
+                       translate: str = "ratio_drop") -> tuple:
     """The pilot pair's paired 0-kg rows, composed exactly as ``gate_read.zero_kg_check`` composes them (suite env
     seeds must match; a field row pairs its env seeds in order and is missing when the counts differ). ``head`` /
-    ``p2a``: ``{"<row>@<es>": Path}``. Returns (rows, side22 class of head, of p2a)."""
+    ``p2a``: ``{"<row>@<es>": Path}``; ``translate``: the input map's :func:`zero_kg_translate_mode`. Returns (rows,
+    side22 class of head, of p2a)."""
     def by_es(m, row):
         return [m[k] for k in sorted((k for k in m if k.split("@")[0] == row), key=lambda k: int(k.split("@")[1]))]
 
@@ -1189,7 +1291,7 @@ def pilot_zero_kg_rows(head: dict, p2a: dict, trained_translate, R: dict, Rg: di
     B = {int(k.split("@")[1]): suite_episodes(v) for k, v in p2a.items() if k.startswith("suite@")}
     if set(A) != set(B) or not A:
         raise ValueError(f"p3a_pilot zero_kg: suite env seeds differ (head {sorted(A)} vs p2a {sorted(B)})")
-    rows = zero_kg_suite_rows(A, B, trained_translate, R, Rg)
+    rows = zero_kg_suite_rows(A, B, trained_translate, R, Rg, translate=translate)
     for row in ZERO_KG_FIELD_ROWS:
         ha, pb = by_es(head, row), by_es(p2a, row)
         ca, cb = {}, {}
@@ -1205,7 +1307,7 @@ def pilot_zero_kg_rows(head: dict, p2a: dict, trained_translate, R: dict, Rg: di
 
 
 def p3a_pilot_rates(repo: Repo, pp: dict, out_lines: list, R: dict, Rg: dict, s22, trained_translate,
-                    provenance: list) -> None:
+                    provenance: list, translate: str = "ratio_drop") -> None:
     """STEPC_RULES V.2 / PLAN Rule "payload a-priori lines": recompute the p3a terms of the run sum from the pilot.
 
     ``pp`` (threshold_inputs v1 ``p3a_pilot``; STAMP = ``{stamp, eval_sha}`` or a stamp path)::
@@ -1219,7 +1321,8 @@ def p3a_pilot_rates(repo: Repo, pp: dict, out_lines: list, R: dict, Rg: dict, s2
     2 sigma_hat(p2a)^2 + SE^2; SE stood in by sigma_hat(p2a) where the statistic has none -- disclosed per line).
     The paired 0-kg line's rate becomes the sum over its judged DECISIVE statistics of ``paired_rate(margin,
     SE_diff)`` on the PILOT pair (margin = ``zero_kg_margin`` with the recorded X12 - X08 drift scaled by
-    ``its_past_p2a`` / 5000). Both then count in the p3a stage's sum (``summarize``)."""
+    ``its_past_p2a`` / 5000), its statistics in the map's ``translate`` mode (v1.2: track_err; CHARTER 2026-10-22).
+    Both then count in the p3a stage's sum (``summarize``)."""
     vals = pilot_stable90_values(_row_stamps(repo, pp["level90"]))
     name = pp.get("name", "")
     for x in out_lines:
@@ -1241,7 +1344,8 @@ def p3a_pilot_rates(repo: Repo, pp: dict, out_lines: list, R: dict, Rg: dict, s2
     zl = next(x for x in out_lines if x["id"] == "p3a.capability.zero_kg_paired")
     its = float(pp["its_past_p2a"])
     rows, s22h, s22p = pilot_zero_kg_rows(_row_stamps(repo, pp["zero_kg"]["head"]),
-                                          _row_stamps(repo, pp["zero_kg"]["p2a"]), trained_translate, R, Rg)
+                                          _row_stamps(repo, pp["zero_kg"]["p2a"]), trained_translate, R, Rg,
+                                          translate=translate)
     ch = side22_read(s22, s22h[0])["class"] if s22h else None
     cp = side22_read(s22, s22p[0])["class"] if s22p else None
     judged = zero_kg_judge(rows, zl["drift_by_statistic"], its, side22_head=ch, side22_p2a=cp)
@@ -1438,8 +1542,13 @@ def main(argv=None) -> int:
            "recommended": rec, "lines": res["lines"], "proposals": res["proposals"],
            "sums": summarize(res, watch), "self_check_failures": fails, "provenance": res["provenance"],
            "equality_checks": res["equality_checks"], "R_used": res["R_used"],
-           "zero_kg_statistic": "tracking = one-sided ratio drop (p2a - head), R at the 99 % guard level; |r - 1| "
-                                "WATCH (CHARTER STOP-0 2026-10-16)",
+           "zero_kg_statistic": ("tracking = one-sided ratio drop (p2a - head), R at the 99 % guard level; |r - 1| "
+                                 "WATCH (CHARTER STOP-0 2026-10-16)" if res["zero_kg_translate"] == "ratio_drop" else
+                                 "translate tracking = track_err <c>: |r_head - 1| - |r_p2a - 1| (an increase in "
+                                 "tracking error fails), R = the 99 % guard R of cat.<c>.ratio, SE_diff and drift on "
+                                 "|r - 1| (CHARTER 2026-10-22, thresholds v1.2); move_turn = one-sided ratio drop "
+                                 "(p2a - head), R at the 99 % guard level (CHARTER STOP-0 2026-10-16); WATCH: the raw "
+                                 "translate ratio drop + |r - 1| move_turn"),
            "zero_kg_row_list": ZERO_KG_ROW_LIST,
            "trained_categories_required": "every suite gate row passes --trained-categories from the stage's composed "
                                           "env; a stamp without it is INVALID (CHARTER STOP-0; gate_read.py gate 0)",
