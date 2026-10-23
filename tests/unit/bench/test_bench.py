@@ -602,6 +602,25 @@ class TestHarness:
         assert any("FAIL" in ln and "flash" in ln for ln in lines)
         assert any("krabby firmware update" in ln for ln in lines)
 
+    def test_parse_harness_summary_surfaces_motion_fail(self):
+        from krabby_bench._harness import _parse_harness_summary
+
+        text = """
+2026-10-23 INFO noise before summary
+=== harness summary ===
+[PASS] flash: boards=['dev-local'] expected=dev-local
+[PASS] bringup: container running
+[FAIL] motion: motion script exit 1: No module named 'serial'
+       command: python -c … jog RLKL
+FAIL at stage: motion
+"""
+        stages, failed = _parse_harness_summary(text)
+        assert failed == "motion"
+        assert [s.stage for s in stages] == ["flash", "bringup", "motion"]
+        assert stages[0].ok and stages[1].ok and not stages[2].ok
+        assert "serial" in stages[2].detail
+        assert stages[2].command.startswith("python -c")
+
 
 # ---------------------------------------------------------------------------
 # Discord notify
