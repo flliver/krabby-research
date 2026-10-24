@@ -1,0 +1,7 @@
+{
+ "cand": "c28000",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+ "sha256": "4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059",
+ "iter": 28000,
+ "tstar": "p3b"
+}

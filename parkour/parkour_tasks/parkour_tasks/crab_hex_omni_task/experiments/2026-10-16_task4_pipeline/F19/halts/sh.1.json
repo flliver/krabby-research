@@ -4,7 +4,7 @@
  "class": "FAIL",
  "why": "decisive line(s) failed: [\"stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)\"]",
  "at": "2026-10-23T20:08:51",
- "status": "open",
+ "status": "accepted",
  "lines": [
   {
    "id": "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
@@ -26,5 +26,12 @@
   "accept-chance",
   "amend",
   "abort"
- ]
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-23T23:59:28",
+  "kind": "accept-chance",
+  "why": "DESIGN 3.6 lazy control: R_h beside T*=p3b fails the same K6 bin4 line (0.89/0.845) -> walker-caused, re-anchored; head passes every K6 cell (bin4 0.935/0.95 vs R_h 0.89/0.845), K4 2/3 vs R_h 5/5; decide-record-notify (not a chance acceptance); CHARTER 2026-10-23",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
 }

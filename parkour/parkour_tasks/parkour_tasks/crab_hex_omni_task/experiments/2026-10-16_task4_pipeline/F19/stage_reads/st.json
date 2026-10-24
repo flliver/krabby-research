@@ -1,0 +1,38 @@
+{
+ "stage": "st",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2",
+ "tstar": "p3b",
+ "candidates": [
+  {
+   "offset": 1000,
+   "target": 26992,
+   "iter": 27000,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_27000.pt"
+  },
+  {
+   "offset": 2000,
+   "target": 27992,
+   "iter": 28000,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt"
+  },
+  {
+   "offset": 3000,
+   "target": 28992,
+   "iter": 29000,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_29000.pt"
+  },
+  {
+   "offset": 4000,
+   "target": 29992,
+   "iter": 30000,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_30000.pt"
+  },
+  {
+   "offset": 5000,
+   "target": 30992,
+   "iter": 30991,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_30991.pt"
+  }
+ ],
+ "recorded_at": "2026-10-23T09:51:11"
+}
