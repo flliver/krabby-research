@@ -61,6 +61,15 @@ THE TOUR EXTENSION (2026-10-15; still VIDEO ONLY). Four additions, each a pure p
   :func:`field_spawn_row_cap` gives the ``max_init_terrain_level`` that keeps that many field rows ahead of the spawn
   (the recorder sets it on the field cfg only); :func:`field_path_reasons` re-checks the path from the realised spawn
   (fail-closed); :func:`tile_of` / :func:`tile_visits` record the tile under the robot per hold.
+  ``field_max`` (2026-10-24, the user's "the roughest terrain trained on"; default off): the reference env + the env
+  block of ``field_hard__omni`` (the phase-2 eval row of record for the hard wall field: DIFF 0.70:1.0, FLAT_FRAC 0.0)
+  with ``KRABBY_FLAT_TERRAIN_DIFF`` PINNED to ``1.0:1.0`` (:func:`field_max_env_block`), so EVERY tile is built at
+  the top of the trained band (F19 T* p3b trained DIFF 0.20:1.0 under the curriculum: 0.2 + 0.8 r / 9 on row r, 1.0 on
+  the top row only). The generator accepts lo == hi on both of its paths (random: ``np_rng.uniform(lo, hi)`` = lo;
+  curriculum: ``lo + (hi - lo) x`` = lo; no range check anywhere); the recorder proves it on the REALISED generator:
+  :func:`tile_difficulty_probe` records the difficulty each tile was built at (the two generator methods wrapped,
+  arguments and results passed through untouched), :func:`field_difficulty_reasons` refuses unless every grid tile
+  is exactly 1.0, and :func:`visited_difficulty` records it per visited tile. ``flat`` / ``field_medium`` unchanged.
 * TOUR ROWS (:data:`VIDEO_BLOCK`): rows with turns and a stand first (the table get-up) cannot pass the launcher's
   one-facing / walk-first rules, so they live in their own manifest block and :func:`video_height_row` validates them
   with :func:`tour_row_reasons` = ``sh_eval_common.height_row_reasons`` adapted (module function docstring); a row
@@ -75,6 +84,7 @@ THE TOUR EXTENSION (2026-10-15; still VIDEO ONLY). Four additions, each a pure p
 from __future__ import annotations
 
 import collections
+import contextlib
 import importlib.util
 import math
 import sys
@@ -421,11 +431,20 @@ def routed_slot(rule: str, *, schedule_stand, eval_slot):
 
 
 # ===================================================================================== the terrain
-TERRAINS = ("flat", "field_medium")
+TERRAINS = ("flat", "field_medium", "field_max")
 DEFAULT_TERRAIN = "flat"
 FIELD_MANIFEST = EXPERIMENTS / "2026-10-07_omni_phase2" / "scenarios_p2.yaml"
 #: the phase-2 rows whose (identical) env block is the medium-rough field (DIFF 0.20:0.70, the training difficulty)
 FIELD_MEDIUM_ROWS = ("field_turn__omni", "field_suite__omni")
+#: ``--terrain field_max``: the phase-2 eval row of record for the hard wall field (DIFF 0.70:1.0, FLAT_FRAC 0.0), whose
+#: env block it takes with the difficulty band pinned to its top (:func:`field_max_env_block`)
+FIELD_MAX = "field_max"
+FIELD_HARD_ROWS = ("field_hard__omni",)
+FIELD_DIFF_VAR = "KRABBY_FLAT_TERRAIN_DIFF"
+#: the top of the trained band: F19 T* p3b trained KRABBY_FLAT_TERRAIN_DIFF=0.20:1.0 with the curriculum on (row r of
+#: the 10 at 0.2 + 0.8 r / 9: 1.0 on the top row only); field_hard__omni's band tops out there as well
+FIELD_MAX_DIFFICULTY = 1.0
+FIELD_MAX_DIFF = "1.0:1.0"
 
 
 def field_env_block(manifest=FIELD_MANIFEST, rows=FIELD_MEDIUM_ROWS) -> dict:
@@ -453,16 +472,67 @@ def field_env_block(manifest=FIELD_MANIFEST, rows=FIELD_MEDIUM_ROWS) -> dict:
                                            "manifest_sha256": EC.sha256_file(path)}}
 
 
+def parse_difficulty_band(text) -> tuple[float, float]:
+    """``KRABBY_FLAT_TERRAIN_DIFF`` ``"lo:hi"`` -> ``(lo, hi)``, split and ``float``-ed exactly as
+    ``crab_hex_env_cfg.apply_flat_walk_knobs`` does (it checks nothing more); refused here unless two finite numbers
+    with ``0 <= lo <= hi <= 1`` (``lo == hi`` allowed: one difficulty for every tile)."""
+    parts = str(text).split(":")
+    if len(parts) != 2:
+        raise ValueError(f"{FIELD_DIFF_VAR}={text!r}: want 'lo:hi'")
+    try:
+        lo, hi = (float(x) for x in parts)
+    except ValueError as exc:
+        raise ValueError(f"{FIELD_DIFF_VAR}={text!r}: not two numbers") from exc
+    if not (math.isfinite(lo) and math.isfinite(hi) and 0.0 <= lo <= hi <= 1.0):
+        raise ValueError(f"{FIELD_DIFF_VAR}={text!r}: want finite 0 <= lo <= hi <= 1")
+    return lo, hi
+
+
+def field_max_env_block(manifest=FIELD_MANIFEST) -> dict:
+    """``--terrain field_max``: the env block of :data:`FIELD_HARD_ROWS` READ from ``manifest``
+    (:func:`field_env_block`) with ``KRABBY_FLAT_TERRAIN_DIFF`` replaced by :data:`FIELD_MAX_DIFF` (every tile at
+    :data:`FIELD_MAX_DIFFICULTY`).
+    Refused unless the row carries a band whose top IS that difficulty (the pin narrows the row's band to its top; it
+    never raises it). ``{"env": the block applied, "row_env": the row's block, "source", "difficulty_pin"}``."""
+    blk = field_env_block(manifest, FIELD_HARD_ROWS)
+    row = dict(blk["env"])
+    if FIELD_DIFF_VAR not in row:
+        raise ValueError(f"{blk['source']['manifest']}: {FIELD_HARD_ROWS[0]} carries no {FIELD_DIFF_VAR}")
+    lo, hi = parse_difficulty_band(row[FIELD_DIFF_VAR])
+    if hi != FIELD_MAX_DIFFICULTY:
+        raise ValueError(f"{blk['source']['manifest']}: {FIELD_HARD_ROWS[0]} {FIELD_DIFF_VAR}="
+                         f"{row[FIELD_DIFF_VAR]} does not top out at the trained {FIELD_MAX_DIFFICULTY}")
+    if parse_difficulty_band(FIELD_MAX_DIFF) != (FIELD_MAX_DIFFICULTY, FIELD_MAX_DIFFICULTY):  # pragma: no cover
+        raise RuntimeError(f"sh_video_core: FIELD_MAX_DIFF {FIELD_MAX_DIFF!r} is not the point band")
+    env = dict(row)
+    env[FIELD_DIFF_VAR] = FIELD_MAX_DIFF
+    return {"env": env, "row_env": row, "source": blk["source"],
+            "difficulty_pin": {"var": FIELD_DIFF_VAR, "row": row[FIELD_DIFF_VAR], "video": FIELD_MAX_DIFF,
+                               "row_band": [lo, hi], "want": FIELD_MAX_DIFFICULTY}}
+
+
 def terrain_env(reference_env: dict, terrain: str) -> tuple[dict, dict]:
     """``(env to apply before Kit, record)``. ``flat``: the reference env itself (a copy, equal key for key: today's
     path); ``field_medium``: the reference env updated with :func:`field_env_block` -- the ONE deliberate deviation from
-    the reference stamp's env, recorded as ``deviation`` ``{var: {reference, video}}``."""
+    the reference stamp's env, recorded as ``deviation`` ``{var: {reference, video}}``; ``field_max``: the same with
+    :func:`field_max_env_block` (+ ``row_env_block`` and ``difficulty_pin`` in the record)."""
     if terrain not in TERRAINS:
         raise ValueError(f"terrain {terrain!r} not in {TERRAINS}")
     ref = {str(k): str(v) for k, v in reference_env.items()}
     if terrain == "flat":
         return dict(ref), {"terrain": terrain, "env_block": None, "source": None, "deviation": {},
                            "note": "the reference stamp's env, unchanged"}
+    if terrain == FIELD_MAX:
+        mx = field_max_env_block()
+        env = dict(ref)
+        env.update(mx["env"])
+        dev = {k: {"reference": ref.get(k), "video": v} for k, v in mx["env"].items() if ref.get(k) != v}
+        return env, {"terrain": terrain, "env_block": dict(mx["env"]), "source": mx["source"], "deviation": dev,
+                     "row_env_block": dict(mx["row_env"]), "difficulty_pin": dict(mx["difficulty_pin"]),
+                     "note": f"the reference stamp's env + the {FIELD_HARD_ROWS[0]} env block with {FIELD_DIFF_VAR} "
+                             f"pinned {mx['row_env'][FIELD_DIFF_VAR]} -> {FIELD_MAX_DIFF} (every tile at the top of "
+                             "the trained band), written before Kit (a deliberate deviation for the video; every other "
+                             "reference check unchanged)"}
     blk = field_env_block()
     env = dict(ref)
     env.update(blk["env"])
@@ -605,6 +675,110 @@ def tile_caption_text(tile, names: dict | None) -> str:
         return "on the BORDER (off the field grid)"
     name = (names or {}).get(tile_key(tile))
     return f"tile {tile[0]},{tile[1]}" + (f" {name}" if name else "")
+
+
+# ----------------------------------------------------------------------------- field_max: the realised difficulty
+#: the attribute :func:`tile_difficulty_probe` fills on every generator built inside it: ``{"r,c": difficulty}``
+TILE_DIFFICULTY_ATTR = "_shv_tile_difficulty"
+_PENDING_DIFFICULTY_ATTR = "_shv_pending_difficulty"
+#: the two generator methods the probe wraps: every generation loop (``ParkourTerrainGenerator``'s random and
+#: curriculum ones) calls ``self._get_terrain_mesh(difficulty, sub_cfg)`` and then, for the SAME tile,
+#: ``self._add_sub_terrain(mesh, origin, row, col, goal)``
+PROBED_METHODS = ("_get_terrain_mesh", "_add_sub_terrain")
+_ABSENT = object()
+
+
+@contextlib.contextmanager
+def tile_difficulty_probe(gen_cls):
+    """Inside the block, every instance of ``gen_cls`` (``ParkourTerrainGenerator``) records the REALISED difficulty
+    each tile was built at: the difficulty passed to ``_get_terrain_mesh`` is paired with the ``(row, col)`` of the
+    ``_add_sub_terrain`` call that follows it -> ``getattr(gen, TILE_DIFFICULTY_ATTR)`` = ``{"r,c": float}`` (None for a
+    tile added with no difficulty pending). Both methods are wrapped at class level and call the originals with the
+    same arguments, returning their results untouched, so the terrain is the one the unwrapped generator builds. The
+    class's own attributes are restored on exit. Yields the list of instances that recorded a tile."""
+    saved = {n: gen_cls.__dict__.get(n, _ABSENT) for n in PROBED_METHODS}
+    orig_mesh = getattr(gen_cls, "_get_terrain_mesh")
+    orig_add = getattr(gen_cls, "_add_sub_terrain")
+    built: list = []
+
+    def _get_terrain_mesh(self, difficulty, cfg, *args, **kwargs):
+        setattr(self, _PENDING_DIFFICULTY_ATTR, float(difficulty))
+        return orig_mesh(self, difficulty, cfg, *args, **kwargs)
+
+    def _add_sub_terrain(self, mesh, origin, row, col, *args, **kwargs):
+        rec = getattr(self, TILE_DIFFICULTY_ATTR, None)
+        if rec is None:
+            rec = {}
+            setattr(self, TILE_DIFFICULTY_ATTR, rec)
+            built.append(self)
+        rec[tile_key((int(row), int(col)))] = getattr(self, _PENDING_DIFFICULTY_ATTR, None)
+        setattr(self, _PENDING_DIFFICULTY_ATTR, None)
+        return orig_add(self, mesh, origin, row, col, *args, **kwargs)
+
+    gen_cls._get_terrain_mesh = _get_terrain_mesh
+    gen_cls._add_sub_terrain = _add_sub_terrain
+    try:
+        yield built
+    finally:
+        for n, v in saved.items():
+            if v is _ABSENT:
+                delattr(gen_cls, n)
+            else:
+                setattr(gen_cls, n, v)
+
+
+def difficulty_band_reasons(band, want: float = FIELD_MAX_DIFFICULTY, what: str = "the generator") -> list[str]:
+    """``band`` (a ``difficulty_range``) must be exactly ``(want, want)``. Empty = it is."""
+    try:
+        b = tuple(float(v) for v in band)
+    except (TypeError, ValueError):
+        return [f"{what}'s difficulty_range {band!r} is unreadable"]
+    return [] if b == (float(want), float(want)) else [f"{what}'s difficulty_range is {list(b)}, not "
+                                                       f"[{want}, {want}]"]
+
+
+def field_difficulty_reasons(tile_difficulty, grid: dict, *, band=None,
+                             want: float = FIELD_MAX_DIFFICULTY) -> list[str]:
+    """``--terrain field_max``'s fail-closed check on the REALISED generator (post-construction, pre-recording): its
+    ``band`` (``cfg.difficulty_range``, when given) is exactly ``(want, want)`` and :func:`tile_difficulty_probe`
+    recorded EVERY tile of the grid at exactly ``want`` (none missing, none unprobed, none outside the grid). Empty =
+    every tile the robot can reach was built at ``want``."""
+    out = [] if band is None else difficulty_band_reasons(band, want)
+    if not tile_difficulty:
+        return out + ["the difficulty probe recorded no tile (the generator was not built inside it)"]
+    keys = {tile_key((r, c)) for r in range(int(grid["num_rows"])) for c in range(int(grid["num_cols"]))}
+    got = set(tile_difficulty)
+    missing, extra = sorted(keys - got), sorted(got - keys)
+    off = sorted(k for k in keys & got if tile_difficulty[k] != float(want))
+    if missing:
+        out.append(f"{len(missing)} grid tile(s) carry no recorded difficulty: {missing[:8]}")
+    if extra:
+        out.append(f"recorded tiles outside the grid {grid}: {extra[:8]}")
+    if off:
+        out.append(f"{len(off)} tile(s) were built below / off difficulty {want}: "
+                   + ", ".join(f"{k}={tile_difficulty[k]}" for k in off[:8]))
+    return out
+
+
+def difficulty_summary(tile_difficulty, want: float = FIELD_MAX_DIFFICULTY) -> dict:
+    """The generator-wide read-out: tiles recorded, min / max, how many at exactly ``want``."""
+    vals = list((tile_difficulty or {}).values())
+    num = [float(v) for v in vals if v is not None]
+    at = sum(1 for v in vals if v == float(want))
+    return {"want": float(want), "tiles": len(vals), "min": min(num) if num else None,
+            "max": max(num) if num else None, "tiles_at_want": at, "all_at_want": bool(vals) and at == len(vals)}
+
+
+def visited_difficulty(visits: dict, tile_difficulty, want: float = FIELD_MAX_DIFFICULTY) -> dict:
+    """The realised difficulty of every tile a trajectory visited (``visits`` = :func:`tile_visits`): per tile, and the
+    steps on tiles at exactly ``want`` / elsewhere (border steps count as elsewhere). ``all_at_want`` = every step was
+    on a ``want`` tile."""
+    td = tile_difficulty or {}
+    per = {k: td.get(k) for k in visits["tiles"]}
+    at = sum(int(n) for k, n in visits["tiles"].items() if per[k] == float(want))
+    steps = int(visits["steps"])
+    return {"want": float(want), "per_tile": per, "steps": steps, "steps_at_want": at, "steps_off_want": steps - at,
+            "border_steps": int(visits["border_steps"]), "all_at_want": steps > 0 and at == steps}
 
 
 # ===================================================================================== tour rows (the video block)

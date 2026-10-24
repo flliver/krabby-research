@@ -753,3 +753,55 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
       accepts `--plan mix --seed N`. tests/unit/test_sh_video_mix.py: 13 tests.
     - code_sha / eval_sha unchanged; lock drift on the two scripts (relocked at the step-11 commit).
   - The caption names the walker "S1 s19" (recorder naming, cosmetic).
+- **2026-10-24, STOP-END: user decisions.**
+  - (1) **Deliverable = F19.** The p3a accepted HALT, the v1.2 amendment + T\* retarget, and the SH re-anchor on the
+    lazy control are read as resolved and disclosed HALTs.
+  - (2) **Clip veto: none.** This covers the F19 student clip and the 3-min rough-terrain walker + stand video.
+  - (3) **Bake into `policy/`: yes.** Scope, asked separately 2026-10-24, user answer "Supersede (Recommended)":
+    F19 becomes the omni policy of record. current = p3b; stages = F19's s1..p2a + p3a + p3b; the student is a new
+    `distill` kind; SH_T4F19 is the stand net, with SN_T4F19 as its warm-start ancestor.
+    - S1 s18 + SH_T17 (+ A-mask s17) are recorded as superseded. Their files stay in `policy/`: nothing is deleted,
+      because other sessions and tests reference those paths.
+    - The F19 student `.pt` (122 MB) is over GitHub's 100 MB per-file limit and bundle_experiment's 64 MiB guard. It
+      stays in logs/, cited by sha 4fa81f0f. `policy/` holds its ONNX deploy export + io json (decide-record).
+  - (4) **Tag push: not now.** `omni-sim2real-baseline-2026-10-24` stays local.
+  - **Follow-up user request:** a second video on the roughest trained terrain (field difficulty 1.0). Prep workflow
+    `wf_c7f434e2-0c6`.
+- **2026-10-24, second user video (video only): `sh_mix_F19_s1514_roughest`.** Prep workflow `wf_c7f434e2-0c6` (opus
+  build, fable verify, 0 blocking).
+  - **New recorder option `--terrain field_max`** (default off): the field_hard__omni env block with
+    KRABBY_FLAT_TERRAIN_DIFF pinned to 1.0:1.0, i.e. every tile at the top of p3b's trained range (0.20:1.0
+    curriculum).
+    - It fails closed: the env cfg band, plus all 200 realised tiles, must be exactly 1.0 before the first step.
+    - Visited-tile difficulty is recorded in the sanity JSON.
+    - flat / field_medium are byte-identical. tests/unit/test_sh_video_field_max.py: 16 tests.
+  - **Result:** 12:54–13:02, rc 0. 200 / 200 tiles at 1.0; 9000 / 9000 steps on difficulty-1 tiles; 0 terminations.
+    4 / 4 stands arrived and homed (window error 1.7 / 4.0 / 22.8 / 0.9 mm; the 0.871 m stand sat on blocks);
+    4 / 4 restores.
+  - **Caveats:** random mode, so sparse / dense is drawn per tile rather than by column; no flat tiles; in training
+    only the top curriculum row reached 1.0.
+- **2026-10-24, BAKE DONE (user: Bake + Supersede).** Workflow `wf_1277ac6f-de2`: opus·xhigh build, 2 fable·high
+  verifiers, 0 blocking. A first run, `wf_87f1e45b-e16`, correctly refused because this CHARTER still read "scope
+  being confirmed"; fixed above.
+  - `policy/manifest.yaml`: current = **f19_8_p3b_payload180** (T\* p3b model_25992).
+    - Stages f19_1_s1 .. f19_8_p3b_payload180 (seed 19); heads phase1 / phase2 / payload / student / stand.
+    - **f19_9_student**, kind `distill`, `bundled: false`: the 122 MB `.pt` is cited by sha 4fa81f0f; the ONNX
+      export + io json are in the folder.
+    - Stand network of record **f19_stand_net**: SH_T4F19 model_5000, with SN_T4F19 model_4000 as its warm-start
+      ancestor.
+    - `superseded:` S1_s18 (6 files kept) + SH_T17 (kept) + A-mask s17 (kept) + W. **Nothing deleted.**
+  - `bundle_policy.py`:
+    - kinds rl / distill; `bundled: false` + exports;
+    - `superseded[].files` kept and checked, never copied or removed;
+    - a 100 MiB per-file guard;
+    - README student / payload / superseded sections.
+    - A manifest without these keys behaves as before.
+  - Tests: `test_policy_of_record_omni.py` rewritten from 44 to 74 tests (every old check has an F19 counterpart).
+    With the task4, video and layout suites: 256 pass.
+  - `bundle_policy --check` OK; 150.5 MB newly bundled. code_sha / eval_sha unchanged (policy/ and the tool are
+    outside both).
+  - **Paths that keep their old meaning** (fixed-path, not `current`):
+    - sh_core STAND_NET_CKPT (A-mask s17);
+    - sn_table_test / sh_eval_rows default walker = S1 s18 unless SN_WALKER_* is set;
+    - pipeline.yaml `bundled_s1`.
+  - Not pushed. The local tag `omni-sim2real-baseline-2026-10-24` stays on 055e9f51 (the step-11 record commit).

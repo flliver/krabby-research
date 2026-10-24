@@ -23,7 +23,8 @@
 #     --total-s S     random / mix plans only: the target video length in s (default 150; mix 180)
 #     --prefix P      output prefix (default sh_<plan> / sh_random_s<N> / sh_mix_s<N>)
 #     --stand-rule R  schedule | slot (the recorder's; default its own: schedule)
-#     --terrain T     flat | field_medium (the recorder's; default flat = the reference stamp's env)
+#     --terrain T     flat | field_medium | field_max (the recorder's; default flat = the reference stamp's env;
+#                     field_max = field_hard__omni's field with every tile at difficulty 1.0, the trained top)
 #     --table-start TOP[:POSE]  spawn on a K3 table (e.g. 0.635:knee_folded); also checked by the generator (CPU)
 #                     before anything launches: the plan's first hold must be a stand at >= top + 0.31 long enough
 #                     for the get-up
@@ -105,7 +106,7 @@ if [ -n "$PLAN_ARG" ]; then
 fi
 [ "$PLAN_ARG" = smoke ] && { SMOKE=1; PLAN_ARG=""; }
 case "$RULE_ARG" in ''|schedule|slot) ;; *) die "--stand-rule must be schedule | slot, got '$RULE_ARG'" ;; esac
-case "$TERRAIN_ARG" in ''|flat|field_medium) ;; *) die "--terrain must be flat | field_medium, got '$TERRAIN_ARG'" ;; esac
+case "$TERRAIN_ARG" in ''|flat|field_medium|field_max) ;; *) die "--terrain must be flat | field_medium | field_max, got '$TERRAIN_ARG'" ;; esac
 if [ -n "$TABLE_ARG" ]; then
   printf '%s' "$TABLE_ARG" | grep -qE '^[0-9]+(\.[0-9]+)?(:[a-z_]+)?$' || die "--table-start must be TOP[:POSE], got '$TABLE_ARG'"
 fi

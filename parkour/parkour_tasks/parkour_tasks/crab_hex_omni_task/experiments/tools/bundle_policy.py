@@ -2,16 +2,17 @@
 """Sync / check the crab-hex OMNI-walk POLICY OF RECORD: ``<task>/policy/``.
 
 ``policy/`` holds the head that ships for the omnidirectional task plus the stage heads it was
-trained through (in manifest order; the side-first B lineage 1_fb6k -> c4 -> c5 -> c6 -> c6x clock-free,
-baked 2026-10-06 as the phase-1 head, then the phase-2 wall-field stage 6_p2a_field, baked 2026-10-08 as the
-head that ships), one subfolder per stage,
-declared in ``policy/manifest.yaml`` (source run, sha256, campaign, overlay reference, per-category
-suite evals, observation contract, open follow-ups), plus the shared training assets the lineage
-depends on (``assets:`` -- the omni RSI reference bank every omni preset seeds resets from), plus -- optionally --
-the STAND NETWORK OF RECORD (``stand_network:``; adopted 2026-10-13: A-mask s17 of
-``experiments/2026-10-11_stand_network``; REPLACED 2026-10-15 by the height-commanded SH_T17 of
-``experiments/2026-10-13_stand_height``, the replaced net recorded under ``superseded:``). It changes ONLY on a bake /
-adoption decision, which is the user's: edit the manifest, run ``--sync``, commit.
+trained through (in manifest order), one subfolder per stage, declared in ``policy/manifest.yaml`` (source run,
+sha256, campaign, overlay reference, per-category suite evals, observation contract, open follow-ups), plus the
+shared training assets the lineage depends on (``assets:`` -- the omni RSI reference bank every omni preset seeds
+resets from), plus -- optionally -- the STAND NETWORK OF RECORD (``stand_network:``), plus the files of SUPERSEDED
+heads that were deliberately left in the folder (``superseded[].files``). History: the side-first B lineage at seed 18
+(1_fb6k -> c4 -> c5 -> c6 -> c6x clock-free, baked 2026-10-06; + the phase-2 wall-field stage 6_p2a_field, baked
+2026-10-08), the stand networks A-mask s17 (2026-10-13) and SH_T17 (2026-10-15); since 2026-10-24 the Task 4
+deliverable run F19 (seed 19: s1 -> c4 -> c5 -> c6 -> c6x -> p2a -> p3a -> p3b = T*, the depth student distilled from
+T* as a ``kind: distill`` stage, and the stand nets SH_T4F19 / SN_T4F19 beside T*) SUPERSEDES the seed-18 lineage and
+SH_T17, whose files STAY in the folder (``superseded[].files``). It changes ONLY on a bake / adoption decision, which
+is the user's: edit the manifest, run ``--sync``, commit.
 
     python3 experiments/tools/bundle_policy.py --sync     # copy missing stage / asset / stand files (sha-verified),
                                                           #   verify present ones, regenerate README.md,
@@ -37,6 +38,23 @@ is never routed by the deployment contract. Its file is handled exactly like the
 ``source`` sha-verified and ``git add``s it, ``--check`` verifies it (present, sha; it is not a stray checkpoint),
 ``expected_files`` lists it, and the README's stand section renders it as one "Warm-start ancestor" bullet.
 
+A stage's ``kind`` is ``rl`` (the default) or ``distill`` (a student distilled from the previous stage; the forward
+task's ``3a_student`` is the precedent). A ``distill`` stage may declare ``bundled: false``: its checkpoint stays OUT of
+``policy/`` (2026-10-24: the F19 student .pt is 122 MB, over GitHub's 100 MiB per-file limit) and is cited by
+``source`` + ``sha256`` only; its folder then holds the stage's ``exports:`` (each ``file`` / ``source`` / ``sha256`` /
+``what``; the ONNX deploy export + its io json), synced sha-verified and checked like a stage file, and ``--check``
+flags ANY checkpoint (*.pt) in that folder. Every file ``--sync`` copies and ``--check`` verifies is held to
+:data:`MAX_FILE_BYTES` (GitHub's hard per-file limit): a larger file is refused, never bundled.
+
+``superseded:`` is data except one key: an entry's ``files:`` (each ``dir`` / ``file`` / ``sha256`` / ``source``) names
+files of a superseded head that were deliberately LEFT in ``policy/`` because other sessions, tests or scripts still
+use their paths (2026-10-24: the seed-18 lineage 1_fb6k .. 6_p2a_field and stand_net/). They are expected files
+(``expected_files``), ``--check`` verifies them (present, sha, no stray checkpoint in their folders), ``--sync``
+verifies them and NEVER copies, adds or deletes them, and the README lists them under "Superseded heads kept in this
+folder". A kept file must live in a folder of its own (not a live stage / asset / stand dir) unless it IS a live file
+with the same sha (one file recorded twice, e.g. a stand net's warm-start ancestor). An entry without ``files:`` (W:
+its files left the folder at the 2026-10-06 bake) changes nothing.
+
 Adapted from ``crab_hex_forward_task/experiments/tools/bundle_policy.py``. Differences:
 
 * every stage is a ``KRABBY_OMNI_PHASE`` preset stage (the stage's ``phase``) plus a per-stage OVERLAY from a
@@ -57,7 +75,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -87,6 +107,15 @@ STAND_KEYS = ("dir", "file", "source", "sha256", "adopted", "arm", "stand_mask",
 STAND_HEIGHT_KEYS = ("h_min_m", "h_settled_m", "h_max_m")
 #: Keys an optional ``stand_network.warm_start:`` sub-block must carry (its file lives in the stand network's folder).
 STAND_WARM_KEYS = ("id", "file", "source", "sha256", "role")
+#: Stage kinds: ``rl`` (PPO on a preset + overlay; the default when ``kind`` is absent) and ``distill`` (a student
+#: distilled from the previous stage, the forward task's ``3a_student`` precedent).
+STAGE_KINDS = ("rl", "distill")
+#: Keys every ``exports:`` entry of a distill stage carries (the files live in the stage's own folder).
+EXPORT_KEYS = ("file", "source", "sha256", "what")
+#: Keys every ``superseded[].files`` entry (a superseded file KEPT in ``policy/``) carries.
+KEPT_KEYS = ("dir", "file", "sha256", "source")
+#: GitHub refuses any file over 100 MiB: nothing larger is ever bundled (``--sync`` refuses, ``--check`` flags).
+MAX_FILE_BYTES = 100 * 1024 * 1024
 
 
 def sha256_of(path: Path) -> str:
@@ -98,11 +127,14 @@ def sha256_of(path: Path) -> str:
 
 
 def expected_files(m: dict) -> set[str]:
-    """Every file that may live under policy/, relative to policy/ (the layout test pins this set)."""
-    files = {f"{s['dir']}/{s['file']}" for s in m["stages"]}
+    """Every file that may live under policy/, relative to policy/ (the layout test pins this set): each stage's files
+    (its checkpoint unless ``bundled: false``, and its ``exports``), the assets, the stand network's files, and the
+    superseded files deliberately kept in the folder (``superseded[].files``)."""
+    files = {f"{s['dir']}/{f['file']}" for s in m["stages"] for f in stage_files(s)}
     files |= {f"{a['dir']}/{a['file']}" for a in m.get("assets", [])}
     if m.get("stand_network"):
         files |= {f"{m['stand_network']['dir']}/{f['file']}" for f in stand_files(m["stand_network"])}
+    files |= {f"{k['dir']}/{k['file']}" for k in kept_files(m)}
     files |= {"manifest.yaml", *GENERATED_DOCS}
     return files
 
@@ -125,6 +157,9 @@ def load_manifest(path: Path = MANIFEST) -> dict:
                 raise SystemExit(f"{path}: stage {s.get('dir')!r} missing {k!r}")
         if str(s["obs_contract"].get(HIDE_VAR)) not in ("0", "1"):
             raise SystemExit(f"{path}: stage {s['dir']!r} obs_contract.{HIDE_VAR} must be '0' or '1'")
+        _validate_stage_kind(s, path)
+    if stage_by_dir(m, m["current"]).get("bundled", True) is False:
+        raise SystemExit(f"{path}: current={m['current']!r} is a stage whose checkpoint is not bundled")
     oc = m["obs_contract"]
     for k in ("width", "clock_columns", "eval_env"):
         if k not in oc:
@@ -149,11 +184,103 @@ def load_manifest(path: Path = MANIFEST) -> dict:
     for k, d in (m.get("heads") or {}).items():
         if d not in dirs and not (sn and d == sn["dir"]):
             raise SystemExit(f"{path}: heads.{k}={d!r} is neither a stage dir nor the stand_network dir")
+    _validate_superseded(m, dirs, path)
     return m
 
 
 def _num(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _validate_stage_kind(s: dict, path) -> None:
+    """``kind`` (default ``rl``) is a known stage kind; ``bundled: false`` and ``exports`` belong to ``distill`` stages
+    only; a non-bundled stage must bundle its exports (one folder never holds nothing) and they are not checkpoints."""
+    kind = s.get("kind", "rl")
+    if kind not in STAGE_KINDS:
+        raise SystemExit(f"{path}: stage {s['dir']!r} kind {kind!r} is not one of {STAGE_KINDS}")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(s["sha256"])):
+        raise SystemExit(f"{path}: stage {s['dir']!r} sha256 must be a full lowercase sha256, got {s['sha256']!r}")
+    bundled = s.get("bundled", True)
+    if bundled not in (True, False):
+        raise SystemExit(f"{path}: stage {s['dir']!r} bundled must be true or false, got {bundled!r}")
+    exports = s.get("exports")
+    if (exports is not None or bundled is False) and kind != "distill":
+        raise SystemExit(f"{path}: stage {s['dir']!r}: bundled / exports are for kind 'distill' stages only")
+    if exports is None:
+        if bundled is False:
+            raise SystemExit(f"{path}: stage {s['dir']!r} is not bundled and declares no exports")
+        return
+    if not isinstance(exports, list) or not exports:
+        raise SystemExit(f"{path}: stage {s['dir']!r} exports must be a non-empty list")
+    names = []
+    for e in exports:
+        if not isinstance(e, dict):
+            raise SystemExit(f"{path}: stage {s['dir']!r} exports entries must be mappings")
+        for k in EXPORT_KEYS:
+            if k not in e:
+                raise SystemExit(f"{path}: stage {s['dir']!r} export {e.get('file')!r} missing {k!r}")
+        if not re.fullmatch(r"[0-9a-f]{64}", str(e["sha256"])):
+            raise SystemExit(f"{path}: stage {s['dir']!r} export {e['file']!r} sha256 must be a full lowercase sha256")
+        if str(e["file"]).endswith(".pt") or "/" in str(e["file"]):
+            raise SystemExit(f"{path}: stage {s['dir']!r} export {e['file']!r} must be a plain non-checkpoint file "
+                             "name (the checkpoint itself is the stage `file`)")
+        names.append(e["file"])
+    if len(set(names)) != len(names) or s["file"] in names:
+        raise SystemExit(f"{path}: stage {s['dir']!r} exports must be distinct files other than the stage file")
+
+
+def _live_files(m: dict) -> dict[str, str]:
+    """``{"dir/file": sha256}`` of every LIVE policy file (stages, assets, the stand network's folder)."""
+    live = {f"{s['dir']}/{f['file']}": f["sha256"] for s in m["stages"] for f in stage_files(s)}
+    live.update({f"{a['dir']}/{a['file']}": a["sha256"] for a in m.get("assets", [])})
+    sn = m.get("stand_network")
+    if sn:
+        live.update({f"{sn['dir']}/{f['file']}": f["sha256"] for f in stand_files(sn)})
+    return live
+
+
+def _validate_superseded(m: dict, dirs: list[str], path) -> None:
+    """``superseded:`` is a list of mappings with an ``id``; an entry's optional ``files`` (superseded files KEPT in
+    policy/) are full-sha mappings, each path recorded once across entries, each either exactly a live file (same sha:
+    one file recorded twice) or in a folder no live stage / asset / stand network uses."""
+    sups = m.get("superseded")
+    if sups is None:
+        return
+    if not isinstance(sups, list):
+        raise SystemExit(f"{path}: superseded must be a list")
+    live = _live_files(m)
+    live_dirs = set(dirs) | {a["dir"] for a in m.get("assets", [])}
+    if m.get("stand_network"):
+        live_dirs.add(m["stand_network"]["dir"])
+    seen = set()
+    for e in sups:
+        if not isinstance(e, dict) or "id" not in e:
+            raise SystemExit(f"{path}: every superseded entry is a mapping with an id")
+        files = e.get("files")
+        if files is None:
+            continue
+        if not isinstance(files, list) or not files:
+            raise SystemExit(f"{path}: superseded {e['id']!r} files must be a non-empty list")
+        for f in files:
+            if not isinstance(f, dict):
+                raise SystemExit(f"{path}: superseded {e['id']!r} files entries must be mappings")
+            for k in KEPT_KEYS:
+                if k not in f:
+                    raise SystemExit(f"{path}: superseded {e['id']!r} kept file {f.get('file')!r} missing {k!r}")
+            if not re.fullmatch(r"[0-9a-f]{64}", str(f["sha256"])):
+                raise SystemExit(f"{path}: superseded {e['id']!r} kept file {f['file']!r} sha256 must be a full "
+                                 "lowercase sha256")
+            rel = f"{f['dir']}/{f['file']}"
+            if rel in seen:
+                raise SystemExit(f"{path}: superseded kept file {rel!r} is recorded twice")
+            seen.add(rel)
+            if rel in live:
+                if live[rel] != f["sha256"]:
+                    raise SystemExit(f"{path}: superseded {e['id']!r} kept file {rel!r} is a live policy file with "
+                                     "another sha256")
+            elif f["dir"] in live_dirs:
+                raise SystemExit(f"{path}: superseded {e['id']!r} kept file {rel!r} sits in a live stage / asset / "
+                                 "stand folder (give the new head its own folder)")
 
 
 def _validate_stand(m: dict, sn, dirs: list[str], path) -> None:
@@ -221,6 +348,37 @@ def stage_path(s: dict) -> Path:
     return POLICY / s["dir"] / s["file"]
 
 
+def is_bundled(s: dict) -> bool:
+    """False for a ``distill`` stage that keeps its checkpoint out of policy/ (``bundled: false``)."""
+    return s.get("bundled", True) is not False
+
+
+def stage_files(s: dict) -> list[dict]:
+    """The files stage ``s``'s folder holds, each ``{label, file, source, sha256, path}``: its checkpoint (unless
+    ``bundled: false``), then its ``exports`` (synced and checked identically)."""
+    out = []
+    if is_bundled(s):
+        out.append({"label": s["dir"], "file": s["file"], "source": s["source"], "sha256": s["sha256"],
+                    "path": stage_path(s)})
+    for e in s.get("exports") or []:
+        out.append({"label": f"{s['dir']} export {e['file']}", "file": e["file"], "source": e["source"],
+                    "sha256": e["sha256"], "path": POLICY / s["dir"] / e["file"]})
+    return out
+
+
+def kept_files(m: dict) -> list[dict]:
+    """The superseded files deliberately KEPT in policy/ (``superseded[].files``), each with its entry ``id`` and
+    ``path``, minus any that are also a live file (one file recorded twice is checked once, as the live file)."""
+    live = _live_files(m)
+    out = []
+    for e in m.get("superseded") or []:
+        for f in e.get("files") or []:
+            if f"{f['dir']}/{f['file']}" in live:
+                continue
+            out.append({**f, "id": e["id"], "path": POLICY / f["dir"] / f["file"]})
+    return out
+
+
 def asset_path(a: dict) -> Path:
     return POLICY / a["dir"] / a["file"]
 
@@ -248,11 +406,15 @@ def stand_files(sn: dict) -> list[dict]:
 
 
 def _head_file(m: dict, d: str) -> str:
-    """The file a ``heads:`` entry names: its stage's, or the stand network's when ``d`` is that block's dir."""
+    """The file a ``heads:`` entry names: its stage's, or the stand network's when ``d`` is that block's dir; a stage
+    whose checkpoint is not bundled names its exports instead."""
     sn = m.get("stand_network")
     if sn and d == sn["dir"]:
-        return sn["file"]
-    return stage_by_dir(m, d)["file"]
+        return f"`{sn['file']}`"
+    s = stage_by_dir(m, d)
+    if not is_bundled(s):
+        return (f"`{s['file']}` not bundled; folder holds " + " + ".join(f"`{e['file']}`" for e in s["exports"]))
+    return f"`{s['file']}`"
 
 
 def carry_env(m: dict, s: dict) -> dict[str, str]:
@@ -279,43 +441,51 @@ def play_env(m: dict, s: dict) -> dict[str, str]:
     return ev
 
 
+def _check_file(p: Path, sha: str, problems: list[str]) -> None:
+    """``p`` present, at most :data:`MAX_FILE_BYTES`, with the manifest sha256 (problems appended)."""
+    if not p.exists():
+        problems.append(f"{p.relative_to(REPO)}: missing")
+        return
+    if p.stat().st_size > MAX_FILE_BYTES:
+        problems.append(f"{p.relative_to(REPO)}: {p.stat().st_size / 2**20:.0f} MiB > the 100 MiB per-file limit")
+    got = sha256_of(p)
+    if got != sha:
+        problems.append(f"{p.relative_to(REPO)}: sha256 {got[:12]} != manifest {sha[:12]}")
+
+
+def _stray(folder: Path, allowed: set[str], problems: list[str]) -> None:
+    extra = sorted(q.name for q in folder.glob("*.pt") if q.name not in allowed)
+    if extra:
+        problems.append(f"{folder.relative_to(REPO)}: stray checkpoints {extra}")
+
+
 def check(m: dict) -> list[str]:
     """Problems with the tracked policy files (empty list = ok)."""
     problems = []
     for s in m["stages"]:
-        p = stage_path(s)
-        if not p.exists():
-            problems.append(f"{p.relative_to(REPO)}: missing")
-            continue
-        got = sha256_of(p)
-        if got != s["sha256"]:
-            problems.append(f"{p.relative_to(REPO)}: sha256 {got[:12]} != manifest {s['sha256'][:12]}")
-        extra = [q for q in p.parent.glob("*.pt") if q.name != s["file"]]
-        if extra:
-            problems.append(f"{p.parent.relative_to(REPO)}: stray checkpoints {[q.name for q in extra]}")
+        files = stage_files(s)
+        for f in files:
+            _check_file(f["path"], f["sha256"], problems)
+        folder = POLICY / s["dir"]
+        if not is_bundled(s) and stage_path(s).exists():
+            problems.append(f"{stage_path(s).relative_to(REPO)}: stage {s['dir']!r} is `bundled: false` -- its "
+                            "checkpoint must NOT be in policy/ (cite it by source + sha256)")
+        if folder.is_dir():
+            _stray(folder, {f["file"] for f in files}, problems)
     for a in m["assets"]:
-        p = asset_path(a)
-        if not p.exists():
-            problems.append(f"{p.relative_to(REPO)}: missing")
-            continue
-        got = sha256_of(p)
-        if got != a["sha256"]:
-            problems.append(f"{p.relative_to(REPO)}: sha256 {got[:12]} != manifest {a['sha256'][:12]}")
+        _check_file(asset_path(a), a["sha256"], problems)
     sn = m.get("stand_network")
     if sn:
         files = stand_files(sn)
         for f in files:
-            p = f["path"]
-            if not p.exists():
-                problems.append(f"{p.relative_to(REPO)}: missing")
-                continue
-            got = sha256_of(p)
-            if got != f["sha256"]:
-                problems.append(f"{p.relative_to(REPO)}: sha256 {got[:12]} != manifest {f['sha256'][:12]}")
-        folder = stand_path(sn).parent
-        extra = [q for q in folder.glob("*.pt") if q.name not in {f["file"] for f in files}]
-        if extra:
-            problems.append(f"{folder.relative_to(REPO)}: stray checkpoints {[q.name for q in extra]}")
+            _check_file(f["path"], f["sha256"], problems)
+        _stray(stand_path(sn).parent, {f["file"] for f in files}, problems)
+    kept = kept_files(m)
+    for k in kept:
+        _check_file(k["path"], k["sha256"], problems)
+    for folder in sorted({k["path"].parent for k in kept}):
+        if folder.is_dir():
+            _stray(folder, {k["file"] for k in kept if k["path"].parent == folder}, problems)
     readme = POLICY / "README.md"
     if not readme.exists() or readme.read_text() != readme_text(m):
         problems.append(f"{readme.relative_to(REPO)}: stale (bundle_policy.py --sync)")
@@ -331,6 +501,9 @@ def _sync_one(dest: Path, src: Path, sha: str, label: str, *, force: bool) -> No
         return
     if not src.exists():
         raise SystemExit(f"{label}: source {src} missing (raw run dirs are not tracked; recover the file first)")
+    if src.stat().st_size > MAX_FILE_BYTES:
+        raise SystemExit(f"{label}: source {src} is {src.stat().st_size / 2**20:.0f} MiB > the 100 MiB per-file "
+                         "limit -- not bundled (a distill stage declares `bundled: false` + its exports instead)")
     got = sha256_of(src)
     if got != sha:
         raise SystemExit(f"{label}: source {src} sha256 {got[:12]} != manifest {sha[:12]}")
@@ -339,12 +512,28 @@ def _sync_one(dest: Path, src: Path, sha: str, label: str, *, force: bool) -> No
     print(f"copied  {dest.relative_to(REPO)} ({dest.stat().st_size / 1e6:.1f} MB)")
 
 
+def _verify_kept(k: dict) -> None:
+    """A superseded file kept in policy/ is verified, never (re)copied, added or removed by ``--sync``."""
+    p = k["path"]
+    if not p.exists():
+        raise SystemExit(f"{p}: superseded {k['id']!r} kept file is missing (restore it from git; --sync never "
+                         "recreates a superseded file)")
+    got = sha256_of(p)
+    if got != k["sha256"]:
+        raise SystemExit(f"{p}: superseded {k['id']!r} kept file sha256 {got[:12]} != manifest {k['sha256'][:12]}")
+    print(f"kept    {p.relative_to(REPO)} (superseded {k['id']})")
+
+
 def sync(m: dict, *, force: bool) -> list[Path]:
     produced = []
     for s in m["stages"]:
-        dest = stage_path(s)
-        _sync_one(dest, REPO / s["source"], s["sha256"], s["dir"], force=force)
-        produced.append(dest)
+        for f in stage_files(s):
+            _sync_one(f["path"], REPO / f["source"], f["sha256"], f["label"], force=force)
+            produced.append(f["path"])
+        if not is_bundled(s):
+            print(f"cited   {s['dir']}/{s['file']} (not bundled: {s['source']}, sha256 {s['sha256'][:12]})")
+    for k in kept_files(m):
+        _verify_kept(k)
     for a in m["assets"]:
         dest = asset_path(a)
         _sync_one(dest, REPO / a["source"], a["sha256"], a["file"], force=force)
@@ -461,8 +650,8 @@ def _stand_section(m: dict) -> list[str]:
         "",
         "It is **not** a lineage stage and **not** a training asset: nothing resumes from it and no preset builds it. "
         f"It is a second policy that the controller routes on **stand holds** beside the walking head [`{wpath}`]"
-        f"({wpath}), which acts on every other hold and is unchanged by this adoption. Played or exported alone, the "
-        "walking head still marches in place at stand (follow-up `stand_march`).",
+        f"({wpath}), the walker it was trained and gated beside, which acts on every other hold. Played or exported "
+        "alone, the walking head still marches in place at stand (follow-up `stand_march`).",
         "",
         f"- **Run:** `{sn.get('id', '—')}` -- arm {sn['arm']} (`stand_mask` {sn['stand_mask']}), training seed "
         f"{sn.get('training_seed', '—')}, {sn.get('iterations', '—')} iterations",
@@ -512,6 +701,12 @@ def _stand_section(m: dict) -> list[str]:
               f"CK=$PWD/$P/policy/{path}",
               f"PY={run.get('python', 'python')}",
               "OUT=$(mktemp -d)   # where the CPU reads write"]
+        if run.get("env"):
+            if run.get("env_comment"):
+                L.append(f"# {run['env_comment']}")
+            for k, v in run["env"].items():
+                val = json.dumps(v, sort_keys=True) if isinstance(v, (dict, list)) else str(v)
+                L.append(f"export {k}={shlex.quote(val)}")
         for c in run.get("commands") or []:
             if c.get("comment"):
                 L.append(f"# {c['comment'].format(**fmt)}")
@@ -581,6 +776,93 @@ def _stand_section(m: dict) -> list[str]:
     return L
 
 
+def _args(xs) -> str:
+    """Extra CLI args as a leading-space string (empty when there are none)."""
+    return "".join(f" {x}" for x in xs or [])
+
+
+def _run_path(src: str) -> str:
+    """A repo-relative run path as the README commands spell it from ``parkour/`` (``$PWD/...``)."""
+    return "$PWD/" + src.removeprefix("parkour/") if src.startswith("parkour/") else "$PWD/../" + src
+
+
+def _distill_section(m: dict, s: dict) -> list[str]:
+    """README lines for a ``kind: distill`` stage: what it is, where its checkpoint lives (cited, not bundled, when
+    ``bundled: false``), its bundled exports, and its play / score commands (its own task and args, the carry env)."""
+    d = s["dir"]
+    ck = f"$PWD/$P/policy/{d}/{s['file']}" if is_bundled(s) else _run_path(s["source"])
+    play_task = s.get("play_task", s["task"])
+    L = [f"## The {s.get('role', 'student')} -- [`{d}/`]({d}/) (kind `distill`)", "",
+         f"{s.get('what', '')}", ""]
+    if is_bundled(s):
+        L.append(f"- **Checkpoint (bundled):** [`{d}/{s['file']}`]({d}/{s['file']}), sha256 `{s['sha256']}`")
+    else:
+        L.append(f"- **Checkpoint NOT bundled** (`bundled: false`): `{s['file']}`, sha256 `{s['sha256']}`, source run "
+                 f"(not tracked) `{s['source']}` -- {s.get('not_bundled', '')}")
+    for e in s.get("exports") or []:
+        L.append(f"- **Bundled export:** [`{d}/{e['file']}`]({d}/{e['file']}) -- {e['what']}; sha256 `{e['sha256']}`, "
+                 f"source (not tracked) `{e['source']}`")
+    if s.get("distill"):
+        L += _nested("Distillation", s["distill"])
+    L += ["", f"Play it (from `krabby-research/parkour/`, Isaac venv python; `{play_task}`; the checkpoint is the "
+          + ("bundled file" if is_bundled(s) else "sha-pinned run file, not a policy/ path") + "):", "",
+          "```bash",
+          "P=parkour_tasks/parkour_tasks/crab_hex_omni_task",
+          "env \\",
+          *_env_lines(play_env(m, s)),
+          f"  python scripts/rsl_rl/play.py --task {play_task}{_args(s.get('play_args'))} \\",
+          f"  --num_envs 1 --checkpoint {ck}",
+          "```", "",
+          f"Score it on the per-category suite as the selection rows did (`{SUITE_ROW}`):", "",
+          "```bash",
+          "P=parkour_tasks/parkour_tasks/crab_hex_omni_task",
+          "env \\",
+          *_env_lines(eval_env(m, s)),
+          f"  python {EVAL_SCRIPT} --headless \\",
+          f"  --manifest {OMNI_MANIFEST} --scenario {SUITE_ROW}{_args(s.get('eval_args'))} \\",
+          f"  --checkpoint {ck} --save-raw --trained-categories {','.join(CATEGORIES)}",
+          "```", ""]
+    if s.get("play_notes"):
+        L += [s["play_notes"], ""]
+    return L
+
+
+def _payload_table(m: dict) -> list[str]:
+    """The payload stages (``payload:``): trained range, the stable-at-L curve, max_stable and its limiting factor."""
+    rows = [s for s in m["stages"] if s.get("payload")]
+    if not rows:
+        return []
+    L = ["Payload stages (`payload:`; every number is a sim-plant number, force side not enforced):", "",
+         "| Stage | trained payload (kg) | stable at L (kg) | max_stable (kg) | first unstable (kg) | limiting factor | "
+         "paired 0-kg check |",
+         "|---|---|---|---|---|---|---|"]
+    for s in rows:
+        p = s["payload"]
+        curve = ", ".join(f"{k} {'yes' if v else 'NO'}" for k, v in (p.get("curve") or {}).items()) or "—"
+        L.append(f"| `{s['dir']}/` | `{(p.get('knobs') or {}).get('KRABBY_PAYLOAD_KG', '—')}` | {curve} | "
+                 f"{p.get('max_stable_kg', '—')} | {p.get('first_unstable_kg', '—')} | "
+                 f"{_md(p.get('limiting_factor', '—'))} | {_md(p.get('zero_kg_check', '—'))} |")
+    return L + [""]
+
+
+def _superseded_section(m: dict) -> list[str]:
+    """The superseded heads whose files stay in this folder (``superseded[].files``)."""
+    ents = [e for e in m.get("superseded") or [] if e.get("files")]
+    if not ents:
+        return []
+    L = ["## Superseded heads kept in this folder", "",
+         "NOT the policy of record: these files stay only because other sessions, tests or scripts still use their "
+         "paths. `--check` verifies them (present, sha, no stray checkpoint); `--sync` never copies, adds or deletes "
+         "them. Their full records are the manifest's `superseded:` entries.", ""]
+    for e in ents:
+        L.append(f"- **`{e['id']}`**" + (f" ({e['kind']})" if e.get("kind") else "") + f" -- superseded "
+                 f"{e.get('superseded', '—')}")
+        for f in e["files"]:
+            p = f"{f['dir']}/{f['file']}"
+            L.append(f"  - [`{p}`]({p}) -- sha256 `{f['sha256']}`" + (f"; {f['note']}" if f.get("note") else ""))
+    return L + [""]
+
+
 def readme_text(m: dict) -> str:
     cur = stage_by_dir(m, m["current"])
     oc = m["obs_contract"]
@@ -608,7 +890,7 @@ def readme_text(m: dict) -> str:
               "[Stand network of record](#stand-network-of-record).", ""]
     if m.get("heads"):
         L += ["**Head of record per phase:** " + ", ".join(
-            f"{k} [`{d}/`]({d}/) (`{_head_file(m, d)}`)" for k, d in m["heads"].items()) + ".", ""]
+            f"{k} [`{d}/`]({d}/) ({_head_file(m, d)})" for k, d in m["heads"].items()) + ".", ""]
     L += [
         f"**Baked:** {m.get('baked', '—')}",
         "",
@@ -665,6 +947,9 @@ def readme_text(m: dict) -> str:
         f"For a clock-held stage (`{HIDE_VAR}=0`) use the same commands with `{HIDE_VAR}=0`.",
         "",
     ]
+    for s in m["stages"]:
+        if s.get("kind") == "distill":
+            L += _distill_section(m, s)
     if sn:
         L += _stand_section(m)
     if m.get("followups"):
@@ -687,8 +972,10 @@ def readme_text(m: dict) -> str:
         "|---|---|---|---|---|---|---|---|---|",
     ]
     for i, s in enumerate(m["stages"], 1):
+        fcell = f"`{s['file']}`" if is_bundled(s) else (f"`{s['file']}` (not bundled; exports "
+                                                          + ", ".join(f"`{e['file']}`" for e in s["exports"]) + ")")
         L.append(f"| {i} | [`{s['dir']}/`]({s['dir']}/) | `{s['phase']}` + `{s['stage']}` | {s['iterations']} | `{s['task']}` | "
-                 f"{s.get('resume_from', '—')} | {s.get('clock', '—')} | `{s['file']}` | `{s['sha256'][:12]}` |")
+                 f"{s.get('resume_from', '—')} | {s.get('clock', '—')} | {fcell} | `{s['sha256'][:12]}` |")
     L += ["", f"Evals (`{SUITE_ROW}`): survival per category (reached the end of its hold), `r` = speed ratio, turn "
           "`fc` = facing_closed / `yp` = yaw_progress (rad/s); side / turn / move_turn pool both hands (n 200), the rest "
           "n 100. Read with `experiments/tools/run_phases.summarize(aggregate)['cat']`.", "",
@@ -721,6 +1008,7 @@ def readme_text(m: dict) -> str:
                 L.append(f"| `{s['dir']}/` | `{r}` | {comp} | {e.get('n', '—')} | {per} | "
                          f"{e.get('what', '')} |")
         L.append("")
+    L += _payload_table(m)
     for s in m["stages"]:
         ev = s.get("evals") or {}
         L += [f"### `{s['dir']}/` -- {s.get('what', '')}", "",
@@ -728,9 +1016,16 @@ def readme_text(m: dict) -> str:
               f"stage `{s['stage']}` from {s['overlay_ref']} (task `{s['task']}`, kind `{s.get('kind', '')}`)",
               f"- **Iterations:** {s['iterations']}; resumes {s.get('resume_from', '—')}",
               f"- **Clock:** {s.get('clock', '—')}; observation contract `{HIDE_VAR}={s['obs_contract'][HIDE_VAR]}`",
-              f"- **Source run (not tracked):** `{s['source']}`",
+              f"- **Source run (not tracked):** `{s['source']}`"
+              + ("" if is_bundled(s) else " -- the checkpoint is NOT bundled (`bundled: false`; see the student "
+                 "section above)"),
               f"- **Trained in:** {s.get('trained_in', '—')}",
               f"- **sha256:** `{s['sha256']}`"]
+        for e in s.get("exports") or []:
+            L.append(f"- **Export:** `{e['file']}` -- sha256 `{e['sha256']}`")
+        if s.get("payload"):
+            L.append("- **Payload knobs (training only):** "
+                     + ", ".join(f"`{k}={v}`" for k, v in (s["payload"].get("knobs") or {}).items()))
         if s.get("construction_delta"):
             L.append("- **Construction delta** (trained at a value other than `construction:`): "
                      + ", ".join(f"`{k}={v}`" for k, v in s["construction_delta"].items()))
@@ -753,6 +1048,7 @@ def readme_text(m: dict) -> str:
             if a.get("notes"):
                 L.append(f"- **Notes:** {a['notes']}")
             L.append("")
+    L += _superseded_section(m)
     ppo = (m.get("construction") or {}).get("ppo") or {}
     construction = (
         " Every overlay here also carries the runner-side construction knobs (manifest `construction:`: "
@@ -773,11 +1069,17 @@ def readme_text(m: dict) -> str:
         "## Maintenance",
         "",
         "- `python3 parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/bundle_policy.py --check` (from "
-        "`parkour/`; the tool is cwd-independent) -- every stage file present with its manifest sha, no stray "
-        "checkpoints, README fresh (run by `tests/unit/test_policy_of_record_omni.py`).",
-        "- New bake: add/replace the stage entry in `manifest.yaml` (source run, sha256, campaign, overlay_ref, "
-        "obs_contract, evals), set `current`, `git rm` the replaced stage files (`--sync` never deletes; `--check` "
-        "flags them as stray checkpoints), run `--sync`, commit.",
+        "`parkour/`; the tool is cwd-independent) -- every stage / export / asset / stand / kept superseded file "
+        "present with its manifest sha and at most 100 MiB, no stray checkpoints, README fresh (run by "
+        "`tests/unit/test_policy_of_record_omni.py`).",
+        "- New bake: add/replace the stage entries in `manifest.yaml` (source run, sha256, campaign, overlay_ref, "
+        "obs_contract, evals), set `current`, then EITHER `git rm` the replaced stage files (`--sync` never deletes; "
+        "`--check` flags them as stray checkpoints) OR keep them in their own folders and list them under the "
+        "replaced head's `superseded[].files` (dir, file, sha256, source), run `--sync`, commit. A new head never "
+        "reuses a kept folder.",
+        "- A `kind: distill` stage whose checkpoint exceeds the 100 MiB per-file limit declares `bundled: false` and "
+        "`exports:` (file, source, sha256, what): `--sync` copies the exports, never the checkpoint, and `--check` "
+        "flags any checkpoint in its folder.",
         "- New shared asset (e.g. a re-harvested RSI bank): add an `assets:` entry (dir, file, source, sha256, what, "
         "used_by), run `--sync`, commit.",
     ]
@@ -792,8 +1094,9 @@ def readme_text(m: dict) -> str:
             "so re-baking the walking head forces a decision on the stand network (it was trained and gated beside "
             "that exact walker); an optional `warm_start` (" + ", ".join(f"`{k}`" for k in STAND_WARM_KEYS)
             + ") bundles the checkpoint it was warm-started from in the same folder. Replace it: edit the block, "
-            "record the replaced net under `superseded:` (its commit and file sha), `git rm` the old file unless the "
-            "new net was warm-started from it and keeps it as `warm_start`, run `--sync`, commit.")
+            "record the replaced net under `superseded:` (its commit and file sha), then `git rm` the old file, or "
+            "keep it as the new net's `warm_start`, or keep it in place under that entry's `files:` (the new net then "
+            "takes a folder of its own), run `--sync`, commit.")
     L += [
         "- No MDP pins: the omni lineage's stage recipes are overlays on a `KRABBY_OMNI_PHASE` preset (each "
         "stage's `phase`) recorded in campaign "
@@ -820,15 +1123,20 @@ def main() -> int:
         stand = f" + stand network {sn['dir']}" if sn else ""
         if sn and sn.get("warm_start"):
             stand += f" (+ warm-start ancestor {sn['warm_start']['file']})"
-        print(f"policy of record: {len(m['stages'])} stages{stand}, current {m['current']}: "
-              f"{'OK' if not problems else 'FAILED'}")
+        cited = [s["dir"] for s in m["stages"] if not is_bundled(s)]
+        kept = kept_files(m)
+        print(f"policy of record: {len(m['stages'])} stages"
+              + (f" ({len(cited)} cited, not bundled: {', '.join(cited)})" if cited else "")
+              + f"{stand}" + (f" + {len(kept)} kept superseded files" if kept else "")
+              + f", current {m['current']}: {'OK' if not problems else 'FAILED'}")
         return 1 if problems else 0
     sync(m, force=a.force)
-    total = (sum(stage_path(s).stat().st_size for s in m["stages"])
+    total = (sum(f["path"].stat().st_size for s in m["stages"] for f in stage_files(s))
              + sum(asset_path(a).stat().st_size for a in m["assets"])
              + (sum(f["path"].stat().st_size for f in stand_files(sn)) if sn else 0)) / 1e6
     stand = " + stand network" if sn else ""
-    print(f"synced {len(m['stages'])} stages + {len(m['assets'])} assets{stand} ({total:.1f} MB), current {m['current']}")
+    print(f"synced {len(m['stages'])} stages + {len(m['assets'])} assets{stand} ({total:.1f} MB; kept superseded "
+          f"files verified, untouched: {len(kept_files(m))}), current {m['current']}")
     return 0
 
 

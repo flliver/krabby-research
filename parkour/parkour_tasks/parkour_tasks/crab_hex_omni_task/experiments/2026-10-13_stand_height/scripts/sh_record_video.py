@@ -72,11 +72,11 @@ THE TOUR OPTIONS (2026-10-15; ``sh_video_core`` docstring "THE TOUR EXTENSION"):
   eval's latched slot (``rederive_on_reset``, called every step under both rules and recorded as ``slot``). The
   latched slot keeps TURN on every stand after a facing change, so a tour routes its later stands to the stand net only
   under ``schedule``. ``--stand-rule slot --terrain flat`` without ``--table-start`` is the pre-tour recorder's path.
-* ``--terrain {flat, field_medium}`` (default ``flat`` = the reference stamp's env, unchanged): ``field_medium`` writes,
-  BEFORE Kit, the reference env + the env block of ``field_turn__omni`` / ``field_suite__omni`` (read from
-  ``scenarios_p2.yaml``); the one deliberate deviation from the reference stamp, recorded in the sanity JSON
-  (``terrain``: the block, its source, the per-variable deviation). Every other reference check stays (checkpoint shas,
-  deadband, controller, restore, mask); h_meas reads the env's terrain raycast mesh (its z range is recorded and a flat
+* ``--terrain {flat, field_medium, field_max}`` (default ``flat`` = the reference stamp's env, unchanged):
+  ``field_medium`` writes, BEFORE Kit, the reference env + the env block of ``field_turn__omni`` /
+  ``field_suite__omni`` (read from ``scenarios_p2.yaml``); the one deliberate deviation from the reference stamp,
+  recorded in the sanity JSON (``terrain``: the block, its source, the per-variable deviation). Every other reference
+  check stays (checkpoint shas, deadband, controller, restore, mask); h_meas reads the env's terrain raycast mesh (its z range is recorded and a flat
   mesh under ``field_medium`` is refused). WHERE on the field (``_field_placement`` / ``_field_realised`` /
   ``_field_summary``): the field's 10-m tiles each draw their own difficulty and the grid ends in a flat border, so the
   spawn row is pinned on the cfg (``scene.terrain.max_init_terrain_level`` = the highest row with enough field rows
@@ -84,6 +84,14 @@ THE TOUR OPTIONS (2026-10-15; ``sh_video_core`` docstring "THE TOUR EXTENSION"):
   construction reset (refused if the path would reach the border or a flat tile); the tile under the robot is
   captioned and recorded per hold and over the run (sanity JSON ``terrain.field``: grid, pin, spawn tile, each visited
   tile's sub-terrain and height read-out, border / flat-tile steps).
+  ``--terrain field_max`` (2026-10-24; default off): the reference env + ``field_hard__omni``'s env block with
+  ``KRABBY_FLAT_TERRAIN_DIFF`` pinned to ``1.0:1.0`` (``sh_video_core.field_max_env_block``: every tile at the top of
+  the trained band), the same placement and field checks, plus the DIFFICULTY PROOF: the env cfg's band must be
+  [1.0, 1.0] before the env is built; the env is built inside ``sh_video_core.tile_difficulty_probe`` (the generator
+  records the difficulty each tile was built at; exactly one generator); after the construction reset the realised
+  generator's band and EVERY grid tile must be exactly 1.0 (``field_difficulty_reasons``; refused otherwise); the
+  sanity JSON records it (``terrain.field.realised.difficulty``, each path / visited tile's ``difficulty``, each
+  segment's ``terrain_tile_difficulty``, ``terrain.field.visited_difficulty``). flat / field_medium run as before.
 * ``--table-start TOP[:POSE]`` (default off; e.g. ``0.635:knee_folded``): env 0 spawns in the retracted pose on a
   kinematic table cuboid as the K3 table test builds it (``sh_table_core.plan_envs`` / ``event_params`` / ``sh_start``
   appended LAST to the reset events, the terrain mesh registered as its floor probe; the cuboid from
@@ -113,6 +121,7 @@ from __future__ import annotations
 import __future__ as _future
 import argparse
 import ast
+import contextlib
 import copy
 import hashlib
 import importlib.util
@@ -223,7 +232,9 @@ parser.add_argument("--stand-rule", choices=VC.STAND_RULES, default=VC.DEFAULT_S
                          "previous face = the 'stand' labels) or the eval's latched slot.")
 parser.add_argument("--terrain", choices=VC.TERRAINS, default=VC.DEFAULT_TERRAIN,
                     help="flat (default): the reference stamp's env; field_medium: + the field_turn__omni / "
-                         "field_suite__omni env block of scenarios_p2.yaml, written before Kit.")
+                         "field_suite__omni env block of scenarios_p2.yaml, written before Kit; field_max: + the "
+                         "field_hard__omni env block with KRABBY_FLAT_TERRAIN_DIFF pinned to 1.0:1.0 (every tile at "
+                         "the top of the trained band; proven on the realised generator).")
 parser.add_argument("--table-start", type=str, default=None, metavar="TOP[:POSE]",
                     help="Spawn env 0 on a K3 table (top in m, pose default knee_folded); the first hold must be a "
                          "stand at >= top + 0.31. Default off.")
@@ -282,6 +293,8 @@ _env_why = SN.env_reasons(RUN_ENV)
 if _env_why:
     raise SystemExit(f"the --terrain {args_cli.terrain} env fails the launcher's D5 / L10 refusals:\n  "
                      + "\n  ".join(_env_why))
+#: --terrain field_max's difficulty pin ({var, row, video, row_band, want}); None on flat / field_medium
+FIELD_PIN = TERRAIN.get("difficulty_pin")
 for _p, _what in ((Path(args_cli.checkpoint), "--checkpoint"), (Path(args_cli.stand_ckpt), "--stand-ckpt"),
                   (Path(args_cli.manifest), "--manifest")):
     if not _p.is_file():
@@ -381,6 +394,10 @@ for _k, _v in sorted(RUN_ENV.items()):
     print(f"[SHV]   {_k}={_v}", flush=True)
 print(f"[SHV] stand rule {RULE}: {VC.STAND_RULE_TEXT[RULE]}; terrain {args_cli.terrain}; table start "
       f"{'off' if TABLE is None else TABLE}{' (park)' if args_cli.table_park else ''}", flush=True)
+if FIELD_PIN is not None:
+    print(f"[SHV] terrain {args_cli.terrain}: {FIELD_PIN['var']} {FIELD_PIN['row']} (the {VC.FIELD_HARD_ROWS[0]} row) "
+          f"pinned to {FIELD_PIN['video']}: every tile at difficulty {FIELD_PIN['want']} (checked on the realised "
+          "generator before the first step)", flush=True)
 print(f"[SHV] reference checks: {'all equal' if not REFERENCE_MISMATCH else f'MISMATCH (allowed): {REFERENCE_MISMATCH}'}",
       flush=True)
 print(f"[SHV] height row {HEIGHT_ROW['scenario']} ({HEIGHT_ROW['manifest']}): hold_heights {HEIGHT_ROW['hold_heights']}; "
@@ -735,6 +752,14 @@ def _mesh_record(mesh, key: str) -> dict:
 FIELD_FLAT_SUBTERRAIN = "parkour_flat"
 
 
+def _terrain_generator_cls():
+    """``--terrain field_max``: the generator class ``ParkourTerrainImporter`` instantiates (by name, so its methods
+    are the ones the probe wraps)."""
+    from parkour_isaaclab.terrains.parkour_terrain_generator import ParkourTerrainGenerator  # noqa: PLC0415
+
+    return ParkourTerrainGenerator
+
+
 def _field_placement(env_cfg, scenario) -> dict:
     """``--terrain field_medium``, on the cfg before the env is built: the schedule's commanded path
     (``sh_video_core.commanded_extent``, an upper bound) sized in the generator's tiles (+ the margin), and the spawn
@@ -746,6 +771,12 @@ def _field_placement(env_cfg, scenario) -> dict:
     if tg is None:
         raise SystemExit(f"--terrain {args_cli.terrain}: the env cfg has no terrain generator")
     grid = VC.field_grid_of(tg)
+    if FIELD_PIN is not None:      # field_max: the pinned band must have reached the generator cfg (before the build)
+        _why = VC.difficulty_band_reasons(getattr(tg, "difficulty_range", None), FIELD_PIN["want"],
+                                          "the env cfg's terrain generator")
+        if _why:
+            raise SystemExit(f"--terrain {args_cli.terrain}: {_why[0]} ({FIELD_PIN['var']}={FIELD_PIN['video']} "
+                             "did not reach it)")
     extent = VC.commanded_extent(scenario.schedule, prologue_s=float(scenario.get_default("prologue_s")))
     need = VC.field_tiles_needed(extent, grid)
     try:
@@ -778,6 +809,9 @@ def _field_tile_record(gen, tile) -> dict:
     the exact block cover where the generator kept one). Errors are recorded, never fatal."""
     r, c = tile
     rec = {"tile": [int(r), int(c)]}
+    tdiff = getattr(gen, VC.TILE_DIFFICULTY_ATTR, None)       # field_max only: the probe's realised difficulty
+    if tdiff is not None:
+        rec["difficulty"] = tdiff.get(VC.tile_key((int(r), int(c))))
     try:
         rec["name"] = str(np.asarray(gen.terrain_names)[r, c].reshape(-1)[0])
     except Exception as exc:  # noqa: BLE001
@@ -822,6 +856,16 @@ def _field_realised(unwrapped, robot, place: dict) -> tuple[dict, object]:
     flat = sorted(k for k, t in tiles.items() if t.get("name") == FIELD_FLAT_SUBTERRAIN)
     if flat:
         why.append(f"path tiles {flat} are the flat sub-terrain {FIELD_FLAT_SUBTERRAIN!r}")
+    diff, dwhy = None, []
+    if FIELD_PIN is not None:      # field_max: the realised band and EVERY grid tile exactly at the pinned difficulty
+        tdiff = getattr(gen, VC.TILE_DIFFICULTY_ATTR, None)
+        band = getattr(getattr(gen, "cfg", None), "difficulty_range", None)
+        dwhy = VC.field_difficulty_reasons(tdiff, grid, band=band, want=FIELD_PIN["want"])
+        diff = dict(VC.difficulty_summary(tdiff, FIELD_PIN["want"]),
+                    band=None if band is None else [float(v) for v in band],
+                    curriculum=getattr(getattr(gen, "cfg", None), "curriculum", None),
+                    source="sh_video_core.tile_difficulty_probe: the difficulty each tile was built at")
+        print(f"[SHV] field difficulty (realised): {diff}", flush=True)
     spawn = tiles.get(VC.tile_key((row, col))) or _field_tile_record(gen, (row, col))
     print(f"[SHV] field spawn tile ({row}, {col}) {spawn.get('name')} (max {spawn.get('max_height_m')} / min "
           f"{spawn.get('min_height_m')} m, block cover {spawn.get('block_cover')}); robot spawn {root}; path box "
@@ -829,9 +873,15 @@ def _field_realised(unwrapped, robot, place: dict) -> tuple[dict, object]:
           flush=True)
     if why:
         raise SystemExit(f"--terrain {args_cli.terrain}: the video would leave the field: " + "; ".join(why))
-    return {"spawn_tile": [row, col], "env_origin_xy": org, "robot_spawn_xy": root,
-            "path_box_xy": VC.field_path_box(root[0], root[1], extent), "path_tiles": tiles,
-            "names": {k: t.get("name") for k, t in tiles.items()}}, gen
+    if dwhy:
+        raise SystemExit(f"--terrain {args_cli.terrain}: the realised field is not difficulty {FIELD_PIN['want']} on "
+                         "every tile: " + "; ".join(dwhy))
+    out = {"spawn_tile": [row, col], "env_origin_xy": org, "robot_spawn_xy": root,
+           "path_box_xy": VC.field_path_box(root[0], root[1], extent), "path_tiles": tiles,
+           "names": {k: t.get("name") for k, t in tiles.items()}}
+    if diff is not None:
+        out["difficulty"] = diff
+    return out, gen
 
 
 def _compose_table(env_cfg, plan: list) -> dict:
@@ -1003,7 +1053,14 @@ def main() -> None:
           f"resolution={tuple(env_cfg.viewer.resolution)}", flush=True)
 
     agent_cfg = cli_args.parse_rsl_rl_cfg(scenario.task, args_cli)
-    raw_env = gym.make(scenario.task, cfg=env_cfg, render_mode="rgb_array")
+    # field_max: the env (and so the terrain generator) is built inside the difficulty probe; elsewhere a no-op context
+    probe = (VC.tile_difficulty_probe(_terrain_generator_cls()) if FIELD_PIN is not None
+             else contextlib.nullcontext([]))
+    with probe as probed_gens:
+        raw_env = gym.make(scenario.task, cfg=env_cfg, render_mode="rgb_array")
+    if FIELD_PIN is not None and len(probed_gens) != 1:
+        raise SystemExit(f"--terrain {args_cli.terrain}: {len(probed_gens)} terrain generators recorded tiles "
+                         "inside the difficulty probe (want exactly 1: the scene's)")
     if TABLE is not None:   # the table spawn's floor probe = the terrain mesh, registered BEFORE the construction reset
         table_env["probe"] = _register_table_probe(raw_env)
     env = ParkourRslRlVecEnvWrapper(raw_env, clip_actions=agent_cfg.clip_actions)
@@ -1486,10 +1543,11 @@ def _table_summary(ctx, rec: dict, dt: float, first_end: int) -> dict | None:
 
 
 def _field_summary(ctx, rec: dict, seg_ids, segments: list[dict]) -> dict | None:
-    """``--terrain field_medium`` (None otherwise): WHERE the video was recorded -- the tile under the robot (post-step
-    root) per hold (added to each segment as ``terrain_tiles``) and over the run, with every visited tile's sub-terrain
-    and height-field read-out, the steps on the border and on a flat tile (want 0; a WARN otherwise), beside the
-    placement (the pinned spawn row) and the realised spawn tile."""
+    """``--terrain field_medium`` / ``field_max`` (None on flat): WHERE the video was recorded -- the tile under the
+    robot (post-step root) per hold (added to each segment as ``terrain_tiles``) and over the run, with every visited
+    tile's sub-terrain and height-field read-out, the steps on the border and on a flat tile (want 0; a WARN otherwise),
+    beside the placement (the pinned spawn row) and the realised spawn tile. ``field_max`` adds the REALISED difficulty
+    of every visited tile (each segment's ``terrain_tile_difficulty``, ``visited_difficulty``; a WARN off 1.0)."""
     if ctx.field is None:
         return None
     grid = ctx.field["placement"]["grid"]
@@ -1515,6 +1573,18 @@ def _field_summary(ctx, rec: dict, seg_ids, segments: list[dict]) -> dict | None
     if off:
         print(f"[SHV][WARN] {off} of {run['steps']} steps were off the field (border {run['border_steps']}, flat tiles "
               f"{flat_steps})", flush=True)
+    if ctx.field["realised"].get("difficulty") is not None:      # field_max: the realised difficulty of every visit
+        tdiff = getattr(ctx.field_gen, VC.TILE_DIFFICULTY_ATTR, None) or {}
+        want = float(ctx.field["realised"]["difficulty"]["want"])
+        for s in segments:
+            s["terrain_tile_difficulty"] = {k: tdiff.get(k) for k in s["terrain_tiles"]["tiles"]}
+        vd = VC.visited_difficulty(run, tdiff, want)
+        out["visited_difficulty"] = vd
+        print(f"[SHV] field difficulty (visited): {vd['per_tile']}; {vd['steps_at_want']} of {vd['steps']} steps on "
+              f"difficulty-{want:g} tiles", flush=True)
+        if not vd["all_at_want"]:
+            print(f"[SHV][WARN] {vd['steps_off_want']} of {vd['steps']} steps were not on a difficulty-{want:g} tile",
+                  flush=True)
     return out
 
 
