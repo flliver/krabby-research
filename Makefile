@@ -115,19 +115,20 @@ endif
 # package are present (e.g. krabby-compute-parkour 0.1.0 and 0.1.1). Clear dist first.
 build-wheels:
 	@echo "Building wheels for all packages..."
-	@cd hal/client && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd controller && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd hal/server && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd hal/server/isaac && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd hal/server/jetson && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd hal/tools && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd data_collection && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd compute/parkour && rm -rf dist && $(PYTHON) -m build --wheel
-	@rm -rf parkour/dist && $(PYTHON) scripts/wheel-build/build_parkour_wheel.py
-	@cd teleop/edge && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd teleop/portal && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd krabby && rm -rf dist && $(PYTHON) -m build --wheel
-	@cd bench && rm -rf dist && $(PYTHON) -m build --wheel
+	@$(PIP) install -q build wheel setuptools
+	@cd hal/client && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd controller && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd hal/server && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd hal/server/isaac && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd hal/server/jetson && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd hal/tools && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd data_collection && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd compute/parkour && rm -rf dist build && $(PYTHON) -m build --wheel
+	@rm -rf parkour/dist parkour/build && $(PYTHON) scripts/wheel-build/build_parkour_wheel.py
+	@cd teleop/edge && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd teleop/portal && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd krabby && rm -rf dist build && $(PYTHON) -m build --wheel
+	@cd bench && rm -rf dist build && $(PYTHON) -m build --wheel
 	@echo "Wheels built in dist/ directories"
 
 .PHONY: clean

@@ -148,7 +148,8 @@ class TestTorchToNumpyZeroCopy:
 
     def test_tensor_numpy_copies_when_on_gpu(self):
         """Verify tensor.cpu().numpy() copies when tensor is on GPU."""
-        assert torch.cuda.is_available(), "CUDA must be available for this test"
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA not available")
 
         # Create tensor on GPU
         tensor = torch.zeros(12, dtype=torch.float32, device="cuda")
@@ -183,7 +184,8 @@ class TestTorchToNumpyZeroCopy:
 
     def test_inference_response_get_action_numpy_gpu(self):
         """Test InferenceResponse.get_action_numpy() copies when on GPU."""
-        assert torch.cuda.is_available(), "CUDA must be available for this test"
+        if not torch.cuda.is_available():
+            pytest.skip("CUDA not available")
 
         # Create action tensor on GPU
         action = torch.zeros(12, dtype=torch.float32, device="cuda")

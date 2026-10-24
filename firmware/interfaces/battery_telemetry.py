@@ -1,4 +1,5 @@
 import enum
+import math
 from dataclasses import dataclass
 from typing import Optional, Union
 
@@ -48,6 +49,17 @@ class BatteryTelemetry:
 
     @classmethod
     def from_tokens(cls, tokens) -> Optional["BatteryTelemetry"]:
+        # Released firmware and the host simulator omit unavailable samples
+        # and use eight fields, without the two per-monitor validity flags.
+        if tokens and len(tokens) == 9:
+            try:
+                if not all(math.isfinite(float(value)) for value in tokens[1:7]):
+                    return None
+                if not 0 <= int(tokens[8]) <= 6:
+                    return None
+            except ValueError:
+                return None
+            tokens = [*tokens, "1", "1"]
         if not tokens or len(tokens) != cls.TOKEN_COUNT:
             return None
         (tag, pack_v, pack_i, pack_w, pack_charge, battery_a, battery_b,
@@ -79,6 +91,39 @@ class BatteryTelemetry:
     @classmethod
     def from_segment(cls, segment: str) -> Optional["BatteryTelemetry"]:
         return cls.from_tokens(segment.split())
+
+    # Preserve the SDK names used by the upstream host simulator's consumers.
+    @property
+    def pack_v(self) -> float:
+        return self.pack_volts
+
+    @property
+    def pack_i(self) -> float:
+        return self.pack_current_amperes
+
+    @property
+    def pack_w(self) -> float:
+        return self.pack_power_watts
+
+    @property
+    def pack_charge(self) -> float:
+        return self.pack_charge_coulombs
+
+    @property
+    def batt_a_v(self) -> float:
+        return self.battery_a_volts
+
+    @property
+    def batt_b_v(self) -> float:
+        return self.battery_b_volts
+
+    @property
+    def divergence_flag(self) -> int:
+        return int(self.divergence)
+
+    @property
+    def power_state(self) -> int:
+        return int(self.pack_region)
 
     @staticmethod
     def format_battery_voltage(volts: float) -> str:

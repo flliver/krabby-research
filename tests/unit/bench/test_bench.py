@@ -46,7 +46,7 @@ class TestState:
 class TestConfig:
     def test_defaults_when_no_file(self, tmp_path):
         cfg = load_config(tmp_path / "config.toml")
-        assert cfg.ecr.tag == "mainline-latest"
+        assert cfg.ecr.tag == "main-latest"
         assert cfg.alert.mode == "email"
 
     def test_toml_overrides_ecr_tag(self, tmp_path):
@@ -93,7 +93,7 @@ class TestEcrDigestPoll:
 
         with patch("krabby_bench._ecr.urllib.request.urlopen", side_effect=[token_resp, manifest_resp]):
             from krabby_bench._ecr import get_digest
-            digest = get_digest("public.ecr.aws/t7t7b3i3/krabby-locomotion", "mainline-latest")
+            digest = get_digest("public.ecr.aws/t7t7b3i3/krabby-locomotion", "main-latest")
 
         assert digest == expected_digest
 
@@ -601,6 +601,25 @@ class TestHarness:
         lines = hr.summary_lines()
         assert any("FAIL" in ln and "flash" in ln for ln in lines)
         assert any("krabby firmware update" in ln for ln in lines)
+
+    def test_parse_harness_summary_surfaces_motion_fail(self):
+        from krabby_bench._harness import _parse_harness_summary
+
+        text = """
+2026-10-23 INFO noise before summary
+=== harness summary ===
+[PASS] flash: boards=['dev-local'] expected=dev-local
+[PASS] bringup: container running
+[FAIL] motion: motion script exit 1: No module named 'serial'
+       command: python -c … jog RLKL
+FAIL at stage: motion
+"""
+        stages, failed = _parse_harness_summary(text)
+        assert failed == "motion"
+        assert [s.stage for s in stages] == ["flash", "bringup", "motion"]
+        assert stages[0].ok and stages[1].ok and not stages[2].ok
+        assert "serial" in stages[2].detail
+        assert stages[2].command.startswith("python -c")
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@
 #include "controller/board_role.h"
 #include "imu/imu_measurement.h"
 #include "units/electrical_units.h"
+#include "power/battery_measurement.h"
 
 static constexpr uint16_t TELEMETRY_INTERVAL_MS = 50;
 
@@ -110,4 +111,33 @@ inline void appendBatteryTelemetry(
     out.print(packMeasurement.isValid ? 1 : 0);
     out.print(TELEMETRY_FIELD_SEPARATOR);
     out.print(midpointMeasurement.isValid ? 1 : 0);
+}
+
+// Legacy eight-field serializer retained for the upstream host simulator.
+// Hardware telemetry uses appendBatteryTelemetry with per-monitor validity.
+template <typename Output>
+void appendBatteryMeasurement(
+    Output &output,
+    const BatteryMeasurement &measurement)
+{
+    if (!measurement.didSucceed()) return;
+
+    output.print(TELEMETRY_SEGMENT_DELIMITER);
+    output.print(BATT_TELEMETRY_TAG);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(measurement.packVolts, 2);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(measurement.packAmps, 3);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(measurement.packWatts, 2);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(measurement.packChargeCoulombs, 1);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(measurement.battAVolts, 2);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(measurement.battBVolts, 2);
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(static_cast<int>(measurement.divergenceFlag));
+    output.print(TELEMETRY_FIELD_SEPARATOR);
+    output.print(static_cast<int>(measurement.powerState));
 }

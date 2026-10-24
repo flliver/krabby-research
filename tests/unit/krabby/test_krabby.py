@@ -18,6 +18,7 @@ from krabby._state import (
     save_state,
     installed_image,
 )
+from krabby.firmware import apply_channel_to_firmware_args, pop_channel_flag
 
 
 class TestResolveImageRef:
@@ -38,6 +39,118 @@ class TestResolveImageRef:
     def test_ecr_uri_with_tag_returned_as_is(self):
         uri = f"{ECR_REPO}:some-tag"
         assert resolve_image_ref(uri) == uri
+
+    def test_channel_main_maps_to_main_latest(self):
+        assert resolve_image_ref(channel="main") == f"{ECR_REPO}:main-latest"
+
+    def test_channel_release_maps_to_release_latest(self):
+        assert resolve_image_ref(channel="release") == f"{ECR_REPO}:release-latest"
+
+    def test_channel_and_image_mutually_exclusive(self):
+        import pytest
+        with pytest.raises(ValueError, match="--channel or --image"):
+            resolve_image_ref("main-latest", channel="main")
+
+
+class TestChannelFirmwareArgs:
+    def test_pop_channel_from_update(self):
+        ch, rest = pop_channel_flag(["update", "--channel", "main", "/dev/ttyACM0"])
+        assert ch == "main"
+        assert rest == ["update", "/dev/ttyACM0"]
+
+    def test_apply_main_injects_branch(self):
+        assert apply_channel_to_firmware_args(["update"], "main") == ["update", "main"]
+        assert apply_channel_to_firmware_args(
+            ["update", "/dev/ttyACM0"], "main"
+        ) == ["update", "main", "/dev/ttyACM0"]
+
+    def test_apply_release_omits_branch(self):
+        assert apply_channel_to_firmware_args(["update"], "release") == ["update"]
+        assert apply_channel_to_firmware_args(
+            ["update", "/dev/ttyACM0"], "release"
+        ) == ["update", "/dev/ttyACM0"]
+
+    def test_apply_release_keeps_specific_release_branch(self):
+        assert apply_channel_to_firmware_args(
+            ["update", "release/0.2.17"], "release"
+        ) == ["update", "release/0.2.17"]
+
+
+class TestChannelCli:
+    """Argv → command path for ``--channel`` on update and firmware update."""
+
+    def test_update_channel_main_pulls_main_latest(self, monkeypatch):
+        from krabby import __main__ as krabby_main
+
+        captured = {}
+
+        def fake_pull(ref):
+            captured["ref"] = ref
+            return "sha256:deadbeef"
+
+        monkeypatch.setattr("krabby.update.pull", fake_pull)
+        monkeypatch.setattr("krabby.update.save_state", lambda ref, digest: None)
+        monkeypatch.setattr(sys, "argv", ["krabby", "update", "--channel", "main"])
+        krabby_main.main()
+        assert captured["ref"] == f"{ECR_REPO}:main-latest"
+
+    def test_update_channel_release_pulls_release_latest(self, monkeypatch):
+        from krabby import __main__ as krabby_main
+
+        captured = {}
+
+        def fake_pull(ref):
+            captured["ref"] = ref
+            return "sha256:deadbeef"
+
+        monkeypatch.setattr("krabby.update.pull", fake_pull)
+        monkeypatch.setattr("krabby.update.save_state", lambda ref, digest: None)
+        monkeypatch.setattr(sys, "argv", ["krabby", "update", "--channel", "release"])
+        krabby_main.main()
+        assert captured["ref"] == f"{ECR_REPO}:release-latest"
+
+    def _firmware_capture(self, monkeypatch, argv):
+        from krabby import __main__ as krabby_main
+
+        captured = {}
+
+        def fake_firmware_cmd(ref, args, interactive=False):
+            captured["ref"] = ref
+            captured["args"] = list(args)
+            return ["docker"]
+
+        monkeypatch.setattr("krabby.firmware.firmware_cmd", fake_firmware_cmd)
+        monkeypatch.setattr(
+            "krabby.firmware.subprocess.run",
+            lambda cmd: type("R", (), {"returncode": 0})(),
+        )
+        monkeypatch.setattr("krabby.firmware.sys.exit", lambda _code: None)
+        monkeypatch.setattr(sys, "argv", argv)
+        krabby_main.main()
+        return captured
+
+    def test_firmware_update_channel_main_on_subparser(self, monkeypatch):
+        # ``krabby firmware --channel main update``
+        captured = self._firmware_capture(
+            monkeypatch, ["krabby", "firmware", "--channel", "main", "update"]
+        )
+        assert captured["ref"] == f"{ECR_REPO}:main-latest"
+        assert captured["args"] == ["update", "main"]
+
+    def test_firmware_update_channel_main_in_remainder(self, monkeypatch):
+        # ``krabby firmware update --channel main`` (flag inside REMAINDER)
+        captured = self._firmware_capture(
+            monkeypatch, ["krabby", "firmware", "update", "--channel", "main"]
+        )
+        assert captured["ref"] == f"{ECR_REPO}:main-latest"
+        assert captured["args"] == ["update", "main"]
+
+    def test_firmware_update_channel_release_omits_branch(self, monkeypatch):
+        captured = self._firmware_capture(
+            monkeypatch, ["krabby", "firmware", "--channel", "release", "update"]
+        )
+        assert captured["ref"] == f"{ECR_REPO}:release-latest"
+        assert captured["args"] == ["update"]
 
 
 class TestStateRoundtrip:
@@ -263,7 +376,9 @@ class TestInstallLaunchFlag:
         cap = {}
         monkeypatch.setattr(
             "krabby.install.cmd_install",
-            lambda image_ref=None, launch_on_startup=True: cap.update(image=image_ref, launch=launch_on_startup),
+            lambda image_ref=None, channel=None, launch_on_startup=True: cap.update(
+                image=image_ref, channel=channel, launch=launch_on_startup
+            ),
         )
         monkeypatch.setattr(sys, "argv", argv)
         krabby_main.main()
@@ -503,6 +618,29 @@ class TestGamepadCmd:
         script = " ".join(gamepad_cmd("myimage:tag", ["--robot", "bogus"]))
         assert "--control-source gamepad --observation-bind" in script
 
+    def test_local_controller_tree_sets_pythonpath(self, monkeypatch):
+        # Mount clone at /opt/krabby-research so host InputController is used.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        script = gamepad_cmd("myimage:tag", [])[gamepad_cmd("myimage:tag", []).index("-c") + 1]
+        assert "/opt/krabby-research/controller" in script
+        assert "PYTHONPATH=" in script
+
+    def test_mcu_port_env_forwarded(self, monkeypatch):
+        # Same as firmware_cmd: host KRABBY_MCU_PORT must reach the launch script.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = gamepad_cmd("myimage:tag", [])
+        idx = cmd.index("KRABBY_MCU_PORT")
+        assert cmd[idx - 1] == "-e"
+
+    def test_xdg_runtime_dir_set_for_sdl(self, monkeypatch):
+        # SDL/pygame print "XDG_RUNTIME_DIR is invalid or not set" without this.
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "x86_64")
+        cmd = gamepad_cmd("myimage:tag", [])
+        assert "XDG_RUNTIME_DIR=/tmp/runtime-krabby" in cmd
+        script = cmd[cmd.index("-c") + 1]
+        assert "mkdir -p \"$XDG_RUNTIME_DIR\"" in script
+        assert "chmod 700 \"$XDG_RUNTIME_DIR\"" in script
+
 
 from krabby.run import cmd_run
 from krabby import __main__ as krabby_main
@@ -515,7 +653,7 @@ class TestCmdRun:
         Returns ("gamepad"|"inference", captured_kwargs) so tests can assert which
         path ran and with what args.
         """
-        captured = {}
+        captured = {"subprocess_cmds": []}
 
         def fake_gamepad_cmd(ref, extra_args, extra_mounts=None):
             captured.update(mode="gamepad", ref=ref, extra_args=extra_args, extra_mounts=extra_mounts)
@@ -529,6 +667,10 @@ class TestCmdRun:
             captured.update(mode="fleet", ref=ref, hal_argv=hal_argv, extra_mounts=extra_mounts)
             return ["docker", "run", ref]
 
+        def fake_subprocess_run(cmd, **_kwargs):
+            captured["subprocess_cmds"].append(list(cmd))
+            return type("R", (), {"returncode": 0})()
+
         monkeypatch.setattr("krabby.run.gamepad_cmd", fake_gamepad_cmd)
         monkeypatch.setattr("krabby.run.run_cmd", fake_run_cmd)
         monkeypatch.setattr("krabby.run.fleet_hal_cmd", fake_fleet_hal_cmd)
@@ -536,10 +678,16 @@ class TestCmdRun:
         monkeypatch.setattr("krabby.run.build_hal_argv", lambda args: ["--control-source", "portal", "--teleop-ip", "127.0.0.1", "--robot", "hex"])
         monkeypatch.setattr("krabby.run.fleet_volume_mounts", lambda _cfg: [])
         monkeypatch.setattr("krabby.run.load_config", lambda: {})
-        monkeypatch.setattr("krabby.run.subprocess.run", lambda cmd: type("R", (), {"returncode": 0})())
+        monkeypatch.setattr("krabby.run.subprocess.run", fake_subprocess_run)
         monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
         cmd_run(**kwargs)
         return captured
+
+    def test_clears_krabby_container_before_docker_run(self, monkeypatch):
+        # Boot unit / prior run owns --name krabby; clear like ExecStartPre.
+        captured = self._run(monkeypatch, image_ref="img:tag")
+        assert captured["subprocess_cmds"][0] == ["docker", "rm", "-f", "krabby"]
+        assert captured["subprocess_cmds"][1][:2] == ["docker", "run"]
 
     def test_base_call_launches_gamepad_stack(self, monkeypatch):
         captured = self._run(monkeypatch, image_ref="img:tag")
@@ -704,7 +852,10 @@ class TestRunArgvEndToEnd:
         monkeypatch.setattr("krabby.run.fleet_volume_mounts", lambda _cfg: [])
         monkeypatch.setattr("krabby.run.load_config", lambda: {})
         monkeypatch.setattr("krabby.run.installed_image", lambda: "img:tag")
-        monkeypatch.setattr("krabby.run.subprocess.run", lambda cmd: type("R", (), {"returncode": 0})())
+        def fake_subprocess_run(cmd, **kwargs):
+            return type("R", (), {"returncode": 0})()
+
+        monkeypatch.setattr("krabby.run.subprocess.run", fake_subprocess_run)
         monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
         monkeypatch.setattr(sys, "argv", argv)
         krabby_main.main()

@@ -5,7 +5,7 @@ import argparse
 import sys
 from importlib.metadata import PackageNotFoundError, version as _pkg_version
 
-from krabby._state import DEFAULT_TAG
+from krabby._state import CHANNELS, DEFAULT_TAG
 
 
 def _version() -> str:
@@ -31,8 +31,15 @@ def main() -> None:
 
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
+    _channel_help = (
+        "Optional publish line (default: release / stable). "
+        "main (dev) or release (stable): image main-latest / release-latest and "
+        "firmware S3 main / newest release/*. Mutually exclusive with --image."
+    )
+
     # install
     p_install = sub.add_parser("install", help="Pull the locomotion image and set up the host")
+    p_install.add_argument("--channel", choices=CHANNELS, help=_channel_help)
     p_install.add_argument("--image", metavar="REF", help=f"Image ref to install (default: {DEFAULT_TAG})")
     p_install.add_argument(
         "--launch-on-startup",
@@ -43,6 +50,7 @@ def main() -> None:
 
     # update
     p_update = sub.add_parser("update", help="Pull a newer image")
+    p_update.add_argument("--channel", choices=CHANNELS, help=_channel_help)
     p_update.add_argument("--image", metavar="REF", help="Image ref to update to")
 
     # run
@@ -50,6 +58,7 @@ def main() -> None:
         "run",
         help="Start locomotion (fleet-enrolled: HAL + teleop to agent shim; else gamepad stack)",
     )
+    p_run.add_argument("--channel", choices=CHANNELS, help=_channel_help)
     p_run.add_argument("--image", metavar="REF", help="Image ref to run")
     p_run.add_argument("--entrypoint", metavar="CMD", help="Override container entrypoint (inference/custom path)")
     p_run.add_argument("--gamepad-only", action="store_true", help="Explicitly launch the gamepad stack (same as the default `krabby run`)")
@@ -58,6 +67,7 @@ def main() -> None:
 
     # firmware
     p_firmware = sub.add_parser("firmware", help="Run krabby-firmware inside the container")
+    p_firmware.add_argument("--channel", choices=CHANNELS, help=_channel_help)
     p_firmware.add_argument("--image", metavar="REF", help="Image ref to use")
     p_firmware.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to krabby-firmware")
 
@@ -94,6 +104,12 @@ def main() -> None:
     # agent
     sub.add_parser("agent", help="Run the always-on IoT Core MQTT client (normally started by krabby-agent.service)")
 
+    # pair-pro
+    sub.add_parser(
+        "pair-pro",
+        help="Pair a Nintendo Switch Pro Controller over Bluetooth (runs packaged pairing script)",
+    )
+
     # get telemetry
     p_get = sub.add_parser("get", help="Read local device state")
     p_get_sub = p_get.add_subparsers(dest="get_command", metavar="<resource>")
@@ -106,19 +122,34 @@ def main() -> None:
 
     if args.command == "install":
         from krabby.install import cmd_install
-        cmd_install(image_ref=args.image, launch_on_startup=args.launch_on_startup)
+        cmd_install(
+            image_ref=args.image,
+            channel=args.channel,
+            launch_on_startup=args.launch_on_startup,
+        )
 
     elif args.command == "update":
         from krabby.update import cmd_update
-        cmd_update(image_ref=args.image)
+        cmd_update(image_ref=args.image, channel=args.channel)
 
     elif args.command == "run":
         from krabby.run import cmd_run
-        cmd_run(image_ref=args.image, extra_args=args.args, entrypoint=args.entrypoint, extra_mounts=args.mounts, gamepad_only=args.gamepad_only)
+        cmd_run(
+            image_ref=args.image,
+            channel=args.channel,
+            extra_args=args.args,
+            entrypoint=args.entrypoint,
+            extra_mounts=args.mounts,
+            gamepad_only=args.gamepad_only,
+        )
 
     elif args.command == "firmware":
         from krabby.firmware import cmd_firmware
-        cmd_firmware(firmware_args=args.args, image_ref=args.image)
+        cmd_firmware(
+            firmware_args=args.args,
+            image_ref=args.image,
+            channel=args.channel,
+        )
 
     elif args.command == "enroll":
         from krabby.enroll import cmd_enroll
@@ -135,6 +166,10 @@ def main() -> None:
     elif args.command == "agent":
         from krabby.agent import cmd_agent
         cmd_agent()
+
+    elif args.command == "pair-pro":
+        from krabby.pair_pro import cmd_pair_pro
+        cmd_pair_pro()
 
     elif args.command == "get":
         if args.get_command == "telemetry":

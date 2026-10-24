@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run the gamepad-only HAL server (server only) inside the locomotion container.
-# Requires: krabby-locomotion image pulled (sudo krabby install).
+# Requires: krabby-locomotion image pulled via krabby install (see top-level README).
 # Usage: ./controller/scripts/jetson/helper/run_gamepad_hal_server_only_in_container.sh
 # Then run the client on the host: krabby-uno  (pip install krabby-controller)
 # Note: plain `krabby run` already starts this server + client together; this helper

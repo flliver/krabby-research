@@ -31,6 +31,11 @@ FetchContent_MakeAvailable(unity)
 set(KRABBY_ARDUINO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/arduino")
 set(KRABBY_OLED_SIM_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/oled_sim/native")
 
+add_subdirectory(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+    "${CMAKE_CURRENT_BINARY_DIR}/krabby_sim_host"
+)
+
 # Test paths mirror firmware/arduino; target names use the basename.
 function(add_firmware_native_test test_path)
     get_filename_component(test_name "${test_path}" NAME)
@@ -58,7 +63,23 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/actuator/test_actuator_current_tracker
     arduino/src/actuator/test_actuator_status
     arduino/src/actuator/test_actuator_identity
+    arduino/src/actuator/test_actuator_role_names
     arduino/test_board_pins
+    arduino/test_host_arduino_shim
+    arduino/test_host_eeprom
+    arduino/test_host_serial
+    arduino/test_host_i2c
+    arduino/test_host_leader_imu
+    arduino/test_host_leader_battery
+    arduino/test_host_oled_wire
+    arduino/test_host_nonfatal_sensor_init
+    arduino/test_inter_board_serial
+    arduino/test_host_board_role_election
+    arduino/test_host_three_board_leader_relay
+    arduino/test_host_single_leader_eighteen
+    arduino/test_host_firmware_loop
+    arduino/test_host_hall_scale
+    arduino/test_host_actuator_link
     arduino/src/actuator/test_actuator_pot_tracker
     arduino/src/controller/test_board_role
     arduino/src/controller/test_controller_freshness_tracker
@@ -83,9 +104,60 @@ foreach(test_path IN LISTS KRABBY_FIRMWARE_NATIVE_TESTS)
 endforeach()
 
 target_include_directories(test_actuator_manager PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/fakes")
+target_link_libraries(test_host_arduino_shim PRIVATE krabby_sim_host)
+target_link_libraries(test_host_eeprom PRIVATE krabby_sim_host krabby_firmware_actuator_host)
+target_link_libraries(test_host_serial PRIVATE krabby_sim_host)
+target_link_libraries(test_host_i2c PRIVATE krabby_sim_host)
+target_include_directories(
+    test_host_i2c
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_leader_imu PRIVATE krabby_sim_host)
+target_include_directories(
+    test_host_leader_imu
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_leader_battery PRIVATE krabby_sim_host)
+target_include_directories(
+    test_host_leader_battery
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_oled_wire PRIVATE krabby_host)
+target_include_directories(
+    test_host_oled_wire
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_nonfatal_sensor_init PRIVATE krabby_host)
+target_include_directories(
+    test_host_nonfatal_sensor_init
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_inter_board_serial PRIVATE krabby_sim_host)
+target_link_libraries(test_host_board_role_election PRIVATE krabby_sim_host)
+target_link_libraries(test_host_three_board_leader_relay PRIVATE krabby_host)
+target_include_directories(
+    test_host_three_board_leader_relay
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_single_leader_eighteen PRIVATE krabby_host)
+target_include_directories(
+    test_host_single_leader_eighteen
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_firmware_loop PRIVATE krabby_host)
+target_include_directories(
+    test_host_firmware_loop
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_hall_scale PRIVATE krabby_sim_host)
+target_link_libraries(test_host_actuator_link PRIVATE krabby_firmware_actuator_host)
+if(NOT MSVC)
+    target_compile_options(test_host_actuator_link PRIVATE -Wno-sign-compare)
+endif()
 # Legacy calibration compares Arduino int fields with size_t and a magic literal.
 if(NOT MSVC)
     target_compile_options(test_actuator_manager PRIVATE -Wno-sign-compare)
+    target_compile_options(test_host_eeprom PRIVATE -Wno-sign-compare)
 endif()
 
 file(GLOB_RECURSE discovered_test_sources CONFIGURE_DEPENDS

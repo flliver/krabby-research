@@ -55,10 +55,33 @@ public:
 
     ActuatorPotTracker potTracker;
     ActuatorCurrentTracker currentTracker;
+    int stallLastPos = -1;
+    unsigned long stallLastMoveTime = 0;
+    int stallLastAppliedPwm = 0;
 
-    // TODO: This should accept a name and a 'SlotConfig' struct for pin assignment, so we can reuse the pin config w/ different actuator names (on different leader/follower boards)
+    // Shared physical slot pins; role election only changes the joint name.
+    struct SlotConfig
+    {
+        int pinPwmR;
+        int pinPwmL;
+        int pinEn;
+        int pinIS;
+        int pinPot;
+        int8_t hallSlot;
+    };
+
     LinearActuator(const char *n, int pR, int pL, int en, int isPin, int pot, int8_t hallIdx = -1)
         : name(n), pinPwmR(pR), pinPwmL(pL), pinEn(en), pinIS(isPin), pinPot(pot), hallSlot(hallIdx) {}
+
+    LinearActuator(const char *n, const SlotConfig &slot, const ControlConfig &cfg)
+        : name(n),
+          pinPwmR(slot.pinPwmR),
+          pinPwmL(slot.pinPwmL),
+          pinEn(slot.pinEn),
+          pinIS(slot.pinIS),
+          pinPot(slot.pinPot),
+          hallSlot(slot.hallSlot),
+          controlConfig(cfg) {}
 
     const char *getName() const
     {
@@ -217,23 +240,29 @@ public:
     // Returns true if motor is powered but position hasn't changed for 'timeout' ms
     bool isStalled(unsigned long timeout)
     {
-        static int lastPos = -1;
-        static unsigned long lastMoveTime = 0;
-
         if (abs(currentPwm) < 50)
         { // Not trying to move
-            lastMoveTime = millis();
+            stallLastMoveTime = millis();
+            stallLastAppliedPwm = currentPwm;
             return false;
         }
 
-        if (abs(getRawPos() - lastPos) > 2)
+        if (currentPwm != stallLastAppliedPwm)
+        { // New drive command: do not inherit stall timing from the previous direction
+            stallLastAppliedPwm = currentPwm;
+            stallLastPos = getRawPos();
+            stallLastMoveTime = millis();
+            return false;
+        }
+
+        if (abs(getRawPos() - stallLastPos) > 2)
         { // Moved
-            lastPos = getRawPos();
-            lastMoveTime = millis();
+            stallLastPos = getRawPos();
+            stallLastMoveTime = millis();
             return false;
         }
 
-        if (millis() - lastMoveTime > timeout)
+        if (millis() - stallLastMoveTime > timeout)
             return true;
         return false;
     }
@@ -443,6 +472,11 @@ public:
 
     void updateCalibration()
     {
+#ifdef KRABBY_HOST_FIRMWARE
+        for (size_t i = 0; i < count; i++)
+            actuators[i]->updateSensors();
+#endif
+
         // TODO: Fix hardcoded actuator order, store actuator naming information in EEPROM struct
         // Helper lambda to get actuator by index (Hardcoded order: LHY, LHL, LKL, RHY, RHL, RKL)
         // 0=LHY, 1=LHL, 2=LKL, 3=RHY, 4=RHL, 5=RKL

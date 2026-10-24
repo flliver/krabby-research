@@ -39,8 +39,8 @@ class TelemetryFrame:
                 parsed_imu = ImuTelemetry.from_tokens(tokens)
                 if parsed_imu is not None:
                     imu = parsed_imu
-            elif tokens[0] == "BATT":
-                parsed_battery = BatteryTelemetry.from_segment(segment)
+            elif tokens[0] == BatteryTelemetry.TAG:
+                parsed_battery = BatteryTelemetry.from_tokens(tokens)
                 if parsed_battery is not None:
                     battery = parsed_battery
             else:

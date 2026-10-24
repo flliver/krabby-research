@@ -20,4 +20,5 @@ def pytest_collection_modifyitems(config, items):
         "firmware/scripts/fetch_arduino_libs.py or set QWIIC_OLED_LIB_DIR"
     )
     for item in items:
-        item.add_marker(skip)
+        if "/oled_sim/" in item.nodeid or item.nodeid.startswith("tests/unit/oled_sim/"):
+            item.add_marker(skip)

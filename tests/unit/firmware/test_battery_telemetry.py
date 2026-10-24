@@ -72,9 +72,8 @@ class TestRegionByte:
 
 class TestMalformedSegmentsAreDropped:
     def test_a_short_frame_is_rejected(self):
-        # The pre-validity wire format, rejected on token count rather than
-        # parsed with the trailing bytes silently defaulted.
-        assert _parse("BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 0 0") is None
+        # A partially truncated validity extension is not a legacy frame.
+        assert _parse("BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 0 0 1") is None
 
     def test_extra_tokens_are_rejected(self):
         assert _parse(BATT_SEG + " 0") is None

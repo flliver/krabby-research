@@ -4,11 +4,14 @@
 #   ./scripts/run_isaac_hal_server.sh              # Go2 play + krabby-uno-sim (HAL TCP :5555 / :5556 on host)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1     # Go2 play + portal WebRTC (in-process policy; no krabby-uno-sim)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1 --joystick  # Portal + manual drive (start krabby-uno-sim on host)
-#   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD from repo assets/
+#   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD + --backend fullsim (host firmware)
 #
 # Uses Docker --network host (Linux) so HAL and teleop edge can use ws://127.0.0.1:9000/ws/robot when the
 # portal runs on the same machine (e.g. another container publishing 9000 on the host). Omitting bridge
 # NAT avoids 127.0.0.1 inside the Isaac container pointing at the wrong namespace.
+#
+# Image wheels (krabby-hal-server-isaac 0.1.2+ on PyPI) are the default after make build-isaacsim-image.
+# Set KRABBY_ISAAC_DEV_MOUNTS=1 to bind-mount hal/, compute/, teleop/, firmware/, and parkour/ over the image.
 #
 # Optional flags (--teleop-ip, --hexapod) may appear anywhere among script arguments.
 # Everything else is passed through to the container entrypoint.
@@ -65,7 +68,7 @@ done
 py=()
 
 if [ "$want_hexapod" -eq 1 ]; then
-  py+=(--usd "$HEX_USD")
+  py+=(--usd "$HEX_USD" --backend fullsim)
   if [ -n "$want_teleop_ip" ]; then
     py+=(--teleop-ip "$want_teleop_ip")
     # Image does not bundle a hex policy; drive over TCP unless user passes --checkpoint …
@@ -96,19 +99,47 @@ fi
 
 py+=("${passthrough[@]}")
 
-xhost +local:docker 2>/dev/null || true
+want_headless=0
+for arg in "${passthrough[@]}"; do
+  if [ "$arg" = "--headless" ]; then
+    want_headless=1
+    break
+  fi
+done
 
-if [ "$want_hexapod" -eq 1 ]; then
-  exec docker run --rm --gpus all \
-    --network host \
-    -e "DISPLAY=${DISPLAY}" \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v "${REPO_ROOT}/assets:/workspace/assets" \
-    "$IMAGE" "${py[@]}"
+docker_env=()
+docker_mounts=()
+if [ "$want_headless" -eq 1 ]; then
+  # Avoid GLFW probing a host DISPLAY that is not valid inside the container.
+  docker_env+=(-e DISPLAY=)
 else
-  exec docker run --rm --gpus all \
-    --network host \
-    -e "DISPLAY=${DISPLAY}" \
-    -v /tmp/.X11-unix:/tmp/.X11-unix \
-    "$IMAGE" "${py[@]}"
+  xhost +local:docker 2>/dev/null || true
+  docker_mounts+=(-v /tmp/.X11-unix:/tmp/.X11-unix)
+  docker_env+=(-e "DISPLAY=${DISPLAY}")
 fi
+if [ "${KRABBY_ISAAC_DEV_MOUNTS:-0}" = 1 ]; then
+  docker_mounts+=(
+    -v "${REPO_ROOT}/hal:/workspace/hal"
+    -v "${REPO_ROOT}/compute:/workspace/compute"
+    -v "${REPO_ROOT}/teleop:/workspace/teleop"
+    -v "${REPO_ROOT}/firmware:/workspace/firmware"
+    -v "${REPO_ROOT}/parkour:/workspace/parkour"
+  )
+fi
+if [ "$want_hexapod" -eq 1 ]; then
+  docker_mounts+=(-v "${REPO_ROOT}/assets:/workspace/assets")
+  # fullsim attaches firmware.sim on the Isaac env (Python tree; .so is baked into the image).
+  docker_mounts+=(-v "${REPO_ROOT}/firmware:/workspace/firmware")
+  HOST_LIB="${REPO_ROOT}/build/native-firmware-tests/krabby_sim_host/libkrabby_host.so"
+  if [ -f "$HOST_LIB" ]; then
+    docker_mounts+=(
+      -v "${REPO_ROOT}/build/native-firmware-tests:/workspace/build/native-firmware-tests:ro"
+    )
+  fi
+fi
+
+exec docker run --rm --gpus all \
+  --network host \
+  "${docker_env[@]}" \
+  "${docker_mounts[@]}" \
+  "$IMAGE" "${py[@]}"

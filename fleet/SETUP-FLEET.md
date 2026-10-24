@@ -1,7 +1,10 @@
 # Fleet setup and operations
 
-Operator guide for the Krabby fleet: AWS IoT control plane, device
-onboarding, Secure Tunneling SSH, telemetry, and the fleet service stack.
+Operator guide for the Krabby fleet: AWS IoT control plane, Secure Tunneling
+SSH, telemetry, and the fleet service stack.
+
+**Per-device enroll** (thing, cert, agent) is only in [`ENROLL.md`](ENROLL.md) —
+follow that doc on each Orin; do not use this file as a second enroll guide.
 
 Infra deploy scripts: [`infra/`](infra/README.md). Device CLI: [`krabby/README.md`](../krabby/README.md).
 Index: [`README.md`](README.md).
@@ -37,10 +40,15 @@ Index: [`README.md`](README.md).
 
 4. Verify shadow telemetry / portal / CLI as needed.
 
-## Enroll and SSH
+## Device enroll and SSH (pointers only)
+
+No enroll steps live in this file. Per-device onboarding is only
+[`ENROLL.md`](ENROLL.md) (same path used for Orin cold-start fleet bring-up).
 
 - Enroll one Orin: [`ENROLL.md`](ENROLL.md) — needs
   **`krabby-launcher` ≥ 0.1.22** (`enroll` / `agent`, fleet teleop signaling, bench `teleop_control_echo`)
+- After enroll (agent + fleet HAL / portal teleop): [`FIELD-TELEOP.md`](FIELD-TELEOP.md) —
+  enrolled hosts use `krabby run` (not a second enroll guide)
 - One SSH source → one Orin: [`SSH-TUNNEL.md`](SSH-TUNNEL.md)
 - Cognito operators (CLI + Console): [`OPERATORS.md`](OPERATORS.md)
 
@@ -182,14 +190,11 @@ public internet — no VPN, no per-robot signaling servers.
 
 ### One-time per robot (Orin)
 
-```bash
-# Enroll once (device cert + krabby-agent.service) — see sections 3–6
-sudo -E env PATH="$PATH" krabby enroll --thing-name <thing-name>
-
-# Locomotion + WebRTC edge pointed at the local agent teleop shim
-# (agent already bridges MQTT ↔ ws://127.0.0.1:9000/ws/robot)
-python -m hal.server.jetson.main --control-source portal --teleop-ip 127.0.0.1
-```
+1. Enroll once (device cert + `krabby-agent.service`) using [`ENROLL.md`](ENROLL.md)
+   only — do not copy enroll commands from this file.
+2. Start / verify fleet HAL with **`krabby run`** on the enrolled host (see
+   [`FIELD-TELEOP.md`](FIELD-TELEOP.md)). That is the production path; do not
+   substitute a bare `python -m hal.server.jetson.main …` for kit bring-up.
 
 For the **bench Orin** used in CI, use the always-on agent + HAL procedure in
 [`BENCH-TELEOP.md`](BENCH-TELEOP.md) (detached Docker, `--teleop-control-echo`).

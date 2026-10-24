@@ -186,6 +186,11 @@ class HalClient:
         # No new data received (timeout)
         return None
 
+    @property
+    def latest_observation(self) -> Optional[HardwareObservations]:
+        """Most recent observation from a successful ``poll``, or None if none yet."""
+        return self._latest_hw_obs
+
     def put_joint_command(self, cmd: "JointCommand") -> None:
         """Put/send joint command to server.
 

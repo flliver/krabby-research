@@ -1,7 +1,13 @@
-# Build the production locomotion image and push to ECR Public on every push to mainline or release/*.
+# Build the production locomotion image and push to ECR Public on every push to main or release/*.
+# `main` is the dev channel (`main-latest`); `release/*` is stable (`release-latest`).
 # Dev image (images/locomotion/Dockerfile) is not built or pushed here.
-# Tags: <sha7>, <branch>-latest (e.g. mainline-latest, release-0-2-9-latest),
+# Tags: <sha7>, <branch>-latest (e.g. main-latest, release-0-2-9-latest),
 #       and on locomotion-v* tags also the semver version.
+#
+# After this workflow succeeds, Artifact health (artifact-health.yml) starts via
+# workflow_run. It must wait because it pulls the new locomotion image from ECR
+# (it does not build it) and smokes main-latest / release-latest, then also runs
+# packages / firmware S3 checks.
 #
 # Requires:
 #   - krabby-locomotion repo in ECR Public (public.ecr.aws/t7t7b3i3/krabby-locomotion)
@@ -12,7 +18,7 @@ name: Build and push locomotion image to ECR
 on:
   push:
     branches:
-      - mainline
+      - main
       - 'release/**'
     tags:
       - 'locomotion-v*'
@@ -30,9 +36,10 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      actions: read     # list failed steps for Discord detail
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Scheduled builds need every branch to find the newest release/*.
           fetch-depth: 0
@@ -53,15 +60,15 @@ jobs:
           git checkout -B "${LOCAL}" "${BRANCH}"
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Pre-push smoke (build full Dockerfile.release, no ECR push)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: images/locomotion/Dockerfile.release
@@ -78,7 +85,7 @@ jobs:
           docker run --rm --network host krabby-locomotion-release:ci --help | grep -q -- '--teleop-ip'
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
           aws-region: us-east-1
@@ -127,7 +134,7 @@ jobs:
           echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push production image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: images/locomotion/Dockerfile.release
@@ -180,3 +187,52 @@ jobs:
             arduino-cli core list | grep -E "^arduino:avr"
 
           echo "All verification checks passed."
+
+      # Discord: FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Set up Python (Discord notify)
+        if: success() || failure()
+        continue-on-error: true
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Discord notify
+        if: success() || failure()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import os
+          import subprocess
+          from krabby_bench._discord import notify_ci_result
+
+          ok = os.environ.get("JOB_STATUS") == "success"
+          try:
+              branch = subprocess.check_output(
+                  ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
+              ).strip()
+          except Exception:
+              branch = ""
+
+          notify_ci_result(
+              ok=ok,
+              title="publish-locomotion",
+              failed_stage=(None if ok else "build-and-push"),
+              branch=branch,
+              detail=(
+                  "Locomotion publish green again."
+                  if ok
+                  else (
+                      "Locomotion image was not published. Artifact health will not run "
+                      "until this workflow is green."
+                  )
+              ),
+              collapse_consecutive_pass=True,
+          )
+          PY

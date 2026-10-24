@@ -2,6 +2,19 @@
 
 Locomotion stack for the Krabby hexapod robot — firmware, HAL, policy inference, and deployment tooling.
 
+## Start here
+
+| If you want to… | Read in this order |
+| --- | --- |
+| Get a robot running on Orin | [Software quick-start](#software-quick-start) → [firmware/SETUP.md](firmware/SETUP.md) |
+| Pair a Pro Controller and drive | [CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md) (`krabby pair-pro`) → [E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) → [Software quick-start §6](#6-drive-with-a-gamepad) (`krabby run`) |
+| Jog joints with the firmware GUI | [Software quick-start](#software-quick-start) + `pip install krabby-firmware`, then `python -m firmware.gui` or `krabby-firmware-gui` (needs `python3-tk` on Orin) |
+| Change code or find where things live | [docs/FOLDER_LAYOUT.md](docs/FOLDER_LAYOUT.md) → [DEVELOPER.md](DEVELOPER.md) → [krabby/README.md](krabby/README.md) |
+| Stand up fleet AWS (one-time account) | [fleet/SETUP-FLEET.md](fleet/SETUP-FLEET.md) → [fleet/FIELD-TELEOP.md](fleet/FIELD-TELEOP.md) |
+| Enroll one Orin into the fleet | [fleet/ENROLL.md](fleet/ENROLL.md) |
+| Run the continuous bench watchdog | [bench/README.md](bench/README.md) |
+| Train or evaluate policies in sim | [crab-hex forward task](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) → [docs/crab-hexapod-plant.md](docs/crab-hexapod-plant.md) |
+
 ## Kit
 
 | Item | Qty |
@@ -22,14 +35,25 @@ Full robot assembly notes are in the Milestone 12 deliverables. This repo covers
 
 ### 1. Install the CLI
 
+The PyPI package is **`krabby-launcher`**. The command it installs is `krabby`. Do **not** run `pip install krabby` — that is a different, unrelated project on PyPI.
+
+On Orin (and other hosts where system Python is not writable), create a user venv first — bare `pip install` into system Python fails with `PermissionError`:
+
 ```bash
+python3 -m venv ~/.venv-krabby
+source ~/.venv-krabby/bin/activate
+pip install -U pip
 pip install krabby-launcher
 ```
 
+Keep the venv activated for later `krabby` commands in this guide.
+
 ### 2. Pull the locomotion image and set up the host
 
+With the venv still activated, run install via the venv `krabby` — bare `sudo krabby install` often resolves to a different binary and fails with `No such command 'install'`:
+
 ```bash
-sudo krabby install
+sudo -E env PATH="$PATH" "$(which krabby)" install
 ```
 
 This pulls `release-latest` from ECR (the stable release channel), writes the udev rule for the Mega 2560 boards, adds you to the `dialout` group, and installs a systemd unit so the stack starts on boot. Replug USB after this step. (Pass `--no-launch-on-startup` to skip the boot autostart; see [krabby/README.md](krabby/README.md#start-on-boot).)
@@ -48,7 +72,7 @@ All three boards should appear with their role (`front`, `left`, `right`) and ve
 krabby firmware update
 ```
 
-Run once per board — replug USB between boards. Boards are auto-detected from `/dev/ttyACM*` and `/dev/ttyUSB*`. See [firmware/SETUP.md](firmware/SETUP.md) for the full three-board procedure.
+Run once per board — replug USB between boards. Boards are auto-detected from `/dev/ttyACM*` and `/dev/ttyUSB*`. Do not interrupt mid-upload. If the board vanishes (`cannot open port`, no tty), see **Board vanishes during or after upload** in [firmware/SETUP.md](firmware/SETUP.md).
 
 ### 5. Wire the serial harness
 
@@ -56,13 +80,20 @@ Connect all three Megas to the Jetson via the powered USB hub.
 
 ### 6. Drive with a gamepad
 
-Pair a Pro Controller over Bluetooth ([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)) **before** starting the stack, then:
+Pair a Pro Controller over Bluetooth **before** starting the stack
+([CONNECT_PRO_CONTROLLER.md](controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md)):
 
 ```bash
+sudo -E env PATH="$PATH" "$(which krabby)" pair-pro
+# If boot autostart is enabled (default after install), stop it so Restart=always
+# does not reclaim the container name from your foreground session:
+sudo systemctl stop krabby-locomotion
 krabby run
 ```
 
-`krabby run` starts the whole gamepad stack — HAL server, `krabby-uno` client, and controller — in one container, so the paired controller drives the robot immediately. No second command. The container starts with GPU, serial, and input device passthrough; logs stream to stdout and Ctrl+C stops it.
+If the Mega shows up as `/dev/ttyUSB*` (common with CH340) instead of `/dev/ttyACM0`, set the port so the launch check matches the board: `KRABBY_MCU_PORT=/dev/ttyUSB0 krabby run`. A warning about ACM0 with `Connected to /dev/ttyUSB…` later usually means the HAL already found the board — you can keep going, or set `KRABBY_MCU_PORT` to silence the check.
+
+`krabby run` starts the whole gamepad stack — HAL server, `krabby-uno` client, and controller — in one container, so the paired controller drives the robot immediately. No second command. It clears any existing container named `krabby` first (same as the boot unit’s `ExecStartPre`), so you no longer need a manual `docker rm -f krabby`. The container starts with GPU, serial, and input device passthrough; logs stream to stdout and Ctrl+C stops it. To return to boot autostart afterward: `sudo systemctl start krabby-locomotion`.
 
 To drive from a *separate* client instead (e.g. a second terminal, or another host against a server-only run), use the `krabby-uno` console script from the controller package (`pip install krabby-controller`). See [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) for the full E2E and debug guide.
 
@@ -78,10 +109,13 @@ krabby run -- --checkpoint /path/to/checkpoint.pt
 
 ## Continuous bench watchdog
 
-A systemd service polls ECR every 60 s for a new `mainline-latest` digest. When one appears it runs a firmware smoke test and emails (or opens a GitHub Issue) on failure.
+A systemd service polls ECR every 60 s for a new `main-latest` digest (configurable). When one appears it runs a firmware smoke test and emails (or opens a GitHub Issue) on failure.
+
+Complete Software quick-start §1–2 first, then:
 
 ```bash
-sudo pip3 install krabby-bench
+source ~/.venv-krabby/bin/activate
+pip install krabby-bench
 sudo BENCH_SMTP_TO=alerts@example.com BENCH_GITHUB_REPO=owner/repo BENCH_GITHUB_TOKEN=ghp_... \
   krabby-bench install
 ```
@@ -92,10 +126,14 @@ See [bench/README.md](bench/README.md) for config reference and forced-failure t
 
 ## Further reading
 
+Host setup for kit bring-up is **this quick-start** (`krabby install` above), not a second path. [docs/JETSON_DEPLOYMENT.md](docs/JETSON_DEPLOYMENT.md) is advanced Jetson/Docker/ZED/policy reference only.
+
 | Document | Contents |
 |----------|----------|
+| [docs/CI-FAILURES.md](docs/CI-FAILURES.md) | What to do when publish / Artifact health / Discord CI fails |
+| [docs/JETSON_DEPLOYMENT.md](docs/JETSON_DEPLOYMENT.md) | Advanced Jetson: SSH, GPU Docker, ZED, custom policy deploy (not kit install) |
 | [firmware/SETUP.md](firmware/SETUP.md) | S3 firmware store, V protocol, three-board update procedure |
-| [images/locomotion/README.md](images/locomotion/README.md) | Production Docker image, ECR tags, pin bumping |
+| [images/locomotion/README.md](images/locomotion/README.md) | Locomotion image (maintainers: tags, pins, Dockerfiles) |
 | [krabby/README.md](krabby/README.md) | Full `krabby` CLI reference |
 | [controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md](controller/scripts/jetson/E2E_GAMEPAD_KRABBY.md) | Gamepad E2E guide |
 | [bench/README.md](bench/README.md) | Bench watchdog setup and alerter config |

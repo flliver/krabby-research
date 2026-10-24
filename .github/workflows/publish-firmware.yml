@@ -1,4 +1,5 @@
-# Build Arduino firmware and publish to S3 on every push to mainline or release/*.
+# Build Arduino firmware and publish to S3 on every push to main or release/*.
+# `main` is the dev channel; `release/*` is stable.
 # CI assumes the krabby-firmware-ci IAM role via GitHub OIDC (no stored AWS credentials).
 
 name: Publish firmware to S3
@@ -6,7 +7,7 @@ name: Publish firmware to S3
 on:
   push:
     branches:
-      - mainline
+      - main
       - 'release/**'
   schedule:
     # Daily release build at 07:00 UTC. Scheduled runs start on the default
@@ -22,9 +23,10 @@ jobs:
     permissions:
       id-token: write   # required for OIDC role assumption
       contents: read
+      actions: read     # list failed steps for Discord detail
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Scheduled builds need every branch to find the newest release/*.
           fetch-depth: 0
@@ -46,7 +48,7 @@ jobs:
           git checkout -B "${LOCAL}" "${BRANCH}"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -62,7 +64,7 @@ jobs:
             | tar -xz -C /usr/local/bin arduino-cli
 
       - name: Cache arduino AVR core
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.arduino15
           key: arduino-avr-${{ runner.os }}-cli1.1.1-core1.8.8
@@ -82,7 +84,7 @@ jobs:
       # but check out the newest release/*, which may predate the M16 sensor and
       # need no library, so skip instead of failing.
       - name: Cache pinned Arduino libraries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Arduino/libraries
           key: arduino-libs-${{ hashFiles('firmware/Makefile') }}
@@ -105,10 +107,56 @@ jobs:
             firmware/arduino
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::632914961627:role/krabby-firmware-ci
           aws-region: us-east-1
 
       - name: Publish to S3
         run: PYTHONPATH=. python firmware/scripts/publish_firmware.py
+
+      # Discord: FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Set up Python (Discord notify)
+        if: success() || failure()
+        continue-on-error: true
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Discord notify
+        if: success() || failure()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import os
+          import subprocess
+          from krabby_bench._discord import notify_ci_result
+
+          ok = os.environ.get("JOB_STATUS") == "success"
+          try:
+              branch = subprocess.check_output(
+                  ["git", "rev-parse", "--abbrev-ref", "HEAD"], text=True
+              ).strip()
+          except Exception:
+              branch = ""
+
+          notify_ci_result(
+              ok=ok,
+              title="publish-firmware",
+              failed_stage=(None if ok else "build-and-publish"),
+              branch=branch,
+              detail=(
+                  "Firmware publish green again."
+                  if ok
+                  else "Firmware tests failed or HEX was not uploaded to S3."
+              ),
+              collapse_consecutive_pass=True,
+          )
+          PY

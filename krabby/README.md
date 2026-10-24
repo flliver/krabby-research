@@ -2,13 +2,21 @@
 
 CLI for installing, updating, and running the Krabby locomotion stack on a Jetson Orin host.
 
-PyPI package name is `krabby-launcher` (the `krabby` name was already taken); the installed command is still `krabby`.
+**Install package:** `krabby-launcher` on PyPI. **CLI command:** `krabby`.  
+`pip install krabby` is a **different, unrelated** (long-abandoned) project — it will not give you this CLI. The short name was unavailable when this package was published.
 
 ## Install
 
+On Orin, use a user venv (system `pip install` fails with `PermissionError`):
+
 ```bash
-pip install 'krabby-launcher>=0.1.22'
+python3 -m venv ~/.venv-krabby
+source ~/.venv-krabby/bin/activate
+pip install -U pip
+pip install 'krabby-launcher>=0.1.24'
 ```
+
+Host setup (`krabby install`) needs sudo with the venv binary — see [Start on boot](#start-on-boot).
 
 Fleet onboarding and teleop: [`fleet/ENROLL.md`](../fleet/ENROLL.md),
 [`fleet/FIELD-TELEOP.md`](../fleet/FIELD-TELEOP.md).
@@ -17,21 +25,29 @@ Fleet onboarding and teleop: [`fleet/ENROLL.md`](../fleet/ENROLL.md),
 
 ```
 krabby install            # pull release-latest, set up udev + dialout, enable boot autostart
-krabby install --image <ref>          # pull a specific tag or digest
+krabby install --channel main     # dev line (image main-latest)
+krabby install --channel release  # stable line (default; image release-latest)
+krabby install --image <ref>      # specific tag or digest (not with --channel)
 krabby install --no-launch-on-startup # set up the host but DON'T start on boot
 
 krabby update             # re-pull the last installed image
-krabby update --image <ref>    # pull a different tag
+krabby update --channel main      # switch to / refresh the dev line
+krabby update --image <ref>       # specific tag or digest (not with --channel)
 
 krabby run                # locomotion HAL (fleet-enrolled: portal/inference + teleop to agent shim)
+krabby run --channel main      # run the dev image
 krabby run --gamepad-only      # gamepad stack: HAL + krabby-uno (non-fleet / explicit)
 krabby run -- --device-id 1    # forward client args to krabby-uno (gamepad mode)
 krabby run -- --checkpoint /path/to/ckpt.pt   # inference mode (policy checkpoint)
 
 krabby firmware show           # run krabby-firmware show inside the container
 krabby firmware show <branch>  # list a branch's builds newest-first, paged
-krabby firmware update         # run krabby-firmware update inside the container
+krabby firmware update         # latest release/* HEX (stable)
+krabby firmware update --channel main     # HEX from S3 main (dev)
+krabby firmware update --channel release  # newest release/* HEX
 krabby firmware <args>         # any krabby-firmware subcommand/flags
+
+krabby pair-pro                # pair official Nintendo Pro (BT); third-party → USB / see CONNECT_PRO_CONTROLLER.md
 
 krabby enroll                        # one-time fleet onboarding (operator-run, needs sudo + AWS creds)
 krabby enroll --thing-name my-krab   # override the default MAC-derived thing name
@@ -55,8 +71,13 @@ enroll: [`fleet/ENROLL.md`](../fleet/ENROLL.md). One-source SSH:
 as a systemd service (`krabby-agent.service`, separate from
 `krabby-locomotion.service`).
 
+Before enroll, set the `krabby-enroll` IAM access key in the shell on the Orin
+as `AWS_*` environment variables (`sudo -E` below keeps them for the command).
+Enroll uses those variables only to provision the device and does not write AWS
+secrets to disk. Full flow: [`fleet/ENROLL.md`](../fleet/ENROLL.md).
+
 ```bash
-export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=<region>  # krabby-enroll keys
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=<region>
 sudo -E env PATH="$PATH" krabby enroll --thing-name <thing-name>
 ```
 
@@ -90,9 +111,12 @@ process back if it exits.
 
 `krabby run` starts the **whole** gamepad stack in one container — the HAL server and
 the `krabby-uno` client/controller together — so a paired gamepad drives the robot with
-a single command. To run just the client (e.g. the two-process debug flow), use the
-`krabby-uno` console script from the controller package (`pip install krabby-controller`)
-against the server's TCP endpoints (`tcp://host:6001` / `:6002`).
+a single command. If the Mega is on `/dev/ttyUSB*` (e.g. CH340) rather than
+`/dev/ttyACM0`, pass `KRABBY_MCU_PORT=/dev/ttyUSB0 krabby run` so the MCU presence
+check uses that path (`krabby run` forwards the env into the container). To run just
+the client (e.g. the two-process debug flow), use the `krabby-uno` console script from
+the controller package (`pip install krabby-controller`) against the server's TCP
+endpoints (`tcp://host:6001` / `:6002`).
 
 ## Start on boot
 
@@ -100,9 +124,26 @@ against the server's TCP endpoints (`tcp://host:6001` / `:6002`).
 `krabby run` on boot — **enabled by default**. It runs as the invoking user, starts
 after `docker.service`, and retries if the MCU hasn't enumerated yet at boot.
 
+**Boot vs manual `krabby run`:** both use the fixed container name `krabby`. The unit
+clears that name in `ExecStartPre`; `krabby run` does the same before `docker run`, so
+a leftover or service-owned container no longer blocks a fresh start with a Docker
+Conflict error. For a **foreground** manual session while autostart is enabled, stop
+the unit first — otherwise `Restart=always` can reclaim the name after you clear it:
+
 ```bash
-sudo krabby install                       # enables boot autostart (default)
-sudo krabby install --no-launch-on-startup  # host setup only; no autostart
+sudo systemctl stop krabby-locomotion
+krabby run
+# when done, restore boot ownership:
+sudo systemctl start krabby-locomotion
+```
+
+If `krabby-launcher` is in a user venv (recommended on Orin), activate that venv
+before install. Use the venv binary under `sudo` — `PATH="$PATH"` keeps the venv on
+sudo's search path; `"$(which krabby)"` pins the same CLI you just installed:
+
+```bash
+sudo -E env PATH="$PATH" "$(which krabby)" install                       # boot autostart (default)
+sudo -E env PATH="$PATH" "$(which krabby)" install --no-launch-on-startup  # host setup only; no autostart
 sudo systemctl disable krabby-locomotion    # turn off later
 journalctl -u krabby-locomotion -f          # service logs
 ```
@@ -111,25 +152,31 @@ The unit starts the **gamepad** stack. ⚠️ On boot the stack goes live; if a 
 is paired/connected it can drive the robot unattended. To run a policy instead, edit
 `ExecStart` in the unit to `krabby run -- --checkpoint /path/to/ckpt.pt`.
 
-## Image refs
+## Channels and image refs
 
-The default image is pulled from ECR:
+| Channel | Locomotion image tag | Firmware S3 |
+| --- | --- | --- |
+| `release` (default) | `release-latest` | newest `release/*` |
+| `main` | `main-latest` | branch `main` |
+
+```
+krabby install --channel main
+krabby firmware update --channel main
+```
+
+The default image (no `--channel` / `--image`) is:
 
 ```
 public.ecr.aws/t7t7b3i3/krabby-locomotion:release-latest
 ```
 
-`release-latest` tracks the newest `release/*` build — the stable channel for kit
-owners (CI moves the tag on each release build; see `images/locomotion/README.md`).
-Use `--image mainline-latest` to follow the development line instead.
-
-A bare tag (e.g. `--image v1.2.3`) is expanded to the full ECR URI automatically.
-Pass a fully-qualified URI to use a different registry entirely.
+`--image` selects a bare tag or full URI. Do not pass `--channel` and `--image`
+together.
 
 ## State
 
 The last installed image ref and digest are recorded at `~/.config/krabby/state.json`.
-`krabby update` and `krabby run` read this file when `--image` is omitted.
+`krabby update` and `krabby run` read this file when `--channel` / `--image` are omitted.
 
 ## GPU
 

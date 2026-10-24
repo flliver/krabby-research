@@ -1,11 +1,17 @@
-"""Headless GUI IMU-state tests."""
+"""Headless GUI telemetry display tests."""
+
+import pytest
+
+pytest.importorskip("tkinter")
 
 from firmware.gui.app import (
     STATE_COLOR_OK,
     STATE_COLOR_STALE,
     ImuRow,
+    JointRow,
 )
 from firmware.interfaces.imu_telemetry import ImuTelemetry
+from firmware.interfaces.joint_telemetry import JointTelemetry
 
 
 def _sample(valid=True):
@@ -29,3 +35,36 @@ class TestResolveImuState:
         text, col = ImuRow.resolve_state(_sample(valid=True))
         assert text == "fresh"
         assert col == STATE_COLOR_OK
+
+
+class _FakeStringVar:
+    """Stand-in for tk.StringVar — CI has no $DISPLAY so real Tk cannot start."""
+
+    def __init__(self, value="---"):
+        self._value = value
+
+    def set(self, value):
+        self._value = value
+
+    def get(self):
+        return self._value
+
+
+class TestJointRowCurrentColumn:
+    def test_cur_shows_telemetry_current_field(self):
+        row = JointRow.__new__(JointRow)
+        row.var_pot = _FakeStringVar()
+        row.var_cur = _FakeStringVar()
+        row.var_pwm = _FakeStringVar()
+        row.var_hall = _FakeStringVar()
+        jt = JointTelemetry(
+            name="FLHL",
+            pos=0.5,
+            pot=512,
+            current=30,
+            en=(1, 1),
+            pwm=(0, 200),
+            saf=0,
+        )
+        JointRow.update_from_telemetry(row, jt)
+        assert row.var_cur.get() == "30"

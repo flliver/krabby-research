@@ -1,5 +1,9 @@
 # Device enroll (Orin)
 
+**Canonical per-device enroll guide.** Account/AWS deploy and fleet ops live in
+[`SETUP-FLEET.md`](SETUP-FLEET.md); that doc links here for onboarding and must
+not be treated as a second enroll procedure.
+
 One-time onboarding of a Jetson Orin into AWS IoT Core: thing, device cert
 (CSR on-device), policy attach, identity files, and `krabby-agent.service`.
 
@@ -11,10 +15,10 @@ Placeholders: `<region>`, `<thing-name>`. Tip: `export AWS_PAGER=""`.
 ## Prerequisites
 
 - `ControlPlaneStack` deployed ([`infra/control-plane.md`](infra/control-plane.md)).
-- IAM access key for user `krabby-enroll` (created once after control-plane
-  deploy; not your admin key):
-
-  `aws iam create-access-key --user-name krabby-enroll --output json`
+- Access key for the `krabby-enroll` IAM user
+  ([`infra/README.md`](infra/README.md#enroll-user-access-key)). This IAM has
+  enroll permissions, allowing enrollment without requiring higher-privileged
+  admin credentials.
 
 ## Install `krabby` on the Orin
 
@@ -41,8 +45,9 @@ krabby --help | grep -E 'enroll|agent'
 
 ## Enroll
 
-Export **`krabby-enroll`** keys in this shell only (close the shell when done).
-`aws` CLI is optional; enroll uses `boto3`.
+On the Orin, export the `krabby-enroll` access key from Prerequisites into this
+shell only; close the shell when enroll finishes (`krabby enroll` does not write
+AWS keys to disk). The `aws` CLI is optional; enroll uses `boto3`.
 
 ```bash
 export AWS_ACCESS_KEY_ID=...
@@ -128,15 +133,17 @@ identity layout under `/etc/krabby/iot/`.
 
 ## Next
 
-SSH from one source: [`SSH-TUNNEL.md`](SSH-TUNNEL.md). Console / SearchIndex:
-[`README.md`](README.md).
+Fleet HAL / portal Open teleop on an enrolled host: [`FIELD-TELEOP.md`](FIELD-TELEOP.md)
+(`krabby run` with `/etc/krabby/iot/` present). SSH from one source:
+[`SSH-TUNNEL.md`](SSH-TUNNEL.md). Account/AWS deploy (not enroll steps):
+[`SETUP-FLEET.md`](SETUP-FLEET.md). Console / SearchIndex: [`README.md`](README.md).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
 | Policy / thing type missing | Deploy `ControlPlaneStack` first |
-| Wrong IAM user | Use `krabby-enroll` keys, not admin |
+| Wrong IAM user | Export the `krabby-enroll` access key, not deploy/admin creds |
 | `sudo: krabby: command not found` | `sudo -E env PATH="$PATH" ...` with venv active |
 | Apt missing `localproxy` | Docker extract above |
 | Agent not connected | `journalctl -u krabby-agent -f --no-pager` |

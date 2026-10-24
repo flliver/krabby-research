@@ -2,8 +2,13 @@
 
 Scripts for getting a fresh NVIDIA Jetson Orin (Ubuntu 22.04 / jammy, arm64)
 ready to run the Krabby locomotion stack. Run them from the repo root, on the
-Jetson. See [docs/JETSON_DEPLOYMENT.md](../../docs/JETSON_DEPLOYMENT.md) for the
-full guide.
+Jetson.
+
+**Kit / operator path:** prefer the root [README](../../README.md) Software
+quick-start (user venv + `krabby install`). This directory automates Docker/GPU
+host prep and an alternate system-wide bootstrap; it is not a competing
+first-install guide. For SSH, ZED, and custom policy deploy detail, see
+[docs/JETSON_DEPLOYMENT.md](../../docs/JETSON_DEPLOYMENT.md).
 
 ## Quick start
 
@@ -14,8 +19,12 @@ from anywhere in the repo, as your normal user (not with `sudo`):
 ./scripts/jetson/bootstrap.sh
 ```
 
-It runs steps 1–2 below, then installs `python3-pip` + `krabby-launcher` and
-runs `sudo krabby install` (udev rules, `dialout` group, boot-autostart unit).
+It runs steps 1–2 below, then installs `python3-pip` + `krabby-launcher`
+**system-wide** (`sudo pip3 install`) and runs `sudo krabby install` (udev
+rules, `dialout` group, boot-autostart unit). That sudo form is correct here
+because the launcher is on root’s PATH. If you install via a user venv instead
+([README](../../README.md) Software quick-start), use
+`sudo -E env PATH="$PATH" "$(which krabby)" install` with the venv activated.
 Re-running is safe; each step self-skips when its work is already done.
 
 Flags: `--skip-docker` (Docker already configured), `--no-krabby-install`
@@ -52,8 +61,9 @@ single step.
 3. **`setup-docker-gpu.sh`** — install the NVIDIA Container Toolkit and wire up
    the `nvidia` Docker runtime for GPU access (section 3). Requires the NVIDIA
    drivers (`nvidia-smi`) to already be present.
-4. Install the launcher: `sudo pip3 install krabby-launcher && sudo krabby
-   install`, then pull/run the locomotion image.
+4. Install the launcher: `sudo pip3 install krabby-launcher && sudo krabby install`
+   (same as bootstrap step 4–5), then pull/run the locomotion image. Venv-based
+   install: [README](../../README.md) §1–2.
 5. _(Optional)_ Install the error-reporting watchdog: `sudo pip3 install
    krabby-bench && sudo BENCH_AWS_KEY_ID=… BENCH_AWS_SECRET_KEY=… krabby-bench
    install --ssm-prefix /krabby/bench`. See
@@ -70,9 +80,9 @@ single step.
   `krabby` containers / `krabby-locomotion`, clears `~/.config/krabby/state.json`,
   removes **`~/.venv-krabby-bench` only** (never `~/.venv-krabby`). Optional
   `--rmi` drops locomotion images.
-- **`pair_pro_controller.sh`** — pair a Nintendo Switch Pro Controller over
-  Bluetooth and persist the link key so it auto-reconnects across Bluetooth
-  restarts. See [CONNECT_PRO_CONTROLLER.md](../../controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md).
+- **`pair_pro_controller.sh`** — thin wrapper around the script shipped in
+  `krabby-launcher` (`krabby pair-pro`). Prefer `krabby pair-pro` on kit hosts.
+  See [CONNECT_PRO_CONTROLLER.md](../../controller/scripts/jetson/CONNECT_PRO_CONTROLLER.md).
 
 ## Notes
 

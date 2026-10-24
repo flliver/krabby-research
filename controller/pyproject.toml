@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-controller"
-version = "0.1.0"
+version = "0.1.5"
 description = "Joystick-controlled Krabby: sim and real HAL paths"
 requires-python = ">=3.10"
 license = "Apache-2.0"

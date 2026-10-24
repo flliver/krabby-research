@@ -21,7 +21,7 @@ PID_PATH = Path("/var/lib/krabby-bench/watchdog.pid")
 @dataclass
 class EcrConfig:
     repo: str = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
-    tag: str = "mainline-latest"
+    tag: str = "main-latest"
     poll_interval: int = 60
 
 

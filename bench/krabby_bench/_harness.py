@@ -196,7 +196,7 @@ def stage_install(cfg: HarnessConfig) -> StageResult:
     ]
     if cfg.install_no_launch:
         install_cmd.append("--no-launch-on-startup")
-    r = _run(install_cmd, timeout=600, env=_sudo_env_path(venv))
+    r = _run(install_cmd, timeout=900, env=_sudo_env_path(venv))
     if r.returncode != 0:
         return StageResult(
             stage="install",
@@ -561,6 +561,47 @@ def _in_bench_venv(cfg: HarnessConfig) -> bool:
     return prefix == venv or venv in prefix.parents or str(prefix).startswith(str(venv))
 
 
+def _parse_harness_summary(text: str) -> tuple[list[StageResult], Optional[str]]:
+    """Parse child ``=== harness summary ===`` block into stages + failed_stage."""
+    stages: list[StageResult] = []
+    failed_stage: Optional[str] = None
+    in_summary = False
+    pending: Optional[StageResult] = None
+
+    def _flush() -> None:
+        nonlocal pending
+        if pending is not None:
+            stages.append(pending)
+            pending = None
+
+    for line in text.splitlines():
+        if line.strip() == "=== harness summary ===":
+            in_summary = True
+            continue
+        if not in_summary:
+            continue
+        if line.startswith("[PASS] ") or line.startswith("[FAIL] "):
+            _flush()
+            ok = line.startswith("[PASS]")
+            body = line[7:]
+            if ": " in body:
+                stage, detail = body.split(": ", 1)
+            else:
+                stage, detail = body.strip(), ""
+            pending = StageResult(stage=stage, ok=ok, detail=detail)
+            if not ok:
+                failed_stage = stage
+        elif pending is not None and line.startswith("       command: "):
+            pending.command = line[len("       command: "):]
+        elif line.startswith("FAIL at stage: "):
+            failed_stage = line.split(": ", 1)[1].strip()
+            _flush()
+        elif line.strip() in ("PASS", "FAIL"):
+            _flush()
+    _flush()
+    return stages, failed_stage
+
+
 def _reexec_under_bench_venv(cfg: HarnessConfig) -> HarnessResult:
     """Continue flash/bringup/motion with the bench venv's krabby-bench."""
     py = cfg.bench_venv / "bin" / "python"
@@ -580,6 +621,7 @@ def _reexec_under_bench_venv(cfg: HarnessConfig) -> HarnessResult:
         str(py), "-m", "krabby_bench", "harness",
         "--skip-install",
         "--no-reset",
+        "--no-discord",  # parent owns Discord; keep child's real stage names in summary
         "--bench-venv", str(cfg.bench_venv),
         "--firmware-channel", cfg.firmware_channel,
         "--joint", *list(cfg.joints),
@@ -597,20 +639,30 @@ def _reexec_under_bench_venv(cfg: HarnessConfig) -> HarnessResult:
         cmd.extend(["--repo-root", str(cfg.repo_root)])
     log.info("Re-exec under bench venv: %s", " ".join(cmd))
     r = _run(cmd, timeout=None)
-    # Child prints its own summary; map exit code.
+    # Surface child logs in the Actions / parent log (capture_output hides them otherwise).
+    for stream, level in ((r.stdout, logging.INFO), (r.stderr, logging.WARNING)):
+        for line in (stream or "").splitlines():
+            log.log(level, "%s", line)
+
     ok = r.returncode == 0
+    child_text = (r.stdout or "") + "\n" + (r.stderr or "")
+    parsed, failed_stage = _parse_harness_summary(child_text)
+    if parsed:
+        return HarnessResult(
+            ok=ok and all(s.ok for s in parsed),
+            stages=parsed,
+            failed_stage=None if ok else (failed_stage or next(
+                (s.stage for s in parsed if not s.ok), "flash+bringup+motion"
+            )),
+        )
+    # Fallback if the child crashed before printing a summary.
     return HarnessResult(
         ok=ok,
         stages=[
             StageResult(
-                stage="install",
-                ok=True,
-                detail="install done; continued under bench venv",
-            ),
-            StageResult(
                 stage="flash+bringup+motion",
                 ok=ok,
-                detail=f"child exit {r.returncode}",
+                detail=f"child exit {r.returncode} (no summary parsed)",
                 command=" ".join(cmd),
                 stdout=r.stdout,
                 stderr=r.stderr,
@@ -645,6 +697,13 @@ def run_harness(cfg: HarnessConfig) -> HarnessResult:
             return HarnessResult(ok=False, stages=results, failed_stage="install")
         # Remaining stages need the new venv's krabby import / binaries.
         if not _in_bench_venv(cfg):
+            results.append(
+                StageResult(
+                    stage="install",
+                    ok=True,
+                    detail="install done; continued under bench venv",
+                )
+            )
             child = _reexec_under_bench_venv(cfg)
             return HarnessResult(
                 ok=child.ok,

@@ -1,20 +1,25 @@
 # Artifact health checks — hosted runners, no Orin / MCU required.
-# Watches the same branches publish workflows use (KNOWN-ISSUES #1: not `main`).
+# Runs after locomotion image publish succeeds because this workflow pulls the
+# new image from ECR (main-latest / release-latest) — it does not build it —
+# and would race if started on the same push. Also runnable via workflow_dispatch.
 #
 # Discord: set repo secret DISCORD_WEBHOOK_URL (optional; skipped if unset).
+# FAIL always; consecutive PASSes collapsed (PASS only after a non-green prior run).
 
 name: Artifact health
 
 on:
-  push:
-    branches:
-      - mainline
-      - 'release/**'
+  workflow_run:
+    workflows:
+      - Build and push locomotion image to ECR
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
   packages:
     name: Packages (pip install + import)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -27,7 +32,7 @@ jobs:
           - krabby-bench
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -48,30 +53,83 @@ jobs:
 
   locomotion-image:
     name: Locomotion image (pull + start)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      fail_kind: ${{ steps.smoke.outputs.fail_kind }}
     steps:
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::632914961627:role/krabby-locomotion-ci
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
       - name: Pull and smoke-start channel tags
+        id: smoke
         run: |
           set -euo pipefail
+          # release-latest = kit default; main-latest = dev channel (pushes to main).
           ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
-          for TAG in mainline-latest release-latest; do
+
+          rate_limit_fail() {
+            local ctx="$1"
+            echo "fail_kind=rate_limit" >> "$GITHUB_OUTPUT"
+            echo "::error::Registry rate limit during ${ctx} (toomanyrequests / Rate exceeded). This is a flake — re-run the Artifact health job; do not treat as a bad image."
+            exit 1
+          }
+
+          for TAG in main-latest release-latest; do
             echo "=== ${ECR}:${TAG} ==="
-            # Published image is linux/arm64 only. Match publish-locomotion smoke.
-            docker pull --platform linux/arm64 "${ECR}:${TAG}"
+            set +e
+            PULL_OUT="$(docker pull --platform linux/arm64 "${ECR}:${TAG}" 2>&1)"
+            PULL_RC=$?
+            set -e
+            echo "$PULL_OUT"
+            if [ "$PULL_RC" -ne 0 ]; then
+              if echo "$PULL_OUT" | grep -Eiq 'toomanyrequests|Rate exceeded'; then
+                rate_limit_fail "docker pull ${TAG}"
+              fi
+              echo "FAIL ${TAG}: docker pull exited ${PULL_RC}"
+              exit 1
+            fi
             docker image inspect "${ECR}:${TAG}" --format '{{.Id}} {{.Architecture}} {{.Os}}'
-            docker run --rm --platform linux/arm64 --network host "${ECR}:${TAG}" --help \
-              | grep -q -- '--teleop-ip'
-            echo "OK ${TAG}"
+            set +e
+            HELP="$(docker run --rm --platform linux/arm64 --network host "${ECR}:${TAG}" --help 2>&1)"
+            RC=$?
+            set -e
+            if [ "$RC" -ne 0 ]; then
+              if echo "$HELP" | grep -Eiq 'toomanyrequests|Rate exceeded'; then
+                rate_limit_fail "docker run ${TAG}"
+              fi
+              echo "FAIL ${TAG}: docker run --help exited ${RC}"
+              echo "$HELP" | head -60
+              exit 1
+            fi
+            if ! echo "$HELP" | grep -q -- '--teleop-ip'; then
+              echo "FAIL ${TAG}: --help missing --teleop-ip"
+              echo "$HELP" | head -60
+              exit 1
+            fi
+            echo "OK ${TAG} (--teleop-ip)"
           done
 
   firmware-artifact:
     name: Firmware artifact (S3 latest + manifest)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -111,22 +169,30 @@ jobs:
   notify:
     name: Discord summary
     needs: [packages, locomotion-image, firmware-artifact]
-    if: always()
+    if: >-
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout (for Discord helper)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
       - name: Notify Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
           PKG: ${{ needs.packages.result }}
           IMG: ${{ needs.locomotion-image.result }}
+          IMG_FAIL_KIND: ${{ needs.locomotion-image.outputs.fail_kind }}
           FW: ${{ needs.firmware-artifact.result }}
         run: |
           set -euo pipefail
@@ -134,7 +200,7 @@ jobs:
           pip install -q -e ./bench
           python - <<'PY'
           import os
-          from krabby_bench._discord import post_discord
+          from krabby_bench._discord import notify_ci_result
 
           results = {
               "packages": os.environ["PKG"],
@@ -143,11 +209,32 @@ jobs:
           }
           ok = all(v == "success" for v in results.values())
           failed = [k for k, v in results.items() if v != "success"]
-          detail = "; ".join(f"{k}={v}" for k, v in results.items())
-          post_discord(
+          img_fail_kind = (os.environ.get("IMG_FAIL_KIND") or "").strip()
+          loco_hint = "ECR pull or --help / --teleop-ip smoke failed"
+          if img_fail_kind == "rate_limit":
+              loco_hint = (
+                  "Registry rate limit (toomanyrequests) — flake; "
+                  "re-run Artifact health (do not treat as a bad image)"
+              )
+          hints = {
+              "packages": "pip install / import failed for a cold-start package",
+              "locomotion-image": loco_hint,
+              "firmware-artifact": "S3 latest.json / manifest / HEX HEAD failed",
+          }
+          detail = ""
+          if failed:
+              detail = "What failed:\n" + "\n".join(
+                  f"• {name}: {hints.get(name, results[name])} (result={results[name]})"
+                  for name in failed
+              )
+          notify_ci_result(
               ok=ok,
               title="artifact-health",
               failed_stage=(",".join(failed) if failed else None),
+              job_results=results,
               detail=detail,
+              # Daily schedule + every green locomotion publish would otherwise
+              # spam PASS. FAIL always; PASS only after a non-green prior run.
+              collapse_consecutive_pass=True,
           )
           PY

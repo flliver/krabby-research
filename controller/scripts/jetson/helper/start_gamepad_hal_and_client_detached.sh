@@ -15,6 +15,7 @@ IMAGE="${KRABBY_LOCOMOTION_IMAGE:-krabby-locomotion:latest}"
 RUN_OPTS=(-d --name hal-gamepad --rm --privileged --runtime=nvidia
   -v /dev:/dev
   -p 6001:6001 -p 6002:6002
+  -e XDG_RUNTIME_DIR=/tmp/runtime-krabby
   --entrypoint /workspace/controller/scripts/jetson/helper/run_server_and_client_in_container.sh)
 [ -n "${KRABBY_MCU_PORT:-}" ] && RUN_OPTS+=(-e "KRABBY_MCU_PORT=$KRABBY_MCU_PORT")
 docker run "${RUN_OPTS[@]}" "$IMAGE"

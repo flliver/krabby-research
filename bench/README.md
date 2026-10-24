@@ -4,12 +4,14 @@ Watches ECR for new locomotion images, updates the stack when one appears, runs 
 
 ## Install
 
-**Prerequisite:** `krabby-launcher` must be installed and `krabby install` run before krabby-bench — the watchdog calls the `krabby` CLI to pull images and flash firmware. See the [top-level README](../README.md) for the full setup sequence.
+**Prerequisite:** `krabby-launcher` must be installed and `krabby install` run before krabby-bench — the watchdog calls the `krabby` CLI to pull images and flash firmware. Follow [top-level README](../README.md) §1–2 (user venv + `sudo -E env PATH="$PATH" "$(which krabby)" install`), then add the bench package:
 
 ```bash
-sudo pip3 install krabby-launcher krabby-bench
-sudo krabby install
+source ~/.venv-krabby/bin/activate
+pip install krabby-bench
 ```
+
+**Alternate (system-wide, matches `scripts/jetson/bootstrap.sh`):** `sudo pip3 install krabby-launcher krabby-bench` then `sudo krabby install`.
 
 Then run the install command as root to configure and start the watchdog service:
 
@@ -22,7 +24,7 @@ sudo krabby-bench install [options]
 | Flag | Default | Description |
 |---|---|---|
 | `--ssm-prefix` | `/krabby/bench` | SSM parameter path prefix. When set, credentials are loaded from AWS SSM. |
-| `--ecr-tag` | `mainline-latest` | ECR image tag to watch. |
+| `--ecr-tag` | `main-latest` | ECR image tag to watch. |
 | `--firmware-channel` | `release/0.2.9` | Firmware channel for smoke tests. |
 | `--error-alert-type` | `both` | Alert delivery type: `email`, `github`, or `both`. |
 | `--github-repo` | _(none)_ | `owner/repo` to open issues against (legacy mode only). |
@@ -37,7 +39,7 @@ sudo \
   BENCH_AWS_SECRET_KEY=... \
   krabby-bench install \
     [--ssm-prefix /krabby/bench] \
-    [--ecr-tag mainline-latest] \
+    [--ecr-tag main-latest] \
     [--firmware-channel release/0.2.9] \
     [--error-alert-type both]
 ```
@@ -96,7 +98,7 @@ sudo \
   BENCH_SMTP_TO=krabby-errors@example.com \
   BENCH_GITHUB_REPO=owner/krabby-research \
   BENCH_GITHUB_TOKEN=ghp_... \
-  krabby-bench install [--ecr-tag mainline-latest] [--firmware-channel release/0.2.9] [--error-alert-type both]
+  krabby-bench install [--ecr-tag main-latest] [--firmware-channel release/0.2.9] [--error-alert-type both]
 ```
 
 ##### Legacy environment variables
@@ -121,7 +123,7 @@ Default path: `/etc/krabby-bench/config.toml`
 ```toml
 [ecr]
 repo = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
-tag = "mainline-latest"
+tag = "main-latest"
 poll_interval = 60          # seconds
 
 [smoke]
@@ -223,7 +225,7 @@ krabby-bench harness --skip-install --no-reset --repo-root "$(pwd)"
 
 | Stage | What it does |
 |---|---|
-| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo … krabby install --no-launch-on-startup` |
+| **install** | `bench-reset.sh` → create `~/.venv-krabby-bench` → `pip install krabby-launcher` (+ local `./bench`) → `sudo -E env PATH=<venv/bin>:$PATH <venv/bin/krabby> install --no-launch-on-startup` |
 | **flash** | Existing `run_smoke`: flash all boards, assert versions match S3 |
 | **bringup** | `krabby run --gamepad-only`; wait for container + MCU connected in logs |
 | **motion** | Stop container; jog RLKL, RRKL, FLKL, FRHL, FRKL (override with `--joint …`) via **host** repo `firmware/` (PIN_REV=2 is local-testing only / `dev-local` — not S3; will not be used going forward); assert pot or hall delta per joint |
@@ -249,14 +251,27 @@ should use the published pin revision / S3 artifact path.
 
 Workflow: [`.github/workflows/artifact-health.yml`](../.github/workflows/artifact-health.yml)
 
-Runs on push to `mainline` / `release/**` (and `workflow_dispatch`). No Orin required.
+**Trigger (not on push):** GitHub starts this workflow only after
+[Build and push locomotion image to ECR](../.github/workflows/publish-locomotion.yml)
+completes **successfully** (`workflow_run`). Manual **Actions → Artifact health → Run workflow** still works.
+
+**Why wait:** Artifact health does not build the locomotion image — it **pulls** the
+new one from ECR (`main-latest` / `release-latest`) and smokes it. Running in parallel
+with publish would race (pull a missing or stale tag). Waiting until publish succeeds
+means the pull is of the image that push just produced. Packages and firmware S3
+checks run in the same workflow afterward (they wait on publish too; that is
+acceptable). If locomotion publish fails, Artifact health does not run.
 
 | Job | Check |
 |---|---|
 | packages | `pip install` + import for `krabby-launcher`, `krabby-firmware`, `krabby-bench` |
-| locomotion-image | pull `mainline-latest` + `release-latest`, `docker run … --help` (arm64 via QEMU) |
+| locomotion-image | pull `main-latest` and `release-latest`, `docker run … --help` must show `--teleop-ip` (arm64 via QEMU) |
 | firmware-artifact | S3 `latest.json` + manifest `ver_string` + HEX HEAD for `release/0.2.15` |
-| notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset) |
+| notify | Discord summary (skipped if `DISCORD_WEBHOOK_URL` secret unset). FAIL always; consecutive PASSes collapsed (PASS only after a non-green prior run) |
+
+Publish firmware / locomotion also Discord on **failure** (same secret) so a red publish is not silent when Artifact health never starts. Messages include failed step names when resolvable.
+
+If a run is red (or Discord reports FAIL): [docs/CI-FAILURES.md](../docs/CI-FAILURES.md).
 
 ## CI: self-hosted Orin runner
 

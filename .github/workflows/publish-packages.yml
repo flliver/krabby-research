@@ -13,6 +13,7 @@ on:
       - 'hal-client-v*'
       - 'hal-server-v*'
       - 'compute-parkour-v*'
+      - 'data-collection-v*'
       - 'controller-v*'
       - 'hal-tools-v*'
       - 'hal-server-isaac-v*'
@@ -25,12 +26,15 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read     # list failed steps / prior run for Discord
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -53,7 +57,7 @@ jobs:
           elif [[ "$TAG" == hal-server-isaac-v* ]]; then
             echo "pkg_key=hal-server-isaac" >> $GITHUB_OUTPUT
             echo "path=hal/server/isaac" >> $GITHUB_OUTPUT
-            echo "deps=hal/client hal/server compute/parkour" >> $GITHUB_OUTPUT
+            echo "deps=hal/client hal/server compute/parkour data_collection controller teleop/edge" >> $GITHUB_OUTPUT
             echo "test_path=tests/unit/hal/server/isaac/" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == hal-server-jetson-v* ]]; then
@@ -86,6 +90,12 @@ jobs:
             echo "deps=hal/client" >> $GITHUB_OUTPUT
             echo "test_path=tests/unit/test_compute_parkour_policy.py tests/unit/test_compute_parkour_model_definition.py" >> $GITHUB_OUTPUT
             echo "build_self_first=" >> $GITHUB_OUTPUT
+          elif [[ "$TAG" == data-collection-v* ]]; then
+            echo "pkg_key=data-collection" >> $GITHUB_OUTPUT
+            echo "path=data_collection" >> $GITHUB_OUTPUT
+            echo "deps=hal/client" >> $GITHUB_OUTPUT
+            echo "test_path=tests/unit/data_collection/" >> $GITHUB_OUTPUT
+            echo "build_self_first=" >> $GITHUB_OUTPUT
           elif [[ "$TAG" == controller-v* ]]; then
             echo "pkg_key=controller" >> $GITHUB_OUTPUT
             echo "path=controller" >> $GITHUB_OUTPUT
@@ -116,21 +126,24 @@ jobs:
           fi
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: publish-pip-${{ runner.os }}-py312-${{ steps.pkg.outputs.pkg_key }}
 
       - name: Build and install dependency wheels
         run: |
+          ROOT="$GITHUB_WORKSPACE"
+          build_install() {
+            echo "Building and installing $1..."
+            (cd "$ROOT/$1" && python -m build --wheel --no-isolation && pip install dist/*.whl)
+          }
           if [[ -n "${{ steps.pkg.outputs.build_self_first }}" ]]; then
-            echo "Building and installing ${{ steps.pkg.outputs.build_self_first }} first..."
-            cd "${{ steps.pkg.outputs.build_self_first }}" && python -m build --wheel --no-isolation && pip install dist/*.whl && cd ../..
+            build_install "${{ steps.pkg.outputs.build_self_first }}"
           fi
           for dep in ${{ steps.pkg.outputs.deps }}; do
             if [[ -n "$dep" ]]; then
-              echo "Building and installing $dep..."
-              cd "$dep" && python -m build --wheel --no-isolation && pip install dist/*.whl && cd ../..
+              build_install "$dep"
             fi
           done
 
@@ -173,3 +186,37 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           twine upload "${{ steps.pkg.outputs.path }}/dist/"*.whl
+
+      # Discord: FAIL always; PASS only after a non-green prior run (recovery).
+      - name: Discord notify
+        if: success() || failure()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+          PKG_KEY: ${{ steps.pkg.outputs.pkg_key }}
+        run: |
+          set -euo pipefail
+          pip install -q requests
+          pip install -q -e ./bench
+          python - <<'PY'
+          import os
+          from krabby_bench._discord import notify_ci_result
+
+          ok = os.environ.get("JOB_STATUS") == "success"
+          pkg = os.environ.get("PKG_KEY") or "package"
+          tag = os.environ.get("GITHUB_REF_NAME") or ""
+          notify_ci_result(
+              ok=ok,
+              title="publish-packages",
+              failed_stage=(None if ok else "publish"),
+              branch=tag,
+              detail=(
+                  f"PyPI publish green again ({pkg} {tag})."
+                  if ok
+                  else f"PyPI publish failed for {pkg} ({tag}): tests or twine upload."
+              ),
+              collapse_consecutive_pass=True,
+          )
+          PY
