@@ -3419,8 +3419,9 @@ def readme_md(doc: dict, spec, run: str) -> str:
                                                  (doc["provenance"].get("stack") or {}).get("tags") or [])
                                 else "not created yet at generation time") + "), never pushed.", "",
               "The user decides: the deliverable choice (STOP-END rule; st.1 was an amend and sh.1 a re-anchor, not "
-              "chance acceptances), the clip veto, the bake into `crab_hex_omni_task/policy/` (needs `kind: distill` in "
-              "tools/bundle_policy.py and a rewrite of tests/unit/test_policy_of_record_omni.py), and the tag push.", ""]
+              "chance acceptances), the clip veto, the bake into `crab_hex_omni_task/policy/` (tools/bundle_policy.py "
+              "supports `kind: distill` since the 2026-10-24 F19 bake, which also rewrote "
+              "tests/unit/test_policy_of_record_omni.py; the record is policy/manifest.yaml), and the tag push.", ""]
     if bad:
         lines += ["## UNVERIFIED (generator check)", ""] + [f"- `{c['path']}`: exists {c['exists']}, missing flags "
                                                              f"{c['missing_flags']}" for c in bad] + [""]

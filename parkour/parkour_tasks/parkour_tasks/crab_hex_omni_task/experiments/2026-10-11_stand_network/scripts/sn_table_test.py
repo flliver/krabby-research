@@ -51,7 +51,8 @@ THE SETUP (every number below is computed by ``sn_table_core`` and written into 
   REFS): a yaw drift past the 0.133-rad dead band would put a live yaw-rate command in the obs; the slot stays STAND.
 * CONTROLLERS (``sn_table_core.controller_actions``; S1 and its estimator built WITHOUT a PPO runner by
   ``sn_dagger_core.load_strict``, the stand net the same way, both inside a global-RNG save / restore):
-  ``stand_net`` = the adopted A-mask s17 net (``policy/stand_net/model_4000.pt``, sha 769cf253..; its
+  ``stand_net`` = the A-mask s17 net (``policy/stand_net/model_4000.pt``, sha 769cf253..; superseded, see
+  ``DEFAULT_STAND`` -- its
   ``infos.sn_dagger.stand_mask`` must equal ``--stand-mask`` 1, its estimator must equal S1's bitwise, it must have
   been trained beside this S1 sha) on ``sn_common.stand_net_input(h, own estimator, mask=1)``, routed with
   ``sn_common.route_actions`` on the latched stand slot, S1 (``policy/6_p2a_field/model_19994.pt``) elsewhere --
@@ -121,9 +122,18 @@ HARNESS = PKG.parent / "crab_hex_forward_task" / "scripts" / "eval_crab_hex_gait
 HARNESS_DIR = HARNESS.parent
 P2R_LAUNCHER = EXPERIMENTS / "2026-10-07_omni_phase2" / "scripts" / "p2r_mode_eval_crab_hex_gait.py"
 TASK_ID = "Isaac-Crab-Hex-Omni-Walk-Play-v0"
+#: HISTORICAL DEFAULTS, kept unchanged (the recorded runs and the tests use them): S1 s18 and A-mask s17, the walker and
+#: the stand network of record when this test was written. Both are SUPERSEDED since the 2026-10-24 F19 bake
+#: (policy/manifest.yaml ``superseded:`` S1_s18 / SN_Amask_s17, files kept in place); the heads of record are the
+#: manifest's ``current`` (f19_8_p3b_payload180 = T*) and ``stand_network`` (f19_stand_net = SH_T4F19). The walker's
+#: explicit opt-in is SN_WALKER_SPEC (below). The stand checkpoint has none: --stand-ckpt is refused unless its sha is
+#: STAND_SHA256, and the net must have been trained beside the walker, so ``stand_net`` runs only A-mask s17 beside S1
+#: s18 here. SH_T4F19's table test is 2026-10-13_stand_height/scripts/sh_table_test.sh --stand-ckpt (the manifest's
+#: stand_network evals).
 DEFAULT_S1 = PKG / "policy" / "6_p2a_field" / "model_19994.pt"
 DEFAULT_STAND = PKG / "policy" / "stand_net" / "model_4000.pt"
-#: policy/manifest.yaml stand_network.sha256 (the adopted A-mask s17)
+#: A-mask s17's sha256 = policy/manifest.yaml ``superseded:`` SN_Amask_s17 files[0].sha256 (its stand_network.sha256
+#: while it was the stand network of record, 2026-10-13 .. 10-15)
 STAND_SHA256 = "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff"
 DEFAULT_OUT_BASE = PARKOUR / "logs" / "videos" / "sn_table"
 REFUSED_RC = 2
@@ -249,7 +259,7 @@ def pre_kit_reasons(o: argparse.Namespace, rest: list[str]) -> list[str]:
         if not st.is_file():
             out.append(f"--stand-ckpt missing: {st}")
         elif SN.sha256_file(st) != STAND_SHA256:
-            out.append(f"--stand-ckpt sha256 is not the adopted stand net's {STAND_SHA256[:12]}")
+            out.append(f"--stand-ckpt sha256 is not A-mask s17's {STAND_SHA256[:12]} (the only net this test runs)")
     try:
         rm = json.loads(resolve_run_meta(o.eval_run).read_text())
         out += [f"eval env (D5): {r}" for r in SN.env_reasons(want_env(rm))]

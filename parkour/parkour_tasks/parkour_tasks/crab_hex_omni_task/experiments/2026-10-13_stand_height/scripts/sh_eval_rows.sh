@@ -57,6 +57,12 @@ LOG=$SHOUT/sh_rows.log
 # NOTE(M18 Task 4 pipeline step 6, 2026-10-16; DESIGN B6): the walker checkpoint and its eval env stamp come from
 # SN_WALKER_CK / SN_WALKER_ST when set (a new walker, e.g. the pipeline's T*; set them together with SN_WALKER_SPEC and
 # P2_REANCHOR=1 -- the pipeline's pin guard holds the code state); unset = S1 s18 and REFS_S1_s18 exactly, as before.
+# That default is HISTORICAL and kept on purpose (this campaign's rows and the tests use it): S1 s18 (this run file =
+# policy/6_p2a_field/model_19994.pt, sha 968cc550) is SUPERSEDED since the 2026-10-24 F19 bake (policy/manifest.yaml
+# `superseded:` S1_s18, files kept in place). The walker of record is the manifest's `current` (f19_8_p3b_payload180 =
+# T*) and its stand net `stand_network` (f19_stand_net = SH_T4F19); rows beside T* need the explicit opt-in above --
+# SN_WALKER_SPEC / SN_WALKER_CK / SN_WALKER_ST + P2_REANCHOR=1, exactly as experiments/tools/pipeline/pipeline.py
+# walker_spec_env sets them for the stand stages beside T*.
 CK=${SN_WALKER_CK:-$R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt}
 ST=${SN_WALKER_ST:-$OUT/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24}
 if [ -n "${SN_WALKER_CK:-}" ] || [ -n "${SN_WALKER_ST:-}" ]; then
