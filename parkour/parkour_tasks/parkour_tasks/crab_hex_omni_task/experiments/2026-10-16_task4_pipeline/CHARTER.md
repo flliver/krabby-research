@@ -679,3 +679,28 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
   - **Pin:** `gen` (R18 / F19 / dry plan.json → v1.2), lock 348 files, check clean on R18 / F19 / dry. The pin is
     this commit, local tag `task4-pin-2026-10-23`. Then STOP_PIPELINE is removed and
     `continue --run F19 --amend st --retarget-tstar` relaunches F19 from T\* = p3b.
+- **2026-10-23, F19 student, SN and SH.**
+  - **Student and SN:** the student distill `T4F19_st_a2` from p3b finished at 09:49. Selection picked c28000 (first
+    full block PASS, no WATCH flags). SN gate PASS at 16:35.
+  - **SH HALT at 20:08** on one line: K6 homed share, bin 4 (1.221–1.346 m), es1 = 0.935 vs 0.945 (R_h S1-era
+    0.995 − 0.05; 13 of 200 not homed vs 10 allowed). Settled is 0.955 (passes); es2 bin 4 homed is 0.95 vs 0.905
+    (passes).
+  - Every other K line passes: K4 misses 2 / 3 per 800 (≤ 3), 0 exit falls; K1, K2, K3 and K5 pass; stillness
+    0.17 steps/s.
+  - Recorded S1-paired seeds at bin 4 es1: SH_T16 / 17 / 18 0.995 / 1.0 / 0.995 (X: 1.0; R18 beside its p3a T\*:
+    0.89).
+  - The session restart at ≈ 23:00 dropped my watchers, so the HALT went unnoticed until 23:30.
+  - The lazy R_h control beside T\* (p3b model_25992) is running as `SH_RH_T4F19` (4 height rows, from 23:30).
+  - **Lazy R_h control beside T\* (p3b)**: 4 rows 23:30–23:56, all rc 0. Read in
+    `F19/stand/sh_lazy_rh_read{_spec.json,.json,.md}`.
+    - R_h beside p3b: bin 4 homed 0.89 / 0.845 (beside S1: 0.995 / 0.955). Bins 0–3 0.94–1.0. K4 misses 5 / 5
+      (beside S1: 1 / 1).
+    - **The control fails the same line** (bin 4 es1 0.89 < 0.945): walker-caused. Re-anchored on the control, the
+      head passes EVERY K6 cell. It beats its teacher in bin 4 (0.935 vs 0.89; 0.95 vs 0.845) and on K4 (2 / 3 vs
+      5 / 5).
+  - **Decision (decide-record-notify):** under DESIGN §3.6 "if the control fails the same line, the line re-anchors
+    on the control; walker-caused, decide-record-notify", the line re-anchors and no residual remains.
+    - F19 continues with `continue --accept-chance sh`. The flag name is the pipeline's only no-re-gate continue
+      path; this is not a chance acceptance.
+    - Only the bundle stage follows.
+    - The user is notified and can overrule at STOP-END (deliverable choice).
