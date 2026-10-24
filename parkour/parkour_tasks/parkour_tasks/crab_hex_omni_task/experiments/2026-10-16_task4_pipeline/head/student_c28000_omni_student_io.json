@@ -1,0 +1,49 @@
+{
+ "kind": "omni_depth_student",
+ "camera_groups": [
+  "depth_front",
+  "depth_left",
+  "depth_right",
+  "depth_rear"
+ ],
+ "depth_image": [
+  1,
+  4,
+  58,
+  87
+ ],
+ "depth_normalisation": "clip(distance, 2.0 m) / 2.0 - 0.5",
+ "proprioception": [
+  1,
+  89
+ ],
+ "gru_hidden": [
+  1,
+  1,
+  512
+ ],
+ "depth_latent": [
+  1,
+  32
+ ],
+ "obs": [
+  1,
+  1149
+ ],
+ "encode_every_policy_steps": 5,
+ "tile_flag_cols": [
+  11,
+  12
+ ],
+ "field_tile_flags": [
+  1.0,
+  0.0
+ ],
+ "estimator_cols": [
+  207,
+  216
+ ],
+ "actions_clip": 1.0,
+ "onnx_opset": 17,
+ "trained_on_zero_depth": false
+}

@@ -2602,6 +2602,29 @@ def _copy_run_records(src: Path, dst: Path) -> None:
         (dst / "STOP_PIPELINE").write_text("")
 
 
+#: the v1.2 pin commit: it holds F19's records as they stood BEFORE the T* retarget (CHARTER 2026-10-23)
+F19_PRE_RETARGET_COMMIT = "0e996b11"
+
+
+def _f19_pre_retarget(tmp_path: Path) -> Path:
+    """F19's retarget-relevant records (pipeline_state.json, stage_reads/, gates/, halts/) extracted from
+    :data:`F19_PRE_RETARGET_COMMIT` into a scratch dir (``git archive``, read-only on the repo)."""
+    import io
+    import subprocess
+    import tarfile
+    rel = F19.relative_to(REPO).as_posix()
+    try:
+        blob = subprocess.run(["git", "-C", str(REPO), "archive", F19_PRE_RETARGET_COMMIT, "--",
+                               f"{rel}/pipeline_state.json", f"{rel}/stage_reads", f"{rel}/gates", f"{rel}/halts"],
+                              check=True, capture_output=True).stdout
+    except (OSError, subprocess.CalledProcessError) as exc:
+        pytest.skip(f"pre-retarget F19 records not available from git ({exc})")
+    out = tmp_path / "f19_pre_retarget"
+    with tarfile.open(fileobj=io.BytesIO(blob)) as tf:
+        tf.extractall(out, filter="data")
+    return out / rel
+
+
 def test_retarget_tstar_on_a_copy_of_the_recorded_f19_and_r18_runs(P, tspec, tmp_path, capsys):
     """CPU preview on COPIES of the real records (the eval stamps they name, read-only; no Kit): under thresholds v1.2
     F19's p3a still FAILS its paired 0-kg check (track_err diag + move_turn: its HALT stays accepted) and p3b PASSES
@@ -2616,7 +2639,11 @@ def test_retarget_tstar_on_a_copy_of_the_recorded_f19_and_r18_runs(P, tspec, tmp
     real = {r: _snapshot(d) for r, d in (("F19", F19), ("R18", R18))}
     tspec.lock_path().write_text(json.dumps({"code_sha": "c" * 64, "eval_sha": "e" * 64}))
     assert tspec.d["thresholds"]["version"] == "v1.2"
-    for run, src in (("F19", F19), ("R18", R18)):
+    # the live F19 records moved on at the 2026-10-22 retarget (st.1 amended, T* = p3b): the preview reads F19's
+    # PRE-retarget records as committed with the v1.2 pin (CHARTER 2026-10-23)
+    f19_src = F19 if json.loads((F19 / "pipeline_state.json").read_text())["halts"]["st"]["status"] == "open" \
+        else _f19_pre_retarget(tmp_path)
+    for run, src in (("F19", f19_src), ("R18", R18)):
         P.gen(tspec, run)
         _copy_run_records(src, tspec.run_dir(run))
     ctx = P.Ctx(tspec, "F19")
@@ -2663,3 +2690,25 @@ def test_retarget_tstar_on_a_copy_of_the_recorded_f19_and_r18_runs(P, tspec, tmp
     assert "UNCHANGED (p3a)" in err and "p3a FAIL" in err and "p3b FAIL" in err, err
     assert _snapshot(r18.dir) == before
     assert {r: _snapshot(d) for r, d in (("F19", F19), ("R18", R18))} == real
+
+
+def test_retarget_tstar_refused_on_the_live_retargeted_f19(P, tspec, tmp_path, capsys):
+    """After the 2026-10-22 retarget the LIVE F19 records hold no open HALT at st (st.1 amended, T* = p3b): a second
+    retarget on a copy of them is refused (exit 2) with nothing written, and the real dir is untouched."""
+    if not (F19 / "pipeline_state.json").is_file():
+        pytest.skip("F19 records absent")
+    live = json.loads((F19 / "pipeline_state.json").read_text())
+    if live["halts"].get("st", {}).get("status") == "open":
+        pytest.skip("F19 not retargeted yet")
+    real = _snapshot(F19)
+    tspec.lock_path().write_text(json.dumps({"code_sha": "c" * 64, "eval_sha": "e" * 64}))
+    P.gen(tspec, "F19")
+    _copy_run_records(F19, tspec.run_dir("F19"))
+    ctx = P.Ctx(tspec, "F19")
+    ctx.rt = FakeRT(ctx.dir, {}, tmp_path)
+    assert ctx.state["tstar"]["stage"] == "p3b"
+    before = _snapshot(ctx.dir)
+    capsys.readouterr()
+    assert P.do_retarget_tstar(ctx, "st", charter=CHARTER_REF, why="second", relaunch=False) == 2
+    assert _snapshot(ctx.dir) == before
+    assert _snapshot(F19) == real

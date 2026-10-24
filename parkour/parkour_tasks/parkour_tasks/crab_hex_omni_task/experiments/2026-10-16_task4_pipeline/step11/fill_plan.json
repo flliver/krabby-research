@@ -1,0 +1,933 @@
+{
+ "plan": {
+  "cells": [
+   {
+    "section": "Legend",
+    "metric": "path prefixes used in reader / note fields",
+    "column": "all",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task",
+    "note": "OMX = crab_hex_omni_task/experiments, TP = OMX/tools/pipeline, PL = OMX/2026-10-16_task4_pipeline, FWD = crab_hex_forward_task. Every source field is absolute and exists (globs expand). NEEDS_ROW ids are the gpu_rows ids. Every report.py reader that touches payload_read / sh_kin must first call tp_lib.configure_from(<PL>/pipeline.yaml), or configure(<spec dict>). report.py does not do this today; payload_read.py's CLI does it at :298."
+   },
+   {
+    "section": "Task 0",
+    "metric": "per-category set: tripod (1 N contact test), 50 N rigidity (support_feet, steps_per_m [stride ~ 6/steps_per_m], taps_per_m, swing_apex, step_rate_hz), tracking ratio, direction_error, cross_track_ratio, action_jitter / action_fft_freq, joint / rod speed, world turning (turn facing_closed / yaw_progress, move_turn ratio)",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed002/2026-10-17_04-55-29",
+    "reader": "run_phases.cat_summary (OMX/tools/run_phases.py, as TP/gate_read.watch_reads): medians of scenario_metrics.json aggregate.suite.by_category + thresholds.suite_categories / suite_episodes",
+    "note": "S1 s18 = X08 model_19994 (== policy/6_p2a_field/model_19994.pt, sha 968cc550). These are pin-build gate_row stamps, bitwise to REFS_S1_s18 (preflight/stepC/checks/C2.json). Row env R18/envs/p2a.env == F19/envs/p3b.env."
+   },
+   {
+    "section": "Task 0",
+    "metric": "duty factor (1 N), 1 N air time + tippy_tap_fraction (misread caveat GE/metrics.py:1271-1275), action rate + sign reversals",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed002/2026-10-17_04-55-29",
+    "reader": "NEW report.py CPU read of <stamp>/metrics/episode_*.json, per episode grouped by 'category'. holds.<label>.tripod.duty_factor exists only on VALID windows (verified: 2000 of the holds across 1000 episodes; stand / discarded windows lack it), so a missing key is None, not an error. Per-foot duty: slip_episode.per_foot.<foot>.duty_factor. Also air_time_episode, the per-episode tippy_tap_fraction, actions.action_rate_mean_all and actions.action_sign_reversals_total.",
+    "note": "Omni episode JSONs carry no per-hold tracking block. holds.<label> has only direction / facing / label / motion / n_steps / tripod."
+   },
+   {
+    "section": "Task 0",
+    "metric": "vy / wz tracking RMS per hold (achieved vs commanded)",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36/raw ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed002/2026-10-17_04-55-29/raw",
+    "reader": "NEW report.py CPU scoring over raw/episode_*.npz: root_lin_vel_b[:,1] and root_ang_vel_b[:,2] against cmd_applied, masked by segment_id and steady_mask per own hold",
+    "note": "No harness-written key exists for omni (aggregate.tracking_by_hold holds only achieved_vx / cmd_vx_mean / ratio). The RMS is a step-11 derived number; label it that way."
+   },
+   {
+    "section": "Task 0",
+    "metric": "roll / pitch RMS, survival per category",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed002/2026-10-17_04-55-29",
+    "reader": "TP/thresholds.py h_meas_and_orientation / suite_categories"
+   },
+   {
+    "section": "Task 0",
+    "metric": "torque, effort-cap share, rod force at 0 kg",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed002/2026-10-17_04-55-29",
+    "reader": "TP/payload_read.py actuator_load(stamp, 0), after tp_lib.configure_from(<PL>/pipeline.yaml)",
+    "note": "applied_torque is the implicit-actuator estimate. Without configure the call raises 'tp_lib.path(sh_kin): not configured'."
+   },
+   {
+    "section": "Task 0",
+    "metric": "per-category set (as T0: tripod, 50 N rigidity, tracking ratio, direction_error, cross_track, jitter / fft, joint / rod speed, world turning)",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/suite__omni/seed002/2026-10-22_16-39-49",
+    "reader": "run_phases.cat_summary + thresholds.suite_categories / suite_episodes (as T0)",
+    "note": "T* = F19 p3b model_25992 (sha 03b6009a) at 0 kg on unarmed Walk-Play rows; suite@1 is the driver stamp. Do not mix in the Student-Play T4F19_sel_tstar reads: they are another manifest shape."
+   },
+   {
+    "section": "Task 0",
+    "metric": "duty factor (1 N), 1 N air time + tippy, action rate + sign reversals",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/suite__omni/seed002/2026-10-22_16-39-49",
+    "reader": "as T0: per-episode JSON, with duty_factor treated as None when absent"
+   },
+   {
+    "section": "Task 0",
+    "metric": "vy / wz tracking RMS per hold",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02/raw ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/suite__omni/seed002/2026-10-22_16-39-49/raw",
+    "reader": "NEW raw-npz scoring (as T0)"
+   },
+   {
+    "section": "Task 0",
+    "metric": "roll / pitch RMS, survival per category",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/suite__omni/seed002/2026-10-22_16-39-49",
+    "reader": "TP/thresholds.py h_meas_and_orientation / suite_categories"
+   },
+   {
+    "section": "Task 0",
+    "metric": "torque, effort-cap share, rod force at 0 kg",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/suite__omni/seed002/2026-10-22_16-39-49",
+    "reader": "TP/payload_read.py actuator_load(stamp, 0), after configure_from",
+    "note": "The critic's CPU read worked on the driver stamp."
+   },
+   {
+    "section": "Task 0",
+    "metric": "per-category set (as T0)",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed001/2026-10-23_14-18-07 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed002/2026-10-23_16-50-24",
+    "reader": "run_phases.cat_summary + suite_episodes (as T0)",
+    "note": "Student-Play --policy-role student, model_28000 sha 4fa81f0f. T* on the same Student-Play rows (T4F19_sel_tstar) may be shown beside it as a sub-column, never mixed into T1."
+   },
+   {
+    "section": "Task 0",
+    "metric": "duty factor (1 N), 1 N air time + tippy, action rate + sign reversals",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed001/2026-10-23_14-18-07 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed002/2026-10-23_16-50-24",
+    "reader": "as T0: per-episode JSON, with duty_factor treated as None when absent"
+   },
+   {
+    "section": "Task 0",
+    "metric": "vy / wz tracking RMS per hold",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed001/2026-10-23_14-18-07/raw ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed002/2026-10-23_16-50-24/raw",
+    "reader": "NEW raw-npz scoring (as T0)"
+   },
+   {
+    "section": "Task 0",
+    "metric": "roll / pitch RMS, survival per category",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed001/2026-10-23_14-18-07 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed002/2026-10-23_16-50-24",
+    "reader": "TP/thresholds.py h_meas_and_orientation / suite_categories"
+   },
+   {
+    "section": "Task 0",
+    "metric": "torque, effort-cap share, rod force at 0 kg",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed001/2026-10-23_14-18-07 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed002/2026-10-23_16-50-24",
+    "reader": "TP/payload_read.py actuator_load(stamp, 0), after configure_from"
+   },
+   {
+    "section": "Task 0",
+    "metric": "tripod, 1 N tippy / air time, duty, slip, completion, per-hold tracking vx (+ blind vy / wz RMS), action rate / reversals, roll / pitch RMS",
+    "column": "H",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/baselines/v1/teacher_2b2_forward ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/baselines/v1/student_2b2_forward ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/baselines/v1/student_flat_forward ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/baselines/v1/flat_walk_forward",
+    "reader": "aggregate (tripod_score, tippy_tap_fraction, slip_ratio, schedule_completion_rate) + NEW report.py CPU read of <stamp>/metrics/episode_*.json (the forward-era per-hold tracking.{vx,vy,wz} block exists here)",
+    "note": "'v1 stand-ins as committed' = these tracked stamps on 21100 / 29098 / 19999 (not 6300 / 9800). They are forward-only and not re-runnable: the README's own 'critic input 1151 vs 1149' covers these three stand-ins only."
+   },
+   {
+    "section": "Task 0",
+    "metric": "50 N rigidity set, direction_error / cross_track, torque / cap share",
+    "column": "H",
+    "source": "NOT OBTAINABLE",
+    "note": "The v1 record has no raw npz and no 50 N keys, and the checkpoints do not load."
+   },
+   {
+    "section": "Task 0",
+    "metric": "the grant's teacher 6300 / student 9800",
+    "column": "H",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/old-runs/2026-05-26_21-46-37/model_6300.pt ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/old-runs/2026-05-26_22-57-01/model_9800.pt ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/old-runs/2026-05-26_22-57-01/README.md",
+    "reader": "README TensorBoard text only (@9800 crab_failure ~28.7 %, ep_len ~758, goal_idx ~0.50) + a report.py CPU torch.load(map_location='cpu') check printed into the report",
+    "note": "Shown as NOT LOADABLE. Re-checked 2026-10-24 on CPU: both files hold 'std' (18,) and critic.0.weight (512, 1007), against 1149 and std_raw today (pre-cam plant, 2026-05-23 USD). Quote this today-tree check, not baselines/v1/README.md's era-A sentence that 6300 / 9800 'load'."
+   },
+   {
+    "section": "Task 0",
+    "metric": "tripod, 1 N tippy / air time, duty, completion / falls, tracking vx, roll / pitch RMS, action rate / reversals",
+    "column": "F",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_cur/slow__A15pB/seed001/2026-10-17_03-21-36 ; /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/phases/2026-09-07_1330_phase_pipeline/seed3_3a_003_A15pB/slow__A15pB/seed001/2026-09-08_19-46-08 ; /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/phases/2026-09-07_1330_phase_pipeline/seed3_3a_003_A15pB/step__A15pB/seed001/2026-09-08_19-47-52 + NEEDS_ROW (F_step_pin, optional)",
+    "reader": "aggregate.* + NEW report.py CPU read of <stamp>/metrics/episode_*.json",
+    "note": "Forward 3a model_24995 (sha e79c4a90, == FWD/policy/3a_student copy). Only slow__A15pB was read at the pin (T4C1_fwd3a_cur; bitwise to the recorded stamp via T4C1_fwd3a_old). The step__A15pB stamp is the 2026-09-08 build: no plant key, no code_state.json. Either F_step_pin replaces it, or label it 'recorded 2026-09-08 build, not re-read at the pin'. Today's shape gives 0.75 vs 0.79, the \u00b10.04 process-state split. Lateral / turn categories are N/A, not 0."
+   },
+   {
+    "section": "Task 0",
+    "metric": "50 N rigidity set + direction_error / cross_track",
+    "column": "F",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_cur/slow__A15pB/seed001/2026-10-17_03-21-36/raw ; /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/phases/2026-09-07_1330_phase_pipeline/seed3_3a_003_A15pB/slow__A15pB/seed001/2026-09-08_19-46-08/raw ; /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/phases/2026-09-07_1330_phase_pipeline/seed3_3a_003_A15pB/step__A15pB/seed001/2026-09-08_19-47-52/raw",
+    "reader": "NEW CPU scoring step: FWD/scripts/gait_eval/metrics.py rigidity_metrics (:1809) + travel_direction_metrics (:837) per hold window (segment_id / steady_mask)",
+    "note": "The harness wrote no rigidity keys, because forward rows are not category suites. The holds are 10 s, against the omni 12-s own hold; state it. The step stamp is pre-pin (as above)."
+   },
+   {
+    "section": "Task 0",
+    "metric": "torque, effort-cap share, rod force at 0 kg",
+    "column": "F",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_cur/slow__A15pB/seed001/2026-10-17_03-21-36",
+    "reader": "TP/payload_read.py actuator_load(stamp, 0), after configure_from",
+    "note": "Verified to run on this stamp (critic read: hip cap 0.0013 / knee 0.790, rod p50 633 / 410 N). Same A15+B joint names."
+   },
+   {
+    "section": "Task 2",
+    "metric": "command grid: 9 in-envelope cells + 11 reported, |achieved - cmd|, heading drift median / p90",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/grid__omni_body/seed001/2026-10-17_04-13-49 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/ANC_S1_s18/grid__omni_body/seed002/2026-10-16_00-38-56",
+    "reader": "run_phases.cat_summary incl. BODY_CAT_METRIC_KEYS (net_yaw_rate, net_yaw_ratio, wz_ratio, heading_drift, planar_drift, body_ratio, cross_body)",
+    "note": "es1 is a pin-build stamp, bitwise to the recorded anchor (C2 / C5). es2 is the recorded anchor, same launcher class."
+   },
+   {
+    "section": "Task 2",
+    "metric": "command grid",
+    "column": "T1",
+    "source": "NEEDS_ROW (T1_grid_body_1, T1_grid_body_2)",
+    "reader": "as T0",
+    "note": "The tstar stage is CPU-only, so T* has no body rows. F19 p2a's body rows are on model_19994, another checkpoint, so they are not a source."
+   },
+   {
+    "section": "Task 2",
+    "metric": "command grid",
+    "column": "St",
+    "source": "NEEDS_ROW (ST_grid_body_1, ST_grid_body_2)",
+    "reader": "as T0",
+    "note": "Read post hoc at step 11. The sel gate never read it (see the Provenance disclosure cell). If the ST_suite_body_1 smoke fails: NOT OBTAINABLE on the current harness."
+   },
+   {
+    "section": "Task 2",
+    "metric": "turn levels: net ratio at w_min / 0.08 / 0.15 / ceiling / w_max",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/turnlevels__omni_body/seed001/2026-10-17_04-06-43 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/ANC_S1_s18/turnlevels__omni_body/seed002/2026-10-16_00-31-51",
+    "reader": "run_phases.cat_summary + BODY_CAT_METRIC_KEYS",
+    "note": "es1 pin-build bitwise to the anchor (C2); es2 is the recorded anchor."
+   },
+   {
+    "section": "Task 2",
+    "metric": "turn levels",
+    "column": "T1",
+    "source": "NEEDS_ROW (T1_turnlevels_body_1, T1_turnlevels_body_2)",
+    "reader": "as T0"
+   },
+   {
+    "section": "Task 2",
+    "metric": "turn levels",
+    "column": "St",
+    "source": "NEEDS_ROW (ST_turnlevels_body_1, ST_turnlevels_body_2)",
+    "reader": "as T0",
+    "note": "Post hoc; depends on the ST_suite_body_1 smoke."
+   },
+   {
+    "section": "Task 2",
+    "metric": "body suite through body_hold (per-category ratio, survival, body_ratio, cross_body)",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni_body/seed001/2026-10-17_03-59-40 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/ANC_S1_s18/suite__omni_body/seed002/2026-10-16_00-24-50",
+    "reader": "run_phases.cat_summary + BODY_CAT_METRIC_KEYS",
+    "note": "es1 pin-build bitwise to the anchor (C1 / C2); es2 is the recorded anchor."
+   },
+   {
+    "section": "Task 2",
+    "metric": "body suite",
+    "column": "T1",
+    "source": "NEEDS_ROW (T1_suite_body_1, T1_suite_body_2)",
+    "reader": "as T0"
+   },
+   {
+    "section": "Task 2",
+    "metric": "body suite",
+    "column": "St",
+    "source": "NEEDS_ROW (ST_suite_body_1, ST_suite_body_2)",
+    "reader": "as T0",
+    "note": "ST_suite_body_1 runs first, as the smoke of the never-run student x body_hold route."
+   },
+   {
+    "section": "Task 2",
+    "metric": "16-bin direction sweep at 0.22 m/s with discontinuity (max adjacent-bin jump)",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed001/2026-10-17_19-33-39 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed002/2026-10-17_19-44-57",
+    "reader": "run_phases.cat_summary per bin + adjacent-bin jumps in TP/thresholds.py SWEEP_KEYS (ratio, tripod, steps_per_m), as sweep_watch_lines; S1 s16/17/18 anchors in PL/preflight/stepC/checks/C5.json",
+    "note": "C5 sweep anchors (report-only), pin build."
+   },
+   {
+    "section": "Task 2",
+    "metric": "direction sweep",
+    "column": "T1",
+    "source": "NEEDS_ROW (T1_dirsweep_body_1, T1_dirsweep_body_2)",
+    "reader": "as T0"
+   },
+   {
+    "section": "Task 2",
+    "metric": "direction sweep",
+    "column": "St",
+    "source": "NEEDS_ROW (ST_dirsweep_body_1, ST_dirsweep_body_2)",
+    "reader": "as T0",
+    "note": "Post hoc; depends on the smoke."
+   },
+   {
+    "section": "Task 2",
+    "metric": "field rows: field_hard / field_light / ring_obst / field_turn completion es1-2",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_hard__omni/seed001/2026-10-17_03-39-20 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_hard__omni/seed002/2026-10-17_05-02-32 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_light__omni/seed001/2026-10-17_03-43-00 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_light__omni/seed002/2026-10-17_05-06-12 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/ring_obst__omni/seed001/2026-10-17_03-46-30 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/ring_obst__omni/seed002/2026-10-17_05-09-40 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_turn__omni/seed001/2026-10-17_03-49-59 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_turn__omni/seed002/2026-10-17_05-13-08",
+    "reader": "TP/thresholds.py field_completion / field_episodes",
+    "note": "field_hard es3-4 are also recorded (parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed003, seed004). The table uses es1-2 for every column."
+   },
+   {
+    "section": "Task 2",
+    "metric": "field rows es1-2",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/field_hard__omni/seed001/2026-10-22_16-50-29 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/field_hard__omni/seed002/2026-10-22_16-54-14 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/field_light__omni/seed001/2026-10-22_16-57-56 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/field_light__omni/seed002/2026-10-22_17-01-25 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/ring_obst__omni/seed001/2026-10-22_17-04-55 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/ring_obst__omni/seed002/2026-10-22_17-08-24 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/field_turn__omni/seed001/2026-10-22_17-11-53 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/field_turn__omni/seed002/2026-10-22_17-14-07",
+    "reader": "TP/thresholds.py field_completion / field_episodes",
+    "note": "Also in the F19/gates/p3b.json watch: field_hard 0.91 / 0.90, field_light 1.0 / 0.99, ring 1.0 / 1.0, field_turn 1.0 / 0.99."
+   },
+   {
+    "section": "Task 2",
+    "metric": "field rows es1-2",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_hard__omni/seed001/2026-10-23_14-25-35 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_hard__omni/seed002/2026-10-23_14-29-35 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_light__omni/seed001/2026-10-23_17-01-31 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_light__omni/seed002/2026-10-23_17-05-18 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/ring_obst__omni/seed001/2026-10-23_17-08-59 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/ring_obst__omni/seed002/2026-10-23_17-12-46 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_turn__omni/seed001/2026-10-23_17-16-29 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_turn__omni/seed002/2026-10-23_17-18-52",
+    "reader": "TP/thresholds.py field_completion / field_episodes (the paired read is in the Student section)",
+    "note": "Student-Play --policy-role student."
+   },
+   {
+    "section": "Task 2",
+    "metric": "side22 FAST/FAST",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/side22_25lr__omni/seed001/2026-10-17_03-35-41",
+    "reader": "TP/thresholds.py side22_read + OMX/2026-10-01_ppo_construction/scripts/side22_classify.py (TP/gate_read.py side22)"
+   },
+   {
+    "section": "Task 2",
+    "metric": "side22 FAST/FAST",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/side22_25lr__omni/seed001/2026-10-22_16-46-52",
+    "reader": "as T0"
+   },
+   {
+    "section": "Task 2",
+    "metric": "side22 FAST/FAST",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/side22_25lr__omni/seed001/2026-10-23_16-57-38",
+    "reader": "as T0",
+    "note": "Student-Play --policy-role student."
+   },
+   {
+    "section": "Task 2",
+    "metric": "field_suite (per-category field read)",
+    "column": "T1 / St",
+    "source": "NOT OBTAINABLE",
+    "note": "Not run by choice. The row is not in the PLAN step-11 or DESIGN 6 report list; the pipeline ran it on p2a only. T0's stamp (parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_suite__omni/seed001/2026-10-17_03-52-12) has no pair, so it is not tabled."
+   },
+   {
+    "section": "Task 2",
+    "metric": "all Task 2 cells",
+    "column": "H",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/baselines/v1/student_flat_probe_vy ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/baselines/v1/student_flat_probe_yaw",
+    "note": "NOT OBTAINABLE as a capability read: the vy / wz channels are blind (v1 README 'Off-axis probes')."
+   },
+   {
+    "section": "Task 2",
+    "metric": "grid, turn levels, body suite, sweep, side22, omni field rows",
+    "column": "F",
+    "source": "NOT OBTAINABLE",
+    "note": "N/A, not 0: there is no lateral / yaw command channel (DESIGN 6)."
+   },
+   {
+    "section": "Task 2",
+    "metric": "forward field analogue (recal2b2w obstacles 0.20-0.70, hard band 0.70-0.90)",
+    "column": "F",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/phases/2026-09-07_1330_phase_pipeline/seed3_3a_003_A15pB_obst/flat_walk_slow_v2/seed001/2026-09-08_19-50-01 ; /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/phases/2026-09-07_1330_phase_pipeline_hardband/student_3a/flat_walk_slow_v2/seed001/2026-09-09_16-15-25",
+    "reader": "aggregate.schedule_completion_rate / termination_reasons",
+    "note": "Label: 'recorded 2026-09-08/09 build, not re-read at the pin'. Same checkpoint (e79c4a90). The run_meta has no plant key and env_vars {}. The obstacle terrain's launcher is not recorded (the forward state.json keeps only run_dir), so no pin row can be modelled faithfully."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "0-270 kg curve (45-kg steps, stop at first unstable), max_stable, limiting factor, actuator load per level (cap share, rod force vs rated / self-lock, h_meas sag, sum foot force)",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_S1_L*/*__omni/seed00[12]/* (16 stamps L000-L135) ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/checks/C3_S1_curve.json",
+    "reader": "TP/payload_read.py level_reads / max_stable / limiting_factor / actuator_load, after configure_from (PL/thresholds_v1_2.json p3a.stable90.* lines; rod math OMX/2026-10-13_stand_height/scripts/sh_kin.py)",
+    "note": "B0b: stable at 0 / 45 / 90, first unstable at 135 (diag survival es2, field_light completion). The limiting factor is not stored, so run limiting_factor(level 135, budget=None) on CPU."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "0-270 kg curve, max_stable, limiting factor, actuator load",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b_L*/*__omni/seed00[12]/* (20 stamps L000-L180) ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3b.json",
+    "reader": "as T0",
+    "note": "max_stable 135, first unstable 180. Limiting factor budget_bound: survival and tracking still rising at steps 25393 -> 25992, 'at N_p iterations per stage'."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "0-270 kg curve, max_stable, limiting factor, actuator load",
+    "column": "St",
+    "source": "level 0 = /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed001/2026-10-23_14-18-07 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/suite__omni/seed002/2026-10-23_16-50-24 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_light__omni/seed001/2026-10-23_17-01-31 ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000/field_light__omni/seed002/2026-10-23_17-05-18 ; level 90 = /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000_L090/*__omni/seed00[12]/* ; + NEEDS_ROW (ST_L045_*, ST_L135_*; ST_L180_* only if L135 is stable, then L225 / L270 the same way)",
+    "reader": "TP/payload_read.py level_reads / max_stable / limiting_factor / actuator_load (as T0)",
+    "note": "Level 0 uses the existing UNARMED sel rows (same checkpoint, env, rows and seeds). Armed 0:0 is strictly bitwise to off (preflight/stepC/checks/C1.json armed00_vs_off strict_bitwise true, teacher route), and the payload event is env-side. The level-0 run_meta therefore shows payload None, not 0 kg; state it beside pipeline.yaml's 'curve level 0 is armed' note."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "0-270 kg curve (raw per-level table)",
+    "column": "F",
+    "source": "level 0 = /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_cur/slow__A15pB/seed001/2026-10-17_03-21-36 + NEEDS_ROW (F_m045 .. F_m270)",
+    "reader": "TP/payload_read.py actuator_load (after configure_from) + thresholds.h_meas_and_orientation + aggregate completion / falls / tracking (the stable-at-L lines do not apply)",
+    "note": "KRABBY_DR_MASS drives Isaac Lab randomize_rigid_body_mass (startup, operation add, the chassis body; crab_hex_env_cfg.py:584). Its recompute_inertia defaults to True (isaaclab 0.54.4 events.py), so the chassis inertia scales with the mass ratio and the CoM is unchanged. Label it 'added chassis mass + proportionally scaled chassis inertia, CoM unchanged (no deck-CoM composite)', not pure mass-only. Assert run_meta body_masses_kg[0] = 158.757 + L."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "0-270 kg curve, max_stable, limiting factor, actuator load",
+    "column": "H",
+    "source": "NOT OBTAINABLE",
+    "note": "The v1 era has no payload event, and the checkpoints do not load."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "paired 0-kg check (3f) + the payload heads considered for T*",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3b.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3a.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/history/p3b.1.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/tstar.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/deliverable.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/p3a.1.json",
+    "reader": "TP/gate_read.py zero_kg_check; tstar.json candidates[]",
+    "note": "p3b PASS, max use 0.66 (v1.2 track_err). WATCH: raw back drop 0.068 / 0.071. Under v1.1 p3b was EXCLUDED at 1.16 (history/p3b.1.json). p3a FAIL at 2.71, accepted."
+   },
+   {
+    "section": "Task 3 (every number 'sim plant, force side not enforced')",
+    "metric": "R18 appendix: payload heads considered for T* (p3a CHOSEN, p3b EXCLUDED) + R18 p3b curve",
+    "column": "R18",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/p3b.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stage_reads/p3b.rows.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/p3a.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stage_reads/p3a.rows.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stage_reads/tstar.json",
+    "reader": "TP/payload_read.py level_reads / max_stable / actuator_load on the p3b.rows.json level stamps; gate_read zero_kg_check",
+    "note": "R18 p3b: CEILING, max_stable 135, first unstable 180, budget_bound. Its zero_kg FAIL max_margin_used 1.0999 (yaw_progress turn es2, worse by 0.0100 > 0.0091) means EXCLUDED. R18's own tstar.json lists only p3a (CHOSEN, FAIL accepted at 1.66). The report discloses the silent exclusion, CHARTER 2026-10-21 (lines ~543-571)."
+   },
+   {
+    "section": "Stand (teacher-side, 0 kg)",
+    "metric": "K1 tracking, K2 raise / lower, K3 table stand-up, K4 restore (<= 3/800, D9), K5 non-regression @1.064, K6 homing + stillness",
+    "column": "T0",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/head_SH_T17.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/head_SH_T17_k3_summary.json ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/T4C2_SH_T17/hwalkstop__omni/seed001/2026-10-17_04-41-01",
+    "reader": "sh_read.py JSON gates / heads blocks",
+    "note": "SH_T17 = policy/stand_net/model_5000.pt (sha 99c377a1); C2 at the pin is aggregate-equal."
+   },
+   {
+    "section": "Stand (teacher-side, 0 kg)",
+    "metric": "K1-K6",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/sh.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stand/sh_read.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stand/sh_k5_calib.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stand/sh_lazy_rh_read.json",
+    "reader": "gates/sh.json decisive[] + sh_read gates + sh_lazy_rh_read (re-anchored K6)",
+    "note": "SH_T4F19_sh_s19 beside T*. HALT: K6 bin4 es1 0.935 vs 0.945. The lazy R_h beside T* fails the same line (0.89 / 0.845), so the line was re-anchored and every K6 cell now passes. K4 2 / 3."
+   },
+   {
+    "section": "Stand (teacher-side, 0 kg)",
+    "metric": "SN G1-G5 + REFS(T*)",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/sn.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stand/sn_calib.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stand/sn_bridge.json ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_T4F19",
+    "reader": "gates/sn.json decisive[] + watch_lines[]",
+    "note": "PASS. G1 / G2 stillness are WATCH since v1.1."
+   },
+   {
+    "section": "Stand (teacher-side, 0 kg)",
+    "metric": "K1-K6",
+    "column": "H / F / St",
+    "source": "NOT OBTAINABLE",
+    "note": "H: no stand network in the v1 era. F: no forward stand network. St: the stand nets are teacher-side; a depth-student stand path is a Later phase."
+   },
+   {
+    "section": "Student",
+    "metric": "paired completion vs T* (margin max(0.05, 2 SE_diff, split 0.0)), floors, selection record, tracking + 0.05 WATCH",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/sel.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/sel.rows.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/sel.json",
+    "reader": "Verdict, decisive values and watch_flags from sel.json blocks.c28000 {decisive, watch, watch_flags, verdict}. Per-row pairs are REBUILT from the stamps sel.rows.json maps (c28000:<row>@<es> and tstar:<row>@<es>): thresholds.field_episodes(stamp) gives {env_index: completed}; key it {row: {(es, env): bool}} and pass to select_student.completion_pairs(student, tstar, cfg). tracking_watch takes {es: thresholds.suite_episodes(stamp)} for the suite rows. Ranking comes from select_student.rank on the sel.json prescreens.",
+    "note": "c28000 = the first full-block PASS of c27000..c30991, WATCH none. Disclosure (b): the WATCH keeps a raw one-sided ratio row."
+   },
+   {
+    "section": "Student",
+    "metric": "stable at min(90, 135) = 90 kg (WATCH)",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_sel_c28000_L090/*__omni/seed00[12]/*",
+    "reader": "TP/payload_read.py level_reads"
+   },
+   {
+    "section": "Student",
+    "metric": "live checks (depth_actor_loss at +250, ep length / crab_failure vs T* tail)",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2 ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/pipeline_state.json",
+    "reader": "TP/live_watch.py replay --run-dir <st_a2> --kind student (CPU, tfevents)",
+    "note": "The values are not stored (stages.st.live = {last_rc 0, last 30991, run_dir}). Replay the superseded p3a-based distill as well if the report mentions it."
+   },
+   {
+    "section": "Student",
+    "metric": "camera use (C4.7 depth helps)",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/checks/C4_depth.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/depthdiag.log",
+    "note": "UNVERIFIED (no omni row is perception-limited). Accepted with disclosure 2026-10-17."
+   },
+   {
+    "section": "Student",
+    "metric": "headless veto clip + JIT / ONNX deploy export",
+    "column": "St",
+    "source": "NEEDS_ROW (CLIP_F19_c28000: /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/clip_F19.sh)",
+    "note": "R18's precedent is /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/clip/student_c27000_field_hard.mp4. The render also writes <st_a2>/exported_deploy/, which does not exist yet."
+   },
+   {
+    "section": "Provenance",
+    "metric": "DISCLOSURE: student selection read world rows only",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/pipeline.yaml ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/DESIGN.md",
+    "reader": "pipeline.yaml sel full_block_rows (suite@1-2, side22@1, field_hard / field_light / ring_obst / field_turn @1-2; lines 742-755) vs DESIGN.md:348 ('the p2a world, body and sweep rows') and the DESIGN header (student grid / sweep retired as HALT, so they are WATCH)",
+    "note": "Not in the CHARTER. The report must say that the St body / grid / turn-level / sweep cells were never part of the selection gate. They are read post hoc at step 11 as WATCH-class numbers, or they are 'not obtainable' if the student x body_hold smoke refuses."
+   },
+   {
+    "section": "Provenance",
+    "metric": "measured wall-clock AND GPU-h per stage, parks separated",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/pipeline_queue.log ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/tp_logs ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/state.json",
+    "reader": "scratchpad/step11/wallclock.py logic, ported into report.py: a stage runs from its first event to the next stage's first event or PARKED, and PARKED -> START is a park",
+    "note": "F19 active 46.89 h: s1 2.48, c4 0.80, c5 0.80, c6 1.04, c6x 2.11, p2a 4.36, p3a 3.38, p3b 3.80, st 10.17 + 7.65 superseded, sel 3.68, sn 3.05, sh 3.56. Parks 9.23 h: p3a 4.39, v1.2 re-pin 1.00, sh 3.84. Span 56.12 h. GPU-h column = active wall-clock (one RTX 5080, serial queue). Parks are 0 GPU-h, except the lazy R_h control's 0.43 GPU-h inside the sh park. The driver wall_h sum of 10.40 h is training only, and pipeline_state stages[*].wall_h are null."
+   },
+   {
+    "section": "Provenance",
+    "metric": "measured wall-clock + GPU-h per stage (appendix)",
+    "column": "R18",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/pipeline_queue.log ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/state.json",
+    "reader": "scratchpad/step11/wallclock.py logic",
+    "note": "R18 active 44.78 h, incl. X 6.0 h. Parks 13.87 h (p3a 7.99, sn 5.34, sh 0.52). Span 58.65 h. GPU-h follows the same rule."
+   },
+   {
+    "section": "Provenance",
+    "metric": "preflight wall-clock (Phase A + C)",
+    "column": "all",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepA_queue.log ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/stepC_queue.log",
+    "reader": "sum of T4C DONE wall_s; T4A START..END",
+    "note": "C 52.62 h, incl. C7 35.58 h (a 28-h hang + a 5.6-h re-run; the hang is not GPU work). A 0.90 h."
+   },
+   {
+    "section": "Provenance",
+    "metric": "hardware + external stack + pins",
+    "column": "all",
+    "source": "/proc/driver/nvidia/gpus ; /proc/cpuinfo ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/pipeline.lock.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/pipeline_state.json",
+    "note": "RTX 5080 16 GB, Ryzen 9 9950X3D, 59 GB, fractal-ubuntu. Tags task4-pin-2026-10-19 / -19b / -21c / -23. Code cbaf6797, eval 8c8d22f0, lock d90c82e4."
+   },
+   {
+    "section": "Provenance",
+    "metric": "gate verdicts + HALTs with chance rates",
+    "column": "T1",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/deliverable.json",
+    "reader": "report.run_records / provenance",
+    "note": "p3a.1 FAIL accepted (rate unmodelled, print 'rate unknown'). st.1 DRIVER amend to v1.2 + retarget (an amend, not a chance acceptance). sh.1 FAIL re-anchored: the rate is 6.4e-12, and the recorded kind 'accept-chance' was the only no-re-gate path, so name it a DESIGN 3.6 re-anchor."
+   },
+   {
+    "section": "Provenance",
+    "metric": "gate verdicts + HALTs with chance rates (appendix)",
+    "column": "R18",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/halts ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/deliverable.json",
+    "reader": "report.run_records / provenance",
+    "note": "GUARD x2 re-pin. p3a.1 accepted (unmodelled). sn.1 amended to v1.1 (its recorded 0.0 is degenerate). sh.1 accepted (0.148)."
+   },
+   {
+    "section": "Provenance",
+    "metric": "chance-HALT run sum",
+    "column": "all",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/thresholds_v1_2.json",
+    "reader": "sums.recommended.run_sum",
+    "note": "1.197 (standard 2.953), reported, not capped."
+   },
+   {
+    "section": "Provenance",
+    "metric": "CHARTER disclosures",
+    "column": "all",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/CHARTER.md ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/replay/s1_plive_posthoc.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/replay/live_posthoc.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sh_lazy_rh_read.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stand/sh_lazy_rh_read.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/history/tstar.1.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC_read.json",
+    "note": "Camera use unverified. Payload = sim plant. R18 P-live FAIL at it 20 (cuDNN). Live watch dead on R18 s1-p2a. R18 SN amend. v1.1 -> v1.2 + disclosures a-d. R18 / F19 SH lazy controls. One-sided ratio artefact. N_p not converged. Same-seed student not a replay. R18 silent p3b exclusion. Plus the step-11 additions: student selection on world rows only (cell above); F step / obstacle / hard-band = recorded 2026-09-08/09 build; F mass curve with scaled inertia."
+   },
+   {
+    "section": "Provenance",
+    "metric": "R18 process-reproduced verdict + X stand replay",
+    "column": "R18",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/replay ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/sn_ref.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/gates/sh_ref.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sh_ref_read.json",
+    "reader": "TP/replay_read.py pconfig / pearly / onset / x_read",
+    "note": "P-config PASS, P-early PASS (4-ULP amendment), P-live FAIL. X is report-only."
+   },
+   {
+    "section": "Provenance",
+    "metric": "R18 appendix columns (T* p3a, student c27000, SN / SH_T4R18) on its gated world rows",
+    "column": "R18",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/deliverable.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stage_reads/p3a.rows.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stage_reads/sel.rows.json ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sh_read.json",
+    "reader": "same readers as T1 / St",
+    "note": "No body / grid / sweep rows on R18's T* or student."
+   },
+   {
+    "section": "Provenance",
+    "metric": "keep-set record: why the student checkpoint is not in head/",
+    "column": "St",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt ; /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/bundle_experiment.py",
+    "reader": "sha256 + stat size; bundle_experiment.py HEAD_MAX_BYTES (:72) and copy_head guard (:204)",
+    "note": "Print model_28000.pt sha256 4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059, 122,244,457 B, more than the 64 MiB guard. PLAN step 11 / DESIGN 2.4 head = the student is replaced only by the user's answer to open question 1."
+   },
+   {
+    "section": "Provenance",
+    "metric": "grant reconciliation",
+    "column": "all",
+    "source": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/report.py ; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/F19/lr/T4F19_p3b/suite__omni/seed002/2026-10-22_16-39-49/run_meta.json ; /home/nickmagus/krabby/patina-foundation-grants/grants/Krabby-Uno/Milestone18-Krab-Sim-Tuning/TASK-3-ACTUATOR-DYNAMICS-AND-PAYLOAD.md ; /home/nickmagus/krabby/patina-foundation-grants/grants/Krabby-Uno/Milestone18-Krab-Sim-Tuning/TASK-4-REPRODUCIBLE-CURRICULUM.md",
+    "reader": "report.RECONCILIATION + sum(run_meta.body_masses_kg) = 230.062",
+    "note": "230.06 vs 83 kg. SLA08 2000 N @ 28 mm/s / YH8-523D 500 N @ 33 mm/s vs 500 N / 80 and 400 N / 60. runs/ vs PL/head. 4c 'every gate passed' vs HALT prompts. 3 vs ~8-11 dev days."
+   }
+  ],
+  "gpu_rows": [
+   {
+    "id": "CLIP_F19_c28000",
+    "column": "St",
+    "purpose": "STOP-END veto clip, never a gate. 30 s headless, 0 kg, wall field, Student-Play, c28000, through play_stream_video.py under systemd-run MemoryMax=40G (never gym RecordVideo). It also writes the student's JIT/ONNX exported_deploy/ into the st_a2 run dir. The script copies the clip to PL/F19/clip/student_c28000_field_hard{,_small}.mp4. clip_F19.sh hard-waits while any isaac_venv python runs, so launch it inside the same single queue runner as the rows (last).",
+    "command": "setsid nohup bash /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/clip_F19.sh > /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/clip_F19.outer.log 2>&1 < /dev/null &   # = cd parkour && env -u <every KRABBY_*> OMNI_KIT_ACCEPT_EULA=yes TERM=xterm <F19/envs/p3b.field_hard.env, identical to R18's clip env> systemd-run --user --scope -q -p MemoryMax=40G -p MemorySwapMax=0 timeout --signal=TERM 2400 /home/nickmagus/krabby/isaac_venv/bin/python scripts/rsl_rl/play_stream_video.py --task Isaac-Crab-Hex-Omni-Student-Play-v0 --headless --video --video_length 1500 --num_envs 1 --enable_cameras --checkpoint /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+    "est_minutes": 4,
+    "carry_env": "F19/envs/p3b.field_hard.env verbatim (no KRABBY_PAYLOAD_*, no refused runner key; byte-equal sorted to R18's clip_r18.cmd env)"
+   },
+   {
+    "id": "T1_suite_body_1",
+    "column": "T1",
+    "purpose": "Task 2 body suite through body_hold on T* (es1); same row and env as F19 p2a suite_body@1",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml suite__omni_body 1 --command-adapter body_hold --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 6.9,
+    "carry_env": "F19 composed env file verbatim (CLOCK_HIDE=1, STD_PARAM=soft, INIT_STD=0.8, SPEED_ELLIPSE=0.35:0.35:0.25, FACING_OBS_CLIP=0.6, RELAY_HYST=0, STAND_HOLD=0); gate_row.sh unsets the parent KRABBY_*"
+   },
+   {
+    "id": "T1_suite_body_2",
+    "column": "T1",
+    "purpose": "Task 2 body suite on T* (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml suite__omni_body 2 --command-adapter body_hold --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 6.9,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "T1_turnlevels_body_1",
+    "column": "T1",
+    "purpose": "Task 2 turn levels on T* (es1)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml turnlevels__omni_body 1 --command-adapter body_hold",
+    "est_minutes": 6.9,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "T1_turnlevels_body_2",
+    "column": "T1",
+    "purpose": "Task 2 turn levels on T* (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml turnlevels__omni_body 2 --command-adapter body_hold",
+    "est_minutes": 6.9,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "T1_grid_body_1",
+    "column": "T1",
+    "purpose": "Task 2 command grid (9 gated + 11 reported cells) on T* (es1)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml grid__omni_body 1 --command-adapter body_hold",
+    "est_minutes": 13.6,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "T1_grid_body_2",
+    "column": "T1",
+    "purpose": "Task 2 command grid on T* (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml grid__omni_body 2 --command-adapter body_hold",
+    "est_minutes": 13.6,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "T1_dirsweep_body_1",
+    "column": "T1",
+    "purpose": "Task 2 16-bin direction sweep at 0.22 m/s on T* (es1)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml dirsweep__omni_body 1 --command-adapter body_hold",
+    "est_minutes": 10.9,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "T1_dirsweep_body_2",
+    "column": "T1",
+    "purpose": "Task 2 direction sweep on T* (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 bash $X/tools/pipeline/gate_row.sh T4S11_tstar $R/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml dirsweep__omni_body 2 --command-adapter body_hold",
+    "est_minutes": 10.9,
+    "carry_env": "as T1_suite_body_1"
+   },
+   {
+    "id": "ST_suite_body_1",
+    "column": "St",
+    "purpose": "Task 2 body suite through body_hold on the student (es1). RUN FIRST of the St body block: it is the smoke of the never-run student x body_hold route. If it refuses or reads INVALID, skip every other ST_*_body row.",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml suite__omni_body 1 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.4,
+    "carry_env": "F19 composed env file verbatim; gate_row.sh unsets the parent KRABBY_*; Student-Play refused runner knobs stripped exactly as on the sel rows (set-equal to omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED; none present in the file)"
+   },
+   {
+    "id": "ST_suite_body_2",
+    "column": "St",
+    "purpose": "Task 2 body suite on the student (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml suite__omni_body 2 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.4,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_turnlevels_body_1",
+    "column": "St",
+    "purpose": "Task 2 turn levels on the student (es1)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml turnlevels__omni_body 1 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 7.4,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_turnlevels_body_2",
+    "column": "St",
+    "purpose": "Task 2 turn levels on the student (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml turnlevels__omni_body 2 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 7.4,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_grid_body_1",
+    "column": "St",
+    "purpose": "Task 2 command grid on the student (es1)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml grid__omni_body 1 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 14.6,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_grid_body_2",
+    "column": "St",
+    "purpose": "Task 2 command grid on the student (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni_body.yaml grid__omni_body 2 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 14.6,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_dirsweep_body_1",
+    "column": "St",
+    "purpose": "Task 2 direction sweep on the student (es1)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml dirsweep__omni_body 1 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 11.7,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_dirsweep_body_2",
+    "column": "St",
+    "purpose": "Task 2 direction sweep on the student (es2)",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=10800 TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml dirsweep__omni_body 2 --command-adapter body_hold --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 11.7,
+    "carry_env": "as ST_suite_body_1"
+   },
+   {
+    "id": "ST_L045_suite_1",
+    "column": "St",
+    "purpose": "Task 3 student payload curve level 45 kg: suite es1",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L045.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L045 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni.yaml suite__omni 1 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.5,
+    "carry_env": "F19/envs/p3b.env + L045 level file (KG=45:45), the same pattern as the sel c28000:suite@1@L090 row"
+   },
+   {
+    "id": "ST_L045_suite_2",
+    "column": "St",
+    "purpose": "Task 3 student curve 45 kg: suite es2",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L045.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L045 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni.yaml suite__omni 2 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.5,
+    "carry_env": "as ST_L045_suite_1"
+   },
+   {
+    "id": "ST_L045_fl_1",
+    "column": "St",
+    "purpose": "Task 3 student curve 45 kg: field_light es1",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L045.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L045 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.field_light.env $X/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni 1 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 3.8,
+    "carry_env": "F19/envs/p3b.field_light.env + L045 level file"
+   },
+   {
+    "id": "ST_L045_fl_2",
+    "column": "St",
+    "purpose": "Task 3 student curve 45 kg: field_light es2",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L045.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L045 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.field_light.env $X/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni 2 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 3.8,
+    "carry_env": "as ST_L045_fl_1"
+   },
+   {
+    "id": "ST_L135_suite_1",
+    "column": "St",
+    "purpose": "Task 3 student curve 135 kg: suite es1",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L135.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L135 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni.yaml suite__omni 1 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.5,
+    "carry_env": "F19/envs/p3b.env + L135 level file (KG=135:135)"
+   },
+   {
+    "id": "ST_L135_suite_2",
+    "column": "St",
+    "purpose": "Task 3 student curve 135 kg: suite es2",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L135.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L135 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni.yaml suite__omni 2 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.5,
+    "carry_env": "as ST_L135_suite_1"
+   },
+   {
+    "id": "ST_L135_fl_1",
+    "column": "St",
+    "purpose": "Task 3 student curve 135 kg: field_light es1",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L135.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L135 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.field_light.env $X/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni 1 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 3.8,
+    "carry_env": "F19/envs/p3b.field_light.env + L135 level file"
+   },
+   {
+    "id": "ST_L135_fl_2",
+    "column": "St",
+    "purpose": "Task 3 student curve 135 kg: field_light es2",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L135.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L135 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.field_light.env $X/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni 2 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 3.8,
+    "carry_env": "as ST_L135_fl_1"
+   },
+   {
+    "id": "ST_L180_suite_1",
+    "column": "St",
+    "purpose": "CONDITIONAL, excluded from the total (only if L135 reads stable on payload_read.py level_reads): student curve 180 kg suite es1. The same 4-row pattern applies to L225 / L270, each only if the previous level is stable.",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L180.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L180 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni.yaml suite__omni 1 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.5,
+    "carry_env": "F19/envs/p3b.env + L180 level file"
+   },
+   {
+    "id": "ST_L180_suite_2",
+    "column": "St",
+    "purpose": "CONDITIONAL (only if L135 is stable): student curve 180 kg suite es2",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L180.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L180 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.env $X/eval/scenarios_omni.yaml suite__omni 2 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student --trained-categories stand,fwd,side,back,diag,turn,move_turn",
+    "est_minutes": 7.5,
+    "carry_env": "as ST_L180_suite_1"
+   },
+   {
+    "id": "ST_L180_fl_1",
+    "column": "St",
+    "purpose": "CONDITIONAL (only if L135 is stable): student curve 180 kg field_light es1",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L180.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L180 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.field_light.env $X/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni 1 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 3.8,
+    "carry_env": "F19/envs/p3b.field_light.env + L180 level file"
+   },
+   {
+    "id": "ST_L180_fl_2",
+    "column": "St",
+    "purpose": "CONDITIONAL (only if L135 is stable): student curve 180 kg field_light es2",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 TP_LEVEL_FILE=$X/2026-10-16_task4_pipeline/F19/envs/levels/L180.env TP_STRIP_KEYS='KRABBY_ACTION_STD_MAX KRABBY_ACTION_STD_RESET KRABBY_ENTROPY_COEF KRABBY_ACTION_BOUND_LOSS KRABBY_ACTION_BOUND_RAMP KRABBY_ACTION_BOUND KRABBY_PPO_SCHEDULE KRABBY_PPO_LR KRABBY_PPO_DESIRED_KL KRABBY_PPO_KL_STOP KRABBY_PPO_HIST_LR KRABBY_PPO_HAND_DIAG KRABBY_ANCHOR_W KRABBY_ANCHOR_CKPT KRABBY_STAND_PRIOR_W KRABBY_STAND_PRIOR_TARGET KRABBY_RESTANCE KRABBY_BC_W KRABBY_BC_BANK KRABBY_BC_BATCH KRABBY_OMNI_MIRROR_IMAGES KRABBY_SYM_LOSS_COEF' bash $X/tools/pipeline/gate_row.sh T4S11_c28000_L180 $R/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt $X/2026-10-16_task4_pipeline/F19/envs/p3b.field_light.env $X/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni 2 --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student",
+    "est_minutes": 3.8,
+    "carry_env": "as ST_L180_fl_1"
+   },
+   {
+    "id": "F_step_pin",
+    "column": "F",
+    "purpose": "OPTIONAL: re-read forward 3a step__A15pB es1 at the pin, so the F step cell is not a 2026-09-08-build stamp. Same launcher as T4C1_fwd3a_cur, changing only the scenario id.",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_pin $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt $X/2026-10-16_task4_pipeline/preflight/stepC/envs/fwd3a.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml step__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 2,
+    "carry_env": "PL/preflight/stepC/envs/fwd3a.env verbatim (APEX_W 1.0, CLOCK_W 1.0, LIN_VEL_X 0.0:0.35, STUDENT_MDP=1, TRACK_L1_W -1.0, TRACK_SIGMA2 0.1), as C1_fwd3a_cur; the manifest row carries the light-obstacle KRABBY_FLAT_TERRAIN_* env"
+   },
+   {
+    "id": "F_m045",
+    "column": "F",
+    "purpose": "Task 3 F column: forward 3a added-mass curve at +45 kg (KRABBY_DR_MASS=45:45; chassis inertia scales with the mass ratio, CoM unchanged) on its own slow__A15pB row. Level 0 = T4C1_fwd3a_cur.",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_m045 $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m045.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml slow__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 1.6,
+    "carry_env": "fwd3a.env + KRABBY_DR_MASS=45:45 (scratch env file, differs by that one line); assert run_meta body_masses_kg[0] = 158.757 + 45"
+   },
+   {
+    "id": "F_m090",
+    "column": "F",
+    "purpose": "F added-mass curve +90 kg",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_m090 $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m090.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml slow__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 1.6,
+    "carry_env": "fwd3a.env + KRABBY_DR_MASS=90:90; assert body_masses_kg[0] = 158.757 + 90"
+   },
+   {
+    "id": "F_m135",
+    "column": "F",
+    "purpose": "F added-mass curve +135 kg",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_m135 $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m135.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml slow__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 1.6,
+    "carry_env": "fwd3a.env + KRABBY_DR_MASS=135:135; assert body_masses_kg[0] = 158.757 + 135"
+   },
+   {
+    "id": "F_m180",
+    "column": "F",
+    "purpose": "F added-mass curve +180 kg",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_m180 $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m180.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml slow__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 1.6,
+    "carry_env": "fwd3a.env + KRABBY_DR_MASS=180:180; assert body_masses_kg[0] = 158.757 + 180"
+   },
+   {
+    "id": "F_m225",
+    "column": "F",
+    "purpose": "F added-mass curve +225 kg",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_m225 $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m225.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml slow__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 1.6,
+    "carry_env": "fwd3a.env + KRABBY_DR_MASS=225:225; assert body_masses_kg[0] = 158.757 + 225"
+   },
+   {
+    "id": "F_m270",
+    "column": "F",
+    "purpose": "F added-mass curve +270 kg",
+    "command": "R=/home/nickmagus/krabby/krabby-research; X=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments; TP_OUT=$R/parkour/outputs/omni_plan/task4/step11 TP_ROW_TIMEOUT=5400 bash $X/tools/pipeline/gate_row.sh T4S11_fwd3a_m270 $R/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt /tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m270.env $R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml slow__A15pB 1 --task Isaac-Crab-Hex-Student-v0",
+    "est_minutes": 1.6,
+    "carry_env": "fwd3a.env + KRABBY_DR_MASS=270:270; assert body_masses_kg[0] = 158.757 + 270"
+   }
+  ],
+  "not_obtainable": [
+   "H, every re-read. The grant's 6300 / 9800 (old-runs/2026-05-26_21-46-37/model_6300.pt, old-runs/2026-05-26_22-57-01/model_9800.pt) do not load: re-checked 2026-10-24 by CPU torch.load, both hold 'std' (18,) and critic.0.weight (512, 1007), against 1149 and std_raw today (pre-cam plant, 2026-05-23 USD). The README's era-A 'they load' sentence is stale. The v1 stand-ins 21100 / 29098 / 19999 do not load either (critic input 1151 vs 1149, baselines/v1/README.md). 'H as committed' = the six tracked v1 stamps under crab_hex_forward_task/experiments/eval/baselines/v1/ plus the 9800 README's TensorBoard numbers. Not in that record and not re-runnable: the 50 N set, direction_error / cross_track, actuator load, every Task 2 cell (the vy / yaw probes are blind, not capability reads), every Task 3 and stand cell.",
+   "F, Task 2: lateral, yaw, grid, sweep, side22 and the omni field rows are N/A (no command channel), not 0 (DESIGN 6). Its only field analogue is the recorded forward obstacle / hard-band rows. A pin re-read of those is not obtainable faithfully: the 2026-09-08/09 stamps record env_vars {} and the forward state.json keeps only their run_dir, not the launcher or manifest. They are reported as 'recorded 2026-09-08/09 build, same checkpoint e79c4a90'.",
+   "F, Task 3 stable-at-L / max_stable: the a-priori lines need suite + field_light rows the forward task lacks, and F already falls 21-25 / 100 at 0 kg. The 6 added-mass rows give a raw per-level table only, labelled 'added chassis mass + proportionally scaled chassis inertia (Isaac Lab recompute_inertia=True), CoM unchanged'.",
+   "F, 50 N set and direction_error: there are no harness-written keys (forward rows are not category suites, and GE/metrics.py RIGIDITY_APPLIES is keyed by category name). They are obtainable only by a NEW CPU scoring step over the raw npz (rigidity_metrics / travel_direction_metrics).",
+   "Omni vy / wz tracking RMS (T0 / T1 / St): no harness-written key. Omni episode JSONs have no holds.<label>.tracking block, so it is a NEW CPU number from raw/episode_*.npz, labelled as derived.",
+   "St, stand K1-K6 and the SN G lines: the stand nets are teacher-side (paired with T*); a depth-student stand path is a PLAN Later phase.",
+   "St, paired 0-kg check: not a student line. The student's unloaded read is the completion pairing vs T* on Student-Play.",
+   "T1 / St field_suite: not run by choice. It is not in the step-11 or DESIGN 6 report list (a p2a-only row family).",
+   "T1, levels 225 / 270 of the 0-270 curve: PLAN stops the curve at the first unstable level (180 for p3b); DESIGN 3.4's 'every 45 kg' T* curve is superseded.",
+   "Camera use: unverifiable on the current rows (C4.7: no omni row is perception-limited; S1 with a perfect scan equals a blind student). Disclosed, user-accepted 2026-10-17.",
+   "A video of F19's walker + stand-net pair: sh_record_video.py has no walker argument (argparse 181-227) and refuses a stand checkpoint trained beside another walker than S1, so SH_T4F19_sh_s19 is refused outright. The harness also refuses walker + body_hold + stand-net together (PLAN Later phases).",
+   "R18 driver-stage live-watch numbers for s1-p2a: the live watch never ran there (CHARTER 2026-10-19 finding 1); only R18/replay/live_posthoc.json exists. A bitwise R18 replay is not obtainable on this build (P-live FAIL at it 20, cuDNN history encoder).",
+   "Chance rates for the paired 0-kg HALTs (R18 p3a, F19 p3a): unmodelled (halts/*.json chance None); print 'rate unknown', not 0. R18 sn.1's recorded 0.0 is a degenerate fixed-t artefact.",
+   "Force-side payload numbers: no rod-force limit is enforced (hip rod ~3.4 kN static at 0 kg); every Task 3 cell is 'sim plant, force side not enforced'.",
+   "The keep-set exactly as DESIGN 2.4 / PLAN step 11 wrote it (head = the student): bundle_experiment.py copy_head (:204) refuses the 122,244,457-byte model_28000.pt (HEAD_MAX_BYTES 64 MiB at :72). This needs the user's choice (open question 1).",
+   "Student live-check values: not stored in F19/pipeline_state.json. They are recomputable on CPU with live_watch.py replay over the T4F19_st_a2 tfevents, so this is not a GPU need."
+  ],
+  "keep_set": "1. Write PL/bundle.yaml at step 11.\n2. From /home/nickmagus/krabby/krabby-research run `/home/nickmagus/krabby/isaac_venv/bin/python -I parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/bundle_experiment.py --dry-run parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline`.\n3. Run the same with `--init`. This fills the missing extra-head sha256 values into bundle.yaml.\n4. Run it with no flag. This copies into PL/head/, writes head/README.md and git-adds; it never commits.\n5. Run `--check`. This is the same re-hash that tests/unit/test_experiment_layout.py::test_bundled_heads_match_their_manifests runs. Use no --index unless the user wants the shared experiments/README.md regenerated.\n\nManifest:\n- campaign 2026-10-16_task4_pipeline; era B; dates 2026-10-16..<bundle date>; plant A15+B; paths_note false.\n- records: [CHARTER.md, PLAN.md, DESIGN.md, STOP0.md, README.md, REPORT_baseline_vs_final.md, REPORT_baseline_vs_final.json, pipeline.yaml, pipeline.lock.json, thresholds_v1_2.json, threshold_inputs_v1_2.yaml, F19/deliverable.json, F19/pipeline_state.json, R18/deliverable.json].\n- head = T* (pending open question 1): role teacher_2a, task Isaac-Crab-Hex-Omni-Teacher-v0, source parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt, sha256 03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7, dest head/model_25992.pt, 12,596,767 B, env = the carry block.\n- extra_heads:\n  - SN parkour/outputs/omni_plan/stand_network/runs/SN_T4F19_sn_s19/model_4000.pt (96832099e58b75d1cc86f6f9d98327c56b827c2fac1b6c61c96b07f0a8e97b73 -> head/model_4000.pt, 6,097,610 B).\n  - SH parkour/outputs/omni_plan/stand_height/runs/SH_T4F19_sh_s19/model_5000.pt (c12692343fcc31d114ee69b56f59c4879c4969f03414832d4a6a3edbbfe55927 -> head/model_5000.pt, 6,102,410 B).\n  - The student's deploy export, written by the clip render: parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/exported_deploy/{policy.onnx, depth_latest.onnx, omni_student_io.json} -> head/student_c28000_{policy.onnx, depth_latest.onnx, omni_student_io.json}. Each is under the 64 MiB copy_head guard. `git check-ignore` confirms that .onnx / .json under head/ match no ignore rule, so they are tracked without a new allow rule. JIT .pt exports cannot be bundled, because .gitignore re-includes only */head/model_*.pt.\n- The heads total ~62 MB, plus head/README.md and the listed records.\n- The student checkpoint model_28000.pt (sha256 4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059, 122,244,457 B) and the stage heads s1..p3b stay recorded by sha256 only (F19/deliverable.json stage_heads_by_sha256). The report's keep-set section prints that sha, the size, and the 64 MiB guard as the reason.\n- evals (recommended lean): sources parkour/outputs/omni_plan/task4/F19 -> evals/F19_rows, parkour/outputs/omni_plan/task4/step11 -> evals/step11, parkour/logs/rsl_rl/gait_eval/omni_phases/F19 -> evals/F19_driver; keep_globs [summary.md, complete.json, tp_row.json, code_state.json] (~2-3 MB).\n\nThen commit only PL paths (never git add -A) and set the local annotated tag:\n`git tag -a omni-sim2real-baseline-<YYYY-MM-DD> -m \"M18 Task 4 sim-to-real baseline: F19 T* p3b model_25992 (03b6009a), student c28000 (4fa81f0f), SN_T4F19 (96832099), SH_T4F19 (c1269234); pin task4-pin-2026-10-23 (code cbaf6797 / eval 8c8d22f0 / lock d90c82e4). Local tag; not pushed.\" <bundle commit>`\n\nIt is never pushed: the push and the bake are the user's at STOP-END.",
+  "readme": "PL/README.md is generated at step 11. Every command named below was checked to exist on 2026-10-24.\n\n(1) What it is. The M18 Task 4 gated from-scratch omni pipeline. The deliverable run is F19, which the user confirms at STOP-END.\n- T* = p3b, logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt (max_stable 135 kg, sim plant, force side not enforced).\n- Student = c28000 of crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2.\n- Stand nets = SN_T4F19_sn_s19 / SH_T4F19_sh_s19.\nEvery sha comes from F19/deliverable.json. Pointers: REPORT_baseline_vs_final.md, CHARTER.md (every HALT and disclosure), PLAN.md, DESIGN.md, pipeline.yaml, thresholds_v1_2.json (sha 969b2988).\n\n(2) Reproduce at the pin. Run `git -C /home/nickmagus/krabby/krabby-research checkout task4-pin-2026-10-23` (the tag exists; code_sha cbaf6797, eval_sha 8c8d22f0, lock d90c82e4).\n- External stack from pipeline.lock.json: Isaac Sim 5.1.0.0, isaaclab 0.54.4, rsl-rl-lib 5.0.1, torch 2.7.0+cu128.\n- Hardware: RTX 5080 16 GB, Ryzen 9 9950X3D, 59 GB, host fractal-ubuntu.\n\n(3) Pipeline commands. Run from the repo root with PY=/home/nickmagus/krabby/isaac_venv/bin/python, TP=parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline and SPEC=<PL>/pipeline.yaml.\n- `$PY -I $TP/pipeline.py check --spec $SPEC --run F19`\n- `$PY -I $TP/pipeline.py gen --spec $SPEC --run F19 --check`\n- `$PY -I $TP/pipeline.py run --spec $SPEC --run F19` is the official launch. A fresh replication needs a new runs: entry with new seeds, then gen, lock, commit, check, run.\n- `$PY -I $TP/pipeline.py status --spec $SPEC --run F19`\n- HALTs are prompts: `$PY -I $TP/pipeline.py continue --spec $SPEC --run F19` with exactly one of `--accept-chance STAGE`, `--amend STAGE --charter '<entry>' [--retarget-tstar]`, `--retry STAGE` or `--abort`.\n- CPU re-read of any gate: `$PY -I $TP/pipeline.py gate --spec $SPEC --run F19 --stage STAGE --thresholds <PL>/thresholds_v1_2.json`. It writes gates/STAGE.reread.json.\n- The report: `$PY -I $TP/report.py --spec $SPEC --run F19 --other R18 --out <PL>/REPORT_baseline_vs_final`. `pipeline.py report` does not forward --other.\n\n(4) What the queue launched per stage, verbatim from F19/tp_logs/*.log and F19/orchestrator.log.\n- Driver stages s1..p3c: `experiments/tools/launch_candidates.sh --campaign-dir <PL>/F19 --reference-chain F19_<stage> --seed 19` (run_candidates.py on the generated F19/candidates.yaml).\n- Student: `$TP/distill.sh --name T4F19_st_a2 --checkpoint <T*> --env-file <PL>/F19/envs/p3b.distill.env --seed 19 --iterations 5000 --num-envs 192 --task Isaac-Crab-Hex-Omni-Student-v0 --experiment crab_hex_omni_student`.\n- SN: `experiments/2026-10-11_stand_network/scripts/sn_dagger.sh --wait-idle SN_T4F19_sn_s19 -- --mode dagger --arm mask --seed 19 --iterations 4000`, with SN_WALKER_SPEC / SN_WALKER_CK / SN_WALKER_ST set by pipeline.walker_spec_env.\n- SH: `experiments/2026-10-13_stand_height/scripts/sh_dagger.sh --wait-idle SH_T4F19_sh_s19 -- --mode dagger --arm mask --seed 19 --iterations 5000 --deadband 0.25 --trim-branch --trim-min 0.0999 --warm-start <SN model_4000.pt> --warm-sha 96832099e58b75d1cc86f6f9d98327c56b827c2fac1b6c61c96b07f0a8e97b73`.\n- Every gate row: `TP_OUT=parkour/outputs/omni_plan/task4/F19 TP_ROW_TIMEOUT=5400|10800 [TP_LEVEL_FILE=<PL>/F19/envs/levels/LNNN.env] [TP_STRIP_KEYS=...] bash $TP/gate_row.sh NAME CKPT <PL>/F19/envs/<stage>[.<family>].env MANIFEST SCENARIO ES [args]`.\n- Stand rows go through experiments/2026-10-07_omni_phase2/scripts/run_arm.sh --row-eval, sn_eval_rows.sh and sh_eval_rows.sh. They are read by sn_calib.py and sh_read.py.\n- The step-11 report rows use the same gate_row.sh form with TP_OUT=parkour/outputs/omni_plan/task4/step11.\n\n(5) What passing each gate means (4b). Thresholds are v1.2; HALTs are prompts; the chance-HALT run sum is 1.197, reported and not capped.\n- s1: a side-first walker formed (floors: survival >= 0.80, ratio >= 0.50, side22 not SLOW).\n- c4-c6: widening the command set cost no translation.\n- c6x: the clock-free walker tracks and turns.\n- p2a: head-of-record capability (0.90 / 0.70 floors, FAST/FAST, field_hard).\n- p3a: stable at 90 kg, plus no unloaded regression. The paired 0-kg check uses v1.2 track_err for the translate categories and a one-sided ratio drop for move_turn.\n- p3b / p3c: measured ceilings (budget_bound at N_p 3000).\n- T*: the head with the highest max_stable that passes its 0-kg check.\n- Student: the floors, plus paired completion >= T* - max(0.05, 2 SE_diff, split 0.0), read on the WORLD rows only. The body / grid / sweep reads in the report are post hoc. Camera use is unverified.\n- SN: G1-G5.\n- SH: K1-K6, with K4 <= 3/800 per env seed (D9). A lazy R_h control re-anchors lines that turn out walker-caused.\n\n(6) Play and watch, from parkour/, with the carry env and --task.\n- T*: `env <every KRABBY_* line of F19/envs/p3b.env: CLOCK_HIDE=1, STD_PARAM=soft, INIT_STD=0.8, SPEED_ELLIPSE=0.35:0.35:0.25, FACING_OBS_CLIP=0.6, FLAT_TERRAIN_GEOM=ring, PLANT=A15+B, STAND_OBS=0, ...> $PY scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 --num_envs 1 --real-time --checkpoint <T*>`. For the wall field, use F19/envs/p3b.field_hard.env.\n- Student: the same env minus omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED, then `$PY scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Student-Play-v0 --enable_cameras --num_envs 1 --checkpoint <st_a2/model_28000.pt>`. play.py also writes the JIT / ONNX deploy export.\n- The grant's 'harness play command' is the gate_row.sh line above with scenarios_omni.yaml suite__omni and --trained-categories stand,fwd,side,back,diag,turn,move_turn. For the student, add --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student and TP_STRIP_KEYS.\n- Video: only through scripts/rsl_rl/play_stream_video.py under systemd-run --user --scope -p MemoryMax=40G -p MemorySwapMax=0 (the clip command). Never use play.py --video or gym RecordVideo.\n- Stand nets: there is no player or video beside a non-S1 walker. sh_record_video.py has no walker argument and refuses non-S1-trained stand checkpoints. Evaluate the stand nets with sh_eval_rows.sh / sn_eval_rows.sh and the SN_WALKER_* env. A jit / onnx export carries ONE network (the policy/README.md hazard).\n\n(7) Selection record. F19/gates/sel.json + sel.rows.json: the prescreen ranked c27000..c30991; c28000 was the first full-block PASS, with no WATCH flags.\n- Veto clip: PL/F19/clip/student_c28000_field_hard.mp4 (+ _small). R18's is under R18/clip/.\n- The student checkpoint itself is recorded by sha256 4fa81f0f... (122,244,457 B), not copied into head/, because it exceeds the 64 MiB bundle guard. head/ holds its ONNX deploy export instead, pending the user's choice.\n\n(8) HALTs and disclosures, one line each with its CHARTER entry.\n- F19: p3a accepted; st amended to v1.2 with the T* retarget; sh re-anchored (recorded as 'accept-chance').\n- R18: STOP-R (P-live), p3a accepted, sn amended to v1.1, sh accepted, and p3b silently excluded from T* (disclosed in the CHARTER).\n- Camera use unverified; payload numbers are sim plant.\n- The student selection read world rows only.\n- The F step / obstacle rows come from the recorded 2026-09-08/09 build.\n- The F mass curve scales chassis inertia.\n- The measured wall-clock and GPU-h table: per stage, with parks separated, from pipeline_queue.log.\n\n(9) Keep-set and what stays the user's. head/ contents with shas, and the local tag name. The user decides:\n- the deliverable choice (STOP-END rule: st.1 is an amend and sh.1 a re-anchor, not chance acceptances);\n- the clip veto;\n- the bake into crab_hex_omni_task/policy/ (needs kind: distill in tools/bundle_policy.py and a rewrite of tests/unit/test_policy_of_record_omni.py);\n- the tag push.",
+  "total_gpu_hours": 3.66,
+  "tag": "omni-sim2real-baseline-<YYYY-MM-DD> (the name DESIGN 2.4 gives; annotated, local, never pushed). The earlier pins were task4-pin-2026-10-19 / -19b / -21c / -23, and their messages end 'Local tag; not pushed.' No omni-sim2real-baseline tag exists yet.",
+  "open_questions": [
+   "CRITIC FINDINGS APPLIED (each checked first): (1) Omni episode JSONs have no holds.<label>.tracking block (verified on T4C2_S1 suite es1: holds keys direction / facing / label / motion / n_steps / tripod). vy / wz RMS is now a NEW raw-npz step (root_lin_vel_b, root_ang_vel_b, cmd_applied, segment_id, steady_mask all present). (2) duty_factor exists only on valid windows (2000 holds across 1000 episodes); it is read as None when absent. (3) select_student.completion_pairs takes {row: {(es, env): bool}}, and sel.json holds only blocks.c28000 {decisive, watch, watch_flags, verdict}. The pairs are rebuilt from the sel.rows.json stamps through thresholds.field_episodes. (4) KRABBY_DR_MASS = randomize_rigid_body_mass with recompute_inertia default True (isaaclab 0.54.4 events.py), so the F curve is relabelled as scaled inertia. (5) actuator_load needs tp_lib.configure first; report.py does not configure today, so the readers call configure_from(spec path). (6) ST_L000_* dropped: C1 armed00_vs_off strict_bitwise true, and the unarmed sel stamps are on the same checkpoint / env / rows. (7) T1 / St field_suite dropped: not in PLAN step 11 or DESIGN 6. (8) The F step / obstacle / hard-band stamps are the 2026-09-08/09 build (no plant key, no code_state.json); disclosed, plus the optional F_step_pin. (9) The R18 p3b curve and its silent T* exclusion were added to the appendix (R18/gates/p3b.json: CEILING 135, zero_kg FAIL 1.0999). (10) Disclosure added: the student selection gate read world rows only, against DESIGN.md:348 'world, body and sweep rows'; no CHARTER entry covers it. (11) A GPU-h column was added beside wall-clock (DESIGN.md:496). (12) The report prints model_28000's sha, size and the 64 MiB reason. (13) The H column quotes today's torch.load check (re-run on CPU 2026-10-24: std (18,), critic.0.weight (512, 1007)), not the README's era-A loadability sentence.",
+   "CRITIC FINDINGS REJECTED OR NARROWED: (a) 'ONNX under head/ is NOT covered by the current .gitignore': rejected. `git check-ignore -v` on head/student_c28000_policy.onnx and a head/*.json prints nothing (no ignore rule matches; only *.pt files need the !*/head/model_*.pt re-include), so they are tracked as-is. copy_head is generic and its 64 MiB guard passes for depth_latest.onnx (~36 MB). (b) 'configure() rejects a Path': narrowed. configure takes the spec dict, and tp_lib.configure_from(spec_path) exists (payload_read.py's CLI uses it at :298), so use that. (c) 'the obstacle run_meta has no env_vars block': inaccurate. env_vars is present but {}; only plant / code_state are missing. The conclusion (pre-pin build) stands. (d) The critic's offer to add obstacle / hard-band pin rows: not adopted. Their launcher and manifest are not recorded (forward state.json keeps only run_dir, env_vars {}), so any command would be invented, not modelled on the recorded launch. Only step__A15pB, whose manifest row is in scenarios_morph.yaml beside the pinned slow__A15pB, gets an optional pin row.",
+   "Keep-set head, which blocks bundle_experiment.py: the student checkpoint is 122 MB, over the 64 MiB guard. Recommended: head = T* model_25992.pt (12.6 MB) + extra_heads SN model_4000.pt / SH model_5000.pt (6.1 MB each) + the student's ONNX deploy export from the clip render (~37 MB), ~62 MB in all, with the full student checkpoint recorded by sha256 only. Alternatives: a slimmed student copy without alg_state / optimizer (~41 MB, a new derived sha), or raising HEAD_MAX_BYTES (a shared-tool edit + commit).",
+   "Eval keep-set size: the default keep_globs copy ~76 MB (51 MB of it scenario_metrics.json), 15-40x the 2-6 MB precedent. Recommended: the lean globs [summary.md, complete.json, tp_row.json, code_state.json] (~2-3 MB), with REPORT_baseline_vs_final.json carrying every number. Or evals: [] (DESIGN 2.4 names heads only).",
+   "Student x body_hold has never run. The harness does not refuse the route (same CrabHexOmniCommandsCfg; p3b.env sets RELAY_HYST=0 / STAND_HOLD=0), but it is untested. Run ST_suite_body_1 first. If it refuses or reads INVALID, the St body / grid / turn-level / sweep cells become 'not obtainable on the current harness', saving ~1.4 GPU-h. The St body block can also be skipped by choice; the disclosure applies either way.",
+   "Student curve level 0 now reuses the unarmed sel stamps (critic finding, accepted). If the user wants pipeline.yaml's 'level 0 is armed 0:0' convention honoured literally, re-add the 4 rows: the ST_L045_* commands with TP_LEVEL_FILE=.../levels/L000.env and name T4S11_c28000_L000, ~23 min.",
+   "F_step_pin (optional, ~2 min): run it, or label the F step cell 'recorded 2026-09-08 build'. The F added-mass curve (6 rows, ~10 min): DESIGN asks for it, but the stable-at-L lines cannot apply to F. Keep it as a raw per-level table, or drop it.",
+   "GPU total 3.66 h = clip 4 min + T1 body block 76.6 min + St body block 82.2 min + St L045 / L135 45.2 min + F rows 9.6 min + F_step_pin 2 min. Excluded: the conditional L180 block (22.6 min), and L225 / L270 (22.6 min each), each only if the previous level is stable.",
+   "Tag name: DESIGN 2.4 names 'omni-sim2real-baseline-<date>'; the campaign's pins used 'task4-pin-*'. Recommended: the DESIGN name, since this is a baseline, not a pin.",
+   "R18 appendix: world rows plus the p3a / p3b payload records, with no body / grid / sweep reads on R18's T* or student. Confirm that is enough.",
+   "Before the step-11 queue starts: re-verify code_sha cbaf6797 / eval_sha 8c8d22f0 / not dirty over the pin pathspecs. It was clean on 2026-10-24; the dirty paths are other sessions' records outside the pathspecs. Check the Kit DerivedDataCache (41 GB now; distill.sh's guard is 80 GB). Run every row and the clip through ONE detached queue runner (setsid nohup) with a log-sentinel watcher; gate_row.sh and clip_F19.sh both wait while any Isaac python runs.",
+   "bundle_experiment.py git-adds what it writes (it never commits), and --index rewrites the shared experiments/README.md. Run --index or not?",
+   "F19/halts/sh.1.json records kind 'accept-chance' for what the CHARTER calls a DESIGN 3.6 re-anchor, and st.1 is an amend. The STOP-END rule ('F19 if every HALT was accepted as chance') needs the user's reading of both cases."
+  ]
+ },
+ "critic": {
+  "ok": false,
+  "missing_cells": [
+   "Disclosure (CHARTER list in the plan omits it): the shipped student selection gate ran WORLD rows only (pipeline.yaml sel.full_block_rows = suite/side22/field_*), while DESIGN 3.5 says the full block is 'the p2a world, body and sweep rows'. The report must say the St body / grid / turn-level / sweep cells were never part of the selection gate and are being read post hoc at step 11 (or are 'not obtainable' if the student x body_hold smoke refuses).",
+   "Disclosure: DESIGN 6 says the F column is 'Forward 3a ... at the pin', but only slow__A15pB was reproduced at the pin (/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C1_fwd3a_cur/slow__A15pB/seed001/2026-10-17_03-21-36 and _old/2026-10-17_03-19-58). The step__A15pB (2026-09-08_19-47-52), obstacle (2026-09-08_19-50-01) and hard-band (2026-09-09_16-15-25) stamps were read by the 2026-09-08/09 harness, pre-pin (their run_meta has no plant / env_vars block). Either state 'F step / obstacle rows: recorded 2026-09-08 build, not re-read at the pin' or add two short rows (step__A15pB es1, flat_walk_slow_v2 es1 on the obst manifest, ~2 min each, same launcher as T4C1_fwd3a_cur).",
+   "Task 0 T0/T1/St 'vy / wz RMS': no reader is actually available in the cited stamps (see wrong_sources); the cell needs a NEW CPU scoring step over raw/episode_*.npz (root_lin_vel_b[:,1], root_ang_vel_b[:,2] masked by segment_id / steady_mask per hold) -- the plan lists it under a json read that does not exist for omni stamps.",
+   "R18 appendix Task 3: the plan cites only R18/stage_reads/p3a.rows.json and sel.rows.json. R18's p3b curve (135-kg ceiling, the EXCLUDED T* candidate under v1.1/v1.2, CHARTER 2026-10-21 decision 2) lives in /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stage_reads/p3b.rows.json and R18/gates/p3b.json; the appendix 'payload heads considered' needs it (R18's own T* record lists only p3a -- CHARTER 2026-10-21 says the report must disclose the silent p3b exclusion).",
+   "Provenance: DESIGN 6 asks for 'wall-clock and GPU-h per stage'. The plan gives wall-clock only; state GPU-h = active wall-clock on the single RTX 5080 (parks 0 GPU-h, except the lazy R_h control 0.43 GPU-h inside the sh park) so the two columns are explicit.",
+   "Keep-set record: PLAN step 11 / DESIGN 2.4 want head = the selected student. The plan's substitution (head = T*, student by sha256 + ONNX export) is a user decision (open question 1) -- the report's keep-set section must print model_28000.pt's sha256 4fa81f0f... and size 122,244,457 B and say WHY the file is not in head/ (bundle_experiment.py HEAD_MAX_BYTES = 64*1024*1024, verified at tools/bundle_experiment.py:72)."
+  ],
+  "wrong_sources": [
+   "Task 0 cells 'duty factor (1 N), 1 N air time + tippy, vy / wz RMS, action rate + sign reversals' for T0 / T1 / St -- reader 'holds.<label>.tracking.{vy,wz}.rms': that key does NOT exist in any omni stamp. Checked /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36/metrics/episode_*.json: holds.<label> has keys [direction, facing, label, motion, n_steps, tripod] (no 'tracking'); aggregate.tracking_by_hold has only achieved_vx / cmd_vx_mean / ratio. The per-hold tracking.{vx,vy,wz} block exists only in the forward-era stamps (v1 baselines, forward 3a). For omni, vy / wz RMS must be computed from raw/episode_*.npz (root_lin_vel_b, root_ang_vel_b, segment_id, steady_mask).",
+   "Same cells -- 'holds.<label>.tripod.duty_factor': present only on VALID walking / settle windows (e.g. episode_100.json holds.fwd.tripod has duty_factor; holds.stand.tripod and every discarded window do not). The reader must treat a missing key as None, not fail; the per-foot duty is also at slip_episode.per_foot.<foot>.duty_factor.",
+   "Student 'paired completion vs T*' -- reader 'TP/select_student.py completion_pairs on PL/F19/gates/sel.json': completion_pairs(student, tstar, cfg) takes {row: {(es, env): bool}} dicts, and F19/gates/sel.json stores only the decisive-line values (blocks.c28000.decisive[]), no episode pairs. The pairs must be rebuilt from the stamps in F19/stage_reads/sel.rows.json (c28000:* and tstar:* keys) through thresholds.field_episodes, then passed to completion_pairs. The gate verdict itself (PASS, watch_flags []) is read from sel.json.",
+   "Task 3 F 'MASS-ONLY KRABBY_DR_MASS on the chassis (no CoM / inertia composite)': the forward event is Isaac Lab randomize_rigid_body_mass (extreme_parkour_task/config/go2/parkour_mdp_cfg.py:296, mode startup, operation add, asset body 'body'), applied in the student MDP via apply_flat_walk_knobs (crab_hex_env_cfg.py:584, called at :821 under KRABBY_STUDENT_MDP=1). Isaac Lab's default recompute_inertia=True rescales the chassis inertia by the mass ratio, so the F curve is 'added mass + proportionally scaled chassis inertia, CoM unchanged', not pure mass-only; say so (verify the installed isaaclab 0.54.4 signature before writing it).",
+   "Keep-set 'TP/payload_read.py actuator_load(stamp, 0)' as a bare reader: it raises 'tp_lib.path(sh_kin): not configured' unless tp_lib.configure(<pipeline.yaml as a dict>) is called first (configure() rejects a Path). Verified then that it works on the forward stamps (T4C1_fwd3a_cur: hip cap 0.0013 / knee 0.790, rod p50 633 / 410 N) and on the T1 driver stamp -- the plan's 'verify on a forward stamp' is now done; the report code must call configure() with the spec dict."
+  ],
+  "bad_commands": [
+   "None would fail outright. Every gpu_rows command was checked against the pipeline's own launch lines in F19/tp_logs/rows_p2a.log, rows_p3b.log and rows_sel.log: same gate_row.sh positional form, same manifests (scenarios_omni_body.yaml for suite/turnlevels/grid, PL/rows/scenarios_pl_body.yaml for dirsweep, scenarios_p2.yaml for field rows, scenarios_omni.yaml for suite), same --command-adapter body_hold, --trained-categories on suite rows only, same timeouts (10800 on grid / dirsweep), same --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student, same TP_LEVEL_FILE + p3b.env pattern for level rows (p3b.env sets no KRABBY_PAYLOAD_*). TP_STRIP_KEYS equals omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED (22 keys, set-equal); the pipeline's sel rows passed the same strip and recorded stripped_keys [] (none present in p3b.env).",
+   "CLIP_F19_c28000: clip_F19.sh's env is byte-equal (sorted) to F19/envs/p3b.field_hard.env and to scratchpad/clip_r18.cmd's env; play_stream_video.py accepts --video/--video_length/--num_envs/--task/--headless/--enable_cameras/--checkpoint and writes <run>/videos/play/stream-1500steps.mp4 and <run>/exported_deploy/ (R18 precedent: both written 2026-10-21 06:39). OK as written; note the script also hard-waits while ANY isaac_venv python runs, so launch it alone or inside the same queue runner as the rows.",
+   "ST_* body rows (student x body_hold): no refusal found in eval_crab_hex_gait.py for a student role with --command-adapter body_hold; the adapter needs the WORLD omni command term with relay_hyst / eval_slot_latch / stand_hold unarmed (harness :712-721), and Isaac-Crab-Hex-Omni-Student-Play-v0 is 'the Walk-Play env + the 4 cameras' (crab_hex_omni_env_cfg.py:475) on the same CrabHexOmniCommandsCfg, with p3b.env setting RELAY_HYST=0 / STAND_HOLD=0 (the same env the p2a body rows passed on). The plan's 'ST_suite_body_1 first as the smoke' is the right order; keep it.",
+   "F_m045..F_m270: match the C1 canary launch exactly (tp_row.json of T4C1_fwd3a_cur: fwd3a.env, scenarios_morph.yaml slow__A15pB, args ['--task','Isaac-Crab-Hex-Student-v0']) plus KRABBY_DR_MASS=L:L (scratch env files exist and diff by that one line). The run_meta assertion body_masses_kg[0] = 158.757 + L is sound: the event is mode=startup on body 'body' and run_meta reads root_physx_view.get_masses() after env construction (harness :1883). Caveat only on the inertia wording (see wrong_sources)."
+  ],
+  "unnecessary_rows": [
+   "ST_L000_suite_1, ST_L000_suite_2, ST_L000_fl_1, ST_L000_fl_2 (4 rows, ~23 min): valid level-0 stamps already exist on the same checkpoint, env and rows -- T4F19_sel_c28000 suite es1 (2026-10-23_14-18-07), suite es2 (16-50-24), field_light es1 (17-01-31), field_light es2 (17-05-18), all on F19/envs/p3b.env, Student-Play, role student, sha 4fa81f0f. Armed 0:0 is strictly bitwise to off (preflight/stepC/checks/C1.json armed00_vs_off.strict_bitwise = true) and the payload event is env-side with no policy input, so the student route cannot differ. pipeline.yaml's 'curve level 0 is armed' convention only serves the level-row run_meta payload check; the report's level-0 numbers are the same measurement. Drop them (or keep only if the user insists on the convention, as the plan's open question 4 already offers).",
+   "T1_field_suite_1 and ST_field_suite_1 (OPTIONAL, ~15 min): neither PLAN step 11 ('the Task 2 grid / turn levels / sweep') nor DESIGN 6 ('the field rows, side22') asks for field_suite; the pipeline ran it on p2a only. Drop unless the user wants the per-category field read for T1 / St.",
+   "The remaining NEEDS_ROW families are necessary: T1 body/grid/turnlevels/dirsweep (the tstar stage is CPU-only -- pipeline.py ex_tstar runs no rows, and F19/stage_reads/p3b.rows.json holds world + level rows only; the p2a body stamps are another checkpoint 19994 vs 25992), ST body/grid/turnlevels/dirsweep (never run, DESIGN 3.5 wants them), ST_L045 / ST_L135 (+ conditional L180: DESIGN 3.5 'the full 0-270 payload curve on the selected student', PLAN stops at the first unstable level), F_m045..F_m270 (DESIGN 6 asks for the mass-only F curve)."
+  ],
+  "other": [
+   "Verified: all 148 cited paths exist; the globs expand (16 S1 curve stamps L000-L135, 20 p3b stamps L000-L180, 4 c28000 L090 stamps). Every cited stamp's run_meta checkpoint / sha / task / role / plant / carry env matches its column: T0 stamps (T4C2_S1, T4C5_s18, ANC_S1_s18 es2, REF_S1_s18 es3/4, T4C2_SH_T17) all on model_19994 sha 968cc550 Walk-Play with CLOCK_HIDE=1 / STD_PARAM soft / INIT_STD 0.8 / ellipse 0.35:0.35:0.25 / facing clip 0.6 / A15+B / payload None; T1 driver es1 + T4F19_p3b es2 on model_25992 sha 03b6009a (driver stamp = F19/stage_reads/p3b.json driver_stamp); St on model_28000 sha 4fa81f0f Student-Play role student; T4F19_sel_tstar = 25992 on Student-Play role teacher; F stamps all model_24995 sha e79c4a90; v1 stamps 21100 (3e3940d4) / 29098 (ba5ef0e8) / 19999 (68eb4e25). R18/envs/p2a.env == F19/envs/p2a.env == F19/envs/p3b.env.",
+   "Verified: tools/pipeline/report.py runs on CPU with --other R18 (wrote scratchpad/step11/report_check.{md,json}); its wall_h_total 10.40 h is the sum of the driver run_dir training times only (s1 2.27 ... p3b 1.30), as the plan says; scratchpad/step11/wallclock.py's numbers reproduce (F19 active 46.89 h incl. st 17.82 = 7.65 superseded + 10.17; parks 4.39 + 1.00 + 3.84 = 9.23 h; span 56.12 h). F19/pipeline_state.json stages[*].wall_h are all null, so the queue log is the only per-stage source.",
+   "Verified: today's code_state (run_candidates code_sha / eval_sha over CODE/EVAL pathspecs) is cbaf6797 / 8c8d22f0, dirty [] -- the 25 dirty git paths are other sessions' records under 2026-09-19_facing_tracking_ladder / 2026-09-28_side_bisect / 2026-09-23_reward_simplification, outside the pin's pathspecs; new step-11 stamps will carry the run pin. Local tags task4-pin-2026-10-19/-19b/-21c/-23 exist; no omni-sim2real-baseline tag yet.",
+   "Verified the plan's HALT narrative against F19/halts: p3a.1 FAIL accepted (rate unmodelled), st.1 DRIVER amend (v1.2 + retarget), sh.1 recorded class FAIL, status accepted, options accept-chance/amend/abort, rate 6.445e-12 on 'stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)' 0.935 vs 0.945 -- the record does say 'accept-chance' for what CHARTER 2026-10-23 calls a DESIGN 3.6 re-anchor; the report must name it as the plan proposes, and the STOP-END deliverable rule ('every HALT accepted as chance') needs the user's reading for both st.1 (an amend, not a chance acceptance) and sh.1.",
+   "H column caveat: FWD/experiments/eval/baselines/v1/README.md itself says the grant's 6300 / 9800 'are still 18-dim, so they *load*' (an era-A statement; today the critic is 512x1007 vs 1149 and std vs std_raw). The report must quote the TODAY-tree torch.load check the surveyor says it ran, with its output recorded, and not the README's loadability sentence; the README's 'Not reproducible on the current tree ... critic input 1151 vs 1149' covers only the 21100 / 29098 / 19999 stand-ins.",
+   "Stand video 'not obtainable' claim is correct and in fact stronger than stated: sh_record_video.py has no walker argument at all (argparse 181-227: --eval-run, --stand-ckpt, --stand-mask, ... ; the docstring's '--checkpoint' is stale) and refuses 'a stand checkpoint ... that was trained beside another S1', so SH_T4F19_sh_s19 (trained beside T* = p3b) would be refused outright.",
+   "Thresholds and records cited in the plan check out: thresholds_v1_2.json sums.recommended.run_sum = 1.1968 (standard 2.9533); F19/gates/p3b.json verdict CEILING, max_stable 135, curve {0,45,90,135 true, 180 false}, limiting_factor class 0 budget_bound (survival and tracking still rising at steps 25393->25992), thresholds header v1.1 with zero_kg sub-record v1.2 (disclosure c); F19/stage_reads/tstar.json lists p3b CHOSEN (use 0.66) and p3a accepted/FAIL (use 2.71); C3_S1_curve.json: S1 stable 0/45/90, first unstable 135; C2.json: every T0 family bitwise or aggregate-equal to its recorded anchor, dirsweep anchored by C5 (report-only).",
+   "Size facts for the keep-set open question verified: model_28000.pt 122,244,457 B; model_25992.pt 12,596,767 B; SN_T4F19_sn_s19/model_4000.pt 6,097,610 B; SH_T4F19_sh_s19/model_5000.pt 6,102,410 B; HEAD_MAX_BYTES 64 MiB; experiments/.gitignore re-includes only */head/model_*.pt (so .onnx under head/ would need a new allow rule too -- the plan's 'ONNX in head/' alternative is NOT covered by the current .gitignore and bundle_experiment.py tracks heads by sha in bundle.yaml only; check before choosing it). The st_a2 run dir has no exported_deploy/ yet (the clip render writes it, as on R18).",
+   "Student live-check cell: F19/pipeline_state.json stages.st.live = {last_rc 0, last 30991, run_dir} only, so the plan's CPU replay (live_watch.py replay --run-dir <st_a2> --kind student, tfevents present) is the right source; it must also be run on the superseded p3a-based distill if the report mentions it.",
+   "Minor: the pipeline recorded R18's T* on Student-Play (T4R18_sel_tstar) and F19's (T4F19_sel_tstar) -- the Task 0 'St' column can show T* on the same Student-Play rows beside the student (the plan notes this); the Walk-Play T1 reads and the Student-Play tstar reads are different manifest shapes (split measured 0.00 at step 8) and should not be mixed within one column."
+  ]
+ }
+}

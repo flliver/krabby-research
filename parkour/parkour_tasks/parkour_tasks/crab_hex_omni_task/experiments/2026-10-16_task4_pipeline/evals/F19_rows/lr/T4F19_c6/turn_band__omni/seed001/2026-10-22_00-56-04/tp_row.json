@@ -1,0 +1,14 @@
+{
+ "by": "TP gate_row.sh",
+ "name": "T4F19_c6",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-57-38_seed19_X04_c6_A15pB/model_10996.pt",
+ "env_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/c6.env",
+ "level_file": null,
+ "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scenarios_turn_band.yaml",
+ "scenario": "turn_band__omni",
+ "env_seed": 1,
+ "stripped_keys": [],
+ "args": [],
+ "rc": 0,
+ "written_at": "2026-10-21T20:59:33"
+}

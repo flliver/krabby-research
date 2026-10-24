@@ -704,3 +704,52 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
       path; this is not a chance acceptance.
     - Only the bundle stage follows.
     - The user is notified and can overrule at STOP-END (deliverable choice).
+- **2026-10-24, step 11 (report + keep-set + local tag) started.**
+  - **Fill plan:** workflow `wf_0dba6758-b7f` (opus·xhigh survey, fable·high critic, opus·high revise). 73 cells mapped
+    to existing stamps or new rows. The critic's findings were applied: vy / wz RMS is a new raw-npz read; level 0
+    reuses the unarmed sel stamps; L180 is conditional.
+  - **Decisions (decide-record):**
+    - (1) **Keep-set head = T\*** p3b model_25992.pt (12.6 MB) + extra heads SN model_4000 / SH model_5000 + the
+      student's ONNX deploy export. The student `.pt` (122 MB) exceeds bundle_experiment's 64 MiB guard; it stays
+      in logs/ and is cited by sha.
+    - (2) **Lean eval keep-set:** summary.md, complete.json, tp_row.json, code_state.json. The report JSON carries
+      every number.
+    - (3) **No `--index`:** it rewrites the shared experiments/README.md other sessions use.
+    - (4) **Local annotated tag** `omni-sim2real-baseline-2026-10-24` (DESIGN 2.4 name), never pushed. The STOP-END
+      deliverable choice can move or delete it.
+    - (5) **F column** = the forward 3a's recorded rows + a pin re-read of step__A15pB es1 + a 6-level added-mass
+      raw table (stable-at-L lines do not apply to F; labelled). H = not loadable (re-checked: critic 1007 vs 1149).
+    - (6) **R18 appendix** = its world rows + payload records (no body / grid / sweep reads on R18's heads).
+  - **GPU queue** (`scratchpad/step11/s11_queue.sh`, serial via gate_row.sh, ≈ 3.7 GPU-h, from 01:24):
+    - the F19 student veto clip;
+    - the student × body_hold probe, then the St body block (suite_body / turn levels / grid / 16-bin sweep, es1–2);
+    - the T1 body block;
+    - St payload L045 / L135 (L180 only if L135 is stable);
+    - the F rows.
+    - Student × body_hold has never run. If the probe fails, the St body cells read "not obtainable".
+  - **For STOP-END** (the user's reading): F19's sh.1 was continued with `--accept-chance` under the DESIGN §3.6
+    re-anchor, and st.1 was an amend. The rule "F19 if every HALT was accepted as chance" needs the user's reading of
+    both.
+- **2026-10-24, report build and polish** (workflows `wf_580da618-3b7`, `wf_75bfd3d7-957`; opus build, fable verify,
+  0 blocking).
+  - report.py fills all 72 cells (filled / pending / N/A, never invented); README.md is generated; bundle.yaml is
+    written.
+  - **Correction to the 2026-10-21 R18 SH entry:** the K6 line rates are not all ≤ 1e-9. R18 sh.1's K6 rates sum to
+    5.83e-08 (bin 1 es2 homed / settled 2.87e-08 each). The report prints the record's values.
+- **2026-10-24, user-requested video (video only, read by no gate):** `sh_mix_F19_s1514_rough`. Prep workflow
+  `wf_fa27b0e2-d07` (opus prep, fable verify, 0 blocking).
+  - **Setup:** F19 T\* p3b (0 kg) + SH_T4F19_sh_s19 (db 0.25, restore armed), `--terrain field_medium` (user: rough
+    rather than flat), the new seeded `mix` plan (seed 1514, 180 s).
+    - 12 commands covering all 9 types (fwd, turn_l90 / r90, move_turn_l / r, diag, lat_r, back, lat_l).
+    - 4 stands at 0.730 / 1.322 / 0.871 / 1.176 m.
+  - **Result:** 05:03–05:11, rc 0. 4 / 4 stands arrived (window error 0.2–3.8 mm, arrival 3–4 s) and homed; 4 / 4
+    restores; 0 falls; 0 terminations.
+  - **Files:** `parkour/logs/videos/sh_stand_height/sh_mix_F19_s1514_rough_sequence{,_phone}.mp4` (local) + sanity
+    JSON.
+  - **Tooling:**
+    - The recorder (sh_record_video.py) is unchanged: it accepts any walker the stand net was trained beside, and
+      the S1 walker is refused against the F19 stamp.
+    - sh_video_schedule.py gains the additive `mix` plan; existing plans are byte-identical. sh_record_video.sh
+      accepts `--plan mix --seed N`. tests/unit/test_sh_video_mix.py: 13 tests.
+    - code_sha / eval_sha unchanged; lock drift on the two scripts (relocked at the step-11 commit).
+  - The caption names the walker "S1 s19" (recorder naming, cosmetic).

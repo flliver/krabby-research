@@ -1,0 +1,21 @@
+{
+ "by": "TP gate_row.sh",
+ "name": "T4S11_c28000",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+ "env_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/p3b.env",
+ "level_file": null,
+ "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni_body.yaml",
+ "scenario": "turnlevels__omni_body",
+ "env_seed": 1,
+ "stripped_keys": [],
+ "args": [
+  "--command-adapter",
+  "body_hold",
+  "--task",
+  "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "--policy-role",
+  "student"
+ ],
+ "rc": 0,
+ "written_at": "2026-10-24T01:50:02"
+}

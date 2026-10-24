@@ -6,7 +6,7 @@ It writes a world-frame ``kind: schedule`` row PLUS the campaign's ``stand_heigh
 stand_height launcher reads on its ``--sh-command manifest`` path), which ``sh_record_video.py`` records (S1 s18 walks
 every walk hold, the stand-height network stands at every stand hold's height, the H6 restore hands back):
 
-    sh_video_schedule.py [--plan raise|smoke|random|tour|tour_smoke] [--seed N] [--total-s S]
+    sh_video_schedule.py [--plan raise|smoke|random|tour|tour_smoke|mix] [--seed N] [--total-s S]
                          [--table-start TOP[:POSE]] [--out-dir DIR] [--dry-run]
 
 -> ``videos/scenarios_sh_video_<plan>.yaml`` (``manifest_version: 2``, ONE row ``sh_<plan>__omni`` + the
@@ -33,6 +33,23 @@ validated by ``sh_video_core.tour_row_reasons`` (those rules, adapted for turns 
 harness validator + the tour lengths above; the first stand is checked against the table it is designed for
 (:data:`TOUR_TABLE`, 0.635 m knee_folded: ``sh_table_core.env_need_s`` + 3 s + 3 s) and, with ``--table-start``,
 against that table too (the K3 margin: first height >= top + 0.31).
+
+THE MIX PLAN (2026-10-24, the user's "a longer video (3 min) running through various commands with the occasional
+stand at various heights"; ``--plan mix --seed N --total-s S``, default 180 s at the launcher): the tour's commands
+(:data:`TOUR_CMDS`, the suite's speeds, checked as the tour checks them) in a SEEDED order, a single stand every 2-3
+commands at a seeded height spread over [h_min, h_max], no table. A DECK of command units (:data:`MIX_UNITS`: fwd,
+lat_l, lat_r, back, diag, the pair turn_l90 -> turn_r90, the pair move_turn_l -> move_turn_r; a pair is atomic, so the
+facing is 0 between units and at every stand) is dealt without replacement and re-shuffled when empty (the first deal
+opens with fwd), so every command type appears before any repeats; a BLOCK draws units until it holds >= U{2, 3}
+commands. The row is block, then (stand, block) while one more fits in ``--total-s`` (the final command stretched by
+<= 4 s toward it; never a stand last). A command's base is U[9, 11] s (+ the tour's restore allowance after a stand:
+``|h - 1.064| / 0.08 + 1 s``); a stand is entered at 1.064 and lasts the tour's ``|dh| / 0.08 + 3 + 3 s`` + U[0, 2] s;
+its height is drawn uniformly inside a bin dealt from a deck of :data:`MIX_HEIGHT_BINS` equal bins of [h_min, h_max]
+(re-shuffled when empty), to the mm, so 4-6 stands cover the range instead of one end. Written under
+``stand_height_video`` (rules ``tour``; turns cannot pass the launcher's one-facing rule) and validated by
+``sh_video_core.tour_row_reasons`` (first hold a walk: entered at 1.064) + the tour lengths + the harness validator;
+a ``--table-start`` is refused (the first hold is a command). Lengths are whole deciseconds; ``random.Random(seed)``
+(``random()`` only) drives every draw.
 
 THE PLANS (one facing, face 0, for the whole row: every speed-0 hold is a stand slot, never a turn):
 
@@ -85,8 +102,13 @@ REF_MANIFEST = CAMPAIGN / "scenarios_sh.yaml"
 REF_ROW = "hraise__omni"
 CORE_PATH = HERE / "sh_video_core.py"
 
-PLANS = ("raise", "smoke", "random", "tour", "tour_smoke")
+PLANS = ("raise", "smoke", "random", "tour", "tour_smoke", "mix")
 TOUR_PLANS = ("tour", "tour_smoke")
+MIX_PLAN = "mix"
+#: the plans whose row lives in the stand_height_video block (turns: not a launcher row)
+VIDEO_BLOCK_PLANS = TOUR_PLANS + (MIX_PLAN,)
+#: the plans steered by --seed / --total-s
+SEEDED_PLANS = ("random", MIX_PLAN)
 DEFAULT_PLAN = "raise"
 DEFAULT_SEED = 20261014
 DEFAULT_TOTAL_S = 150.0
@@ -161,6 +183,17 @@ TOUR_SMOKE_PLAN = (
     ("cmd", "fwd", 8.0, (0.25, _HALF_PI, _HALF_PI)),      # body-forward at face +90
 )
 TOUR = {"tour": TOUR_PLAN, "tour_smoke": TOUR_SMOKE_PLAN}
+
+# the mix plan (module docstring "THE MIX PLAN")
+#: the command deck: units of TOUR_CMDS labels; a pair is dealt as one unit (the facing returns to 0 inside it)
+MIX_UNITS = (("fwd",), ("lat_l",), ("lat_r",), ("back",), ("diag",), ("turn_l90", "turn_r90"),
+             ("move_turn_l", "move_turn_r"))
+MIX_OPENER = ("fwd",)                     # the first deal opens with this unit
+MIX_GAP = (2, 3)                          # commands per block (between two stands): >= U{2, 3}
+MIX_CMD_DS = (90, 110)                    # a command's base: U[9, 11] s
+MIX_STAND_EXTRA_DS = (0, 20)              # a stand: the tour rule + U[0, 2] s
+MIX_HEIGHT_BINS = 5                       # stand heights: a deck of equal bins over [h_min, h_max]
+MIX_DEFAULT_TOTAL_S = 180.0               # the launcher's default for --plan mix
 
 
 def _load(path: Path, name: str):
@@ -322,6 +355,13 @@ def check_rules(S, hdr, holds, heights, row_id, *, table: dict | None = None) ->
                 why.append(f"hold 0 (the table stand): {holds[0].hold_s} s < the rods' rise + ramp + 3 + 3 = "
                            f"{need['tour_s']:.3f} s on the {tb['top']} m table ({tb['pose']})")
             why += tour_length_reasons(holds, heights)
+        if why:
+            raise ValueError(f"{row_id}: the tour rules refuse the schedule:\n  " + "\n  ".join(why))
+    elif row_id == row_id_for(MIX_PLAN):
+        # the mix: the tour rules with a walk first (entered at 1.064, no table need) + the tour lengths
+        why = VC.tour_row_reasons(hold_dicts(holds), list(heights))
+        if not why:
+            why = tour_length_reasons(holds, heights)
         if why:
             raise ValueError(f"{row_id}: the tour rules refuse the schedule:\n  " + "\n  ".join(why))
     else:
@@ -486,6 +526,97 @@ def _random(S, hdr, seed: int, total_s: float, prologue_s: float) -> tuple[list,
     return holds, heights
 
 
+def _shuffled(rng: random.Random, items) -> list:
+    """Fisher-Yates from ``rng.random()`` only (via :func:`_int`; stable across Python versions)."""
+    out = list(items)
+    for i in range(len(out) - 1, 0, -1):
+        j = _int(rng, 0, i)
+        out[i], out[j] = out[j], out[i]
+    return out
+
+
+class _Deck:
+    """Deal ``items`` without replacement and re-shuffle all of them when the pile is empty (the mix plan's command
+    units and height bins). The first pile may open with ``first``; a re-shuffled pile never opens with the item just
+    dealt (no back-to-back repeat across a re-shuffle)."""
+
+    def __init__(self, rng: random.Random, items, first=None):
+        self.rng, self.items, self.last = rng, tuple(items), None
+        if first is not None and first not in self.items:
+            raise ValueError(f"deck opener {first!r} not in {self.items}")
+        rest = [x for x in self.items if first is None or x != first]
+        self.pile = ([first] if first is not None else []) + _shuffled(rng, rest)
+
+    def deal(self):
+        if not self.pile:
+            self.pile = _shuffled(self.rng, self.items)
+            if len(self.pile) > 1 and self.pile[0] == self.last:
+                self.pile[0], self.pile[1] = self.pile[1], self.pile[0]
+        self.last = self.pile.pop(0)
+        return self.last
+
+
+def _mix_command(S, label: str, base_ds: int, prev_stand):
+    """One :data:`TOUR_CMDS` command: its base + the tour's restore allowance after a stand at ``prev_stand``."""
+    sp, di, fa = TOUR_CMDS[label]
+    extra = 0.0 if prev_stand is None else \
+        abs(float(prev_stand) - CORE.H_SETTLED) / CORE.HEIGHT_RATE_M_S + TOUR_RESTORE_EXTRA_S
+    return _hold(S, label, sp, di, _ceil_ds(base_ds / DS + extra), face=fa)
+
+
+def _mix_block(rng, S, deck: _Deck, prev_stand) -> list:
+    """Units dealt from ``deck`` until the block holds >= U{MIX_GAP} commands; the first gets the restore allowance."""
+    gap = _int(rng, *MIX_GAP)
+    holds = []
+    while len(holds) < gap:
+        for label in deck.deal():
+            holds.append(_mix_command(S, label, _int(rng, *MIX_CMD_DS), None if holds else prev_stand))
+    return holds
+
+
+def _mix_stand(rng, S, bins: _Deck, face: float):
+    """A stand at the previous hold's ``face``: height uniform in a dealt bin of [h_min, h_max] (to the mm), length the
+    tour's ``|h - 1.064| / 0.08 + 3 + 3 s`` (entered after a command) + U[MIX_STAND_EXTRA_DS]."""
+    k = bins.deal()
+    w = (CORE.H_MAX - CORE.H_MIN) / MIX_HEIGHT_BINS
+    h = min(max(round(CORE.H_MIN + w * (k + rng.random()), 3), CORE.H_MIN), CORE.H_MAX)
+    ds = _ceil_ds(abs(h - CORE.H_SETTLED) / CORE.HEIGHT_RATE_M_S + TOUR_STAND_SETTLE_S + TOUR_STAND_HOLD_S) \
+        + _int(rng, *MIX_STAND_EXTRA_DS)
+    return _hold(S, EC.STAND_LABEL, 0.0, 0.0, ds, face=face), float(h)
+
+
+def _mix(S, seed: int, total_s: float, prologue_s: float) -> tuple[list, list]:
+    """The mix plan (module docstring): block, then (stand, block) while one more fits in ``total_s``; the final
+    command stretched by <= :data:`FINAL_STRETCH_DS` toward it."""
+    why = suite_speed_reasons()
+    if why:
+        raise ValueError("the mix's speeds are not the suite's:\n  " + "\n  ".join(why))
+    rng = random.Random(int(seed))
+    deck = _Deck(rng, MIX_UNITS, first=MIX_OPENER)
+    bins = _Deck(rng, range(MIX_HEIGHT_BINS))
+    total_ds = int(round(float(total_s) * DS))
+    used = int(round(prologue_s * DS))
+    holds = _mix_block(rng, S, deck, None)
+    heights = [None] * len(holds)
+    used += sum(int(round(h.hold_s * DS)) for h in holds)
+    while True:
+        stand, h = _mix_stand(rng, S, bins, float(holds[-1].face))
+        block = _mix_block(rng, S, deck, h)
+        need = int(round(stand.hold_s * DS)) + sum(int(round(b.hold_s * DS)) for b in block)
+        if used + need > total_ds:
+            break
+        holds += [stand] + block
+        heights += [h] + [None] * len(block)
+        used += need
+    if all(h is None for h in heights):
+        raise ValueError(f"--total-s {total_s} leaves no room for one stand between two command blocks (seed {seed})")
+    stretch = min(FINAL_STRETCH_DS, total_ds - used)
+    if stretch > 0:
+        last = holds[-1]
+        holds[-1] = _hold(S, last.label, last.speed, last.dir, int(round(last.hold_s * DS)) + stretch, face=last.face)
+    return holds, heights
+
+
 def generate(plan: str = DEFAULT_PLAN, seed: int = DEFAULT_SEED, total_s: float = DEFAULT_TOTAL_S, *,
              hdr: dict | None = None, table_start: str | None = None) -> dict:
     """The schedule (``holds`` as ``gait_eval.schedule.Hold``, ``heights`` one per hold) + records + summary.
@@ -504,7 +635,10 @@ def generate(plan: str = DEFAULT_PLAN, seed: int = DEFAULT_SEED, total_s: float 
     else:
         if abs(round(float(total_s) * DS) / DS - float(total_s)) > 1e-9:
             raise ValueError(f"--total-s {total_s} is not a whole number of deciseconds")
-        holds, heights = _random(S, hdr, seed, total_s, prologue_s)
+        if plan == MIX_PLAN:
+            holds, heights = _mix(S, seed, total_s, prologue_s)
+        else:
+            holds, heights = _random(S, hdr, seed, total_s, prologue_s)
     check_rules(S, hdr, holds, heights, row_id, table=table)
     if table is not None:
         why = VC.table_start_reasons(table, VC.hold_kinds(holds), list(heights))
@@ -519,6 +653,24 @@ def generate(plan: str = DEFAULT_PLAN, seed: int = DEFAULT_SEED, total_s: float 
     out = _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s, first=first)
     out["table_start"] = None if table is None else dict(table)
     return out
+
+
+def _mix_summary(summary: dict, recs: list, rules: dict) -> None:
+    """The mix plan's additions to ``_describe``'s summary / rules (in place): the commands, turns, stand spacing."""
+    summary["n_turns"] = sum(1 for r in recs if r["kind"] == VC.KIND_TURN)
+    summary["commands"] = [r["label"] for r in recs if r["kind"] != VC.KIND_STAND]
+    summary["command_types"] = sorted(set(summary["commands"]))
+    summary["missing_command_types"] = sorted(set(TOUR_CMDS) - set(summary["commands"]))
+    summary["height_bins"] = [min(int((r["height"] - CORE.H_MIN) / ((CORE.H_MAX - CORE.H_MIN) / MIX_HEIGHT_BINS)),
+                                  MIX_HEIGHT_BINS - 1) for r in recs if r["kind"] == VC.KIND_STAND]
+    summary["stand_t0_s"] = [r["t0_s"] for r in recs if r["kind"] == VC.KIND_STAND]
+    rules.update({"source": "sh_video_core.tour_row_reasons (sh_eval_common.height_row_reasons adapted: turns; a walk "
+                            "first, entered at 1.064)",
+                  "tour_stand": f"hold_s >= |dh| / 0.08 + {TOUR_STAND_SETTLE_S} + {TOUR_STAND_HOLD_S} s",
+                  "tour_command_after_stand": f"base + |h - 1.064| / 0.08 + {TOUR_RESTORE_EXTRA_S} s",
+                  "mix": {"units": [list(u) for u in MIX_UNITS], "opener": list(MIX_OPENER), "gap": list(MIX_GAP),
+                          "command_base_s": [d / DS for d in MIX_CMD_DS],
+                          "stand_extra_s": [d / DS for d in MIX_STAND_EXTRA_DS], "height_bins": MIX_HEIGHT_BINS}})
 
 
 def _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s, *, first: dict | None = None) -> dict:
@@ -567,6 +719,8 @@ def _describe(hdr, holds, heights, plan, seed, total_s, row_id, prologue_s, *, f
                       "tour_command_after_stand": f"base + |h - 1.064| / 0.08 + {TOUR_RESTORE_EXTRA_S} s",
                       "tour_first_stand": "rod rise + ramp from the table spawn height + 3 + 3 s "
                                           "(sh_table_core.env_need_s)"})
+    elif plan == MIX_PLAN:
+        _mix_summary(summary, recs, rules)
     return {"plan": plan, "seed": int(seed), "total_s": float(total_s), "row_id": row_id, "header": hdr,
             "rules": rules, "holds": holds, "heights": list(heights), "records": recs, "summary": summary}
 
@@ -589,13 +743,21 @@ def manifest_dict(gen: dict) -> dict:
                   f"restored hand-backs); {sm['video_s']:.1f} s incl. the {sm['prologue_s']} s prologue. Generated by "
                   "sh_video_schedule.py; heights from the stand_height block below."),
     }
-    if gen["plan"] in TOUR_PLANS:
+    if gen["plan"] == MIX_PLAN:
+        row["notes"] = (f"VIDEO ONLY (the stand-height command mix; read by no gate): plan mix seed {gen['seed']}, "
+                        f"{len(sm['commands'])} commands ({', '.join(sm['commands'])}; {sm['n_turns']} turns) with "
+                        f"{sm['n_stands']} stands at {sm['height_min']}-{sm['height_max']} m between them; "
+                        f"{sm['video_s']:.1f} s incl. the {sm['prologue_s']} s prologue. Generated by "
+                        f"sh_video_schedule.py; heights from the {VC.VIDEO_BLOCK} block below (turns: not a launcher "
+                        "row).")
+    elif gen["plan"] in TOUR_PLANS:
         row["notes"] = (f"VIDEO ONLY (the stand-height tour; read by no gate): plan {gen['plan']}, a table get-up "
                         f"stand then {len(sm['commands'])} commands ({', '.join(sm['commands'])}; {sm['n_turns']} "
                         f"turns) with {sm['n_stands'] - 1} stands at {sm['height_min']}-{sm['height_max']} m between "
                         f"them; {sm['video_s']:.1f} s incl. the {sm['prologue_s']} s prologue. Generated by "
                         f"sh_video_schedule.py; heights from the {VC.VIDEO_BLOCK} block below (turns + a stand first: "
                         "not a launcher row).")
+    if gen["plan"] in VIDEO_BLOCK_PLANS:
         blk = {"version": VC.VIDEO_BLOCK_VERSION,
                "rows": {gen["row_id"]: {"hold_heights": list(gen["heights"]), "rules": VC.VIDEO_RULES,
                                         "notes": "VIDEO ONLY: no gate reads this row"}}}
@@ -612,10 +774,11 @@ def manifest_text(gen: dict) -> str:
     import yaml  # noqa: PLC0415
 
     args = f"--plan {gen['plan']}" + (f" --seed {gen['seed']} --total-s {gen['total_s']:g}"
-                                      if gen["plan"] == "random" else "")
+                                      if gen["plan"] in SEEDED_PLANS else "")
     if gen.get("table_start"):
         args += f" --table-start {gen['table_start']['top']:g}:{gen['table_start']['pose']}"
-    what = "the stand-height TOUR" if gen["plan"] in TOUR_PLANS else "step-8 raise / lower"
+    what = ("the stand-height COMMAND MIX" if gen["plan"] == MIX_PLAN
+            else "the stand-height TOUR" if gen["plan"] in TOUR_PLANS else "step-8 raise / lower")
     head = (f"# Stand-height campaign -- {what} VIDEO schedule (VIDEO ONLY; read by no gate, ledger or "
             "reader).\n"
             f"# GENERATED by scripts/sh_video_schedule.py {args} -- do not hand-edit; re-run the generator.\n"
@@ -623,8 +786,8 @@ def manifest_text(gen: dict) -> str:
             f"{gen['header']['source']['manifest']}\n"
             f"# (row {gen['header']['source']['row']}). Recorded by scripts/sh_record_video.py (S1 s18 on walk holds, "
             "the stand-height\n# network on stand holds at the "
-            f"{VC.VIDEO_BLOCK if gen['plan'] in TOUR_PLANS else EC.MANIFEST_BLOCK} block's heights, the H6 restore "
-            "armed).\n")
+            f"{VC.VIDEO_BLOCK if gen['plan'] in VIDEO_BLOCK_PLANS else EC.MANIFEST_BLOCK} block's heights, the H6 "
+            "restore armed).\n")
     return head + yaml.safe_dump(manifest_dict(gen), sort_keys=False, default_flow_style=None, width=120)
 
 
@@ -660,7 +823,7 @@ def check_written(path: Path, gen: dict) -> dict:
 
 def print_summary(gen: dict, file=sys.stdout) -> None:
     sm = gen["summary"]
-    print(f"[SHV] plan {gen['plan']}" + (f" seed {gen['seed']}" if gen["plan"] == "random" else "")
+    print(f"[SHV] plan {gen['plan']}" + (f" seed {gen['seed']}" if gen["plan"] in SEEDED_PLANS else "")
           + f" row {gen['row_id']}: {sm['n_holds']} holds, video {sm['video_s']:.1f} s (prologue {sm['prologue_s']} s "
           f"+ holds {sm['holds_s']:.1f} s); {sm['n_walks']} walks, {sm['n_stands']} stands at {sm['heights']}; "
           f"{sm['in_stand_raises']} in-stand raises, {sm['in_stand_lowers']} lowers, {sm['restores']} restores; "
@@ -681,20 +844,28 @@ def print_summary(gen: dict, file=sys.stdout) -> None:
         print(f"[SHV]   first stand on the {tb['top']} m table ({tb['pose']}): {fs['hold_s']} s >= the tour's rod rise + "
               f"ramp + 3 + 3 = {fs['tour_need_s']:.2f} s (rule {fs['need_s']:.2f} s); height {fs['height']} >= top + "
               f"{tb['cmd_margin_m']} = {tb['cmd_min']:.4f}", file=file)
+    if gen["plan"] == MIX_PLAN:
+        print(f"[SHV]   mix: {len(sm['commands'])} commands, {sm['n_turns']} turns; types {sm['command_types']} "
+              f"(missing {sm['missing_command_types'] or 'none'}); stands at t0 {sm['stand_t0_s']} s in height bins "
+              f"{sm['height_bins']} of {MIX_HEIGHT_BINS} over [{CORE.H_MIN}, {CORE.H_MAX}]", file=file)
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--plan", choices=PLANS, default=DEFAULT_PLAN)
-    ap.add_argument("--seed", type=int, default=DEFAULT_SEED, help="random plan only")
-    ap.add_argument("--total-s", type=float, default=DEFAULT_TOTAL_S, help="random plan only: target video length")
+    ap.add_argument("--seed", type=int, default=DEFAULT_SEED, help="random / mix plans only")
+    ap.add_argument("--total-s", type=float, default=None,
+                    help=f"random / mix plans only: target video length (default {DEFAULT_TOTAL_S:g} s; mix "
+                         f"{MIX_DEFAULT_TOTAL_S:g} s)")
     ap.add_argument("--table-start", type=str, default=None, metavar="TOP[:POSE]",
                     help="check the schedule against this table start (the recorder's --table-start refusals)")
     ap.add_argument("--out-dir", type=str, default=str(VIDEOS))
     ap.add_argument("--dry-run", action="store_true", help="print the schedule; write nothing")
     args = ap.parse_args(argv)
     try:
-        gen = generate(args.plan, args.seed, args.total_s, table_start=args.table_start)
+        total_s = args.total_s if args.total_s is not None else (MIX_DEFAULT_TOTAL_S if args.plan == MIX_PLAN
+                                                                 else DEFAULT_TOTAL_S)
+        gen = generate(args.plan, args.seed, total_s, table_start=args.table_start)
     except ValueError as exc:
         print(f"[SHV] REFUSED: {exc}", file=sys.stderr)
         return 2
@@ -709,7 +880,7 @@ def main(argv=None) -> int:
     yml.write_text(manifest_text(gen))
     check_written(yml, gen)
     js.write_text(json.dumps(schedule_json(copy.deepcopy(gen)), indent=1) + "\n")
-    loader = ("sh_video_core.video_height_row (the tour rules)" if args.plan in TOUR_PLANS
+    loader = ("sh_video_core.video_height_row (the tour rules)" if args.plan in VIDEO_BLOCK_PLANS
               else "sh_eval_common.height_row")
     print(f"[SHV] wrote {yml} (re-loaded by gait_eval.schedule.load_manifest and {loader}) and {js}")
     print(f"[SHV] MANIFEST={yml}")

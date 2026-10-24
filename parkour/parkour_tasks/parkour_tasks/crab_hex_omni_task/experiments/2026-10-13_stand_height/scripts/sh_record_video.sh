@@ -4,19 +4,24 @@
 # The recorder is an Isaac process: one at a time, under a memory cap, never SIGKILLed, detached (memories: video
 # memory hazard, Kit DerivedDataCache corruption, GPU queue chaining; CHARTER section 2: never SIGKILL Kit).
 #
-#   sh_record_video.sh [--dry-run] [--overwrite] [--plan P | --smoke | --seed N] [--total-s S] [--prefix P]
+#   sh_record_video.sh [--dry-run] [--overwrite] [--plan P | --smoke | --seed N | --plan mix --seed N] [--total-s S]
+#                      [--prefix P]
 #                      [--stand-rule R] [--terrain T] [--table-start TOP[:POSE] [--table-park]] [-- <recorder args>]
 #     (default)       the fixed RAISE / LOWER plan (~155 s): videos/scenarios_sh_video_raise.yaml, row sh_raise__omni
 #     --plan P        a fixed plan: raise | smoke | tour | tour_smoke (videos/scenarios_sh_video_<P>.yaml, row
 #                     sh_<P>__omni). tour (~221 s): the table get-up, fwd 20 s, stand h_min / h_max, then every command
 #                     type ~10 s with stands at h_min / h_max between; tour_smoke (~65 s): table get-up, fwd, stand,
 #                     turn_l90, stand after the turn, fwd (sh_video_schedule.py docstring)
+#     --plan mix --seed N  the seeded COMMAND MIX (sh_video_schedule.py "THE MIX PLAN"): every tour command type
+#                     (~10 s each, turns and move_turns as left/right pairs) in a seeded order, a stand every 2-3
+#                     commands at a seeded height spread over [h_min, h_max]; --total-s default 180;
+#                     videos/scenarios_sh_video_mix.yaml, row sh_mix__omni; prefix default sh_mix_s<N>
 #     --smoke         = --plan smoke: the ~20 s smoke plan (walk -> 1.20 -> 1.00 -> walk: a raise, an in-stand lower, a
 #                     restore): videos/scenarios_sh_video_smoke.yaml, row sh_smoke__omni
 #     --seed N        the RANDOM plan with seed N (random walks, random stand heights / lengths):
 #                     videos/scenarios_sh_video_random.yaml, row sh_random__omni
-#     --total-s S     random plan only: the target video length in s (default 150)
-#     --prefix P      output prefix (default sh_<plan> / sh_random_s<N>)
+#     --total-s S     random / mix plans only: the target video length in s (default 150; mix 180)
+#     --prefix P      output prefix (default sh_<plan> / sh_random_s<N> / sh_mix_s<N>)
 #     --stand-rule R  schedule | slot (the recorder's; default its own: schedule)
 #     --terrain T     flat | field_medium (the recorder's; default flat = the reference stamp's env)
 #     --table-start TOP[:POSE]  spawn on a K3 table (e.g. 0.635:knee_folded); also checked by the generator (CPU)
@@ -91,8 +96,12 @@ EXTRA=("$@")
 [ "$SMOKE" = 1 ] && [ -n "$SEED" ] && die "--smoke and --seed are exclusive (the smoke is a fixed plan)"
 if [ -n "$PLAN_ARG" ]; then
   [ "$SMOKE" = 1 ] && die "--plan and --smoke are exclusive"
-  [ -n "$SEED" ] && die "--plan and --seed are exclusive (--seed N is the random plan)"
-  case "$PLAN_ARG" in raise|smoke|tour|tour_smoke) ;; *) die "--plan must be raise | smoke | tour | tour_smoke, got '$PLAN_ARG'" ;; esac
+  if [ "$PLAN_ARG" = mix ]; then
+    [ -n "$SEED" ] || die "--plan mix needs --seed N (the seeded command mix)"
+  else
+    [ -n "$SEED" ] && die "--plan and --seed are exclusive (--seed N is the random plan)"
+  fi
+  case "$PLAN_ARG" in raise|smoke|tour|tour_smoke|mix) ;; *) die "--plan must be raise | smoke | tour | tour_smoke | mix, got '$PLAN_ARG'" ;; esac
 fi
 [ "$PLAN_ARG" = smoke ] && { SMOKE=1; PLAN_ARG=""; }
 case "$RULE_ARG" in ''|schedule|slot) ;; *) die "--stand-rule must be schedule | slot, got '$RULE_ARG'" ;; esac
@@ -103,11 +112,16 @@ fi
 [ "$TABLE_PARK" = 1 ] && [ -z "$TABLE_ARG" ] && die "--table-park needs --table-start"
 if [ -n "$SEED" ]; then
   case "$SEED" in *[!0-9]*) die "--seed must be a non-negative integer, got '$SEED'" ;; esac
-  PLAN=random; TOTAL=${TOTAL:-150}; PREFIX=${PREFIX:-sh_random_s$SEED}; TMO=${SH_VIDEO_TIMEOUT:-5400}
+  if [ "$PLAN_ARG" = mix ]; then
+    PLAN=mix; TOTAL=${TOTAL:-180}; PREFIX=${PREFIX:-sh_mix_s$SEED}
+  else
+    PLAN=random; TOTAL=${TOTAL:-150}; PREFIX=${PREFIX:-sh_random_s$SEED}
+  fi
+  TMO=${SH_VIDEO_TIMEOUT:-5400}
   case "$TOTAL" in ''|*[!0-9.]*) die "--total-s must be a positive number, got '$TOTAL'" ;; esac
-  GEN_ARGS=(--plan random --seed "$SEED" --total-s "$TOTAL" --out-dir "$VID")
+  GEN_ARGS=(--plan "$PLAN" --seed "$SEED" --total-s "$TOTAL" --out-dir "$VID")
 else
-  [ -n "$TOTAL" ] && die "--total-s applies to the random plan only (--seed N)"
+  [ -n "$TOTAL" ] && die "--total-s applies to the random plan only (--seed N) and the mix plan (--plan mix --seed N)"
   if [ "$SMOKE" = 1 ]; then
     PLAN=smoke; PREFIX=${PREFIX:-sh_smoke}; TMO=${SH_VIDEO_TIMEOUT:-1800}
   elif [ "$PLAN_ARG" = tour_smoke ]; then
