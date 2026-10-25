@@ -52,6 +52,29 @@ LAUNCHER = SCRIPTS / "sh_eval_crab_hex_gait.py"
 P2_MANIFEST = TASK / "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml"
 T17_HEAD = REPO / "parkour/outputs/omni_plan/stand_height/runs/SH_T17/model_5000.pt"
 T17_STAMPS = REPO / "parkour/outputs/omni_plan/phase2/lr/SH_T17/hraise__omni/seed001"
+#: SH_T17's recipe replayed beside the same S1 s18 at the Task 4 pin (R18's X stand replay, CHARTER 2026-10-19/20):
+#: its stamps carry the CURRENT harness sha (SH_T17's predate the 2026-10-16 eval commit 9072aca1, so the recorder's
+#: reference check now refuses them -- correctly)
+X_HEAD = REPO / "parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_ref_s17/model_5000.pt"
+X_STAMPS = REPO / "parkour/outputs/omni_plan/phase2/lr/SH_T4R18_sh_ref_s17/hraise__omni/seed001"
+HARNESS = REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py"
+
+
+def _current_harness_reference():
+    """(stand head, newest complete hraise es1 stamp) of the first S1-paired SH head whose stamp was written by the
+    CURRENT harness (the recorder refuses a stamp from another harness), X replay first, SH_T17 second; None if none."""
+    import hashlib  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    want = hashlib.sha256(HARNESS.read_bytes()).hexdigest()
+    for head, root in ((X_HEAD, X_STAMPS), (T17_HEAD, T17_STAMPS)):
+        stamps = sorted(d for d in root.iterdir() if (d / "p2_complete.json").is_file()) if root.is_dir() else []
+        if not stamps or not head.is_file():
+            continue
+        meta = json.loads((stamps[-1] / "run_meta.json").read_text())
+        if (meta.get("p2r_mode") or {}).get("harness_sha256") == want:
+            return head, stamps[-1]
+    return None
 HALF_PI = 1.5707963
 DS = 10
 
@@ -520,17 +543,18 @@ def _run_recorder_pre_kit(tmp_path, args) -> subprocess.CompletedProcess:
 def test_recorder_pre_kit_path_with_a_stub_kit(GEN, VC, tmp_path):
     """The recorder's real pre-Kit code (argument parsing, the reference checks, the row loaders, the table refusals,
     the env written before Kit) under a stub ``isaaclab.app`` whose AppLauncher exits before anything boots."""
-    stamps = sorted(d for d in T17_STAMPS.iterdir() if (d / "p2_complete.json").is_file()) if T17_STAMPS.is_dir() else []
-    if not stamps or not T17_HEAD.is_file():
-        pytest.skip("the SH_T17 head / hraise es1 stamp is not on this machine")
+    ref = _current_harness_reference()
+    if ref is None:
+        pytest.skip("no S1-paired SH head with a current-harness hraise es1 stamp on this machine")
+    stand_head, stamp = ref
     import json  # noqa: PLC0415
 
     vids = tmp_path / "v"
     assert GEN.main(["--plan", "tour_smoke", "--out-dir", str(vids)]) == 0
     assert GEN.main(["--plan", "smoke", "--out-dir", str(vids)]) == 0
-    head = ["--stand-ckpt", str(T17_HEAD), "--stand-mask", "1", "--deadband", "0.25", "--eval-run", str(stamps[-1])]
+    head = ["--stand-ckpt", str(stand_head), "--stand-mask", "1", "--deadband", "0.25", "--eval-run", str(stamp)]
     tour = ["--manifest", str(vids / "scenarios_sh_video_tour_smoke.yaml"), "--sequence", "sh_tour_smoke__omni"]
-    ref_env = {k: str(v) for k, v in json.loads((stamps[-1] / "run_meta.json").read_text())["env_vars"].items()}
+    ref_env = {k: str(v) for k, v in json.loads((stamp / "run_meta.json").read_text())["env_vars"].items()}
 
     def booted_env(r):
         line = [ln for ln in r.stdout.splitlines() if ln.startswith("STUB_KIT_BOOT ")]
