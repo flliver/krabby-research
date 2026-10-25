@@ -125,17 +125,21 @@ def start_data_collector(
     from data_collection.collector_settings import build_data_collector_config
     from data_collection.config import load_config
 
+    from hal.server.zmq_endpoints import zmq_bind_to_connect_url
+
+    obs_connect = zmq_bind_to_connect_url(observation_bind)
+    cmd_connect = zmq_bind_to_connect_url(command_bind)
     if args.data_collector_config is not None:
         dc_cfg = load_config(args.data_collector_config)
         # Entry-point transport wiring is authoritative.
-        dc_cfg.hal.observation_endpoint = observation_bind
-        dc_cfg.hal.command_endpoint = command_bind
+        dc_cfg.hal.observation_endpoint = obs_connect
+        dc_cfg.hal.command_endpoint = cmd_connect
         if args.data_collector_output_dir is not None:
             dc_cfg.output_dir = Path(args.data_collector_output_dir).expanduser()
     else:
         dc_cfg = build_data_collector_config(
-            observation_endpoint=observation_bind,
-            command_endpoint=command_bind,
+            observation_endpoint=obs_connect,
+            command_endpoint=cmd_connect,
             output_dir=args.data_collector_output_dir,
         )
     stop_event = threading.Event()
