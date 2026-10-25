@@ -1259,10 +1259,18 @@ def test_dump_audit_scopes_learning_rate_and_num_envs_to_their_own_blocks(rc):
     assert bound(AGENT_YAML_ON, "1.1") and not bound(AGENT_YAML_ON, "1.2")      # not action_bound_loss_coef
 
 
+#: the construction knobs were built and smoked on 2026-10-01 (ppoc_smk_* runs that morning; committed in 60532fb9 at
+#: 10:30), so a run dir named before that day is knob-off by construction. Since the side-first B recipe was baked
+#: (2026-10-06) every newer omni run trains WITH knobs (STD_PARAM soft, ACTION_BOUND*, PPO_HAND_DIAG), so "the newest
+#: dump" is no longer a knob-off dump -- and the audit rightly fails the OFF overlay on it.
+KNOBS_INTRODUCED_RUN_PREFIX = "2026-10-01"
+
+
 def test_dump_audit_off_values_pass_on_a_real_dump(rc, tmp_path):
-    files = [f for f in _real_agent_yamls() if f.parent.parent.parent.name.startswith("crab_hex_omni")]
+    files = [f for f in sorted(MAIN_LOGS.glob("crab_hex_omni*/*/params/agent.yaml"), key=lambda p: p.stat().st_mtime)
+             if f.parent.parent.name < KNOBS_INTRODUCED_RUN_PREFIX]
     if not files:
-        pytest.skip("no omni training dumps on this machine")
+        pytest.skip("no pre-knob (knob-off) omni training dumps on this machine")
     agent_txt = files[-1].read_text()
     env_txt = (files[-1].parent / "env.yaml").read_text()
     params = tmp_path / "params"

@@ -196,9 +196,15 @@ def test_tripod_is_watch_and_no_composite_guard_in_the_campaign_rule(ec, rule):
         for key in ("joint_speed_mean", "rod_speed_mean", "contact_switch_hz", "action_fft_freq",
                     "wz_active_frac", "clock_restarts", "foot_slip"):
             assert f"cat.{c}.{key}" in exp["watch"] and f"cat.{c}.{key}" not in exp["blocks"]["Q"]["metrics"]
-    # Q at stand: every stand-applicable quality key; elsewhere per-distance / per-rad + jitter
+    # Q at stand: every stand-applicable quality key (12) except the campaign's pre-launch demotion --
+    # settle_six_down_s, zero spread on X08:c6 (candidates.yaml decision_rule.per_category.demoted), now WATCH;
+    # elsewhere per-distance / per-rad + jitter
     q = exp["blocks"]["Q"]["metrics"]
-    assert len([m for m in q if m.startswith("cat.stand.")]) == 12
+    assert set(rule["per_category"]["demoted"]) == {"stand"}
+    assert set(rule["per_category"]["demoted"]["stand"]) == {"settle_six_down_s"}
+    assert len([m for m in q if m.startswith("cat.stand.")]) == 11
+    assert "cat.stand.settle_six_down_s" not in q
+    assert exp["watch"]["cat.stand.settle_six_down_s"].startswith("demoted: zero spread on X08:c6")
     assert {m.split(".")[2] for m in q if m.startswith("cat.fwd.")} == {
         "action_jitter", "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m"}
     assert {m.split(".")[2] for m in q if m.startswith("cat.turn.")} == {
