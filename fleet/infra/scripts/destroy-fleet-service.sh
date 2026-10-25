@@ -111,4 +111,10 @@ fi
 
 echo "Destroying FleetServiceStack ..."
 
-cdk destroy FleetServiceStack "$@"
+# shellcheck source=_fleet_cdk_context.sh
+source "$INFRA_DIR/scripts/_fleet_cdk_context.sh"
+_fleet_load_cdk_context_from_toml "$INFRA_DIR" "$@"
+export CDK_DEFAULT_ACCOUNT="${CDK_DEFAULT_ACCOUNT:-$AWS_ACCOUNT_ID}"
+export CDK_DEFAULT_REGION="${CDK_DEFAULT_REGION:-$AWS_REGION_EFFECTIVE}"
+
+cdk destroy FleetServiceStack "${CDK_CONTEXT_FROM_TOML[@]}" "$@"
