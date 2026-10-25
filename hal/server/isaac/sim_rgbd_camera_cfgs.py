@@ -1,10 +1,15 @@
 """Simulated ZED (front) + MaixSense-style side RGB-D cameras on a robot link.
 
 Used by ``hal.server.isaac.main`` to attach sensors to an env scene cfg **without** modifying
-task packages under ``parkour/``. Imports ``CAMERA_CFG`` from ``parkour_tasks.default_cfg`` only.
+task packages under ``parkour/``. Imports ``quat_from_euler_xyz_tuple`` from
+``parkour_tasks.default_cfg`` only (pose convention matches parkour).
 
 Scene sensor names match Jetson catalog ids: ``side_right_*`` / ``side_left_*`` →
 ``side_right_rgbd`` / ``side_left_rgbd`` in ``IsaacSensorInterface``.
+
+Depth uses Isaac Lab **pinhole** ``CameraCfg`` (Replicator / RTX), not ``RayCasterCameraCfg``.
+Ray-cast depth only intersects static ``mesh_prim_paths`` (parkour uses ``/World/ground`` alone),
+which does not match pinhole RGB scene content (robot, props, full terrain).
 """
 
 from __future__ import annotations
@@ -15,27 +20,35 @@ import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
-from isaaclab.sensors import CameraCfg, RayCasterCameraCfg
-from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
+from isaaclab.sensors import CameraCfg
 
-from parkour_tasks.default_cfg import CAMERA_CFG, quat_from_euler_xyz_tuple
+from hal.server.isaac.sim_depth_ranges import (
+    ISAAC_FRONT_DEPTH_CLIP_M,
+    ISAAC_FRONT_RGB_CLIP_M,
+    ISAAC_SIDE_DEPTH_CLIP_M,
+    ISAAC_SIDE_RGB_CLIP_M,
+)
+from parkour_tasks.default_cfg import quat_from_euler_xyz_tuple
 
 _FRONT_POS = (0.33, 0.0, 0.08)
 # Must match ``parkour_tasks.default_cfg.CAMERA_CFG``: same roll/pitch/yaw and quaternion helper
 # (IsaacLab ``quat_from_euler_xyz`` omits parkour's sign convention on the quaternion).
 _FRONT_EULER_DEG = (180.0, 70.0, -90.0)
 
-# Same pinhole optics for front RGB USD camera and RayCaster depth pattern (`PinholeCameraPatternCfg`).
-# Parkour‘s default CAMERA_CFG uses a different focal / resolution; HAL keeps pose from parkour but
-# overrides rays so RGB and depth share FOV at native resolution (Isaac HAL does not resize).
+# Same pinhole optics for front RGB and depth (spawn + clipping differ per stream).
 _FRONT_RGB_HEIGHT = 480
 _FRONT_RGB_WIDTH = 640
 _FRONT_RGB_FOCAL_LENGTH = 24.0
 _FRONT_RGB_HORIZONTAL_APERTURE = 20.955
 
 
-def front_raycast_pattern_matching_rgb() -> PinholeCameraPatternCfg:
-    """Ray-cast sampler matching ``front_rgb`` ``PinholeCameraCfg`` (focal_length + aperture, 4:3)."""
+def front_raycast_pattern_matching_rgb():
+    """Legacy name: pinhole intrinsics tuple used by ``zed_like_scene_cfg`` imports.
+
+    Ray-cast pattern cfg is no longer used for HAL teleop depth; kept so callers can share FOV constants.
+    """
+
+    from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
 
     ha = _FRONT_RGB_HORIZONTAL_APERTURE
     return PinholeCameraPatternCfg(
@@ -47,7 +60,7 @@ def front_raycast_pattern_matching_rgb() -> PinholeCameraPatternCfg:
     )
 
 
-def side_raycast_pattern_matching_rgb() -> PinholeCameraPatternCfg:
+def side_raycast_pattern_matching_rgb():
     """Same pinhole intrinsics/resolution as front RGB for side flank cameras."""
 
     return front_raycast_pattern_matching_rgb()
@@ -124,7 +137,16 @@ def _side_ros_offset_rot_from_front(*, yaw_deg: float) -> tuple[float, ...]:
     return _quat_ros_wxyz_from_rotmat(r_side)
 
 
-def _side_pinhole_rgb_cfg(
+def _pinhole_spawn_cfg(*, clipping_range: tuple[float, float]) -> sim_utils.PinholeCameraCfg:
+    return sim_utils.PinholeCameraCfg(
+        focal_length=_FRONT_RGB_FOCAL_LENGTH,
+        focus_distance=400.0,
+        horizontal_aperture=_FRONT_RGB_HORIZONTAL_APERTURE,
+        clipping_range=clipping_range,
+    )
+
+
+def _pinhole_rgb_cfg(
     *,
     base: str,
     prim_suffix: str,
@@ -137,12 +159,7 @@ def _side_pinhole_rgb_cfg(
         height=_FRONT_RGB_HEIGHT,
         width=_FRONT_RGB_WIDTH,
         data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=_FRONT_RGB_FOCAL_LENGTH,
-            focus_distance=400.0,
-            horizontal_aperture=_FRONT_RGB_HORIZONTAL_APERTURE,
-            clipping_range=clipping_range,
-        ),
+        spawn=_pinhole_spawn_cfg(clipping_range=clipping_range),
         offset=CameraCfg.OffsetCfg(
             pos=pos,
             rot=rot,
@@ -154,31 +171,39 @@ def _side_pinhole_rgb_cfg(
     )
 
 
-def _side_raycaster_depth_cfg(
+def _pinhole_depth_cfg(
     *,
-    link_prim: str,
+    base: str,
+    prim_suffix: str,
     pos: tuple[float, float, float],
     rot: tuple[float, ...],
-    max_distance: float,
-) -> RayCasterCameraCfg:
-    return CAMERA_CFG.replace(
-        prim_path=link_prim,
-        offset=RayCasterCameraCfg.OffsetCfg(
+    clipping_range: tuple[float, float],
+) -> CameraCfg:
+    """RTX depth at the same pose/intrinsics as the matching ``*_rgb`` pinhole."""
+
+    return CameraCfg(
+        prim_path=f"{base}/{prim_suffix}",
+        height=_FRONT_RGB_HEIGHT,
+        width=_FRONT_RGB_WIDTH,
+        data_types=["distance_to_camera"],
+        spawn=_pinhole_spawn_cfg(clipping_range=clipping_range),
+        offset=CameraCfg.OffsetCfg(
             pos=pos,
             rot=rot,
             convention="ros",
         ),
-        pattern_cfg=side_raycast_pattern_matching_rgb(),
-        max_distance=max_distance,
+        colorize_semantic_segmentation=False,
+        colorize_instance_id_segmentation=False,
+        colorize_instance_segmentation=False,
     )
 
 
 def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> tuple[
-    RayCasterCameraCfg,
     CameraCfg,
-    RayCasterCameraCfg,
     CameraCfg,
-    RayCasterCameraCfg,
+    CameraCfg,
+    CameraCfg,
+    CameraCfg,
     CameraCfg,
 ]:
     """Return front + side-right + side-left RGB-D configs for HAL catalog wiring.
@@ -186,78 +211,60 @@ def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> tuple[
     Order: ``front_camera``, ``front_rgb``, ``side_right_camera``, ``side_right_rgb``,
     ``side_left_camera``, ``side_left_rgb``.
 
-    Ray-cast depth sensors **must** use an existing articulation link prim (same pattern as
-    ``parkour_tasks.default_cfg.CAMERA_CFG``), not a fictitious ``.../front_camera`` child:
-    Isaac Lab resolves ``prim_path`` to a physics/RigidBody prim; ``offset`` poses the rays.
-
-    Pinhole RGB cameras use ``spawn=`` and may live at ``.../<link>/front_rgb`` etc.
+    ``*_camera`` sensors are pinhole depth; ``*_rgb`` are pinhole RGB. Pairs share pose and
+    intrinsics so teleop depth matches the RGB render (same scene, same FOV).
     """
 
     base = f"{{ENV_REGEX_NS}}/Robot/{link_name}"
-    link_prim = base
 
     front_rot = _ros_offset_rot_from_euler_deg(_FRONT_EULER_DEG)
 
-    front_camera = CAMERA_CFG.replace(
-        prim_path=link_prim,
-        offset=RayCasterCameraCfg.OffsetCfg(
-            pos=_FRONT_POS,
-            rot=front_rot,
-            convention="ros",
-        ),
-        pattern_cfg=front_raycast_pattern_matching_rgb(),
-        max_distance=2.0,
+    front_camera = _pinhole_depth_cfg(
+        base=base,
+        prim_suffix="front_camera",
+        pos=_FRONT_POS,
+        rot=front_rot,
+        clipping_range=ISAAC_FRONT_DEPTH_CLIP_M,
     )
 
-    front_rgb = CameraCfg(
-        prim_path=f"{base}/front_rgb",
-        height=_FRONT_RGB_HEIGHT,
-        width=_FRONT_RGB_WIDTH,
-        data_types=["rgb"],
-        spawn=sim_utils.PinholeCameraCfg(
-            focal_length=_FRONT_RGB_FOCAL_LENGTH,
-            focus_distance=400.0,
-            horizontal_aperture=_FRONT_RGB_HORIZONTAL_APERTURE,
-            clipping_range=(0.3, 10.0),
-        ),
-        offset=CameraCfg.OffsetCfg(
-            pos=_FRONT_POS,
-            rot=front_rot,
-            convention="ros",
-        ),
-        colorize_semantic_segmentation=False,
-        colorize_instance_id_segmentation=False,
-        colorize_instance_segmentation=False,
+    front_rgb = _pinhole_rgb_cfg(
+        base=base,
+        prim_suffix="front_rgb",
+        pos=_FRONT_POS,
+        rot=front_rot,
+        clipping_range=ISAAC_FRONT_RGB_CLIP_M,
     )
 
     side_right_rot = _side_ros_offset_rot_from_front(yaw_deg=-90.0)
     side_left_rot = _side_ros_offset_rot_from_front(yaw_deg=90.0)
 
-    side_right_camera = _side_raycaster_depth_cfg(
-        link_prim=link_prim,
+    side_right_camera = _pinhole_depth_cfg(
+        base=base,
+        prim_suffix="side_right_camera",
         pos=_SIDE_RIGHT_POS,
         rot=side_right_rot,
-        max_distance=1.5,
+        clipping_range=ISAAC_SIDE_DEPTH_CLIP_M,
     )
-    side_right_rgb = _side_pinhole_rgb_cfg(
+    side_right_rgb = _pinhole_rgb_cfg(
         base=base,
         prim_suffix="side_right_rgb",
         pos=_SIDE_RIGHT_POS,
         rot=side_right_rot,
-        clipping_range=(0.15, 4.0),
+        clipping_range=ISAAC_SIDE_RGB_CLIP_M,
     )
-    side_left_camera = _side_raycaster_depth_cfg(
-        link_prim=link_prim,
+    side_left_camera = _pinhole_depth_cfg(
+        base=base,
+        prim_suffix="side_left_camera",
         pos=_SIDE_LEFT_POS,
         rot=side_left_rot,
-        max_distance=1.5,
+        clipping_range=ISAAC_SIDE_DEPTH_CLIP_M,
     )
-    side_left_rgb = _side_pinhole_rgb_cfg(
+    side_left_rgb = _pinhole_rgb_cfg(
         base=base,
         prim_suffix="side_left_rgb",
         pos=_SIDE_LEFT_POS,
         rot=side_left_rot,
-        clipping_range=(0.15, 4.0),
+        clipping_range=ISAAC_SIDE_RGB_CLIP_M,
     )
 
     return (

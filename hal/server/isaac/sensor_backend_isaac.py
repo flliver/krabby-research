@@ -1,7 +1,7 @@
 """Isaac Sim GStreamer sensor backend.
 
 **Live HAL**: pass ``scene_sensors`` (e.g. ``IsaacSimHalServer.camera_sensors``). When
-``front_rgb`` + ``front_camera`` and/or ``side_right_*`` / ``side_left_*`` pairs exist, each
+``front_rgb`` + ``front_camera`` (pinhole depth) and/or ``side_right_*`` / ``side_left_*`` pairs exist, each
 pair adds **two** ``SensorInfo`` rows: ``front_rgbd`` / ``side_right_rgbd`` / ``side_left_rgbd``
 plus matching ``*_gray16_depth`` (``camera_driver="isaac_scene"``).
 
@@ -18,6 +18,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from hal.server.gstreamer_runtime import build_software_appsrc_encode_pipeline_string
+from hal.server.isaac.sim_depth_ranges import (
+    ISAAC_FRONT_DEPTH_PREVIEW_M,
+    ISAAC_SIDE_DEPTH_PREVIEW_M,
+)
 from hal.server.sensor_interface import (
     GStreamerHandle,
     SensorInfo,
@@ -104,7 +108,7 @@ def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
         depth_key="front_camera",
         catalog_id="front_rgbd",
         default_pose=SensorPose(0.33, 0.0, 0.08, 0.0, 0.0, 0.0, 1.0),
-        depth_range_m=(0.2, 2.0),
+        depth_range_m=ISAAC_FRONT_DEPTH_PREVIEW_M,
     )
     _append_rgbd_pair_from_scene(
         out,
@@ -113,7 +117,7 @@ def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
         depth_key="side_right_camera",
         catalog_id="side_right_rgbd",
         default_pose=_SIDE_RIGHT_POSE,
-        depth_range_m=(0.15, 1.5),
+        depth_range_m=ISAAC_SIDE_DEPTH_PREVIEW_M,
     )
     _append_rgbd_pair_from_scene(
         out,
@@ -122,7 +126,7 @@ def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
         depth_key="side_left_camera",
         catalog_id="side_left_rgbd",
         default_pose=_SIDE_LEFT_POSE,
-        depth_range_m=(0.15, 1.5),
+        depth_range_m=ISAAC_SIDE_DEPTH_PREVIEW_M,
     )
 
     return out

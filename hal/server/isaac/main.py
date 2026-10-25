@@ -32,12 +32,12 @@ from hal.server.isaac.command_backend_cli import (
     validate_command_backend_args,
 )
 
-from hal.server.isaac.rgbd_recording_catalog import isaac_hal_rgbd_catalog_ids_for_recording
+from hal.server.isaac.rgbd_recording_catalog import isaac_hal_teleop_bootstrap_catalog_ids
 
 logger = logging.getLogger(__name__)
 CONTROL_RATE_HZ = 100.0
 # Sensor catalog ids passed to teleop signaling when HAL introspects RGB-D streams (--teleop-ip).
-TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS = isaac_hal_rgbd_catalog_ids_for_recording()
+TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS = isaac_hal_teleop_bootstrap_catalog_ids()
 
 
 def _sim_rgbd_mount_link(robot: str) -> str | None:

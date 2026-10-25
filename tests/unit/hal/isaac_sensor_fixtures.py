@@ -25,7 +25,7 @@ ISAAC_CONFIGURED_SENSORS_FIXTURE: tuple[SensorInfo, ...] = (
         camera_driver="isaac_scene",
         extra={
             "isaac_sensor_depth": "front_camera",
-            "depth_range_m": (0.2, 2.0),
+            "depth_range_m": (0.2, 25.0),
             "gst_depth_source_catalog_id": "front_rgbd",
         },
     ),
