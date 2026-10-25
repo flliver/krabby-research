@@ -1609,11 +1609,16 @@ def test_train_without_the_new_kwargs_names_no_run_and_carries_no_overlay(drv, t
     monkeypatch.setattr(drv, "TRAIN", child.script)
     monkeypatch.setenv("FAKE_SLEEP", "0.05")
     c = _campaign(drv, tmp_path)
+    # the child inherits the parent's environment, so an ambient PYTHON* variable of the shell running the suite
+    # (e.g. PYTHONDONTWRITEBYTECODE=1) reaches it untouched -- not something the driver adds; the KRABBY_* / FAKE_*
+    # keys stay pinned exactly
+    ambient_python = {k for k in os.environ if k.startswith("PYTHON")} - {"PYTHONUNBUFFERED"}
     drv.train(c, drv.ph.PHASES["1a"], "tag", 10, None, False)
     assert "--run_name" not in child.argv
     assert c.st["current"]["extra_env"] == {}
-    assert set(child.env) - {"PYTHONUNBUFFERED"} == {"KRABBY_OMNI_PHASE", "KRABBY_PLANT",
-                                                     "FAKE_MARK", "FAKE_SLEEP"}
+    assert set(child.env) - {"PYTHONUNBUFFERED"} - ambient_python == {"KRABBY_OMNI_PHASE", "KRABBY_PLANT",
+                                                                      "FAKE_MARK", "FAKE_SLEEP"}
+    assert all(child.env[k] == os.environ[k] for k in ambient_python)   # passed through unchanged
 
 
 def test_train_num_envs_comes_from_the_overlay_only_when_set(drv, tmp_path, monkeypatch, child):
