@@ -805,3 +805,19 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - sn_table_test / sh_eval_rows default walker = S1 s18 unless SN_WALKER_* is set;
     - pipeline.yaml `bundled_s1`.
   - Not pushed. The local tag `omni-sim2real-baseline-2026-10-24` stays on 055e9f51 (the step-11 record commit).
+- **2026-10-25, PR prep (user: yes).**
+  - **Size scan:** the branch adds 4063 blobs, 471 MB; none over 50 MB (largest is the 35.6 MB depth ONNX).
+  - **Fixed** (149d5cd4): sh_core.py is restored to sha 5661a4b3. The post-bake comment-only edit (98c4dec4) had
+    changed the sha every stand reference stamp pins, so the video recorder refused them all. test_sh_video_tour now
+    picks a current-harness reference stamp.
+  - **Merged origin/main** (209 commits) as merge 03ffa330, then fast-forwarded the branch.
+    - One conflict, `crab_hex_forward_task/mdp/observations.py`: main's crab_hex_ref support vs the branch's
+      observation hooks. Resolved to keep the hooks with main's optional-cam / zero-clock semantics; bitwise
+      unchanged for A15+B.
+    - Full tests/unit on the merged tree: 37 failed / 5335 passed. The failure set is identical to a clean checkout
+      of 149d5cd4 (pre-existing on the branch; they also fail before Task 4 at 5d00e2d7). The +9 collection errors
+      are main's new HAL / firmware tests needing zmq / serial.
+  - **Post-merge build:** code_sha 91b479cb (was cbaf6797: main's observations.py); eval_sha 8c8d22f0 unchanged.
+    `pipeline.py check` now reports code_sha drift against the pin. That is intended: the lock stays the record of
+    the build R18 / F19 ran on (tags task4-pin-*). A re-run needs that build or a deliberate relock.
+  - Not pushed.
