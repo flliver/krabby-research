@@ -1,0 +1,4 @@
+# Test fixtures are committed inputs, so re-include the *.log files the root .gitignore's generic "*.log" rule
+# (Django section) would otherwise drop -- e.g. omni_track_ratio/seed3_{1a,1b}_track_ratio.log, which
+# tests/unit/test_crab_hex_omni_gate.py parses as real training-log extracts.
+!*.log
