@@ -29,4 +29,5 @@ def test_side_depth_bands_match_maixsense_catalog() -> None:
         assert row.gst_depth_quant_range_m == ISAAC_SIDE_DEPTH_PREVIEW_M
     assert ISAAC_SIDE_DEPTH_CLIP_M == ISAAC_SIDE_DEPTH_PREVIEW_M
     assert ISAAC_SIDE_DEPTH_POSINF_CLIP_M == ISAAC_SIDE_DEPTH_CLIP_M[1]
-    assert ISAAC_SIDE_RGB_CLIP_M == ISAAC_SIDE_DEPTH_CLIP_M
+    assert ISAAC_SIDE_RGB_CLIP_M == (0.15, 4.0)
+    assert ISAAC_SIDE_RGB_CLIP_M != ISAAC_SIDE_DEPTH_CLIP_M
