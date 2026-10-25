@@ -29,3 +29,13 @@ thing_name = "bench-krabby-ci"
 operator_username = "ci-fleet-operator@krabbyco.com"
 # FleetServiceStack output FleetGitHubActionsRoleArn (krabby-fleet-ci OIDC role).
 github_actions_role_arn = "arn:aws:iam::632914961627:role/krabby-fleet-ci"
+
+# Non-secret CDK context for fleet-deploy.yml (and local deploy scripts).
+# domainName comes from [fleet].domain above.
+[deploy]
+hosted_zone_name = "krabbyco.com"
+github_owner = "flliver"
+github_repo = "krabby-research"
+github_branch = "main"
+github_oidc_provider_arn = "arn:aws:iam::632914961627:oidc-provider/token.actions.githubusercontent.com"
+cdk_bootstrap_qualifier = "hnb659fds"

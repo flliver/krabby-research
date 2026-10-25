@@ -59,6 +59,7 @@ def build(svg_path: Path) -> None:
                 size=(4.8, 5.6),
                 pins=module_pins("R", MEGA_PIN_LABELS),
             )
+            .side("R", spacing=1.0)
             .at((0, 0))
             .theta(0)
             .label("A1\n\nI²C host\n(Leader Mega)")
@@ -66,7 +67,7 @@ def build(svg_path: Path) -> None:
 
         adapter = diagram.add(
             elm.Ic(
-                size=(4.8, 5.6),
+                size=(4.0, 4.0),
                 pins=module_pins("L", ADAPTER_PIN_LABELS, "_IN")
                 + [
                     elm.IcPin(
@@ -78,7 +79,7 @@ def build(svg_path: Path) -> None:
                     )
                 ],
             )
-            .at((8.2, 0))
+            .at((6.8, 0.8))
             .theta(0)
             .label("A2\n\nQWIIC\nADAPTER")
         )
@@ -91,18 +92,44 @@ def build(svg_path: Path) -> None:
                         name="QWIIC",
                         side="L",
                         slot="1/1",
+                        anchorname="QWIIC_IN",
+                        lblsize=11,
+                    ),
+                    elm.IcPin(
+                        name="QWIIC",
+                        side="R",
+                        slot="1/1",
+                        anchorname="QWIIC_OUT",
+                        lblsize=11,
+                    )
+                ],
+            )
+            .at((13.4, 0))
+            .theta(0)
+            .label("U1\n\nLSM6DSO IMU\n0x6B")
+        )
+
+        oled = diagram.add(
+            elm.Ic(
+                size=(5.6, 5.6),
+                pins=[
+                    elm.IcPin(
+                        name="QWIIC",
+                        side="L",
+                        slot="1/1",
                         anchorname="QWIIC",
                         lblsize=11,
                     )
                 ],
             )
-            .at((17.0, 0))
+            .at((21.6, 0))
             .theta(0)
-            .label("U1 · LSM6DSO IMU\n0x6B · ADR intact")
+            .label("U2\n\nSSD1306 OLED\n0x3D\n128 × 64")
         )
 
         connect_nets(diagram, leader, "", adapter, "_IN")
-        diagram.add(elm.BusLine().at(adapter.QWIIC).to(imu.QWIIC).hold())
+        diagram.add(elm.BusLine().at(adapter.QWIIC).to(imu.QWIIC_IN).hold())
+        diagram.add(elm.BusLine().at(imu.QWIIC_OUT).to(oled.QWIIC).hold())
 
         diagram.add(
             elm.Label()
@@ -116,7 +143,7 @@ def build(svg_path: Path) -> None:
 
 DIAGRAM = Diagram(
     name=Path(__file__).stem,
-    title="Krabby M16 Task 1 — Leader IMU / I2C",
-    hint="Confirmed Task 1 leader IMU wiring.",
+    title="Krabby M16 — Leader IMU / OLED / I2C",
+    hint="Leader Mega → Qwiic adapter → LSM6DSO IMU → SSD1306 OLED.",
     build=build,
 )

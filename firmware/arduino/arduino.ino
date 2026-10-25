@@ -6,102 +6,76 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <math.h>
 #include "src/imu/imu_calibrator.h"
 #include "src/imu/lsm6dso_adapter.h"
+#include "src/power/ina228_adapter.h"
+#include "src/display/ssd1306_adapter.h"
+#include "src/display/display_renderer.h"
+#include "src/display/display_frame_model.h"
 #include "board_pins.h"
 #include "command.h"
 #include "actuator_manager.h"
+#include "src/actuator/actuator_role_names.h"
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
 #include "version.h"
+#include "src/controller/board_role_election.hpp"
 
 // --- Serial: left follower = Serial1 (TX1/RX1 on Krabby-Uno v0.1 shield), right follower = Serial2 ---
 #define SERIAL_LEFT  Serial1  // pins 18 (TX1), 19 (RX1) — Krabby-Uno v0.1 shield Serial1 connector
 #define SERIAL_RIGHT Serial2   // pins 16 (TX2), 17 (RX2) — Krabby-Uno v0.1 shield Serial2 connector
+// Exact on the Mega's 16 MHz clock, with headroom for the leader to transmit
+// joint data from all three controller boards plus I2C sensor data.
 #define BAUD_RATE 250000
 #define SYNC_TOKEN "SYNC"
 #define ASSIGN_LEFT  "ROLE:LEFT"
 #define ASSIGN_RIGHT "ROLE:RIGHT"
 
-enum BoardRole { ROLE_UNKNOWN, ROLE_FRONT, ROLE_LEFT, ROLE_RIGHT };
 BoardRole currentRole = ROLE_UNKNOWN;
 
-// M16 I2C sensor cluster is leader-only.
-// ROLE_UNKNOWN also qualifies: it is the solo-board-on-USB bench case (defaults
-// to front actuators + USB serial), not a follower.
-static inline bool isI2CClusterBoard()
+ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT];
+ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount];
+ImuMeasurement latestImuMeasurement;
+BatteryMeasurement latestBatteryMeasurement;
+Ina228BatteryCluster batteryCluster;
+Ssd1306Adapter oledDisplay;
+DisplayRenderer<Ssd1306Adapter> oledRenderer(oledDisplay);
+unsigned long lastOledDrawMilliseconds = 0;
+constexpr unsigned long OLED_REDRAW_INTERVAL_MILLISECONDS = 250;
+
+// Role hint bytes: see BOARD_ROLE_EEPROM_* in board_role_election.hpp (CalData uses 0–25).
+static void saveRole(BoardRole r) { saveBoardRoleHintToEeprom(r); }
+
+static BoardRole loadRole() { return loadBoardRoleHintFromEeprom(); }
+
+static bool i2cAddressResponds(uint8_t address)
 {
-    return currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN;
+    Wire.clearWireTimeoutFlag();
+    Wire.beginTransmission(address);
+    return Wire.endTransmission() == 0;
 }
 
-// EEPROM address 32: magic sentinel byte (0xAB); address 33: BoardRole value.
-// Calibration data (CalData) occupies addresses 0–25; gap at 26–31 kept for alignment.
-#define EEPROM_ROLE_ADDR  32
-#define EEPROM_ROLE_MAGIC 0xAB
-
-static void saveRole(BoardRole r)
+static bool hasFrontImu()
 {
-    EEPROM.update(EEPROM_ROLE_ADDR,     EEPROM_ROLE_MAGIC);
-    EEPROM.update(EEPROM_ROLE_ADDR + 1, (uint8_t)r);
+    Wire.begin();
+    Wire.setClock(I2C_DEFAULT_BUS_CLOCK_HZ);
+    Wire.setWireTimeout(I2C_BUS_TIMEOUT_MICROSECONDS, true);
+    return i2cAddressResponds(LSM6DSO_PRIMARY_ADDRESS) ||
+           i2cAddressResponds(LSM6DSO_ALTERNATE_ADDRESS);
 }
 
-static BoardRole loadRole()
-{
-    if (EEPROM.read(EEPROM_ROLE_ADDR) != EEPROM_ROLE_MAGIC)
-        return ROLE_UNKNOWN;
-    uint8_t r = EEPROM.read(EEPROM_ROLE_ADDR + 1);
-    if (r == ROLE_FRONT || r == ROLE_LEFT || r == ROLE_RIGHT)
-        return (BoardRole)r;
-    return ROLE_UNKNOWN;
-}
+// Six physical slots are identical on every board; role election only selects names.
+static const size_t ACT_COUNT = ACTUATOR_ROLE_NAME_COUNT;
 
-static const char* roleName(BoardRole r)
-{
-    switch (r)
-    {
-        case ROLE_UNKNOWN: return "UNKWN";
-        case ROLE_FRONT:   return "FRONT";
-        case ROLE_LEFT:   return "LEFT ";
-        case ROLE_RIGHT:  return "RIGHT";
-        default:          return "UNKWN";
-    }
-}
-
-// --- All 18 actuators (names fixed; each board uses the same physical pins for its 6) ---
-// Pin numbers from board_pins.h (KRABBY_PIN_REV 1 = legacy, 2 = MOTOR_HEADER_PINOUT).
-// Leader/Default Board
-LinearActuator flhy("FLHY", PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0);
-LinearActuator flhl("FLHL", PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1);
-LinearActuator flkl("FLKL", PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2);
-LinearActuator frhy("FRHY", PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3);
-LinearActuator frhl("FRHL", PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4);
-LinearActuator frkl("FRKL", PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5);
-// Left Follower Board
-LinearActuator rlhy("RLHY", PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0);
-LinearActuator rlhl("RLHL", PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1);
-LinearActuator rlkl("RLKL", PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2);
-LinearActuator mlhy("MLHY", PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3);
-LinearActuator mlhl("MLHL", PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4);
-LinearActuator mlkl("MLKL", PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5);
-// Right Follower Board
-LinearActuator rrhy("RRHY", PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0);
-LinearActuator rrhl("RRHL", PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1);
-LinearActuator rrkl("RRKL", PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2);
-LinearActuator mrhy("MRHY", PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3);
-LinearActuator mrhl("MRHL", PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4);
-LinearActuator mrkl("MRKL", PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5);
-
-// Role → which 6 actuators this board drives (no mutation)
-static const size_t ACT_COUNT = 6;
-LinearActuator* ACT_LIST_FRONT[]  = { &flhy, &flhl, &flkl, &frhy, &frhl, &frkl };
-LinearActuator* ACT_LIST_LEFT[]   = { &rlhy, &rlhl, &rlkl, &mlhy, &mlhl, &mlkl };  // RL + ML
-LinearActuator* ACT_LIST_RIGHT[]  = { &rrhy, &rrhl, &rrkl, &mrhy, &mrhl, &mrkl }; // MR + RR
-
-// Set once after role election.
-ActuatorManager* actuatorManager = nullptr;
-HardwareSerial* mainSerial = nullptr;  // USB (front) or uplink (left/right)
-HardwareSerial* leftSerial = nullptr;  // serial to left board (from front only)
-HardwareSerial* rightSerial = nullptr; // serial to right board (from front only)
+static const LinearActuator::SlotConfig ACTUATOR_SLOTS[ACT_COUNT] = {
+    {PIN_S0_PWMR, PIN_S0_PWML, PIN_S0_EN, A6, A0, 0},
+    {PIN_S1_PWMR, PIN_S1_PWML, PIN_S1_EN, A7, A1, 1},
+    {PIN_S2_PWMR, PIN_S2_PWML, PIN_S2_EN, A8, A2, 2},
+    {PIN_S3_PWMR, PIN_S3_PWML, PIN_S3_EN, A9, A3, 3},
+    {PIN_S4_PWMR, PIN_S4_PWML, PIN_S4_EN, A10, A4, 4},
+    {PIN_S5_PWMR, PIN_S5_PWML, PIN_S5_EN, A11, A5, 5},
+};
 
 const LinearActuator::ControlConfig ACTUATOR_CONFIG = {
     5,  // PWM_RAMP_STEP
@@ -111,13 +85,29 @@ const LinearActuator::ControlConfig ACTUATOR_CONFIG = {
     2.0 // Kp
 };
 
+// Built once after role election (this board drives exactly six joints).
+LinearActuator *boardActuators[ACT_COUNT] = {};
+ActuatorManager *actuatorManager = nullptr;
+HardwareSerial *mainSerial = nullptr;  // USB (front) or uplink (left/right)
+HardwareSerial *leftSerial = nullptr;  // serial to left board (from front only)
+HardwareSerial *rightSerial = nullptr; // serial to right board (from front only)
+
+static void instantiateActuatorsForRole(BoardRole role)
+{
+    const char *const *names = actuatorNamesForRole(role);
+    for (size_t i = 0; i < ACT_COUNT; i++)
+        boardActuators[i] = new LinearActuator(names[i], ACTUATOR_SLOTS[i], ACTUATOR_CONFIG);
+    actuatorManager = new ActuatorManager(boardActuators, ACT_COUNT);
+}
+
 const size_t CMD_BUF_SIZE = 18;
 Command cmdBuf[CMD_BUF_SIZE];
 
-// TELEMETRY_INTERVAL_MS is the existing actuator telemetry cadence.
 unsigned long lastTelemetry = 0;
+// Schedules blocking OLED writes after telemetry.
+bool wasTelemetryEmittedOnPreviousLoop = false;
 
-// --- I2C sensor cluster (Milestone 16) — leader board only ---
+// --- I2C sensor cluster — leader board only ---
 // The LSM6DSO IMU rides the leader's telemetry tick; followers never touch the bus.
 Lsm6dsoAdapter imuSensor;
 static_assert(
@@ -184,6 +174,20 @@ static void logImuCalibrationResult(ImuCalibrationResult result)
     }
 }
 
+static void batterySetup()
+{
+    const Ina228InitializationResult initResult = batteryCluster.initialize();
+    if (initResult == Ina228InitializationResult::Ok) return;
+
+    if (initResult == Ina228InitializationResult::NotDetected)
+    {
+        Serial.println(F("BATT: INA228 pack/midpoint not detected; omitting BATT segment."));
+        return;
+    }
+
+    Serial.println(F("BATT: INA228 detected but pack shunt configuration failed."));
+}
+
 static void imuSetup()
 {
     const Lsm6dsoInitializationResult initResult =
@@ -207,9 +211,32 @@ static char leftPartial[TELEMETRY_LINE_MAX];
 static char rightPartial[TELEMETRY_LINE_MAX];
 static size_t leftPartialPos = 0;
 static size_t rightPartialPos = 0;
+// Rate-limit overflow reports so sustained garbage without '\n' cannot flood USB.
+static unsigned long lastFwdOverflowLogMs[BOARD_ROLE_COUNT] = {0};
+static constexpr unsigned long FWD_OVERFLOW_LOG_INTERVAL_MS = 1000;
+
+void updateActuatorStatusFromTelemetry(
+    const char *line,
+    BoardRole boardRole)
+{
+    ActuatorStatus status[CONTROLLER_ACTUATOR_COUNT];
+    if (!parseActuatorStatus(line, boardRole, status))
+        return;
+
+    controllerFreshnessTrackers[boardRole] =
+        ControllerFreshnessTracker::seenAt(millis());
+    for (const ActuatorStatus &actuatorStatus : status)
+        latestActuatorStatus[actuatorStatus.actuatorId] = actuatorStatus;
+}
 
 // Forward only complete lines (up to and including \n) from follower serial to mainSerial.
-void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, size_t cap, size_t* partialPos)
+void forwardFullLines(
+    HardwareSerial* from,
+    HardwareSerial* to,
+    char* partial,
+    size_t cap,
+    size_t* partialPos,
+    BoardRole boardRole)
 {
     if (!from || !to || !partial || !partialPos) return;
     while (from->available())
@@ -219,7 +246,10 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
         {
             partial[*partialPos] = '\0';
             if (*partialPos > 0)
+            {
                 to->println(partial);
+                updateActuatorStatusFromTelemetry(partial, boardRole);
+            }
             *partialPos = 0;
             continue;
         }
@@ -229,8 +259,19 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
             partial[(*partialPos)++] = c;
         else
         {
-            // TODO: THIS SHOULD THROW SOME KIND OF BAD ERROR CONDITION
-            // Buffer full before \n: discard rest of line so we don't forward a partial or get stuck
+            // Buffer full before \n: discard rest of line so we don't forward a
+            // partial or get stuck, and report the drop on the uplink.
+            const unsigned long nowMs = millis();
+            if (static_cast<unsigned>(boardRole) < BOARD_ROLE_COUNT &&
+                (nowMs - lastFwdOverflowLogMs[boardRole]) >= FWD_OVERFLOW_LOG_INTERVAL_MS)
+            {
+                lastFwdOverflowLogMs[boardRole] = nowMs;
+                to->print(F("ERR FWD "));
+                to->print(boardRoleLabel(boardRole));
+                to->print(F(": line overflow (>"));
+                to->print(static_cast<unsigned>(cap - 1));
+                to->println(F(" B), discarded"));
+            }
             while (from->available())
             {
                 char d = (char)from->read();
@@ -243,89 +284,50 @@ void forwardFullLines(HardwareSerial* from, HardwareSerial* to, char* partial, s
 
 void determineRole()
 {
-    Serial.println("--- SYNC ---");
-
-    // Emit cached role before election so USB probe can label this port correctly
-    // even when the board is probed alone (and would otherwise appear as ROLE_UNKNOWN).
-    switch (loadRole())
-    {
-        case ROLE_FRONT: Serial.println("ROLE_HINT: FRONT"); break;
-        case ROLE_LEFT:  Serial.println("ROLE_HINT: LEFT");  break;
-        case ROLE_RIGHT: Serial.println("ROLE_HINT: RIGHT"); break;
-        default: break;
-    }
-
     pinMode(LED_BUILTIN, OUTPUT);
     SERIAL_LEFT.begin(BAUD_RATE);
     SERIAL_RIGHT.begin(BAUD_RATE);
 
-    bool syncFromLeft = false, syncFromRight = false;
-    unsigned long start = millis();
-    unsigned long lastSync = 0;
+    const bool isI2cHost = hasFrontImu();
+    BoardRoleElectionState electionState;
+    BoardRoleElectionStatus status = BoardRoleElectionStatus::InProgress;
 
-    while (millis() - start < 3000)
+    while (status == BoardRoleElectionStatus::InProgress)
     {
-        // Everyone sends a SYNC_TOKEN every 10ms to see what serial lines are connected
-        if (millis() - lastSync >= 10)
-        {
-            lastSync = millis();
-            SERIAL_LEFT.println(SYNC_TOKEN);
-            SERIAL_RIGHT.println(SYNC_TOKEN);
-        }
-        // If the left serial line is available, we're either the left follower or the leader
-        if (SERIAL_LEFT.available())
-        {
-            String s = SERIAL_LEFT.readStringUntil('\n');
-            // If the leader has sent us an ASSIGN_LEFT command, we're the left follower
-            if (s.indexOf(ASSIGN_LEFT) >= 0)
-            {
-                currentRole = ROLE_LEFT;
-                actuatorManager = new ActuatorManager(ACT_LIST_LEFT, ACT_COUNT);
-                mainSerial = &SERIAL_LEFT;
-                saveRole(ROLE_LEFT);
-                Serial.println("ROLE: LEFT");
-                return;
-            }
-            if (s.indexOf(SYNC_TOKEN) >= 0) syncFromLeft = true;
-        }
-        if (SERIAL_RIGHT.available())
-        {
-            String s = SERIAL_RIGHT.readStringUntil('\n');
-            // If the leader has sent us an ASSIGN_RIGHT command, we're the right follower
-            if (s.indexOf(ASSIGN_RIGHT) >= 0)
-            {
-                currentRole = ROLE_RIGHT;
-                actuatorManager = new ActuatorManager(ACT_LIST_RIGHT, ACT_COUNT);
-                mainSerial = &SERIAL_RIGHT;
-                saveRole(ROLE_RIGHT);
-                Serial.println("ROLE: RIGHT");
-                return;
-            }
-            if (s.indexOf(SYNC_TOKEN) >= 0) syncFromRight = true;
-        }
-        // Received SYNC from both sides: we are the leader. Assign followers then set ourselves as FRONT.
-        if (syncFromLeft && syncFromRight)
-        {
-            SERIAL_LEFT.println(ASSIGN_LEFT);
-            SERIAL_RIGHT.println(ASSIGN_RIGHT);
-            currentRole = ROLE_FRONT;
-            actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
-            mainSerial = &Serial;
-            leftSerial = &SERIAL_LEFT;
-            rightSerial = &SERIAL_RIGHT;
-            saveRole(ROLE_FRONT);
-            Serial.println("ROLE: FRONT");
-            return;
-        }
+        status = boardRoleElectionStepOnce(
+            electionState, isI2cHost, Serial, SERIAL_LEFT, SERIAL_RIGHT);
+    }
+
+    if (status == BoardRoleElectionStatus::FollowerLeft)
+    {
+        currentRole = ROLE_LEFT;
+        instantiateActuatorsForRole(currentRole);
+        mainSerial = &SERIAL_LEFT;
+        return;
+    }
+    if (status == BoardRoleElectionStatus::FollowerRight)
+    {
+        currentRole = ROLE_RIGHT;
+        instantiateActuatorsForRole(currentRole);
+        mainSerial = &SERIAL_RIGHT;
+        return;
+    }
+    if (status == BoardRoleElectionStatus::LeaderFront)
+    {
+        currentRole = ROLE_FRONT;
+        instantiateActuatorsForRole(currentRole);
+        mainSerial = &Serial;
+        leftSerial = &SERIAL_LEFT;
+        rightSerial = &SERIAL_RIGHT;
+        return;
     }
 
     // Timeout: no both-sync, default to front actuators but report UNKNOWN.
     currentRole = ROLE_UNKNOWN;
-    actuatorManager = new ActuatorManager(ACT_LIST_FRONT, ACT_COUNT);
+    instantiateActuatorsForRole(currentRole);
     mainSerial = &Serial;
-    leftSerial = &SERIAL_LEFT;
-    rightSerial = &SERIAL_RIGHT;
-    Serial.println("ROLE: UNKNOWN (front actuators)");
+    leftSerial = electionState.hasSyncFromLeft ? &SERIAL_LEFT : nullptr;
+    rightSerial = electionState.hasSyncFromRight ? &SERIAL_RIGHT : nullptr;
 }
 
 void setup()
@@ -333,21 +335,24 @@ void setup()
     Serial.begin(BAUD_RATE);
     determineRole();
 
-    // TODO: This should not need to be done here, it should be done when actuators are instantiated, and we should delay instantiation until after role election is complete.
-    LinearActuator** list = (currentRole == ROLE_LEFT) ? ACT_LIST_LEFT : (currentRole == ROLE_RIGHT) ? ACT_LIST_RIGHT : ACT_LIST_FRONT;
-    for (size_t i = 0; i < ACT_COUNT; i++)
-        list[i]->setControlConfig(ACTUATOR_CONFIG);
     actuatorManager->initAll();
     hallHwInit();
     actuatorManager->loadCalibration();
 
-    if (isI2CClusterBoard())
+    if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+    {
+        pinMode(STATUS_LED_PIN, OUTPUT);
+        digitalWrite(STATUS_LED_PIN, LOW);
         imuSetup();
+        batterySetup();
+        if (!oledRenderer.initialize())
+            Serial.println(F("OLED: initialization failed at 0x3D."));
+    }
 
     Serial.print("Krabby Ready ");
     Serial.print(boardPinRevisionLabel());
     Serial.print(". ");
-    Serial.println(list[0]->name);
+    Serial.println(boardActuators[0]->getName());
 }
 
 // Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
@@ -406,41 +411,35 @@ void loop()
         else if (cmdType == 'B')
         {
             mainSerial->read();
-            while (mainSerial->available() && mainSerial->peek() == ' ')
-                mainSerial->read();
-            if(leftSerial) leftSerial->print("B ");
-            if(rightSerial) rightSerial->print("B ");
+            // Read the whole line first; token-by-token reads could spin forever on a truncated line.
+            String payload = mainSerial->readStringUntil('\n');
+            int i = 0;
+            const int len = payload.length();
             while (true)
             {
-                String name = mainSerial->readStringUntil(' ');
-                int pwm = mainSerial->readStringUntil(' ').toInt();
-
-                actuatorManager->handleJog(name, pwm);
-                if (leftSerial)  { 
-                    leftSerial->print(name);
-                    leftSerial->print(" ");
-                    leftSerial->print(pwm);
-                    leftSerial->print(" ");
-                }
-                if (rightSerial) { 
-                    rightSerial->print(name);
-                    rightSerial->print(" ");
-                    rightSerial->print(pwm);
-                    rightSerial->print(" ");
-                }
-                if(mainSerial->peek() == '\n') { mainSerial->readStringUntil('\n'); break; }
+                String name = nextTok(payload, i, len);
+                String pwm = nextTok(payload, i, len);
+                if (name.length() == 0 || pwm.length() == 0)
+                    break;
+                actuatorManager->handleJog(name, pwm.toInt());
             }
-            if (leftSerial)  { leftSerial->println(); }
-            if (rightSerial) { rightSerial->println(); }
+            if (leftSerial)  { leftSerial->print("B ");  leftSerial->println(payload); }
+            if (rightSerial) { rightSerial->print("B "); rightSerial->println(payload); }
         }
         else if (cmdType == 'J')
         {
+            // Host format is J<name> <pwm> (no space after J). Skip any spaces so a
+            // legacy "J <name> <pwm>" forward still parses instead of yielding an
+            // empty name / pwm 0 (which left followers dead while FRONT still jogged).
             mainSerial->read();
+            while (mainSerial->available() && mainSerial->peek() == ' ')
+                mainSerial->read();
             String name = mainSerial->readStringUntil(' ');
             int pwm = mainSerial->readStringUntil('\n').toInt();
             actuatorManager->handleJog(name, pwm);
-            if (leftSerial)  { leftSerial->print("J ");  leftSerial->print(name);  leftSerial->print(" ");  leftSerial->println(pwm); }
-            if (rightSerial) { rightSerial->print("J "); rightSerial->print(name); rightSerial->print(" "); rightSerial->println(pwm); }
+            // Forward in the same J<name> <pwm> shape the host uses.
+            if (leftSerial)  { leftSerial->print("J");  leftSerial->print(name);  leftSerial->print(" ");  leftSerial->println(pwm); }
+            if (rightSerial) { rightSerial->print("J"); rightSerial->print(name); rightSerial->print(" "); rightSerial->println(pwm); }
         }
         else if (cmdType == 'C')
         {
@@ -511,29 +510,84 @@ void loop()
 
     // Drain follower serial so RX buffers don't overflow (64-byte default drops middle of ~200-byte lines).
     // Only flush once after both drains so we don't block in flush() twice per loop (~35 ms each at 115200).
-    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
-    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
+    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
+    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
 
     actuatorManager->updateAll();
 
+    if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+    {
+        for (size_t i = 0; i < ACT_COUNT; i++)
+        {
+            const ActuatorStatus status = boardActuators[i]->getStatus();
+            latestActuatorStatus[status.actuatorId] = status;
+        }
+
+        const uint32_t nowMilliseconds = millis();
+        controllerFreshnessTrackers[ROLE_FRONT] =
+            ControllerFreshnessTracker::seenAt(nowMilliseconds);
+
+        if (batteryCluster.isOnline())
+        {
+            latestBatteryMeasurement = batteryCluster.measure();
+        }
+
+        DisplayFrame displayFrame = buildDisplayFrame(
+            currentRole,
+            controllerFreshnessTrackers,
+            latestActuatorStatus,
+            latestImuMeasurement,
+            nowMilliseconds,
+            ACTUATOR_CONFIG.pwmDeadband
+        );
+        if (batteryCluster.isOnline() && latestBatteryMeasurement.didSucceed())
+        {
+            const Volts batteryVoltage[2] = {
+                Volts(latestBatteryMeasurement.battAVolts),
+                Volts(latestBatteryMeasurement.battBVolts),
+            };
+            setBatteryVoltages(displayFrame, batteryVoltage);
+        }
+
+        const bool isActuatorDisconnected = hasDisconnectedActuator(displayFrame);
+        digitalWrite(STATUS_LED_PIN, isActuatorDisconnected ? HIGH : LOW);
+
+        // A full OLED transfer takes ~29 ms; start it after telemetry.
+        if (wasTelemetryEmittedOnPreviousLoop &&
+            nowMilliseconds - lastOledDrawMilliseconds >= OLED_REDRAW_INTERVAL_MILLISECONDS)
+        {
+            lastOledDrawMilliseconds = nowMilliseconds;
+            oledRenderer.render(displayFrame);
+        }
+    }
+
     // Drain again in case bytes arrived during updateAll()
-    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos);
-    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos);
+    forwardFullLines(leftSerial, mainSerial, leftPartial, TELEMETRY_LINE_MAX, &leftPartialPos, ROLE_LEFT);
+    forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
     mainSerial->flush();
 
-    if (millis() - lastTelemetry >= TELEMETRY_INTERVAL_MS)
+    wasTelemetryEmittedOnPreviousLoop = false;
+    const unsigned long telemetryNowMilliseconds = millis();
+    if (telemetryNowMilliseconds - lastTelemetry >= TELEMETRY_INTERVAL_MS)
     {
-        lastTelemetry = millis();
-        mainSerial->print(roleName(currentRole));
+        wasTelemetryEmittedOnPreviousLoop = true;
+        lastTelemetry = telemetryNowMilliseconds;
+        mainSerial->print(boardTelemetryRoleLabel(currentRole));
         mainSerial->print(TELEMETRY_SEGMENT_DELIMITER);
         mainSerial->print(TELEMETRY_FIELD_SEPARATOR);
         actuatorManager->printTelemetry(*mainSerial);
         // Leader appends its sensor segments to its own line only; forwarded
         // LEFT/RIGHT lines pass through forwardFullLines() untouched.
-        if (isI2CClusterBoard())
+        if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
         {
             const ImuMeasurement measurement = imuSensor.measure();
+            latestImuMeasurement = measurement;
             appendImuMeasurement(*mainSerial, measurement);
+            if (batteryCluster.isOnline())
+            {
+                latestBatteryMeasurement = batteryCluster.measure();
+                appendBatteryMeasurement(*mainSerial, latestBatteryMeasurement);
+            }
         }
         mainSerial->println();
         mainSerial->flush();  // ensure full line is sent before next loop (avoids two "LEFT;" in one buffer on host)

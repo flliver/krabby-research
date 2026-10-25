@@ -1,10 +1,15 @@
-"""krabby-fleet ssh <robot>: open a tunnel, proxy through it, run ssh, close on exit."""
+"""krabby-fleet ssh <robot>: open (or reuse) a tunnel, proxy through it, run ssh.
+
+Leaves the Secure Tunnel OPEN after the SSH session so the next open can
+RotateTunnelAccessToken instead of paying for another OpenTunnel. Use the
+portal Force-close / DELETE API when you intentionally want to tear it down.
+"""
 from __future__ import annotations
 
 import subprocess
 from typing import Optional
 
-from krabby_fleet_cli._api import close_ssh_tunnel, open_ssh_tunnel
+from krabby_fleet_cli._api import open_ssh_tunnel
 from krabby_fleet_cli._auth import get_access_token
 from krabby_fleet_cli._config import load_config
 from krabby_fleet_cli._localproxy import free_local_port, spawn_source_proxy, wait_until_ready
@@ -18,8 +23,7 @@ def cmd_ssh(thing_name: str, user: Optional[str] = None) -> None:
     tunnel = open_ssh_tunnel(config, thing_name, access_token)
     tunnel_id = tunnel["tunnelId"]
 
-    # Everything from here on runs inside try/finally: once the tunnel
-    # exists, an interrupt or error anywhere below must still close it.
+    # Local proxy only — do not CloseTunnel on exit (reuse across sessions).
     proxy_proc = None
     try:
         local_port = free_local_port()
@@ -31,7 +35,7 @@ def cmd_ssh(thing_name: str, user: Optional[str] = None) -> None:
         subprocess.run(
             [
                 "ssh",
-                # Each session gets a fresh tunnel on a fresh local port, so
+                # Each session gets a fresh source token on a fresh local port, so
                 # there's no stable "localhost:<port>" host identity to
                 # check against known_hosts -- the Secure Tunnel's own
                 # short-lived, Cognito-gated access token is the actual
@@ -45,5 +49,4 @@ def cmd_ssh(thing_name: str, user: Optional[str] = None) -> None:
     finally:
         if proxy_proc is not None and proxy_proc.poll() is None:
             proxy_proc.terminate()
-        close_ssh_tunnel(config, thing_name, tunnel_id, access_token)
-        print("[ok]  tunnel closed")
+        print(f"[ok]  localproxy stopped (tunnel {tunnel_id} left OPEN for reuse)")

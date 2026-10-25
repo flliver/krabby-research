@@ -111,6 +111,7 @@ async def run_robot_signaling_loop(
             try:
                 err_json, ans_sdp, pc = await handle_first_offer_message(
                     payload,
+                    ice_servers=teleop_settings.stun_turn_servers,
                     video_track_factory=video_track_factory,
                     max_video_m_lines=teleop_settings.max_video_m_lines,
                     control_message_handler=control_message_handler,

@@ -14,11 +14,13 @@ One persistent fleet MQTT connection (see ``_mqtt``) fans out
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,15 @@ class SignalingBridge:
         self._lock = asyncio.Lock()
         self._mqtt_subscribed = False
 
+    def diagnostics(self) -> dict[str, Any]:
+        """Non-secret runtime state for ``GET /healthz`` (one-deploy triage)."""
+        return {
+            "signalingOutSubscribed": self._mqtt_subscribed,
+            "activeSessionsByThing": {
+                thing: len(sockets) for thing, sockets in self._sessions.items()
+            },
+        }
+
     async def start(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
         if not self._mqtt_subscribed:
@@ -78,26 +89,60 @@ class SignalingBridge:
     def _on_mqtt_out(self, topic: str, payload: bytes) -> None:
         thing = parse_thing_from_out_topic(topic)
         if thing is None:
+            logger.warning("signaling mqtt/out ignored topic=%s (unexpected shape)", topic)
             return
         try:
             text = payload.decode("utf-8")
         except UnicodeDecodeError:
             logger.warning("signaling/out non-utf8 on %s", topic)
             return
+        msg_type = "?"
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                msg_type = str(parsed.get("type") or "?")
+        except json.JSONDecodeError:
+            msg_type = "non-json"
+        logger.debug(
+            "signaling mqtt→browser topic=%s thing=%s type=%s bytes=%d",
+            topic,
+            thing,
+            msg_type,
+            len(payload),
+        )
         loop = self._loop
         if loop is None or not loop.is_running():
             return
-        loop.call_soon_threadsafe(lambda: asyncio.create_task(self._fanout(thing, text)))
+        def _schedule_fanout() -> None:
+            asyncio.create_task(self._fanout(thing, text))
+
+        loop.call_soon_threadsafe(_schedule_fanout)
 
     async def _fanout(self, thing_name: str, text: str) -> None:
         async with self._lock:
             sockets = list(self._sessions.get(thing_name, ()))
+        if not sockets:
+            logger.warning(
+                "signaling mqtt→browser dropped thing=%s bytes=%d (no active WebSocket)",
+                thing_name,
+                len(text.encode("utf-8")),
+            )
+            return
         dead: list[WebSocket] = []
+        sent = 0
         for ws in sockets:
             try:
                 await ws.send_text(text)
+                sent += 1
             except Exception:
                 dead.append(ws)
+        logger.debug(
+            "signaling mqtt→browser delivered thing=%s sockets=%d sent=%d dead=%d",
+            thing_name,
+            len(sockets),
+            sent,
+            len(dead),
+        )
         if dead:
             async with self._lock:
                 group = self._sessions.get(thing_name)
@@ -116,19 +161,65 @@ class SignalingBridge:
         await websocket.accept()
         async with self._lock:
             self._sessions.setdefault(thing_name, set()).add(websocket)
+        peer = websocket.client
         logger.info("teleop signaling session open thing=%s", thing_name)
 
+        received_browser_frame = False
         try:
             while True:
-                text = await websocket.receive_text()
+                if not received_browser_frame:
+                    try:
+                        text = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "teleop signaling stall thing=%s peer=%s: WebSocket accepted but "
+                            "no text frame in 30s — suspect Caddy/proxy or browser not sending",
+                            thing_name,
+                            peer,
+                        )
+                        text = await websocket.receive_text()
+                else:
+                    text = await websocket.receive_text()
+                received_browser_frame = True
+
+                topic = signaling_in_topic(thing_name)
+                msg_type = "?"
                 try:
-                    self._mqtt.publish(signaling_in_topic(thing_name), text)
+                    parsed = json.loads(text)
+                    if isinstance(parsed, dict):
+                        msg_type = str(parsed.get("type") or "?")
+                except json.JSONDecodeError:
+                    msg_type = "non-json"
+                logger.debug(
+                    "signaling browser→mqtt thing=%s topic=%s type=%s bytes=%d",
+                    thing_name,
+                    topic,
+                    msg_type,
+                    len(text.encode("utf-8")),
+                )
+                try:
+                    await asyncio.to_thread(self._mqtt.publish, topic, text)
                 except Exception:
-                    logger.exception("publish signaling/in failed thing=%s", thing_name)
+                    logger.exception(
+                        "publish signaling/in failed thing=%s topic=%s", thing_name, topic
+                    )
                     await websocket.close(code=1011, reason="mqtt publish failed")
                     break
-        except WebSocketDisconnect:
-            pass
+                logger.debug("signaling browser→mqtt ack thing=%s topic=%s", thing_name, topic)
+        except WebSocketDisconnect as disc:
+            logger.debug(
+                "teleop signaling disconnected thing=%s code=%s",
+                thing_name,
+                getattr(disc, "code", None),
+            )
+        except Exception:
+            logger.exception(
+                "teleop signaling receive failed thing=%s state=%s",
+                thing_name,
+                websocket.client_state,
+            )
+            if websocket.client_state == WebSocketState.CONNECTED:
+                await websocket.close(code=1011, reason="signaling receive error")
         finally:
             async with self._lock:
                 group = self._sessions.get(thing_name)

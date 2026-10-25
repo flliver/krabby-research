@@ -18,24 +18,38 @@ source .venv/bin/activate
 Creates `.venv/` (Python CDK deps) and downloads a project-local Node +
 `aws-cdk` CLI into `.tools/`. No system Node/npm required.
 
-## AWS credentials
+## AWS credentials (deploy / destroy)
 
-The deploy/destroy scripts below check that you're already authenticated
-(`aws sts get-caller-identity`) but never create credentials -- set these up
-yourself first.
+The deploy/destroy scripts check `aws sts get-caller-identity` but never
+create credentials. Authenticate as an IAM user or role that can run CDK in
+this account. That is separate from the `krabby-enroll` user (Orin enroll
+only — see [Enroll user access key](#enroll-user-access-key) below).
 
 Use a short-lived access key **exported in this shell only** so closing the
 terminal drops the creds (do not use `aws login` / `aws configure` here;
 those cache on disk and survive a new shell):
 
-1. IAM Console -> Users -> your user -> Security credentials -> Create
+1. IAM Console → Users → **your deploy user** → Security credentials → Create
    access key.
 2. Export it for this shell session only:
    `export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_DEFAULT_REGION=...`
    Optional: `export AWS_PAGER=""` so CLI tables do not open `less`.
 
-Nothing was written to disk, so removing it after deploying is just
-closing the terminal.
+Nothing was written to disk; closing the terminal clears these creds.
+
+## Enroll user access key
+
+`ControlPlaneStack` creates IAM user [`krabby-enroll`](control-plane.md) with
+least-privilege enroll permissions. CDK does **not** create an access key. After
+control plane deploy, someone with deploy IAM permissions creates an access key
+**for IAM user `krabby-enroll`** (not for their own deploy user). That is often
+a different person from the operator who enrolls devices on the Orin — store the
+key in your team's usual secret store and distribute it only to people who need
+to run enroll.
+
+On the Orin, the operator exports that key in the enroll shell only, runs
+[`krabby enroll`](../ENROLL.md), then discards the shell — enroll never persists
+AWS secrets on the device.
 
 ## Deploy / destroy scripts
 
@@ -58,9 +72,6 @@ PATH):
 export PATH="$PWD/.tools/node/bin:$PWD/.tools/npm-global/node_modules/.bin:$PATH"
 cdk bootstrap aws://<account-id>/<region>
 ```
-
-`ControlPlaneStack` creates IAM user `krabby-enroll` but not its access key —
-create one once after deploy: `aws iam create-access-key --user-name krabby-enroll`.
 
 ## Stacks
 

@@ -7,15 +7,18 @@ Two-process E2E on Jetson Orin: **Pro Controller** → **ControlLoop (INPUT_CONT
 ## Canonical path: `krabby` CLI
 
 ```bash
-pip install krabby-launcher
-krabby install              # pull release-latest, set up udev + dialout
+python3 -m venv ~/.venv-krabby && source ~/.venv-krabby/bin/activate
+pip install -U pip && pip install krabby-launcher
+sudo -E env PATH="$PATH" "$(which krabby)" install   # udev + dialout + image pull
 krabby firmware show        # verify all three boards are visible
 krabby run                  # start the FULL gamepad stack (server + client + controller)
 ```
 
 `krabby run` starts the container with `--privileged -v /dev:/dev`, which passes through the MCU serial ports (`/dev/ttyACM*`, `/dev/ttyUSB*`) **and** all input devices (`/dev/input/*`) in a single flag — no separate `--device` arguments needed. It launches the HAL server **and** the `krabby-uno` client/controller together in one container, so a paired gamepad drives the robot immediately — no second command. (`krabby run --gamepad-only` is an explicit alias for the same behavior.)
 
-Pair the Pro Controller over Bluetooth before starting the container (see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)). The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
+Pair the Pro Controller over Bluetooth before starting the container
+(`krabby pair-pro` — see [CONNECT_PRO_CONTROLLER.md](CONNECT_PRO_CONTROLLER.md)).
+The paired `/dev/input/js0` is available inside the container automatically because of `-v /dev:/dev`.
 
 ---
 
@@ -49,7 +52,7 @@ Or with the pip-installed client: `krabby-uno` (defaults to `tcp://localhost:600
 - **Pro Controller** connected (USB or Bluetooth). Verify: `python -m controller.input --list`
 - **Jetson HAL (MCU)** connected (serial). **Firmware** package: `firmware.krabby_mcu` (see [firmware/](../../../firmware/)).
 - Server **exits with error** if firmware or MCU not available.
-- When using the helper scripts to start the container, the scripts check that the MCU device (default `/dev/ttyACM0`) exists before starting; if not, they exit with a clear error. For a different port, set `KRABBY_MCU_PORT` (e.g. `export KRABBY_MCU_PORT=/dev/ttyUSB0`).
+- MCU device check defaults to `/dev/ttyACM0`. For CH340 / other ports, set `KRABBY_MCU_PORT` (e.g. `export KRABBY_MCU_PORT=/dev/ttyUSB0`). `krabby run` and `krabby firmware` both forward that env into the container. Helper scripts that wrap `docker run` should pass `-e KRABBY_MCU_PORT` the same way; some older helpers exit if the default ACM0 path is missing.
 
 It is recommended to use a Python virtual environment to isolate dependencies: create with `python -m venv .venv`, then activate with `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows).
 

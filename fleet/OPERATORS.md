@@ -49,6 +49,26 @@ Unauthenticated API check (expect `401`):
 curl -sS -o /dev/null -w '%{http_code}\n' "https://<fleet-domain>/api/devices"
 ```
 
+## CI operator password rotation
+
+The persistent CI operator (`[ci].operator_username` in
+[`config/fleet.toml`](config/fleet.toml)) has its password in GitHub secret
+`COGNITO_CI_PASSWORD`. Workflow
+[`.github/workflows/fleet-ci-rotate-cognito.yml`](../.github/workflows/fleet-ci-rotate-cognito.yml)
+rotates that password on a monthly cron (and via **Actions → Fleet CI Cognito
+rotate → Run workflow**):
+
+1. Assumes `krabby-fleet-ci` via OIDC and calls `AdminSetUserPassword`.
+2. Verifies USER_SRP_AUTH with the new password.
+3. Updates `COGNITO_CI_PASSWORD` with `gh secret set` (using
+   `FLEET_CI_SECRETS_PAT`).
+4. If step 3 fails, restores the previous Cognito password from the still-valid
+   workflow env copy of `COGNITO_CI_PASSWORD`.
+
+One-time setup: create a fine-grained PAT with **Secrets: Read and write** on
+this repo, store it as GitHub secret **`FLEET_CI_SECRETS_PAT`**. The default
+`GITHUB_TOKEN` cannot update repository secrets.
+
 ## Notes
 
 - No self-sign-up (`self_sign_up_enabled=False`).

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "edges_per_full_travel": 3200,
+  "source": "placeholder",
+  "notes": "Replace edges_per_full_travel after a physical stop-to-stop saf measurement on rev-3 hardware (drive one joint min to max, record telemetry saf delta). Keep hall_encoder_scale.json and host/hall_encoder_scale.hpp in sync.",
+  "measured_at": null,
+  "robot_id": null,
+  "joint_samples": []
+}

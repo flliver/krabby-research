@@ -126,4 +126,4 @@ Exactly one email delivered and one GitHub issue opened. Repeat polls of the sam
 
 - **Task 3 AC6 / Task 4 AC5 (controller → joints):** Device passthrough confirmed; end-to-end joint movement blocked on a trained Krabby policy checkpoint. No checkpoint exists yet — requires Isaac Lab training run (~30 h). Verified at the infrastructure level (unit tests, container flags, `/dev/input` passthrough).
 - **Task 4 AC4 (browser teleop):** Blocked on M10 fleet portal, expected to complete after M14.
-- **`krabby firmware update mainline` / `mainline-latest` ECR tag:** Pending resolution of `mainline` vs `main` branch naming in the locomotion CI workflow.
+- **`krabby firmware update main` / `main-latest` ECR tag:** `main` is the dev publish channel; the earlier `mainline-latest` channel is deprecated.

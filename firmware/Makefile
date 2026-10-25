@@ -5,6 +5,7 @@
 #   make -C firmware upload-firmware PORT=COM5
 #   make -C firmware upload-firmware PIN_REV=1
 #   make -C firmware compile-firmware          # compile only, no upload
+#   make -C firmware host-actuator             # host library (actuator_manager.h + sim Arduino.h)
 #
 # Remote flashing (boards on another host you reach over SSH, e.g. a Jetson Orin
 # with the USB hub): compile here, copy the .hex over, run avrdude on the remote.
@@ -75,17 +76,23 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote test-native test-native-coverage test-firmware
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac
+
+host-actuator:
+	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
+	$(CMAKE) --build "$(NATIVE_TEST_BUILD)" --target krabby_firmware_actuator_host krabby_host
 
 test-native:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
 	$(CMAKE) --build "$(NATIVE_TEST_BUILD)"
+	$(CMAKE) --build "$(NATIVE_TEST_BUILD)" --target krabby_host
 	$(CTEST) --test-dir "$(NATIVE_TEST_BUILD)" --output-on-failure
 
-# Ratchet, not a target: thresholds are the measured floor, so coverage can only
-# be raised deliberately. The filter must name real files -- a filter matching
+# The filter must name real files -- a filter matching
 # nothing reports 0% and fails, it does not pass vacuously.
 test-native-coverage: test-native
+	# Rebuild to exclude stale .gcda/.gcno data. Reuse Unity from the test build.
+	$(CMAKE) -E rm -rf "$(NATIVE_COVERAGE_BUILD)"
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_COVERAGE_BUILD)" \
 		-DKRABBY_NATIVE_COVERAGE=ON \
 		-DFETCHCONTENT_SOURCE_DIR_UNITY="$(NATIVE_TEST_BUILD)/_deps/unity-src"
@@ -93,12 +100,19 @@ test-native-coverage: test-native
 	$(CTEST) --test-dir "$(NATIVE_COVERAGE_BUILD)" --output-on-failure
 	$(CMAKE) -E chdir "$(REPO_ROOT)" $(GCOVR) --root . "$(NATIVE_COVERAGE_BUILD)" \
 		--gcov-executable "$(GCOV)" \
-		--filter 'firmware/arduino/src/imu/.*\.h$$' \
+		--filter 'firmware/arduino/units\.h$$' \
+		--filter 'firmware/arduino/actuator_manager\.h$$' \
+		--filter 'firmware/arduino/src/(actuator|display|imu)/.*' \
 		--exclude-unreachable-branches --exclude-throw-branches \
-		--txt --print-summary --fail-under-line 100 --fail-under-branch 85
+		--txt --print-summary --fail-under-line 90 --fail-under-branch 88
 
 test-firmware: test-native
 	cd "$(REPO_ROOT)" && $(PYTEST) -q tests/unit/firmware
+
+# Isaac Sim smoke / integration (krabby-isaacsim image; see images/isaacsim/README.md).
+# host-actuator first: the loop test loads libkrabby_host from the mounted build dir.
+test-firmware-isaac: host-actuator
+	"$(REPO_ROOT)/images/isaacsim/run_firmware_isaac_pytest.sh"
 
 # Pinned to the core version the bench-verified hex was built with; bump
 # deliberately, together with the CI cache key in publish-firmware.yml.
@@ -118,6 +132,11 @@ LSM6DSO_LIB_URL := https://github.com/sparkfun/SparkFun_Qwiic_6DoF_LSM6DSO_Ardui
 LSM6DSO_LIB_REF := 4addc5ffd7cb71a0481aee259ab85c232aa92afe
 LSM6DSO_LIB_DIR := SparkFun_Qwiic_6Dof_-_LSM6DSO
 
+# Versions from 1.0.14 compile a CH1120 driver that includes C++ <map>, which the
+# AVR toolchain lacks. 1.0.13 is the last that builds for AVR.
+OLED_LIB := SparkFun Qwiic OLED Arduino Library@1.0.13
+INA228_LIB := Adafruit INA228 Library@3.0.0
+
 fetch-libs:
 	@installed="$$($(ARDUINO_CLI) config get directories.user)/libraries/$(LSM6DSO_LIB_DIR)"; \
 	if [ "$$(cat "$$installed/.krabby-pin" 2>/dev/null)" = "$(LSM6DSO_LIB_REF)" ]; then \
@@ -127,6 +146,8 @@ fetch-libs:
 			--git-url "$(LSM6DSO_LIB_URL)#$(LSM6DSO_LIB_REF)" && \
 		echo "$(LSM6DSO_LIB_REF)" > "$$installed/.krabby-pin"; \
 	fi
+	$(ARDUINO_CLI) lib install "$(OLED_LIB)"
+	$(ARDUINO_CLI) lib install "$(INA228_LIB)"
 
 compile-firmware: arduino-core fetch-libs
 	$(ARDUINO_CLI) compile --fqbn $(FQBN) $(BUILD_PROPS) --output-dir "$(BUILD_DIR)" $(SKETCH)

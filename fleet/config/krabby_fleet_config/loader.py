@@ -40,6 +40,12 @@ class FleetConfig:
     bench_thing_name: str
     ci_operator_username: str = ""
     ci_github_actions_role_arn: str = ""
+    deploy_hosted_zone_name: str = ""
+    deploy_github_owner: str = ""
+    deploy_github_repo: str = ""
+    deploy_github_branch: str = ""
+    deploy_github_oidc_provider_arn: str = ""
+    deploy_cdk_bootstrap_qualifier: str = ""
 
     @property
     def cognito_issuer(self) -> str:
@@ -47,6 +53,28 @@ class FleetConfig:
             f"https://cognito-idp.{self.aws_region}.amazonaws.com/"
             f"{self.cognito_user_pool_id}"
         )
+
+    def cdk_context_args(self) -> list[str]:
+        """``cdk -c key=value`` args for ControlPlaneStack + FleetServiceStack."""
+        required = {
+            "domainName": self.domain,
+            "hostedZoneName": self.deploy_hosted_zone_name,
+            "githubOwner": self.deploy_github_owner,
+            "githubRepo": self.deploy_github_repo,
+            "githubBranch": self.deploy_github_branch,
+            "githubOidcProviderArn": self.deploy_github_oidc_provider_arn,
+            "cdkBootstrapQualifier": self.deploy_cdk_bootstrap_qualifier,
+        }
+        missing = [k for k, v in required.items() if not v]
+        if missing:
+            raise ValueError(
+                "fleet.toml [deploy] (and [fleet].domain) incomplete for CDK; "
+                f"missing: {', '.join(missing)}"
+            )
+        args: list[str] = []
+        for key, value in required.items():
+            args.extend(["-c", f"{key}={value}"])
+        return args
 
     def as_env(self) -> dict[str, str]:
         """Non-secret keys as env-style names for pytest / shell export."""
@@ -65,6 +93,18 @@ class FleetConfig:
             out["COGNITO_CI_USERNAME"] = self.ci_operator_username
         if self.ci_github_actions_role_arn:
             out["FLEET_CI_ROLE_ARN"] = self.ci_github_actions_role_arn
+        if self.deploy_hosted_zone_name:
+            out["FLEET_CDK_HOSTED_ZONE_NAME"] = self.deploy_hosted_zone_name
+            out["FLEET_CDK_GITHUB_OWNER"] = self.deploy_github_owner
+            out["FLEET_CDK_GITHUB_REPO"] = self.deploy_github_repo
+            out["FLEET_CDK_GITHUB_BRANCH"] = self.deploy_github_branch
+            out["FLEET_CDK_GITHUB_OIDC_PROVIDER_ARN"] = (
+                self.deploy_github_oidc_provider_arn
+            )
+            out["FLEET_CDK_BOOTSTRAP_QUALIFIER"] = (
+                self.deploy_cdk_bootstrap_qualifier
+            )
+            out["FLEET_CDK_DOMAIN_NAME"] = self.domain
         return out
 
 
@@ -141,6 +181,16 @@ def load_fleet_config(path: Path | None = None) -> FleetConfig:
     bench_thing_name = _optional_str(raw, "bench", "thing_name") or "bench-krabby-ci"
     ci_operator_username = _optional_str(raw, "ci", "operator_username")
     ci_github_actions_role_arn = _optional_str(raw, "ci", "github_actions_role_arn")
+    deploy_hosted_zone_name = _optional_str(raw, "deploy", "hosted_zone_name")
+    deploy_github_owner = _optional_str(raw, "deploy", "github_owner")
+    deploy_github_repo = _optional_str(raw, "deploy", "github_repo")
+    deploy_github_branch = _optional_str(raw, "deploy", "github_branch")
+    deploy_github_oidc_provider_arn = _optional_str(
+        raw, "deploy", "github_oidc_provider_arn"
+    )
+    deploy_cdk_bootstrap_qualifier = _optional_str(
+        raw, "deploy", "cdk_bootstrap_qualifier"
+    )
 
     return FleetConfig(
         aws_region=aws_region,
@@ -154,6 +204,12 @@ def load_fleet_config(path: Path | None = None) -> FleetConfig:
         bench_thing_name=bench_thing_name,
         ci_operator_username=ci_operator_username,
         ci_github_actions_role_arn=ci_github_actions_role_arn,
+        deploy_hosted_zone_name=deploy_hosted_zone_name,
+        deploy_github_owner=deploy_github_owner,
+        deploy_github_repo=deploy_github_repo,
+        deploy_github_branch=deploy_github_branch,
+        deploy_github_oidc_provider_arn=deploy_github_oidc_provider_arn,
+        deploy_cdk_bootstrap_qualifier=deploy_cdk_bootstrap_qualifier,
     )
 
 

@@ -38,24 +38,29 @@ _CLI_CONFIG_PATH = Path.home() / ".config" / "krabby-fleet" / "config.toml"
 _CLI_SESSION_PATH = Path.home() / ".config" / "krabby-fleet" / "session.json"
 
 
-def test_open_and_close_tunnel_happy_path(operator_token: str):
-    resp = requests.post(
+def test_open_ssh_tunnel_reuses_same_tunnel_id(operator_token: str):
+    """Two POSTs should share one OPEN tunnel (rotate, not a second OpenTunnel)."""
+    headers = {"Authorization": f"Bearer {operator_token}"}
+    first = requests.post(
         f"{FLEET_SERVICE_URL}/devices/{BENCH_THING_NAME}/ssh-tunnel",
-        headers={"Authorization": f"Bearer {operator_token}"},
+        headers=headers,
         timeout=30,
     )
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["tunnelId"]
-    assert body["sourceAccessToken"]
-    assert body["region"]
+    assert first.status_code == 200, first.text
+    first_body = first.json()
+    assert first_body["tunnelId"]
+    assert first_body["sourceAccessToken"]
 
-    close_resp = requests.delete(
-        f"{FLEET_SERVICE_URL}/devices/{BENCH_THING_NAME}/ssh-tunnel/{body['tunnelId']}",
-        headers={"Authorization": f"Bearer {operator_token}"},
+    second = requests.post(
+        f"{FLEET_SERVICE_URL}/devices/{BENCH_THING_NAME}/ssh-tunnel",
+        headers=headers,
         timeout=30,
     )
-    assert close_resp.status_code == 204
+    assert second.status_code == 200, second.text
+    second_body = second.json()
+    assert second_body["tunnelId"] == first_body["tunnelId"]
+    assert second_body["sourceAccessToken"]
+    assert second_body["sourceAccessToken"] != first_body["sourceAccessToken"]
 
 
 def test_get_devices_lists_bench_robot(operator_token: str):
@@ -145,5 +150,7 @@ def test_krabby_fleet_ssh_runs_command_end_to_end(cli_operator_session: None):
     tunnel_id = match.group(1)
 
     tunneling = boto3.client("iotsecuretunneling", region_name=AWS_REGION)
-    with pytest.raises(tunneling.exceptions.ResourceNotFoundException):
-        tunneling.describe_tunnel(tunnelId=tunnel_id)
+    described = tunneling.describe_tunnel(tunnelId=tunnel_id)
+    status = (described.get("tunnel") or described).get("status")
+    assert status == "OPEN", f"CLI should leave tunnel OPEN for reuse, got {described!r}"
+    assert "left OPEN for reuse" in result.stdout or "left OPEN for reuse" in result.stderr

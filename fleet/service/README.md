@@ -10,11 +10,11 @@ service.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `GET` | `/healthz` | none | Liveness check |
+| `GET` | `/healthz` | none | Liveness + signaling diagnostics (`mqttConnected`, `signalingOutSubscribed`, `activeSessionsByThing`) |
 | `GET` | `/devices` | operator group | Lists enrolled robots via Fleet Indexing (`SearchIndex`, `thingTypeName:Krab`). Returns `[{thingName, connected, connectivityTimestamp, reported}]` where `reported` is the latest classic-shadow `state.reported` document. |
 | `GET` | `/devices/{thingName}` | operator group | Device detail: `DescribeThing` metadata + connectivity from SearchIndex + full `state.reported` from `GetThingShadow`. Returns `{thingName, thingTypeName, attributes, connected, connectivityTimestamp, reported}`. |
-| `POST` | `/devices/{thingName}/ssh-tunnel` | operator group | Opens a Secure Tunnel (`OpenTunnel`, `services=SSH`) to the device. Returns `{tunnelId, sourceAccessToken, region}` -- the *destination* token goes straight to the device over MQTT (`krabby agent`, not through this service). |
-| `DELETE` | `/devices/{thingName}/ssh-tunnel/{tunnelId}` | operator group | Force-closes the tunnel (`CloseTunnel`, `delete=True`). |
+| `POST` | `/devices/{thingName}/ssh-tunnel` | operator group | Opens or **reuses** a Secure Tunnel for SSH. If an `OPEN` tunnel already exists for the thing, calls `RotateTunnelAccessToken` (no `TunnelsOpened` charge) and returns a fresh `sourceAccessToken`; otherwise `OpenTunnel` (`services=SSH`, 12h max lifetime). Returns `{tunnelId, sourceAccessToken, region}` -- the *destination* token goes straight to the device over MQTT (`krabby agent`, not through this service). |
+| `DELETE` | `/devices/{thingName}/ssh-tunnel/{tunnelId}` | operator group | Force-closes the tunnel (`CloseTunnel`, `delete=True`). Normal SSH sessions leave the tunnel `OPEN` for reuse. |
 | `GET` | `/teleop/ice-servers` | operator group | Returns `{"version":1,"iceServers":[...],"ttlSeconds":N}` — Google STUN plus short-lived coturn TURN credentials (HMAC REST API). Same `iceServers` shape as the existing teleop stack's `GET /api/teleop-config`. |
 | `WS` | `/devices/{thingName}/teleop/signaling` | operator group | Bidirectional WebRTC signaling bridge: browser JSON ↔ IoT MQTT `teleop/{thingName}/signaling/in` and `.../out`. Message shape is unchanged from the existing teleop stack. |
 
@@ -56,6 +56,8 @@ Secrets Manager `/krabby/fleet/turn-auth-secret` + the fleet DNS name):
 | `KRABBY_FLEET_TURN_AUTH_SECRET` | coturn `static-auth-secret` (HMAC key) |
 | `KRABBY_FLEET_TURN_HOST` | Hostname in `turn:` URLs (fleet domain) |
 | `KRABBY_FLEET_TURN_TTL_SECS` | Credential lifetime (default 3600) |
+| `KRABBY_FLEET_LOG_LEVEL` | App log level (default `INFO`) |
+| `KRABBY_FLEET_SIGNALING_TRACE` | Set to `1` to log every teleop/MQTT frame at DEBUG (temporary triage only) |
 
 For local dev/tests, set `KRABBY_FLEET_COGNITO_USER_POOL_ID` /
 `KRABBY_FLEET_COGNITO_APP_CLIENT_ID` / `KRABBY_FLEET_IOT_ATS_ENDPOINT` /
@@ -73,6 +75,43 @@ On startup the service opens **one** persistent MQTT connection to IoT Core
 * receives MQTT frames from `teleop/{thing}/signaling/out` as WS text (robot → cloud)
 
 The robot side is `krabby agent`'s localhost shim (`--teleop-ip 127.0.0.1`).
+
+**Production logging:** at default `INFO`, the journal records startup, MQTT
+connect/subscribe/resume, teleop session open/close, stalls, and errors — not
+every `hello`/`ping` (those are DEBUG). Enable
+`KRABBY_FLEET_SIGNALING_TRACE=1` in `/etc/krabby-fleet/service.env` only while
+debugging, then remove it.
+
+### Teleop bridge triage (one deploy)
+
+After deploy + `systemctl restart krabby-fleet-service` and `systemctl reload caddy`,
+open portal teleop once and map **journalctl** lines to the failure:
+
+| Log line | Meaning |
+|---|---|
+| `fleet startup region=… iot_ats=…` | Config loaded; verify region matches IoT console |
+| `fleet MQTT connected …` | CRT MQTT path OK at startup |
+| `fleet MQTT subscribed filter=teleop/+/signaling/out` | Return path armed |
+| `teleop signaling session open thing=…` | Browser reached Uvicorn (auth is DEBUG unless tracing) |
+| `teleop signaling stall … no text frame in 30s` | Caddy/proxy or browser not delivering WS payloads |
+| `signaling browser→mqtt …` / `fleet MQTT publish ack …` | DEBUG — enable `KRABBY_FLEET_SIGNALING_TRACE=1` |
+| `publish signaling/in failed` / `fleet MQTT publish failed` | IAM, disconnect, or wrong endpoint — full stack trace in journal |
+| `signaling mqtt→browser …` but `dropped … no active WebSocket` | Robot `out` arrived with no portal session |
+| `fleet MQTT interrupted` / `connection failure` | Long-lived bridge issue; resubscribe runs on resume |
+
+**Before** blaming the bridge, run MQTT smoke on the instance (same CRT client as the service):
+
+```bash
+sudo -u krabby-fleet AWS_REGION=us-east-2 AWS_DEFAULT_REGION=us-east-2 \
+  python3 /opt/krabby-fleet-service/src/scripts/signaling_mqtt_smoke.py --thing bench-krabby-ci
+```
+
+If smoke **publish ack** appears on IoT `…/signaling/in` but portal does not, the bug is WebSocket/Caddy. If smoke **fails**, fix IAM/endpoint before retesting teleop.
+
+```bash
+curl -sS http://127.0.0.1:8080/healthz | jq .
+sudo journalctl -u krabby-fleet-service --since "5 minutes ago" | grep -E 'signaling|fleet MQTT|teleop'
+```
 
 ## ICE / TURN
 
@@ -98,7 +137,8 @@ krabby-fleet-service   # binds 127.0.0.1:8080
 
 Opening a real tunnel or signaling MQTT still needs real AWS credentials
 with the FleetServiceStack instance-role permissions (`iot:OpenTunnel` /
-`CloseTunnel` / `DescribeTunnel` plus `iot:Connect`/`Publish`/`Subscribe`/
+`CloseTunnel` / `DescribeTunnel` / `ListTunnels` / `RotateTunnelAccessToken`
+plus `iot:Connect`/`Publish`/`Subscribe`/
 `Receive` on `teleop/*/signaling/*`).
 For local testing, whatever `boto3` / the CRT default credential chain
 resolves from your environment.

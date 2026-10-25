@@ -103,7 +103,10 @@ hal/server/jetson/
 ├── pyproject.toml      # Package configuration
 ├── README.md           # This file
 ├── __init__.py         # Package init
-├── main.py             # Entry point with integrated inference
+├── main.py             # Entry point; routes on --control-source
+├── main_gamepad.py     # gamepad: HAL over TCP for krabby-uno (no torch/teleop imports)
+├── main_model.py       # inference / portal: policy client and/or WebRTC teleop
+├── runtime.py          # HAL setup, data collector, and control loop shared by both
 └── hal_server.py       # JetsonHalServer implementation
 ```
 

@@ -28,10 +28,10 @@ jobs:
     timeout-minutes: 15
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -44,7 +44,7 @@ jobs:
           npm test
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -74,12 +74,13 @@ jobs:
       contents: read
     env:
       BENCH_E2E: "1"
+      TUNNEL_E2E_DEBUG: "1"
       COGNITO_CI_PASSWORD: ${{ secrets.COGNITO_CI_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -88,6 +89,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e fleet/config
           python -m krabby_fleet_config.github_actions
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ env.FLEET_CI_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR Public
+        run: aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Install localproxy (source mode, amd64)
         run: |
@@ -105,11 +115,18 @@ jobs:
           pip install -r fleet/infra/tests_e2e/requirements.txt
           playwright install --with-deps chromium
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.FLEET_CI_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+      - name: Install bench CI SSH key
+        env:
+          BENCH_CI_SSH_PRIVATE_KEY: ${{ secrets.BENCH_CI_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          if [ -z "$BENCH_CI_SSH_PRIVATE_KEY" ]; then
+            echo "::warning::BENCH_CI_SSH_PRIVATE_KEY not set; test_krabby_fleet_ssh_runs_command_end_to_end will fail auth"
+            exit 0
+          fi
+          printf '%s\n' "$BENCH_CI_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
 
       - name: Control-plane bench E2E (Task 1)
         run: pytest fleet/infra/tests_e2e -q

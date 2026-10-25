@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import asyncio
 import collections
+import json
+import os
 import sys
 import threading
 from typing import Any, Deque
@@ -31,8 +33,47 @@ DEFAULT_WS_PATH = "/ws/robot"
 # Bound pending cloud→robot frames while the edge agent is reconnecting.
 _PENDING_MAX = 64
 
-# awscrt.mqtt.QoS.AT_LEAST_ONCE — avoid importing awscrt at module load (tests).
-_QOS_AT_LEAST_ONCE = 1
+def _signaling_trace_enabled() -> bool:
+    """Per-frame MQTT/WS logs (incl. ping). Off by default — set ``KRABBY_TELEOP_SIGNALING_TRACE=1`` to debug."""
+    return os.environ.get("KRABBY_TELEOP_SIGNALING_TRACE", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _log_signaling_frame(*, direction: str, topic: str, text: str) -> None:
+    """Log bridged signaling traffic without spamming journal on every ping."""
+    nbytes = len(text.encode("utf-8"))
+    if _signaling_trace_enabled():
+        preview = text[:120].replace("\n", " ")
+        print(
+            f"[ok]  teleop signaling/{direction} topic={topic} bytes={nbytes}: {preview}",
+            flush=True,
+        )
+        return
+    msg_type: str | None = None
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            msg_type = str(parsed.get("type") or "")
+    except json.JSONDecodeError:
+        pass
+    if msg_type in (None, "", "ping", "pong"):
+        return
+    print(
+        f"[ok]  teleop signaling/{direction} topic={topic} type={msg_type} bytes={nbytes}",
+        flush=True,
+    )
+
+
+def _await_crt(op: Any, *, timeout: float = 10.0) -> None:
+    """Block on awscrt ``publish``/``subscribe`` (``Future`` or ``(Future, packet_id)``)."""
+    if op is None:
+        return
+    future = op[0] if isinstance(op, tuple) else op
+    future.result(timeout=timeout)
 
 
 def signaling_in_topic(thing_name: str) -> str:
@@ -79,10 +120,15 @@ class TeleopSignalingShim:
         self._pending: Deque[str] = collections.deque(maxlen=_PENDING_MAX)
         self._lock = threading.Lock()
         self._start_error: BaseException | None = None
+        self._qos_at_least_once: Any = None
 
     @property
     def ws_url(self) -> str:
         return local_signaling_ws_url(host=self._host, port=self._port, path=self._path)
+
+    def robot_edge_connected(self) -> bool:
+        ws = self._robot_ws
+        return ws is not None and not getattr(ws, "closed", True)
 
     def start(self, connection: Any, thing_name: str) -> None:
         """Subscribe MQTT ``…/signaling/in`` and serve the local ``/ws/robot`` endpoint."""
@@ -94,11 +140,20 @@ class TeleopSignalingShim:
         self._out_topic = signaling_out_topic(thing_name)
         in_topic = signaling_in_topic(thing_name)
 
-        connection.subscribe(
-            topic=in_topic,
-            qos=_QOS_AT_LEAST_ONCE,
-            callback=self._on_mqtt_in,
-        )
+        from awscrt import mqtt
+
+        self._qos_at_least_once = mqtt.QoS.AT_LEAST_ONCE
+        try:
+            _await_crt(
+                connection.subscribe(
+                    topic=in_topic,
+                    qos=self._qos_at_least_once,
+                    callback=self._on_mqtt_in,
+                ),
+                timeout=30.0,
+            )
+        except Exception as exc:
+            raise RuntimeError(f"teleop signaling subscribe failed topic={in_topic}: {exc}") from exc
         print(f"[ok]  subscribed to {in_topic}")
 
         self._thread = threading.Thread(
@@ -121,6 +176,28 @@ class TeleopSignalingShim:
         print(f"[ok]  teleop signaling shim listening on {self.ws_url}")
         print(f"      point the WebRTC edge agent at it with --teleop-ip {self._host}")
 
+    def resubscribe_mqtt(self) -> None:
+        """Re-subscribe signaling/in after MQTT reconnect (session may not persist)."""
+        if self._connection is None or self._thing_name is None:
+            return
+        in_topic = signaling_in_topic(self._thing_name)
+        try:
+            _await_crt(
+                self._connection.subscribe(
+                    topic=in_topic,
+                    qos=self._qos_at_least_once,
+                    callback=self._on_mqtt_in,
+                ),
+                timeout=30.0,
+            )
+        except Exception as exc:
+            print(
+                f"[err] teleop signaling resubscribe failed topic={in_topic}: {exc}",
+                file=sys.stderr,
+            )
+            return
+        print(f"[ok]  resubscribed to {in_topic}")
+
     def stop(self) -> None:
         """Stop the local WS server (MQTT connection is owned by the agent)."""
         self._stop.set()
@@ -130,12 +207,21 @@ class TeleopSignalingShim:
         self._loop = None
         self._ready.clear()
 
+    def _maybe_cold_start_locomotion(self) -> None:
+        if self.robot_edge_connected():
+            return
+        from krabby._locomotion_config import request_locomotion_start
+
+        request_locomotion_start()
+
     def _on_mqtt_in(self, topic: str, payload: bytes, **kwargs: Any) -> None:
         try:
             text = payload.decode("utf-8") if isinstance(payload, (bytes, bytearray)) else str(payload)
         except UnicodeDecodeError:
             print(f"[err] teleop signaling/in: non-utf8 payload on {topic}", file=sys.stderr)
             return
+        _log_signaling_frame(direction="in", topic=topic, text=text)
+        self._maybe_cold_start_locomotion()
         loop = self._loop
         if loop is None or not loop.is_running():
             with self._lock:
@@ -148,6 +234,7 @@ class TeleopSignalingShim:
         if ws is not None and not ws.closed:
             asyncio.create_task(self._safe_send(ws, text))
         else:
+            self._maybe_cold_start_locomotion()
             with self._lock:
                 self._pending.append(text)
 
@@ -161,13 +248,21 @@ class TeleopSignalingShim:
         if self._connection is None or self._out_topic is None:
             return
         try:
-            self._connection.publish(
-                topic=self._out_topic,
-                payload=text,
-                qos=_QOS_AT_LEAST_ONCE,
+            _await_crt(
+                self._connection.publish(
+                    topic=self._out_topic,
+                    payload=text,
+                    qos=self._qos_at_least_once,
+                ),
+                timeout=10.0,
             )
+            _log_signaling_frame(direction="out", topic=self._out_topic, text=text)
         except Exception as exc:
-            print(f"[err] teleop signaling/out publish failed: {exc}", file=sys.stderr)
+            print(
+                f"[err] teleop signaling/out publish failed topic={self._out_topic}: {exc}",
+                file=sys.stderr,
+                flush=True,
+            )
 
     def _thread_main(self) -> None:
         try:
@@ -208,6 +303,7 @@ class TeleopSignalingShim:
             if prev is not None and not prev.closed:
                 await prev.close()
             shim._robot_ws = ws
+            print(f"[ok]  teleop edge WebSocket connected ({shim.ws_url})", flush=True)
 
             with shim._lock:
                 pending = list(shim._pending)
@@ -229,6 +325,7 @@ class TeleopSignalingShim:
             finally:
                 if shim._robot_ws is ws:
                     shim._robot_ws = None
+                    print("[ok]  teleop edge WebSocket disconnected", flush=True)
             return ws
 
         app = web.Application()

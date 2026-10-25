@@ -8,4 +8,4 @@
 //   Rev 3: Port B PCINT0 (D50,D51,D52) + Port K PCINT2 (A12,A13,A14)
 
 void hallHwInit();
-uint32_t hallHwGetEdgeCount(uint8_t hallSlot);
+int32_t hallHwGetEdgeCount(uint8_t hallSlot);

@@ -30,7 +30,8 @@ from krabby.teleop_shim import TeleopSignalingShim
 SHADOW_REPORT_INTERVAL_SECS = 60
 
 # Secure Tunneling destination proxy: spawn on notify, reap on exit, don't
-# leave zombies.
+# leave zombies. A new notify (OpenTunnel or RotateTunnelAccessToken) revokes
+# prior destination tokens — kill any running destination localproxy first.
 _LOCALPROXY_BIN = "localproxy"
 _SSH_DEST = "localhost:22"
 _tunnel_procs: list[subprocess.Popen] = []
@@ -54,6 +55,21 @@ def _reap_tunnel_procs() -> None:
     _tunnel_procs = still_running
 
 
+def _stop_tunnel_procs() -> None:
+    """Terminate destination localproxy children (e.g. before a token rotate)."""
+    global _tunnel_procs
+    for proc in _tunnel_procs:
+        if proc.poll() is None:
+            print(f"[+]   stopping destination localproxy (pid {proc.pid})")
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+    _tunnel_procs = []
+
+
 def _on_tunnel_notify(topic: str, payload: bytes, **kwargs: Any) -> None:
     import shutil
 
@@ -73,6 +89,7 @@ def _on_tunnel_notify(topic: str, payload: bytes, **kwargs: Any) -> None:
         print(f"[err] {_LOCALPROXY_BIN} not installed — run `krabby enroll` again", file=sys.stderr)
         return
 
+    _stop_tunnel_procs()
     print(f"[+]   tunnel notify received (services={services}) — spawning destination localproxy")
     # -c /etc/ssl/certs: arm64/Jetson OpenSSL often fails TLS to the tunneling
     # endpoint with "unregistered scheme (STORE routines)" without an explicit CA path
@@ -95,33 +112,32 @@ def _on_shadow_update_rejected(error: Any) -> None:
     print(f"[err] shadow update rejected: code={error.code} message={error.message}", file=sys.stderr)
 
 
-def _publish_shadow_report(shadow_client: Any, thing_name: str) -> None:
+def _publish_shadow_report(shadow_client: Any, thing_name: str, teleop_shim: TeleopSignalingShim) -> None:
     from awscrt import mqtt
     from awsiot import iotshadow
 
     from krabby.telemetry import collect_telemetry
 
+    reported = collect_telemetry(teleop_edge_connected=teleop_shim.robot_edge_connected())
     request = iotshadow.UpdateShadowRequest(
         thing_name=thing_name,
-        state=iotshadow.ShadowState(reported=collect_telemetry()),
+        state=iotshadow.ShadowState(reported=reported),
     )
     shadow_client.publish_update_shadow(request, mqtt.QoS.AT_LEAST_ONCE)
 
 
-def cmd_agent() -> None:
+def _subscribe_agent_mqtt(
+    connection: Any,
+    shadow_client: Any,
+    thing_name: str,
+    teleop_shim: TeleopSignalingShim,
+    *,
+    resubscribe: bool,
+) -> None:
+    """Register shadow, Secure Tunnel notify, and teleop signaling subscriptions."""
     from awscrt import mqtt
     from awsiot import iotshadow
 
-    config = _iot.load_config()
-    thing_name = config["thing_name"]
-    endpoint = config["endpoint"]
-
-    print(f"Connecting to {endpoint} as {thing_name} ...")
-    connection = _iot.build_mqtt_connection(thing_name, endpoint)
-    connection.connect().result()
-    print(f"[ok]  connected as {thing_name}")
-
-    shadow_client = iotshadow.IotShadowClient(connection)
     shadow_client.subscribe_to_update_shadow_accepted(
         request=iotshadow.UpdateShadowSubscriptionRequest(thing_name=thing_name),
         qos=mqtt.QoS.AT_LEAST_ONCE,
@@ -139,16 +155,58 @@ def cmd_agent() -> None:
         qos=mqtt.QoS.AT_LEAST_ONCE,
         callback=_on_tunnel_notify,
     )
-    print(f"[ok]  subscribed to {tunnels_notify_topic}")
+    verb = "resubscribed" if resubscribe else "subscribed"
+    print(f"[ok]  {verb} to {tunnels_notify_topic}")
+
+    if resubscribe:
+        teleop_shim.resubscribe_mqtt()
+    else:
+        teleop_shim.start(connection, thing_name)
+
+
+def cmd_agent() -> None:
+    from awsiot import iotshadow
+
+    config = _iot.load_config()
+    thing_name = config["thing_name"]
+    endpoint = config["endpoint"]
 
     teleop_shim = TeleopSignalingShim()
-    teleop_shim.start(connection, thing_name)
+    shadow_client_holder: list[Any] = []
+
+    def _on_mqtt_resumed(connection: Any, return_code: Any, session_present: Any, **kwargs: Any) -> None:
+        if not shadow_client_holder:
+            return
+        print(
+            f"[+]   MQTT resumed — re-registering IoT subscriptions "
+            f"(session_present={session_present})"
+        )
+        _subscribe_agent_mqtt(
+            connection,
+            shadow_client_holder[0],
+            thing_name,
+            teleop_shim,
+            resubscribe=True,
+        )
+
+    print(f"Connecting to {endpoint} as {thing_name} ...")
+    connection = _iot.build_mqtt_connection(
+        thing_name, endpoint, on_connection_resumed=_on_mqtt_resumed
+    )
+    connection.connect().result()
+    print(f"[ok]  connected as {thing_name}")
+
+    shadow_client = iotshadow.IotShadowClient(connection)
+    shadow_client_holder.append(shadow_client)
+    _subscribe_agent_mqtt(
+        connection, shadow_client, thing_name, teleop_shim, resubscribe=False
+    )
 
     print(f"      reporting shadow state every {SHADOW_REPORT_INTERVAL_SECS}s. Ctrl-C to stop.")
     try:
         while True:
             _reap_tunnel_procs()
-            _publish_shadow_report(shadow_client, thing_name)
+            _publish_shadow_report(shadow_client, thing_name, teleop_shim)
             time.sleep(SHADOW_REPORT_INTERVAL_SECS)
     except KeyboardInterrupt:
         print("\n[ok]  shutting down")

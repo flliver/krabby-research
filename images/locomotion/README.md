@@ -1,17 +1,12 @@
 # Locomotion Container
 
-## Canonical install path
+## Kit operators
 
-```bash
-pip install krabby-launcher
-krabby install            # pull release-latest, set up udev + dialout
-krabby firmware show      # verify boards
-krabby run                # start the full stack (HAL server + gamepad client + controller)
-```
-
-`krabby run` starts the HAL server **and** the krabby-uno client/controller together, wiring GPU flags, serial + input device passthrough, and ZMQ ports automatically. See [krabby/README.md](../../krabby/README.md) for the full CLI reference.
+To install and run the published image on a kit host, follow the root [README.md](../../README.md) Software quick-start (`krabby install` / `krabby run`). CLI details: [krabby/README.md](../../krabby/README.md). The rest of this document is for image maintainers.
 
 ---
+
+## Maintainers
 
 This directory contains two Dockerfiles for the Jetson Orin robot deployment.
 
@@ -20,9 +15,7 @@ This directory contains two Dockerfiles for the Jetson Orin robot deployment.
 | **Dev** | `Dockerfile` | Monorepo `COPY` (local wheels) | No |
 | **Production** | `Dockerfile.release` | PyPI packages (pinned versions) | Yes |
 
----
-
-## Dev Image
+### Dev Image
 
 For developers iterating on HAL or compute code locally. Builds directly from the monorepo — no PyPI version bump required to test changes.
 
@@ -37,13 +30,19 @@ docker run --rm --gpus all \
     --checkpoint /workspace/checkpoints/checkpoint.pt
 ```
 
----
-
-## Production Image
+### Production Image
 
 Installs Krabby packages from PyPI with pinned versions. Bundled with `avrdude`, `arduino-cli` (Mega 2560 core, same pin as firmware CI), and `krabby-firmware` so MCU flashing works from inside the container without host-side flash tools.
 
-### Pulling from ECR Public
+**Pre-push gate:** [`.github/workflows/publish-locomotion.yml`](../../.github/workflows/publish-locomotion.yml) builds the full [`Dockerfile.release`](Dockerfile.release) (`push: false`), runs `--help` (expects `--teleop-ip`), then builds and pushes to ECR. Reproduce locally:
+
+```bash
+docker buildx build --platform linux/arm64 \
+  -f images/locomotion/Dockerfile.release -t krabby-locomotion-release:ci --load .
+docker run --rm --network host krabby-locomotion-release:ci --help | grep teleop-ip
+```
+
+#### Pulling from ECR Public
 
 No AWS credentials required — ECR Public allows anonymous pulls.
 
@@ -53,8 +52,8 @@ ECR=public.ecr.aws/t7t7b3i3/krabby-locomotion
 # Latest release build — the default channel `krabby install`/`run` pull
 docker pull ${ECR}:release-latest
 
-# Latest mainline (development) build
-docker pull ${ECR}:mainline-latest
+# Latest main (development) build
+docker pull ${ECR}:main-latest
 
 # Specific commit
 docker pull ${ECR}:<sha7>
@@ -63,7 +62,7 @@ docker pull ${ECR}:<sha7>
 docker pull ${ECR}:0.2.9
 ```
 
-### Running
+#### Running
 
 ```bash
 docker run --rm --gpus all \
@@ -80,12 +79,12 @@ docker run --rm --gpus all \
     krabby-firmware show
 ```
 
-### Tag Scheme
+#### Tag Scheme
 
 | Tag | Updated on |
 |-----|-----------|
 | `<sha7>` | Every push to a tracked branch |
-| `mainline-latest` | Every push to `mainline` |
+| `main-latest` | Every push to `main` (dev channel) |
 | `release-<x-y-z>-latest` | Every push to `release/x.y.z` |
 | `release-latest` | The newest `release/*` build (most recent push wins); **default channel** for `krabby install`/`run` |
 | `<semver>` (e.g. `0.2.9`) | Push of a `locomotion-v*` tag |
@@ -94,7 +93,7 @@ In addition to per-commit pushes, a daily scheduled build (`on: schedule`, 07:30
 rebuilds and publishes the newest `release/*` branch, keeping `release-latest` fresh
 even on quiet days. GitHub may delay or skip scheduled runs under load.
 
-### PyPI Packages
+#### PyPI Packages
 
 Pinned in `requirements.release.txt`:
 
@@ -108,26 +107,25 @@ krabby-controller==0.1.2
 krabby-firmware==0.2.9
 ```
 
-`krabby-data-collection` and `krabby-teleop-edge` are not yet published to PyPI and are excluded from the production image.
+`krabby-data-collection` is not yet published to PyPI and is excluded from the production image. Fleet teleop requires **`krabby-teleop-edge`** (pinned in `requirements.release.txt`).
 
-### Bumping Pins
+#### Bumping Pins
 
 1. Edit the `==` versions in `requirements.release.txt`
-2. Push to `mainline` or a `release/*` branch
+2. Push to `main` or a `release/*` branch
 3. CI builds and pushes the new image automatically
+4. On publish success, **Artifact health** runs — it waits so it can **pull** the new image (`main-latest` / `release-latest`) and smoke it (see `bench/README.md` → CI: artifact health)
 
-### Bundled Flash Tooling
+#### Bundled Flash Tooling
 
 The production image includes:
 - `avrdude` (via apt) — for direct AVR flashing
 - `arduino-cli` 1.1.1 (ARM64) + `arduino:avr` Mega 2560 core — same pin as firmware CI
 - `krabby-firmware` — `show`, `update`, and `install` subcommands
 
-Host-side `udev` rules and `dialout` group membership are not handled by the container; run `krabby --install` on the host (Task 3).
+Host-side `udev` rules and `dialout` group membership are not handled by the container; run `krabby install` on the host.
 
----
-
-## Overview
+### Overview
 
 Both images combine:
 - **Policy inference** (`krabby-compute-parkour`) — policy wrapper and model inference
@@ -136,14 +134,14 @@ Both images combine:
 
 All components communicate via **inproc ZMQ** (same process, zero-copy).
 
-## Configuration
+### Configuration
 
 - **Base image**: `nvcr.io/nvidia/pytorch:25.10-py3-igpu` (JetPack 6+)
 - **Architecture**: ARM64 (aarch64) for Jetson
 - **Communication**: inproc ZMQ (same process)
 - **Control rate**: 100+ Hz
 
-## Notes
+### Notes
 
 - ZED SDK Python bindings (`pyzed`) require ZED SDK installed on the system (via NVIDIA installer). The Dockerfile installs it automatically.
 - If ZED SDK is not available, the code gracefully falls back to mock camera mode.

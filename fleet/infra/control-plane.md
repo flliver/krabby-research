@@ -13,9 +13,7 @@ source .venv/bin/activate
 ./scripts/deploy-control-plane.sh
 ```
 
-See [README.md](README.md) for credentials, bootstrap (if needed), and the
-`krabby-enroll` access-key one-liner. Enroll: [ENROLL.md](../ENROLL.md).
-One-source SSH: [SSH-TUNNEL.md](../SSH-TUNNEL.md).
+Prerequisites (venv, deploy credentials, bootstrap): [README.md](README.md).
 
 ## Resources
 

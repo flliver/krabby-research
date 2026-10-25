@@ -25,6 +25,14 @@ from hal.server.sensor_interface import (
     SensorPose,
 )
 
+# Logical RGB-D ids in ``HardwareObservations.rgbd_by_catalog_id`` and rosbag ``/camera/{id}/*``.
+# Same strings as Jetson catalog rows for cross-backend bags; Isaac defines them here.
+ISAAC_HAL_RGBD_CATALOG_IDS: tuple[str, ...] = (
+    "front_rgbd",
+    "side_right_rgbd",
+    "side_left_rgbd",
+)
+
 _SIDE_RIGHT_POSE = SensorPose(
     0.0, -0.08, 0.12, 0.0, 0.0, -0.7071067811865476, 0.7071067811865476
 )

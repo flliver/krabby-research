@@ -1,15 +1,13 @@
 """
 Interactive MCU menu. Run with: python -m firmware [--debug]
-Works over SSH / headless — uses termios + select, no X11 required.
+Works over SSH / headless — uses termios + select (msvcrt on Windows), no X11 required.
 """
 import argparse
 import select
 import sys
-import tty
-import termios
 import logging
 import time
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply, logger
 
@@ -31,19 +29,27 @@ _HOLD_WINDOW = 0.15  # seconds
 _BOARD_ROLES = ("front  ", "left   ", "right  ")  # padded for log column alignment
 
 
-def _read_keys(fd: int) -> None:
-    """Drain all bytes currently in stdin and refresh _last_seen timestamps."""
-    global _quit
-    while select.select([fd], [], [], 0)[0]:
+if sys.platform == "win32":
+    import msvcrt
+
+    def _next_key() -> Optional[str]:
+        return msvcrt.getwch() if msvcrt.kbhit() else None
+else:
+    def _next_key() -> Optional[str]:
+        if not select.select([sys.stdin], [], [], 0)[0]:
+            return None
         ch = sys.stdin.buffer.read(1)
-        if not ch:
-            break
-        if ch == b"\x1b":
+        return ch.decode("utf-8", errors="ignore") if ch else None
+
+
+def _read_keys() -> None:
+    """Drain all pending keypresses and refresh _last_seen timestamps."""
+    global _quit
+    while (ch := _next_key()) is not None:
+        if ch == "\x1b":
             _quit = True
-        else:
-            c = ch.decode("utf-8", errors="ignore").lower()
-            if c:
-                _last_seen[c] = time.monotonic()
+        elif ch:
+            _last_seen[ch.lower()] = time.monotonic()
 
 
 def is_pressed(k: str) -> bool:
@@ -116,11 +122,16 @@ def main():
     if not mcu.connect():
         return
 
-    fd = sys.stdin.fileno()
-    old_settings = termios.tcgetattr(fd)
+    posix = sys.platform != "win32"
+    if posix:
+        import tty
+        import termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
 
     try:
-        tty.setcbreak(fd)
+        if posix:
+            tty.setcbreak(fd)
 
         print("\n=== Krabby MCU — Direct key control (18 joints) ===")
         print("Extend: Q W E R T Y  |  Retract: A S D F G H")
@@ -131,7 +142,7 @@ def main():
         prev_jog = {}
 
         while True:
-            _read_keys(fd)
+            _read_keys()
 
             if _quit:
                 logger.info("ESC — quitting")
@@ -188,8 +199,9 @@ def main():
     except KeyboardInterrupt:
         mcu.send_command_joints_hold()
     finally:
-        termios.tcflush(fd, termios.TCIFLUSH)
-        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        if posix:
+            termios.tcflush(fd, termios.TCIFLUSH)
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         mcu.close()
 
 

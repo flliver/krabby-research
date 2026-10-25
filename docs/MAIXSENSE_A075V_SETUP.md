@@ -16,7 +16,7 @@ Also used with **`front_rgbd`** when **`camera_driver="maixsense_a075v"`**. Endp
 ## Single module (USB link)
 
 1. **USB** — Often **`0525:a4a2`** (RNDIS). Module default IP **`192.168.233.1`** on **`usb0`**.
-2. **Jetson** — Module **`udhcpd`** usually assigns **`192.168.233.100/24`** on the **`enx…`** link; no manual **`ip addr`** for one module.
+2. **Jetson** — Module **`udhcpd`** usually assigns **`192.168.233.100/24`** on the RNDIS link (**`enx…`** or **`usb0` / `usb1`**, depending on udev); no manual **`ip addr`** for one module. Confirm with `ip -br link`.
 3. **Reachability** — `ip route get 192.168.233.1`; `ping -c 3 192.168.233.1`; `curl -sS -o /dev/null -w '%{http_code}\n' http://192.168.233.1/` (expect **`200`**).
 4. **Web UI** — `http://192.168.233.1` (~15 s after power-on). Remote: `ssh -N -L 8080:192.168.233.1:80 USER@JETSON` → `http://127.0.0.1:8080`.
 5. **SSH to module** — **`root` / `root`**; OpenSSH needs **`+ssh-rsa`**:
@@ -88,13 +88,16 @@ Plug **right** and **left** into **separate USB ports**. Wait ~15 s. Right stays
 
 ### Step 3 — Persist `/32` routes (NetworkManager dispatcher)
 
-Stock Jetson Ubuntu 22.04 images use NetworkManager for USB **`enx…`** links; confirm before installing:
+Stock Jetson Ubuntu 22.04 images use NetworkManager for the USB RNDIS links; confirm before installing:
 
 ```bash
 systemctl is-active NetworkManager    # expect: active
+ip -br link | awk '/^(enx|usb[0-9])/ { print }'   # expect enx… and/or usb0, usb1
 ```
 
-With both modules on the same **`/24`**, the kernel may route **`.1`** and **`.2`** through one **`enx…`** after reboot. Install a dispatcher hook: on each **`enx… up`**, discover which link owns each IP (ping with **`-I`**) and **`ip route replace …/32`**. Partial mapping is OK — the first **`up`** may only map one side; the second **`up`** completes both.
+Host iface names vary: some images show **`enx…`** (MAC-based), others **`usb0` / `usb1`**. The dispatcher must match **both**; an `enx`-only filter is a silent no-op when links are named `usb*`.
+
+With both modules on the same **`/24`**, the kernel may route **`.1`** and **`.2`** through one RNDIS iface after reboot. Install a dispatcher hook: on each RNDIS **`up`**, discover which link owns each IP (ping with **`-I`**) and **`ip route replace …/32`**. Partial mapping is OK — the first **`up`** may only map one side; the second **`up`** completes both.
 
 ```bash
 sudo tee /etc/NetworkManager/dispatcher.d/99-maixsense-routes > /dev/null <<'EOF'
@@ -103,7 +106,7 @@ IFACE="$1"
 ACTION="$2"
 
 [[ "$ACTION" == "up" ]] || exit 0
-[[ "$IFACE" =~ ^enx ]] || exit 0
+[[ "$IFACE" =~ ^(enx|usb[0-9]+) ]] || exit 0
 
 RIGHT_IP=192.168.233.1
 LEFT_IP=192.168.233.2
@@ -113,7 +116,7 @@ sleep "$BOOT_WAIT_SEC"
 
 right_usb=""
 left_usb=""
-for dev in $(ip -br link | awk '/^enx/ && $2 == "UP" { print $1 }'); do
+for dev in $(ip -br link | awk '/^(enx|usb[0-9]+)/ && $2 == "UP" { print $1 }'); do
   ping -c 1 -W 1 -I "$dev" "$RIGHT_IP" >/dev/null 2>&1 && right_usb="$dev"
   ping -c 1 -W 1 -I "$dev" "$LEFT_IP" >/dev/null 2>&1 && left_usb="$dev"
 done
@@ -126,7 +129,16 @@ EOF
 sudo chmod 755 /etc/NetworkManager/dispatcher.d/99-maixsense-routes
 ```
 
-Replug USB or `sudo nmcli device reapply enx…`.
+If an older `enx`-only copy of this script is already installed, replace it with the version above (or the hook will never run on `usb0`/`usb1` hosts).
+
+Replug USB or `sudo nmcli device reapply <iface>` for each RNDIS link (`enx…` or `usb0`/`usb1`).
+
+**Immediate (non-persistent) check** — after discovering which iface owns which IP with `ping -I`:
+
+```bash
+sudo ip route replace 192.168.233.1/32 dev <right_iface>
+sudo ip route replace 192.168.233.2/32 dev <left_iface>
+```
 
 ### Step 4 — Verify both modules
 
@@ -137,7 +149,7 @@ curl -sS -o /dev/null -w 'right %{http_code}\n' http://192.168.233.1/
 curl -sS -o /dev/null -w 'left %{http_code}\n' http://192.168.233.2/
 ```
 
-Expect different **`dev enx…`** per destination; both HTTP **`200`**. Reboot and repeat before starting HAL.
+Expect different **`dev`** per destination (`enx…` or `usbN`); both HTTP **`200`**. Reboot and repeat before starting HAL.
 
 ### Step 5 — Verify catalog
 

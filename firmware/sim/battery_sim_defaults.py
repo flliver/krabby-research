@@ -1,0 +1,16 @@
+"""Default host-sim pack values (keep in sync with battery_sim_constants.hpp)."""
+
+DEFAULT_PACK_V = 26.40
+DEFAULT_PACK_A = 1.250
+DEFAULT_PACK_W = DEFAULT_PACK_V * DEFAULT_PACK_A
+DEFAULT_PACK_CHARGE_C = 100000.0
+DEFAULT_BATT_A_V = 13.20
+DEFAULT_BATT_B_V = DEFAULT_PACK_V - DEFAULT_BATT_A_V
+
+# M16 nominal ranges for acceptance tests.
+M16_PACK_V_MIN = 25.0
+M16_PACK_V_MAX = 27.0
+M16_CELL_V_MIN = 12.0
+M16_CELL_V_MAX = 14.0
+
+BATT_TELEMETRY_TAG = "BATT"

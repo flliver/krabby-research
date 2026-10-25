@@ -27,6 +27,8 @@ def _fleet_config_env() -> None:
 class NoopMqtt:
     """Stand-in MQTT client for REST-only tests (subscribe/publish are no-ops)."""
 
+    connected = True
+
     def subscribe(self, topic: str, callback: Any) -> None:
         pass
 

@@ -40,6 +40,7 @@ static constexpr uint8_t LSM6DSO_ALTERNATE_ADDRESS = 0x6A;
 static constexpr uint8_t LSM6DSO_OUTPUT_START_REGISTER = 0x20;
 static constexpr uint8_t LSM6DSO_NUM_SAMPLE_BYTES = 14;
 
+// Standard-mode I2C, the shared bus's normal rate.
 static constexpr uint32_t I2C_DEFAULT_BUS_CLOCK_HZ = 100000UL;
 
 // Exceeds the longest transfer (~2.25 ms at 100 kHz), stays under the 50 ms tick.

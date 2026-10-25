@@ -9,6 +9,7 @@ from typing import Any, Callable, Optional
 
 from aiortc import RTCPeerConnection, RTCSessionDescription
 
+from teleop.edge.ice_util import rtc_configuration_from_ice_servers
 from teleop.edge.qos import TeleopQosController
 from teleop.edge.qos_monitor import run_qos_stats_loop
 from teleop.edge.telemetry import TELEMETRY_CHANNEL_LABEL
@@ -69,6 +70,7 @@ async def wait_for_gathering_complete(pc: RTCPeerConnection, timeout_s: float = 
 async def create_answer_for_offer(
     offer_sdp: str,
     *,
+    ice_servers: list[dict[str, Any]] | None = None,
     video_track_factory: Callable[[int], Any] | None = None,
     control_message_handler: Callable[[dict[str, Any]], None] | None = None,
     telemetry_getter: TelemetryGetter | None = None,
@@ -82,7 +84,8 @@ async def create_answer_for_offer(
     no built-in synthetic source in production code.
     """
     offer = RTCSessionDescription(sdp=offer_sdp, type="offer")
-    pc = RTCPeerConnection()
+    rtc_cfg = rtc_configuration_from_ice_servers(ice_servers)
+    pc = RTCPeerConnection(configuration=rtc_cfg) if rtc_cfg is not None else RTCPeerConnection()
     await pc.setRemoteDescription(offer)
     n_video = count_video_m_lines(offer_sdp)
     assert video_track_factory is not None or n_video == 0
@@ -136,6 +139,7 @@ async def create_answer_for_offer(
 async def handle_first_offer_message(
     payload: dict[str, Any],
     *,
+    ice_servers: list[dict[str, Any]] | None = None,
     video_track_factory: Callable[[int], Any] | None = None,
     max_video_m_lines: int | None = None,
     control_message_handler: Callable[[dict[str, Any]], None] | None = None,
@@ -190,6 +194,7 @@ async def handle_first_offer_message(
         )
     ans_sdp, pc = await create_answer_for_offer(
         sdp,
+        ice_servers=ice_servers,
         video_track_factory=video_track_factory,
         control_message_handler=control_message_handler,
         telemetry_getter=telemetry_getter,

@@ -187,7 +187,16 @@ def _verify_connect(thing_name: str, endpoint: str) -> bool:
     return True
 
 
-def cmd_enroll(thing_name: Optional[str] = None, endpoint: Optional[str] = None) -> None:
+def cmd_enroll(
+    thing_name: Optional[str] = None,
+    endpoint: Optional[str] = None,
+    *,
+    locomotion_control_source: Optional[str] = None,
+    locomotion_robot: Optional[str] = None,
+    locomotion_checkpoint: Optional[str] = None,
+    locomotion_checkpoint_host_dir: Optional[str] = None,
+    locomotion_teleop_control_echo: bool = False,
+) -> None:
     import boto3
 
     thing = thing_name or _default_thing_name()
@@ -210,14 +219,30 @@ def cmd_enroll(thing_name: Optional[str] = None, endpoint: Optional[str] = None)
     _iot.write_identity(thing, resolved_endpoint, cert_pem, key_pem, root_ca_pem)
     print(f"[+]   wrote device identity to {_iot.IOT_DIR}")
 
+    from krabby._host import _ensure_boot_service
+    from krabby._locomotion_config import LOCOMOTION_SERVICE_NAME, write_default_config
+
+    write_default_config(
+        control_source=locomotion_control_source,
+        robot=locomotion_robot,
+        checkpoint=locomotion_checkpoint,
+        checkpoint_host_dir=locomotion_checkpoint_host_dir,
+        teleop_control_echo=locomotion_teleop_control_echo or None,
+    )
+
     ok = _ensure_localproxy_installed()
     ok &= _iot.ensure_agent_service()
+    ok &= _ensure_boot_service(launch_on_startup=True)
     ok &= _verify_connect(thing, resolved_endpoint)
 
     if ok:
-        print(f"\n[ok]  Enrolled {thing}. Start the agent now with "
-              f"`sudo systemctl start {_iot.AGENT_SERVICE_NAME}` "
-              f"(or it starts automatically on next boot).")
+        subprocess.run(["systemctl", "start", _iot.AGENT_SERVICE_NAME], check=False)
+        subprocess.run(["systemctl", "start", LOCOMOTION_SERVICE_NAME], check=False)
+        print(
+            f"\n[ok]  Enrolled {thing}. "
+            f"`{_iot.AGENT_SERVICE_NAME}` and `{LOCOMOTION_SERVICE_NAME}` enabled "
+            f"(fleet teleop HAL via `krabby run` on boot)."
+        )
     else:
         print("\n[err] Enroll finished with errors — see above.", file=sys.stderr)
         sys.exit(1)

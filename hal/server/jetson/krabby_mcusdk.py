@@ -126,7 +126,7 @@ class KrabbyMCUSDK:
         joint_values_str = ", ".join(
             f"{name}={val:.4f}" for name, val in cmds_by_fw.items()
         )
-        logger.info(
+        logger.debug(
             f"KrabbyMCUSDK: Applied joint command (timestamp_ns={command.timestamp_ns}, observation_timestamp_ns={command.observation_timestamp_ns}): "
             f"{joint_values_str}"
         )

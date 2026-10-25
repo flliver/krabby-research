@@ -31,9 +31,17 @@
     controllerDiagnosticDetails.open = false;
   }
 
+  var statusHistory = [];
+  var STATUS_HISTORY_MAX = 32;
+
   function setConnectionStatus(message) {
+    var text = String(message || '');
+    statusHistory.push({ t_ms: Math.round(performance.now()), status: text });
+    if (statusHistory.length > STATUS_HISTORY_MAX) {
+      statusHistory.shift();
+    }
     if (status) {
-      status.textContent = message;
+      status.textContent = text;
     }
     var m = String(message || '').toLowerCase();
     var phase = 'idle';
@@ -54,6 +62,11 @@
     document.body.setAttribute('data-teleop-phase', phase);
   }
   var params = new URLSearchParams(location.search);
+  var e2eMode = params.get('e2e') === '1';
+  /** When set (E2E ``sendMotionSafeControl``), 50 Hz loop keeps RS high for telemetry echo. */
+  var e2ePinnedControlState = null;
+  /** Manual/debug only — ``e2e=1`` does not force relay (breaks ICE in headless CI). */
+  var forceRelayIce = params.get('ice') === 'relay';
   var token = params.get('token') || (typeof window.TELEOP_ACCESS_TOKEN === 'string' ? window.TELEOP_ACCESS_TOKEN : '');
   var qs = token ? '?token=' + encodeURIComponent(token) : '';
   var httpProto = location.protocol === 'https:' ? 'https:' : 'http:';
@@ -593,6 +606,9 @@
   }
 
   function readGamepadState() {
+    if (e2eMode && e2ePinnedControlState) {
+      return e2ePinnedControlState;
+    }
     if (!operatorOverrideEnabled()) {
       return copyNeutralControllerState();
     }
@@ -732,6 +748,31 @@
     });
   }
 
+  function webrtcPeerReady() {
+    if (!pc) return false;
+    var conn = pc.connectionState;
+    var ice = pc.iceConnectionState;
+    if (conn === 'failed' || ice === 'failed') return false;
+    return (
+      (conn === 'connected' || conn === 'completed') &&
+      (ice === 'connected' || ice === 'completed')
+    );
+  }
+
+  /** ``Playing`` only after ICE is up and the outbound control channel is open. */
+  function updateLiveConnectionStatus() {
+    if (!pc) return;
+    var ice = pc.iceConnectionState;
+    var conn = pc.connectionState;
+    if (conn === 'failed' || ice === 'failed' || conn === 'closed') {
+      setConnectionStatus('WebRTC error: connection ' + conn + ', ICE ' + ice);
+      return;
+    }
+    if (!webrtcPeerReady()) return;
+    if (!controlDc || controlDc.readyState !== 'open') return;
+    setConnectionStatus('Playing');
+  }
+
   function updateDebug() {
     if (!debugEl || !pc) return;
     debugEl.textContent =
@@ -741,6 +782,7 @@
       pc.iceConnectionState +
       ' | signaling: ' +
       pc.signalingState;
+    updateLiveConnectionStatus();
   }
 
   function selectedCatalogIdsFromCheckboxes() {
@@ -780,6 +822,9 @@
 
   /** Matches checked count, or ``1`` recvonly line when none checked (robot picks its default camera). */
   function rtcRecvonlyVideoLineCount() {
+    if (e2eMode) {
+      return 1;
+    }
     var ids = readCatalogIdsArray();
     return ids.length > 0 ? ids.length : 1;
   }
@@ -793,17 +838,32 @@
     return selectedCatalogIdsFromCheckboxes();
   }
 
+  /** Hello/offer ``catalog_ids`` must match recvonly ``m=video`` count (HAL validates length). */
+  function catalogIdsForSignaling() {
+    var ids = readCatalogIdsArray();
+    if (e2eMode) {
+      if (ids.length > 0) {
+        return [ids[0]];
+      }
+      if (availableCatalogIds.length > 0) {
+        return [availableCatalogIds[0]];
+      }
+      return [];
+    }
+    return ids;
+  }
+
   function helloPayload() {
     return {
       type: 'hello',
       role: 'browser',
       version: 1,
-      catalog_ids: readCatalogIdsArray(),
+      catalog_ids: catalogIdsForSignaling(),
     };
   }
 
   function offerPayload(sdp) {
-    return { type: 'offer', sdp: sdp, catalog_ids: readCatalogIdsArray() };
+    return { type: 'offer', sdp: sdp, catalog_ids: catalogIdsForSignaling() };
   }
 
   async function startRtc(numStreams) {
@@ -820,19 +880,24 @@
     telemetryDc = null;
     resetCockpitHud();
     videosEl.innerHTML = '';
-    var videoLabelsForSession = readCatalogIdsArray().slice();
+    var videoLabelsForSession = catalogIdsForSignaling().slice();
     if (streamStatus) {
       streamStatus.textContent = 'Requested ' + numStreams + ' stream(s); negotiating...';
     }
     setConnectionStatus('Negotiating WebRTC...');
 
-    pc = new RTCPeerConnection({ iceServers: stunTurnServers });
+    var pcConfig = { iceServers: stunTurnServers };
+    if (forceRelayIce) {
+      pcConfig.iceTransportPolicy = 'relay';
+    }
+    pc = new RTCPeerConnection(pcConfig);
     pc.ondatachannel = function (ev) {
       attachTelemetryChannel(ev.channel);
     };
     controlDc = pc.createDataChannel('krabby-control-v1', { ordered: true });
     controlDc.onopen = function () {
       startGamepadLoop();
+      updateLiveConnectionStatus();
     };
     controlDc.onclose = function () {
       stopGamepadLoop();
@@ -877,6 +942,7 @@
       tile.appendChild(cap);
       tile.appendChild(v);
       videosEl.appendChild(tile);
+      updateLiveConnectionStatus();
     };
 
     var i;
@@ -892,7 +958,7 @@
       ws.send(JSON.stringify(offerPayload(pc.localDescription.sdp)));
     });
     await pc.setRemoteDescription({ type: 'answer', sdp: ans.sdp });
-    setConnectionStatus('Playing');
+    setConnectionStatus('WebRTC connecting...');
     updateDebug();
   }
 
@@ -1051,6 +1117,33 @@
     getStatus: function () {
       return status ? String(status.textContent || '') : '';
     },
+    isSessionLive: function () {
+      return webrtcPeerReady() && controlDc && controlDc.readyState === 'open';
+    },
+    getDiagnostics: function () {
+      var st = status ? String(status.textContent || '') : '';
+      var live = webrtcPeerReady() && controlDc && controlDc.readyState === 'open';
+      var playingLabel = /playing/i.test(st);
+      return {
+        status: st,
+        isSessionLive: live,
+        webrtcPeerReady: webrtcPeerReady(),
+        webrtcFailed: !!(
+          pc && (pc.connectionState === 'failed' || pc.iceConnectionState === 'failed')
+        ),
+        playingLabelWhileNotLive: playingLabel && !live,
+        wsReadyState: ws ? ws.readyState : -1,
+        pcConnectionState: pc ? pc.connectionState : 'none',
+        pcIceConnectionState: pc ? pc.iceConnectionState : 'none',
+        pcIceGatheringState: pc ? pc.iceGatheringState : 'none',
+        pcSignalingState: pc ? pc.signalingState : 'none',
+        controlDcReadyState: controlDc ? controlDc.readyState : 'none',
+        videoTiles: videosEl ? videosEl.querySelectorAll('video').length : 0,
+        forceRelayIce: forceRelayIce,
+        iceServerCount: stunTurnServers ? stunTurnServers.length : 0,
+        statusHistory: statusHistory.slice(),
+      };
+    },
     getPc: function () {
       return pc;
     },
@@ -1079,15 +1172,19 @@
       if (!controlDc || controlDc.readyState !== 'open') {
         return false;
       }
+      var motionSafe = {
+        LT: false, LB: false, LS: false, RS: true, RT: false, RB: false,
+        LX: 0.0, LY: 0.0, RX: 0.0, RY: 0.0
+      };
+      if (e2eMode) {
+        e2ePinnedControlState = motionSafe;
+      }
       controlDc.send(
         JSON.stringify({
           type: 'control',
           sent_browser_ms: Date.now(),
           operator_override: false,
-          state: {
-            LT: false, LB: false, LS: false, RS: true, RT: false, RB: false,
-            LX: 0.0, LY: 0.0, RX: 0.0, RY: 0.0
-          }
+          state: motionSafe
         })
       );
       return true;

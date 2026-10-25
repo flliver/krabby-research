@@ -32,8 +32,9 @@ def authed_client():
     app.dependency_overrides.clear()
 
 
-def test_create_ssh_tunnel_calls_open_tunnel(authed_client):
+def test_create_ssh_tunnel_opens_when_none_open(authed_client):
     fake_client = MagicMock()
+    fake_client.list_tunnels.return_value = {"tunnelSummaries": []}
     fake_client.open_tunnel.return_value = {
         "tunnelId": "abc123",
         "sourceAccessToken": "src-token",
@@ -45,9 +46,60 @@ def test_create_ssh_tunnel_calls_open_tunnel(authed_client):
     body = resp.json()
     assert body == {"tunnelId": "abc123", "sourceAccessToken": "src-token", "region": "us-east-2"}
 
+    fake_client.list_tunnels.assert_called_once_with(thingName="bench-krabby-ci", maxResults=100)
+    fake_client.rotate_tunnel_access_token.assert_not_called()
     fake_client.open_tunnel.assert_called_once()
     _, kwargs = fake_client.open_tunnel.call_args
     assert kwargs["destinationConfig"] == {"thingName": "bench-krabby-ci", "services": ["SSH"]}
+
+
+def test_create_ssh_tunnel_reuses_open_tunnel(authed_client):
+    fake_client = MagicMock()
+    fake_client.list_tunnels.return_value = {
+        "tunnelSummaries": [
+            {"tunnelId": "keep-me", "status": "OPEN"},
+            {"tunnelId": "extra", "status": "OPEN"},
+            {"tunnelId": "old", "status": "CLOSED"},
+        ]
+    }
+    fake_client.rotate_tunnel_access_token.return_value = {
+        "sourceAccessToken": "rotated-src",
+    }
+    with patch("krabby_fleet_service._tunnels._client", return_value=fake_client):
+        resp = authed_client.post("/devices/bench-krabby-ci/ssh-tunnel")
+
+    assert resp.status_code == 200
+    assert resp.json() == {
+        "tunnelId": "keep-me",
+        "sourceAccessToken": "rotated-src",
+        "region": "us-east-2",
+    }
+    fake_client.open_tunnel.assert_not_called()
+    fake_client.rotate_tunnel_access_token.assert_called_once_with(
+        tunnelId="keep-me",
+        clientMode="ALL",
+        destinationConfig={"thingName": "bench-krabby-ci", "services": ["SSH"]},
+    )
+    fake_client.close_tunnel.assert_called_once_with(tunnelId="extra", delete=True)
+
+
+def test_create_ssh_tunnel_falls_back_to_open_when_rotate_fails(authed_client):
+    fake_client = MagicMock()
+    fake_client.list_tunnels.return_value = {
+        "tunnelSummaries": [{"tunnelId": "stale", "status": "OPEN"}]
+    }
+    fake_client.rotate_tunnel_access_token.side_effect = RuntimeError("rotate failed")
+    fake_client.open_tunnel.return_value = {
+        "tunnelId": "fresh",
+        "sourceAccessToken": "new-src",
+    }
+    with patch("krabby_fleet_service._tunnels._client", return_value=fake_client):
+        resp = authed_client.post("/devices/bench-krabby-ci/ssh-tunnel")
+
+    assert resp.status_code == 200
+    assert resp.json()["tunnelId"] == "fresh"
+    fake_client.close_tunnel.assert_called_once_with(tunnelId="stale", delete=True)
+    fake_client.open_tunnel.assert_called_once()
 
 
 def test_delete_ssh_tunnel_calls_close_tunnel(authed_client):
@@ -63,4 +115,6 @@ def test_healthz_needs_no_auth():
     app.dependency_overrides.clear()
     resp = TestClient(app).get("/healthz")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body.get("mqttConnected") is True

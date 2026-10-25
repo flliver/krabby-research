@@ -16,6 +16,7 @@ import logging
 from typing import Any
 
 from teleop.edge.config import TeleopEdgeSettings
+from teleop.edge.turn_mint import append_env_turn_servers
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,7 @@ def build_teleop_edge_settings(
             ice.append(dict(item))
     if not ice:
         ice = copy.deepcopy(BUILTIN_STUN_SERVERS)
+    ice = append_env_turn_servers(ice)
 
     qos_kbps = float(QOS_KBPS_BUDGET_PER_STREAM)
     if qos_kbps < 100.0:

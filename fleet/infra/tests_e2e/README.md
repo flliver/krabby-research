@@ -12,11 +12,13 @@ Non-secret settings come from committed [`../config/fleet.toml`](../config/fleet
 export BENCH_E2E=1
 # optional overrides:
 export SHADOW_MAX_AGE_SECS=180
+export TUNNEL_E2E_DEBUG=1   # optional: live stderr during waits; failures always include poll trace
 ```
 
 AWS credentials must allow: `iot:SearchIndex`, `iot:GetThingShadow`,
 `iot:DescribeThing` / `CreateThing` / `DeleteThing`, cert lifecycle,
-`iot:AttachPolicy` / `DetachPolicy`, `iot:OpenTunnel` / `CloseTunnel`, plus
+`iot:AttachPolicy` / `DetachPolicy`, `iot:OpenTunnel` / `CloseTunnel` /
+`ListTunnels` / `RotateTunnelAccessToken`, plus
 MQTT data-plane via device certs created in-test.
 
 ## Run
@@ -36,6 +38,6 @@ pytest tests_e2e/ -q
 | `test_bench_connectivity_and_shadow_index` | `SearchIndex`: connected + recent `reported.timestamp` |
 | `test_bench_get_thing_shadow_schema` | `GetThingShadow` has expected `reported` keys |
 | `test_scratch_cert_cannot_update_bench_shadow` | Second-device cert cannot write bench shadow |
-| `test_secure_tunnel_source_proxy_reaches_ssh` | `OpenTunnel` + source `localproxy` + SSH banner over TCP |
+| `test_secure_tunnel_source_proxy_reaches_ssh` | Reuse OPEN tunnel (`RotateTunnelAccessToken`) or `OpenTunnel` + source `localproxy` + SSH banner over TCP; leaves tunnel OPEN |
 
 Bench offline or stale shadow → **red** when bench E2E is enabled.

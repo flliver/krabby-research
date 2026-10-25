@@ -288,10 +288,17 @@ class ControlLoop:
             return
         
         try:
-            # Map controller state to joint command
-            # TODO: For now, we don't have observation timestamp, so use None
-            # In a real implementation, we'd track the last observation timestamp
-            joint_cmd = self._gamepad_to_isaacsim_hal_mapper.map(state, observation_timestamp_ns=None)
+            # Refresh cached observation if a newer frame is waiting (non-blocking).
+            self._hal_client.poll(timeout_ms=0)
+            obs = self._hal_client.latest_observation
+            current_joints = None if obs is None else obs.joint_positions
+            obs_ts = None if obs is None else obs.timestamp_ns
+
+            joint_cmd = self._gamepad_to_isaacsim_hal_mapper.map(
+                state,
+                observation_timestamp_ns=obs_ts,
+                current_joint_positions=current_joints,
+            )
             
             # Send command via HAL client
             self._hal_client.put_joint_command(joint_cmd)

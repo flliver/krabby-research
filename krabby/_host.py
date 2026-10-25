@@ -263,7 +263,8 @@ def _boot_service_unit(krabby_bin: str, user: str) -> str:
 [Unit]
 Description=Krabby locomotion stack
 Documentation=https://github.com/flliver/krabby-research
-After=docker.service
+After=docker.service network-online.target krabby-agent.service
+Wants=network-online.target krabby-agent.service
 Requires=docker.service
 StartLimitIntervalSec=300
 StartLimitBurst=10
@@ -276,8 +277,7 @@ ExecStartPre=-/usr/bin/docker rm -f krabby
 ExecStart={krabby_bin} run
 # The container runs under containerd, not this unit's cgroup; stop it explicitly.
 ExecStop=/usr/bin/docker stop krabby
-# Retry on transient docker/HAL failures (missing MCU is non-fatal and does not restart).
-Restart=on-failure
+Restart=always
 RestartSec=5
 TimeoutStopSec=40
 

@@ -1,5 +1,9 @@
 # Device enroll (Orin)
 
+**Canonical per-device enroll guide.** Account/AWS deploy and fleet ops live in
+[`SETUP-FLEET.md`](SETUP-FLEET.md); that doc links here for onboarding and must
+not be treated as a second enroll procedure.
+
 One-time onboarding of a Jetson Orin into AWS IoT Core: thing, device cert
 (CSR on-device), policy attach, identity files, and `krabby-agent.service`.
 
@@ -11,19 +15,20 @@ Placeholders: `<region>`, `<thing-name>`. Tip: `export AWS_PAGER=""`.
 ## Prerequisites
 
 - `ControlPlaneStack` deployed ([`infra/control-plane.md`](infra/control-plane.md)).
-- IAM access key for user `krabby-enroll` (created once after control-plane
-  deploy; not your admin key):
-
-  `aws iam create-access-key --user-name krabby-enroll --output json`
+- Access key for the `krabby-enroll` IAM user
+  ([`infra/README.md`](infra/README.md#enroll-user-access-key)). This IAM has
+  enroll permissions, allowing enrollment without requiring higher-privileged
+  admin credentials.
 
 ## Install `krabby` on the Orin
 
-`enroll` / `agent` require **`krabby-launcher` ≥ 0.1.16** (first-including
-version). From PyPI:
+`enroll` / `agent` require **`krabby-launcher` ≥ 0.1.16**; fleet teleop boot
+defaults need **≥ 0.1.18**; bench **`teleop_control_echo`** in locomotion.json needs **≥ 0.1.19**;
+fleet teleop **`signaling/out`** (awscrt QoS) needs **≥ 0.1.20**. From PyPI:
 
 ```bash
 python3 -m venv .venv-krabby && source .venv-krabby/bin/activate
-pip install -U pip && pip install 'krabby-launcher>=0.1.16'
+pip install -U pip && pip install 'krabby-launcher>=0.1.22'
 command -v krabby
 krabby --help | grep -E 'enroll|agent'
 ```
@@ -40,8 +45,9 @@ krabby --help | grep -E 'enroll|agent'
 
 ## Enroll
 
-Export **`krabby-enroll`** keys in this shell only (close the shell when done).
-`aws` CLI is optional; enroll uses `boto3`.
+On the Orin, export the `krabby-enroll` access key from Prerequisites into this
+shell only; close the shell when enroll finishes (`krabby enroll` does not write
+AWS keys to disk). The `aws` CLI is optional; enroll uses `boto3`.
 
 ```bash
 export AWS_ACCESS_KEY_ID=...
@@ -90,6 +96,17 @@ krabby get telemetry
 notify → destination `localproxy` → `localhost:22`, and teleop signaling
 shim. Details: [`krabby/README.md`](../krabby/README.md).
 
+Field and bench teleop HAL: [`FIELD-TELEOP.md`](FIELD-TELEOP.md), [`BENCH-TELEOP.md`](BENCH-TELEOP.md).
+
+Optional enroll flags (written to **`/etc/krabby/locomotion.json`**):
+
+```bash
+sudo -E env PATH="$PATH" krabby enroll --thing-name <thing-name> \
+  --locomotion-control-source portal \
+  --locomotion-robot hex
+# inference: add --locomotion-control-source inference --locomotion-checkpoint /workspace/checkpoints/….pt
+```
+
 ## Scale path (not implemented)
 
 Today’s enroll path is fine for a small fleet: an operator exports
@@ -116,15 +133,17 @@ identity layout under `/etc/krabby/iot/`.
 
 ## Next
 
-SSH from one source: [`SSH-TUNNEL.md`](SSH-TUNNEL.md). Console / SearchIndex:
-[`README.md`](README.md).
+Fleet HAL / portal Open teleop on an enrolled host: [`FIELD-TELEOP.md`](FIELD-TELEOP.md)
+(`krabby run` with `/etc/krabby/iot/` present). SSH from one source:
+[`SSH-TUNNEL.md`](SSH-TUNNEL.md). Account/AWS deploy (not enroll steps):
+[`SETUP-FLEET.md`](SETUP-FLEET.md). Console / SearchIndex: [`README.md`](README.md).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
 | Policy / thing type missing | Deploy `ControlPlaneStack` first |
-| Wrong IAM user | Use `krabby-enroll` keys, not admin |
+| Wrong IAM user | Export the `krabby-enroll` access key, not deploy/admin creds |
 | `sudo: krabby: command not found` | `sudo -E env PATH="$PATH" ...` with venv active |
 | Apt missing `localproxy` | Docker extract above |
 | Agent not connected | `journalctl -u krabby-agent -f --no-pager` |

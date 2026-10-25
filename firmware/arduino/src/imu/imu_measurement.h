@@ -1,5 +1,6 @@
 #pragma once
 
+#include <math.h>
 #include <stdint.h>
 
 #include "../units/angular_units.h"
@@ -20,7 +21,7 @@ struct ImuMeasurement
     MetersPerSecondSquared acceleration[3];
     RadiansPerSecond angularRate[3];
     Celsius temperature;
-    // Telemetry carries one validity bit (TASK-1 section 4).
+    // Telemetry carries one validity bit.
     bool isValid;
 
     bool didSucceed() const { return isValid; }
@@ -46,4 +47,19 @@ inline ImuMeasurement transformImuMeasurementToBodyFrame(
 
     bodyMeasurement.temperature = sensorMeasurement.temperature;
     return bodyMeasurement;
+}
+
+inline Degrees computeRollFromAcceleration(const ImuMeasurement &measurement)
+{
+    const float ay = measurement.acceleration[1].value();
+    const float az = measurement.acceleration[2].value();
+    return Radians(atan2(ay, az)).toDegrees();
+}
+
+inline Degrees computePitchFromAcceleration(const ImuMeasurement &measurement)
+{
+    const float ax = measurement.acceleration[0].value();
+    const float ay = measurement.acceleration[1].value();
+    const float az = measurement.acceleration[2].value();
+    return Radians(atan2(-ax, sqrt(ay * ay + az * az))).toDegrees();
 }

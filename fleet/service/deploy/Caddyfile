@@ -1,20 +1,21 @@
 {$FLEET_DOMAIN} {
-	encode zstd gzip
-
 	# NextAuth (Auth.js) routes must hit the portal, not the fleet REST API.
 	handle /api/auth* {
 		reverse_proxy 127.0.0.1:3000
 	}
 
 	# Fleet REST API + teleop signaling WebSocket (devices, tunnels, signaling).
-	# Caddy upgrades WebSockets on reverse_proxy by default.
+	# No response encoding on this path — compression can break upgraded WS frames.
 	handle /api/* {
 		uri strip_prefix /api
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy 127.0.0.1:8080 {
+			flush_interval -1
+		}
 	}
 
 	# Everything else: Next.js portal (device list/detail, static assets).
 	handle {
+		encode zstd gzip
 		reverse_proxy 127.0.0.1:3000
 	}
 }

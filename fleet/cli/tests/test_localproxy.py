@@ -33,6 +33,8 @@ def test_spawn_source_proxy_invokes_with_source_flag():
         "localproxy",
         "-s",
         "54321",
+        "-b",
+        "127.0.0.1",
         "-t",
         "src-token",
         "-r",

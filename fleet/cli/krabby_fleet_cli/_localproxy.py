@@ -29,6 +29,8 @@ def spawn_source_proxy(source_access_token: str, region: str, local_port: int) -
             _LOCALPROXY_BIN,
             "-s",
             str(local_port),
+            "-b",
+            "127.0.0.1",
             "-t",
             source_access_token,
             "-r",

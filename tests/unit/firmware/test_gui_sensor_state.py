@@ -1,15 +1,17 @@
-"""Headless unit tests for the GUI IMU link-age state machine.
+"""Headless GUI telemetry display tests."""
 
-These exercise the ImuRow state helpers without opening a Tk window.
-"""
+import pytest
+
+pytest.importorskip("tkinter")
 
 from firmware.gui.app import (
-    SENSOR_STALE_S,
     STATE_COLOR_OK,
     STATE_COLOR_STALE,
     ImuRow,
+    JointRow,
 )
 from firmware.interfaces.imu_telemetry import ImuTelemetry
+from firmware.interfaces.joint_telemetry import JointTelemetry
 
 
 def _sample(valid=True):
@@ -20,67 +22,49 @@ def _sample(valid=True):
 
 class TestResolveImuState:
     def test_absent_when_no_sample(self):
-        text, col = ImuRow.resolve_state(None, None)
+        text, col = ImuRow.resolve_state(None)
         assert text == "—"
         assert col == ""
 
-    def test_sensor_stale_beats_link_fresh(self):
-        # valid=0 (sensor present, not responding) is STALE even at age 0.
-        text, col = ImuRow.resolve_state(_sample(valid=False), 0.0)
+    def test_stale_when_sensor_reading_is_invalid(self):
+        text, col = ImuRow.resolve_state(_sample(valid=False))
         assert text == "STALE"
         assert col == STATE_COLOR_STALE
 
-    def test_link_stale_when_age_exceeds_window(self):
-        text, col = ImuRow.resolve_state(_sample(valid=True), SENSOR_STALE_S + 0.5)
-        assert text == "stale"
-        assert col == STATE_COLOR_STALE
-
-    def test_fresh_when_valid_and_recent(self):
-        text, col = ImuRow.resolve_state(_sample(valid=True), 0.0)
-        assert text == "fresh"
-        assert col == STATE_COLOR_OK
-
-    def test_fresh_when_age_unknown(self):
-        # Before the first latched sample, age is None -> treated as fresh.
-        text, col = ImuRow.resolve_state(_sample(valid=True), None)
+    def test_fresh_when_sensor_reading_is_valid(self):
+        text, col = ImuRow.resolve_state(_sample(valid=True))
         assert text == "fresh"
         assert col == STATE_COLOR_OK
 
 
-class TestLatchImu:
-    def test_new_sample_object_advances_timestamp(self):
-        a = object()  # stand-in for a fresh ImuTelemetry; identity is all latch uses
-        obj, ts = ImuRow.latch_sample(None, None, a, 100.0)
-        assert obj is a
-        assert ts == 100.0
+class _FakeStringVar:
+    """Stand-in for tk.StringVar — CI has no $DISPLAY so real Tk cannot start."""
 
-    def test_same_instance_does_not_advance_timestamp(self):
-        # THE bug catcher: a dead link keeps handing back the SAME object every
-        # poll. The timestamp must stay put so the age can grow past the window
-        # and the row flips to "stale" — the old code re-latched every poll and
-        # the row showed "fresh" forever.
-        a = object()
-        obj, ts = ImuRow.latch_sample(None, None, a, 100.0)
+    def __init__(self, value="---"):
+        self._value = value
 
-        obj2, ts2 = ImuRow.latch_sample(obj, ts, a, 200.0)
+    def set(self, value):
+        self._value = value
 
-        assert obj2 is a
-        assert ts2 == 100.0  # unchanged
+    def get(self):
+        return self._value
 
-    def test_distinct_object_relatches(self):
-        a, b = object(), object()
-        obj, ts = ImuRow.latch_sample(None, None, a, 100.0)
 
-        obj2, ts2 = ImuRow.latch_sample(obj, ts, b, 300.0)
-
-        assert obj2 is b
-        assert ts2 == 300.0
-
-    def test_none_imu_preserves_prior_latch(self):
-        a = object()
-        obj, ts = ImuRow.latch_sample(None, None, a, 100.0)
-
-        obj2, ts2 = ImuRow.latch_sample(obj, ts, None, 400.0)
-
-        assert obj2 is a
-        assert ts2 == 100.0
+class TestJointRowCurrentColumn:
+    def test_cur_shows_telemetry_current_field(self):
+        row = JointRow.__new__(JointRow)
+        row.var_pot = _FakeStringVar()
+        row.var_cur = _FakeStringVar()
+        row.var_pwm = _FakeStringVar()
+        row.var_hall = _FakeStringVar()
+        jt = JointTelemetry(
+            name="FLHL",
+            pos=0.5,
+            pot=512,
+            current=30,
+            en=(1, 1),
+            pwm=(0, 200),
+            saf=0,
+        )
+        JointRow.update_from_telemetry(row, jt)
+        assert row.var_cur.get() == "30"

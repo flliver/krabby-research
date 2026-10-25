@@ -39,11 +39,14 @@ Requires `ControlPlaneStack` to already be deployed (its `IotAtsEndpoint`
 export must exist). See [README.md](README.md) for the shared deploy-script
 behavior (credential checks, identity confirmation prompt).
 
-After `cdk deploy` finishes, the script pushes **both** `fleet/service` and
-`fleet/portal` onto the instance via SSM `AWS-RunShellScript` and restarts
-`krabby-fleet-service`, `krabby-fleet-portal`, `krabby-coturn`, and `caddy` —
-there's no SSH access to this box (see `FleetServiceSecurityGroup` below), so
-this replaces what would otherwise be an `scp` + remote install step.
+After `cdk deploy` finishes, the script calls
+[`scripts/push-fleet-apps.sh`](scripts/push-fleet-apps.sh), which pushes **both**
+`fleet/service` and `fleet/portal` onto the instance via SSM
+`AWS-RunShellScript` and restarts `krabby-fleet-service`,
+`krabby-fleet-portal`, `krabby-coturn`, and `caddy` — there's no SSH access to
+this box (see `FleetServiceSecurityGroup` below), so this replaces what would
+otherwise be an `scp` + remote install step. `fleet-deploy.yml` uses the same
+push script after a combined `cdk deploy ControlPlaneStack FleetServiceStack`.
 
 On the instance the portal zip is `npm ci` + `npm run build`'d into a Next.js
 standalone tree under `/opt/krabby-fleet-portal`, and
@@ -65,7 +68,7 @@ AWS credentials to resolve at synth time.
 | Resource | Type | Purpose |
 |---|---|---|
 | `FleetServiceSecurityGroup` | `AWS::EC2::SecurityGroup` | Inbound HTTP/HTTPS (80/443), STUN/TURN (3478 UDP+TCP, 5349 TCP/UDP), TURN relay (49152–65535/udp). No inbound SSH. |
-| `FleetServiceInstanceRole` | `AWS::IAM::Role` | EC2 instance role: `AmazonSSMManagedInstanceCore` (Session Manager / Run Command, no SSH key needed) + Secure Tunneling `OpenTunnel`/`CloseTunnel`/`DescribeTunnel` + fleet listing (`iot:SearchIndex`/`GetThingShadow`/`DescribeThing`) + teleop signaling bridge (`iot:Connect`/`Publish`/`Subscribe`/`Receive` on `teleop/*/signaling/*`). |
+| `FleetServiceInstanceRole` | `AWS::IAM::Role` | EC2 instance role: `AmazonSSMManagedInstanceCore` (Session Manager / Run Command, no SSH key needed) + Secure Tunneling `OpenTunnel`/`CloseTunnel`/`DescribeTunnel`/`ListTunnels`/`RotateTunnelAccessToken` + fleet listing (`iot:SearchIndex`/`GetThingShadow`/`DescribeThing`) + teleop signaling bridge (`iot:Connect`/`Publish`/`Subscribe`/`Receive` on `teleop/*/signaling/*`). |
 | `FleetServiceInstance` | `AWS::EC2::Instance` | `c7i.large` (see rationale in `fleet_service_stack.py`), Amazon Linux 2023, IMDSv2 required, 30 GiB encrypted gp3 root volume, no auto-assigned public IP (uses the EIP below instead). UserData installs Python, Node, `spal-release` + `coturn` (SPAL), the `caddy` binary, and the `caddy`/`krabby-fleet` system users on first boot only -- app code and config are pushed separately (see Deploy above). |
 | `FleetServiceAssetS3BucketName` / `FleetServiceAssetS3ObjectKey` (outputs) | `CfnOutput` | Location of the `fleet/service` zip CDK uploads to the bootstrap bucket on every deploy; read by `deploy-fleet-service.sh` to push it onto the instance via SSM. |
 | `FleetPortalAssetS3BucketName` / `FleetPortalAssetS3ObjectKey` (outputs) | `CfnOutput` | Location of the `fleet/portal` source zip; built to Next.js standalone on the instance during SSM deploy. |
@@ -81,7 +84,7 @@ AWS credentials to resolve at synth time.
 | `FleetPoolDomain` | Cognito Hosted UI domain | `cognitoDomainPrefix` (or the account-scoped default). |
 | `FleetOperatorClient` | `AWS::Cognito::UserPoolClient` | App client name `krabby-fleet`. Supports `USER_SRP_AUTH` and OAuth authorization-code + PKCE (no client secret). |
 | `CognitoUserPoolIdParam` / `CognitoAppClientIdParam` | `AWS::SSM::Parameter` (`/krabby/fleet/cognito-user-pool-id`, `/krabby/fleet/cognito-app-client-id`) | The user pool ID and app client ID above, published to SSM Parameter Store so `krabby-fleet-service`'s JWT middleware can read them at runtime and know which pool/client to validate tokens against. Instance role has read access. |
-| `FleetGitHubActionsRole` | `AWS::IAM::Role` (`krabby-fleet-ci`) | GitHub Actions OIDC role for `fleet-ci.yml` / `fleet-deploy.yml`. Trusts the configured `githubOwner`/`githubRepo` branch pushes and same-repo `pull_request` subjects (not forks); imports the account's existing GitHub OIDC provider ARN from context. Permissions: assume CDK bootstrap roles, `cloudformation:DescribeStacks` + SSM Run Command for post-deploy, Cognito admin on this pool, IoT/Secure Tunneling/teleop MQTT for bench E2E. |
+| `FleetGitHubActionsRole` | `AWS::IAM::Role` (`krabby-fleet-ci`) | GitHub Actions OIDC role for `fleet-ci.yml` / `fleet-deploy.yml` / `fleet-ci-rotate-cognito.yml`. Trusts the configured `githubOwner`/`githubRepo` branch pushes and same-repo `pull_request` subjects (not forks); imports the account's existing GitHub OIDC provider ARN from context. Permissions: assume CDK bootstrap roles, `cloudformation:DescribeStacks` + SSM Run Command for post-deploy, Cognito admin on this pool (incl. CI password rotation), authenticated pull from ECR Public (localproxy image), IoT/Secure Tunneling/teleop MQTT for bench E2E. |
 | `FleetServiceInstanceId`, `FleetServicePublicIp`, `FleetServiceDomainName`, `FleetCognitoUserPoolId`, `FleetCognitoUserPoolClientId`, `FleetCognitoDomain`, `FleetGitHubActionsRoleArn` (outputs) | `CfnOutput` | Console visibility. Cognito IDs and `FleetGitHubActionsRoleArn` are also exported for cross-stack / workflow use. |
 
 ## Remove the stack

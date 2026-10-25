@@ -163,7 +163,7 @@ def collect_red_flags(health: dict[str, Any], hal: dict[str, Any] | None) -> lis
     return flags
 
 
-def collect_telemetry() -> dict[str, Any]:
+def collect_telemetry(*, teleop_edge_connected: bool | None = None) -> dict[str, Any]:
     """Return the full `state.reported` document for fleet shadow updates."""
     health = collect_health()
     hal = _probe_hal_imu_pose()
@@ -173,6 +173,9 @@ def collect_telemetry() -> dict[str, Any]:
         "reported_image": installed_image(),
         "health": health,
     }
+
+    if teleop_edge_connected is not None:
+        reported["teleop_edge_connected"] = teleop_edge_connected
 
     if hal:
         if "imu" in hal:

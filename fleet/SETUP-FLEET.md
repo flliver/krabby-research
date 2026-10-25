@@ -1,7 +1,10 @@
 # Fleet setup and operations
 
-Operator guide for the Krabby fleet: AWS IoT control plane, device
-onboarding, Secure Tunneling SSH, telemetry, and the fleet service stack.
+Operator guide for the Krabby fleet: AWS IoT control plane, Secure Tunneling
+SSH, telemetry, and the fleet service stack.
+
+**Per-device enroll** (thing, cert, agent) is only in [`ENROLL.md`](ENROLL.md) —
+follow that doc on each Orin; do not use this file as a second enroll guide.
 
 Infra deploy scripts: [`infra/`](infra/README.md). Device CLI: [`krabby/README.md`](../krabby/README.md).
 Index: [`README.md`](README.md).
@@ -37,10 +40,15 @@ Index: [`README.md`](README.md).
 
 4. Verify shadow telemetry / portal / CLI as needed.
 
-## Enroll and SSH
+## Device enroll and SSH (pointers only)
+
+No enroll steps live in this file. Per-device onboarding is only
+[`ENROLL.md`](ENROLL.md) (same path used for Orin cold-start fleet bring-up).
 
 - Enroll one Orin: [`ENROLL.md`](ENROLL.md) — needs
-  **`krabby-launcher` ≥ 0.1.16** (first release with `enroll` / `agent`)
+  **`krabby-launcher` ≥ 0.1.22** (`enroll` / `agent`, fleet teleop signaling, bench `teleop_control_echo`)
+- After enroll (agent + fleet HAL / portal teleop): [`FIELD-TELEOP.md`](FIELD-TELEOP.md) —
+  enrolled hosts use `krabby run` (not a second enroll guide)
 - One SSH source → one Orin: [`SSH-TUNNEL.md`](SSH-TUNNEL.md)
 - Cognito operators (CLI + Console): [`OPERATORS.md`](OPERATORS.md)
 
@@ -127,8 +135,8 @@ for a user in the `operator` group.
 |--------|------|---------|
 | `GET` | `/devices` | `iot:SearchIndex` (`thingTypeName:Krab`) — connectivity + shadow `reported` |
 | `GET` | `/devices/{thingName}` | `iot:DescribeThing` + `iot:GetThingShadow` + SearchIndex connectivity |
-| `POST` | `/devices/{thingName}/ssh-tunnel` | `iot:OpenTunnel` |
-| `DELETE` | `/devices/{thingName}/ssh-tunnel/{tunnelId}` | `iot:CloseTunnel` |
+| `POST` | `/devices/{thingName}/ssh-tunnel` | `iot:OpenTunnel` or `iot:RotateTunnelAccessToken` (reuse OPEN) |
+| `DELETE` | `/devices/{thingName}/ssh-tunnel/{tunnelId}` | `iot:CloseTunnel` (force-close; normal SSH leaves OPEN) |
 | `GET` | `/teleop/ice-servers` | STUN + short-lived coturn TURN credentials (`iceServers`) |
 | `WS` | `/devices/{thingName}/teleop/signaling` | MQTT bridge to `teleop/{thing}/signaling/in` and `.../out` |
 
@@ -169,6 +177,12 @@ const pc = new RTCPeerConnection({
 3. Complete signaling as usual. The session should still connect; `chrome://webrtc-internals`
    (or Firefox `about:webrtc`) should show selected candidate type `relay`.
 
+## Field teleop readiness
+
+Enrolled robots: what must stay up for remote **Open teleop** to work, and how that
+differs from default **`krabby run`** gamepad boot — see [`FIELD-TELEOP.md`](FIELD-TELEOP.md).
+Bench CI uses the same signaling path with extra test flags: [`BENCH-TELEOP.md`](BENCH-TELEOP.md).
+
 ## Dual-robot teleop (public internet)
 
 Two enrolled Orins must work concurrently from an operator SSH source on the
@@ -176,14 +190,14 @@ public internet — no VPN, no per-robot signaling servers.
 
 ### One-time per robot (Orin)
 
-```bash
-# Enroll once (device cert + krabby-agent.service) — see sections 3–6
-sudo -E env PATH="$PATH" krabby enroll --thing-name <thing-name>
+1. Enroll once (device cert + `krabby-agent.service`) using [`ENROLL.md`](ENROLL.md)
+   only — do not copy enroll commands from this file.
+2. Start / verify fleet HAL with **`krabby run`** on the enrolled host (see
+   [`FIELD-TELEOP.md`](FIELD-TELEOP.md)). That is the production path; do not
+   substitute a bare `python -m hal.server.jetson.main …` for kit bring-up.
 
-# Locomotion + WebRTC edge pointed at the local agent teleop shim
-# (agent already bridges MQTT ↔ ws://127.0.0.1:9000/ws/robot)
-python -m hal.server.jetson.main --control-source portal --teleop-ip 127.0.0.1
-```
+For the **bench Orin** used in CI, use the always-on agent + HAL procedure in
+[`BENCH-TELEOP.md`](BENCH-TELEOP.md) (detached Docker, `--teleop-control-echo`).
 
 No extra fleet registration steps: enroll attaches the thing; the portal
 lists it via Fleet Indexing.

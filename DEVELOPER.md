@@ -1,9 +1,50 @@
+# Developer setup
+
+Two halves of development in this repo:
+
+- **Real robot (Jetson Orin)** — kit path and editable installs below
+- **Simulation / training (x86)** — Isaac Sim / Isaac Lab and `make test` below
+
+Package layout: [`docs/FOLDER_LAYOUT.md`](docs/FOLDER_LAYOUT.md).
+
+## Real robot (Orin)
+
+Kit cold-start, firmware, gamepad, and fleet enroll are owned by the root
+[README Start here](README.md#start-here) and the docs it links (Software
+quick-start, `firmware/SETUP.md`, Pro Controller / E2E guides, `fleet/ENROLL.md`,
+`fleet/FIELD-TELEOP.md`, `krabby/README.md`).
+
+### Developing code on Orin
+
+1. Bring the host up with the [README Software quick-start](README.md#software-quick-start)
+   (user venv, `krabby install`, flash as needed).
+2. Clone this repo on the Orin (or sync your working tree).
+3. Activate that venv and editable-install only the packages you change:
+
+   ```bash
+   source ~/.venv-krabby/bin/activate
+   pip install -e ./krabby
+   pip install -e ./firmware          # firmware CLI / GUI
+   pip install -e ./controller        # gamepad / krabby-uno client
+   ```
+
+   For HAL packages under `hal/krabby-hal-*/`, use `make install-editable`
+   (see [HAL Development Setup](#hal-development-setup)) with the venv active.
+4. Re-run with the venv `krabby` on `PATH` (same sudo pattern as the README when
+   host setup needs it). Reflash after Arduino sketch changes
+   (`krabby firmware update` / [`firmware/SETUP.md`](firmware/SETUP.md)).
+
+## Simulation and training (x86)
+
+The sections below are for Isaac Sim / Isaac Lab and x86 test workflows — not
+the Orin kit install path.
+
 ### Install CUDA on Ubuntu 24.04
+
 The recommended configuration using a RTX 5080 on Ubuntu 24.04
 * Kernel: 6.14.0
 * Nvidia Driver: `nvidia-driver-580-open`
 * Cuda Toolkit 13.0: `cuda-toolkit-13-0`
-
 
 ### Install Python3.11 on Ubuntu 24.04
 

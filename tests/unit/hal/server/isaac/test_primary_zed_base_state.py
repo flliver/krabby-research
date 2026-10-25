@@ -9,7 +9,7 @@ import torch
 
 from hal.server.isaac.primary_zed_base_state import isaac_primary_rgbd_base_state
 from hal.server.primary_rgbd_base_state import mount_quat_xyzw_primary, quat_isaac_wxyz_to_hal_xyzw
-from hal.server.jetson.zed_imu import _quat_multiply
+from hal.server.quat_kinematics import quat_multiply_xyzw
 
 
 def _mock_robot(
@@ -36,6 +36,6 @@ def test_isaac_sensor_world_quat_is_root_times_mount() -> None:
     root_wxyz = (0.70710678, 0.70710678, 0.0, 0.0)
     mount = mount_quat_xyzw_primary()
     q_world_base = quat_isaac_wxyz_to_hal_xyzw(np.array(root_wxyz, dtype=np.float32))
-    expected_sensor = _quat_multiply(q_world_base, mount)
+    expected_sensor = quat_multiply_xyzw(q_world_base, mount)
     q, _, _ = isaac_primary_rgbd_base_state(_mock_robot(root_quat_wxyz=root_wxyz))
     np.testing.assert_allclose(q, expected_sensor, atol=1e-4)

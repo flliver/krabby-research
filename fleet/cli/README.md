@@ -95,8 +95,10 @@ krabby-fleet ssh <thing-name> --user <ssh-user>
    against `known_hosts`; the Secure Tunnel's own short-lived,
    Cognito-gated access token is the actual security boundary.
 5. On exit (normal, Ctrl-C, or error), terminates the local proxy process
-   and calls `DELETE /devices/{robot}/ssh-tunnel/{tunnelId}` to force-close
-   the tunnel.
+   only. The Secure Tunnel is left `OPEN` so the next `POST` / `krabby-fleet
+   ssh` can `RotateTunnelAccessToken` instead of paying another
+   `OpenTunnel`. Use portal **Force-close** or `DELETE
+   /devices/{robot}/ssh-tunnel/{tunnelId}` to tear it down intentionally.
 
 Requires `aws-iot-securetunneling-localproxy` (the `localproxy` binary) on
 `PATH`, and an `ssh` client.

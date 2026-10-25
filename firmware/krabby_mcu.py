@@ -7,10 +7,10 @@ import logging
 from typing import Dict, Optional
 from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
-from firmware.interfaces.telemetry_constants import TELEMETRY_LINE_PREFIXES
-from firmware.interfaces.telemetry_parser import parse_telemetry_line
+from firmware.interfaces.telemetry_frame import TelemetryFrame
 from firmware.mcu_port import default_port
 
+# Must match the firmware BAUD_RATE used for the telemetry link.
 DEFAULT_BAUD = 250000
 
 # --- LOGGING SETUP ---
@@ -69,12 +69,8 @@ class KrabbyMCUSDK:
         #   imu is None          — no IMU segment ever seen. Normal for
         #                          followers and for firmware that predates
         #                          the IMU segment
-        #   imu.valid is False   — sensor present but not responding (leader
-        #                          init/read failure)
-        #   imu.valid is True    — fresh sample.
+        # imu distinguishes unseen, invalid, and valid samples.
         self.imu: Optional[ImuTelemetry] = None
-
-        self._imu_stale_warned = False
 
         self.last_feedback_ts = None
         self.thread = None
@@ -82,6 +78,8 @@ class KrabbyMCUSDK:
         self.last_error = None
         self.last_cmd: Dict[str, Optional[float]] = {}
         self._last_ver_line: Optional[str] = None
+        # Last time a telemetry line was seen per role prefix (FRONT/UNKWN/LEFT/RIGHT).
+        self.role_last_seen: Dict[str, float] = {}
 
     def connect(self):
         try:
@@ -89,19 +87,28 @@ class KrabbyMCUSDK:
             # A DTR reset would break three-board role election (followers stay in
             # their assigned roles and stop broadcasting SYNC, so a newly-reset
             # leader can never hear from them).
-            ser = serial.Serial()
-            ser.port = self.port
-            ser.baudrate = self.baud
-            ser.timeout = 0.5
-            ser.dtr = False
-            ser.open()
-            self.ser = ser
+            port = self.port
+            if "://" in str(port):
+                self.ser = serial.serial_for_url(
+                    port,
+                    baudrate=self.baud,
+                    timeout=0.5,
+                    write_timeout=0.5,
+                )
+                self.ser.dtr = False
+            else:
+                ser = serial.Serial()
+                ser.port = port
+                ser.baudrate = self.baud
+                ser.timeout = 0.5
+                ser.dtr = False
+                ser.open()
+                self.ser = ser
             time.sleep(
                 5.0
             )  # wait for boot + 3-board role election before starting reader
             self.running = True
             self.last_error = None
-            self._imu_stale_warned = False
             self.imu = None  # drop any sample cached from a prior connection
             self.thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.thread.start()
@@ -141,11 +148,16 @@ class KrabbyMCUSDK:
                     print(f"[serial rx] {line}", file=sys.stderr, flush=True)
                 elif logger.isEnabledFor(logging.DEBUG):
                     logger.debug("serial rx: %s", line)
-                if line.startswith(TELEMETRY_LINE_PREFIXES):
+                role = TelemetryFrame.role_from_line(line)
+                if role is not None:
                     self._parse_telemetry_line(line)
                     self.last_feedback_ts = time.time()
+                    self.role_last_seen[role] = self.last_feedback_ts
                 elif line.startswith("VER "):
                     self._last_ver_line = line
+                elif line.startswith("ERR "):
+                    # Firmware error lines (e.g. ERR FWD LEFT: line overflow…).
+                    logger.error("[MCU] %s", line)
                 elif "Krabby" in line or "CAL" in line or "Saved" in line:
                     logger.info(f"[MCU] {line}")
 
@@ -163,31 +175,10 @@ class KrabbyMCUSDK:
                 self.running = False
                 break
 
-    def _store_imu(self, imu: ImuTelemetry):
-        """Store the latest IMU sample; surface the valid->invalid transition.
-
-        valid=0 means the sensor is present but not responding (leader-side
-        init or read failure — actionable: Qwiic wiring, I2C address, 3.3V
-        rail). It arrives every tick while the condition persists, so it is
-        logged once per transition (one-shot flag), never per tick, and never
-        raised: an unhappy optional sensor is not a transport failure. The
-        sample itself is stored either way — the host preserves everything
-        the wire carries.
-        """
-        self.imu = imu
-        if imu.valid:
-            self._imu_stale_warned = False  # re-arm for the next transition
-        elif not self._imu_stale_warned:
-            logger.warning(
-                "IMU reports valid=0 (sensor present but not responding); "
-                "readout is STALE. Check Qwiic wiring / I2C address / 3.3V rail."
-            )
-            self._imu_stale_warned = True
-
     def _parse_telemetry_line(self, line: str):
-        parsed = parse_telemetry_line(line)
+        parsed = TelemetryFrame.parse_line(line)
         if parsed.imu is not None:
-            self._store_imu(parsed.imu)
+            self.imu = parsed.imu
         if not parsed.joints:
             return
         for jt in parsed.joints:
@@ -259,6 +250,7 @@ class KrabbyMCUSDK:
         cmd = f"J{joint_name} {pwm}\n"
         self.ser.write(cmd.encode("utf-8"))
         self.ser.flush()
+        logger.debug("CMD -> %s", cmd.strip())
 
     def read_version(self, timeout: float = 1.0) -> Optional[str]:
         if not self.ser or not self.ser.is_open:

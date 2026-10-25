@@ -123,10 +123,12 @@ class TestAgentShadowPayload:
 
         from krabby.agent import _publish_shadow_report
 
-        _publish_shadow_report(_FakeShadowClient(), "bench-krabby-ci")
+        fake_shim = types.SimpleNamespace(robot_edge_connected=lambda: True)
+        _publish_shadow_report(_FakeShadowClient(), "bench-krabby-ci", fake_shim)
         assert captured["thing_name"] == "bench-krabby-ci"
         assert captured["reported"]["reported_image"] == "img:tag"
         assert captured["reported"]["timestamp"] == 1710000000
+        assert captured["reported"]["teleop_edge_connected"] is True
 
 
 class TestGetTelemetryCli:

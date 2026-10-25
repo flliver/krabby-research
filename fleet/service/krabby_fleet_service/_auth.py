@@ -10,6 +10,7 @@ headers; ``require_operator_websocket`` also accepts ``?token=``.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import jwt
@@ -17,6 +18,8 @@ from fastapi import Depends, HTTPException, Request, WebSocket
 from jwt import PyJWKClient
 
 from krabby_fleet_service._config import Settings, get_settings
+
+logger = logging.getLogger(__name__)
 
 _jwks_clients: dict[str, PyJWKClient] = {}
 
@@ -45,14 +48,18 @@ def verify_operator_token(token: str, settings: Settings) -> dict[str, Any]:
             options={"verify_aud": False},
         )
     except jwt.PyJWTError as exc:
+        logger.warning("operator auth rejected: invalid token (%s)", exc.__class__.__name__)
         raise HTTPException(status_code=401, detail=f"invalid token: {exc}") from exc
 
     if claims.get("token_use") != "access":
+        logger.warning("operator auth rejected: not an access token")
         raise HTTPException(status_code=401, detail="not an access token")
     if claims.get("client_id") != settings.cognito_app_client_id:
+        logger.warning("operator auth rejected: wrong app client_id")
         raise HTTPException(status_code=401, detail="token was not issued for this client")
 
     if "operator" not in (claims.get("cognito:groups") or []):
+        logger.warning("operator auth rejected: user not in operator group")
         raise HTTPException(status_code=403, detail="user is not in the operator group")
 
     return claims

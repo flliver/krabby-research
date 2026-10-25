@@ -5,7 +5,7 @@ group, the instance's IAM role, the Cognito user pool operators authenticate
 against, and the GitHub Actions OIDC role used by fleet-ci / fleet-deploy.
 Depends on `ControlPlaneStack` via the `IotAtsEndpoint` CFN export.
 
-The instance IAM role grants Secure Tunneling open/close, fleet listing
+The instance IAM role grants Secure Tunneling open/close/list/rotate, fleet listing
 (SearchIndex/GetThingShadow/DescribeThing), and the teleop signaling
 bridge's MQTT connect/pub/sub -- a fully specified permission shape, granted
 in full here.
@@ -132,10 +132,14 @@ class FleetServiceStack(Stack):
                 sid="SecureTunnelingOpenClose",
                 # IAM action prefix is `iot:` (not `iotsecuretunneling:`) —
                 # see https://docs.aws.amazon.com/iot/latest/developerguide/tunnel-access.html
+                # ListTunnels + RotateTunnelAccessToken: reuse an OPEN tunnel
+                # (no TunnelsOpened charge) instead of OpenTunnel every SSH.
                 actions=[
                     "iot:OpenTunnel",
                     "iot:CloseTunnel",
                     "iot:DescribeTunnel",
+                    "iot:ListTunnels",
+                    "iot:RotateTunnelAccessToken",
                 ],
                 # OpenTunnel authorizes against tunnel/* (and optionally thing/*);
                 # Resource: "*" matches the AWS-documented broad form.
@@ -556,6 +560,28 @@ class FleetServiceStack(Stack):
         # isolation tests need create/delete).
         github_actions_role.add_to_policy(
             iam.PolicyStatement(
+                sid="FleetCiEcrPublicPull",
+                actions=[
+                    "ecr-public:GetAuthorizationToken",
+                    "ecr-public:BatchCheckLayerAvailability",
+                    "ecr-public:GetDownloadUrlForLayer",
+                    "ecr-public:BatchGetImage",
+                ],
+                resources=["*"],
+            )
+        )
+        # ECR Public clients (CLI + SDK) call sts:GetServiceBearerToken without passing
+        # sts:AWSServiceName in a form that matches a StringEquals condition on the role
+        # policy; unscoped Allow is required for bench CI docker login to succeed.
+        github_actions_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="FleetCiStsEcrPublicBearerToken",
+                actions=["sts:GetServiceBearerToken"],
+                resources=["*"],
+            )
+        )
+        github_actions_role.add_to_policy(
+            iam.PolicyStatement(
                 sid="FleetCiIotBench",
                 actions=[
                     "iot:GetPolicy",
@@ -576,6 +602,8 @@ class FleetServiceStack(Stack):
                     "iot:OpenTunnel",
                     "iot:CloseTunnel",
                     "iot:DescribeTunnel",
+                    "iot:ListTunnels",
+                    "iot:RotateTunnelAccessToken",
                     "iot:Connect",
                     "iot:Publish",
                     "iot:Subscribe",

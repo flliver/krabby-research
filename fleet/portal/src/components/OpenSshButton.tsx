@@ -89,12 +89,14 @@ export function OpenSshButton({ thingName }: { thingName: string }) {
         <div className="panel">
           <h2>SSH session</h2>
           <p className="muted">
-            Preferred: run the CLI on your local computer (handles localproxy + cleanup). The browser
-            never receives AWS credentials — only a short-lived source tunnel token.
+            Preferred: run the CLI on your local computer (spawns localproxy, leaves the Secure
+            Tunnel OPEN for reuse). The browser never receives AWS credentials — only a short-lived
+            source tunnel token.
           </p>
           <p className="mono">krabby-fleet ssh {thingName}</p>
           <p className="muted" style={{ marginTop: "1rem" }}>
-            Fallback (localproxy already installed; pick a free local port):
+            Fallback (localproxy already installed; pick a free local port). Stop localproxy when
+            done; do not Force-close unless you want a new billable tunnel next time:
           </p>
           <pre className="pre">{localproxyFallback(tunnel.sourceAccessToken, tunnel.region)}</pre>
           <p className="muted" style={{ marginTop: "0.75rem" }}>

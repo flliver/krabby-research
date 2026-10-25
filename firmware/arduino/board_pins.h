@@ -67,3 +67,7 @@ inline const char* boardPinRevisionLabel()
     return "PINS_REV3_UNO_V02";
 #endif
 }
+
+#ifndef STATUS_LED_PIN
+#define STATUS_LED_PIN 40
+#endif

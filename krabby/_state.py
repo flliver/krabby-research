@@ -9,8 +9,33 @@ from typing import Optional
 ECR_REPO = "public.ecr.aws/t7t7b3i3/krabby-locomotion"
 # Kit owners track the stable release line by default. CI moves the
 # `release-latest` tag to the newest release/* build (see publish-locomotion.yml),
-# mirroring `krabby-firmware update`'s "latest non-mainline release" behavior.
+# mirroring `krabby-firmware update`'s "latest release/*" behavior.
+# Dev channel image tag is `main-latest` (pushes to `main`).
 DEFAULT_TAG = "release-latest"
+
+# --channel main|release → ECR tag / S3 firmware branch
+CHANNELS = ("main", "release")
+_CHANNEL_IMAGE_TAG = {"main": "main-latest", "release": "release-latest"}
+# S3 firmware branch; None means "newest release/*" (krabby-firmware update default).
+_CHANNEL_FIRMWARE_BRANCH = {"main": "main", "release": None}
+
+
+def image_tag_for_channel(channel: str) -> str:
+    try:
+        return _CHANNEL_IMAGE_TAG[channel]
+    except KeyError as exc:
+        raise ValueError(
+            f"unknown channel {channel!r}; choose {' or '.join(CHANNELS)}"
+        ) from exc
+
+
+def firmware_branch_for_channel(channel: str) -> Optional[str]:
+    try:
+        return _CHANNEL_FIRMWARE_BRANCH[channel]
+    except KeyError as exc:
+        raise ValueError(
+            f"unknown channel {channel!r}; choose {' or '.join(CHANNELS)}"
+        ) from exc
 
 
 def _state_home() -> Path:
@@ -34,13 +59,20 @@ def _state_home() -> Path:
 STATE_PATH = _state_home() / ".config" / "krabby" / "state.json"
 
 
-def resolve_image_ref(ref: Optional[str] = None) -> str:
+def resolve_image_ref(ref: Optional[str] = None, channel: Optional[str] = None) -> str:
     """Return a fully-qualified image URI.
 
+    - channel ``main`` / ``release`` → ECR tag ``main-latest`` / ``release-latest``
     - None → ECR_REPO:DEFAULT_TAG
     - bare tag (no '/' or ':' prefix)  → ECR_REPO:<tag>
     - already-qualified URI            → returned as-is
+
+    ``channel`` and ``ref`` are mutually exclusive.
     """
+    if channel is not None and ref is not None:
+        raise ValueError("use --channel or --image, not both")
+    if channel is not None:
+        ref = image_tag_for_channel(channel)
     if ref is None:
         return f"{ECR_REPO}:{DEFAULT_TAG}"
     if "/" not in ref and ":" not in ref:

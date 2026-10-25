@@ -83,8 +83,8 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 - **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; <name> ...; ...`
 - **Role prefix:** One of `FRONT`, `UNKNOWN`, `LEFT`, `RIGHT` (no semicolon inside the role).
-- **Segment format:** Each joint segment is 9 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety.
-- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0;FLHL 0.723 740 691 ...`
+- **Segment format:** Each joint segment is 10 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, and composed connection state (`0` unknown, `1` connected, `2` disconnected). The parser still accepts legacy 9-field segments.
+- **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 1;FLHL 0.723 740 691 ...`
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
 
@@ -107,6 +107,40 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
   - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.
 
 Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
+
+Today, **LEFT** and **RIGHT** must each have their **own USB** cable to the host (or hub) when you flash them — same as FRONT. Runtime control still only needs Orin USB to FRONT (followers use UART). **Planned:** a future update path will flash LEFT/RIGHT through the leader so updating FRONT also updates the followers, without plugging USB into LEFT/RIGHT for that step.
+
+#### Board vanishes during or after upload (port gone)
+
+An interrupted upload (Ctrl+C), a flaky hub, or a bad cable can drop USB enumeration so the Mega looks bricked even when the sketch is fine.
+
+**Symptoms**
+
+- `cannot open port` / avrdude `error -110` / serial `Input/output error`
+- `krabby firmware show` reports **No attached Mega**
+- No `/dev/ttyACM*` or `/dev/ttyUSB*` (or the node exists but every open fails)
+
+**Prevention**
+
+- Do **not** interrupt `upload-firmware` / `krabby firmware update` mid-flash
+- Prefer a **direct Orin USB port** over a powered hub when flashing
+- Use a known-good **data** USB cable (charge-only cables drop the serial device)
+
+**Recover**
+
+1. Unplug the Mega USB cable, wait a few seconds, plug it back in. Check `ls /dev/ttyUSB* /dev/ttyACM*`.
+2. If still missing: power-cycle the Mega (USB unplug is often enough; otherwise power-cycle the hub).
+3. If the port stays gone: reboot the Orin, then replug and check again.
+4. If an upload hangs with the port still present: press the Mega **RESET** button and retry once the port is back.
+5. When `/dev/ttyUSB*` or `/dev/ttyACM*` is back, re-run the upload (`PORT=` if needed). Do not chase a “bad sketch” until the serial device has reappeared.
+
+**Vanished port vs bad sketch**
+
+| Observation | Likely cause |
+| --- | --- |
+| No tty / open fails with I/O error | USB-serial enum (cable, hub, interrupted upload) — recover as above |
+| Port opens; boot prints nothing useful or wrong behavior | Sketch / pin rev / role — flash again once the port is stable |
+| Second Mega on the same cable path works | First board’s USB-serial path, not the Orin |
 
 #### Remote flashing over SSH (boards on another host)
 
@@ -131,16 +165,27 @@ This is distinct from `krabby firmware update` (which downloads a **published** 
 
 ## 3. Usage Guide
 
-Run the interactive MCU menu from the **krabby-research** directory:
+### Keyboard menu
 
 ```bash
-# On Linux/Mac, you may need sudo for keyboard access
+# From PyPI or a checkout; on Linux/Mac you may need sudo for keyboard access
 python -m firmware
 ```
 
 For troubleshooting (verbose telemetry):
 ```bash
 python -m firmware --debug
+```
+
+### Joint GUI
+
+Shipped in `krabby-firmware` (PyPI). Needs a display and Tk (`sudo apt install python3-tk` on Orin if missing):
+
+```bash
+pip install 'krabby-firmware>=0.2.17'
+python -m firmware.gui
+# or: krabby-firmware-gui
+# optional: python -m firmware.gui --port /dev/ttyACM0 --debug
 ```
 
 
@@ -178,7 +223,7 @@ The robot now calibrates itself automatically and saves limits to EEPROM.
 
 ## 4. Firmware Store (`krabby-firmware-public`)
 
-Built firmware lives in a public S3 bucket. CI publishes a new build on every push to `mainline` or `release/*`, plus a daily scheduled build of the newest `release/*` branch.
+Built firmware lives in a public S3 bucket. CI publishes a new build on every push to `main` (dev channel) or `release/*` (stable), plus a daily scheduled build of the newest `release/*` branch.
 
 ### 4.1 Bucket layout
 
@@ -192,7 +237,7 @@ s3://krabby-firmware-public/
     manifest.json                          ← branch, commit, timestamp, board FQBN, VER string
 ```
 
-`<branch>` mirrors the Git branch name (`mainline`, `release/0.2.0`, etc.).
+`<branch>` mirrors the Git branch name (`main`, `release/0.2.0`, etc.).
 
 **`manifest.json` fields:** `schema_version`, `branch`, `commit`, `commit_date`, `build_timestamp`, `board_fqbn`, `ver_string`, `hex_filename`.
 
@@ -233,12 +278,15 @@ krabby-firmware show
 # 2b. List one branch's full build history, newest-first (paged via $PAGER)
 krabby-firmware show release/0.2.0
 
-# 3. Flash all three boards in turn (replug USB between boards)
+# 3. Flash all three boards in turn (replug USB between boards —
+#    LEFT/RIGHT need USB for flash today; see note above about future leader-driven flash)
 krabby-firmware update                        # latest release/* build, auto-detects port
 krabby-firmware update release/0.2.0          # specific branch
 krabby-firmware update /dev/ttyACM1           # specific port, latest release
 krabby-firmware update release/0.2.0 /dev/ttyACM2  # specific branch + port
 ```
+
+Do not interrupt mid-update. If the serial device disappears afterward, follow **Board vanishes during or after upload** above before assuming the board is bricked.
 
 Downloaded HEX files are cached under `~/.cache/krabby-firmware/<branch>/<sha7>/firmware.hex` and reused on subsequent calls.
 
