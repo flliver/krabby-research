@@ -48,7 +48,7 @@ Key files:
 - **Where it fits**: 
   - Training checkpoints: Saved during training via `OnPolicyRunnerWithExtractor`
   - Model loading: Used by `compute/parkour/policy_interface.py` to load trained policies for inference
-  - Checkpoint management: `compute/parkour/model_loader.py` handles loading and validation
+  - Checkpoint validation: `compute/parkour/test_checkpoint_loading.py` exercises the `policy_interface.py` load path
 - **Why**: PyTorch checkpoints preserve the complete model state, enabling:
   - Resuming training from a specific point
   - Deploying trained models for inference

@@ -1,13 +1,14 @@
 campaign: 2026-09-16_1805_omni_formation
 era: B
-dates: "2026-09-16.."
+dates: "2026-09-16..2026-09-19"
 question: Does the omnidirectional task (a thin subclass of the forward cfgs, world travel
   direction + world facing commands in four regime slots, a ring of obstacles around the spawn,
   an RSI bank harvested from BOTH the forward and sideways heads of record) form a usable tripod
   gait through a three-stage formation curriculum (1a body +x -> 1b body +y -> 1c any direction),
   and does the redesigned facing mechanism (yaw-rate cap, tighter dead band, a facing reward from
   1c) fix turning, which no head of record has ever done?
-verdict: 'OPEN — campaign not yet launched (plan approved 2026-09-16; steps 1-12 in progress).'
+verdict: 'CLOSED 2026-09-19 at the 2b decision point (seed 3: 1a, 1b, 1c, 2a, 2b trained; heads in heads.json);
+  continued by 2026-09-19_facing_tracking_ladder; nothing baked (CHARTER 2026-09-19 close entry).'
 plant: A15+B
 aliases: []
 records:
@@ -16,12 +17,11 @@ records:
 - CHANGELOG.md
 - state.json
 - heads.json
-# ``bundle_experiment.py --check`` requires every listed record to exist; REPORT.md / CHANGELOG.md /
-# state.json / heads.json are written by run_phases.py on its first launch (not yet run at the time
-# this manifest was authored -- step 13 of the plan, before step 18's launch) and are the honest
-# reason --check fails today (see the step-13 report).
+# REPORT.md / CHANGELOG.md / state.json / heads.json were written by run_phases.py from the first launch on
+# (2026-09-16); ``bundle_experiment.py --check`` requires every listed record to exist. Corrected 2026-10-25:
+# this manifest still read "not yet launched" after the campaign had run and closed.
 head:
-  none: campaign not yet launched -- no phase has trained
+  none: closed at the 2b decision point without a bake (the seed-3 phase heads are listed in heads.json)
 banks:
   # Harvested by harvest_omni_rsi_bank.py (forward 2c teacher head, source=0) + (sideways 2a teacher
   # head, source=1), merged 50/50 by merge_rsi_banks.py (plan D6 / A7; step 10): 4000 frames, 2000 per

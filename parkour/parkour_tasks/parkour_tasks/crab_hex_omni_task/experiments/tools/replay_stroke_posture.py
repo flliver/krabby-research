@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Offline replay, readout and gate for the stroke/posture plan (plan step 6). CPU ONLY.
 
-Plan: ``~/.claude/plans/let-s-examine-the-stride-gleaming-dream.md`` (steps 6-8, 14). Never imports
+Plan: the campaign record ``experiments/2026-09-26_stroke_posture/`` (CHARTER.md, REPLAY_GATE.md, CLOSE.md);
+the user's plan draft (steps 6-8, 14) is ``~/.claude/plans/let-s-examine-the-stride-gleaming-dream.md``
+(outside the repo). Never imports
 ``isaaclab``, never starts Kit, never touches a GPU, ``candidates.yaml`` or git.
 
 WHAT IT PRICES. The step-2 math, ``crab_hex_omni_task/mdp/crab_hex_omni_stroke_math.py``, is loaded BY

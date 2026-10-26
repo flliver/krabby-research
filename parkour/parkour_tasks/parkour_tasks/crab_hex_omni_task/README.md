@@ -16,47 +16,43 @@ exactly what differs.
 Nothing about the *policy* has changed on purpose beyond what the facing half requires — reward
 weights, terrain/curriculum knobs (besides the ring geometry), PPO hyper-parameters, terminations
 and the 18-channel action space are the forward recipe (verified by an Isaac config-delta test;
-see `tests/integration/test_crab_hex_omni_configs.py`). Teacher-only in this plan — no depth
-student (the shared camera-event bug and the +y mount decision stay open).
+see `tests/integration/test_crab_hex_omni_configs.py`). Since the Task 4 pipeline
+(2026-10-16) the task also has a 4-camera depth student (`Isaac-Crab-Hex-Omni-Student-v0` / `-Student-Play-v0`,
+runner `crab_hex_omni_student`); the student of record is `policy/f19_9_student` (camera use UNVERIFIED,
+followup `camera_use_unverified`).
 
-## Head of record (phase 2; phase-1 head kept)
+## Policy of record (F19, baked 2026-10-24)
 
-**Baked 2026-10-08 (phase 2):** `P2__S1_s18` of the omni phase-2 campaign
-(`experiments/2026-10-07_omni_phase2/`; seed 18; `policy/6_p2a_field/model_19994.pt`) -- details and every
-stage's sha256/evals in [`policy/README.md`](policy/README.md) (generated from
-[`policy/manifest.yaml`](policy/manifest.yaml)). It forks the phase-1 head of record below (same seed-18 lineage),
-so stages 1-5 are unchanged and `6_p2a_field/` is added. Recipe: preset `2a` (task
-`Isaac-Crab-Hex-Omni-Teacher-v0`) + the `P2__S1_s18` p2a overlay for 5000 iterations (15000 -> 20000): the c6x
-pool and clock removal, the B construction knobs with `KRABBY_ACTION_RATE_W -0.05` (the S1 sibling the user
-kept), `KRABBY_PHASEOUT ""`, and a direction-agnostic wall field (bars / slabs / pits around a 1.7 m pad, DIFF
-0.20:1.0, terrain curriculum, promotion 0.7:0.4). Evals of record: flat suite fwd / side / back / diag ratio
-1.050 / 1.051 / 1.087 / 1.015, turn fc 0.958, move_turn survival 1.000; `field_hard` (walls, DIFF 0.70:1.0)
-completion 0.8125 at n = 400 (anchor, the c6x head: 0.500 at n = 200), `field_light` 0.995, `ring_obst` 1.0; both
-side hands FAST. Chosen by the pre-stated CHARTER 7 rule, unanimous over S1 s16 / A1 s18 / S1 s17, but FRAGILE
-(walls tie with S1 s16 at n = 400; the user chose s18 on gait, move_turn and lineage).
+**Current head:** T* = `policy/f19_8_p3b_payload180/model_25992.pt` (seed 19, payload 0-180 kg, stable through
+135 kg on the sim plant), produced by the M18 Task 4 pipeline
+([`experiments/2026-10-16_task4_pipeline/`](experiments/2026-10-16_task4_pipeline/README.md), CLOSED; report
+`REPORT_baseline_vs_final.md`). Every number, sha256 and eval stamp is in [`policy/README.md`](policy/README.md)
+(generated from [`policy/manifest.yaml`](policy/manifest.yaml)); this section does not restate them.
 
-**Phase-1 head of record (baked 2026-10-06, kept):** the side-first **B** head of the PPO-construction campaign,
-`SF__B_rest_s18` (seed 18; `policy/5_c6x_clockfree/model_14995.pt`). It replaced `W` (baked 2026-09-25;
-recorded under `superseded:` in the manifest, its files in git history).
-Recipe (`experiments/2026-10-01_ppo_construction/candidates.yaml`): `s1` from scratch on preset `1b` + the FB
-pool (stand / fwd / side_l / side_r / back, no turn; 0 → 6000) → P1 `c4` (6000 → 7500, +turn / move_turn) →
-`c5` (7500 → 9000, +omni) → `c6` (9000 → 11000, +omni_turn) — all four with the clock held — then `c6x`
-(11000 → 15000), the same c6 overlay with the clock and apex rewards cut to ε 0.001 and the clock observation
-hidden; 15000 iterations total. Every stage also carries the B construction knobs (bound loss on raw μ
-0.001 with ramp 0.0001:0.001:500 at bound 1.1, soft std at init 0.8, entropy 0.0025, action_rate weight 0),
-the fa mirror loss, RSI off and the speed ellipse 0.35:0.35:0.25 — all env overlays, no preset or default
-encodes them. Side-first reverses the C1d turn-first order.
+- **Per-phase heads:** phase 1 `f19_5_c6x_clockfree/model_14995.pt`, phase 2 `f19_6_p2a_field/model_19994.pt`,
+  payload `f19_8_p3b_payload180/model_25992.pt` (= current).
+- **Depth student:** `policy/f19_9_student/` (kind `distill`, c28000 distilled from T*): the folder holds the ONNX
+  export only (`policy.onnx` + `depth_latest.onnx` + `omni_student_io.json`); the 122 MB `.pt` stays in
+  `parkour/logs/` and is cited by sha256. Its camera use is UNVERIFIED (followup `camera_use_unverified`).
+- **Stand network of record:** `policy/f19_stand_net/model_5000.pt` (SH_T4F19, warm-started from SN_T4F19 =
+  `model_4000.pt` in the same folder), a second policy routed on stand holds beside T*.
+- **Recipe (one line):** the Task 4 pipeline (`pipeline.yaml` + `experiments/tools/pipeline/pipeline.py`) runs the
+  side-first B chain s1 -> c4 -> c5 -> c6 -> c6x -> p2a (overlays key-for-key identical to the seed-18 lineage's)
+  plus the payload stages p3a (0-90 kg) -> p3b (0-180 kg) = T*, then `distill.sh` for the student and
+  `sn_dagger` / `sh_dagger` for the stand nets beside T*.
 
-**Observation contract (both heads; phase 2 did not change it):** the heads were trained with
-`KRABBY_OMNI_CLOCK_HIDE=1` (clock columns zeroed on every frame) — any play, eval or export of them must set
-`KRABBY_OMNI_CLOCK_HIDE=1` too, or they are fed an out-of-distribution live clock. They were also trained with the
-soft std parameter: without `KRABBY_STD_PARAM=soft` the checkpoint does not load (a loud `RuntimeError`, `std` vs
-`std_raw`), and without `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are silently capped at
-0.25 m/s. Full contract (width, exact columns, the rest of the carried eval env) in `policy/README.md`'s
-Observation contract section. The phase-2 training keys (field geometry, DIFF, promotion, PHASEOUT, action_rate)
-are not policy inputs and are not carried; to view the head on the wall field, add the `field_env` block of the
-`6_p2a_field` stage in the manifest (from `experiments/2026-10-07_omni_phase2/scenarios_p2.yaml`) in place of
-`KRABBY_FLAT_TERRAIN_GEOM=ring`.
+**Superseded (files kept):** the seed-18 lineage S1 s18 (`policy/1_fb6k` .. `policy/6_p2a_field`, baked
+2026-10-06 / 2026-10-08) and the stand nets SH_T17 / A-mask s17 (`policy/stand_net/`) stay in the folder under the
+manifest's `superseded:` entries; W (2026-09-25) is recorded there with its files in git history.
+
+**Observation contract:** every F19 head from c6x on was trained with `KRABBY_OMNI_CLOCK_HIDE=1` (clock columns
+zeroed on every frame) — any play, eval or export must set it too, or the head is fed an out-of-distribution
+live clock. Every stage trained the soft std: without `KRABBY_STD_PARAM=soft` the checkpoint does not load (a loud
+`RuntimeError`, `std` vs `std_raw`), and without `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are
+silently capped at 0.25 m/s. Full contract (width, exact columns, the rest of the carried eval env) in
+`policy/README.md`'s Observation contract section. Training-only keys (field geometry, DIFF, promotion, PHASEOUT,
+action_rate, the payload knobs) are not policy inputs and are not carried; to view a head on the wall field, add the
+`field_env` block of the `f19_6_p2a_field` stage in the manifest in place of `KRABBY_FLAT_TERRAIN_GEOM=ring`.
 
 ```bash
 cd parkour  # from krabby-research/; the full carried env -- KRABBY_FLAT_TERRAIN_GEOM=ring is required by
@@ -72,6 +68,7 @@ env \
   KRABBY_OMNI_ANG_VEL_MAX=0.3 \
   KRABBY_OMNI_CLOCK_TURN_R=1.2 \
   KRABBY_OMNI_CMD_OBS=0 \
+  KRABBY_OMNI_COMMAND_FRAME=world \
   KRABBY_OMNI_FACING_OBS_CLIP=0.6 \
   KRABBY_OMNI_FACING_OBS_ENCODING=raw \
   KRABBY_OMNI_RELAY_HYST=0 \
@@ -83,21 +80,21 @@ env \
   KRABBY_PLANT=A15+B \
   KRABBY_STD_PARAM=soft \
   python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
-  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/6_p2a_field/model_19994.pt
+  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/f19_8_p3b_payload180/model_25992.pt
 ```
 
-(Copied from `policy/README.md`, which also has the exact suite-eval command; for the phase-1 head use
-`policy/5_c6x_clockfree/model_14995.pt` with the same env. `play.py` writes `exported_teacher/` next to the
-checkpoint it loads, which breaks the policy-folder layout test: copy the checkpoint out of `policy/` before
-playing it, or delete that folder afterwards.)
+(The same env and command as `policy/README.md`'s play block, plus the two explanatory comment lines after `cd parkour`;
+that README also has the exact suite-eval command, the depth-student play command
+(`Isaac-Crab-Hex-Omni-Student-Play-v0 --enable_cameras`, the sha-pinned run-file checkpoint) and the stand-network
+eval / video commands; for the phase-1 head use `policy/f19_5_c6x_clockfree/model_14995.pt` with the same env.
+`play.py` writes `exported_teacher/` next to the checkpoint it loads, which breaks the policy-folder layout test:
+copy the checkpoint out of `policy/` before playing it, or delete that folder afterwards.)
 
-**Open follow-ups:** `move_turn` — nobody actually turns during move+turn: the phase-2 head survives it (1.000)
-but turns at about a third of the commanded 0.3 rad/s (facing_closed 0.75, ratio 0.81). `stand_march` — the
-head still marches at stand (2.8 steps/s); the p2b tilt guard cut that by 62 % as a side effect (a lead, not
-adopted). `back_overshoot` — backward speed ratio 1.09 (the S1 knob's cost). `p2b_negative` — p2b's
-terrain-relative lift hurt walls and the tilt guard gave no wall gain. Also `action_jitter`, `c0_side_first_n1`
-and `phase2_clock_free`. See `followups` in `policy/manifest.yaml` and `policy/README.md`'s "Open follow-ups"
-section.
+**Open follow-ups:** see `policy/README.md` "Open follow-ups" (generated from the manifest's `followups`). At the
+F19 bake: `move_turn` is still open and worse at T* (the accepted cost), `stand_march` is resolved at the
+controller level by routing `f19_stand_net`, `back_overshoot` is resolved at T*, and F19 added
+`camera_use_unverified`, `payload_sim_plant`, `student_checkpoint_not_bundled`, `two_network_export` and the
+`stand_*` items.
 
 ## Delta from the forward task
 
@@ -120,8 +117,8 @@ section.
 | Terrain | corridor (gaps/hurdles/stones) | **ring**: clear central disc, then an annulus of randomly placed bars/slabs by difficulty; 8 sector goal anchors that never advance; both-axes edge mask (`parkour_field_to_mesh_xy`) |
 | Parkour term / promotion | downrange distance vs. `cmd[:,0]·T` (dead for lateral/backward) | `OmniParkourEvent`: promotion by **tracking ratio** `ep_track_dist / ep_cmd_dist` (works for every direction); tile-centre spawn, radial/sector exposure |
 | Preset variable | `KRABBY_PHASE` | `KRABBY_OMNI_PHASE` |
-| Gym ids | `Isaac-Crab-Hex-{Flat-Walk,Teacher,Student}-v0` | `Isaac-Crab-Hex-Omni-{Walk,Teacher}-v0` (+ `-Play-v0`; **no student id** — teacher-only) |
-| RSL-RL experiment dirs | `crab_hex_{flat_walk,teacher,student}` | `crab_hex_omni_{flat_walk,teacher}` |
+| Gym ids | `Isaac-Crab-Hex-{Flat-Walk,Teacher,Student}-v0` | `Isaac-Crab-Hex-Omni-{Walk,Teacher,Student}-v0` (+ `-Play-v0`; the student ids since the Task 4 pipeline, 2026-10-16) |
+| RSL-RL experiment dirs | `crab_hex_{flat_walk,teacher,student}` | `crab_hex_omni_{flat_walk,teacher,student}` |
 | Command telemetry | `error_vel_xy`, `error_vel_yaw`, `stand_frac_actual` | + `move`/`turn`/`move_turn_frac_actual`, `facing_err_abs`, `recap_frac`, and `yaw_progress` (the SIGNED mean `wz_b·sign(cmd_wz)` over the turning rows — the one number that separates "turns the wrong way" from "does not turn") |
 | Eval harness | body-frame holds | same harness, **world-frame holds** (`speed, dir, face`) driven through the SAME `schedule_hook`/P-control training uses; `facing_metrics`, per-step travel-frame rotation |
 
@@ -330,7 +327,7 @@ KRABBY_OMNI_PHASE=1c KRABBY_PLANT=A15+B KRABBY_OMNI_ANG_TURN_ONLY=1 \
 
 > **Arming it under `run_phases.py` takes an edit, not an export.** The driver's `_subenv`
 > deletes **every** `KRABBY_*` key from the parent environment before launching a phase
-> (`run_phases.py:519-521` — the same scrubbing that hid the facing-clip defect), so
+> (`run_phases.py::_subenv` — the same scrubbing that hid the facing-clip defect), so
 > `export KRABBY_OMNI_ANG_TURN_ONLY=1; ./launch_phases.sh ...` is silently dropped and the run
 > trains the shipped economy while the launcher believes the lever is on. Under the driver the
 > knob has to reach the window's `env` dict. Verify either way from the run's own
@@ -354,9 +351,11 @@ knob-timing pillar: a cfg class body carries its declared value and knobs move i
    together with EITHER other preset variable — one task per process, because the expanded
    `KRABBY_*` knob names are shared across all three packages and whichever activation ran first
    would have `setdefault`-ed them already.
-2. **`KRABBY_FLAT_TERRAIN_GEOM=ring` is required in EVERY omni process, preset or not.**
-   `apply_omni_ring_knobs` calls `require_ring_geom` unconditionally in `__post_init__` (train,
-   play, or eval) and raises if the value is anything else, including unset: a leaked forward/
+2. **`KRABBY_FLAT_TERRAIN_GEOM` must be `ring` or `field` in EVERY omni process, preset or not.**
+   `apply_omni_ring_knobs` (called unconditionally in `__post_init__` — train, play, or eval) dispatches
+   through `require_omni_geom`, which raises if the value is anything else, including unset, and also
+   raises when `KRABBY_RING_*` and `KRABBY_FIELD_*` knobs are mixed (`field` = the phase-2 wall field
+   the `f19_6`..`f19_8` heads trained on; omni phase-2 plan, 2026-10-06): a leaked forward/
    sideways corridor preset would otherwise train happily on corridors while every omni reward,
    the ring spawn and the radial exposure ledger quietly measured a course that is not there. The
    omni presets set it in every window; a manual run (e.g. viewing a checkpoint) must set it too.
@@ -381,6 +380,13 @@ mix and RSI frame source:
 | `2c` | 5000 | `2b` | Omni-Teacher | unset | same as 2a | `all` | `0.2:2.4` (clock anneal 1.0→0.5) |
 | `2c_clockheld` | 5000 | `2b` (**not** `2c`) | Omni-Teacher | unset | same as 2a | `all` | `0.2:2.4` (`KRABBY_CLOCK_W=1.0`, no phase-out — the anneal-vs-iterations control) |
 
+**Body-frame twins `1a_b` / `1b_b` / `2a_b`** (2026-10-15, robot-frame `(vx, vy, wz)` command campaign
+`experiments/2026-10-15_body_cmd`, STOPPED): the base preset's env plus `BODY_DELTA`
+(`KRABBY_OMNI_COMMAND_FRAME=body`, `KRABBY_OMNI_FACING_OBS_ENCODING=none`, `KRABBY_YAW_PROGRESS_W=2.0`,
+`KRABBY_YAW_W=0.2`, `KRABBY_RSI_FRAC=0`; drops `KRABBY_OMNI_FACING` / `KRABBY_OMNI_FACING_OBS_CLIP`). They are in
+`PHASES` but not in `PHASE_NAMES`, and refuse to build until the campaign overlay supplies the measured body
+envelope (`KRABBY_OMNI_BODY_ENVELOPE` / `KRABBY_OMNI_BODY_CAP`).
+
 Per-window deltas re-pointed on every stage: `KRABBY_RSI_BANK` → the omni bank,
 `KRABBY_FLAT_TERRAIN_GEOM=ring`, `KRABBY_TERRAIN_PROMOTE=0.45:0.25` (ratio semantics, not the
 forward horizon scaling); `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.25:0.25`, `KRABBY_OMNI_ANG_VEL_MAX=0.3`,
@@ -398,7 +404,8 @@ etc. — defensive, they never appear in a forward window today). Everything els
 0.2`, DR, `EDGE_W`/`STUMBLE_W`/`COLLISION_W`/`CLEARANCE_W`/`FOOT_CLEAR_*`/`SWING_MIN_CLEAR_W`,
 `GOAL_VEL_W`, `FLAT_TERRAIN_MODE/FLAT_FRAC/DIFF` — is the forward window's own values, carried
 unchanged. (`TRACK_SIGMA2`/`TRACK_L1_W` used to be on that carried-unchanged list; Revision 4 moved
-them.) No phase 3 (teacher only in this plan).
+them.) No student preset: the depth student is distilled from T* on preset `2a` by
+`experiments/tools/pipeline/distill.sh` (see the Task 4 section below).
 
 ### Omni-only knobs (`config/crab_hex/omni_knobs.py`, `mdp/omni_terrain_knobs.py`)
 
@@ -614,8 +621,10 @@ OMNI=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task
 ```
 
 The driver's default `--phases` is `1a,1b,1c,2a,2b` and default `--pause-after` is `2b` (the
-decision point). No student anywhere: the training subprocess env carries only
-`KRABBY_OMNI_PHASE` / `KRABBY_PLANT`. Halts (each notifies; `--continue` overrides, `--redo`
+decision point). This driver trains no student: its training subprocess env carries only
+`KRABBY_OMNI_PHASE` / `KRABBY_PLANT`. The omni depth student (`Isaac-Crab-Hex-Omni-Student-v0`) is
+trained by the Task 4 pipeline's distill stage (`experiments/tools/pipeline/distill.sh`; the head of record is
+`policy/f19_9_student/`). Halts (each notifies; `--continue` overrides, `--redo`
 reruns): `dead_plant` (soundness at 2000 iterations on FROM-SCRATCH windows only, the sideways rule —
 no omni window qualifies (1a is 1000 it), so collapse is covered by the soft gates and `gate_1c`), `gate_1a`/`gate_1b` (soft, short-stage), `gate_1c` (the written
 formation gate), `gate_facing` (the turn-rate gate from 2a; facing precision watched), `nan`, `infra`.
@@ -638,7 +647,9 @@ import-by-path (`train_retry`, `eval_morph`/`eval_obst`, `summarize`, `Campaign`
 
 **Files.** Tools in `experiments/tools/`: `run_candidates.py` (the driver), `resolution.py` (the
 paired-bootstrap resolution, step 0), `ledger_cli.py` (the read/override CLI **and** the notification
-contract), `launch_candidates.sh` (the launcher). Campaign directory (`experiments/<date>_<name>/`):
+contract), `launch_candidates.sh` (the launcher; `launch_candidates.sh --campaign-dir <dir> --reference-chain
+NAME [--seed N]` runs one `references:` chain instead of the ladder — the form the Task 4 pipeline queues per
+stage; see `run_candidates.py --help`). Campaign directory (`experiments/<date>_<name>/`):
 `candidates.yaml` (chains, ranked candidates, milestones, the decision rule, the resolution inputs —
 the driver contains no dated path and no candidate), `resolution.json`, `ledger.json`
 (driver-owned, atomic), `ledger_overrides.jsonl` (CLI-owned, append-only, one uuid per line),
@@ -670,11 +681,12 @@ corrupts its `DerivedDataCache`. The normal stop is `ledger_cli.py ... stop`.
 
 **The notify/ledger protocol.** The driver appends one physical line per event to `notify.log`
 (`%Y-%m-%d %H:%M TAG <id> | field | ...`, absolute paths), produced by `ledger_cli.format_notify`
-and parsed back by `ledger_cli.parse_notify`. Fourteen tags: `RESOLUTION, DECISION, CONFIRM,
+and parsed back by `ledger_cli.parse_notify`. Fifteen tags: `RESOLUTION, DECISION, CONFIRM,
 SELF-OVERRULE, OVERRIDE-APPLIED, SQUASH, MILESTONE, RETENTION, INFRA, HALT, DONE, RELAUNCH, AWAIT,
-MIGRATION` (`MIGRATION`, per-category plan 2026-09-21, carries the eval-only rescreen/reeval/rescore
+MIGRATION, REFERENCE` (`MIGRATION`, per-category plan 2026-09-21, carries the eval-only rescreen/reeval/rescore
 items that move a paused campaign onto a new `eval_sha` — its lines say "eval-only": nothing
-trains).
+trains; `REFERENCE`, clock-deprecation plan 2026-09-23, is a finished `--reference-chain` run, judged by
+hand, no decision).
 Every DECISION line carries both blocks with their `z` and `R`, the four guards, the anchored-drift
 verdict, the resolution id and levels, a WATCH row, the next queued item, and the exact commands to
 answer it. The user answers through the CLI, which writes ONLY `ledger_overrides.jsonl` — never
@@ -687,10 +699,11 @@ next launch:
 # assignment block from the ladder CHARTER's "How to confirm, overrule, decide, resume".
 $PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" pending
 $PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" show [<id>] [--json]
-$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" confirm <Did> [--why "..."]
-$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" overrule <Did> --choose ADOPT|REJECT|SKIP --why "..."
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" confirm <Did> [--why "..."] [--cancel-pair]
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" overrule <Did> --choose ADOPT|REJECT|SKIP|PASS|WATCH|FAIL --why "..." [--cancel-pair]
 $PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" decide <Cid> --choose run|skip [--why "..."]
 $PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" resume-milestone <Mid> (--accept | --drop <Cid>) [--why "..."]
+$PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" ack-flag <Did> [--why "..."]
 $PY "$OMNI/experiments/tools/ledger_cli.py" --campaign-dir "$LAD" stop | unstop
 ```
 
@@ -710,7 +723,8 @@ tools are OUTSIDE the hash by design and are recorded informationally per entry 
 
 **`eval_sha` vs `code_sha` (per-category plan 2026-09-21, D8).** The eval-side files
 (`scripts/gait_eval/`, `eval_crab_hex_gait.py`, `experiments/eval/scenarios_omni.yaml`,
-`experiments/tools/run_phases.py` and `eval_categories.py`) were split out of `code_sha`'s pathspec
+`experiments/tools/run_phases.py` and `eval_categories.py`; since 2026-10-15 also
+`experiments/eval/scenarios_omni_body.yaml`) were split out of `code_sha`'s pathspec
 into their own `EVAL_PATHSPECS`/`eval_sha()`, so an eval-only change (a new metric, a new manifest
 row) no longer forces a training rerun. Every header/entry now carries `eval_sha`, and `ok_screen`
 additionally requires it to equal the current one, so a screen measured under an old eval is never a
@@ -729,9 +743,9 @@ and halts `halt:resolution <kind>` until `--accept-resolution <kind> WHY` is giv
 (recorded in `lad.resolution_acceptances`).
 
 **`EVAL_CARRY` — the knobs an eval must reproduce from its training window.** `run_phases.py` carries
-**seven** names into every eval env (`eval_env_for`), and `EVAL_CARRY_DEFAULTS` injects a value for
-the two whose presets may be silent, so `run_meta.env_vars` always records what the eval was actually
-asked for:
+**twenty** names into every eval env (`eval_env_for`; the source of truth is `run_phases.EVAL_CARRY`), and
+`EVAL_CARRY_DEFAULTS` injects a value for the thirteen whose presets may be silent, so `run_meta.env_vars`
+always records what the eval was actually asked for. The first seven (2026-09-19) are:
 
 | key | default injected | why it is carried |
 |---|---|---|
@@ -743,13 +757,34 @@ asked for:
 | `KRABBY_OMNI_FACING_OBS_ENCODING` | **`"raw"`** | a `sincos` head scored under `raw` reads the wrong two channels |
 | `KRABBY_OMNI_ANG_VEL_CLIP` | **`"0.2"`** | the dead band, which decides when the command is non-zero at all |
 
-The two defaults MUST equal the class-body values they stand in for (`facing_obs_encoding` `"raw"`,
+The thirteen added since, each default-off: the motion-quality knobs `KRABBY_OMNI_RELAY_HYST`,
+`KRABBY_OMNI_STAND_HOLD`, `KRABBY_OMNI_STAND_PARK`, `KRABBY_ACTION_LPF_HZ`, `KRABBY_ACTION_LPF_OBS`,
+`KRABBY_OMNI_STAND_OBS` (default `"0"`), `KRABBY_OMNI_CLOCK_HIDE` (`"0"`), `KRABBY_OMNI_CMD_OBS` (`"0"`),
+`KRABBY_STD_PARAM` / `KRABBY_INIT_STD` (`"0"`), `KRABBY_OMNI_COMMAND_FRAME` (`"world"`), and the two body-frame-only
+envelope keys `KRABBY_OMNI_BODY_ENVELOPE` / `KRABBY_OMNI_BODY_CAP` (`EVAL_CARRY_BODY_ONLY`: no default, never
+carried by a world head). The values a head of record needs are in `policy/README.md` "Semantics the heads
+trained under".
+
+The two original defaults MUST equal the class-body values they stand in for (`facing_obs_encoding` `"raw"`,
 `CrabHexOmniCommandCfg.clips.ang_vel_clip` `0.2`) and are pinned against the shipped cfg by
 `tests/unit/test_crab_hex_omni_gate.py`. **`KRABBY_OMNI_CMD_POOL` is deliberately NOT carried and has
 no default**: the pool is a SAMPLER knob (which command types a TRAINING window draws), while every
 eval row's commands come from the manifest's own schedule. A candidate that changes a carried knob
 declares it in its own `eval_carry`, and it reaches the eval through `eval_env_for`'s
 `carry_overlay`.
+
+**CPU-only tools** (`experiments/tools/`; usage in each module docstring; none starts Kit):
+
+- `score_reference.py` — scores a `--reference-chain` run's screens against an older campaign's baseline through
+  the driver's own `run_candidates.decide_pooled`; writes only `--json`.
+- `replay_motion_terms.py --run-dir <suite__omni stamp> --out <dir>` — the offline reward-replay gate; writes
+  `REPLAY_GATE.md` + `replay_gate.json`.
+- `replay_stroke_posture.py {readout,income,gate,parity,pooled} ...` — offline replay of the stroke / posture math.
+- `record_categories.py` (Isaac, a VIEWER) — per-category follow-cam video through the harness path. Every
+  default reproduces the 2026-09-22 C1d recording (`crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/
+  model_7996.pt`), not a head of record: to record T* pass `--checkpoint policy/f19_8_p3b_payload180/model_25992.pt
+  --eval-run <its suite__omni stamp>` (`parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/
+  suite__omni/seed001/2026-10-22_16-32-02`).
 
 ### Gates
 
@@ -792,6 +827,69 @@ declares it in its own `eval_carry`, and it reaches the eval through `eval_env_f
 - **Watched, not enforced (any phase):** per-direction `speed_ratio` ≥ 0.5, `|duty A − duty B| ≤
   0.10`, cam `shaft_mean_abs_vel`, slip, knee saturation, `recap_frac`.
 
+## Task 4 pipeline, payload, depth student and stand network
+
+The policy of record was produced by the M18 Task 4 pipeline,
+[`experiments/2026-10-16_task4_pipeline/`](experiments/2026-10-16_task4_pipeline/README.md) (CLOSED; report
+`REPORT_baseline_vs_final.md`). Its README is GENERATED by `experiments/tools/pipeline/report.py --readme` and
+carries the full command block: `pipeline.py check | gen | lock | run | status | continue | gate`
+(`experiments/tools/pipeline/pipeline.py`, the one entry point; driver stages run through
+`launch_candidates.sh --reference-chain`), `distill.sh` (the depth student) and `report.py`. The play / eval /
+student / stand-network commands for the heads of record are in [`policy/README.md`](policy/README.md).
+
+- **Payload** (`config/crab_hex/payload_knobs.py`): `KRABBY_PAYLOAD_KG` (range `lo:hi`), `KRABBY_PAYLOAD_ZERO_FRAC`,
+  `KRABBY_PAYLOAD_COM_XY`, `KRABBY_PAYLOAD_COM_Z` — a random deck mass / CoM event, TRAINING-only (not a policy
+  input, not carried; every eval of record is at 0 kg unless a level file is added on purpose).
+- **Phase-2 wall field:** `KRABBY_FLAT_TERRAIN_GEOM=field` + the `KRABBY_FIELD_*` family (`mdp/omni_terrain_knobs.py`;
+  rule 2 above), the terrain `f19_6`..`f19_8` trained on.
+- **Depth student:** `Isaac-Crab-Hex-Omni-Student-v0` / `-Student-Play-v0` (4 depth cameras; play and eval need
+  `--enable_cameras`; the harness's `--policy-role student`), runner `CrabHexOmniStudentPPORunnerCfg`
+  (`crab_hex_omni_student`). The runner refuses the knobs in `omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED`.
+  The ONNX I/O contract is `policy/f19_9_student/omni_student_io.json`.
+- **Stand network:** a second policy routed on stand holds beside T* (`policy/f19_stand_net/`); its eval rows,
+  table test and video recorder are the stand-height campaign's scripts
+  (`experiments/2026-10-13_stand_height/scripts/`: `sh_eval_rows.sh`, `sh_table_test.sh`, `sh_record_video.sh`,
+  incl. zero-height mode); the exact commands are in `policy/README.md` "Evaluate it / watch it".
+
+**The stand campaigns' script defaults are historical** (2026-10-25 note; the scripts themselves are pinned by
+`2026-10-16_task4_pipeline/pipeline.lock.json` and the stand stamps, so they are not edited):
+
+- `sh_record_video.py` / `.sh`: the built-in defaults (walker S1 s18, `--stand-ckpt` SH_T18, `--eval-run` the SH_T18
+  hraise stamp) are the campaign's 2026-10-14 configuration, not the policy of record, and a default run is now
+  REFUSED on `harness_sha256` (the reference stamp predates the 2026-10-15 / 10-16 harness edits). Record the pair of
+  record with explicit `--checkpoint` (T*) / `--stand-ckpt` (SH_T4F19) / `--eval-run` (the SH_T4F19_sh_s19 hraise
+  es1 stamp) as `policy/README.md` does. Environment overrides of `sh_record_video.sh`: `SH_VIDEO_OUT` (default
+  `parkour/logs/videos/sh_stand_height`), `SH_PY`, `SH_VIDEO_MEMORY_MAX` (24G), `SH_DDC`, `SH_DDC_MAX_GB` (80),
+  `SH_UP_WAIT` (120 s), `SH_VIDEO_TIMEOUT`.
+- `sh_core.STAND_NET_CKPT`'s comment still calls A-mask s17 "the stand network of record"; that held 2026-10-13..15
+  only. It is now `superseded:` SN_Amask_s17 (sha 769cf253); the net of record is the manifest's `stand_network`
+  (`f19_stand_net`).
+- `sh_dagger.py` (no `--help`: `add_help=False`) also takes `--warm-start PATH --warm-sha SHA` (both or neither;
+  default the pinned A-mask s17), and the env override `SN_WALKER_SPEC` (+ `SN_WALKER_CK` / `SN_WALKER_ST`,
+  `P2_REANCHOR=1`) replaces the default walker S1 s18 by another (set by `pipeline.py walker_spec_env` for the stand
+  stages beside T*). `sh_table_test.py` defaults likewise to S1 s18 + A-mask s17 (`--s1-ckpt`, `--stand-ckpt`); it
+  also takes `--eval-run`, `--friction`, `--overwrite`, `--cam-eye` / `--cam-lookat` / `--quality` and
+  `--rss-abort-gb`. For a table test beside T* export the walker spec first (`policy/README.md` "Evaluate it").
+- `2026-10-11_stand_network/scripts/sn_record_video.sh`'s busy check predates the stand-height and `sn_table_test`
+  scripts and does not see them: use `sh_record_video.sh` (its check covers both campaigns) or check
+  `ps -ww -eo args` by hand first.
+
+### Later knobs (2026-09-23 onward) the heads of record depend on
+
+All default-off; unset = the earlier recipe. "Carried" = in `run_phases.EVAL_CARRY` (an eval must reproduce it).
+
+| knob(s) | module | carried? | what |
+|---|---|---|---|
+| `KRABBY_OMNI_CLOCK_HIDE` | `config/crab_hex/clock_knobs.py` | yes | zero the clock obs columns (every head from c6x on: `1`) |
+| `KRABBY_STD_PARAM`, `KRABBY_INIT_STD` | `config/crab_hex/motion_knobs.py` | yes | soft (tanh-bounded) policy std and its init (B: `soft`, `0.8`) |
+| `KRABBY_ACTION_BOUND_LOSS`, `KRABBY_ACTION_BOUND_RAMP`, `KRABBY_ACTION_BOUND`, `KRABBY_ENTROPY_COEF`, `KRABBY_ACTION_RATE_W`, `KRABBY_PPO_HAND_DIAG` | `config/crab_hex/motion_knobs.py` | no | the B construction knobs (manifest `construction:`) and the phase-2 action-rate weight |
+| `KRABBY_OMNI_MIRROR_IMAGES` | `config/crab_hex/omni_knobs.py` | no (runner-only) | mirror-loss image set (B: `fa`) |
+| `KRABBY_OMNI_CMD_OBS` | `config/crab_hex/omni_knobs.py` | yes | `scalar` zeroes obs slots 8-9 (direction-blind command; heads of record: `0`) |
+| `KRABBY_OMNI_COMMAND_FRAME`, `KRABBY_OMNI_BODY_ENVELOPE`, `KRABBY_OMNI_BODY_CAP` | `config/crab_hex/body_knobs.py` | yes (envelope keys body-only) | robot-frame command mode (heads of record: `world`) |
+| `KRABBY_PAYLOAD_*` | `config/crab_hex/payload_knobs.py` | no | training-only payload event (above) |
+| `KRABBY_FIELD_*` (+ `GEOM=field`) | `mdp/omni_terrain_knobs.py` | no (eval rows set their own `env:` block) | the phase-2 wall field |
+| `KRABBY_OMNI_STROKE_W`, `KRABBY_OMNI_CENTRING_W`, `KRABBY_OMNI_REWARD_SPLIT`, `KRABBY_OMNI_STROKE_CAT_W` | `config/crab_hex/stroke_knobs.py` | no | stroke / posture campaign knobs (closed, not adopted) |
+
 ## Eval harness
 
 One harness serves all three tasks (`crab_hex_forward_task/scripts/eval_crab_hex_gait.py`); on a
@@ -805,7 +903,12 @@ $PY parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait
   --scenario slow__omni --checkpoint <model.pt>
 ```
 
-Phase-2 heads add `--task Isaac-Crab-Hex-Omni-Teacher-Play-v0`. `scenarios_omni.yaml` (manifest
+Every head of record, phase 2 and payload included, plays and evaluates on
+`Isaac-Crab-Hex-Omni-Walk-Play-v0` (the manifest's `play_task`); the depth student on
+`Isaac-Crab-Hex-Omni-Student-Play-v0 --enable_cameras`. `Isaac-Crab-Hex-Omni-Teacher-Play-v0` exists but is not
+the env any stamp of record was produced on. Harness flags for category-suite and omni rows (default off):
+`--waves` / `--trained-categories` (category-suite rows), `--sample-actions` (diagnostic), `--canon` / `--canon-hyst`
+and `--command-adapter` / `--adapter-turns` (omni only) — see `--help`. `scenarios_omni.yaml` (manifest
 v2) has three LEGACY rows, each an 8-hold schedule — 8 s per hold except the two turn holds at 12 s, 80-s
 episodes (a 90° turn to ≤ 0.30 rad needs ≥ 0.16 rad/s sustained in 8 s, above the plant's ~0.15–0.2
 rad/s) — (stand, fwd 0.25, lat_l 0.22, diag 0.25, back 0.22,
@@ -899,12 +1002,34 @@ like `move_turn` is scored even for a recipe that never trained it.
   test per category, and milestones keep the CHARTER's three-row structure with the suite in place of
   `slow`. `eval_sha` (below) versions this row's schema against `code_sha`.
 
+A sixth row, **`side22_25__omni`** (side-speed bisection, 2026-09-28), is the pre-registered side-speed gate row:
+a `category_suite` with two `lat_l` waves at 0.22 and 0.25 m/s (plus the stand wave the driver's
+`--trained-categories` needs). Two other manifests sit beside `scenarios_omni.yaml` in `experiments/eval/`:
+
+- **`scenarios_omni_body.yaml`** — robot-frame rows (`manifest_version: 3`, `command_route: term`;
+  `suite__omni_body`, `turnlevels__omni_body`, `grid__omni_body`, `field_{hard,light}__omni_body`,
+  `ring_obst__omni_body`) for a `KRABBY_OMNI_COMMAND_FRAME=body` head, or a world head through
+  `--command-adapter body_hold`; it is in `EVAL_PATHSPECS`, so it moves `eval_sha`.
+- **`scenarios_gpu0_sidesweep.yaml`** — four report-only side-speed rows (`sidesweep{015,022,030,035}__omni`);
+  gates nothing.
+
 ### Log dirs and eval root
 
-- Training: `parkour/logs/rsl_rl/crab_hex_omni_{flat_walk,teacher}`
-- Eval: `parkour/logs/rsl_rl/gait_eval/omni_phases`
+- Training: `parkour/logs/rsl_rl/crab_hex_omni_{flat_walk,teacher,student}`
+- Eval: `parkour/logs/rsl_rl/gait_eval/omni_phases` (the Task 4 driver evals under `omni_phases/F19/...` and
+  `omni_phases/R18/...`)
+- Task 4, stand-network and phase-2 outputs: `parkour/outputs/omni_plan/{task4,stand_network,stand_height,phase2}`
+  (Task 4 row evals under `task4/<run>/lr/`, stand-net runs under `stand_{network,height}/runs/`, stand evals under
+  `phase2/lr/<NAME>/`)
+- Videos: `parkour/logs/videos/` (stand recorders: `sh_stand_height/`, `sh_table/`, `sn_stand_network/`, `sn_table/`)
 
 ## Viewing a checkpoint
+
+**For a head of record use the play block in [`policy/README.md`](policy/README.md)** (the full carried env;
+copied in "Policy of record" above). The minimal command below is only for checkpoints trained with the
+class-default std and knobs (pre-B heads): a head of record built this way fails to load without
+`KRABBY_STD_PARAM=soft`, and without `KRABBY_OMNI_CLOCK_HIDE=1`, `KRABBY_OMNI_FACING_OBS_CLIP=0.6` and the
+0.35:0.35:0.25 ellipse it is silently fed inputs it never trained on.
 
 No preset is required for a viewer (and none should be set unless you want its whole knob stack) —
 but rule 2 above still applies: `KRABBY_FLAT_TERRAIN_GEOM=ring` must be exported explicitly, since
@@ -920,7 +1045,7 @@ $PY scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
   --checkpoint <abs path to model_N.pt>
 ```
 
-Use `Isaac-Crab-Hex-Omni-Teacher-Play-v0` for a phase-2 head. Add explicit `KRABBY_OMNI_*` knobs
+Phase-2 heads play on the same `Isaac-Crab-Hex-Omni-Walk-Play-v0` (the manifest's `play_task`). Add explicit `KRABBY_OMNI_*` knobs
 (above) to view a specific slot mix, direction band or facing width instead of the defaults.
 
 ## RSI
@@ -938,8 +1063,13 @@ never yields backward momentum; the campaign's backward hold is unseeded by desi
 
 ## Tests
 
+Run with the Isaac venv interpreter from the checkout root (`$PY -m pytest ...`); `tests/unit/conftest.py` pins
+imports to this checkout.
+
 ```bash
 pytest tests/unit -k "crab_hex or travel_frame or parkour_command or exposure or policy_of_record or experiment_layout or gait"
+# the Task 4 / stand-network / phase-2 suites the policy of record depends on:
+pytest tests/unit -k "task4 or test_sh_ or test_sn_ or omni_p2 or omni_phase2"
 RUN_CRAB_HEX_CFG_IDENTITY=1 pytest tests/integration/test_crab_hex_phase_configs.py \
   tests/integration/test_crab_hex_sideways_configs.py tests/integration/test_crab_hex_omni_configs.py -v
 ```

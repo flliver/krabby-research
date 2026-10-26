@@ -9,6 +9,7 @@ at a time -- it refuses while any runs).
 
     sh_dagger.py --mode dagger --arm mask --seed S --iterations N --out RUN_DIR [--num-envs 1024]
                  [--smoke [--smoke-iters 100]] [--buffer-gb 4] [--deadband D] [--trim-branch [--trim-min X]]
+                 [--warm-start PATH --warm-sha SHA]
                  [--headless --device cuda:0 ...AppLauncher args]
     sh_dagger.py --emit-env                    # no Kit: the `export` / `unset` lines sh_dagger.sh evals
     sh_dagger.py --read RUN_DIR [--premise LO:HI]   # no Kit: the step-6 premise read (JSON)
@@ -20,13 +21,19 @@ every height semantic in ``sh_core.py``):
   ``P2__S1_s18`` overlay, pool stand share 0.5 with matching SLOTS, ``KRABBY_RESAMPLE_S=3:12``, STAND_OBS 0); every cfg
   value the plan rests on is asserted before ``gym.make`` (the predecessor's list + the raw +-4.8 rod clip, the 0.02-s
   step, the wrapped terms present);
+* WALKER OVERRIDE (M18 Task 4, 2026-10-16; unset = the above, exactly): ``SN_WALKER_SPEC`` in the process env
+  replaces S1 s18 / the ``P2__S1_s18`` overlay by another walker (the predecessor's ``sn_dagger_spec.py`` reads it;
+  ``sh_dagger_spec.py`` NOTE). The Task 4 pipeline sets it for the stand stages beside T*
+  (``experiments/tools/pipeline/pipeline.py`` ``walker_spec_env``, together with the eval rows' ``SN_WALKER_CK`` /
+  ``SN_WALKER_ST`` and ``P2_REANCHOR=1``): that is how the stand network of record SH_T4F19 (``policy/manifest.yaml``
+  ``stand_network`` = f19_stand_net) was trained, with ``--warm-start`` / ``--warm-sha`` = SN_T4F19's model_4000;
 * between ``parse_env_cfg`` and ``gym.make`` the campaign-local composition (``sh_starts.compose_env_cfg``): one tall
   kinematic table cuboid per env, the start event (reset, LAST), the push / hip-contact termination wrappers, the
   command subclass (h_cmd per stand draw, forced first stands); its private generators are this run's ``starts`` /
   ``hcmd`` streams (created before ``gym.make``, so the construction reset already draws from them);
 * the wrapper is built with ``clip_actions = sh_core.HARNESS_CLIP`` (4.8, runtime; the agent config keeps its 1.0,
   asserted) -- the router clamps S1's rows to +-1 explicitly;
-* S1 frozen on non-stand rows; the student (warm start: A-mask s17, W[:, 15] zeroed) or R_h (beta, the 10 % control
+* S1 frozen on non-stand rows; the student (warm start: A-mask s17 unless ``--warm-start``, W[:, 15] zeroed) or R_h (beta, the 10 % control
   slice) on the effective stand rows (slot | restoring), executing q(h_lim) + clamp(residual); R_h's residual labels;
   checkpoints every 500 iterations and at the end (the FINAL one is judged); ``train_log.jsonl`` / ``stands.jsonl`` /
   ``episodes.jsonl``;
@@ -101,7 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--trim-branch", dest="trim_branch", action="store_true", default=False)
     ap.add_argument("--trim-min", dest="trim_min", type=float, default=None)
     # NOTE(M18 Task 4 pipeline step 6, 2026-10-16; DESIGN B6): the warm start, default the pinned A-mask s17
-    # (sh_core.STAND_NET_CKPT / STAND_NET_SHA256: unset = today's run exactly); both flags together or neither
+    # (sh_core.STAND_NET_CKPT / STAND_NET_SHA256: unset = today's run exactly); both flags together or neither.
+    # That default is HISTORICAL: A-mask s17 was the stand network of record 2026-10-13 .. 10-15 only and is now
+    # policy/manifest.yaml `superseded:` SN_Amask_s17 (sha 769cf253, file kept); the net of record is the manifest's
+    # `stand_network` (f19_stand_net = SH_T4F19, itself warm-started here from SN_T4F19 by these two flags).
     ap.add_argument("--warm-start", dest="warm_start", default=None)
     ap.add_argument("--warm-sha", dest="warm_sha", default=None)
     ap.add_argument("--emit-env", dest="emit_env", action="store_true", default=False)

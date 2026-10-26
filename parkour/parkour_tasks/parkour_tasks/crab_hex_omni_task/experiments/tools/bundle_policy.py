@@ -17,7 +17,8 @@ is the user's: edit the manifest, run ``--sync``, commit.
     python3 experiments/tools/bundle_policy.py --sync     # copy missing stage / asset / stand files (sha-verified),
                                                           #   verify present ones, regenerate README.md,
                                                           #   git add the produced files
-    python3 experiments/tools/bundle_policy.py --check    # verify every stage file + sha + README (test hook)
+    python3 experiments/tools/bundle_policy.py --sync --force  # recopy every stage file from its source (sha-verified)
+    python3 experiments/tools/bundle_policy.py --check   # verify every stage file + sha + README (test hook)
 
 The ``stand_network:`` block is neither a stage (nothing resumes from it; no preset / overlay) nor a training asset:
 it is a second policy the controller routes on stand holds beside a walking stage (``walker.stage``, whose sha256 the

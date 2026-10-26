@@ -9,8 +9,10 @@ resumes ``2b``, NOT ``2c``: see the ``--phases`` note below), with the campaign 
 phase (world-frame flat canary + light-ring onset on ``experiments/eval/scenarios_omni.yaml``, plus
 the ring obstacle eval), a REPORT / CHANGELOG / state.json record, and stop-and-wait pauses.
 
-No student anywhere: this task is teacher-only (no depth distillation; the camera-event bug and the
-+y mount decision stay open). The training subprocess environment carries ONLY
+No student in this driver: run_phases.py trains the teacher presets only. The omni depth student
+(``Isaac-Crab-Hex-Omni-Student-v0``, 4 depth cameras; M18 Task 4) is distilled by the Task 4
+pipeline (``experiments/tools/pipeline/distill.sh``), and its head of record is
+``policy/f19_9_student`` (kind ``distill``). The training subprocess environment carries ONLY
 ``KRABBY_OMNI_PHASE`` and ``KRABBY_PLANT``: every knob comes from the preset (``activate_phase`` at
 config import). This driver never exports ``KRABBY_PHASE`` or ``KRABBY_SIDE_PHASE`` -- doing so
 would raise at config import (one task per process; see ``crab_hex_omni_phases.py::activate_phase``).

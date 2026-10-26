@@ -3181,9 +3181,17 @@ def readme_checks(spec) -> list:
         (TPd / "gate_row.sh", ["TP_OUT", "TP_ROW_TIMEOUT", "TP_LEVEL_FILE", "TP_STRIP_KEYS", "TP_ROW_DRY"]),
         (TPd / "distill.sh", ["--name", "--checkpoint", "--env-file", "--seed", "--iterations", "--num-envs", "--task",
                               "--experiment"]),
-        (TPd / "payload_read.py", ["--spec", "level", "actuator", "--stamp", "--thresholds"]),
-        (TPd / "gate_read.py", ["--spec", "--run", "--stage", "--thresholds"]),
-        (TPd / "live_watch.py", ["replay", "--run-dir", "--kind", "--tstar"]),
+        (TPd / "payload_read.py", ["--spec", "level", "actuator", "--stamp", "--thresholds", "--trained", "--level"]),
+        (TPd / "gate_read.py", ["--spec", "--run", "--stage", "--thresholds", "--out", "--lines-only", "--stamp",
+                                "--trained"]),
+        (TPd / "live_watch.py", ["check", "replay", "--run-dir", "--kind", "--stage", "--source", "--tstar", "--first",
+                                 "--every"]),
+        (TPd / "thresholds.py", ["--inputs", "--out", "--recommended", "--self-check", "--sims", "--seed"]),
+        (TPd / "bridge_read.py", ["--ref", "--new", "--mode", "--ignore", "--no-default-ignore", "--allow-new-key",
+                                  "--json"]),
+        (TPd / "replay_read.py", ["pconfig", "pearly", "onset", "--new", "--old", "--ref-sha", "--rule", "--ref-log",
+                                  "--new-log"]),
+        (TPd / "select_student.py", ["candidates", "--run-dir", "--start", "--offsets"]),
         (L.TOOLS / "launch_candidates.sh", ["--campaign-dir"]),
         (L.TOOLS / "run_candidates.py", ["--reference-chain", "--seed"]),
         (L.TOOLS / "bundle_experiment.py", ["--dry-run", "--init", "--check", "--index"]),
@@ -3201,7 +3209,11 @@ def readme_checks(spec) -> list:
                                ("sh_scripts", "sh_dagger.py", ["--mode", "--arm", "--seed", "--iterations", "--deadband",
                                                                "--trim-branch", "--trim-min", "--warm-start", "--warm-sha"]),
                                ("sn_scripts", "sn_dagger.py", ["--mode", "--arm", "--seed", "--iterations"]),
-                               ("sn_scripts", "sn_eval_rows.sh", []), ("sh_scripts", "sh_eval_rows.sh", [])):
+                               ("sn_scripts", "sn_eval_rows.sh", []), ("sh_scripts", "sh_eval_rows.sh", []),
+                               ("sh_scripts", "sh_record_video.sh", ["--dry-run", "--plan", "--seed", "--terrain",
+                                                                     "--prefix"]),
+                               ("sh_scripts", "sh_record_video.py", ["--stand-ckpt", "--stand-mask", "--deadband",
+                                                                     "--eval-run", "--allow-reference-mismatch"])):
         if st.get(key):
             checks.append((L.OMNI / st[key] / script, flags))
     if st.get("p2_run_arm"):
@@ -3287,7 +3299,15 @@ def readme_md(doc: dict, spec, run: str) -> str:
         "p3a / p3b / p3c, T*, the 4-camera depth student (st, sel), the stand nets SN -> SH -- with every stage "
         "transition gated on harness metrics against committed thresholds (`thresholds_v1_2.json`). HALTs are "
         "prompts (accept as chance / amend / abort; CHARTER).", "",
-        f"- **Deliverable run: {run}** (the user confirms at STOP-END).",
+        f"- **Deliverable run: {run}**. STOP-END is decided (CHARTER \"2026-10-24, STOP-END: user decisions\"): the "
+        "user chose F19 as the deliverable, no clip veto, the bake (\"Supersede\") and no tag push yet.",
+        "- **Baked 2026-10-24 (de81f98a) as the omni policy of record:** `crab_hex_omni_task/policy/manifest.yaml` "
+        "current = `f19_8_p3b_payload180` (T*), student `f19_9_student` (kind distill: the ONNX deploy export + io "
+        "json in the folder, the 122 MB `.pt` cited by sha256), stand net `f19_stand_net` (SH_T4F19 model_5000 + its "
+        "warm-start ancestor SN_T4F19 model_4000); S1 s18, SH_T17, A-mask s17 and W are `superseded:` there (S1 s18 "
+        "/ SH_T17 / A-mask s17 keep their files in policy/; W's left policy/ at the 2026-10-06 bake and live in git "
+        "history). "
+        "The play / eval / video commands of record are in `crab_hex_omni_task/policy/README.md`.",
         f"- **T*** = {h['tstar']} `{h['tstar_ckpt']}` (sha256 `{h['tstar_sha256']}`), max_stable "
         f"{doc['headline']['tstar_max_stable_kg']} kg ({SIM}).",
         f"- **Student** = {h['student']} `{sel.get('ckpt')}` (sha256 `{h['student_sha256']}`).",
@@ -3299,9 +3319,21 @@ def readme_md(doc: dict, spec, run: str) -> str:
         f"`thresholds_v1_2.json` (sha `{str(doc['thresholds']['sha256'])[:8]}`).", "",
         "## 2. Reproduce at the pin", "",
         "```bash",
-        f"git -C {R} checkout {tag}      # the last pin tag (local); code_sha {str(lock.get('code_sha'))[:8]}, "
-        f"eval_sha {str(lock.get('eval_sha'))[:8]}",
+        f"git -C {R} checkout {tag}      # the last task4-pin-* tag (local): the build R18 / F19 ran on, "
+        "code_sha cbaf6797, eval_sha 8c8d22f0",
         "```", "",
+        "- **The build of record vs the current pin.** Every task4-pin-* tag (2026-10-19 .. 2026-10-23) commits the "
+        "lock R18 and F19 ran under (code_sha cbaf6797, eval_sha 8c8d22f0); check out a tag to reproduce them bit for "
+        "bit. The 2026-10-25 PR prep merged origin/main (03ffa330: main's observations.py moved code_sha to 91b479cb), "
+        "after which `check` reported `guard: code_sha drifted` against that pin -- intended, not a fault (CHARTER "
+        "2026-10-25 PR prep). On 2026-10-26 the user accepted this milestone's version changes (\"accept the version "
+        "changes and we will rerun with the new hashes as needed in future\"): the post-merge build plus "
+        "documentation-only edits to pinned / hashed files (TP report.py, thresholds.py and payload_read.py; the "
+        "stand campaigns' sh_core.py, sh_dagger.py, sh_table_test.py, sh_record_video.py / .sh and "
+        "sn_record_video.sh; tools/run_phases.py, which is in eval_sha; scripts/rsl_rl/play_stream_video.py, which is "
+        "in code_sha) are re-pinned by `pipeline.py lock` on the committed tree (a lock written on a dirty code / "
+        "eval tree is not a valid pin). `pipeline.lock.json` is the current pin (its own code_sha / eval_sha / "
+        "written_at); a stage re-run now runs that build and records its new shas.",
         f"- External stack (pipeline.lock.json): " + ", ".join(f"{k} {v}" for k, v in ext.items()) + ".",
         f"- Hardware: {', '.join(hw.get('gpus') or [])}; {hw.get('cpu')}; {hw.get('mem_gb')} GB; host {hw.get('host')}. "
         "One Isaac process at a time (detached queue + log-sentinel watcher).", "",
@@ -3315,17 +3347,56 @@ def readme_md(doc: dict, spec, run: str) -> str:
         "$PY -I $TP/pipeline.py lock --spec $SPEC                         # (re)write pipeline.lock.json (a new pin)",
         f"$PY -I $TP/pipeline.py run --spec $SPEC --run {run}            # the official detached queue (resumable)",
         f"$PY -I $TP/pipeline.py status --spec $SPEC --run {run}",
-        "# a HALT is a prompt -- exactly one of:",
+        "# a HALT is a prompt -- exactly one of (each takes [--why TEXT], recorded in the HALT's resolution, and",
+        "# [--no-relaunch]: by default a continue relaunches the detached queue):",
         f"$PY -I $TP/pipeline.py continue --spec $SPEC --run {run} --accept-chance STAGE",
         f"$PY -I $TP/pipeline.py continue --spec $SPEC --run {run} --amend STAGE --charter '<CHARTER entry>' [--retarget-tstar]",
         f"$PY -I $TP/pipeline.py continue --spec $SPEC --run {run} --retry STAGE",
         f"$PY -I $TP/pipeline.py continue --spec $SPEC --run {run} --abort",
         f"# CPU re-read of any gate (writes {L.rel(rd)}/gates/STAGE.reread.json):",
         f"$PY -I $TP/pipeline.py gate --spec $SPEC --run {run} --stage STAGE --thresholds {pl_rel}/thresholds_v1_2.json",
-        f"# this report (pipeline.py report does not forward --other):",
-        f"$PY -I $TP/report.py --spec $SPEC --run {run} --other R18 --out {pl_rel}/REPORT_baseline_vs_final --readme {pl_rel}/README.md",
+        "# this README (REPORT_baseline_vs_final.* are the step-11 records: write the REPORT to a scratch dir; pass",
+        "# --rows-log, or the step-11 rows drop out of it; pipeline.py report forwards none of --other / --rows-log /",
+        "# --readme and writes the default --out, i.e. over the step-11 records):",
+        f"$PY -I $TP/report.py --spec $SPEC --run {run} --other R18 --rows-log {pl_rel}/step11/s11_queue_sentinels.txt "
+        f"--out $(mktemp -d)/REPORT --readme {pl_rel}/README.md",
         "```", "",
         "A fresh replication needs a new `runs:` entry in `pipeline.yaml` with new seeds, then gen, lock, commit, check, run.", "",
+        "**Run records and stopping.** A run's records live in `<PL>/<run>/`: `pipeline_state.json` (stage statuses, "
+        "HALTs, accepted / amended stages, the pin), `pipeline_queue.log` (every launch verbatim + the `T4PIPE` "
+        "sentinels), `pipeline_notify.jsonl`, `plan.json` / `candidates.yaml` / `envs/` (gen), `gates/<stage>.json`, "
+        "`halts/<stage>.<n>.json`, `stage_reads/`, `tp_logs/`; the gate-row stamps land under "
+        "`parkour/outputs/omni_plan/task4/<run>/lr/NAME/SCENARIO/seed00<k>/<time>/` (gate_row.sh `TP_OUT`). To stop a "
+        "running queue, `touch <PL>/<run>/STOP_PIPELINE`: the queue stops at its next stage boundary or before its next "
+        "Isaac launch, launching nothing more (a running stage is stopped as the pipeline.py docstring's \"Stopping\" "
+        "paragraph says). Nothing deletes the file -- not `continue`, not `--retarget-tstar` (which refuses while it "
+        "is present unless `--no-relaunch`): remove it before `run`.", "",
+        "**CPU reader tools** (`$TP/`, every one Kit-free; the queue calls them, and each runs by hand from the repo "
+        "root; usage = each file's docstring):", "",
+        "| tool | job | entry |", "|---|---|---|",
+        f"| `thresholds.py` | every decisive gate line, its chance-HALT rate, the self-checks -> thresholds JSON | "
+        f"`$PY -I $TP/thresholds.py --inputs {pl_rel}/threshold_inputs_v1_2.yaml --out OUT.json --self-check "
+        "[--recommended FILE] [--sims N] [--seed S]` -- from the repo root this reproduces the committed "
+        "`thresholds_v1_2.json` byte for byte |",
+        "| `gate_read.py` | Gate 0 + a stage's decisive lines -> `gates/<stage>.json` (exit 0 PASS, 2 PASS + WATCH, 3 HALT, "
+        "4 INVALID, 5 GUARD) | `--spec $SPEC --run RUN --stage S [--thresholds FILE] [--out FILE]`; loose stamps: "
+        "`--spec $SPEC --lines-only --stage S --thresholds T.json --stamp ROW@ES=DIR ... [--trained CSV]` |",
+        "| `payload_read.py` | level stability / max_stable / limiting factor; the report-only actuator load | "
+        "`--spec $SPEC level --thresholds T.json --stamp ROW@ES=DIR ... [--trained CSV]`; "
+        "`--spec $SPEC actuator --stamp DIR [--level KG]` |",
+        "| `bridge_read.py` | is a new eval stamp the recorded one (the step-8 bridges) | "
+        "`--ref STAMP --new STAMP [--mode full\\|aggregate] [--ignore KEY.PATH ...] [--no-default-ignore] "
+        "[--allow-new-key K] [--json OUT]` |",
+        "| `live_watch.py` | the pre-registered LIVE rules a running stage is read against | "
+        "`check --run-dir DIR --kind driver\\|student [--stage S] [--source DIR] [--tstar DIR] [--first N]`; "
+        "`replay ... [--every 50]` |",
+        "| `replay_read.py` | R18's \"process reproduced\" reads and the X stand-replay rule | "
+        "`pconfig\\|pearly\\|onset --new RUN_DIR --old RUN_DIR`; `x --new RUN_DIR --ref-sha SHA --rule "
+        "bitwise\\|report_only [--ref-log F] [--new-log F]` |",
+        "| `select_student.py` | the student candidates (T*'s last iteration + 1k .. 5k, nearest saved checkpoint); the "
+        "prescreen / full-block reads run inside the queue's sel stage | `candidates --run-dir DIR --start ITER "
+        "[--offsets 1000,...]` |",
+        "| `tp_lib.py` | the shared helpers (paths, loaders, hashing, records, the Isaac-busy check) | no CLI |", "",
         "## 4. What the queue launched (verbatim, from the run's tp_logs)", "",
         "- Driver stages s1 .. p3c: `experiments/tools/launch_candidates.sh --campaign-dir <PL>/" + run +
         " --reference-chain " + run + "_<stage> --seed <seed>` (TP/pipeline.py `launch_driver`; run_candidates.py on the "
@@ -3335,10 +3406,12 @@ def readme_md(doc: dict, spec, run: str) -> str:
         f"- SN: `{sn_cmd}`" if sn_cmd else "", f"- SH: `{sh_cmd}`" if sh_cmd else "",
         f"- REFS(T*) rows: `{refs_cmd}`" if refs_cmd else "",
         f"- A gate row (T*'s first): `{row_cmd}`" if row_cmd else "",
-        "- Every gate row: `TP_OUT=parkour/outputs/omni_plan/task4/<run> TP_ROW_TIMEOUT=5400|10800 "
-        "[TP_LEVEL_FILE=<PL>/<run>/envs/levels/LNNN.env] [TP_STRIP_KEYS=...] bash $TP/gate_row.sh NAME CKPT "
-        "<PL>/<run>/envs/<stage>[.<family>].env MANIFEST SCENARIO ES [harness args]`; the step-11 report rows use the "
-        "same form with `TP_OUT=parkour/outputs/omni_plan/task4/step11`.", "",
+        f"- Every gate row (from the repo root; EVERY path absolute -- gate_row.sh refuses a relative one, rc 2): "
+        f"`TP_OUT={R}/parkour/outputs/omni_plan/task4/<run> TP_ROW_TIMEOUT=5400|10800 "
+        f"[TP_LEVEL_FILE={R}/{pl_rel}/<run>/envs/levels/LNNN.env] [TP_STRIP_KEYS=...] bash $TP/gate_row.sh NAME "
+        f"/abs/CKPT {R}/{pl_rel}/<run>/envs/<stage>[.<family>].env /abs/MANIFEST SCENARIO ES [harness args]` (e.g. "
+        f"MANIFEST = `{L.OMNI}/experiments/eval/scenarios_omni.yaml`); the step-11 report rows use the same form with "
+        f"`TP_OUT={R}/parkour/outputs/omni_plan/task4/step11`.", "",
         "## 5. What passing each gate means (4b)", "",
         "Thresholds v1.2; HALTs are prompts; the chance-HALT run sum "
         f"({fmt((doc['provenance'].get('run_sum') or {}).get('recommended'))}) is reported, not capped.", "",
@@ -3378,17 +3451,28 @@ def readme_md(doc: dict, spec, run: str) -> str:
         "```", "",
         "- play.py writes an export beside the checkpoint it plays (the student: its JIT / ONNX `exported_deploy/`; "
         "T*: `exported_teacher/`) -- a write into the run dir under logs/.",
-        "- The harness play (the gate rows' eval) is the gate_row.sh line above with "
-        "`experiments/eval/scenarios_omni.yaml suite__omni ES --trained-categories stand,fwd,side,back,diag,turn,move_turn`; "
+        "- The harness play (the gate rows' eval) is the gate_row.sh line above (absolute paths, `TP_OUT` set) with "
+        f"`{L.OMNI}/experiments/eval/scenarios_omni.yaml suite__omni ES --trained-categories "
+        "stand,fwd,side,back,diag,turn,move_turn`; "
         "for the student add `--task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student` and "
         "`TP_STRIP_KEYS=\"<STUDENT_RUNNER_KNOBS_REFUSED>\"`.",
         "- Video: ONLY `scripts/rsl_rl/play_stream_video.py ... --headless --video --video_length N --enable_cameras` "
         "under `systemd-run --user --scope -p MemoryMax=40G -p MemorySwapMax=0` (the clip command). Never "
         "`play.py --video` / gym RecordVideo (a 5-min clip buffers ~41 GB).",
-        "- Stand nets: there is no player or video beside a non-S1 walker (sh_record_video.py has no walker argument "
-        "and refuses stand checkpoints trained beside another walker). Evaluate them with the spec's stand row "
-        "scripts (sn_eval_rows.sh / sh_eval_rows.sh, run_arm.sh --row-eval) and the SN_WALKER_* env the queue "
-        "composes (pipeline.walker_spec_env). A JIT / ONNX export carries ONE network (policy/README.md hazard).", "",
+        "- Stand nets: no interactive player plays the routed walker + stand pair (play.py and any JIT / ONNX export "
+        "carry ONE network; policy/README.md hazard). The VIDEO recorder "
+        f"`{L.rel(L.OMNI / spec.d['stand']['sh_scripts'] / 'sh_record_video.sh')}` (VIDEO ONLY) takes the walker as "
+        "`-- --checkpoint <T*>` (its default is the historical S1 s18), the stand net as `--stand-ckpt <SH "
+        "model_5000.pt> --stand-mask 1 --deadband 0.25` and the reference stamp as `--eval-run <the head's "
+        "hraise__omni es1 stamp>`; it refuses a stand net trained beside another walker and any checkpoint / mask / "
+        "deadband / code sha that differs from the stamp's. The F19 videos `sh_mix_F19_s1514_rough` (`--plan mix "
+        "--seed 1514 --terrain field_medium`) and `sh_mix_F19_s1514_roughest` (`--terrain field_max`) were recorded "
+        "so -- T* + SH_T4F19; the commands are in policy/README.md (\"Stand network of record\"). Since the 2026-10-26 "
+        "hash acceptance moved sh_core.py's sha, every stand stamp recorded before it (SH_T4F19's included) is "
+        "refused until the head's hraise__omni@1 row is re-run with the current code (sh_eval_rows.sh, walker env "
+        "exported) or `--allow-reference-mismatch` is passed.",
+        "- Gate-evaluate the stand nets with the spec's stand row scripts (sn_eval_rows.sh / sh_eval_rows.sh, "
+        "run_arm.sh --row-eval) and the SN_WALKER_* env the queue composes (pipeline.walker_spec_env).", "",
         "## 7. Selection record", "",
         f"`{L.rel(rd / 'gates/sel.json')}` + `{L.rel(rd / 'stage_reads/sel.rows.json')}`: the prescreen ranked "
         f"{(sel.get('pairing') or {}).get('ranked_iters')}; {h['student']} was the first full-block PASS "
@@ -3418,10 +3502,32 @@ def readme_md(doc: dict, spec, run: str) -> str:
               "decision 4; " + ("present" if any(t.split()[0] == BASELINE_TAG for t in
                                                  (doc["provenance"].get("stack") or {}).get("tags") or [])
                                 else "not created yet at generation time") + "), never pushed.", "",
-              "The user decides: the deliverable choice (STOP-END rule; st.1 was an amend and sh.1 a re-anchor, not "
-              "chance acceptances), the clip veto, the bake into `crab_hex_omni_task/policy/` (tools/bundle_policy.py "
-              "supports `kind: distill` since the 2026-10-24 F19 bake, which also rewrote "
-              "tests/unit/test_policy_of_record_omni.py; the record is policy/manifest.yaml), and the tag push.", ""]
+              "The user's decisions (STOP-END, 2026-10-24; CHARTER \"2026-10-24, STOP-END: user decisions\"): the "
+              "deliverable is F19 (st.1 was an amend and sh.1 a re-anchor, not chance acceptances), no clip veto, and "
+              "the bake into `crab_hex_omni_task/policy/` -- DONE in de81f98a (tools/bundle_policy.py gained `kind: "
+              "distill`; tests/unit/test_policy_of_record_omni.py was rewritten; the record is policy/manifest.yaml). "
+              "Still the user's: the tag push (not now; the tag stays local) and any push of the branch. 2026-10-26: "
+              "the user accepted the milestone's hash changes (section 2).", "",
+              "## 10. Folder map (`<PL>` = this campaign directory)", "",
+              "- `pipeline.yaml` (the spec: runs, stages, rows, thresholds version) and `pipeline.lock.json` (the pin: "
+              "every out-of-hash file a run depends on by sha256, code / eval / tools shas, the external stack).",
+              "- `threshold_inputs*.yaml` -> `thresholds_v*.json` (`$TP/thresholds.py`; `thresholds_v1_2.json` is in "
+              "force, regenerated byte for byte by the section-3 command).",
+              "- `cameras.yaml`: the four depth-camera mounts of the student (v0, STOP-0 placeholder poses; read by "
+              "`config/crab_hex/omni_student_spec.py`).",
+              "- `R18/`, `F19/`: the two official runs' records (section 3); `dry/`: the full-graph dry pass's "
+              "generated plan / candidates / envs; `preflight/`: the PLAN step-2 / step-8 preflight (Phase A / C "
+              "queues, reads, STEPC_RULES.md); `m1a/`: the M1a payload-knob config-dump check record.",
+              "- `rows/scenarios_pl_body.yaml`: the pipeline's own body-frame direction-sweep row (report only); "
+              "`evals/`: the lean eval keep-set (F19_driver, F19_rows, step11: summary.md, complete.json, tp_row.json, "
+              "code_state.json); `step11/`: the step-11 report rows (queue sentinels, envs, fill plan, NOTE.md).",
+              "- `head/`: the bundled keep-set (bundle.yaml, section 9); `scripts/t4_*`: campaign-local Kit / CPU "
+              "helpers of the build and preflight steps -- `t4_dump_cfgs.py` (config dumps, the M1a inertness proof) + "
+              "`t4_payload_dump_check.py`, `t4_stepA_*` (Phase A queue + read), `t4_make_preflight.py` / "
+              "`t4_make_stepC.py` (their static inputs), `t4_stepC_*` (the Phase C job table `t4_stepC_jobs.py`, its "
+              "queue, reader, dry pass, camera / readback plays, depth diagnostic), `t4_eval_row.sh` (one eval row).",
+              "- Records: CHARTER.md, PLAN.md, DESIGN.md, STOP0.md, REPORT_baseline_vs_final.md / .json, this README.",
+              ""]
     if bad:
         lines += ["## UNVERIFIED (generator check)", ""] + [f"- `{c['path']}`: exists {c['exists']}, missing flags "
                                                              f"{c['missing_flags']}" for c in bad] + [""]

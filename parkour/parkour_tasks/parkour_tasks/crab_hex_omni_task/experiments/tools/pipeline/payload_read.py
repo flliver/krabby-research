@@ -28,7 +28,8 @@ coupled rod math (the spec's ``paths.sh_kin``, loaded by path, no bytecode), h_m
 (WATCH on level rows, never on field_hard).
 
     payload_read.py --spec PL/pipeline.yaml level --thresholds T.json --stamp suite@1=DIR --stamp suite@2=DIR --stamp field_light@1=DIR ...
-                          [--level 90] [--trained fwd,side,back,diag]
+                          [--trained fwd,side,back,diag]   (one level's rows; the lines are the same at every L,
+                                                            so ``level`` takes no level argument)
     payload_read.py --spec PL/pipeline.yaml actuator --stamp DIR [--level 90]
 """
 from __future__ import annotations

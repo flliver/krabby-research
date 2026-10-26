@@ -5,7 +5,24 @@
 
 """Streaming-video variant of play.py (constant memory; see the video block).
 
-Script to play a checkpoint if an RL agent from RSL-RL."""
+Script to play a checkpoint if an RL agent from RSL-RL.
+
+Usage (from ``parkour/``; one Isaac process at a time, under a memory cap)::
+
+    systemd-run --user --scope -p MemoryMax=40G -p MemorySwapMax=0 \\
+        <isaac python> scripts/rsl_rl/play_stream_video.py --task <...-Play-v0> --checkpoint <abs .pt> \\
+        --headless --video --video_length N --enable_cameras [--num_envs 1]
+
+Output: ONE mp4 of ``--video_length`` steps, streamed frame by frame (imageio / libx264, flat memory), to
+``<checkpoint dir>/videos/play/stream-<video_length>steps.mp4``; the script exits after the last frame. It is the
+memory-safe replacement for ``play.py --video`` (gym's recorder wrapper buffers every frame: a 5-min clip is ~41 GB).
+
+Side effect, as play.py: it WRITES an export beside the checkpoint before playing -- ``exported_teacher/`` (JIT + ONNX)
+for a teacher, ``exported_deploy/`` for a student (the omni depth student: ``export_omni_student_deploy``).
+
+Omni heads: export the policy's carry env first (``crab_hex_omni_task/policy/README.md``: e.g.
+``KRABBY_OMNI_CLOCK_HIDE=1 KRABBY_STD_PARAM=soft KRABBY_INIT_STD=0.8 KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25``);
+``KRABBY_PLAY_EPISODE_S`` sets the omni PLAY episode length (default 60 s)."""
 
 """Launch Isaac Sim Simulator first."""
 
@@ -34,8 +51,17 @@ from isaaclab.app import AppLauncher
 import cli_args  # isort: skip
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
-parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
+parser = argparse.ArgumentParser(
+    description="Play an RSL-RL checkpoint and stream ONE constant-memory mp4 (imageio / libx264) of --video_length "
+    "steps to <checkpoint dir>/videos/play/stream-<video_length>steps.mp4 -- the memory-safe replacement for "
+    "play.py --video."
+)
+parser.add_argument(
+    "--video",
+    action="store_true",
+    default=False,
+    help="Record one streamed video of --video_length steps (enables cameras).",
+)
 parser.add_argument("--video_length", type=int, default=500, help="Length of the recorded video (in steps).")
 parser.add_argument(
     "--disable_fabric", action="store_true", default=False, help="Disable fabric and use USD I/O operations."

@@ -821,3 +821,27 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     `pipeline.py check` now reports code_sha drift against the pin. That is intended: the lock stays the record of
     the build R18 / F19 ran on (tags task4-pin-*). A re-run needs that build or a deliberate relock.
   - Not pushed.
+- **2026-10-26, documentation audit + accepted version change (milestone close).**
+  - **Audit** (workflow `wf_80da7b43-86c`: inventory, 3 checkers, fable completeness critic, 2 fixers, fable verify):
+    52 errors + 30 gaps found in living docs.
+    - Fixed: the root README, DEVELOPER, `docs/` (FOLDER_LAYOUT, GLOSSARY, plant, policy-config, runtime /
+      deployment), the forward / sideways / omni task READMEs, the omni policy manifest prose (README regenerated),
+      the campaign indexes and the tool docstrings.
+    - Historical records were corrected only by appended dated notes.
+  - **User decision, verbatim:** "this is a major milestone and we need to be able to update those files. accept the
+    version changes and we will rerun with the new hashes as needed in future". The user added that this is
+    context-dependent: mid-series, these hashes must stay frozen.
+  - **Second pass** (`wf_3a65f2fe-dbe`, opus fix + fable verify, 0 blocking): applied the doc fixes the audit had
+    skipped in hashed / pinned files.
+    - Task 4 tools report.py / thresholds.py / payload_read.py; the README was regenerated from report.py.
+    - Stand scripts sh_core / sh_dagger / sh_table_test / sh_record_video(.py/.sh) / sn_record_video.sh;
+      tools/run_phases.py; parkour/scripts/rsl_rl/play_stream_video.py.
+    - Every Python edit is proven docstring- / help-text-only by an AST comparison with docstrings blanked.
+  - **Consequences, accepted:**
+    - (1) R18 / F19 stay the record of build cbaf6797 / 8c8d22f0, preserved by the local tags task4-pin-*. Any
+      re-run now runs the new build.
+    - (2) sh_core.py is now e78b05bb. Every recorded stand stamp fails the stand-video recorder's sh_core reference
+      check until it is re-stamped. Three stub-Kit tests skip with "re-stamp to re-enable".
+    - (3) code_sha and eval_sha move (run_phases.py is in EVAL_PATHSPECS, parkour/scripts in CODE_PATHSPECS).
+      Omni candidate ladders need --accept-code-change / --accept-eval-change to resume.
+    - (4) The Task 4 lock is re-pinned after this commit.

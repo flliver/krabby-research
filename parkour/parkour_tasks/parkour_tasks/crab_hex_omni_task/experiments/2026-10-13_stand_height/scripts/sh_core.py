@@ -51,6 +51,8 @@ WHAT IS HERE (each item is the plan's rule; the API list at the bottom of this d
    mid-restore is a stand->stand merge. Events per step: engaged / completed / timed_out / merged (+ reset cuts).
 8. **Warm start** (H4): A-mask s17 (``policy/stand_net/model_4000.pt``, sha256 pinned) with the actor backbone's
    layer-0 column 15 zeroed (``W[:, 15]``, norm 1.74 before); everything else (critic, std, estimator) unchanged.
+   That default is HISTORICAL: A-mask s17 is superseded (``policy/manifest.yaml`` ``superseded:`` SN_Amask_s17, its
+   file kept in place) and is not the stand network of record; see :data:`STAND_NET_CKPT`.
 9. **Residual label** (H4): ``R_h - q(h)``, refused (ValueError) if any element exceeds 1 (+ :data:`LABEL_TOL`) -- R_h
    lies within ``q +- 1`` on hip / knee (lift 0.5) and R's cams are within +-1, so the clamped residual can express
    the teacher exactly.
@@ -125,7 +127,14 @@ PRED_SCRIPTS = TASK / "experiments" / "2026-10-11_stand_network" / "scripts"
 SN_COMMON_PATH = PRED_SCRIPTS / "sn_common.py"
 SH_KIN_PATH = HERE / "sh_kin.py"
 FACTS_JSON = CAMPAIGN / "facts.json"
-#: the stand network of record (A-mask s17), the warm start (PLAN H4); sha256 = policy/manifest.yaml stand_network
+#: the DEFAULT warm start (PLAN H4) = A-mask s17, the stand network of record when this campaign ran (2026-10-13 ..
+#: 10-15). HISTORICAL since the 2026-10-24 F19 bake: A-mask s17 is ``superseded:`` SN_Amask_s17 in policy/manifest.yaml
+#: (this sha = its files[0].sha256; the file stays in stand_net/). The stand network of record is the manifest's
+#: ``stand_network`` (heads.stand = f19_stand_net: SH_T4F19 model_5000, warm-started from SN_T4F19 =
+#: f19_stand_net/model_4000.pt). Kept as the default on purpose -- an unset sh_dagger run is the campaign's run exactly,
+#: sh_table_test's --stand-ckpt default and the amask_old checks read these two as "A-mask s17", and the tests pin
+#: them. Warm-starting from another net is the explicit ``sh_dagger.py --warm-start PATH --warm-sha SHA`` (as the Task 4
+#: pipeline's SH stage passed SN_T4F19), never a change here.
 STAND_NET_CKPT = TASK / "policy" / "stand_net" / "model_4000.pt"
 STAND_NET_SHA256 = "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff"
 

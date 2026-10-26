@@ -5,7 +5,7 @@
 - **Source (not tracked):** `parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt`
 - **Role / task:** teacher_2a / `Isaac-Crab-Hex-Omni-Teacher-v0`
 - **Plant:** A15+B
-- **Why this checkpoint:** F19 T* = p3b (the trained payload head with the highest max_stable that passes its paired 0-kg check under thresholds v1.2); max_stable 135 kg at N_p 3000 iterations per stage (sim plant, force side not enforced); the depth student, SN and SH were trained beside it. The deliverable choice is the user's at STOP-END.
+- **Why this checkpoint:** F19 T* = p3b (the trained payload head with the highest max_stable that passes its paired 0-kg check under thresholds v1.2); max_stable 135 kg at N_p 3000 iterations per stage (sim plant, force side not enforced); the depth student, SN and SH were trained beside it. F19 = deliverable (user STOP-END 2026-10-24); baked as the omni policy of record (de81f98a; policy/manifest.yaml current = f19_8_p3b_payload180); tag omni-sim2real-baseline-2026-10-24 local, the push is the user's.
 - **Environment of record:** `KRABBY_ACTION_LPF_HZ=0 KRABBY_ACTION_LPF_OBS=0 KRABBY_APEX_W=1.0 KRABBY_CLOCK_W=1.0 KRABBY_FLAT_TERRAIN_GEOM=ring KRABBY_INIT_STD=0.8 KRABBY_LIN_VEL_X=0.0:0.35 KRABBY_OMNI_ANG_VEL_CLIP=0.2 KRABBY_OMNI_ANG_VEL_MAX=0.3 KRABBY_OMNI_CLOCK_HIDE=1 KRABBY_OMNI_CLOCK_TURN_R=1.2 KRABBY_OMNI_CMD_OBS=0 KRABBY_OMNI_COMMAND_FRAME=world KRABBY_OMNI_FACING_OBS_CLIP=0.6 KRABBY_OMNI_FACING_OBS_ENCODING=raw KRABBY_OMNI_RELAY_HYST=0 KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 KRABBY_OMNI_STAND_HOLD=0 KRABBY_OMNI_STAND_OBS=0 KRABBY_OMNI_STAND_PARK=0 KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 KRABBY_PLANT=A15+B KRABBY_PLAY_DEBUG_VIS=0 KRABBY_RSI_FRAC=0 KRABBY_STD_PARAM=soft KRABBY_TRACK_L1_W=-1.0 KRABBY_TRACK_SIGMA2=0.1`
 
 | metric | value |
@@ -30,11 +30,15 @@
 
 ```bash
 cd parkour
-KRABBY_ACTION_LPF_HZ=0 KRABBY_ACTION_LPF_OBS=0 KRABBY_APEX_W=1.0 KRABBY_CLOCK_W=1.0 KRABBY_FLAT_TERRAIN_GEOM=ring KRABBY_INIT_STD=0.8 KRABBY_LIN_VEL_X=0.0:0.35 KRABBY_OMNI_ANG_VEL_CLIP=0.2 KRABBY_OMNI_ANG_VEL_MAX=0.3 KRABBY_OMNI_CLOCK_HIDE=1 KRABBY_OMNI_CLOCK_TURN_R=1.2 KRABBY_OMNI_CMD_OBS=0 KRABBY_OMNI_COMMAND_FRAME=world KRABBY_OMNI_FACING_OBS_CLIP=0.6 KRABBY_OMNI_FACING_OBS_ENCODING=raw KRABBY_OMNI_RELAY_HYST=0 KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 KRABBY_OMNI_STAND_HOLD=0 KRABBY_OMNI_STAND_OBS=0 KRABBY_OMNI_STAND_PARK=0 KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 KRABBY_PLANT=A15+B KRABBY_PLAY_DEBUG_VIS=0 KRABBY_RSI_FRAC=0 KRABBY_STD_PARAM=soft KRABBY_TRACK_L1_W=-1.0 KRABBY_TRACK_SIGMA2=0.1 python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 --num_envs 1 --checkpoint ../parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/head/model_25992.pt
+env $(env | grep -oE '^KRABBY_[A-Z0-9_]+' | sed 's/^/-u /') OMNI_KIT_ACCEPT_EULA=yes KRABBY_ACTION_LPF_HZ=0 KRABBY_ACTION_LPF_OBS=0 KRABBY_APEX_W=1.0 KRABBY_CLOCK_W=1.0 KRABBY_FLAT_TERRAIN_GEOM=ring KRABBY_INIT_STD=0.8 KRABBY_LIN_VEL_X=0.0:0.35 KRABBY_OMNI_ANG_VEL_CLIP=0.2 KRABBY_OMNI_ANG_VEL_MAX=0.3 KRABBY_OMNI_CLOCK_HIDE=1 KRABBY_OMNI_CLOCK_TURN_R=1.2 KRABBY_OMNI_CMD_OBS=0 KRABBY_OMNI_COMMAND_FRAME=world KRABBY_OMNI_FACING_OBS_CLIP=0.6 KRABBY_OMNI_FACING_OBS_ENCODING=raw KRABBY_OMNI_RELAY_HYST=0 KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 KRABBY_OMNI_STAND_HOLD=0 KRABBY_OMNI_STAND_OBS=0 KRABBY_OMNI_STAND_PARK=0 KRABBY_OMNI_YAW_RANGE=-3.14159:3.14159 KRABBY_PLANT=A15+B KRABBY_PLAY_DEBUG_VIS=0 KRABBY_RSI_FRAC=0 KRABBY_STD_PARAM=soft KRABBY_TRACK_L1_W=-1.0 KRABBY_TRACK_SIGMA2=0.1 /home/nickmagus/krabby/isaac_venv/bin/python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 --num_envs 1 --checkpoint ../parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/head/model_25992.pt
 ```
+
+The `env -u` prefix drops every `KRABBY_*` variable inherited from the shell, so the environment of record above is the whole knob set. play.py writes an export (`exported_teacher/`, JIT + ONNX) beside the checkpoint it plays: copy the head elsewhere first to keep `head/` clean.
+
+The extra heads are not played by this line: see the campaign's own README (and, for a baked head, `crab_hex_omni_task/policy/README.md`) for their play / eval / video commands.
 
 ## Paths note
 
-This campaign lived at `sim_fine_tuning/2026-10-16_task4_pipeline/` (moved 2026-09-09 to `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/`). Checkpoint paths inside its records point at the raw artifacts (`parkour/logs/rsl_rl/...` for era-B campaigns, the campaign's own `logs/rsl_rl/...` tree for era A), which stay on disk but are not tracked; the tracked copy of the checkpoint of record is this `head/` directory.
+This campaign lives at `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/`. Checkpoint paths inside its records point at the raw artifacts (`parkour/logs/rsl_rl/...` for era-B campaigns, the campaign's own `logs/rsl_rl/...` tree for era A), which stay on disk but are not tracked; the tracked copy of the checkpoint of record is this `head/` directory.
 
-_Generated by `experiments/tools/bundle_experiment.py` on 2026-10-24._
+_Generated by `experiments/tools/bundle_experiment.py` on 2026-10-25._

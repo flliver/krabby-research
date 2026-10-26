@@ -76,6 +76,18 @@ git clone git@github.com:isaac-sim/IsaacLab.git
 ./isaaclab.sh --install
 ```
 
+### Next: train / evaluate a sim policy
+
+The crab-hexapod training, play and eval commands live in the task READMEs:
+[forward](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) (shared onboarding, environment
+setup, plant, MDP reference), [sideways](parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/README.md) and
+[omni](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/README.md). The policies of record and how to play /
+evaluate them: [forward policy/](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/policy/README.md),
+[omni policy/](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md). Every sim command runs
+with the Isaac venv's interpreter (the task READMEs use `/home/nickmagus/krabby/isaac_venv/bin/python`), and a
+headless Kit process needs `OMNI_KIT_ACCEPT_EULA=yes` in its environment (the campaign drivers set it for their
+children).
+
 ### HAL Development Setup
 
 HAL packages are organized as Python packages in `hal/krabby-hal-*/` directories. For development, install packages in editable mode:
@@ -102,8 +114,15 @@ This installs `nvidia-container-toolkit` and configures Docker to use it. Requir
 
 ### Running Tests
 
-Tests run inside the x86 testing Docker container. Run all tests (excluding Jetson tests):
+Tests run inside the x86 testing Docker container. Run all tests except the Jetson and Isaac Sim ones
+(`pytest -m "not jetson and not isaacsim"`):
 
 ```bash
 make test
 ```
+
+Sim-side suites (`tests/unit/test_crab_hex_*`, `test_task4_*`, `test_sh_*`, `test_sn_*`, `test_policy_of_record*`)
+run on the host with the Isaac venv: `<isaac venv>/bin/python -m pytest tests/unit ...` from the checkout root
+(see each task README's Tests section). `tests/unit/conftest.py` pins imports to THIS checkout and fails on any
+module loaded from another checkout; for hand-run tools from a git worktree, export the `PYTHONPATH` line in its
+docstring.

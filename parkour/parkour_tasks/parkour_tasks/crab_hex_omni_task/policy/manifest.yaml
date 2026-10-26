@@ -141,8 +141,8 @@ assets:
   what: omni RSI reference-state bank -- forward frames (the forward 2c teacher, source 0) merged with sideways
     frames (the sideways 2a teacher, source 1), 2000 each, provenance-tagged (sha256 pinned in that campaign's
     bundle.yaml; harvest recipe in its RSI_BANK.md)
-  used_by: every omni preset via KRABBY_RSI_BANK (config/crab_hex/crab_hex_omni_phases.py:132 OMNI_BANK,
-    :153 OMNI_COMMON) at KRABBY_RSI_FRAC=0.2 (the forward FORMATION value, inherited); which frames a stage
+  used_by: every omni preset via KRABBY_RSI_BANK (config/crab_hex/crab_hex_omni_phases.py:137 OMNI_BANK,
+    :157 OMNI_COMMON) at KRABBY_RSI_FRAC=0.2 (the forward FORMATION value, inherited); which frames a stage
     draws is KRABBY_OMNI_RSI_SOURCE. The presets still read it from its experiments/ source path. The CURRENT
     lineage (F19, side-first B) drew NO frames from it -- every stage's overlay sets KRABBY_RSI_FRAC=0 (RSI off; the
     F19 train envs name the bank, F19/envs/*.train.env); it stays bundled because every omni preset still names it
@@ -152,7 +152,7 @@ assets:
 obs_contract:
   width: 1149
   clock_columns: 'the gait clock sin/cos = obs dims 15-16 of the per-step proprio head plus the same two dims in
-    each of the 10 history copies (history_length 10, config/crab_hex/crab_hex_omni_env_cfg.py:108) = 22 columns;
+    each of the 10 history copies (history_length 10, config/crab_hex/crab_hex_omni_env_cfg.py:113) = 22 columns;
     the critic reads the same obs_buf. Re-verified for the F19 lineage (2026-10-24): obs_dim_actual 1149 in every F19
     driver suite stamp''s run_meta; every F19 RL checkpoint has the superseded seed-18 heads'' model_state_dict keys and
     shapes (critic.0.weight 512 x 1149, std_raw only); the student''s model_state_dict IS T*''s, bitwise (the frozen
@@ -174,8 +174,9 @@ obs_contract:
     scalar std and the strict checkpoint load raises RuntimeError (missing "std", unexpected "std_raw"); the
     same error, mirrored, means a scalar-std head (W) was built soft. KRABBY_INIT_STD=0.8 only initialises that
     parameter before the load overwrites it (carried for fidelity; values >= 2.0 are refused); actions are the
-    mean (act_inference), so the std never changes play / eval actions. KRABBY_FLAT_TERRAIN_GEOM=ring is also
-    loud (require_ring_geom raises). SILENT if missing -- KRABBY_OMNI_CLOCK_HIDE=1 for the current head (else a
+    mean (act_inference), so the std never changes play / eval actions. KRABBY_FLAT_TERRAIN_GEOM is also
+    loud: it must be ring (the eval rows) or field (the wall-field rows); unset or any other value raises
+    (require_omni_geom via apply_omni_ring_knobs). SILENT if missing -- KRABBY_OMNI_CLOCK_HIDE=1 for the current head (else a
     clock-free head is fed a live clock it never trained on); KRABBY_OMNI_FACING_OBS_CLIP=0.6 (the obs term''s
     class default is no clip); KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25 (this lineage trained a 0.35 m/s
     lateral semi-axis; the class / preset value 0.35:0.25:0.25 -- W''s -- re-caps every lateral command at 0.25
@@ -223,7 +224,8 @@ obs_contract:
       KRABBY_TRACK_L1_W: '-1.0'
       KRABBY_CLOCK_W: '1.0'
       KRABBY_APEX_W: '1.0'
-    fixed_notes: KRABBY_FLAT_TERRAIN_GEOM=ring is REQUIRED by every omni process (apply_omni_ring_knobs); the
+    fixed_notes: KRABBY_FLAT_TERRAIN_GEOM must be ring (the eval rows) or field (the wall-field rows) in every omni
+      process; unset or any other value raises (require_omni_geom via apply_omni_ring_knobs); the
       LIN_VEL_X / TRACK_* / CLOCK_W / APEX_W keys are the driver's fixed FORMATION reward frame (CANARY_KEYS) --
       reward-only in an eval, they do not reach the policy (CLOCK_W 1.0 at eval does NOT show the clock; only
       KRABBY_OMNI_CLOCK_HIDE decides that). The B construction knobs other than STD_PARAM / INIT_STD (bound loss,
@@ -795,8 +797,8 @@ stages:
     what: 'the I/O contract of the two ONNX files (obs [1, 1149], depth [1, 4, 58, 87] normalised clip(d, 2 m) / 2 -
       0.5, proprio [1, 89], GRU hidden [1, 1, 512], depth latent [1, 32], encode every 5 policy steps, actions clip
       1.0)'
-  trained_in: 'experiments/2026-10-16_task4_pipeline (run F19, stage st: pipeline.py ex_distill -> experiments/tools/
-    pipeline/distill.sh, run T4F19_st_a2 = the second distill attempt, from p3b after the v1.2 T* retarget -- the
+  trained_in: 'experiments/2026-10-16_task4_pipeline (run F19, stage st: pipeline.py ex_distill ->
+    experiments/tools/pipeline/distill.sh, run T4F19_st_a2 = the second distill attempt, from p3b after the v1.2 T* retarget -- the
     p3a-based first attempt was stopped at ~it 26800 and is not this head; selection stage sel: F19/gates/sel.json
     PASS, thresholds v1.2; the deploy export was written by play.py 2026-10-24 into the run dir''s exported_deploy/ and
     copied to the campaign keep-set head/student_c28000_*, same sha256)'
@@ -1184,6 +1186,12 @@ stand_network:
         bash $S/sh_record_video.sh --plan mix --seed 1514 --terrain field_medium --prefix {name}_mix -- \
           --checkpoint $SN_WALKER_CK --stand-ckpt $CK --stand-mask 1 --deadband 0.25 \
           --eval-run $PWD/outputs/omni_plan/phase2/lr/SH_T4F19_sh_s19/hraise__omni/seed001/2026-10-23_23-19-04
+    - comment: the same mix on the roughest wall field (--terrain field_max = field_hard__omni's field with every tile at
+        difficulty 1.0, the trained top; detached, MemoryMax 24G)
+      run: |-
+        bash $S/sh_record_video.sh --plan mix --seed 1514 --terrain field_max --prefix {name}_mix_roughest -- \
+          --checkpoint $SN_WALKER_CK --stand-ckpt $CK --stand-mask 1 --deadband 0.25 \
+          --eval-run $PWD/outputs/omni_plan/phase2/lr/SH_T4F19_sh_s19/hraise__omni/seed001/2026-10-23_23-19-04
     notes: 'sh_eval_rows.sh runs each row through the phase-2 run_arm.sh --row-eval path with the stand_height launcher
       (sh_eval_crab_hex_gait.py), one Isaac process at a time; with the exported walker env above the walker is T*
       (SN_WALKER_CK / SN_WALKER_ST: its source run file and its driver suite stamp''s env -- STAND_OBS 0, CLOCK_HIDE 1,
@@ -1200,7 +1208,8 @@ stand_network:
       stand_k5_identity); the decisive K5 lines are the pipeline gate''s (F19/gates/sh.json, 43 / 43 PASS). The video
       (VIDEO ONLY, read by no gate) takes the walker by --checkpoint and refuses a stand checkpoint, mask, deadband,
       walker or code sha that differs from its reference stamp''s (--eval-run: SH_T4F19''s hraise es1 stamp); mp4 under
-      parkour/logs/videos/sh_stand_height/ (untracked; the F19 bake''s own: sh_mix_F19_s1514_rough_sequence.mp4)'
+      parkour/logs/videos/sh_stand_height/ (untracked; the F19 bake''s own: sh_mix_F19_s1514_rough_sequence.mp4 on field_medium and
+      sh_mix_F19_s1514_roughest_sequence.mp4 on field_max)'
   evals:
     title: Gates K1-K6 beside T*
     what: 'closed-loop gates K1-K6 read by experiments/2026-10-13_stand_height/scripts/sh_read.py: the head as the
@@ -1395,7 +1404,10 @@ stand_network:
         0.143 taps per s (R_h beside T* 0.184 / 0.170 and 0.135 / 0.144). Forces (pooled, foot loads): six-leg mean hip
         rod 1145-1917 N per height bin, top-bin p90 row 2020 N, worst leg 2197 N. Video sh_mix_F19_s1514_rough (180 s,
         T* at 0 kg on the medium wall field, 12 commands, 4 stands at 0.730 / 1.322 / 0.871 / 1.176 m): 4 / 4 arrived
-        (window error 0.2-3.8 mm) and homed, 4 / 4 restores, 0 falls'
+        (window error 0.2-3.8 mm) and homed, 4 / 4 restores, 0 falls. Video sh_mix_F19_s1514_roughest (the same
+        schedule on --terrain field_max, every tile at difficulty 1.0): 4 / 4 arrived (window error 0.9-22.8 mm; the
+        worst, 22.8 mm, is the third stand at 0.871 m on 3 feet) and homed, 4 / 4 restores, 0 falls
+        (parkour/logs/videos/sh_stand_height/sh_mix_F19_s1514_roughest_sequence_sanity.json)'
       stamps:
         hwalkstop__omni@1: parkour/outputs/omni_plan/phase2/lr/SH_T4F19_sh_s19/hwalkstop__omni/seed001/2026-10-23_23-05-28
         hwalkstop__omni@2: parkour/outputs/omni_plan/phase2/lr/SH_T4F19_sh_s19/hwalkstop__omni/seed002/2026-10-23_23-12-17
@@ -1406,6 +1418,7 @@ stand_network:
         REFS: parkour/outputs/omni_plan/phase2/lr/REFS_T4F19 (T* alone on the SN / K5 rows)
         table: parkour/logs/videos/sh_table/2026-10-23_18-59-15_full
         video: parkour/logs/videos/sh_stand_height/sh_mix_F19_s1514_rough_sequence.mp4
+        video field_max: parkour/logs/videos/sh_stand_height/sh_mix_F19_s1514_roughest_sequence.mp4
   selection:
     rule: 'the Task 4 pipeline (no judge panel): one training seed (19) per stand stage beside T*; SN gated on G1-G5
       (F19/gates/sn.json PASS), SH on K1-K6 (F19/gates/sh.json; K4 <= 3 / 800 misses per env seed, D9) with the DESIGN

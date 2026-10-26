@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Stand-height campaign -- generate the step-8 raise / lower schedule and record its video (VIDEO ONLY; read by no
-# gate). Adapted copy of the closed predecessor's 2026-10-11_stand_network/scripts/sn_record_video.sh (never edited).
+# gate). Adapted copy of the closed predecessor's 2026-10-11_stand_network/scripts/sn_record_video.sh (its code never
+# edited; a header note only, 2026-10-26: its busy pattern does not see this campaign's scripts -- this one's does).
 # The recorder is an Isaac process: one at a time, under a memory cap, never SIGKILLed, detached (memories: video
 # memory hazard, Kit DerivedDataCache corruption, GPU queue chaining; CHARTER section 2: never SIGKILL Kit).
 #
@@ -33,8 +34,29 @@
 #     --overwrite     allow replacing an existing <prefix>_sequence.mp4
 #     --dry-run       print the schedule (nothing written), whether an Isaac process is running, the environment and
 #                     the command; launch nothing
-#     -- <args>       passed to sh_record_video.py -- the head goes here, e.g.
-#                     -- --stand-ckpt /abs/.../runs/SH_T18/model_5000.pt --stand-mask 1 --deadband 0.25
+#     -- <args>       passed to sh_record_video.py -- the walker, the head and its reference stamp go here; for the
+#                     policy of record (T* + SH_T4F19; crab_hex_omni_task/policy/README.md "Evaluate it / watch it"):
+#                     -- --checkpoint <repo>/parkour/logs/rsl_rl/crab_hex_omni_teacher/
+#                        2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt   (T*; = policy/f19_8_p3b_payload180)
+#                        --stand-ckpt <repo>/parkour/outputs/omni_plan/stand_height/runs/SH_T4F19_sh_s19/model_5000.pt
+#                        --stand-mask 1 --deadband 0.25
+#                        --eval-run <repo>/parkour/outputs/omni_plan/phase2/lr/SH_T4F19_sh_s19/hraise__omni/seed001/<stamp>
+#                     The recorder's built-in defaults (walker S1 s18, stand net SH_T18, the SH_T18 hraise es1 stamp) are
+#                     HISTORICAL and refused today (harness_sha256: the stamp predates the 10-15 / 10-16 harness edits).
+#                     The recorder refuses any stamp whose recorded shas differ from the current code's; since the
+#                     2026-10-26 sh_core.py doc note (user-accepted sha change) that is every stand stamp recorded before
+#                     it (SH_T4F19's 2026-10-23_23-19-04 included): re-stamp the head's hraise__omni@1 row with
+#                     sh_eval_rows.sh and pass the new stamp, or add --allow-reference-mismatch.
+#
+# Environment (all optional):
+#   SH_VIDEO_OUT        output dir for the mp4 / stills / sanity JSON / log / pid / unit (default
+#                       $R/parkour/logs/videos/sh_stand_height)
+#   SH_PY               the Isaac python (default /home/nickmagus/krabby/isaac_venv/bin/python)
+#   SH_VIDEO_MEMORY_MAX the scope's MemoryMax (default 24G)
+#   SH_DDC              the Kit DerivedDataCache dir checked before launch (default: the venv's isaacsim/kit/cache one)
+#   SH_DDC_MAX_GB       refuse (exit 5) above this cache size (default 80)
+#   SH_UP_WAIT          seconds to wait for the recorder python to become visible (default 120; then exit 7)
+#   SH_VIDEO_TIMEOUT    the run's SIGTERM bound in s (default 5400; --smoke / tour_smoke 1800)
 #
 # What it does:
 #   1. refuses (exit 3) while ANY Isaac python runs -- evals (*eval_crab_hex_gait.py), DAgger trainers, table tests,

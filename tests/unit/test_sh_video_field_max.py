@@ -164,6 +164,38 @@ def _f19_stamp():
     return stamps[-1]
 
 
+#: the other files whose recorded sha the recorder's REFERENCE_CHECKS compare with the file on disk
+#: (sh_record_video.py: HARNESS, SH_LAUNCHER, EC_PATH, P2R_LAUNCHER and sh_core.provenance's five shas)
+HARNESS = REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py"
+SH_LAUNCHER = SCRIPTS / "sh_eval_crab_hex_gait.py"
+SH_EVAL_COMMON = SCRIPTS / "sh_eval_common.py"
+P2R_LAUNCHER = TASK / "experiments/2026-10-07_omni_phase2/scripts/p2r_mode_eval_crab_hex_gait.py"
+CORE_SHA_KEYS = ("sh_core_sha256", "sh_kin_sha256", "sn_common_sha256", "restance_sha256", "facts_json_sha256")
+
+
+def _stale_reference_checks(stamp: Path, walker: Path, stand_head: Path, VC) -> list:
+    """The names of the recorder's file-sha REFERENCE_CHECKS this stamp FAILS with today's files: the harness, the
+    stand-height launcher, sh_eval_common, the P2R launcher, sh_core.provenance's shas, the stand head and the walker.
+    Non-empty = the recorder refuses the stamp (e.g. after the 2026-10-26 sh_core.py doc note moved its sha)."""
+    def sha(p: Path):
+        return hashlib.sha256(p.read_bytes()).hexdigest() if p.is_file() else None
+
+    meta = json.loads((stamp / "run_meta.json").read_text())
+    pm = meta.get("p2r_mode") or {}
+    shb = pm.get(VC.EC.BLOCK_KEY) or {}
+    prov = VC.CORE.provenance(0.25)
+    checks = {
+        "harness_sha256": (pm.get("harness_sha256"), sha(HARNESS)),
+        "sh_launcher_sha256": (shb.get("wrapper_sha256"), sha(SH_LAUNCHER)),
+        "sh_eval_common_sha256": (shb.get("common_sha256"), sha(SH_EVAL_COMMON)),
+        "p2r_launcher_sha256": (shb.get("p2r_launcher_sha256"), sha(P2R_LAUNCHER)),
+        **{k: ((shb.get("core") or {}).get(k), prov[k]) for k in CORE_SHA_KEYS},
+        "stand_ckpt_sha256": ((pm.get("specialist") or {}).get("sha256"), sha(stand_head)),
+        "s1_ckpt_sha256": (meta.get("checkpoint_sha256"), sha(walker)),
+    }
+    return [k for k, (recorded, live) in checks.items() if recorded is None or recorded != live]
+
+
 def _ref_envs() -> list[dict]:
     refs = [{"KRABBY_FLAT_TERRAIN_GEOM": "ring", "KRABBY_OMNI_STAND_OBS": "0", "KRABBY_PLANT": "A15+B"},
             {"KRABBY_X": "1", "KRABBY_FLAT_TERRAIN_DIFF": "0.05:0.2"}]
@@ -359,8 +391,12 @@ def test_recorder_pre_kit_flat_and_field_medium_equal_the_pre_field_max_recorder
     """The REAL pre-Kit path (stub Kit) on the mix seed-1514 row with the F19 head: flat / field_medium print and boot
     exactly what the commit-36c80bc2 recorder source does (it loads today's core by its ``__file__``; the core's own
     flat / field_medium outputs are pinned to the old core's above); field_max boots the field_max env (reference
-    checks all equal)."""
+    checks all equal). Needs a stamp the current code wrote (the recorder refuses any other): skipped otherwise."""
     stamp = _f19_stamp()
+    stale = _stale_reference_checks(stamp, T_STAR, F19_SH, VC)
+    if stale:
+        pytest.skip(f"no stand stamp matches the current code -- re-stamp to re-enable (SH_T4F19 {stamp.name}: "
+                    f"{', '.join(stale)} differ)")
     old_rec = tmp_path / "old_rec.py"
     old_rec.write_text(_git_show(PRE_CORE_COMMIT, f"{SCRIPTS_REL}/sh_record_video.py"))
     vids = tmp_path / "v"

@@ -16,11 +16,10 @@ module it imports by package name. Two measures close that:
 this one first. A submodule missing here would silently load from the main checkout; measure 2 catches that.
 
 In the main checkout ``<root>`` IS the editable target, so nothing is changed there: no ``sys.path`` or
-``PYTHONPATH`` edit, and the guard finds nothing. From a worktree, the exported ``PYTHONPATH`` is visible to
-``test_crab_hex_omni_gate.py::test_train_without_the_new_kwargs_names_no_run_and_carries_no_overlay``, which
-asserts the exact ``PYTHON*`` env of a driver child and so fails there. Its fixture logs
-(``tests/unit/fixtures/omni_track_ratio/*.log``) are also git-ignored, so its 7 fixture tests fail in any
-fresh worktree.
+``PYTHONPATH`` edit, and the guard finds nothing. From a worktree the exported ``PYTHONPATH`` reaches driver
+children; ``test_crab_hex_omni_gate.py``'s env check ignores ambient ``PYTHON*`` keys and only requires them to
+pass through unchanged (39662c26), and its fixture logs are tracked (``tests/unit/fixtures/.gitignore``
+re-includes ``*.log``, 18b52d3c).
 
 For hand-run tools from a worktree, export the same paths::
 

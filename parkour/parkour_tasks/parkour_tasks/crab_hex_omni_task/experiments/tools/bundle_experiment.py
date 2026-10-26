@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Bundle a campaign's keep-set: its checkpoint of record, eval summaries, RSI banks and an index.
 
-Every campaign directory under ``crab_hex_omni_task/experiments/`` carries a ``bundle.yaml``
-manifest. This tool (stdlib + PyYAML, no Isaac) turns it into the tracked bundle::
+A campaign directory under ``crab_hex_omni_task/experiments/`` MAY carry a ``bundle.yaml``
+manifest (so far: ``2026-09-16_1805_omni_formation``, ``2026-10-16_task4_pipeline``; the other rows of
+``experiments/README.md`` are hand-maintained and must be re-added after an ``--index`` run). This tool
+(stdlib + PyYAML, no Isaac) turns a manifest into the tracked bundle::
 
     bundle_experiment.py <campaign_dir>...      # bundle these campaigns
     bundle_experiment.py --all                  # every campaign with a bundle.yaml
@@ -49,6 +51,10 @@ the file already sitting at ``<campaign>/<dest>`` (unless its manifest value is 
 placeholder -- not yet pinned, verification is skipped with a printed note), nothing git-ignored
 and no stray ``.pt/.npz/.log/.mp4`` is staged, and ``head/README.md`` is written in the
 ``old-runs/`` README style.
+
+The index's "eval runs" column counts eval STAMPS: distinct directories under the campaign that hold a
+``run_meta.json`` or a ``summary.md`` (one per stamp in both the driver keep-set and the lean Task 4
+keep-set, which tracks no ``run_meta.json``).
 """
 
 from __future__ import annotations
@@ -156,16 +162,26 @@ def head_readme(cdir: Path, b: dict, head: dict, size: int, sha: str, extra: lis
         "",
         "```bash",
         "cd parkour",
-        f"{play_env + ' ' if play_env else ''}python scripts/rsl_rl/play.py --task {play_task} --num_envs 1 --checkpoint ../{rel_head}",
+        "env $(env | grep -oE '^KRABBY_[A-Z0-9_]+' | sed 's/^/-u /') OMNI_KIT_ACCEPT_EULA=yes "
+        f"{play_env + ' ' if play_env else ''}/home/nickmagus/krabby/isaac_venv/bin/python scripts/rsl_rl/play.py "
+        f"--task {play_task} --num_envs 1 --checkpoint ../{rel_head}",
         "```",
+        "",
+        "The `env -u` prefix drops every `KRABBY_*` variable inherited from the shell, so the environment of record "
+        "above is the whole knob set. play.py writes an export (`exported_teacher/`, JIT + ONNX) beside the "
+        "checkpoint it plays: copy the head elsewhere first to keep `head/` clean.",
+    ]
+    if extra:
+        lines += ["", "The extra heads are not played by this line: see the campaign's own README (and, for a baked "
+                  "head, `crab_hex_omni_task/policy/README.md`) for their play / eval / video commands."]
+    lines += [
         "",
         "## Paths note",
         "",
-        f"This campaign lived at `sim_fine_tuning/{cdir.name}/` (moved 2026-09-09 to "
-        f"`{EXP.relative_to(REPO)}/{cdir.name}/`). Checkpoint paths inside its records point at the raw "
-        "artifacts (`parkour/logs/rsl_rl/...` for era-B campaigns, the campaign's own `logs/rsl_rl/...` tree for "
-        "era A), which stay on disk but are not tracked; the tracked copy of the checkpoint of record is this "
-        "`head/` directory.",
+        f"This campaign lives at `{EXP.relative_to(REPO)}/{cdir.name}/`. Checkpoint paths inside its records point "
+        "at the raw artifacts (`parkour/logs/rsl_rl/...` for era-B campaigns, the campaign's own `logs/rsl_rl/...` "
+        "tree for era A), which stay on disk but are not tracked; the tracked copy of the checkpoint of record is "
+        "this `head/` directory.",
     ]
     if b.get("aliases"):
         lines.append("Older records may call this directory " + ", ".join(f"`{a}`" for a in b["aliases"]) + ".")
@@ -345,7 +361,7 @@ def index_text() -> str:
             hcell = f"→ [{head['ref']}]({head['ref']}/)"
         else:
             hcell = f"none — {head.get('none', '')}"
-        n_evals = sum(1 for p in cdir.rglob("run_meta.json"))
+        n_evals = len({p.parent for name in ("run_meta.json", "summary.md") for p in cdir.rglob(name)})
         recs = ", ".join(f"[{r}]({cdir.name}/{r})" for r in (b.get("records") or [])[:4])
         rows.append(f"| [{cdir.name}]({cdir.name}/) | {b.get('dates', '')} | {b.get('era', '')} | {b.get('plant', '')} | "
                     f"{b.get('question', '')} | {b.get('verdict', '')} | {hcell} | {n_evals} | {recs} |")
@@ -369,8 +385,10 @@ def index_text() -> str:
         "**Forward/sideways lineage:** reference numbers and the shared MDP live in `../../crab_hex_forward_task/` "
         "(`policy/manifest.yaml`, README) and `../../crab_hex_sideways_task/`.",
         "",
-        "**Not campaigns:** [`eval/`](eval/) holds `scenarios_omni.yaml` (hand-written v2 manifest) and `tools/` the "
-        "drivers; neither carries a `bundle.yaml`.",
+        "**Not campaigns:** [`eval/`](eval/) holds the hand-written eval manifests -- `scenarios_omni.yaml` (v2 "
+        "world-frame rows, the campaign suite), `scenarios_omni_body.yaml` (v3 robot-frame rows routed through the "
+        "command term, for a body-frame head) and `scenarios_gpu0_sidesweep.yaml` (v2 report-only side-speed sweep) "
+        "-- and `tools/` the drivers (`tools/pipeline/` = the Task 4 pipeline); neither carries a `bundle.yaml`.",
         "",
         "| campaign | dates | era | plant | question | outcome | head of record | eval runs | records |",
         "|---|---|---|---|---|---|---|---|---|",

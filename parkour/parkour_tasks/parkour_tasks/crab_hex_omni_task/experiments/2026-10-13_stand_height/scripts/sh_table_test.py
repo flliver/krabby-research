@@ -4,8 +4,9 @@ step-6+ evaluation). Writes one JSON per K3 cell (``<prefix>__<cell>.json``), a 
 (``--video``) an mp4; ``--merge`` pools the cells, reads K3 against R_h and the step-4 R_h floor.
 
 It extends the closed predecessor's ``sn_table_test.py`` (``../2026-10-11_stand_network/scripts``; loaded BY PATH for
-its helpers -- run_meta resolution, the harness extraction, the slot rule, captions -- never edited) from one 25-in
-table to the K3 grid of ``sh_table_core`` (read its docstring: cells, poses, commands, start, episode, controllers,
+its helpers -- run_meta resolution, the harness extraction, the slot rule, captions -- not edited by this campaign;
+since then only the Task 4 walker-override hook, 2026-10-16, and the post-bake historical-default note) from one
+25-in table to the K3 grid of ``sh_table_core`` (read its docstring: cells, poses, commands, start, episode, controllers,
 STOOD, the K3 read), with the stand-height semantics of ``sh_core`` (q(h), R_h, the limiter, h_meas, the stand-net
 input, the router).
 
@@ -18,7 +19,19 @@ The Isaac run (``--headless``; ``--enable_cameras`` with ``--video``)::
 
     sh_table_test.py --controller {r_h,stand_net,posture_only,s1,amask_old} [--cells all|<surface>|<cell>,...]
                      [--envs-per-cell 100] [--seed 1] [--jitter] [--h-cmd H] [--stand-ckpt P] [--stand-mask 1]
-                     [--deadband D] [--label L] [--video] [--smoke [--episode-s S]] --out DIR [--prefix P] --headless ...
+                     [--deadband D] [--label L] [--video] [--smoke [--episode-s S]] --out DIR [--prefix P]
+                     [--s1-ckpt P] [--eval-run STAMP] [--friction F] [--overwrite]
+                     [--cam-eye x,y,z --cam-lookat x,y,z --quality Q] [--rss-abort-gb G] --headless ...
+
+The defaults are HISTORICAL (kept unchanged: the recorded runs and the tests use them): ``--s1-ckpt`` = S1 s18
+(``policy/6_p2a_field/model_19994.pt``, the predecessor's ``DEFAULT_S1``, sha-checked against ``SPEC.S1_SHA256``),
+``--eval-run`` = the REFS env stamp (``SPEC.REFS_ENV_STAMP``) and ``--stand-ckpt`` = ``sh_core.STAND_NET_CKPT``
+(A-mask s17) -- both heads are ``superseded:`` in ``policy/manifest.yaml`` since the 2026-10-24 F19 bake (see the
+predecessor ``sn_table_test.py``'s HISTORICAL DEFAULTS note). For the stand network of record (``stand_network`` =
+f19_stand_net, SH_T4F19 beside T*) export the walker override first -- ``SN_WALKER_SPEC`` (+ ``SN_WALKER_CK`` /
+``SN_WALKER_ST``, ``P2_REANCHOR=1``), which also moves the ``--s1-ckpt`` / ``--eval-run`` defaults to that walker -- and
+pass ``--stand-ckpt <f19_stand_net/model_5000.pt>``: the command is in ``crab_hex_omni_task/policy/README.md``
+("Stand network of record" -> "Evaluate it / watch it", ``sh_table_test.sh --controllers stand_net ...``).
 
 ``--deadband D`` (``stand_net`` only; default 0 = off, the action path without it, bitwise): the router's residual
 deadband (``sh_core.apply_deadband``; CHARTER 2026-10-14 probe), recorded in the job summary and in every cell's meta

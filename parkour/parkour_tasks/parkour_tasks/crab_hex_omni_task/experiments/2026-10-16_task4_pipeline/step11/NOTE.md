@@ -16,3 +16,7 @@ The stamps themselves live under `parkour/outputs/omni_plan/task4/step11/lr/`, a
 are under `evals/step11/`.
 - `s11_queue_sentinels.txt`: a committed copy of `s11_queue.log`. `*.log` is git-ignored here; this is the file
   `report.py --rows-log` read.
+
+- Correction (2026-10-25): the step-11 report read `s11_queue.log`, not the committed copy (REPORT_baseline_vs_final.md,
+  "Step-11 rows" provenance line). `s11_queue_sentinels.txt` is its byte-identical committed copy (same numbers); on a
+  clean checkout, where the git-ignored `.log` is absent, pass `s11_queue_sentinels.txt` to `report.py --rows-log`.

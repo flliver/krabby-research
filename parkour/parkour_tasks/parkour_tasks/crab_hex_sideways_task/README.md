@@ -16,6 +16,30 @@ terrain/curriculum knobs, PPO/distillation hyper-parameters, terminations and th
 action space are byte-identical to the forward recipe (verified by an Isaac config-delta test;
 see `tests/integration/test_crab_hex_sideways_configs.py`).
 
+## Head of record
+
+**Named 2026-09-12 (user decision):** the seed-2 window-2a teacher of
+[`experiments/2026-09-11_0414_sideways_formation/`](experiments/2026-09-11_0414_sideways_formation/)
+(`crab_hex_side_teacher/2026-09-12_03-04-37/model_9998.pt`, task `Isaac-Crab-Hex-Side-Teacher-v0`), bundled at
+`experiments/2026-09-11_0414_sideways_formation/head/model_9998.pt` (sha256 `27a51c2b...`; the campaign's
+`bundle.yaml` verdict and `head/README.md` carry the full record). There is no `policy/` folder for this task.
+**Status:** phase 3 (a depth student) was not attempted -- blocked by the shared `random_camera_position` frame
+bug and the +y camera-mount decision (campaign CHARTER caveat 10).
+
+```bash
+cd parkour  # from krabby-research/
+PY=/home/nickmagus/krabby/isaac_venv/bin/python
+H=$PWD/parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/head/model_9998.pt
+# score it on a sideways row (the row sets its own task)
+$PY parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py --headless \
+  --manifest parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/eval/scenarios_side.yaml \
+  --scenario slow__side --checkpoint $H
+# watch it under the preset it trained in (copy the checkpoint out of the campaign tree first: play.py writes
+# exported_teacher/ beside it)
+KRABBY_SIDE_PHASE=2a $PY scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Side-Teacher-Play-v0 \
+  --num_envs 1 --real-time --checkpoint <abs copy of model_9998.pt>
+```
+
 ## Delta from the forward task
 
 | Site | Forward | Sideways |
@@ -79,8 +103,8 @@ CHARTER), `nan` or `infra`; relaunch with `--continue` or `--redo`.
 
 ### Eval harness
 
-One harness serves both tasks (`crab_hex_forward_task/scripts/eval_crab_hex_gait.py` reads
-`travel_yaw` off the env cfg):
+One harness serves all three crab-hex tasks -- forward, sideways and omni
+(`crab_hex_forward_task/scripts/eval_crab_hex_gait.py`; on sideways rows it reads `travel_yaw` off the env cfg):
 
 ```bash
 $PY parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py --headless \
@@ -102,6 +126,8 @@ Phase-3 (distillation) heads additionally need `--task Isaac-Crab-Hex-Side-Stude
    raises `RuntimeError` if both `KRABBY_PHASE` and `KRABBY_SIDE_PHASE` are set — one task per
    process, because the expanded `KRABBY_*` knob names are shared and the forward activation would
    `setdefault` the RSI keys first.
+   The omni task's `KRABBY_OMNI_PHASE` is the third mutually exclusive preset variable: exactly one of the
+   three may be set per process.
 2. **Never leave `KRABBY_SIDE_PHASE` set for a forward run.** The forward package ignores it
    (a leaked value would silently train the un-expanded default MDP instead of a preset). The
    drivers on both sides strip every `KRABBY_*` variable from the subprocess environment before

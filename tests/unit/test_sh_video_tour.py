@@ -52,29 +52,66 @@ LAUNCHER = SCRIPTS / "sh_eval_crab_hex_gait.py"
 P2_MANIFEST = TASK / "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml"
 T17_HEAD = REPO / "parkour/outputs/omni_plan/stand_height/runs/SH_T17/model_5000.pt"
 T17_STAMPS = REPO / "parkour/outputs/omni_plan/phase2/lr/SH_T17/hraise__omni/seed001"
-#: SH_T17's recipe replayed beside the same S1 s18 at the Task 4 pin (R18's X stand replay, CHARTER 2026-10-19/20):
-#: its stamps carry the CURRENT harness sha (SH_T17's predate the 2026-10-16 eval commit 9072aca1, so the recorder's
-#: reference check now refuses them -- correctly)
+#: SH_T17's recipe replayed beside the same S1 s18 at the Task 4 pin (R18's X stand replay, CHARTER 2026-10-19/20).
+#: SH_T17's stamps predate the 2026-10-16 eval commit 9072aca1 (harness sha), and since the 2026-10-26 doc note in
+#: sh_core.py (user decision: accept the hash changes) NO recorded stand stamp carries the current sh_core sha either --
+#: the recorder refuses them all (correctly) until a stand head is re-stamped by the current code.
 X_HEAD = REPO / "parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_ref_s17/model_5000.pt"
 X_STAMPS = REPO / "parkour/outputs/omni_plan/phase2/lr/SH_T4R18_sh_ref_s17/hraise__omni/seed001"
 HARNESS = REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py"
+#: the other files whose recorded sha the recorder's REFERENCE_CHECKS compare with the file on disk
+#: (sh_record_video.py: SH_LAUNCHER = LAUNCHER below, EC_PATH, P2R_LAUNCHER, sh_core.provenance's five shas) and its
+#: default walker (DEFAULT_CKPT = S1 s18: the stub test passes no --checkpoint)
+SH_EVAL_COMMON = SCRIPTS / "sh_eval_common.py"
+P2R_LAUNCHER = TASK / "experiments/2026-10-07_omni_phase2/scripts/p2r_mode_eval_crab_hex_gait.py"
+S1_DEFAULT = REPO / "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt"
+CORE_SHA_KEYS = ("sh_core_sha256", "sh_kin_sha256", "sn_common_sha256", "restance_sha256", "facts_json_sha256")
 
 
-def _current_harness_reference():
-    """(stand head, newest complete hraise es1 stamp) of the first S1-paired SH head whose stamp was written by the
-    CURRENT harness (the recorder refuses a stamp from another harness), X replay first, SH_T17 second; None if none."""
+def _sha_or_none(path: Path):
     import hashlib  # noqa: PLC0415
+
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+
+
+def _reference_file_sha_mismatches(meta: dict, stand_head: Path, CORE, EC) -> list:
+    """The names of the recorder's file-sha REFERENCE_CHECKS (sh_record_video.py) this stamp FAILS today: the harness,
+    the stand-height launcher, sh_eval_common, the P2R launcher, sh_core.provenance's shas (sh_core / sh_kin / sn_common
+    / the R module / facts.json), the stand checkpoint (--stand-ckpt = the head) and the default S1 walker."""
+    pm = meta.get("p2r_mode") or {}
+    shb = pm.get(EC.BLOCK_KEY) or {}
+    prov = CORE.provenance(0.25)
+    checks = {
+        "harness_sha256": (pm.get("harness_sha256"), _sha_or_none(HARNESS)),
+        "sh_launcher_sha256": (shb.get("wrapper_sha256"), _sha_or_none(LAUNCHER)),
+        "sh_eval_common_sha256": (shb.get("common_sha256"), _sha_or_none(SH_EVAL_COMMON)),
+        "p2r_launcher_sha256": (shb.get("p2r_launcher_sha256"), _sha_or_none(P2R_LAUNCHER)),
+        **{k: ((shb.get("core") or {}).get(k), prov[k]) for k in CORE_SHA_KEYS},
+        "stand_ckpt_sha256": ((pm.get("specialist") or {}).get("sha256"), _sha_or_none(stand_head)),
+        "s1_ckpt_sha256": (meta.get("checkpoint_sha256"), _sha_or_none(S1_DEFAULT)),
+    }
+    return [k for k, (recorded, live) in checks.items() if recorded is None or recorded != live]
+
+
+def _current_reference(CORE, EC):
+    """((stand head, newest complete hraise es1 stamp), notes) for the first S1-paired SH head whose stamp passes EVERY
+    file-sha reference check the recorder makes today (it refuses a stamp written by other code), X replay first,
+    SH_T17 second; (None, notes) if none does -- the notes name each candidate's failing checks."""
     import json  # noqa: PLC0415
 
-    want = hashlib.sha256(HARNESS.read_bytes()).hexdigest()
+    notes = []
     for head, root in ((X_HEAD, X_STAMPS), (T17_HEAD, T17_STAMPS)):
+        name = root.parents[1].name
         stamps = sorted(d for d in root.iterdir() if (d / "p2_complete.json").is_file()) if root.is_dir() else []
         if not stamps or not head.is_file():
+            notes.append(f"{name}: head or stamp not on this machine")
             continue
         meta = json.loads((stamps[-1] / "run_meta.json").read_text())
-        if (meta.get("p2r_mode") or {}).get("harness_sha256") == want:
-            return head, stamps[-1]
-    return None
+        bad = _reference_file_sha_mismatches(meta, head, CORE, EC)
+        if not bad:
+            return (head, stamps[-1]), notes
+        notes.append(f"{name} {stamps[-1].name}: {', '.join(bad)} differ")
+    return None, notes
 HALF_PI = 1.5707963
 DS = 10
 
@@ -540,12 +577,12 @@ def _run_recorder_pre_kit(tmp_path, args) -> subprocess.CompletedProcess:
                           timeout=600, cwd=str(tmp_path))
 
 
-def test_recorder_pre_kit_path_with_a_stub_kit(GEN, VC, tmp_path):
+def test_recorder_pre_kit_path_with_a_stub_kit(GEN, VC, CORE, EC, tmp_path):
     """The recorder's real pre-Kit code (argument parsing, the reference checks, the row loaders, the table refusals,
     the env written before Kit) under a stub ``isaaclab.app`` whose AppLauncher exits before anything boots."""
-    ref = _current_harness_reference()
+    ref, notes = _current_reference(CORE, EC)
     if ref is None:
-        pytest.skip("no S1-paired SH head with a current-harness hraise es1 stamp on this machine")
+        pytest.skip("no stand stamp matches the current code -- re-stamp to re-enable (" + "; ".join(notes) + ")")
     stand_head, stamp = ref
     import json  # noqa: PLC0415
 

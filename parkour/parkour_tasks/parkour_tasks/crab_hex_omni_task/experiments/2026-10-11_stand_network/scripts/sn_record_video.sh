@@ -30,6 +30,13 @@
 #      either way). STOP a run by hand with `systemctl --user stop <unit>.scope`, never with a SIGKILL of your own.
 # Exit codes: 0 launched (or dry run), 3 busy, 5 usage / refusal, 7 the recorder ended before becoming visible or
 # never became visible (read the log).
+#
+# NOTE 2026-10-26 (comment only; the code below is unchanged): the busy check's ISAAC_PAT predates sn_table_test.py and
+# the successor stand-height campaign's scripts (2026-10-13_stand_height/scripts: sh_dagger.py, sh_table_test.py,
+# sh_record_video.py, ...) and does NOT see them, so this launcher would start a second Kit beside a running table test,
+# stand-height trainer or video (the DerivedDataCache-corruption scenario). Before launching, check by hand that no
+# Isaac python runs (`ps -ww -eo args | grep '[i]saac_venv/bin/python'`), or read the "# isaac busy:" line of
+# `2026-10-13_stand_height/scripts/sh_record_video.sh --dry-run`, whose pattern covers both campaigns.
 set -u
 R=/home/nickmagus/krabby/krabby-research
 PY=${SN_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}

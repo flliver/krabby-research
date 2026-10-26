@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Score a campaign's REFERENCE runs against a NAMED OLD campaign's baseline screens. CPU ONLY.
 
-Plan: ``~/.claude/plans/per-category-stroke-weights.md`` (step 8's health line: "the pooled F and F_mt
-blocks not WORSE ... scored offline by ``score_reference.py``"). A ``--reference-chain`` run records its
+Plan: the campaign record ``experiments/2026-09-27_stroke_cat_W/CHARTER.md`` (step 8's health line: "the
+pooled F and F_mt blocks not WORSE ... scored offline by ``score_reference.py``"; its ``score_reference.py``
+section); the user's plan draft is ``~/.claude/plans/per-category-stroke-weights.md`` (outside the repo). A ``--reference-chain`` run records its
 head and parks: it writes no DECISION and has no baseline queue (``run_candidates.reference_loop``), so
 its screens are scored here -- by the driver's OWN :func:`run_candidates.decide_pooled`, loaded BY PATH
 from this checkout (nothing re-implemented), against the reused controls of an older campaign that ran

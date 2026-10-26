@@ -8,8 +8,8 @@ every decisive line the statistic (and the JSON key path it is read from), the t
 values, the line, the per-read chance-HALT rate under the PLAN's model for its class, the
 known-bad value(s) with pass / fail, and whether every recorded seed passes. It also writes the
 floor proposals (candidate values with their rates) and the run sums. Nothing here boots Kit,
-trains or evaluates: it reads saved JSON / npz only and writes one JSON (plus optional markdown
-tables). No dated path lives in this file; every path comes from the input map.
+trains or evaluates: it reads saved JSON / npz only and writes one JSON. No dated path lives in
+this file; every path comes from the input map.
 
 READ CLASSES AND THEIR MODELS (PLAN "Gates -> Rule -> Self-checks")
 -------------------------------------------------------------------
@@ -49,8 +49,14 @@ READ CLASSES AND THEIR MODELS (PLAN "Gates -> Rule -> Self-checks")
 
 Usage::
 
-    thresholds.py --inputs <PL>/threshold_inputs.yaml --out <PL>/thresholds_v0.json [--md TABLES.md]
+    thresholds.py --inputs <PL>/threshold_inputs_v1_2.yaml --out <PL>/thresholds_v1_2.json [--recommended FILE]
                   [--self-check] [--sims N] [--seed S]
+
+``--recommended FILE`` (YAML / JSON ``{floors: {stage: {survival, ratio, side22}}, stand_overrides: {...}, watch:
+[ids]}``) replaces the input map's own ``recommended:`` block, which is used when the option is absent. Run from the
+repo root with the inputs path relative to it (the JSON records it as given): ``--inputs
+<PL>/threshold_inputs_v1_2.yaml --self-check`` reproduces the committed ``thresholds_v1_2.json`` byte for byte
+(``tests/unit/test_task4_thresholds.py``).
 
 ``--self-check`` exits 1 if a recorded seed fails a decisive line at its RECOMMENDED value, or a
 decisive line has neither a failing known-bad nor the ``unvalidated`` tag. Rates are reported, not

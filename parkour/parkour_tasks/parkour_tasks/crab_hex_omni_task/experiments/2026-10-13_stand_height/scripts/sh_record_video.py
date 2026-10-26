@@ -20,6 +20,20 @@ record) and the H6 restore ARMED (always: the video is the deployment); the KRAB
 of ``videos/scenarios_sh_video_raise.yaml`` (``sh_video_schedule.py``). This is a VIEWER, not a scorer: it writes an mp4,
 stills and a sanity JSON, never a ledger entry, and nothing in the campaign reads them.
 
+HISTORICAL DEFAULTS (note of 2026-10-26; the defaults are kept unchanged -- the tests pin them): they are this
+campaign's 2026-10-14 configuration, not the deployment of record. S1 s18 is ``superseded:`` S1_s18 in
+``policy/manifest.yaml`` since the 2026-10-24 F19 bake, SH_T18 was never a head of record, and the default reference
+stamp predates the 2026-10-15 / 10-16 harness edits, so a bare default run is refused on ``harness_sha256``. To record
+the policy of record pass the walker and its pair explicitly: ``--checkpoint`` T* (sha 03b6009a; its run file
+``crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt``, bundled as
+``policy/f19_8_p3b_payload180``) ``--stand-ckpt`` SH_T4F19 (sha c1269234, ``policy/f19_stand_net/model_5000.pt``)
+``--stand-mask 1 --deadband 0.25 --eval-run`` <SH_T4F19's hraise__omni es1 stamp> -- the commands are in
+``crab_hex_omni_task/policy/README.md`` ("Stand network of record" -> "Evaluate it / watch it"); the F19 bake's own
+videos (``sh_mix_F19_s1514_rough`` / ``_roughest``) were recorded that way. Since the 2026-10-26 doc note in
+``sh_core.py`` (the user accepted the sha change) no stamp recorded before it passes the ``sh_core_sha256`` check
+either: re-stamp the head's hraise__omni es1 row with the current code (``sh_eval_rows.sh``) and pass that stamp, or
+record anyway with ``--allow-reference-mismatch``.
+
 WHAT IT KEEPS FROM THE PREDECESSOR (see that file for the full argument)
 
 * ENV COMPOSITION = the reference stamp's ``run_meta["env_vars"]``, replaced BEFORE Kit boots and re-checked after the

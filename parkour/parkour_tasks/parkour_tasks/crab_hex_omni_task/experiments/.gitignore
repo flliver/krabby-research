@@ -1,7 +1,8 @@
-# experiments/.gitignore -- the campaign trees live here WHOLE (raw artifacts ~70 GB stay on disk).
+# experiments/.gitignore -- the campaign trees live here WHOLE (most omni raw artifacts live under
+# parkour/logs / parkour/outputs, outside this tree).
 # Git tracks only the keep-set: human records (md/json/csv/py/sh), eval summaries (run_meta.json,
 # scenario_metrics.json, summary.md, gait_diagram_*.png), reference RSI banks / statics at the
-# campaign top level, and ONE checkpoint of record per campaign under <campaign>/head/
+# campaign top level, and the checkpoint(s) of record (head + extra_heads) under <campaign>/head/
 # (tools/bundle_experiment.py). Patterns are relative to this directory.
 
 # RSL-RL run dirs (checkpoints, params, tfevents). A DIRECTORY rule: nothing below it can be
@@ -27,6 +28,6 @@ __pycache__/
 */rsi_bank_*_raw.npz
 # the bundled checkpoint of record (re-inclusion works because head/ itself is not excluded)
 !*/head/model_*.pt
-# the May-2026 stage-baseline bundles (moved here from <task>/runs/ on 2026-09-09): one checkpoint of
-# record + USD snapshot + ONNX export each, tracked as stage releases (README appendices, scenarios_v1)
+# Inherited from the forward task's copy; INERT here (the omni tree has no old-runs/): the forward
+# task's May-2026 stage-baseline bundles live under crab_hex_forward_task/experiments/old-runs/.
 !old-runs/**/*.pt

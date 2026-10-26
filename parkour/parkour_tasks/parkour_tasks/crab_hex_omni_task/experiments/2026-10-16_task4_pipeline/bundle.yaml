@@ -10,9 +10,10 @@ verdict: 'F19 ran end to end on thresholds v1.2: T* = p3b model_25992 (max_stabl
   135 kg, sim plant, force side not enforced; budget_bound at N_p 3000), student c28000
   (paired completion vs T* PASS on every world row), SN PASS, SH HALT re-anchored
   on the lazy R_h control (DESIGN 3.6); every HALT resolved by the user and disclosed.
-  R18 = the statistical second sample (P-live FAIL at it 20, cuDNN). Deliverable choice,
-  clip veto, bake and tag push are the user''s (STOP-END). Records: REPORT_baseline_vs_final.md,
-  CHARTER.md.'
+  R18 = the statistical second sample (P-live FAIL at it 20, cuDNN). STOP-END 2026-10-24
+  (user): F19 = deliverable, no clip veto, baked as the omni policy of record (de81f98a;
+  policy/manifest.yaml current = f19_8_p3b_payload180); tag omni-sim2real-baseline-2026-10-24
+  local, the push is the user''s. Records: REPORT_baseline_vs_final.md, CHARTER.md.'
 plant: A15+B
 aliases: []
 records:
@@ -39,7 +40,9 @@ head:
   why: F19 T* = p3b (the trained payload head with the highest max_stable that passes
     its paired 0-kg check under thresholds v1.2); max_stable 135 kg at N_p 3000 iterations
     per stage (sim plant, force side not enforced); the depth student, SN and SH were
-    trained beside it. The deliverable choice is the user's at STOP-END.
+    trained beside it. F19 = deliverable (user STOP-END 2026-10-24); baked as the omni
+    policy of record (de81f98a; policy/manifest.yaml current = f19_8_p3b_payload180); tag
+    omni-sim2real-baseline-2026-10-24 local, the push is the user's.
   metrics:
     max_stable_kg: 135 (first unstable 180; limiting factor budget_bound; sim plant,
       force side not enforced)
