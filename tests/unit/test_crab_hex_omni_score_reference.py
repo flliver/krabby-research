@@ -46,6 +46,26 @@ def _load(path: Path, name: str):
     return mod
 
 
+def _left_fold_sum(iterable, start=0):
+    """``sum()`` as CPython <= 3.11 computes it: a plain left-to-right fold (3.12 switched float ``sum()`` to
+    compensated summation, which moves some pooled statistics by one ulp, e.g. p_bar 0.9224999999999999 -> 0.9225)."""
+    acc = start
+    for x in iterable:
+        acc = acc + x
+    return acc
+
+
+@pytest.fixture(autouse=True)
+def _recorded_interpreter_sum(monkeypatch):
+    """The D05 entry was recorded by the Isaac venv (Python 3.11) and ``check_entry`` compares floats exactly. On
+    Python >= 3.12 reproduce the recording's arithmetic (3.11 ``sum()``) so the field-for-field check stays exact;
+    on <= 3.11 this is a no-op (the builtin already is that fold)."""
+    if sys.version_info >= (3, 12):
+        import builtins  # noqa: PLC0415
+
+        monkeypatch.setattr(builtins, "sum", _left_fold_sum)
+
+
 @pytest.fixture(scope="module")
 def sr():
     return _load(TOOL_PY, "score_reference__test")

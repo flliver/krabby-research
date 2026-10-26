@@ -85,7 +85,10 @@ def RST():
 
 @pytest.fixture(scope="module")
 def s1_cfg():
-    return yaml.safe_load((SC.S1_DIR / "params/agent.yaml").read_text())
+    path = SC.S1_DIR / "params/agent.yaml"
+    if not path.is_file():
+        pytest.skip(f"S1's training-run agent.yaml is not on this machine ({path.relative_to(REPO)}; parkour/logs is gitignored)")
+    return yaml.safe_load(path.read_text())
 
 
 @pytest.fixture(scope="module")

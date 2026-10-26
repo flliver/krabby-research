@@ -51,6 +51,9 @@ def test_stage_checkpoint_matches_the_manifest_and_the_file_on_disk(fs):
     assert path == fs.REPO / "parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB/model_2999.pt"
     assert sha == "03b87cd3432cc58e9e1cafbbbf36e3a6737034a8cc82a674e8181e9993432035"
     assert fs.POLICY_DIR not in path.parents
+    if not (fs.REPO / "parkour/logs").is_dir():  # a checkout without the machine-local training logs (CI)
+        pytest.skip(f"{fs.REPO / 'parkour/logs'} is not on this machine: the on-disk / sha256 check of W's "
+                    "source run checkpoint needs the local training logs")
     assert path.is_file(), f"{path}: W's 1_t3 source run checkpoint is not on disk"
     assert hashlib.sha256(path.read_bytes()).hexdigest() == sha
 

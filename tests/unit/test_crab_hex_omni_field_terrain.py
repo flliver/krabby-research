@@ -34,6 +34,8 @@ import numpy as np
 import pytest
 from scipy.ndimage import binary_dilation, label
 
+pytest.importorskip("trimesh", reason="the terrain mesh utilities (parkour_isaaclab/terrains/utils.py) import trimesh, absent from this venv")
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 if str(FIXTURES) not in sys.path:
     sys.path.insert(0, str(FIXTURES))

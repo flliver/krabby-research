@@ -31,6 +31,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+pytest.importorskip("trimesh", reason="the terrain mesh utilities (parkour_isaaclab/terrains/utils.py) import trimesh, absent from this venv")
+
 REPO = Path(__file__).resolve().parents[2]
 LIB = REPO / "parkour" / "parkour_isaaclab"
 GOLDEN_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "omni_ring_golden_forward_decorator.npz"

@@ -281,11 +281,15 @@ def _ov_d(Z, live, banks, **over):
 
 #: NOTE(p2r Z2d rep, 2026-10-11): a Z2D dose file's bc.checkpoint must be the chain's fork (the overlay's
 #: KRABBY_ANCHOR_CKPT in these fixtures; judge_z2d_dose_fork), as the real p2r_z2d_dose.json records it
-GRAFT_S18 = REPO / "parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt"
+GRAFT_S18_REL = "parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt"
+GRAFT_S18 = REPO / GRAFT_S18_REL
 
 
 def _dose_d(Z, live, banks, stand_mask=True, **over):
-    bc = {"banks": [{"path": str(Path(b).resolve())} for b in banks], "checkpoint": str(GRAFT_S18)}
+    # the fork resolved the way p2_live resolves the overlay's repo-relative KRABBY_ANCHOR_CKPT (against its own root
+    # R, the developer checkout), so the fixture is the chain's fork in any checkout (== GRAFT_S18 on the dev machine)
+    bc = {"banks": [{"path": str(Path(b).resolve())} for b in banks],
+          "checkpoint": str(live.resolve_repo_path(GRAFT_S18_REL))}
     if stand_mask is not None:
         bc["stand_mask"] = stand_mask
     return Z._dose(live, banks, **dict({"bc": bc}, **over))

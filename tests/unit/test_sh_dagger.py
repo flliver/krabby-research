@@ -849,7 +849,17 @@ def _good_args(out):
     return ["--mode", "dagger", "--seed", "18", "--iterations", "300", "--out", str(out)]
 
 
+def _skip_without_the_s1_walker(ENT):
+    """The entry's pre-Kit checks need S1's machine-local checkpoint, its params/agent.yaml and the REFS env stamp
+    (gitignored parkour/logs + parkour/outputs); a checkout without them (CI) never reaches the accepting path."""
+    need = [ENT.SPEC.S1_CKPT, ENT.SPEC.S1_AGENT_YAML, ENT.SPEC.REFS_ENV_STAMP / "run_meta.json"]
+    missing = [str(p) for p in need if not Path(p).is_file()]
+    if missing:
+        pytest.skip(f"the S1 walker's machine-local files are not on this machine: {', '.join(missing)}")
+
+
 def test_entry_refusals_fire_before_kit(ENT, SPEC, tmp_path, monkeypatch, capsys):
+    _skip_without_the_s1_walker(ENT)
     called = []
     monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append((o, rest)) or 0)
     good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})
@@ -1059,6 +1069,7 @@ def test_sh_detach_returns_only_once_the_trainer_is_visible(tmp_path):
 def test_entry_deadband_option_records_and_read(ENT, SPEC, tmp_path, monkeypatch, capsys):
     """CHARTER 2026-10-14: ``--deadband D`` (default 0) reaches RunOpts and every run record; bad values are refused
     before Kit; ``--read`` reports the run's recorded deadband (a run.json without it -- SH_SMOKE / SH_P18 -- is 0)."""
+    _skip_without_the_s1_walker(ENT)
     called = []
     monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append((o, rest)) or 0)
     good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})
@@ -1164,6 +1175,7 @@ def test_entry_trim_branch_option_records_and_read(ENT, SPEC, tmp_path, monkeypa
     """``--trim-branch`` (default off) reaches RunOpts and the provenance; ``--trim-min`` only with it; bad values are
     refused before Kit; ``--read`` reports the run's recorded option (a run.json without it -- SH_SMOKE / SH_P18 -- is
     off) and the trim diagnostic inside the premise JSON."""
+    _skip_without_the_s1_walker(ENT)
     called = []
     monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append((o, rest)) or 0)
     good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})
@@ -1236,6 +1248,7 @@ def test_sh_dry_run_passes_the_trim_branch_through(tmp_path):
 
 # ===================================================================================== --warm-start / --warm-sha (Task 4)
 def test_warm_start_cli_default_and_override(ENT, SPEC, tmp_path, monkeypatch, capsys):
+    _skip_without_the_s1_walker(ENT)
     called = []
     monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append(o) or 0)
     good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})

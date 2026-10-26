@@ -113,6 +113,25 @@ def _git_blob(commit: str, rel: str) -> bytes:
     return subprocess.run(["git", "show", f"{commit}:{rel}"], cwd=REPO, capture_output=True, check=True).stdout
 
 
+def _missing_commits(*commits: str) -> list[str]:
+    """The named commits this clone does not hold (a shallow clone -- CI's depth-1 checkout -- has no history)."""
+    return [c for c in dict.fromkeys(commits)
+            if subprocess.run(["git", "cat-file", "-e", f"{c}^{{commit}}"], cwd=REPO, capture_output=True).returncode]
+
+
+#: the checkout the tracked records were written in: their absolute paths (the F19 env files' KRABBY_RSI_BANK, the stand
+#: block's SN_WALKER_* env) start with it
+RECORDED_ROOT = "/home/nickmagus/krabby/krabby-research"
+
+
+def _at_checkout(v):
+    """A recorded absolute path re-rooted from RECORDED_ROOT to this checkout -- the identity on the recording checkout
+    itself, so there the records are compared exactly as written."""
+    if isinstance(v, str) and str(REPO) != RECORDED_ROOT and v.startswith(RECORDED_ROOT + "/"):
+        return str(REPO) + v[len(RECORDED_ROOT):]
+    return v
+
+
 def _chain_stage(ref: str) -> dict:
     """The chain stage an ``overlay_ref`` names, from its (tracked) candidates.yaml."""
     mo = re.fullmatch(r"(\S+/candidates\.yaml) chains\.(\S+) stage (\S+)", ref)
@@ -296,7 +315,7 @@ def test_rsi_bank_asset_is_the_bank_the_omni_presets_use():
     # every F19 training env names the bank and turns RSI off (RSI_FRAC 0), as the asset's used_by says
     for sid in ("s1", "c4", "c5", "c6", "c6x", "p2a", "p3a", "p3b"):
         env = _env_file(F19 / f"envs/{sid}.train.env")
-        assert env["KRABBY_RSI_BANK"] == str(preset_bank) and env["KRABBY_RSI_FRAC"] == "0", sid
+        assert _at_checkout(env["KRABBY_RSI_BANK"]) == str(preset_bank) and env["KRABBY_RSI_FRAC"] == "0", sid
 
 
 def test_obs_contract_current_head_is_clock_hidden():
@@ -548,22 +567,29 @@ def test_superseded_heads_are_recorded_and_recoverable():
     commit = w["last_commit"]
     assert re.fullmatch(r"[0-9a-f]{40}", str(commit)), f"superseded W: last_commit {commit!r}"
     assert "files" not in w
-    for st in w["stages"]:
-        rel = f"{w['path_in_history']}/{st['dir']}/{st['file']}"
-        assert not (REPO / rel).exists(), f"{rel}: a superseded W file is back in the folder"
-        assert hashlib.sha256(_git_blob(commit, rel)).hexdigest() == st["sha256"], rel
-    rel_pol = str(POLICY.relative_to(REPO))
-    # every kept file: present, the recorded sha, not a live file, and byte-identical to its baked / adopted blob
     s18 = _sup(m, "S1_s18")
     baked_at = {d: ("80e839e3a987a912222fa216a31cd192a43cf014" if d != "6_p2a_field"
                     else "dd972b6a2fc919f1ab7426fcea41a6e962577761") for d in S18_STAGES}
+    # the byte-exact history reads need the commits; a shallow clone runs every other check, then skips naming them
+    no_hist = _missing_commits(commit, *baked_at.values(), s18["record_commit"],
+                               *(_sup(m, sid)["adopted_commit"] for sid in ("SN_Amask_s17", "SH_T17")))
+    hist = not no_hist
+    for st in w["stages"]:
+        rel = f"{w['path_in_history']}/{st['dir']}/{st['file']}"
+        assert not (REPO / rel).exists(), f"{rel}: a superseded W file is back in the folder"
+        if hist:
+            assert hashlib.sha256(_git_blob(commit, rel)).hexdigest() == st["sha256"], rel
+    rel_pol = str(POLICY.relative_to(REPO))
+    # every kept file: present, the recorded sha, not a live file, and byte-identical to its baked / adopted blob
     assert [f["dir"] for f in s18["files"]] == S18_STAGES
     assert [(f["dir"], f["file"], f["sha256"], f["source"]) for f in s18["files"]] == [
         (s["dir"], s["file"], s["sha256"], s["source"]) for s in s18["stages"]]
     for f in s18["files"]:
         p = POLICY / f["dir"] / f["file"]
         assert p.is_file() and tool.sha256_of(p) == f["sha256"], p
-        assert hashlib.sha256(_git_blob(baked_at[f["dir"]], f"{rel_pol}/{f['dir']}/{f['file']}")).hexdigest() == f["sha256"]
+        if hist:
+            assert hashlib.sha256(_git_blob(baked_at[f["dir"]], f"{rel_pol}/{f['dir']}/{f['file']}")).hexdigest() \
+                == f["sha256"]
     for sid, path, commit_key in (("SN_Amask_s17", AMASK_KEPT, "adopted_commit"), ("SH_T17", SHT17_KEPT, "adopted_commit")):
         e = _sup(m, sid)
         assert e["kind"] == "stand_network" and "2026-10-24" in e["superseded"], sid
@@ -571,19 +597,23 @@ def test_superseded_heads_are_recorded_and_recoverable():
         assert path.is_file() and tool.sha256_of(path) == e["files"][0]["sha256"], sid
         c = e[commit_key]
         assert re.fullmatch(r"[0-9a-f]{40}", c) and c[:8] in e["adopted"], sid
-        assert hashlib.sha256(_git_blob(c, str(path.relative_to(REPO)))).hexdigest() == e["files"][0]["sha256"], sid
+        if hist:
+            assert hashlib.sha256(_git_blob(c, str(path.relative_to(REPO)))).hexdigest() == e["files"][0]["sha256"], sid
         assert not {"last_commit", "path_in_history"} & set(e), sid
     assert "2026-10-24" in _sup(m, "SN_Amask_s17")["superseded"] and "not removed" in _sup(m, "SN_Amask_s17")["superseded"]
+    sh = _sup(m, "SH_T17")
+    assert sh["adopted_commit"] == s18["record_commit"]
+    assert sh["block"]["sha256"] == sh["files"][0]["sha256"] and sh["block"]["walker"]["stage"] == "6_p2a_field"
+    assert sh["block"]["warm_start"]["sha256"] == _sup(m, "SN_Amask_s17")["files"][0]["sha256"]
+    if not hist:
+        pytest.skip(f"git history not in this clone (shallow checkout): commits {no_hist} -- the byte-exact blob and "
+                    "record_commit manifest checks need them")
     # the kept records are the manifest as it stood at record_commit, verbatim
     old = yaml.safe_load(_git_blob(s18["record_commit"], f"{rel_pol}/manifest.yaml"))
     assert old["current"] == s18["current_was"] == "6_p2a_field" and old["heads"] == s18["heads_were"]
     assert s18["stages"] == old["stages"] and [s["dir"] for s in old["stages"]] == S18_STAGES
     assert (s18["baked"], s18["recipe"], s18["construction"]) == (old["baked"], old["recipe"], old["construction"])
-    sh = _sup(m, "SH_T17")
-    assert sh["adopted_commit"] == s18["record_commit"]
     assert sh["block"] == old["stand_network"], "the kept SH_T17 block must be the record_commit block verbatim"
-    assert sh["block"]["sha256"] == sh["files"][0]["sha256"] and sh["block"]["walker"]["stage"] == "6_p2a_field"
-    assert sh["block"]["warm_start"]["sha256"] == _sup(m, "SN_Amask_s17")["files"][0]["sha256"]
 
 
 def test_kept_superseded_paths_stay_valid_for_their_users():
@@ -898,9 +928,10 @@ def test_stand_network_routing_env_is_the_walkers():
     dl = _deliverable()
     cand = yaml.safe_load((F19 / "candidates.yaml").read_text())
     spec = env["SN_WALKER_SPEC"]
-    assert (env["SN_WALKER_CK"], env["SN_WALKER_ST"], str(env["P2_REANCHOR"])) == (
+    assert (_at_checkout(env["SN_WALKER_CK"]), env["SN_WALKER_ST"], str(env["P2_REANCHOR"])) == (
         str(REPO / w["source"]), dl["tstar"]["driver_stamp"], "1")
-    assert spec == {"CANDIDATES": str(F19 / "candidates.yaml"), "OVERLAY_CHAIN": "F19_p2a",
+    here = {k: _at_checkout(v) if k in ("CANDIDATES", "S1_AGENT_YAML", "S1_CKPT") else v for k, v in spec.items()}
+    assert here == {"CANDIDATES": str(F19 / "candidates.yaml"), "OVERLAY_CHAIN": "F19_p2a",
                     "REFS_ENV_STAMP": dl["tstar"]["driver_stamp"], "REFS_NAME": "REFS_T4F19",
                     "S1_AGENT_YAML": str(REPO / Path(w["source"]).parent / "params" / "agent.yaml"),
                     "S1_CKPT": str(REPO / w["source"]), "S1_SHA256": w["sha256"],

@@ -34,6 +34,8 @@ CAMP = OMNI / "experiments/2026-10-07_omni_phase2"
 SCRIPTS = CAMP / "scripts"
 RUN_CANDIDATES = OMNI / "experiments/tools/run_candidates.py"
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+#: The real terrain functions (S2 on real field tiles) load ``parkour_isaaclab/terrains/utils.py``, which imports trimesh.
+TRIMESH_REASON = "the terrain mesh utilities (parkour_isaaclab/terrains/utils.py) import trimesh, absent from this venv"
 
 
 def _load(path: Path, name: str):
@@ -247,6 +249,7 @@ def test_row_difficulty(smoke):
 @pytest.fixture(scope="module")
 def field_tiles():
     """Real decorated omni_field_terrain tiles (the fixture loader the field-terrain tests use), d 0.2 and 0.7."""
+    pytest.importorskip("trimesh", reason=TRIMESH_REASON)
     if str(FIXTURES) not in sys.path:
         sys.path.insert(0, str(FIXTURES))
     import gen_omni_ring_golden as golden  # noqa: PLC0415
@@ -316,6 +319,7 @@ def test_s2_thresholds_follow_their_derivation(smoke):
 
 def test_s2_cpu_replica_passes_and_matches_the_record(smoke):
     """A small CPU replica of the generator (2 seeded grids = 200 field tiles) passes S2 with the real terrain code."""
+    pytest.importorskip("trimesh", reason=TRIMESH_REASON)
     res = smoke.cpu_s2_calibration(2)
     assert res["result"] == "PASS", [c for c in res["checks"] if not c[1]]
     assert res["n_field_tiles"] == 200 and res["pad_occ_px"] == 0 and res["edge_px"] == 0

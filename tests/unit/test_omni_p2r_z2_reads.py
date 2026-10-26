@@ -700,7 +700,9 @@ def test_branch_names_pinned_to_the_restance_module(live):
     R = _load(RESTANCE_PY, "_t_z2_restance")
     assert live.P2R_RESTANCE_BRANCHES == R.BRANCH_NAMES
     assert live.P2R_RESTANCE == R.RESTANCE_VAR
-    assert live.RESTANCE_PY == RESTANCE_PY
+    # p2_live.py roots its paths at the developer checkout (its R); compare the repo-relative tails so the pin holds in
+    # any checkout (on the developer machine R == REPO and this is the absolute-path equality it always was)
+    assert live.RESTANCE_PY.relative_to(live.R) == RESTANCE_PY.relative_to(REPO)
 
 
 F0 = 14996

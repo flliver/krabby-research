@@ -472,7 +472,17 @@ def _good_args(out):
     return ["--mode", "dagger", "--arm", "mask", "--seed", "18", "--iterations", "300", "--out", str(out)]
 
 
+def _skip_without_the_s1_walker(ENT):
+    """The entry's pre-Kit checks need S1's machine-local checkpoint, its params/agent.yaml and the REFS env stamp
+    (gitignored parkour/logs + parkour/outputs); a checkout without them (CI) never reaches the accepting path."""
+    need = [ENT.SPEC.S1_CKPT, ENT.SPEC.S1_AGENT_YAML, ENT.SPEC.REFS_ENV_STAMP / "run_meta.json"]
+    missing = [str(p) for p in need if not Path(p).is_file()]
+    if missing:
+        pytest.skip(f"the S1 walker's machine-local files are not on this machine: {', '.join(missing)}")
+
+
 def test_entry_refusals_fire_before_kit(ENT, SPEC, tmp_path, monkeypatch, capsys):
+    _skip_without_the_s1_walker(ENT)
     called = []
     monkeypatch.setattr(ENT, "run_kit", lambda o, rest: called.append((o, rest)) or 0)
     good_env = SPEC.train_env({"PATH": os.environ.get("PATH", "")})

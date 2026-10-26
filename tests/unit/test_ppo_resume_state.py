@@ -22,6 +22,12 @@ import pytest
 torch = pytest.importorskip("torch")
 pytest.importorskip("rsl_rl")
 pytest.importorskip("tensordict")
+try:  # the training stack these modules import (rsl-rl-lib 5.x); CI pins 3.1.2 for compute/parkour, which has neither
+    import rsl_rl.extensions  # noqa: E402,F401
+    from rsl_rl.modules import EmpiricalNormalization  # noqa: E402,F401
+except ImportError:
+    pytest.skip("needs the Isaac training stack (rsl-rl-lib 5.x: rsl_rl.extensions, rsl_rl.modules.EmpiricalNormalization);"
+                " CI pins rsl-rl-lib 3.1.2 for compute/parkour", allow_module_level=True)
 from torch import nn  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]

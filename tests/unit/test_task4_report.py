@@ -39,6 +39,19 @@ HAVE_F19 = (PL / "F19" / "pipeline_state.json").is_file()
 needs_f19 = pytest.mark.skipif(not HAVE_F19, reason="the F19 run records are not on this machine")
 
 
+def _needs_log(*logs: Path):
+    """The queue logs (``*.log``) are gitignored -- local records, absent on any other checkout (CI): skip, naming the
+    missing ones, before the assertions that read them."""
+    missing = [str(p.relative_to(PL)) for p in logs if not p.is_file()]
+    if missing:
+        pytest.skip(f"the gitignored queue log(s) {missing} are not on this machine")
+
+
+def _c7_failed_logs() -> list[Path]:
+    return sorted((PL / "preflight" / "stepC" / "dryspec").glob("dry.c7failed_*/pipeline_queue.log")) or \
+        [PL / "preflight" / "stepC" / "dryspec" / "dry.c7failed_*" / "pipeline_queue.log"]
+
+
 def _load(path: Path, name: str):
     if name in sys.modules:
         return sys.modules[name]
@@ -539,6 +552,8 @@ def test_real_f19_sources_and_tstar_record(R):
 
 @needs_f19
 def test_real_wallclock_matches_the_fill_plan(R):
+    _needs_log(PL / "F19" / "pipeline_queue.log", PL / "preflight" / "stepA_queue.log",
+               PL / "preflight" / "stepC" / "stepC_queue.log", *_c7_failed_logs())
     w = R.wallclock(PL / "F19" / "pipeline_queue.log")
     assert abs(w["total_active_h"] - 46.89) < 0.01 and abs(w["total_park_h"] - 9.23) < 0.01
     assert abs(w["span_h"] - 56.12) < 0.01 and len(w["parks"]) == 3
@@ -760,15 +775,17 @@ def test_real_f19_st_segments_and_k5_reason(R):
     rep = R.Report(SPEC, "F19")
     rec = R.run_records(SPEC, "F19")
     rep.F = rep.run_sources("F19")
-    pv = rep.run_provenance("F19", rec)
-    info = pv["wallclock"]["stages"]["st"]["segment_info"]
-    assert [x["launch"]["name"] for x in info] == ["T4F19_st", "T4F19_st_a2"]
-    assert info[0]["superseded"] and info[1]["superseded"] is None and abs(info[0]["h"] - 7.65) < 0.01
-    assert abs(pv["gpu_h"]["superseded_h"] - info[0]["h"]) < 1e-9
+    # the tracked records first (they read on every checkout), then the gitignored queue logs' wall-clock
     sh = rep.sh_block(rep.F["ctx"].dir, rec["gates"]["sh"])
     k5 = sh["lazy_control"]["k5_invalid"]
     assert k5["verdict"] == "INVALID" and "REFS_S1_s18" in k5["references"] and "43/43 PASS" in k5["text"]
     rt = rep.refs_tstar(rep.F["ctx"].dir / "stand" / "sn_calib.json", "SN_T4F19_sn_s19")
     assert rt["available"] and rt["row"] == "REFS_T4F19" and rt["gates"]["G1"]["verdict"] == "FAIL"
+    _needs_log(PL / "F19" / "pipeline_queue.log", PL / "preflight" / "stepC" / "stepC_queue.log", *_c7_failed_logs())
+    pv = rep.run_provenance("F19", rec)
+    info = pv["wallclock"]["stages"]["st"]["segment_info"]
+    assert [x["launch"]["name"] for x in info] == ["T4F19_st", "T4F19_st_a2"]
+    assert info[0]["superseded"] and info[1]["superseded"] is None and abs(info[0]["h"] - 7.65) < 0.01
+    assert abs(pv["gpu_h"]["superseded_h"] - info[0]["h"]) < 1e-9
     pf = R.preflight_wallclock(PL)
     assert abs(pf["C"]["hang"]["h"] - 27.95) < 0.01 and abs(pf["C"]["h_excl_hang"] - 24.67) < 0.01

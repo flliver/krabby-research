@@ -162,13 +162,38 @@ def test_gen_rewrites_atomically_and_keeps_the_mode(P, tspec):
     assert P.gen(tspec, "R18", check=True) == []
 
 
+#: the checkout the committed R18 / F19 / dry run dirs were generated in. ``gen`` writes absolute repo paths into the
+#: env files (KRABBY_RSI_BANK), so on any other checkout (CI's) a committed file differs from a fresh gen by that root.
+RECORDED_ROOT = "/home/nickmagus/krabby/krabby-research"
+
+
+def _checkout_root_only_drift(P, S, run: str, drift: list[str]) -> list[str]:
+    """The drifted paths whose committed text, with RECORDED_ROOT mapped to this checkout, is byte-identical to what
+    gen writes. Empty on the recording checkout itself (there every drift is a real one)."""
+    if str(REPO) == RECORDED_ROOT:
+        return []
+    files, rd, out = P.gen_files(S, run), S.run_dir(run), []
+    for d in drift:
+        p = Path(d)
+        if not p.is_file():
+            continue
+        rel = p.relative_to(rd).as_posix()
+        have = p.read_text()
+        if rel in files and RECORDED_ROOT + "/" in have and have.replace(RECORDED_ROOT, str(REPO)) == files[rel]:
+            out.append(d)
+    return out
+
+
 def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
     """PLAN step 7: ``gen --check`` on the COMMITTED R18 / F19 / dry run dirs (the real spec, nothing copied), and gen
     twice gives identical files. The placeholders (N_p, x_rule, the manifest-shape split) are the spec's own."""
-    lagging = []
+    lagging, rooted = [], []
     for run in ("R18", "F19", "dry"):
         assert P.gen_files(S, run) == P.gen_files(S, run), run
         drift = P.gen(S, run, check=True)
+        moved = _checkout_root_only_drift(P, S, run, drift)
+        rooted += moved
+        drift = [d for d in drift if d not in moved]
         if drift:
             # CHARTER 2026-10-22 (thresholds v1.2): the spec points at thresholds_v1_2.json before the re-pin's
             # `pipeline.py gen` rewrites the committed run dirs. Until then a run's plan.json may lag the spec by
@@ -183,8 +208,11 @@ def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
             lagging.append(run)
     cli = subprocess.run([sys.executable, "-B", str(TP / "pipeline.py"), "gen", "--spec", str(SPEC), "--check"],
                          capture_output=True, text=True, timeout=300)
-    if lagging:
+    if lagging or rooted:
         assert cli.returncode == 1 and all(f"{r}/plan.json" in cli.stdout for r in lagging), cli.stdout + cli.stderr
+        if rooted:                    # another checkout: the CLI reports exactly the root-only + lagging files
+            assert set(cli.stdout.splitlines()) == {str(S.run_dir(r) / "plan.json") for r in lagging} | set(rooted), \
+                cli.stdout + cli.stderr
     else:
         assert cli.returncode == 0 and "byte-identical" in cli.stdout, cli.stdout + cli.stderr
 
@@ -515,6 +543,24 @@ class FakeRT:
         return 0, f"TPROW END name={cmd[1]} rc=0 stamp={d}"
 
 
+def _series_without_tensorboard(P, monkeypatch):
+    """The queue's live watch reads the resumed head's run dir with tensorboard's EventAccumulator (live_watch.
+    read_series). The fake runtime's run dirs hold no tfevents, where the real read returns {}; on a machine without
+    tensorboard (CI: the unit job does not install it) answer that {} directly -- and skip, naming the dependency, if a
+    test ever hands it a run dir that does hold tfevents. With tensorboard installed the real reader runs unchanged."""
+    try:
+        import tensorboard  # noqa: F401, PLC0415
+        return
+    except ImportError:
+        pass
+
+    def read_series(run_dir, tags=None):
+        if any(Path(run_dir).rglob("*tfevents*")):
+            pytest.skip(f"tensorboard is not installed: cannot read the tfevents in {run_dir}")
+        return {}
+    monkeypatch.setattr(P.LW(), "read_series", read_series)
+
+
 @pytest.fixture(params=["F19"])
 def qrun(request):
     return request.param
@@ -546,6 +592,7 @@ def qctx(tspec, P, tmp_path, monkeypatch, qrun):
 
     monkeypatch.setattr(P, "gate_stage", fake_gate)
     monkeypatch.setattr(P, "payload_rows_and_curve", lambda ctx, sid: {"curve": {}})
+    _series_without_tensorboard(P, monkeypatch)
     ctx = P.Ctx(tspec, qrun)
     rt = FakeRT(ctx.dir, pin, tmp_path)
     rt.planned = lambda sid: P.Queue(ctx).planned_last_iteration(sid)
