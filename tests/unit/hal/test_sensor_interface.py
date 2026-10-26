@@ -2,6 +2,7 @@
 
 import pytest
 
+from hal.server.isaac.sim_depth_ranges import ISAAC_FRONT_DEPTH_PREVIEW_M
 from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.jetson.front_camera_factory import FRONT_RGB_DEPTH_CAMERA_FACTORIES
 from hal.server.jetson.sensor_backend_jetson import (
@@ -214,7 +215,7 @@ def test_isaac_depth_gray16_handle_and_pipeline_shape():
     depth = next(s for s in iface.list_sensors() if s.id == "front_rgbd_gray16_depth")
     handle = iface.get_gstreamer_handle(depth)
     assert handle.appsrc_pixel_format == "GRAY16_LE"
-    assert handle.depth_range_m == (0.2, 2.0)
+    assert handle.depth_range_m == ISAAC_FRONT_DEPTH_PREVIEW_M
     pipe = iface.build_pipeline(handle, encoding="h264", output_element="fakesink")
     assert "format=GRAY16_LE" in pipe
     assert "x264enc" in pipe

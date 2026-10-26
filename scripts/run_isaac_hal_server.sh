@@ -5,6 +5,8 @@
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1     # Go2 play + portal WebRTC (in-process policy; no krabby-uno-sim)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1 --joystick  # Portal + manual drive (start krabby-uno-sim on host)
 #   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD + --backend fullsim (host firmware)
+#   ./scripts/run_isaac_hal_server.sh --hexapod --teleop-ip 127.0.0.1 --data-collector
+#       # rosbag2/mcap on host at ~/krabby_bags/ by default (override: --data-collector /path)
 #
 # Uses Docker --network host (Linux) so HAL and teleop edge can use ws://127.0.0.1:9000/ws/robot when the
 # portal runs on the same machine (e.g. another container publishing 9000 on the host). Omitting bridge
@@ -25,10 +27,14 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 GO2_TASK="Isaac-Extreme-Parkour-Teacher-Unitree-Go2-Play-v0"
 HEX_USD="/workspace/assets/crab_hex_ref.usd"
 GO2_TELEOP_DEFAULT_CHECKPOINT="/workspace/test_assets/checkpoints/unitree_go2_parkour_teacher.pt"
+CONTAINER_COLLECTOR_DIR="/workspace/bags"
+DEFAULT_COLLECTOR_HOST_DIR="${KRABBY_ISAAC_COLLECTOR_DIR:-${HOME}/krabby_bags}"
 
 want_teleop_ip=""
 want_hexapod=0
 want_joystick=0
+want_data_collector=0
+collector_host_dir=""
 passthrough=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -48,6 +54,15 @@ while [ "$#" -gt 0 ]; do
       want_joystick=1
       shift
       ;;
+    --data-collector)
+      want_data_collector=1
+      if [ "$#" -ge 2 ] && [[ "$2" != --* ]]; then
+        collector_host_dir="$2"
+        shift 2
+      else
+        shift
+      fi
+      ;;
     *)
       passthrough+=("$1")
       shift
@@ -56,11 +71,14 @@ while [ "$#" -gt 0 ]; do
 done
 
 has_checkpoint_in_pass=0
+has_collector_output_in_pass=0
 i=0
 while [ "$i" -lt "${#passthrough[@]}" ]; do
   if [ "${passthrough[$i]}" = "--checkpoint" ]; then
     has_checkpoint_in_pass=1
-    break
+  fi
+  if [ "${passthrough[$i]}" = "--data-collector-output-dir" ]; then
+    has_collector_output_in_pass=1
   fi
   i=$((i + 1))
 done
@@ -97,6 +115,10 @@ else
   fi
 fi
 
+if [ "$want_data_collector" -eq 1 ] && [ "$has_collector_output_in_pass" -eq 0 ]; then
+  py+=(--data-collector-output-dir "$CONTAINER_COLLECTOR_DIR")
+fi
+
 py+=("${passthrough[@]}")
 
 want_headless=0
@@ -126,6 +148,16 @@ if [ "${KRABBY_ISAAC_DEV_MOUNTS:-0}" = 1 ]; then
     -v "${REPO_ROOT}/parkour:/workspace/parkour"
   )
 fi
+if [ "$want_data_collector" -eq 1 ] || [ "$has_collector_output_in_pass" -eq 1 ]; then
+  if [ -z "$collector_host_dir" ]; then
+    collector_host_dir="$DEFAULT_COLLECTOR_HOST_DIR"
+  fi
+  mkdir -p "$collector_host_dir"
+  collector_host_dir="$(cd "$collector_host_dir" && pwd)"
+  docker_mounts+=(-v "${collector_host_dir}:${CONTAINER_COLLECTOR_DIR}")
+  echo "NOTE: HalDataCollector → host ${collector_host_dir} (container ${CONTAINER_COLLECTOR_DIR})" >&2
+fi
+
 if [ "$want_hexapod" -eq 1 ]; then
   docker_mounts+=(-v "${REPO_ROOT}/assets:/workspace/assets")
   # fullsim attaches firmware.sim on the Isaac env (Python tree; .so is baked into the image).

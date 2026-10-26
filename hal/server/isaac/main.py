@@ -32,12 +32,12 @@ from hal.server.isaac.command_backend_cli import (
     validate_command_backend_args,
 )
 
-from hal.server.isaac.rgbd_recording_catalog import isaac_hal_rgbd_catalog_ids_for_recording
+from hal.server.isaac.rgbd_recording_catalog import isaac_hal_teleop_bootstrap_catalog_ids
 
 logger = logging.getLogger(__name__)
 CONTROL_RATE_HZ = 100.0
 # Sensor catalog ids passed to teleop signaling when HAL introspects RGB-D streams (--teleop-ip).
-TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS = isaac_hal_rgbd_catalog_ids_for_recording()
+TELEOP_BOOTSTRAP_SENSOR_CATALOG_IDS = isaac_hal_teleop_bootstrap_catalog_ids()
 
 
 def _sim_rgbd_mount_link(robot: str) -> str | None:
@@ -48,15 +48,6 @@ def _sim_rgbd_mount_link(robot: str) -> str | None:
     if robot in ("go2", "quad"):
         return "base"
     return None
-
-
-def _zmq_client_connect_url(bind: str) -> str:
-    """HAL server ``bind`` address → ZMQ ``connect`` URL for in-process or localhost clients."""
-    if bind.startswith("tcp://*:"):
-        return "tcp://127.0.0.1:" + bind[len("tcp://*:") :]
-    if bind.startswith("tcp://0.0.0.0:"):
-        return "tcp://127.0.0.1:" + bind[len("tcp://0.0.0.0:") :]
-    return bind
 
 
 def _ensure_server_log_visible(debug: bool = False) -> None:
@@ -278,6 +269,7 @@ def main():
 
     from hal.client.config import HalClientConfig
     from hal.server import HalServerConfig
+    from hal.server.zmq_endpoints import zmq_bind_to_connect_url
     from hal.server.isaac import IsaacSimHalServer
     from hal.server.isaac.sim_rgbd_camera_cfgs import attach_sim_rgbd_sensors_to_scene_cfg
     from hal.server.robot_definition_krabby_hex import KRABBY_HEX_DEFINITION
@@ -430,8 +422,8 @@ def main():
     # Get transport context for inproc connections
     transport_context = hal_server.get_transport_context()
     # Same ZMQ connect URL for every HalClient that SUBscribes to HAL observations (inproc unchanged).
-    observation_client_endpoint = _zmq_client_connect_url(args.observation_bind)
-    command_client_endpoint = _zmq_client_connect_url(args.command_bind)
+    observation_client_endpoint = zmq_bind_to_connect_url(args.observation_bind)
+    command_client_endpoint = zmq_bind_to_connect_url(args.command_bind)
 
     if teleop_enabled:
         teleop_settings = build_teleop_edge_settings(host_or_url=args.teleop_ip)
@@ -463,7 +455,7 @@ def main():
         # Create HAL client config
         hal_client_config = HalClientConfig(
             observation_endpoint=observation_client_endpoint,
-            command_endpoint=args.command_bind,
+            command_endpoint=command_client_endpoint,
         )
         model_weights = ModelWeights(
             checkpoint_path=args.checkpoint,
@@ -493,13 +485,13 @@ def main():
             dc_cfg = load_config(args.data_collector_config)
             # Entry-point transport wiring is authoritative for this process.
             dc_cfg.hal.observation_endpoint = observation_client_endpoint
-            dc_cfg.hal.command_endpoint = args.command_bind
+            dc_cfg.hal.command_endpoint = command_client_endpoint
             if args.data_collector_output_dir is not None:
                 dc_cfg.output_dir = Path(args.data_collector_output_dir).expanduser()
         else:
             dc_cfg = build_data_collector_config(
                 observation_endpoint=observation_client_endpoint,
-                command_endpoint=args.command_bind,
+                command_endpoint=command_client_endpoint,
                 output_dir=args.data_collector_output_dir,
             )
         collector_stop = threading.Event()

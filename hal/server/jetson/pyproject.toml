@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-hal-server-jetson"
-version = "0.1.5"
+version = "0.1.7"
 description = "HAL server implementation for Jetson with integrated inference"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,7 @@ classifiers = [
 
 dependencies = [
     "krabby-firmware>=0.1.0",
-    "krabby-hal-server>=0.1.0",
+    "krabby-hal-server>=0.1.5",
     "krabby-hal-client>=0.1.0",
     "krabby-compute-parkour>=0.1.0",
     "numpy>=1.24.0",

@@ -16,6 +16,10 @@ from hal.client.data_structures.hardware import (
     RgbdCatalogObservation,
 )
 from hal.server.isaac.isaacsim_mcusdk import IsaacSimMCUSDK
+from hal.server.isaac.sim_depth_ranges import (
+    ISAAC_FRONT_DEPTH_POSINF_CLIP_M,
+    ISAAC_SIDE_DEPTH_POSINF_CLIP_M,
+)
 from hal.server.isaac.primary_zed_base_state import isaac_primary_rgbd_base_state
 from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.sensor_interface import SensorInterface
@@ -26,12 +30,6 @@ logger = logging.getLogger(__name__)
 # ``camera_rgb`` / ``camera_depth`` are None; use neutral defaults only in that case.
 _DEFAULT_CAM_META_HEIGHT = 480
 _DEFAULT_CAM_META_WIDTH = 640
-
-# Clip / preview range for RayCaster ``distance_to_*`` — must align with ``CAMERA_CFG`` /
-# ``sim_rgbd_camera_cfgs`` ``max_distance`` so teleop ``depth_range_m`` and ``nan_to_num`` stay consistent.
-_ISAAC_FRONT_RAYCAST_CLIP_M = 2.0
-_ISAAC_SIDE_RAYCAST_CLIP_M = 1.5
-
 
 def _depth_tensor_to_numpy(depth_data) -> Optional[np.ndarray]:
     """Flatten RayCasterCamera output to a single-env (H, W) meters array.
@@ -84,7 +82,9 @@ def _rgb_tensor_to_numpy(rgb_data) -> Optional[np.ndarray]:
     return rgb_np
 
 
-def _read_raycaster_depth(camera_sensors: dict, key: str) -> Optional[np.ndarray]:
+def _read_scene_depth(camera_sensors: dict, key: str) -> Optional[np.ndarray]:
+    """Read ``distance_to_camera`` / ``distance_to_image_plane`` from a scene camera sensor."""
+
     sensor = camera_sensors.get(key) if camera_sensors else None
     if sensor is None or not hasattr(sensor, "data") or not hasattr(sensor.data, "output"):
         return None
@@ -175,7 +175,7 @@ def _read_catalog_rgbd_pair(
     """Read one Isaac scene RGB-D pair for ``rgbd_by_catalog_id`` and optional legacy side fields."""
     pair = _native_rgb_depth_pair(
         _read_pinhole_rgb(camera_sensors, rgb_key),
-        _read_raycaster_depth(camera_sensors, depth_key),
+        _read_scene_depth(camera_sensors, depth_key),
         posinf_clip_m=posinf_clip_m,
         label=label,
     )
@@ -554,7 +554,7 @@ class IsaacSimHalServer(HalServerBase):
         joint_positions[:len(joint_positions_from_obs)] = joint_positions_from_obs
 
         # Cameras: front (ZED-like), side_right / side_left (MaixSense-like; Jetson catalog ids).
-        depth_raw_front = _read_raycaster_depth(self.camera_sensors, "front_camera")
+        depth_raw_front = _read_scene_depth(self.camera_sensors, "front_camera")
         rgb_raw_front = _read_pinhole_rgb(self.camera_sensors, "front_rgb")
 
         rgb_for_front: Optional[np.ndarray] = rgb_raw_front
@@ -580,7 +580,7 @@ class IsaacSimHalServer(HalServerBase):
         front_pair = _native_rgb_depth_pair(
             rgb_for_front,
             depth_map_preview,
-            posinf_clip_m=_ISAAC_FRONT_RAYCAST_CLIP_M,
+            posinf_clip_m=ISAAC_FRONT_DEPTH_POSINF_CLIP_M,
             label="Front: ",
         )
 
@@ -614,7 +614,7 @@ class IsaacSimHalServer(HalServerBase):
             self.camera_sensors,
             rgb_key="side_right_rgb",
             depth_key="side_right_camera",
-            posinf_clip_m=_ISAAC_SIDE_RAYCAST_CLIP_M,
+            posinf_clip_m=ISAAC_SIDE_DEPTH_POSINF_CLIP_M,
             label="Side right: ",
         )
         if side_right_obs is not None:
@@ -626,7 +626,7 @@ class IsaacSimHalServer(HalServerBase):
             self.camera_sensors,
             rgb_key="side_left_rgb",
             depth_key="side_left_camera",
-            posinf_clip_m=_ISAAC_SIDE_RAYCAST_CLIP_M,
+            posinf_clip_m=ISAAC_SIDE_DEPTH_POSINF_CLIP_M,
             label="Side left: ",
         )
         if side_left_obs is not None:

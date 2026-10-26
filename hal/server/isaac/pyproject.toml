@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-hal-server-isaac"
-version = "0.1.2"
+version = "0.1.4"
 description = "HAL server implementation for IsaacSim with integrated inference"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,7 +22,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "krabby-hal-server>=0.1.0",
+    "krabby-hal-server>=0.1.5",
     "krabby-hal-client>=0.1.0",
     "krabby-compute-parkour>=0.1.0",
     "krabby-data-collection>=0.1.0",
