@@ -1,15 +1,12 @@
 {
  "schema": 1,
  "spec": "pipeline.yaml",
- "written_at": "2026-10-26T10:38:57",
- "git_head_informational": "7875fd3b8ac2fadcb7cbc95c65a504e958cfc185",
- "code_sha": "91b479cb838c12106e0a3df2c5b9888765fb14fb486fd06e13064d7bcab01c01",
- "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+ "written_at": "2026-10-26T11:04:02",
+ "git_head_informational": "593a047e59ea5e610866c08991082b768c9fa079",
+ "code_sha": "6a4e4c6e13eee69fe38c26e27df2b53f771cdf24fd3dd4f3eb49d1761cf4c02d",
+ "eval_sha": "7c1358df6e264008226f81d082b1876ac3ed2735496b0b5cf72eeab7279ac99b",
  "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
- "dirty_code_eval": [
-  "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py",
-  "parkour/scripts/rsl_rl/play_stream_video.py"
- ],
+ "dirty_code_eval": [],
  "files": {
   "assets/crab.usda": "58bdb558874d9c76cf1272d1bbe569bca1f77ffaf66aabc9f42a7378f6a7daee",
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/omni_student_spec.py": "6d79f514d9a7b9fd5a74b78b985b3915aafb2f4530854c6a792d6b01fc4d2c73",
