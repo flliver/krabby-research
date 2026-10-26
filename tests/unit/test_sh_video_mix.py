@@ -74,7 +74,19 @@ def _pyc_snapshot() -> dict:
     return out
 
 
-_PYC_BEFORE = _pyc_snapshot()
+#: The caches as they stood when THIS module's first test started (filled by ``_pyc_before`` below). Not taken at
+#: import: pytest imports every module at collection, and the suite's other modules (the phase-2 / stand-network
+#: tests and the tools they run) may legitimately write bytecode into these dirs before this module runs whenever
+#: PYTHONDONTWRITEBYTECODE is unset (CI) -- that is not this module's doing, and the check is about what THESE tests
+#: load. Autouse + module scope makes it the first fixture this module sets up, ahead of the module fixtures that load
+#: the tools.
+_PYC_BEFORE: dict = {}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _pyc_before():
+    _PYC_BEFORE.clear()
+    _PYC_BEFORE.update(_pyc_snapshot())
 
 
 def _load(path: Path, name: str):

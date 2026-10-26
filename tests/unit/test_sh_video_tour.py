@@ -137,7 +137,19 @@ def _pyc_snapshot() -> dict:
     return out
 
 
-_PYC_BEFORE = _pyc_snapshot()
+#: The caches as they stood when THIS module's first test started (filled by ``_pyc_before`` below). Not taken at
+#: import: pytest imports every module at collection, and the suite's other modules (the phase-2 / stand-network
+#: tests and the tools they run) may legitimately write bytecode into these dirs before this module runs whenever
+#: PYTHONDONTWRITEBYTECODE is unset (CI) -- that is not this module's doing, and the check is about what THESE tests
+#: load. Autouse + module scope makes it the first fixture this module sets up, ahead of the module fixtures that load
+#: the tools.
+_PYC_BEFORE: dict = {}
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _pyc_before():
+    _PYC_BEFORE.clear()
+    _PYC_BEFORE.update(_pyc_snapshot())
 
 
 def _load(path: Path, name: str):
@@ -931,8 +943,8 @@ def test_launcher_refuses_a_tour_while_busy_before_generating(TV, tmp_path):
 
 
 def test_no_bytecode_from_the_tour_tools():
-    """Nothing these tests load by path writes bytecode (the snapshot is taken when this module is imported; the
-    campaign's / predecessor's pre-existing caches are someone else's and left alone)."""
+    """Nothing these tests load by path writes bytecode (the snapshot is taken when this module's first test
+    starts; the campaign's / predecessor's pre-existing caches are someone else's and left alone)."""
     assert _pyc_snapshot() == _PYC_BEFORE
     for pat in ("sh_video*", "sh_record*", "sh_table_core*", "sh_starts*", "sh_table_test*"):
         assert not list(SCRIPTS.glob(f"__pycache__/{pat}")), pat

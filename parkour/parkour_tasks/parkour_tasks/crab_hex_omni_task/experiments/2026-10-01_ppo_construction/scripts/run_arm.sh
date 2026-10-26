@@ -57,7 +57,7 @@
 #   ACCEPT_WHY       the --accept-candidates-change reason on the first launch ('' = do not pass the flag)
 #   AUTO_KILL        1 (default) = apply the pre-registered kills; 0 = log them as KILL-ADVISED only
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=/home/nickmagus/krabby/isaac_venv/bin/python
 CODE_ROOT=${CODE_ROOT:-$R}
 C=${CAMPAIGN_DIR:-$(cd "$(dirname "$0")/.." && pwd)}
