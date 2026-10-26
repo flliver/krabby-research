@@ -83,7 +83,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 CAMPAIGN = HERE.parent
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 PARKOUR = R / "parkour"
 RC_PATH = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py"
 PY = "/home/nickmagus/krabby/isaac_venv/bin/python"

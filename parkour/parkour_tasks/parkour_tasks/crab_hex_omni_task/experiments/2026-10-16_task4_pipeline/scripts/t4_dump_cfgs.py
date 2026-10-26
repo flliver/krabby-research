@@ -32,7 +32,7 @@ import sys
 import time
 from pathlib import Path
 
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 PY = "/home/nickmagus/krabby/isaac_venv/bin/python"
 BC_TARGETS = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-15_body_cmd/dump_targets.json"
 MEM_MAX = "48G"

@@ -3252,8 +3252,21 @@ def first_cmd(log: Path) -> str | None:
     return c[0] if c else None
 
 
+def _from_parkour(p) -> str | None:
+    """A recorded path as a command run from ``parkour/`` spells it: repo-relative -> ``$PWD/...`` (absolute at run
+    time, checkout-independent in the README); an absolute path outside the checkout as recorded."""
+    if not p:
+        return None
+    s = str(p)
+    if s.startswith("/"):
+        return s
+    return "$PWD/" + s.removeprefix("parkour/") if s.startswith("parkour/") else "$PWD/../" + s
+
+
 def readme_md(doc: dict, spec, run: str) -> str:
-    R = L.REPO
+    #: the repo root as the README's commands spell it (they run from the repo root, or say ``cd parkour``): ``$PWD``,
+    #: never this checkout's absolute root (the generated README is committed)
+    R = "$PWD"
     pl_rel = L.rel(spec.dir)
     rd = spec.run_dir(run)
     h = doc["headline"]["deliverable"]
@@ -3319,7 +3332,7 @@ def readme_md(doc: dict, spec, run: str) -> str:
         f"`thresholds_v1_2.json` (sha `{str(doc['thresholds']['sha256'])[:8]}`).", "",
         "## 2. Reproduce at the pin", "",
         "```bash",
-        f"git -C {R} checkout {tag}      # the last task4-pin-* tag (local): the build R18 / F19 ran on, "
+        f"git checkout {tag}      # from the repo root; the last task4-pin-* tag (local): the build R18 / F19 ran on, "
         "code_sha cbaf6797, eval_sha 8c8d22f0",
         "```", "",
         "- **The build of record vs the current pin.** Every task4-pin-* tag (2026-10-19 .. 2026-10-23) commits the "
@@ -3364,7 +3377,10 @@ def readme_md(doc: dict, spec, run: str) -> str:
         "A fresh replication needs a new `runs:` entry in `pipeline.yaml` with new seeds, then gen, lock, commit, check, run.", "",
         "**Run records and stopping.** A run's records live in `<PL>/<run>/`: `pipeline_state.json` (stage statuses, "
         "HALTs, accepted / amended stages, the pin), `pipeline_queue.log` (every launch verbatim + the `T4PIPE` "
-        "sentinels), `pipeline_notify.jsonl`, `plan.json` / `candidates.yaml` / `envs/` (gen), `gates/<stage>.json`, "
+        "sentinels), `pipeline_notify.jsonl`, `plan.json` / `candidates.yaml` / `envs/` (gen; checkout-independent: "
+        "a path inside the checkout -- the training envs' `KRABBY_RSI_BANK` -- is written `$REPO/<repo-relative "
+        "path>`, resolved by `tp_lib.read_env_file`; in a shell, from the repo root: `REPO=$PWD envsubst '$REPO' < "
+        "FILE`), `gates/<stage>.json`, "
         "`halts/<stage>.<n>.json`, `stage_reads/`, `tp_logs/`; the gate-row stamps land under "
         "`parkour/outputs/omni_plan/task4/<run>/lr/NAME/SCENARIO/seed00<k>/<time>/` (gate_row.sh `TP_OUT`). To stop a "
         "running queue, `touch <PL>/<run>/STOP_PIPELINE`: the queue stops at its next stage boundary or before its next "
@@ -3406,12 +3422,13 @@ def readme_md(doc: dict, spec, run: str) -> str:
         f"- SN: `{sn_cmd}`" if sn_cmd else "", f"- SH: `{sh_cmd}`" if sh_cmd else "",
         f"- REFS(T*) rows: `{refs_cmd}`" if refs_cmd else "",
         f"- A gate row (T*'s first): `{row_cmd}`" if row_cmd else "",
-        f"- Every gate row (from the repo root; EVERY path absolute -- gate_row.sh refuses a relative one, rc 2): "
+        f"- Every gate row (from the repo root; EVERY path absolute -- gate_row.sh refuses a relative one, rc 2; "
+        "`$PWD` = the repo root): "
         f"`TP_OUT={R}/parkour/outputs/omni_plan/task4/<run> TP_ROW_TIMEOUT=5400|10800 "
         f"[TP_LEVEL_FILE={R}/{pl_rel}/<run>/envs/levels/LNNN.env] [TP_STRIP_KEYS=...] bash $TP/gate_row.sh NAME "
         f"/abs/CKPT {R}/{pl_rel}/<run>/envs/<stage>[.<family>].env /abs/MANIFEST SCENARIO ES [harness args]` (e.g. "
-        f"MANIFEST = `{L.OMNI}/experiments/eval/scenarios_omni.yaml`); the step-11 report rows use the same form with "
-        f"`TP_OUT={R}/parkour/outputs/omni_plan/task4/step11`.", "",
+        f"MANIFEST = `{R}/{L.rel(L.OMNI)}/experiments/eval/scenarios_omni.yaml`); the step-11 report rows use the same "
+        f"form with `TP_OUT={R}/parkour/outputs/omni_plan/task4/step11`.", "",
         "## 5. What passing each gate means (4b)", "",
         "Thresholds v1.2; HALTs are prompts; the chance-HALT run sum "
         f"({fmt((doc['provenance'].get('run_sum') or {}).get('recommended'))}) is reported, not capped.", "",
@@ -3438,8 +3455,8 @@ def readme_md(doc: dict, spec, run: str) -> str:
         "```bash",
         "cd parkour",
         f"ENVF=../{L.rel(envf)}",
-        f"CK_TSTAR={ts.get('ckpt') and (R / ts['ckpt'])}",
-        f"CK_STUDENT={sel.get('ckpt') and (R / sel['ckpt'])}",
+        f"CK_TSTAR={_from_parkour(ts.get('ckpt'))}",
+        f"CK_STUDENT={_from_parkour(sel.get('ckpt'))}",
         "U=$(env | grep -oE '^KRABBY_[A-Z0-9_]+' | sed 's/^/-u /')   # drop every inherited KRABBY_* first",
         "# T* (teacher, Walk-Play):",
         f"env $U OMNI_KIT_ACCEPT_EULA=yes $(grep -E '^KRABBY_' $ENVF) {PY} scripts/rsl_rl/play.py "
@@ -3451,8 +3468,9 @@ def readme_md(doc: dict, spec, run: str) -> str:
         "```", "",
         "- play.py writes an export beside the checkpoint it plays (the student: its JIT / ONNX `exported_deploy/`; "
         "T*: `exported_teacher/`) -- a write into the run dir under logs/.",
-        "- The harness play (the gate rows' eval) is the gate_row.sh line above (absolute paths, `TP_OUT` set) with "
-        f"`{L.OMNI}/experiments/eval/scenarios_omni.yaml suite__omni ES --trained-categories "
+        "- The harness play (the gate rows' eval) is the gate_row.sh line above (from the repo root, absolute paths, "
+        f"`TP_OUT` set) with `{R}/{L.rel(L.OMNI)}/experiments/eval/scenarios_omni.yaml suite__omni ES "
+        "--trained-categories "
         "stand,fwd,side,back,diag,turn,move_turn`; "
         "for the student add `--task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student` and "
         "`TP_STRIP_KEYS=\"<STUDENT_RUNNER_KNOBS_REFUSED>\"`.",

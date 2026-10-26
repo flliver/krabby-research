@@ -21,7 +21,7 @@
 # on suite rows only). Then code_state.json, then tp_row.json (the completion marker, LAST). Otherwise rc 8.
 # Prints "TPROW END name=... rc=... stamp=..." as its last line.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=/home/nickmagus/krabby/isaac_venv/bin/python
 EVAL=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py
 PYP=$R/parkour/parkour_tasks:$R/parkour

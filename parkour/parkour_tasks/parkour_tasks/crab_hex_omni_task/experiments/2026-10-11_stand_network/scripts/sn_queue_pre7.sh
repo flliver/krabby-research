@@ -4,7 +4,7 @@
 # refuses to start while another Isaac driver runs. A1 (6b) is launched separately once the smoke's s_per_iter has
 # set its iteration count. Sentinel lines "SNQ ..." in $SNOUT/sn_queue.log (the session watches DONE / STOP).
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 S=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/scripts
 C=$(cd "$S/.." && pwd)
 SNOUT=$R/parkour/outputs/omni_plan/stand_network

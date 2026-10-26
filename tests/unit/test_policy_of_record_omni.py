@@ -119,17 +119,25 @@ def _missing_commits(*commits: str) -> list[str]:
             if subprocess.run(["git", "cat-file", "-e", f"{c}^{{commit}}"], cwd=REPO, capture_output=True).returncode]
 
 
-#: the checkout the tracked records were written in: their absolute paths (the F19 env files' KRABBY_RSI_BANK, the stand
-#: block's SN_WALKER_* env) start with it
-RECORDED_ROOT = "/home/nickmagus/krabby/krabby-research"
+#: the checkout-independent path form of the tracked plan / README-facing records (the F19 env files' KRABBY_RSI_BANK,
+#: written by the pipeline's gen; the stand block's SN_WALKER_* env): ``$REPO/<repo-relative path>`` (TP
+#: tp_lib.REPO_TOKEN, bundle_policy.REPO_TOKEN), resolved against the checkout that reads it
+REPO_TOKEN = "$REPO"
 
 
 def _at_checkout(v):
-    """A recorded absolute path re-rooted from RECORDED_ROOT to this checkout -- the identity on the recording checkout
-    itself, so there the records are compared exactly as written."""
-    if isinstance(v, str) and str(REPO) != RECORDED_ROOT and v.startswith(RECORDED_ROOT + "/"):
-        return str(REPO) + v[len(RECORDED_ROOT):]
+    """A ``$REPO/<path>`` value -- recursively, in a mapping -- resolved against THIS checkout; anything else as is."""
+    if isinstance(v, dict):
+        return {k: _at_checkout(x) for k, x in v.items()}
+    if isinstance(v, str) and v.startswith(REPO_TOKEN + "/"):
+        return str(REPO / v[len(REPO_TOKEN) + 1:])
     return v
+
+
+def _names_recorded(portable: str, recorded: str) -> bool:
+    """A ``$REPO/<rel>`` value names the path a run RECORD states (absolute, in the checkout the run ran in: records
+    such as deliverable.json are history and keep the root they were written under)."""
+    return portable.startswith(REPO_TOKEN + "/") and recorded.endswith("/" + portable[len(REPO_TOKEN) + 1:])
 
 
 def _chain_stage(ref: str) -> dict:
@@ -315,6 +323,7 @@ def test_rsi_bank_asset_is_the_bank_the_omni_presets_use():
     # every F19 training env names the bank and turns RSI off (RSI_FRAC 0), as the asset's used_by says
     for sid in ("s1", "c4", "c5", "c6", "c6x", "p2a", "p3a", "p3b"):
         env = _env_file(F19 / f"envs/{sid}.train.env")
+        assert env["KRABBY_RSI_BANK"].startswith(REPO_TOKEN + "/"), sid           # checkout-independent as committed
         assert _at_checkout(env["KRABBY_RSI_BANK"]) == str(preset_bank) and env["KRABBY_RSI_FRAC"] == "0", sid
 
 
@@ -928,19 +937,31 @@ def test_stand_network_routing_env_is_the_walkers():
     dl = _deliverable()
     cand = yaml.safe_load((F19 / "candidates.yaml").read_text())
     spec = env["SN_WALKER_SPEC"]
-    assert (_at_checkout(env["SN_WALKER_CK"]), env["SN_WALKER_ST"], str(env["P2_REANCHOR"])) == (
-        str(REPO / w["source"]), dl["tstar"]["driver_stamp"], "1")
-    here = {k: _at_checkout(v) if k in ("CANDIDATES", "S1_AGENT_YAML", "S1_CKPT") else v for k, v in spec.items()}
+    # checkout-independent as committed: every path is $REPO/<repo-relative path>, none absolute
+    leaves = [env["SN_WALKER_CK"], env["SN_WALKER_ST"], *(v for v in spec.values() if isinstance(v, str))]
+    assert not [v for v in leaves if v.startswith("/")], leaves
+    assert (env["SN_WALKER_CK"], str(env["P2_REANCHOR"])) == (f"{REPO_TOKEN}/{w['source']}", "1")
+    assert _names_recorded(env["SN_WALKER_ST"], dl["tstar"]["driver_stamp"])
+    assert spec["REFS_ENV_STAMP"] == env["SN_WALKER_ST"]
+    here = _at_checkout(spec)
     assert here == {"CANDIDATES": str(F19 / "candidates.yaml"), "OVERLAY_CHAIN": "F19_p2a",
-                    "REFS_ENV_STAMP": dl["tstar"]["driver_stamp"], "REFS_NAME": "REFS_T4F19",
+                    "REFS_ENV_STAMP": _at_checkout(env["SN_WALKER_ST"]), "REFS_NAME": "REFS_T4F19",
                     "S1_AGENT_YAML": str(REPO / Path(w["source"]).parent / "params" / "agent.yaml"),
                     "S1_CKPT": str(REPO / w["source"]), "S1_SHA256": w["sha256"],
                     "S1_OVERLAY": {k: str(v) for k, v in cand["chains"]["F19_p2a"]["stages"][0]["overlay"].items()}}
     spec_mod = _load_nobc(SN_SPEC, "sn_dagger_spec_policy_test")
-    parsed = spec_mod.walker_spec_override({"SN_WALKER_SPEC": json.dumps(spec, sort_keys=True)})
+    parsed = spec_mod.walker_spec_override({"SN_WALKER_SPEC": json.dumps(here, sort_keys=True)})
     assert parsed["S1_SHA256"] == w["sha256"] and parsed["REFS_NAME"] == "REFS_T4F19"
     text = (POLICY / "README.md").read_text()
-    assert f"export SN_WALKER_SPEC='{json.dumps(spec, sort_keys=True)}'" in text
+    # the README's exports, run as written from parkour/ (bash), give exactly the resolved values at run time -- the
+    # absolute paths every consumer requires (sn_dagger_spec refuses a relative one), this checkout's, not the writer's
+    exports = [ln for ln in text.splitlines() if ln.startswith(("export SN_WALKER_", "export P2_REANCHOR="))]
+    assert len(exports) == 4 and not [ln for ln in exports if "/home/" in ln], exports
+    got = subprocess.run(["bash", "-c", "\n".join(exports) + '\nprintf "%s\\0" "$SN_WALKER_CK" "$SN_WALKER_ST" '
+                          '"$P2_REANCHOR" "$SN_WALKER_SPEC"'], cwd=REPO / "parkour", capture_output=True, text=True,
+                         check=True, env={"PATH": "/usr/bin:/bin"}).stdout.split("\0")
+    assert got[:3] == [str(REPO / w["source"]), _at_checkout(env["SN_WALKER_ST"]), "1"]
+    assert got[3] == json.dumps(here, sort_keys=True)
     sdir = PKG / run["scripts"]
     assert sdir == SH_CAMPAIGN / "scripts"
     cmds = [c["run"] for c in run["commands"]]
@@ -1277,6 +1298,12 @@ def _st(m, d):
     (lambda m: m["stand_network"]["warm_start"].update(file="model_5000.pt"), "different file from the stand network"),
     (lambda m: m["stand_network"]["warm_start"].update(sha256=m["stand_network"]["sha256"]),
      "different file from the stand network"),
+    # the README-facing walker env is checkout-independent: $REPO/<path>, never an absolute path
+    (lambda m: m["stand_network"]["evaluate"]["env"].update(SN_WALKER_CK="/home/x/krabby-research/parkour/m.pt"),
+     "stand_network.evaluate.env.SN_WALKER_CK is an absolute path"),
+    (lambda m: m["stand_network"]["evaluate"]["env"]["SN_WALKER_SPEC"].update(CANDIDATES="/r/parkour/c.yaml"),
+     "stand_network.evaluate.env.SN_WALKER_SPEC.CANDIDATES is an absolute path"),
+    (lambda m: m["stand_network"]["evaluate"]["env"].update(SN_WALKER_ST="$REPO/parkour/a b"), "path must match"),
     # stage kinds, the distill stage and its exports
     (lambda m: _st(m, "f19_1_s1").update(kind="ppo"), "kind 'ppo' is not one of"),
     (lambda m: _st(m, "f19_1_s1").update(bundled=False), "for kind 'distill' stages only"),
@@ -1305,6 +1332,23 @@ def test_manifest_is_validated(tmp_path, mutate, why):
     tool = _tool()
     with pytest.raises(SystemExit, match=re.escape(why)):
         tool.load_manifest(_mutated_manifest(tmp_path, mutate))
+
+
+def test_stand_env_values_render_checkout_independent():
+    """``evaluate.env`` -> ``export K=<word>`` run from parkour/: a ``$REPO/`` path becomes ``"$PWD/..."``, a mapping
+    its sort_keys JSON with each such path spliced in double quotes, anything else single-quoted as is."""
+    tool = _tool()
+    assert tool._shell_env_value("$REPO/parkour/logs/x.pt") == '"$PWD/logs/x.pt"'
+    assert tool._shell_env_value("$REPO/assets/crab.usda") == '"$PWD/../assets/crab.usda"'
+    assert tool._shell_env_value("1") == "1" and tool._shell_env_value("") == "''"
+    assert tool._shell_env_value("a b") == "'a b'"
+    word = tool._shell_env_value({"B": "it's", "A": "$REPO/parkour/c.yaml", "C": {"K": ""}})
+    assert word == '\'{"A": "\'"$PWD/c.yaml"\'", "B": "it\'"\'"\'s", "C": {"K": ""}}\''
+    got = subprocess.run(["bash", "-c", f"X={word}; printf %s \"$X\""], cwd=REPO / "parkour", capture_output=True,
+                         text=True, check=True, env={"PATH": "/usr/bin:/bin"}).stdout
+    assert json.loads(got) == {"A": str(REPO / "parkour/c.yaml"), "B": "it's", "C": {"K": ""}}
+    # no path inside a mapping: exactly the old rendering (one single-quoted JSON word)
+    assert tool._shell_env_value({"K": "v"}) == "'{\"K\": \"v\"}'"
 
 
 def _sandbox(tmp_path: Path, tool, m: dict) -> Path:

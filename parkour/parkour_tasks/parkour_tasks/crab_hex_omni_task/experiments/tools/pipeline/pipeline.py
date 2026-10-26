@@ -9,7 +9,9 @@ Everything a run is comes from the spec (``--spec <campaign>/pipeline.yaml``; no
            env files (``<run>/envs/<stage>.env``, ``<stage>.<row family>.env`` for rows with an env block, the payload
            level files ``envs/levels/L###.env``: KG=L:L, ZERO_FRAC=0, COM_XY=0, COM_Z=0.309; 0 kg = 0:0) and
            ``<run>/plan.json`` (the resolved stage graph). Byte-stable: ``gen --check`` regenerates in memory and
-           compares bytes.
+           compares bytes. Checkout-independent: a path inside the checkout (the training env's KRABBY_RSI_BANK) is
+           written ``$REPO/<repo-relative path>`` and resolved against the reading checkout by
+           ``tp_lib.read_env_file``; the files the launchers read verbatim (gate_row.sh, distill.sh) refuse it.
   check    the spec (overlays verbatim against the shipped lineage files by sha256, key counts, stage names, the
            dependency graph, row manifests), the PLACEHOLDERs an official run refuses (N_p, x_rule, the student
            manifest-shape split), the driver's own validator on the generated candidates, gen byte equality, and the
@@ -428,8 +430,20 @@ def gate_rows(spec: Spec, sid: str) -> list[str]:
     return list(spec.d["row_lists"][rows]) if isinstance(rows, str) else list(rows or [])
 
 
+def launcher_env_text(env: dict, rel: str) -> str:
+    """An env file a launcher word-splits VERBATIM -- gate_row.sh (the eval env, the row envs, the level files) and
+    distill.sh (the distill env): neither resolves the ``$REPO/...`` form (tp_lib.REPO_TOKEN), so a path inside the
+    checkout here is REFUSED rather than written checkout-bound or unresolved."""
+    bad = sorted(k for k, v in env.items() if L.portable_value(v) != str(v))
+    if bad:
+        raise ValueError(f"gen {rel}: {bad} name a path inside the checkout; gate_row.sh / distill.sh pass env values "
+                         "verbatim (no $REPO resolution), so a launcher env file must carry none")
+    return L.env_file_text(env)
+
+
 def gen_files(spec: Spec, run: str) -> dict:
-    """{path relative to the run dir: text} -- every file gen writes (byte-stable)."""
+    """{path relative to the run dir: text} -- every file gen writes (byte-stable and checkout-independent: a path
+    inside the checkout is written ``$REPO/<repo-relative path>``, tp_lib.REPO_TOKEN, resolved when read)."""
     files = {}
     import yaml  # noqa: PLC0415
 
@@ -452,19 +466,22 @@ def gen_files(spec: Spec, run: str) -> dict:
                       "distill_env": f"envs/{sid}.distill.env",
                       "row_env": {fam: f"envs/{sid}.{fam}.env" for fam in sorted(ce["rows"])},
                       "gate_rows": gate_rows(spec, sid)})
-            files[f"envs/{sid}.env"] = L.env_file_text(ce["eval"])
-            files[f"envs/{sid}.train.env"] = L.env_file_text(ce["train"])
+            files[f"envs/{sid}.env"] = launcher_env_text(ce["eval"], f"envs/{sid}.env")
+            # the composed training env is a record (no launcher reads it: the driver composes its own from the preset,
+            # whose paths -- KRABBY_RSI_BANK -- are this checkout's at import): its in-checkout paths go $REPO/...
+            files[f"envs/{sid}.train.env"] = L.env_file_text(L.portable_env(ce["train"]))
             # the driver's own training-process shape (run_phases.train: the preset + the plant + the overlay; the
             # preset expands at import) -- what distill.sh starts the student from (it strips the runner-only keys)
-            files[f"envs/{sid}.distill.env"] = L.env_file_text({"KRABBY_OMNI_PHASE": st["base"],
-                                                                "KRABBY_PLANT": spec.d["plant"], **spec.overlay(sid)})
+            files[f"envs/{sid}.distill.env"] = launcher_env_text({"KRABBY_OMNI_PHASE": st["base"],
+                                                                  "KRABBY_PLANT": spec.d["plant"], **spec.overlay(sid)},
+                                                                 f"envs/{sid}.distill.env")
             for fam, env in sorted(ce["rows"].items()):
-                files[f"envs/{sid}.{fam}.env"] = L.env_file_text(env)
+                files[f"envs/{sid}.{fam}.env"] = launcher_env_text(env, f"envs/{sid}.{fam}.env")
         plan["stages"][sid] = e
     lv = spec.d["payload"]
     for kg in lv["levels"]:
         env = {"KRABBY_PAYLOAD_KG": f"{kg}:{kg}", **{k: str(v) for k, v in lv["level_env"].items()}}
-        files[f"envs/levels/L{int(kg):03d}.env"] = L.env_file_text(env)
+        files[f"envs/levels/L{int(kg):03d}.env"] = launcher_env_text(env, f"envs/levels/L{int(kg):03d}.env")
         plan["levels"][str(kg)] = f"envs/levels/L{int(kg):03d}.env"
     files["plan.json"] = json.dumps(plan, indent=1, sort_keys=True) + "\n"
     return files

@@ -600,6 +600,10 @@ def _observe_tree(lr: Path, name: str, obs: np.ndarray, mu: np.ndarray):
 
 @pytest.fixture(scope="module")
 def OBS(FID):
+    # the tool reads the S1 run's params/agent.yaml at import (its default actor widths): logs are untracked, so a
+    # checkout without that run (CI's) skips rather than errors
+    if not FID.S1_AGENT_YAML.is_file():
+        pytest.skip(f"{FID.S1_AGENT_YAML} not in this checkout (logs are untracked)")
     return _load(SCRIPTS / "p2r_z2c_observe_read.py", "_t_z2d_observe_read")
 
 

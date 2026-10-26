@@ -17,6 +17,7 @@
 #     360 s covers the worst case: one poll tick (120 s) + the child's SIGTERM grace (120 s) + the post-SIGKILL
 #     wait (60 s) + the save -- about 300 s.
 set -euo pipefail
+REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../.." && pwd)  # this checkout's root
 CDIR=""
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
@@ -43,6 +44,6 @@ exec systemd-run --user --unit "$UNIT" \
   -p MemorySwapMax=0 \
   -p KillMode=mixed \
   -p TimeoutStopSec=360 \
-  --working-directory /home/nickmagus/krabby/krabby-research \
+  --working-directory "$REPO_ROOT" \
   /home/nickmagus/krabby/isaac_venv/bin/python \
   "$(cd "$(dirname "$0")" && pwd)/run_candidates.py" --unit "$UNIT" "$@"

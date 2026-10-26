@@ -24,7 +24,7 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 C = HERE.parent
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 LOGS = R / "parkour/logs/rsl_rl"
 OUT = R / "parkour/outputs/omni_plan/task4/lr"
 LINEAGE = {

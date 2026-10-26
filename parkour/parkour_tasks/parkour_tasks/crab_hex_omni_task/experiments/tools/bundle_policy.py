@@ -29,7 +29,9 @@ in its folder), ``expected_files`` lists it, ``heads:`` may name its dir, and th
 record" section (what it is, file + sha, training, the deployment contract and env -- a mapping-valued contract key
 such as ``deployment.constants`` renders as nested bullets --, the eval / video commands (``evaluate.commands``), the
 per-head gate table, the adoption-grade note, the selection and the caveats) plus one header line. A manifest WITHOUT
-the block behaves exactly as before (README byte-identical).
+the block behaves exactly as before (README byte-identical). The commands' exported env (``evaluate.env``) is
+checkout-independent: a path inside the checkout is written ``$REPO/<repo-relative path>`` (:data:`REPO_TOKEN`; an
+absolute path is refused) and rendered ``"$PWD/..."`` from ``parkour/``, absolute when the command runs.
 
 The block may carry a ``warm_start:`` sub-block (``id``, ``file``, ``source``, ``sha256``, ``role``): the checkpoint the
 stand network was warm-started from, bundled in the SAME folder so the adopted head stays reproducible and the
@@ -117,6 +119,15 @@ EXPORT_KEYS = ("file", "source", "sha256", "what")
 KEPT_KEYS = ("dir", "file", "sha256", "source")
 #: GitHub refuses any file over 100 MiB: nothing larger is ever bundled (``--sync`` refuses, ``--check`` flags).
 MAX_FILE_BYTES = 100 * 1024 * 1024
+#: The checkout-independent form of a path inside the checkout in ``stand_network.evaluate.env`` (the form the Task 4
+#: pipeline's gen writes into its env files, TP ``tp_lib.REPO_TOKEN``): ``$REPO/<repo-relative path>``. The README
+#: renders it ``"$PWD/..."`` from ``parkour/`` (:func:`_shell_env_value`): absolute when the command runs, as every
+#: consumer of those variables requires, and never this checkout's root in the README. An absolute path is refused.
+REPO_TOKEN = "$REPO"
+#: a ``$REPO/...`` path must be one shell / JSON word as written (no quote, backslash, ``$``, backtick or whitespace)
+_REPO_PATH_RE = re.compile(r"[A-Za-z0-9._/+@=,:-]+")
+_SLOT = "@@REPO_PATH_{}@@"
+_SLOT_RE = re.compile(r"@@REPO_PATH_(\d+)@@")
 
 
 def sha256_of(path: Path) -> str:
@@ -339,6 +350,27 @@ def _validate_stand(m: dict, sn, dirs: list[str], path) -> None:
         if ws["file"] == sn["file"] or ws["sha256"] == sn["sha256"]:
             raise SystemExit(f"{path}: stand_network.warm_start must be a different file from the stand network "
                              f"({ws['file']!r})")
+    for where, v in _leaves((sn.get("evaluate") or {}).get("env") or {}, "stand_network.evaluate.env"):
+        s = str(v)
+        if s.startswith("/"):
+            raise SystemExit(f"{path}: {where} is an absolute path ({s!r}): write a path inside the checkout as "
+                             f"{REPO_TOKEN}/<repo-relative path> (the README renders it absolute at run time)")
+        if s.startswith(REPO_TOKEN + "/") and not _REPO_PATH_RE.fullmatch(s[len(REPO_TOKEN) + 1:]):
+            raise SystemExit(f"{path}: {where} {s!r}: a {REPO_TOKEN}/ path must match {_REPO_PATH_RE.pattern}")
+        if _SLOT_RE.search(s):
+            raise SystemExit(f"{path}: {where} {s!r} carries the README renderer's placeholder text")
+
+
+def _leaves(v, where: str):
+    """``(dotted key, scalar)`` for every scalar of a nested mapping / list."""
+    if isinstance(v, dict):
+        for k, x in v.items():
+            yield from _leaves(x, f"{where}.{k}")
+    elif isinstance(v, list):
+        for i, x in enumerate(v):
+            yield from _leaves(x, f"{where}[{i}]")
+    else:
+        yield where, v
 
 
 def stage_by_dir(m: dict, d: str) -> dict:
@@ -706,8 +738,7 @@ def _stand_section(m: dict) -> list[str]:
             if run.get("env_comment"):
                 L.append(f"# {run['env_comment']}")
             for k, v in run["env"].items():
-                val = json.dumps(v, sort_keys=True) if isinstance(v, (dict, list)) else str(v)
-                L.append(f"export {k}={shlex.quote(val)}")
+                L.append(f"export {k}={_shell_env_value(v)}")
         for c in run.get("commands") or []:
             if c.get("comment"):
                 L.append(f"# {c['comment'].format(**fmt)}")
@@ -785,6 +816,29 @@ def _args(xs) -> str:
 def _run_path(src: str) -> str:
     """A repo-relative run path as the README commands spell it from ``parkour/`` (``$PWD/...``)."""
     return "$PWD/" + src.removeprefix("parkour/") if src.startswith("parkour/") else "$PWD/../" + src
+
+
+def _shell_env_value(v) -> str:
+    """One ``evaluate.env`` value as the shell word of ``export K=<word>`` run from ``parkour/``: a ``$REPO/<path>``
+    value (:data:`REPO_TOKEN`) becomes ``"$PWD/..."`` (:func:`_run_path`), a mapping / list its ``sort_keys`` JSON
+    with every such path inside it expanded the same way (single-quoted JSON, the path spliced in double quotes), and
+    anything else is single-quoted as is -- so the exported values are this checkout's absolute paths at run time."""
+    slots: list[str] = []
+
+    def sub(x):
+        if isinstance(x, dict):
+            return {k: sub(y) for k, y in x.items()}
+        if isinstance(x, list):
+            return [sub(y) for y in x]
+        if isinstance(x, str) and x.startswith(REPO_TOKEN + "/"):
+            slots.append(_run_path(x[len(REPO_TOKEN) + 1:]))
+            return _SLOT.format(len(slots) - 1)
+        return x
+
+    text = json.dumps(sub(v), sort_keys=True) if isinstance(v, (dict, list)) else str(sub(v))
+    parts = _SLOT_RE.split(text)
+    return "".join((f'"{slots[int(p)]}"' if i % 2 else shlex.quote(p)) for i, p in enumerate(parts) if i % 2 or p) \
+        or shlex.quote(text)
 
 
 def _distill_section(m: dict, s: dict) -> list[str]:

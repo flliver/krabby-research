@@ -35,7 +35,7 @@
 # 6 smoke FAIL) or 124 (the SH_TIMEOUT bound fired) in the foreground; 3 busy; 4 STOP_QUEUE; 5 usage / refusal here;
 # 0 after a detached launch whose trainer is visible; 7 a detached launch that ended before it became visible.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${SH_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 HERE=$(cd "$(dirname "$0")" && pwd)
 TRAINER=$HERE/sh_dagger.py

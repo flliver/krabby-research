@@ -3,7 +3,7 @@ import glob, json, sys
 from pathlib import Path
 import numpy as np
 
-R = "/home/nickmagus/krabby/krabby-research"
+R = str(Path(__file__).resolve().parents[7])  # this checkout's root
 sys.path.insert(0, f"{R}/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scripts")
 sys.dont_write_bytecode = True
 import p2s_stand as S  # noqa: E402

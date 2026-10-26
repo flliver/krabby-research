@@ -219,8 +219,8 @@ STROKE_KNOBS_PY = OMNI / "config" / "crab_hex" / "stroke_knobs.py"
 RUN_CANDIDATES_PY = TOOLS / "run_candidates.py"
 
 #: W, the omni head of record (2026-09-25): its training dump is the ONE economy.
-W_ENV_YAML = Path("/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"
-                  "2026-09-25_14-53-27_seed3_X03_c6x_A15pB/params/env.yaml")
+W_ENV_YAML = TASKS.parents[2] / ("parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"   # this checkout's root
+                                  "2026-09-25_14-53-27_seed3_X03_c6x_A15pB/params/env.yaml")
 
 
 def _load(path: Path, name: str):

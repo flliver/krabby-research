@@ -28,7 +28,7 @@ import numpy as np
 import torch
 
 torch.set_num_threads(16)
-REPO = Path("/home/nickmagus/krabby/krabby-research")
+REPO = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 C = REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2"
 spec = importlib.util.spec_from_file_location("_fid", str(C / "scripts/p2r_z2_fidelity.py"))
 fid = importlib.util.module_from_spec(spec)

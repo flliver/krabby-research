@@ -125,7 +125,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 CAMPAIGN = HERE.parent
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 TASKS = R / "parkour/parkour_tasks/parkour_tasks"
 GAIT_SCRIPTS = TASKS / "crab_hex_forward_task/scripts"
 if str(GAIT_SCRIPTS) not in sys.path:

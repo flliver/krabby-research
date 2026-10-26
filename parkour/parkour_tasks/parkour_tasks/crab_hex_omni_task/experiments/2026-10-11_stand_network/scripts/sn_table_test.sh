@@ -37,7 +37,7 @@
 # Exit codes: 0 launched (or dry run / foreground queue done), 3 busy, 5 usage / refusal, 7 the queue ended before its
 # first job became visible or it never became visible (read queue.log); --foreground: the queue's rc.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${SN_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 HERE=$(cd "$(dirname "$0")" && pwd)
 SCRIPT=$HERE/sn_table_test.py

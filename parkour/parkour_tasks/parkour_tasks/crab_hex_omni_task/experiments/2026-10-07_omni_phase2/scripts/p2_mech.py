@@ -96,7 +96,7 @@ import numpy as np
 
 # ================================================================================================ paths (mirrors
 # p2_read.py's convention exactly, so a head name resolves the same way in both tools)
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 OUT = Path(os.environ.get("P2_OUT") or R / "parkour/outputs/omni_plan/phase2")
 LROUT = OUT / "lr"
 FH = "field_hard__omni"

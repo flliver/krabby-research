@@ -409,6 +409,14 @@ def test_real_s18_dose_file_passes_for_its_chain(live):
     assert live.z2_dose_default(arm, seed) == REAL_DOSE
     fork = live.chain_source_ckpt(cands, "P2__Z2dR1_s18")
     doc = json.loads(REAL_DOSE.read_text())
+    # the dose file is a RECORD: its checkpoint paths name the checkout it was computed in (absolute), while the
+    # chain's fork is repo-relative and resolves against THIS checkout -- map the recording root here (the identity
+    # on the recording checkout), so the judge is checked on the same graft wherever the repo lives
+    rec_root = "/home/nickmagus/krabby/krabby-research"
+    for blk in (doc, doc.get("bc") or {}):
+        ck = blk.get("checkpoint")
+        if isinstance(ck, str) and ck.startswith(rec_root + "/"):
+            blk["checkpoint"] = str(live.R) + ck[len(rec_root):]
     assert live.judge_z2d_dose_fork(doc, fork) == []
     ov = live.chain_overlay(cands, "P2__Z2dR1_s18")
     assert live.judge_z2d_dose_fork(doc, ov[live.P2R_ANCHOR_CKPT]) == []                # the +200 judge's input

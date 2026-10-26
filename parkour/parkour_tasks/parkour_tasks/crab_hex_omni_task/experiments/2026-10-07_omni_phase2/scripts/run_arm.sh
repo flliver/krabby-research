@@ -72,7 +72,7 @@
 # (s, default 60) for the Z2c fidelity gate.
 # P2_RUN_ARM_LIB=1 + `source` defines the functions and returns before the command line is read (tests only).
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${P2_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 CODE_ROOT=${CODE_ROOT:-$R}
 S=$(cd "$(dirname "$0")" && pwd)

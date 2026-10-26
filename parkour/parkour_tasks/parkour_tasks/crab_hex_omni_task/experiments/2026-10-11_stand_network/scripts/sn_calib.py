@@ -84,7 +84,7 @@ from pathlib import Path  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 CAMPAIGN = HERE.parent
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 P2_DIR = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2"
 P2_SCRIPTS = P2_DIR / "scripts"
 if str(P2_SCRIPTS) not in sys.path:

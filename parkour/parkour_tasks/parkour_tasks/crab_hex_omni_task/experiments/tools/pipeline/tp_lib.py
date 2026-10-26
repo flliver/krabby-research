@@ -189,8 +189,45 @@ def write_json_atomic(p: Path, obj) -> None:
     write_text_atomic(p, json.dumps(obj, indent=1, sort_keys=False, default=str) + "\n")
 
 
-def read_env_file(p: Path) -> dict:
-    """``KEY=VALUE`` lines (``#`` comments and blank lines skipped); values kept verbatim (empty allowed)."""
+#: The checkout-independent form of a path inside the checkout in a GENERATED env file: ``$REPO/<repo-relative POSIX
+#: path>`` (gen writes it through :func:`portable_env`, so a committed run dir names no checkout root). It is resolved
+#: against THIS checkout's root when the file is read (:func:`read_env_file`, which every TP / campaign consumer that
+#: launches from an env file goes through). In a shell, from the repo root: ``REPO=$PWD envsubst '$REPO' < FILE``. The
+#: row / distill launchers (gate_row.sh, distill.sh) word-split their env file verbatim, so gen refuses the form in
+#: every file they read (pipeline.py ``launcher_env_text``).
+REPO_TOKEN = "$REPO"
+
+
+def portable_value(v) -> str:
+    """An absolute path inside this checkout -> ``$REPO/<repo-relative path>``; any other value unchanged (as text)."""
+    s = str(v)
+    if not s.startswith("/"):
+        return s
+    try:
+        r = Path(s).relative_to(REPO)        # lexical: the presets resolve __file__, REPO is resolved
+    except ValueError:
+        return s
+    return f"{REPO_TOKEN}/{r.as_posix()}" if r.parts else REPO_TOKEN
+
+
+def portable_env(env: dict) -> dict:
+    """:func:`portable_value` on every value (keys and order kept)."""
+    return {k: portable_value(v) for k, v in env.items()}
+
+
+def resolve_env_value(v: str) -> str:
+    """The launch-time value of a generated env value: ``$REPO`` / ``$REPO/<rel>`` -> this checkout's absolute path."""
+    if v == REPO_TOKEN:
+        return str(REPO)
+    if v.startswith(REPO_TOKEN + "/"):
+        return str(REPO / v[len(REPO_TOKEN) + 1:])
+    return v
+
+
+def read_env_file(p: Path, *, resolve: bool = True) -> dict:
+    """``KEY=VALUE`` lines (``#`` comments and blank lines skipped); values verbatim (empty allowed) except the
+    ``$REPO/...`` form (:data:`REPO_TOKEN`), resolved to this checkout's absolute path (``resolve=False``: as
+    written)."""
     out = {}
     for ln in Path(p).read_text().splitlines():
         if not ln.strip() or ln.lstrip().startswith("#"):
@@ -200,7 +237,7 @@ def read_env_file(p: Path) -> dict:
             raise ValueError(f"{p}: malformed line {ln!r}")
         if k in out:
             raise ValueError(f"{p}: {k} given twice")
-        out[k] = v
+        out[k] = resolve_env_value(v) if resolve else v
     return out
 
 

@@ -886,9 +886,7 @@ def test_facing_obs_clip_knob_rejects_non_positive(knobs, bad):
 # ------------------------------------------------- PLAY episode-length knob (2026-09-18)
 def _load_play_episode_fn():
     import ast, pathlib
-    src = pathlib.Path(OMNI_DIR if "OMNI_DIR" in globals() else
-                       "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task"
-                       ) / "config/crab_hex/crab_hex_omni_env_cfg.py"
+    src = pathlib.Path(OMNI) / "config/crab_hex/crab_hex_omni_env_cfg.py"      # this checkout's, not a fixed root
     tree = ast.parse(src.read_text())
     ns = {}
     for node in tree.body:
@@ -917,7 +915,7 @@ def test_play_episode_length_knob_and_guard():
 # ------------------------------------------------- PLAY debug-vis knob (2026-09-18 OOM fix)
 def _load_play_debug_vis_fn():
     import ast, pathlib
-    src = pathlib.Path("/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/crab_hex_omni_env_cfg.py")
+    src = pathlib.Path(OMNI) / "config/crab_hex/crab_hex_omni_env_cfg.py"      # this checkout's, not a fixed root
     tree = ast.parse(src.read_text()); ns = {}
     for node in tree.body:
         if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "PLAY_DEBUG_VIS_VAR" for t in node.targets):
@@ -939,7 +937,7 @@ def test_play_debug_vis_defaults_on_and_turns_off_for_evals():
 
 def test_driver_eval_env_turns_debug_vis_off(drv=None):
     import importlib.util
-    sp = importlib.util.spec_from_file_location("rp_dv", "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py")
+    sp = importlib.util.spec_from_file_location("rp_dv", OMNI / "experiments/tools/run_phases.py")
     m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
     ev = m.eval_env_for(m.ph.PHASES["2a"], "A15+B", keep=m.CANARY_KEYS, keep_source=m.ph.FORMATION)
     assert ev["KRABBY_PLAY_DEBUG_VIS"] == "0"

@@ -4,7 +4,7 @@
 # step-9 eval rows. S1 s18 stays the walking head. Serial, one Isaac process at a time. Sentinels "SNQ10 ..." in
 # $SNOUT/sn_queue10.log; a STOP_QUEUE file in $SNOUT stops before the next stage.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 S=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/scripts
 SNOUT=$R/parkour/outputs/omni_plan/stand_network
 LOG=$SNOUT/sn_queue10.log

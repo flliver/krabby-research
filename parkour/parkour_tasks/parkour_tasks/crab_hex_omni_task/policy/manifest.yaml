@@ -1117,22 +1117,25 @@ stand_network:
   evaluate:
     # how to re-run the K1-K6 reads / the video against the BUNDLED file beside T* (rendered as commands in the README;
     # {name} = the re-run's head name). `env` is the walker override the pipeline composed for the stand stages
-    # (pipeline.walker_spec_env, F19): without it every stand launcher, reader and trainer pairs with S1 s18
+    # (pipeline.walker_spec_env, F19): without it every stand launcher, reader and trainer pairs with S1 s18. Its paths
+    # are checkout-independent, `$REPO/<repo-relative path>` (the form gen writes into the Task 4 env files); the
+    # README renders each one `"$PWD/..."` from parkour/, i.e. absolute at run time, as every consumer requires
+    # (sn_dagger_spec.walker_spec_override, sn_eval_rows.sh / sh_eval_rows.sh refuse a relative path)
     scripts: experiments/2026-10-13_stand_height/scripts
     name: SH_T4F19_re
     python: /home/nickmagus/krabby/isaac_venv/bin/python
     env_comment: the walker = T* (the pipeline's SN_WALKER_* / P2_REANCHOR env for the stand stages beside T*)
     env:
-      SN_WALKER_CK: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt
-      SN_WALKER_ST: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02
+      SN_WALKER_CK: $REPO/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt
+      SN_WALKER_ST: $REPO/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02
       P2_REANCHOR: '1'
       SN_WALKER_SPEC:
-        CANDIDATES: /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/candidates.yaml
+        CANDIDATES: $REPO/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/candidates.yaml
         OVERLAY_CHAIN: F19_p2a
-        REFS_ENV_STAMP: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02
+        REFS_ENV_STAMP: $REPO/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02
         REFS_NAME: REFS_T4F19
-        S1_AGENT_YAML: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/params/agent.yaml
-        S1_CKPT: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt
+        S1_AGENT_YAML: $REPO/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/params/agent.yaml
+        S1_CKPT: $REPO/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt
         S1_OVERLAY:
           KRABBY_ACTION_BOUND: '1.1'
           KRABBY_ACTION_BOUND_LOSS: '0.001'

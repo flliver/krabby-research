@@ -40,7 +40,7 @@
 # 4 STOP_QUEUE; 5 usage / refusal here; 0 after a detached launch whose trainer is visible; 7 a detached launch that
 # ended before it became visible or never became visible (read $RUNS/NAME.log).
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${SN_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 HERE=$(cd "$(dirname "$0")" && pwd)
 TRAINER=$HERE/sn_dagger.py

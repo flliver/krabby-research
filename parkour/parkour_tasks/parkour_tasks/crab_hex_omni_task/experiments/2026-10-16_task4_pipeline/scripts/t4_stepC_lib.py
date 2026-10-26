@@ -24,7 +24,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 OMNI = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task"
 FWD = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task"
 EXP = OMNI / "experiments"

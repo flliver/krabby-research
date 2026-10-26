@@ -22,7 +22,7 @@
 # every Kit launch is memory-capped by its launcher (systemd-run --scope MemoryMax=48G) and bounded with
 # `timeout --signal=TERM`; nothing here ever sends SIGKILL; a STOP_QUEUE file in preflight/stepC stops it between jobs.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=/home/nickmagus/krabby/isaac_venv/bin/python
 C=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline
 SC=$C/preflight/stepC

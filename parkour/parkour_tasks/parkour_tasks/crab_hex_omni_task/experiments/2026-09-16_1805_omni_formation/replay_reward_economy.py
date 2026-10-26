@@ -149,7 +149,8 @@ MOVING_HOLDS = ("fwd", "lat_l", "diag", "back", "move_turn")
 TURN_HOLDS = ("turn_l90", "turn_r90", "move_turn")
 _TURN_HOLD_IDS = [HOLD_LABELS.index(h) for h in TURN_HOLDS]
 
-REPO = "/home/nickmagus/krabby/krabby-research"
+#: this checkout's root (campaign -> experiments -> crab_hex_omni_task -> parkour_tasks x2 -> parkour -> repo)
+REPO = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(__file__)), *[".."] * 6))
 DEFAULT_RAWS = {
     "walker(1a)": f"{REPO}/parkour/outputs/omni_plan/reeval_corrected/1a/slow__omni/seed001/*/raw",
     "mid(1b)": f"{REPO}/parkour/outputs/omni_plan/reeval_corrected/1b/slow__omni/seed001/*/raw",

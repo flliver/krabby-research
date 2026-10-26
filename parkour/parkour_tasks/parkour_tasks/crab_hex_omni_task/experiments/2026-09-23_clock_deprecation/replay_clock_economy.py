@@ -140,7 +140,7 @@ RMT_PY = OMNI / "experiments" / "tools" / "replay_motion_terms.py"
 
 #: X08:c6's own dump -- the "one economy" every rollout is priced under (module docstring).
 DEFAULT_WEIGHTS_ENV_YAML = (
-    "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"
+    str(HERE.parents[6]) + "/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/"
     "2026-09-22_11-58-07_seed3_X08_c6_A15pB/params/env.yaml"
 )
 

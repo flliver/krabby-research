@@ -37,7 +37,7 @@
 # must never be relaunched: run_arm.sh would resume it). run_arm.sh passes --accept-candidates-change (its default ACCEPT_WHY) on each invocation's first launch.
 C=$(cd "$(dirname "$0")/.." && pwd)
 S=$C/scripts
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${P2_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 OUT=${P2_OUT:-$R/parkour/outputs/omni_plan/phase2}
 LOG=$OUT/queue.log

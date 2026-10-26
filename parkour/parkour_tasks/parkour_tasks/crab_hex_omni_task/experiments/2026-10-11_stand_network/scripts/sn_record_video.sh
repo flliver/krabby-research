@@ -38,7 +38,7 @@
 # Isaac python runs (`ps -ww -eo args | grep '[i]saac_venv/bin/python'`), or read the "# isaac busy:" line of
 # `2026-10-13_stand_height/scripts/sh_record_video.sh --dry-run`, whose pattern covers both campaigns.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${SN_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 HERE=$(cd "$(dirname "$0")" && pwd)
 GEN=$HERE/sn_video_schedule.py

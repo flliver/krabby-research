@@ -162,38 +162,14 @@ def test_gen_rewrites_atomically_and_keeps_the_mode(P, tspec):
     assert P.gen(tspec, "R18", check=True) == []
 
 
-#: the checkout the committed R18 / F19 / dry run dirs were generated in. ``gen`` writes absolute repo paths into the
-#: env files (KRABBY_RSI_BANK), so on any other checkout (CI's) a committed file differs from a fresh gen by that root.
-RECORDED_ROOT = "/home/nickmagus/krabby/krabby-research"
-
-
-def _checkout_root_only_drift(P, S, run: str, drift: list[str]) -> list[str]:
-    """The drifted paths whose committed text, with RECORDED_ROOT mapped to this checkout, is byte-identical to what
-    gen writes. Empty on the recording checkout itself (there every drift is a real one)."""
-    if str(REPO) == RECORDED_ROOT:
-        return []
-    files, rd, out = P.gen_files(S, run), S.run_dir(run), []
-    for d in drift:
-        p = Path(d)
-        if not p.is_file():
-            continue
-        rel = p.relative_to(rd).as_posix()
-        have = p.read_text()
-        if rel in files and RECORDED_ROOT + "/" in have and have.replace(RECORDED_ROOT, str(REPO)) == files[rel]:
-            out.append(d)
-    return out
-
-
 def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
     """PLAN step 7: ``gen --check`` on the COMMITTED R18 / F19 / dry run dirs (the real spec, nothing copied), and gen
-    twice gives identical files. The placeholders (N_p, x_rule, the manifest-shape split) are the spec's own."""
-    lagging, rooted = [], []
+    twice gives identical files. The placeholders (N_p, x_rule, the manifest-shape split) are the spec's own. gen is
+    checkout-independent (a path inside the checkout is written ``$REPO/...``), so this holds on ANY checkout."""
+    lagging = []
     for run in ("R18", "F19", "dry"):
         assert P.gen_files(S, run) == P.gen_files(S, run), run
         drift = P.gen(S, run, check=True)
-        moved = _checkout_root_only_drift(P, S, run, drift)
-        rooted += moved
-        drift = [d for d in drift if d not in moved]
         if drift:
             # CHARTER 2026-10-22 (thresholds v1.2): the spec points at thresholds_v1_2.json before the re-pin's
             # `pipeline.py gen` rewrites the committed run dirs. Until then a run's plan.json may lag the spec by
@@ -208,13 +184,54 @@ def test_committed_run_dirs_are_what_gen_writes_and_gen_is_idempotent(P, S):
             lagging.append(run)
     cli = subprocess.run([sys.executable, "-B", str(TP / "pipeline.py"), "gen", "--spec", str(SPEC), "--check"],
                          capture_output=True, text=True, timeout=300)
-    if lagging or rooted:
+    if lagging:
         assert cli.returncode == 1 and all(f"{r}/plan.json" in cli.stdout for r in lagging), cli.stdout + cli.stderr
-        if rooted:                    # another checkout: the CLI reports exactly the root-only + lagging files
-            assert set(cli.stdout.splitlines()) == {str(S.run_dir(r) / "plan.json") for r in lagging} | set(rooted), \
-                cli.stdout + cli.stderr
     else:
         assert cli.returncode == 0 and "byte-identical" in cli.stdout, cli.stdout + cli.stderr
+
+
+def test_generated_files_are_checkout_independent_and_resolve_at_read(P, S):
+    """Committed plan / env files name no checkout root: gen writes a path inside the checkout (the training env's
+    KRABBY_RSI_BANK) as ``$REPO/<repo-relative path>``, and ``tp_lib.read_env_file`` -- the read every TP / campaign
+    consumer launches from -- resolves it against the reading checkout, giving back EXACTLY the training env the
+    driver composes at launch (its presets name this checkout's bank)."""
+    L = P.L
+    sys.path.insert(0, str(REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex"))
+    import crab_hex_omni_phases as ph  # noqa: PLC0415
+    n = 0
+    for run in ("R18", "F19", "dry"):
+        files = P.gen_files(S, run)
+        assert not [rel for rel, text in files.items() if str(L.REPO) in text or "/home/" in text], run
+        for st in S.driver_stages(run):
+            sid = st["id"]
+            f = S.run_dir(run) / f"envs/{sid}.train.env"
+            raw, got = L.read_env_file(f, resolve=False), L.read_env_file(f)
+            assert raw["KRABBY_RSI_BANK"] == L.REPO_TOKEN + "/" + L.rel(ph.OMNI_BANK), (run, sid)
+            assert got == {k: str(v) for k, v in P.composed_envs(S, run, sid)["train"].items()}, (run, sid)
+            assert got["KRABBY_RSI_BANK"] == str(ph.OMNI_BANK) and Path(got["KRABBY_RSI_BANK"]).is_absolute()
+            n += 1
+            # the files a launcher word-splits verbatim (gate_row.sh / distill.sh) carry no $REPO form at all
+            for rel in (f"envs/{sid}.env", f"envs/{sid}.distill.env"):
+                assert L.REPO_TOKEN not in files[rel], (run, rel)
+    assert n == 27
+
+
+def test_portable_env_round_trip_and_launcher_files_refuse_it(P, tmp_path):
+    """``$REPO`` form: in-checkout absolute paths only (an outside path or a plain value stays as is), resolved back
+    exactly; a launcher env file (gate_row.sh / distill.sh read it verbatim) refuses an in-checkout path."""
+    L = P.L
+    inside = str(L.REPO / "parkour/x/bank.npz")
+    env = {"KRABBY_A": inside, "KRABBY_B": "/usr/share/x.npz", "KRABBY_C": "0.2:1.0", "KRABBY_D": "",
+           "KRABBY_E": str(L.REPO)}
+    port = L.portable_env(env)
+    assert port == {"KRABBY_A": "$REPO/parkour/x/bank.npz", "KRABBY_B": "/usr/share/x.npz", "KRABBY_C": "0.2:1.0",
+                    "KRABBY_D": "", "KRABBY_E": "$REPO"}
+    f = tmp_path / "x.env"
+    f.write_text(L.env_file_text(port))
+    assert L.read_env_file(f) == env and L.read_env_file(f, resolve=False) == port
+    assert P.launcher_env_text({k: v for k, v in env.items() if k not in ("KRABBY_A", "KRABBY_E")}, "x.env")
+    with pytest.raises(ValueError, match="KRABBY_A"):
+        P.launcher_env_text(env, "envs/s1.env")
 
 
 def test_every_driver_stage_resumes_by_reference_in_the_same_file(P, tspec):
@@ -787,7 +804,10 @@ def test_stand_overrides_unset_are_today(monkeypatch):
     assert sn.WALKER_OVERRIDE is None and sn.REFS_NAME == "REFS_S1_s18"
     assert sn.S1_SHA256.startswith("968cc550")
     env = {k: v for k, v in os.environ.items() if not k.startswith(("SN_WALKER_", "KRABBY_", "P2"))}
-    for script in ("2026-10-11_stand_network/scripts/sn_eval_rows.sh",):
+    # the default dry run checks that the S1 walker checkpoint exists in THIS checkout's logs (untracked): a checkout
+    # without it (CI's) runs only the refusal below
+    s1_ck = REPO / "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt"
+    for script in ("2026-10-11_stand_network/scripts/sn_eval_rows.sh",) if s1_ck.is_file() else ():
         r = subprocess.run(["bash", str(OMNI / "experiments" / script), "--dry-run"], capture_output=True, text=True,
                            env=env, timeout=60)
         assert r.returncode == 0, r.stderr

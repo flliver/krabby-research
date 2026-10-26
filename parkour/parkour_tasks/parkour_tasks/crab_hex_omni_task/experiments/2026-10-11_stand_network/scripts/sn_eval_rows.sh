@@ -23,7 +23,7 @@
 # infos.sn_dagger.stand_mask is not MASK, and any non-trainer checkpoint other than S1.
 # Log lines "SNROWS ..." in $LOG; a STOP_QUEUE file (phase-2 OUT or the stand_network output dir) stops before a row.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 TASK=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task
 P2=$TASK/experiments/2026-10-07_omni_phase2
 HERE=$(cd "$(dirname "$0")" && pwd)

@@ -26,7 +26,7 @@ import yaml
 HERE = Path(__file__).resolve().parent
 C = HERE.parent
 EXP = C.parent
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 POLICY = EXP.parent / "policy"
 ITERS = 20
 SEED = 18

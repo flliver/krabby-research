@@ -8,7 +8,7 @@
 # The code-state guard is anchored on REFH_S1_s18 (the last inertness bridge, code_sha 14301cd2 = HEAD's).
 # Log lines: SNCAL START / <row> rc=<rc> / DONE (or STOP) in $OUT/sn_calib.log; the session watches that file.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 P2=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2
 OUT=$R/parkour/outputs/omni_plan/phase2
 LOG=$R/parkour/outputs/omni_plan/stand_network/sn_calib.log

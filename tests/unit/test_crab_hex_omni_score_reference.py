@@ -8,7 +8,10 @@ campaign's baseline, CPU-only, the driver's own ``decide_pooled``). Pinned here:
   --cand-spec S_f --check-entry D05``);
 * ``--list-only`` finds the four screens without scoring anything;
 * ``main()``'s exit code is 0 on a clean self-check reproduction and 1 the moment a single evidence
-  key is made to disagree (a fault-injection check that the self-check is not a tautology).
+  key is made to disagree (a fault-injection check that the self-check is not a tautology);
+* the self-check is interpreter-portable: D05 was recorded under Python 3.11 (the Isaac venv) and
+  reproduces on the running interpreter's own ``sum()`` (3.11 or 3.12) AND under the other one's float
+  summation, while a float off by more than ``FLOAT_REL_TOL`` or any non-float change still fails.
 
 Skips cleanly (not a failure) if the real campaign directory this needs is not on disk in this
 checkout -- the tool reads real ``state.json`` / ``ledger.json`` / ``candidates.yaml`` /
@@ -44,26 +47,6 @@ def _load(path: Path, name: str):
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
     return mod
-
-
-def _left_fold_sum(iterable, start=0):
-    """``sum()`` as CPython <= 3.11 computes it: a plain left-to-right fold (3.12 switched float ``sum()`` to
-    compensated summation, which moves some pooled statistics by one ulp, e.g. p_bar 0.9224999999999999 -> 0.9225)."""
-    acc = start
-    for x in iterable:
-        acc = acc + x
-    return acc
-
-
-@pytest.fixture(autouse=True)
-def _recorded_interpreter_sum(monkeypatch):
-    """The D05 entry was recorded by the Isaac venv (Python 3.11) and ``check_entry`` compares floats exactly. On
-    Python >= 3.12 reproduce the recording's arithmetic (3.11 ``sum()``) so the field-for-field check stays exact;
-    on <= 3.11 this is a no-op (the builtin already is that fold)."""
-    if sys.version_info >= (3, 12):
-        import builtins  # noqa: PLC0415
-
-        monkeypatch.setattr(builtins, "sum", _left_fold_sum)
 
 
 @pytest.fixture(scope="module")
@@ -133,3 +116,85 @@ def test_check_entry_exits_nonzero_the_moment_evidence_disagrees(sr, capsys):
     rc = sr.main([*BASE_ARGS, "--check-entry", "D05"])
     capsys.readouterr()
     assert rc == 0  # the REAL recorded D05 (untampered) still reproduces cleanly via the CLI
+
+
+# ================================================================================== interpreter portability
+def _left_fold_sum(iterable, start=0):
+    """``sum()`` as CPython <= 3.11 computes floats: a plain left-to-right fold."""
+    acc = start
+    for x in iterable:
+        acc = acc + x
+    return acc
+
+
+def _compensated_sum(iterable, start=0):
+    """``sum()`` as CPython >= 3.12 computes floats (Neumaier compensation); ints / non-numbers fold as before."""
+    acc, comp, fl = start, 0.0, False
+    for x in iterable:
+        if isinstance(x, float) or (fl and isinstance(x, int) and not isinstance(x, bool)):
+            if not fl:
+                acc, fl = float(acc), True
+            t = acc + x
+            comp += (acc - t) + x if abs(acc) >= abs(x) else (x - t) + acc
+            acc = t
+        else:
+            acc = acc + x
+    return acc + comp if fl else acc
+
+
+def test_compensated_sum_matches_this_interpreter_s_own_sum_semantics():
+    """The two emulations are what they claim: on 3.12+ the builtin equals the compensated one, on <= 3.11 the
+    left fold; and they really differ on a 3-term case (else the cross-interpreter test below proves nothing)."""
+    xs = [0.1] * 10
+    own = _compensated_sum if sys.version_info >= (3, 12) else _left_fold_sum
+    assert sum(xs) == own(xs)
+    assert _left_fold_sum(xs) != _compensated_sum(xs)
+
+
+@pytest.mark.parametrize("other", [_left_fold_sum, _compensated_sum], ids=["sum_3_11", "sum_3_12"])
+def test_d05_reproduces_under_either_interpreter_s_float_summation(sr, capsys, monkeypatch, other):
+    """The recorded entry reproduces whichever interpreter's float ``sum()`` computes the pooled statistics --
+    the one-ulp drift between them is inside ``FLOAT_REL_TOL`` (nothing is pinned to the recording's 3.11)."""
+    import builtins  # noqa: PLC0415
+
+    monkeypatch.setattr(builtins, "sum", other)
+    rc = sr.main([*BASE_ARGS, "--check-entry", "D05"])
+    assert rc == 0, capsys.readouterr().out
+
+
+def test_check_entry_tolerance_is_tight_and_floats_only(sr):
+    """One ulp passes; 1e-9 relative fails; a 0.0 has no absolute slack; ints, strings, bools, keys and lengths are
+    exact; two NaNs agree."""
+    import math  # noqa: PLC0415
+
+    assert sr.FLOAT_REL_TOL == 1e-12
+    base = {"chosen": "keep", "pooled_confidence": 0.9225, "why_pooled": "w", "status": None,
+            "evidence": {"pooled": {"p_bar": 0.9225, "n": 4, "z": 0.0, "nan": float("nan"), "ok": True},
+                         "levels": [0.1, 0.2], "anchor": "X01"}}
+
+    def res(**ev):
+        e = copy.deepcopy(base["evidence"])
+        for k, v in ev.items():
+            e["pooled"][k] = v
+        return {"chosen": "keep", "pooled_confidence": base["pooled_confidence"], "why": "w", "status": None,
+                "evidence": e}
+
+    assert sr.check_entry(res(), base) == []
+    assert sr.check_entry(res(p_bar=math.nextafter(0.9225, 0.0)), base) == []            # 3.11 vs 3.12: one ulp
+    assert sr.check_entry(res(p_bar=0.9225 * (1 + 1e-9)), base) == ["evidence.pooled differs (at pooled.p_bar)"]
+    assert sr.check_entry(res(z=1e-300), base) == ["evidence.pooled differs (at pooled.z)"]   # no abs floor
+    assert sr.check_entry(res(n=5), base) == ["evidence.pooled differs (at pooled.n)"]
+    assert sr.check_entry(res(ok=False), base) == ["evidence.pooled differs (at pooled.ok)"]
+    assert sr.check_entry(res(extra=1), base) == ["evidence.pooled differs (at pooled (keys))"]
+    r = res()
+    r["evidence"]["levels"].append(0.3)
+    assert sr.check_entry(r, base) == ["evidence.levels differs (at levels (length))"]
+    r = res()
+    r["evidence"]["anchor"] = "X02"
+    assert sr.check_entry(r, base) == ["evidence.anchor differs (at anchor)"]
+    r = res()
+    r["why"] = "w2"
+    assert len(sr.check_entry(r, base)) == 1 and sr.check_entry(r, base)[0].startswith("why_pooled:")
+    r = res()
+    r["pooled_confidence"] = math.nextafter(0.9225, 1.0)
+    assert sr.check_entry(r, base) == []

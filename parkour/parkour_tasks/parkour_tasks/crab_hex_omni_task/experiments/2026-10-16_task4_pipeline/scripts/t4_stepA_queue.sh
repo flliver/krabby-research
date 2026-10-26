@@ -7,7 +7,7 @@
 # Lines for the watcher:  T4A LAUNCH|STAGE <chain> ...   T4A ROW <name> rc=<rc>   T4A STOP <why>   T4A END
 # The queue never kills anything.
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 EXP=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments
 C=$EXP/2026-10-16_task4_pipeline
 T=$C/preflight

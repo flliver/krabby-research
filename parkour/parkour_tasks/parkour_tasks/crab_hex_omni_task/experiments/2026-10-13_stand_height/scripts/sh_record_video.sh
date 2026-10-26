@@ -77,7 +77,7 @@
 # Exit codes: 0 launched (or dry run), 3 busy, 5 usage / refusal, 7 the recorder ended before becoming visible or
 # never became visible (read the log).
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${SH_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 HERE=$(cd "$(dirname "$0")" && pwd)
 GEN=$HERE/sh_video_schedule.py

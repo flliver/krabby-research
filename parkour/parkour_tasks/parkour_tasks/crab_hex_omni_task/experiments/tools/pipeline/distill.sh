@@ -19,7 +19,7 @@
 # Exit codes: the trainer's rc (124 = the TP_DISTILL_TIMEOUT bound, default 172800 s), 3 busy (without --wait-idle),
 # 5 usage / refusal (bad NAME, a non-absolute path, a refused knob that survived the strip, DerivedDataCache too big).
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 PY=${TP_PY:-/home/nickmagus/krabby/isaac_venv/bin/python}
 TRAIN=$R/parkour/scripts/rsl_rl/train.py
 SPEC_PY=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/omni_student_spec.py

@@ -86,7 +86,7 @@ import p2r_drift as drift  # noqa: E402  (same directory, CPU only: _mlp / load_
 # scripts -> 2026-10-07_omni_phase2 -> experiments -> crab_hex_omni_task -> parkour_tasks (inner)
 _TASKS = HERE.parents[3]
 RESTANCE_MODULE = _TASKS / "crab_hex_omni_task" / "mdp" / "crab_hex_omni_restance.py"
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 #: the S1 run's own params (the graft dir has none; every Z fork shares its widths)
 S1_AGENT_YAML = R / "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/params/agent.yaml"
 CAM_LINE = 0.015                   # notify: max over legs of |mean signed HOLD-branch mu_cam - R_cam|

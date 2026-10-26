@@ -61,9 +61,39 @@ def test_self_test_passes(live, capsys):
 
 
 # ================================================================================== the sibling-pair replay (real logs)
+#: The campaign's own s18 sibling runs (CHARTER.md / the arms records ``parkour/outputs/omni_plan/phase2/arms/
+#: P2__<arm>_s18.record.json`` "run_dir"): p2a A1 / S1 / F1 and p2b C0 / CL / TG. Pinned by NAME, not by the
+#: newest ``*_seed18_<X>_*`` glob: later campaigns (Task 4, 2026-10-16..20) reuse the X06 / X08 / X09 tags --
+#: X06 even with the same ``_p2a_`` stage tag -- so "newest match" picks the wrong runs.
+SIBLING_RUNS = {
+    "X06": "2026-10-07_00-59-10_seed18_X06_p2a_A15pB",     # P2__A1_s18
+    "X08": "2026-10-07_07-50-10_seed18_X08_p2a_A15pB",     # P2__S1_s18
+    "X09": "2026-10-07_11-52-19_seed18_X09_p2a_A15pB",     # P2__F1_s18
+    "X12": "2026-10-08_03-41-54_seed18_X12_p2b_A15pB",     # P2__C0_s18
+    "X13": "2026-10-08_07-20-14_seed18_X13_p2b_A15pB",     # P2__CL_s18
+    "X14": "2026-10-08_10-57-24_seed18_X14_p2b_A15pB",     # P2__TG_s18
+}
+
+
 def _run_dir(x: str) -> Path | None:
-    hits = sorted(RUNS.glob(f"*_seed18_{x}_*"))
-    return hits[-1] if hits else None
+    rd = RUNS / SIBLING_RUNS[x]
+    return rd if rd.is_dir() else None
+
+
+def test_the_pinned_sibling_runs_are_the_campaign_s_recorded_runs():
+    """Each pinned name carries its own X tag and stage (p2a for X06/X08/X09, p2b for X12/X13/X14); where the
+    (untracked) arms records are on disk, each one's ``run_dir`` names exactly the pinned run."""
+    for x, name in SIBLING_RUNS.items():
+        assert f"_seed18_{x}_{'p2a' if x in P2A else 'p2b'}_" in name and name.startswith(("2026-10-07_", "2026-10-08_"))
+    arm_of = {"X06": "A1", "X08": "S1", "X09": "F1", "X12": "C0", "X13": "CL", "X14": "TG"}
+    seen = 0
+    for x, arm in arm_of.items():
+        rec = ARMS / f"P2__{arm}_s18.record.json"
+        if rec.is_file():
+            assert Path(json.loads(rec.read_text())["run_dir"]).name == SIBLING_RUNS[x], (x, arm)
+            seen += 1
+    if not seen:
+        pytest.skip("phase-2 arms records not in this checkout")
 
 
 @pytest.fixture(scope="module")

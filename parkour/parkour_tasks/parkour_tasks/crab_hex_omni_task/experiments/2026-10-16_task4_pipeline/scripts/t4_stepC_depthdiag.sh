@@ -3,7 +3,7 @@
 # (field_light, ring_obst, field_turn) + the zero pilot's suite, Student-Play student role, through TP/gate_row.sh
 # exactly as the C4 rows. Report-only; one Isaac process at a time (gate_row.sh waits).
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 EXP=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments
 PL=$EXP/2026-10-16_task4_pipeline
 ROW=$EXP/tools/pipeline/gate_row.sh

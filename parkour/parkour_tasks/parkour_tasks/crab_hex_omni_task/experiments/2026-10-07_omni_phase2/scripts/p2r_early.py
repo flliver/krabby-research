@@ -67,7 +67,7 @@ import p2_live as live   # noqa: E402  (read_tb / window / point_at / first_last
 import p2r_drift as drift  # noqa: E402
 import p2r_z2_fidelity as z2fid  # noqa: E402  (NOTE(p2r Z2, 2026-10-10): the stand-fidelity scorer)
 
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 #: the fixed references (P2R_STATUE_PLAN.md step 4): the graft's source S1 head, and the two matched-iteration
 #: comparators C0 (ordinary continuation) and ST2 (the ST2's-term stand specialist, step 1's drift premise)
 S1_CKPT_DEFAULT = R / ("parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/"

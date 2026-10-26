@@ -94,7 +94,7 @@ if str(HERE) not in sys.path:
 _TASKS = HERE.parents[3]
 RESTANCE_MODULE = _TASKS / "crab_hex_omni_task" / "mdp" / "crab_hex_omni_restance.py"
 FWD_MDP = _TASKS / "crab_hex_forward_task" / "mdp"
-R = Path("/home/nickmagus/krabby/krabby-research")
+R = Path(__file__).resolve().parents[7]  # this checkout's root (scripts -> campaign -> experiments -> ... -> repo)
 LROUT = R / "parkour/outputs/omni_plan/phase2/lr"
 GRAFT_CKPT = R / "parkour/outputs/omni_plan/phase2/graft/S1_s18_c15/model_19994.pt"
 S1_POLICY_CKPT = R / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt"

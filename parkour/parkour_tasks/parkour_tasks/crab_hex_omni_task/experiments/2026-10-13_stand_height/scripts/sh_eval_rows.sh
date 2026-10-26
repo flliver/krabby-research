@@ -43,7 +43,7 @@
 # usage: sh_eval_rows.sh [--dry-run]
 #        sh_eval_rows.sh [--dry-run] [--deadband X] NAME CONTROLLER COMMAND RESTORE STAND_CKPT MASK [ROW@ES ...]
 set -u
-R=/home/nickmagus/krabby/krabby-research
+R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." && pwd)  # this checkout's root, from the script's own location
 TASK=$R/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task
 EXP=$TASK/experiments
 P2=$EXP/2026-10-07_omni_phase2

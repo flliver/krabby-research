@@ -52,7 +52,12 @@ below uses, since the formation campaign ran no reference.
 SELF-CHECK. ``--check-entry D05`` compares the result with that ledger entry of the old campaign field
 for field (pick, pooled confidence, the pooled ``why``, and every ``evidence`` key ``decide_pooled``
 writes; the entry's own recorded anchor label is used and it is passed as ``prior``) and exits 1 on
-any difference. On the formation campaign:
+any difference. Every non-float value (strings -- the ``why`` text included --, ints, bools, None, keys,
+list lengths) must match exactly; a float matches when ``math.isclose(rel_tol=FLOAT_REL_TOL, abs_tol=0)``
+(1e-12, i.e. a few ulp): ``decide_pooled``'s pooled statistics use the builtin ``sum()``, which Python
+3.12 made compensated, so a 3.12 interpreter reproduces an entry recorded under 3.11 (the Isaac venv) to
+within one ulp, not bit for bit (e.g. p_bar 0.9224999999999999 vs 0.9225). The tool still RECORDS what
+the interpreter computes; only the comparison is tolerant. On the formation campaign:
 
     score_reference.py --old-campaign <exp>/2026-09-26_stroke_formation --base-xids X01 X02 \\
         --cand-xids X03 X04 --cand-spec S_f --check-entry D05
@@ -68,6 +73,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import math
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -79,6 +85,12 @@ RUN_CANDIDATES_PY = TOOLS / "run_candidates.py"
 #: The ``decide_pooled`` evidence keys the self-check compares with a recorded entry.
 EVIDENCE_KEYS = ("pooled", "per_seed", "anchored_drift", "resolution_id", "anchor", "missing", "levels",
                  "decisive", "present", "untrained", "na_blocks", "category_notes", "adopt_requires")
+
+#: The self-check's float tolerance (module docstring, SELF-CHECK): relative, no absolute floor, so a 0.0 must
+#: reproduce as exactly 0.0. 1e-12 admits the one-ulp drift of Python 3.12's compensated ``sum()`` against a
+#: 3.11-recorded entry (relative ulp ~1.1e-16) with four orders of magnitude to spare, and still catches any
+#: change a decision could turn on.
+FLOAT_REL_TOL = 1e-12
 
 
 def _load(path: Path, name: str):
@@ -210,21 +222,51 @@ def score(old: Campaign, base_hs: tuple[dict, dict], cand_hs: tuple[dict, dict],
     return out
 
 
+def _same(a, b, path: str = "") -> str | None:
+    """``None`` when ``a`` and ``b`` (JSON-normalised) agree, else the first differing path. Floats compare with
+    :data:`FLOAT_REL_TOL` (two NaNs agree); every other value, every key set and every list length exactly."""
+    num = (int, float)
+    if isinstance(a, num) and isinstance(b, num) and not isinstance(a, bool) and not isinstance(b, bool) \
+            and (isinstance(a, float) or isinstance(b, float)):
+        if (math.isnan(a) and math.isnan(b)) or math.isclose(a, b, rel_tol=FLOAT_REL_TOL, abs_tol=0.0):
+            return None
+        return path or "."
+    if isinstance(a, dict) and isinstance(b, dict):
+        if a.keys() != b.keys():
+            return f"{path or '.'} (keys)"
+        for k in a:
+            d = _same(a[k], b[k], f"{path}.{k}")
+            if d is not None:
+                return d
+        return None
+    if isinstance(a, list) and isinstance(b, list):
+        if len(a) != len(b):
+            return f"{path or '.'} (length)"
+        for i, (x, y) in enumerate(zip(a, b)):
+            d = _same(x, y, f"{path}[{i}]")
+            if d is not None:
+                return d
+        return None
+    return None if (type(a) is type(b) or {type(a), type(b)} <= {int, float}) and a == b else (path or ".")
+
+
 def check_entry(result: dict, entry: dict) -> list[str]:
-    """Field-for-field differences between :func:`score`'s result and a recorded ledger entry."""
+    """Field-for-field differences between :func:`score`'s result and a recorded ledger entry: exact on every
+    non-float value, floats within :data:`FLOAT_REL_TOL` (module docstring, SELF-CHECK -- interpreter-portable)."""
     diffs = []
+    norm = lambda x: json.loads(json.dumps(x, sort_keys=True, default=str))  # noqa: E731
     for mine, theirs in (("chosen", "chosen"), ("pooled_confidence", "pooled_confidence"), ("why", "why_pooled"),
                          ("status", "status")):
-        if result.get(mine) != entry.get(theirs):
+        if _same(norm(result.get(mine)), norm(entry.get(theirs))) is not None:
             diffs.append(f"{theirs}: recorded {entry.get(theirs)!r}, reproduced {result.get(mine)!r}")
     rec = entry.get("evidence") or {}
     ev = result["evidence"]
-    norm = lambda x: json.loads(json.dumps(x, sort_keys=True, default=str))  # noqa: E731
     for key in EVIDENCE_KEYS:
         if key not in ev and key not in rec:
             continue
-        if norm(ev.get(key)) != norm(rec.get(key)):
-            diffs.append(f"evidence.{key} differs")
+        where = _same(norm(ev.get(key)), norm(rec.get(key)), key)
+        if where is not None:
+            diffs.append(f"evidence.{key} differs (at {where})")
     return diffs
 
 
