@@ -177,7 +177,7 @@ def test_verify_head_sha_keeps_the_anchors_yaml_path(tmp_path):
     head = tmp_path / "anchor_model.pt"
     head.write_bytes(b"an anchor head")
     sha = hashlib.sha256(head.read_bytes()).hexdigest()
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     camp = Path(env["CAMPAIGN_DIR"])
     (camp / "candidates.yaml").write_text(json.dumps(
         {"chains": {"P2__A1_s18": {"stages": [{"resume_from": {"checkpoint": str(head)}}]}}}))
@@ -194,7 +194,7 @@ def test_verify_head_sha_keeps_the_anchors_yaml_path(tmp_path):
 def test_verify_head_sha_fails_an_anchor_mismatch(tmp_path):
     head = tmp_path / "anchor_model.pt"
     head.write_bytes(b"an anchor head")
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     camp = Path(env["CAMPAIGN_DIR"])
     (camp / "candidates.yaml").write_text(json.dumps(
         {"chains": {"P2__A1_s18": {"stages": [{"resume_from": {"checkpoint": str(head)}}]}}}))
@@ -225,7 +225,7 @@ def _s1_head_fixture(tmp_path: Path, env: dict, seed: int = 16) -> tuple[Path, s
 def test_verify_head_sha_accepts_an_s1_p2a_head_fork(tmp_path):
     """P2B_PLAN.md step 1 / CHARTER 10: a p2b chain's {checkpoint} fork of an S1 p2a head verifies against that
     head's newest complete field_hard__omni eval stamp's run_meta.checkpoint_sha256 -- not against anchors.yaml."""
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     head, sha = _s1_head_fixture(tmp_path, env, seed=16)
     camp = Path(env["CAMPAIGN_DIR"])
     (camp / "candidates.yaml").write_text(json.dumps(
@@ -239,7 +239,7 @@ def test_verify_head_sha_accepts_an_s1_p2a_head_fork(tmp_path):
 
 def test_verify_head_sha_refuses_a_stale_s1_fork(tmp_path):
     """The checkpoint file on disk no longer matches the recorded eval stamp's sha256: refused, not accepted."""
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     head, sha = _s1_head_fixture(tmp_path, env, seed=17)
     head.write_bytes(b"a DIFFERENT head (e.g. the run was re-forked)")
     camp = Path(env["CAMPAIGN_DIR"])
@@ -253,7 +253,7 @@ def test_verify_head_sha_refuses_a_stale_s1_fork(tmp_path):
 
 def test_verify_head_sha_refuses_an_unrecorded_checkpoint(tmp_path):
     """A fork source that is neither an anchors.yaml head nor a recorded P2__S1_s<seed> checkpoint refuses."""
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     (Path(env["P2_OUT"]) / "arms").mkdir(parents=True, exist_ok=True)
     stray = tmp_path / "stray.pt"
     stray.write_bytes(b"not a recorded head")

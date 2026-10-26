@@ -1,11 +1,11 @@
 {
  "schema": 1,
  "spec": "pipeline.yaml",
- "written_at": "2026-10-26T15:43:33",
- "git_head_informational": "2e909d4202cfe0468fabf335b246d1a77b7c1035",
+ "written_at": "2026-10-26T16:26:52",
+ "git_head_informational": "64f397e5621ffab2432e4a13542a34a5845f9a88",
  "code_sha": "6a4e4c6e13eee69fe38c26e27df2b53f771cdf24fd3dd4f3eb49d1761cf4c02d",
  "eval_sha": "7c1358df6e264008226f81d082b1876ac3ed2735496b0b5cf72eeab7279ac99b",
- "tools_sha": "df1ecf50c23f6d9b0c1bfcc5c881742dd7e1fbebfa6bd0731a5358eab628c683",
+ "tools_sha": "814204144e9a7b6aeca8034e023056704b67503e5d99b1260935cd1ddf002cc6",
  "dirty_code_eval": [],
  "files": {
   "assets/crab.usda": "58bdb558874d9c76cf1272d1bbe569bca1f77ffaf66aabc9f42a7378f6a7daee",
@@ -352,7 +352,7 @@
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/thresholds.py": "6400f65cf2e099020c695014155855eb2e52f1314c5ac8f860c809e0fa5fd3ca",
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/tp_lib.py": "4c63f36be96e267d83be67212a730b01b6bcda68adb42998c35631ab32664b3c",
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/resolution.py": "b04e8a95b7f68fdbdcdde8ae9cc3e2ed8d3ae0ac9abf68e9bb220d8773168978",
-  "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py": "a11c2ddf0757ad6970f8568871f30f5d9ee840d320e809360a47d693d0e152b7",
+  "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_candidates.py": "124b0c1d44478a12eaeec702be06aa69e98aa4b3972e7dcb5d36dbb5f76c9bb1",
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/stand_net/model_4000.pt": "769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff",
   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/stand_net/model_5000.pt": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e"

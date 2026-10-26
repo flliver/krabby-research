@@ -676,7 +676,7 @@ def test_launcher_syntax_and_dry_run_launches_nothing(tmp_path):
         (fake_bin / tool).chmod(0o755)
     out = tmp_path / "out"
     env = dict(os.environ, PATH=f"{fake_bin}:{os.environ.get('PATH', '')}", SN_DDC=str(tmp_path / "ddc"),
-               SN_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="")
+               SN_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="", SN_PY=sys.executable)
     r = subprocess.run(["bash", str(SH_PATH), "--smoke", "--dry-run"], env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
     for needle in ("OMNI_KIT_ACCEPT_EULA=yes", "MemoryMax=24G", "MemorySwapMax=0", "--headless",

@@ -1191,7 +1191,7 @@ def test_launcher_syntax_and_dry_runs(tmp_path):
         (fake_bin / tool).chmod(0o755)
     out = tmp_path / "out"
     env = dict(os.environ, PATH=f"{fake_bin}:{os.environ.get('PATH', '')}", SH_DDC=str(tmp_path / "ddc"),
-               SH_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="")
+               SH_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="", SH_PY=sys.executable)
     r, jobs = _dry(env, "--smoke")
     assert r.returncode == 0, r.stderr
     for needle in ("OMNI_KIT_ACCEPT_EULA=yes", "MemoryMax=24G", "MemorySwapMax=0", "--headless", "--emit-facts",
@@ -1433,7 +1433,7 @@ def test_launcher_passes_the_deadband_to_stand_net_jobs_only(tmp_path):
         (fake_bin / tool).chmod(0o755)
     out = tmp_path / "out"
     env = dict(os.environ, PATH=f"{fake_bin}:{os.environ.get('PATH', '')}", SH_DDC=str(tmp_path / "ddc"),
-               SH_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="")
+               SH_TABLE_OUT=str(out), CUDA_VISIBLE_DEVICES="", SH_PY=sys.executable)
     r, jobs = _dry(env, "--controllers", "r_h stand_net", "--videos", "r_h stand_net", "--stand-ckpt", "/abs/ck.pt",
                    "--label", "SH_P18db", "--deadband", "0.25", "--seeds", "1 2")
     assert r.returncode == 0, r.stderr

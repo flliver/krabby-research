@@ -535,12 +535,21 @@ def test_real_md_tables_print_whole_numbers(R, empty_spec):
             assert (h.get("charter") or h.get("resolution_why") or "") in m, (run, h["stage"])
     assert not _cut_cells(R, m, doc), _cut_cells(R, m, doc)
 
+
+def _needs_records(*stamps):
+    """The eval record dirs a source reads (the T* driver stamp, the selection rows' stamps) live under the gitignored
+    ``parkour/logs`` / ``parkour/outputs`` trees -- local records, absent on any other checkout (CI): skip, naming the
+    missing ones, before the assertions that read them."""
+    missing = [str(s) for s in stamps if not s or not Path(s).is_dir()]
+    if missing:
+        pytest.skip(f"the gitignored eval record dir(s) {missing} are not on this machine")
+
+
 @needs_f19
 def test_real_f19_sources_and_tstar_record(R):
     rep = R.Report(SPEC, "F19")
     src = rep.run_sources("F19")
     assert src["tstage"] == "p3b" and src["sel"].get("cand") == "c28000"
-    assert R._ok(src["T1"]["suite@1"]) and R._ok(src["St"]["field_hard@1"]) and R._ok(src["TS"]["field_hard@1"])
     assert sorted(src["levels"]) == [0, 45, 90, 135, 180]
     assert sorted(src["st_levels"]) == [0, 90]                      # level 0 = the unarmed sel rows
     rep.rec = R.run_records(SPEC, "F19")
@@ -548,6 +557,12 @@ def test_real_f19_sources_and_tstar_record(R):
     assert tb["heads"]["p3b"]["zero_kg"]["verdict"] == "PASS"
     assert tb["heads"]["p3b"]["zero_kg_before_regate"]["verdict"] == "FAIL"     # v1.1 excluded it (history/p3b.1)
     assert [x["stage"] for x in tb["considered"] if x.get("chosen")] == ["p3b"]
+    # last: the three sources below read eval record dirs, not the tracked run records the checks above read
+    head = src["ctx"].head(src["tstage"]) or {}
+    srows = json.loads(src["ctx"].rows_path("sel").read_text())
+    _needs_records(head.get("driver_stamp") or src["tstar"].get("driver_stamp"),
+                   (srows.get("c28000:field_hard@1") or {}).get("stamp"), (srows.get("tstar:field_hard@1") or {}).get("stamp"))
+    assert R._ok(src["T1"]["suite@1"]) and R._ok(src["St"]["field_hard@1"]) and R._ok(src["TS"]["field_hard@1"])
 
 
 @needs_f19

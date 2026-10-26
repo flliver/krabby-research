@@ -77,6 +77,17 @@ def cands_v1(rc):
     return rc.load_candidates(CANDS_YAML_V1)
 
 
+@pytest.fixture
+def any_python(rc, monkeypatch):
+    """The driver's interpreter for a call whose checked behaviour needs SOME python, not the Isaac venv (the replay
+    screen's argparse ``--help``, a stub replay child): this test's own -- the ``KRABBY_ISAAC_PY`` override the
+    driver reads at launch, applied to the already-loaded module. ``replay_flags`` gets a fresh cache so a ``--help``
+    probed through another interpreter earlier in the module is never reused."""
+    monkeypatch.setattr(rc, "PY", sys.executable)
+    monkeypatch.setattr(rc, "_REPLAY_FLAGS_CACHE", {})
+    return sys.executable
+
+
 def _yaml_of(cands) -> Path:
     """The file a spec was loaded from (``load_candidates`` records it in ``__path__``): a scratch
     campaign dir always holds the spec its test decides with -- CANDS_YAML_V1 for ``cands_v1``."""
@@ -1759,7 +1770,7 @@ def test_the_tools_hash_covers_the_tools_and_the_replay_script(rc, cands, tmp_pa
 
 
 # ================================================================== the validator
-def test_the_shipped_campaign_spec_validates(rc, cands):
+def test_the_shipped_campaign_spec_validates(rc, any_python, cands):
     verdicts = rc.validate_candidates(cands, strict=False)
     bad = [(v["id"], v["reasons"]) for v in verdicts if not v["ok"]]
     assert bad == []
@@ -1939,7 +1950,7 @@ def test_a_replay_flag_the_script_does_not_have_is_refused(rc, cands):
     assert any("--help does not" in r for r in reasons), reasons
 
 
-def test_the_shipped_replay_args_are_all_real_flags(rc, cands):
+def test_the_shipped_replay_args_are_all_real_flags(rc, any_python, cands):
     flags = rc.replay_flags(rc.REPO / cands["replay"]["script"])
     assert {"--yaw-w", "--yaw-progress-w", "--facing-turn-w", "--coupled-sigma", "--progress-w",
             "--new-ang-turn-only", "--walker"} <= flags
@@ -3588,7 +3599,7 @@ def test_the_heartbeat_contract_is_kept(rc, cands_v1, tmp_path, monkeypatch):
     assert (ctx.dir / "logs").is_dir()
 
 
-def test_a_replay_is_advisory_and_a_stop_makes_it_interrupted(rc, cands_v1, tmp_path, monkeypatch):
+def test_a_replay_is_advisory_and_a_stop_makes_it_interrupted(rc, any_python, cands_v1, tmp_path, monkeypatch):
     led, st = ledger(), state()
     with_baseline(rc, cands_v1, led, st)
     ctx = make_ctx(rc, cands_v1, tmp_path, led=led, st=st)
@@ -3617,7 +3628,7 @@ def _replay_ctx(rc, cands, tmp_path, monkeypatch, body="import time\ntime.sleep(
     return ctx, candidate_item(rc, cands, ctx, "C2")
 
 
-def test_a_hung_replay_is_stopped_by_its_own_timeout_and_is_still_advisory(rc, cands_v1, tmp_path,
+def test_a_hung_replay_is_stopped_by_its_own_timeout_and_is_still_advisory(rc, any_python, cands_v1, tmp_path,
                                                                           monkeypatch):
     """F8: the one child poll loop here with no timeout. A hung ``replay_reward_economy.py`` stalled
     the campaign indefinitely with ``current.kind == "replay"`` and only a stop to end it -- for an
@@ -3632,7 +3643,7 @@ def test_a_hung_replay_is_stopped_by_its_own_timeout_and_is_still_advisory(rc, c
     assert out["status"] != "interrupted"
 
 
-def test_an_exception_inside_the_replay_poll_loop_stops_the_child(rc, cands_v1, tmp_path, monkeypatch):
+def test_an_exception_inside_the_replay_poll_loop_stops_the_child(rc, any_python, cands_v1, tmp_path, monkeypatch):
     """F8: ``interrupt_reason`` does file I/O and can raise out of ``_apply_override``. Without the
     guard the escape orphaned the replay child AND cleared ``rp.CURRENT_CHILD`` -- the only handle
     the signal handler could have reached it through."""
@@ -7645,7 +7656,7 @@ def _presuite_state(rc, b0_recipe) -> dict:
             "current": {}, "ladder": lad}
 
 
-def test_a_pre_suite_state_without_eval_sha_takes_the_alias_path(rc, cands, tmp_path, monkeypatch):
+def test_a_pre_suite_state_without_eval_sha_takes_the_alias_path(rc, any_python, cands, tmp_path, monkeypatch):
     """Plan D8: a recorded ``code_sha`` with no ``eval_sha`` counts as an eval CHANGE, and that path
     runs BEFORE the code_sha comparison: without the flag the refusal names ``--accept-eval-change``
     (not ``--accept-code-change``); with it the proved alias bypasses the code_sha refusal and its
@@ -8221,7 +8232,7 @@ def test_the_migration_runs_before_any_inflight_resume_and_before_the_baseline_r
 
 
 def test_launch_with_no_suite_resolution_defers_d00s_and_never_decides_on_the_old_record(
-        rc, cands, tmp_path, monkeypatch):
+        rc, any_python, cands, tmp_path, monkeypatch):
     """Plan D9 item 3: startup LOADS ``resolution.<eval_sha[:12]>.json`` and never computes anything;
     with only the pre-suite ``resolution.json`` on disk ``ctx.resolution`` stays None (never the old
     slow-row record), D00s is a migration item, and a v2 decision halts ``resolution_missing``."""
@@ -8810,7 +8821,7 @@ def test_a_migration_eval_interrupt_writes_nothing(rc, cands, tmp_path, monkeypa
 
 
 def test_migration_is_off_under_smoke_stage_and_both_startups_load_the_suite_resolution(
-        rc, cands, tmp_path, monkeypatch):
+        rc, any_python, cands, tmp_path, monkeypatch):
     """``migration_item`` is None under ``--smoke-stage`` (a drill, never a campaign); BOTH startup
     branches call ``load_resolution``; the smoke's third field (``1a:20:suite``, the V6 drill) names
     its eval rows, and that suite eval carries the stage's trained categories and a 1000-episode
@@ -9194,7 +9205,7 @@ def test_the_replay_walker_and_the_turn_hold_read_the_suite(rc, cands, tmp_path)
     assert rc._baseline_raw_dir(ctx) == str(suite / "raw")
 
 
-def test_accept_resolution_is_recorded_per_kind_at_the_current_eval(rc, cands, tmp_path, monkeypatch):
+def test_accept_resolution_is_recorded_per_kind_at_the_current_eval(rc, any_python, cands, tmp_path, monkeypatch):
     """``--accept-resolution <kind> WHY`` (plan D9 item 4) appends ``{kind, eval_sha, why, at}`` to
     ``lad.resolution_acceptances`` after every refusal; an unknown kind is refused before anything
     is written; an acceptance counts only at the eval it was given for."""

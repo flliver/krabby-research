@@ -534,7 +534,7 @@ def test_launcher_syntax_and_dry_run_launches_nothing(tmp_path):
         (fake_bin / tool).chmod(0o755)
     before = {p.name: p.read_bytes() for p in VIDEOS.iterdir()} if VIDEOS.is_dir() else {}
     env = dict(os.environ, PATH=f"{fake_bin}:{os.environ.get('PATH', '')}", SN_DDC=str(tmp_path / "ddc"),
-               SN_VIDEO_OUT=str(tmp_path / "out"), CUDA_VISIBLE_DEVICES="")
+               SN_VIDEO_OUT=str(tmp_path / "out"), CUDA_VISIBLE_DEVICES="", SN_PY=sys.executable)
     for extra in (["--smoke"], ["--seed", "7", "--", "--no-arrows"]):
         r = subprocess.run(["bash", str(SH_PATH), "--dry-run", *extra], env=env, capture_output=True, text=True,
                            timeout=300)

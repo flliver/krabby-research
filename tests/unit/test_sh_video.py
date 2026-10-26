@@ -574,7 +574,8 @@ def _fake_bin(tmp_path, ps_line: str | None):
             ";; esac\n")
         (fake / "ps").chmod(0o755)
     env = dict(os.environ, PATH=f"{fake}:{os.environ.get('PATH', '')}", SH_DDC=str(tmp_path / "ddc"),
-               SH_VIDEO_OUT=str(tmp_path / "out"), CUDA_VISIBLE_DEVICES="", PS_LINE=ps_line or "")
+               SH_VIDEO_OUT=str(tmp_path / "out"), CUDA_VISIBLE_DEVICES="", PS_LINE=ps_line or "",
+               SH_PY=sys.executable)
     return env, marker
 
 

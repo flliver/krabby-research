@@ -310,7 +310,7 @@ def _graft_fixture(tmp_path: Path, env: dict, seed: int = 18, identity_cpu=True,
 
 
 def test_verify_head_sha_accepts_a_graft_with_a_full_identity_record(tmp_path):
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     graft_ck, _ = _graft_fixture(tmp_path, env, seed=18,
                                  identity_gpu_stamps=["GRAFT_S1_s18/suite__omni/seed001/x"])
     camp = Path(env["CAMPAIGN_DIR"])
@@ -324,7 +324,7 @@ def test_verify_head_sha_accepts_a_graft_with_a_full_identity_record(tmp_path):
 
 
 def test_verify_head_sha_refuses_a_graft_with_no_gpu_stamp(tmp_path):
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     graft_ck, _ = _graft_fixture(tmp_path, env, seed=18, identity_gpu_stamps=[])
     camp = Path(env["CAMPAIGN_DIR"])
     camp.mkdir(parents=True, exist_ok=True)
@@ -337,7 +337,7 @@ def test_verify_head_sha_refuses_a_graft_with_no_gpu_stamp(tmp_path):
 
 
 def test_verify_head_sha_refuses_a_graft_without_cpu_identity(tmp_path):
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     graft_ck, _ = _graft_fixture(tmp_path, env, seed=18, identity_cpu=False,
                                  identity_gpu_stamps=["GRAFT_S1_s18/suite__omni/seed001/x"])
     camp = Path(env["CAMPAIGN_DIR"])
@@ -352,7 +352,7 @@ def test_verify_head_sha_refuses_a_graft_without_cpu_identity(tmp_path):
 
 def test_verify_head_sha_refuses_a_swapped_graft_file(tmp_path):
     """The file on disk no longer matches graft.json's own graft_sha256 (swapped / re-built since)."""
-    env = _env(tmp_path, P2_RUN_ARM_LIB=1)
+    env = _env(tmp_path, P2_PY=sys.executable, P2_RUN_ARM_LIB=1)
     graft_ck, _ = _graft_fixture(tmp_path, env, seed=18,
                                  identity_gpu_stamps=["GRAFT_S1_s18/suite__omni/seed001/x"])
     graft_ck.write_bytes(b"a DIFFERENT file than the one graft.json was written for")

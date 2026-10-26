@@ -62,7 +62,9 @@ HERE = Path(__file__).resolve().parent
 #: campaign -> experiments -> crab_hex_omni_task -> parkour_tasks -> parkour_tasks -> parkour -> repo
 REPO = HERE.parents[5]
 PARKOUR = REPO / "parkour"
-PY = "/home/nickmagus/krabby/isaac_venv/bin/python"
+#: The Isaac venv python; ``KRABBY_ISAAC_PY`` overrides it at launch (another machine / a CI checkout), the default
+#: is the dev machine's venv.
+PY = os.environ.get("KRABBY_ISAAC_PY", "/home/nickmagus/krabby/isaac_venv/bin/python")
 
 
 def _load(path: Path, name: str):
