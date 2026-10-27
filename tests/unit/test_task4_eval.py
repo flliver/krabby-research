@@ -17,7 +17,8 @@ each a quiet failure otherwise:
   inside the wave loop after the reset and before step 0;
 * **opt-in ``metric_class``** -- a ``metric_class: translate`` category gets exactly the metrics a translation
   category gets; without it nothing changes: every committed manifest parses, compiles, records and SCORES
-  bit-identically to the baseline commit's ``gait_eval`` (run side by side in subprocesses);
+  bit-identically to the baseline commit's ``gait_eval`` (run side by side in subprocesses; since 2026-10-26 the
+  baseline's BLAS reductions are swapped for the BLAS-free forms, ``_BLAS_FREE_BASELINE_SHIM``);
 * **the sweep row file** ``rows/scenarios_pl_body.yaml`` -- 16 translate bins d000 ... d338 at 22.5 deg, |v| 0.22,
   wz 0, metric_class translate, the envelope block verbatim, and a schedule that builds and scores.
 """
@@ -806,17 +807,57 @@ for mp in manifests:
 Path(out).write_text(json.dumps(res, sort_keys=True))
 '''
 
+#: Prepended to the BASELINE run only (2026-10-26, the user's decision "Make scoring BLAS-free", Task 4 CHARTER).
+#: The baseline's three BLAS-reaching numpy calls -- a vector ``np.linalg.norm``, a 1-D ``np.dot`` and
+#: ``np.corrcoef`` of two series -- go through BLAS-free reference forms written HERE: numpy's own arithmetic with
+#: the BLAS reduction replaced by a pairwise ``add.reduce``. That swap is the one deliberate scoring change since
+#: the baseline (OpenBLAS's ``ddot`` / ``gemm`` round differently per CPU kernel: FMA on the AVX-512 kernels), so
+#: the equality below still proves everything else unchanged, on every CPU. It is written independently of
+#: ``gait_eval.metrics``' own helpers, so a change to those still fails here. Every other call goes to numpy
+#: untouched. Without the norm / dot swap all 18 rows differ on an AVX-512 machine; the synthetic rows'
+#: correlations come out the same either way, so the ``corrcoef`` swap is carried for completeness.
+_BLAS_FREE_BASELINE_SHIM = r'''
+import numpy as _np
+_norm0, _dot0, _corrcoef0 = _np.linalg.norm, _np.dot, _np.corrcoef
+def _norm(x, ord=None, axis=None, keepdims=False):
+    if ord is not None or axis is not None or keepdims:
+        return _norm0(x, ord=ord, axis=axis, keepdims=keepdims)
+    x = _np.asarray(x)
+    if not issubclass(x.dtype.type, _np.inexact):
+        x = x.astype(float)
+    x = x.ravel(order="K")
+    return _np.sqrt(_np.add.reduce((x.conj() * x).real))
+def _dot(a, b, out=None):
+    a1, b1 = _np.asarray(a), _np.asarray(b)
+    if out is None and a1.ndim == 1 and a1.shape == b1.shape:
+        return _np.add.reduce(a1 * b1)
+    return _dot0(a, b) if out is None else _dot0(a, b, out=out)
+def _corrcoef(x, y=None, *args, **kw):
+    if y is None or args or kw or _np.ndim(x) != 1 or _np.ndim(y) != 1:
+        return _corrcoef0(x, y, *args, **kw)
+    X = _np.concatenate((_np.array(x, ndmin=2, dtype=float), _np.array(y, ndmin=2, dtype=float)), axis=0)
+    X -= X.mean(axis=1)[:, None]
+    c = _np.array([[_np.add.reduce(u * v) for v in X] for u in X]) * _np.true_divide(1, X.shape[1] - 1)
+    s = _np.sqrt(_np.diag(c))
+    c /= s[:, None]
+    c /= s[None, :]
+    return _np.clip(c, -1, 1)
+_np.linalg.norm, _np.dot, _np.corrcoef = _norm, _dot, _corrcoef
+'''
+
 
 def test_committed_rows_parse_compile_and_score_bit_identically_to_the_baseline(tmp_path):
     base_root = tmp_path / "baseline"
     (base_root / "gait_eval").mkdir(parents=True)
     for name in ("__init__.py", "metrics.py", "report.py", "schedule.py"):
         (base_root / "gait_eval" / name).write_text(_git_show(str((GE_DIR / name).relative_to(REPO))))
-    script = tmp_path / "fp.py"
-    script.write_text(_FINGERPRINT)
+    scripts = {"base": tmp_path / "fp_base.py", "cur": tmp_path / "fp.py"}
+    scripts["base"].write_text(_BLAS_FREE_BASELINE_SHIM + _FINGERPRINT)
+    scripts["cur"].write_text(_FINGERPRINT)
     manifests = [str(FWD_MANIFEST), str(OMNI_MANIFEST), str(BODY_MANIFEST)]
     outs = {}
     for tag, root in (("base", base_root), ("cur", SCRIPTS_DIR)):
+        script = scripts[tag]
         out = tmp_path / f"{tag}.json"
         subprocess.run([sys.executable, "-I", str(script), str(root), str(out), str(OMNI_MATH_PY), *manifests],
                        check=True, cwd=str(tmp_path), timeout=600)

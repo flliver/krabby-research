@@ -25,6 +25,14 @@ Importable surface for that later test:
 
 Run directly to (re)write the golden JSON:
     ``python tests/unit/fixtures/gen_gait_eval_travel_yaw_golden.py``
+
+Regeneration history. Written 2026-09-16 on the clean base commit. Regenerated ONCE, 2026-10-26, by the
+user's decision "Make scoring BLAS-free" (Task 4 CHARTER): the first write came from an AVX-512 machine, whose
+OpenBLAS ``ddot`` (behind ``np.linalg.norm``) rounds differently from the kernel GitHub's non-AVX-512 runners
+load, and ``gait_eval.metrics`` now does its vector reductions without BLAS. This generator was not changed;
+the new JSON is byte-identical under every OpenBLAS kernel that runs on the dev machine and on numpy 1.26 and
+2.5. Rewriting the fixture to make ``test_crab_hex_gait_eval_golden.py`` pass is otherwise forbidden (see that
+module's docstring).
 """
 
 from __future__ import annotations
