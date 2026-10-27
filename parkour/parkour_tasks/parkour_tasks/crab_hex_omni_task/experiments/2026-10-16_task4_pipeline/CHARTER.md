@@ -845,3 +845,79 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - (3) code_sha and eval_sha move (run_phases.py is in EVAL_PATHSPECS, parkour/scripts in CODE_PATHSPECS).
       Omni candidate ladders need --accept-code-change / --accept-eval-change to resume.
     - (4) The Task 4 lock is re-pinned after this commit.
+- **2026-10-26, BLAS-free scoring (milestone boundary).**
+  - **Why:** the golden test `test_crab_hex_gait_eval_golden.py` (3 tests) depended on the CPU.
+    - The fixture was written on this AVX-512 machine. OpenBLAS picks its kernel for the CPU when it loads:
+      Cooperlake here in the Isaac venv (0.3.23), SkylakeX here in numpy 2.5's scipy-openblas (0.3.34), Haswell /
+      Zen on GitHub's non-AVX-512 runners.
+    - The 2-element `ddot` behind `np.linalg.norm(v)` is `fma(x1, x1, x0 * x0)` here and `x0 * x0 + x1 * x1` there,
+      so those runners scored 44 stride / slip_net_disp / slip_ratio leaves 1-2 ulp away from the fixture. The
+      Unit tests job on cffda9f4 (log 40399577430) failed exactly those 44 leaves. The merged PR #10's last run
+      passed only because its job landed on an AVX-512 runner.
+  - **User decision, verbatim:** "Make scoring BLAS-free". Replace the BLAS-reaching calls so the output is
+    identical on every CPU, regenerate the golden once, accept the new eval_sha, re-pin the lock.
+  - **Change** (`gait_eval/metrics.py` only).
+    - Helpers `_dot` / `_norm`: elementwise multiply + pairwise `add.reduce`, the form `np.linalg.norm(x, axis=k)`
+      already takes, with `np.linalg.norm`'s dtype rules. On a 2-vector the result equals the Haswell / Zen `ddot`.
+    - 9 vector-norm call sites use `_norm`: stride magnitude and its along-command unit (3), slip stride and net
+      displacement, hold `pos_drift_m`, the motion-quality and rigidity `distance_m`, body `planar_drift`. The
+      support-polygon edge projection uses `_dot`.
+    - `pearson` is `np.corrcoef(a, b)[0, 1]`'s arithmetic step for step with its BLAS `dot(X, X.T)` swapped for
+      `_dot` (bit-equal to corrcoef with only that swap, 320 / 320 series, numpy 1.26 and 2.5). It feeds
+      `tripod_score` / `corr_A_B` / `anti_phase`; the old gemm reduction order differed between kernel families
+      and OpenBLAS versions.
+    - Audit: `report.py` / `schedule.py` / `__init__.py` reach no BLAS. Their `np.linalg.norm(..., axis=-1)` and
+      the weighted `np.average` are elementwise in numpy 1.26.0 and 2.5.4 (source read). The package has no LAPACK
+      call.
+  - **Golden regenerated once** (generator unchanged; its docstring and the test's record why).
+    - Byte-identical under every OpenBLAS kernel that runs here (13 in 0.3.23, 5 in 0.3.34), on both venvs.
+    - The OLD code on Haswell / Zen / Sandybridge / Nehalem writes the new fixture byte for byte (on Zen also with
+      numpy's AVX-512 dispatch disabled); its 44 changed values are the ones the failing CI job reported.
+    - vs the old fixture: those 44 leaves only, <= 2 ulp, |rel| <= 3.1e-16.
+  - **Guards.**
+    - `test_scoring_is_identical_under_every_openblas_kernel`: the generator's data plus three noisy tripod
+      windows, scored under native + forced Haswell / Sandybridge / Nehalem (+ SkylakeX on AVX-512 CPUs) in
+      hermetic subprocesses, about 2 s. On the old metrics.py it fails natively here (Haswell vs Cooperlake at a
+      slip_net_disp) and on a CI-class CPU too (Sandybridge / Nehalem vs Haswell at `anti_phase`).
+    - `test_blas_free_helpers_keep_numpy_dtype_and_shape_semantics` pins the helpers' dtype / shape rules.
+    - `test_task4_eval.py`'s baseline-identity test runs the baseline commit's gait_eval with the same three calls
+      swapped for BLAS-free reference forms written in the test, so it still proves everything else unchanged.
+  - **Hashes:** eval_sha 7c1358df -> 9fe964d7 (metrics.py is in EVAL_PATHSPECS); code_sha 6a4e4c6e unchanged.
+  - **Consequences, accepted:**
+    - (1) Every recorded stamp, screen and ladder entry keeps its old eval_sha. Omni candidate ladders and campaign
+      drivers need `--accept-eval-change` to resume; `ok_screen` then rescreens old-eval screens.
+    - (2) Recorded numbers vs the new code, from a replay of 1,350 saved episodes through `score_episode`
+      (forward 3b step / slow / flat_walk_slow_v2, sideways 2c step / slow / flat_walk_slow_side, omni F19 suite
+      x3). The OLD code reproduces all 4,512,351 recorded episode leaves exactly. With the replay's own aggregates
+      (4,526,296 leaves) the new code moves 10,543:
+      - stride / slip / distance / pos_drift / per-m fields: 0 moved. The sim arrays are float32, so the 2-vector
+        squares are exact and fma == plain. The golden's <= 2-ulp moves come from its float64 inputs.
+      - `tripod_score` / `corr_A_B` / `anti_phase`, on every CPU (CI's included): tripod_score <= 401 ulp, |rel| <=
+        5.1e-14; corr_A_B |rel| <= 2.2e-13 (near-zero r); aggregates and by-category stats <= 62 ulp, <= 8.7e-15.
+      - `min_edge_margin_m` (support polygon), AVX-512 CPUs only: <= 361 ulp, |rel| <= 5.4e-14 (a p10).
+      - The new code: 0 of the 4,526,296 leaves differ between the native and the Zen kernel.
+    - (3) No recorded verdict can move.
+      - Thresholds v1.2: no decisive line reads an affected field. The sweep WATCH lines read by-category tripod
+        (moves <= 1e-14 relative) and steps_per_m (did not move).
+      - The 16 omni ledgers: none of their 74 metrics is tripod / margin. The 104 affected-type rows (per-m
+        normalisers) did not move; their closest |delta| vs R margin is 6.4e-4 of the values.
+      - Decisive tripod gates (omni GATE_SOFT_TRIPOD 0.30 / GATE_1C_TRIPOD 0.40, sideways GATE_1A_TRIPOD 0.40):
+        of 107,396 tripod-family aggregate values in 2,289 recorded stamps, the closest sits 4.7e-5 relative from
+        0.40 and 1.75e-4 from 0.30, >= 9e8 times the largest replayed move. Two stand / settle-hold p75 values sit
+        at 0.5 and 1 ulp below it; no gate reads them.
+      - Not scanned: thresholds quoted only in older forward / sideways campaign prose.
+    - (4) Forward / sideways-task scoring vs before:
+      - `tripod_score` / `corr_A_B` / `anti_phase` move by <= 5.1e-14 relative (corr_A_B 2.2e-13) on every CPU.
+      - `min_edge_margin_m` moves by <= 5.4e-14 relative on AVX-512 CPUs only.
+      - stride / slip / distance fields: no move on the replayed float32 sim data. With float64 input they move by
+        <= 2 ulp on AVX-512 CPUs and not at all elsewhere.
+    - (5) Not covered:
+      - numpy's own runtime SIMD dispatch, a separate (non-BLAS) CPU dependence. Float64 `arctan2` / `arcsin` /
+        `exp` / `log` take an AVX-512 path where the CPU has one; that reaches yaw- / fall-derived fields. The
+        golden is insensitive to it (identity quaternions; checked with NPY_DISABLE_CPU_FEATURES).
+      - numpy 1.26 and 2.5 pairwise sums differ above 8192 elements: a version dependence, not a CPU one.
+      - Readers outside gait_eval still reach BLAS: `side22_classify.py` (the feet_ss floor lines: a vector norm
+        and `@`), `p2s_stand.py` (stand lines), `sh_facts.py` (`lstsq`), and campaign analysis scripts. They are
+        unchanged and outside EVAL_PATHSPECS.
+    - (6) The Task 4 lock is re-pinned to eval_sha 9fe964d7. `check` is clean on R18 / F19 / dry once this commit
+      lands (verified on a scratch commit of exactly these files).

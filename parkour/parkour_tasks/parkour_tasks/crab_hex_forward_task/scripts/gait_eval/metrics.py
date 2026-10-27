@@ -82,12 +82,52 @@ def contiguous_runs(mask: np.ndarray) -> list[tuple[int, int]]:
     return [(int(a), int(b)) for a, b in zip(edges[0::2], edges[1::2])]
 
 
+# BLAS-free vector reductions (2026-10-26; the user's decision "Make scoring BLAS-free", Task 4 CHARTER).
+# A vector ``np.linalg.norm(v)`` is ``sqrt(v.dot(v))``, and ``np.dot`` of two vectors and ``np.corrcoef``'s
+# ``dot(X, X.T)`` go to OpenBLAS, whose kernel is chosen for the CPU when it loads -- and the kernels round
+# differently: the 2-element ``ddot`` is ``fma(x1, x1, x0 * x0)`` on the AVX-512 kernels (SkylakeX /
+# Cooperlake: this dev machine) but ``x0 * x0 + x1 * x1`` on Haswell / Zen (GitHub's non-AVX-512 runners),
+# and longer dots and the gemm accumulate in a kernel- and version-specific order. So the same raw arrays
+# scored differently in CI and here. Every 1-D norm and dot in this module goes through :func:`_norm` /
+# :func:`_dot` instead: numpy's elementwise multiply and pairwise ``add.reduce``, which is what
+# ``np.linalg.norm(x, axis=k)`` (used as is below) already does -- no BLAS, so no kernel dependence.
+# Not covered: numpy's own runtime SIMD dispatch (float64 ``arctan2`` / ``arcsin`` / ``exp`` / ``log`` take
+# an AVX-512 path where the CPU has one), a separate CPU dependence outside BLAS.
+# Guarded by tests/unit/test_crab_hex_gait_eval_golden.py::test_scoring_is_identical_under_every_openblas_kernel.
+def _dot(a: np.ndarray, b: np.ndarray) -> np.number:
+    """``np.dot(a, b)`` of two equal-shape 1-D vectors, without BLAS: a numpy scalar of their common dtype."""
+    a = np.asarray(a)
+    b = np.asarray(b)
+    if a.ndim != 1 or a.shape != b.shape:
+        raise ValueError(f"_dot takes two equal-shape 1-D vectors, got shapes {a.shape} and {b.shape}")
+    return np.add.reduce(a * b)
+
+
+def _norm(x: np.ndarray) -> np.floating:
+    """``np.linalg.norm(x)`` (no ``ord`` / ``axis``: the 2-norm of ``x`` flattened), without BLAS.
+
+    ``np.linalg.norm``'s dtype rules: a non-float input is cast to float64 first, a float32 input gives a
+    float32 result, and the result is a numpy scalar. Real input only.
+    """
+    x = np.asarray(x)
+    if x.dtype.kind == "c":
+        raise TypeError("_norm takes real input")
+    if x.dtype.kind != "f":
+        x = x.astype(np.float64)
+    x = x.ravel(order="K")
+    return np.sqrt(_dot(x, x))
+
+
 def pearson(a: np.ndarray, b: np.ndarray) -> float | None:
     """Pearson correlation, or ``None`` when either series is constant.
 
     Constant input is not an error here -- it is the signature of a robot standing still (all six
     feet planted every step). Returning ``None`` rather than NaN forces callers to make an explicit
     decision; :func:`tripod_window_metrics` treats it as "no alternation" and scores 0.
+
+    ``np.corrcoef(a, b)[0, 1]``'s arithmetic, step for step (de-mean, ``* (1 / (n - 1))``, divide by
+    each standard deviation in turn, clip to ``[-1, 1]``), with its BLAS ``dot(X, X.T)`` replaced by
+    :func:`_dot` (see the BLAS-free note above).
     """
     a = np.asarray(a, dtype=np.float64).ravel()
     b = np.asarray(b, dtype=np.float64).ravel()
@@ -95,7 +135,13 @@ def pearson(a: np.ndarray, b: np.ndarray) -> float | None:
         return None
     if a.var() < _VAR_EPS or b.var() < _VAR_EPS:
         return None
-    r = float(np.corrcoef(a, b)[0, 1])
+    da = a - a.mean()
+    db = b - b.mean()
+    inv = np.true_divide(1, a.size - 1)
+    cov_ab = _dot(da, db) * inv
+    std_a = np.sqrt(_dot(da, da) * inv)
+    std_b = np.sqrt(_dot(db, db) * inv)
+    r = float(np.clip(cov_ab / std_a / std_b, -1.0, 1.0))
     return r if math.isfinite(r) else None
 
 
@@ -423,16 +469,16 @@ def stride_metrics(
         for k in range(len(tds) - 1):
             t0, t1 = int(tds[k]), int(tds[k + 1])
             delta = foot_pos_w[t1, i, :2] - foot_pos_w[t0, i, :2]
-            mags.append(float(np.linalg.norm(delta)))
+            mags.append(float(_norm(delta)))
             if cmd_xy is not None and root_yaw is not None:
                 cmd = np.asarray(cmd_xy, dtype=np.float64)[t0]
-                if np.linalg.norm(cmd) > 1e-6:
+                if _norm(cmd) > 1e-6:
                     yaw = float(np.asarray(root_yaw, dtype=np.float64)[t0])
                     # Rotate the world-frame step into the base frame, then project on the command.
                     cos_y, sin_y = math.cos(-yaw), math.sin(-yaw)
                     dx_b = cos_y * delta[0] - sin_y * delta[1]
                     dy_b = sin_y * delta[0] + cos_y * delta[1]
-                    unit = cmd / np.linalg.norm(cmd)
+                    unit = cmd / _norm(cmd)
                     alongs.append(float(dx_b * unit[0] + dy_b * unit[1]))
         pooled_mag.extend(mags)
         pooled_along.extend(alongs)
@@ -558,7 +604,7 @@ def slip_metrics(
         stride_by_td: dict[int, float] = {}
         for k in range(len(tds) - 1):
             t0, t1 = int(tds[k]), int(tds[k + 1])
-            stride_by_td[t0] = float(np.linalg.norm(foot_pos_w[t1, i, :2] - foot_pos_w[t0, i, :2]))
+            stride_by_td[t0] = float(_norm(foot_pos_w[t1, i, :2] - foot_pos_w[t0, i, :2]))
 
         path_lens, net_disps, ratios, mean_speeds, max_speeds = [], [], [], [], []
         frac_above, work_proxy = [], []
@@ -571,7 +617,7 @@ def slip_metrics(
             seg_xy = foot_pos_w[lo:hi, i, :2]
             step_disp = np.linalg.norm(np.diff(seg_xy, axis=0), axis=-1) if seg_xy.shape[0] > 1 else np.zeros(0)
             path = float(step_disp.sum())
-            net = float(np.linalg.norm(seg_xy[-1] - seg_xy[0])) if seg_xy.shape[0] > 1 else 0.0
+            net = float(_norm(seg_xy[-1] - seg_xy[0])) if seg_xy.shape[0] > 1 else 0.0
             seg_speed = speed[lo:hi, i]
             path_lens.append(path)
             net_disps.append(net)
@@ -896,7 +942,7 @@ def hold_motion_metrics(
     changes = np.diff(c, axis=0) if n > 1 else np.zeros((0,) + c.shape[1:], dtype=np.int8)
     return {
         "speed_abs_mean_m_s": float(np.linalg.norm(vel, axis=-1).mean()),
-        "pos_drift_m": float(np.linalg.norm(xy[-1] - xy[0])),
+        "pos_drift_m": float(_norm(xy[-1] - xy[0])),
         "path_len_m": float(np.linalg.norm(np.diff(xy, axis=0), axis=-1).sum()) if n > 1 else 0.0,
         "yaw_drift_rad": float(yaw[-1] - yaw[0]),
         "foot_lift_count": int(np.count_nonzero(changes < 0)),
@@ -1063,7 +1109,7 @@ def _signed_min_edge_margin(hull: np.ndarray, c: np.ndarray) -> float:
         if s < 0:
             inside = False
         # unsigned distance to the segment
-        t = float(np.clip(np.dot(c - a, e) / (ln * ln), 0.0, 1.0))
+        t = float(np.clip(_dot(c - a, e) / (ln * ln), 0.0, 1.0))
         dseg = float(np.hypot(*(c - (a + t * e))))
         best = min(best, dseg)
     return best if inside else -best
@@ -1537,7 +1583,7 @@ def motion_quality_metrics(
 
     # ---- normalisers
     xy = np.asarray(root_pos_w, dtype=np.float64)[:, :2]
-    dist = float(np.linalg.norm(xy[-1] - xy[0]))
+    dist = float(_norm(xy[-1] - xy[0]))
     yaw = np.unwrap(yaw_from_quat_wxyz(np.asarray(root_quat_w, dtype=np.float64)))
     net_yaw = float(abs(yaw[-1] - yaw[0]))
     extra["distance_m"], extra["net_yaw_rad"] = dist, net_yaw
@@ -1887,7 +1933,7 @@ def rigidity_metrics(
 
     # ---- normalisers (the motion-quality convention)
     xy = np.asarray(root_pos_w, dtype=np.float64)[:, :2]
-    dist = float(np.linalg.norm(xy[-1] - xy[0]))
+    dist = float(_norm(xy[-1] - xy[0]))
     yaw = np.unwrap(yaw_from_quat_wxyz(np.asarray(root_quat_w, dtype=np.float64)))
     net_yaw = float(abs(yaw[-1] - yaw[0]))
     extra["distance_m"], extra["net_yaw_rad"] = dist, net_yaw
@@ -2055,7 +2101,7 @@ def body_yaw_metrics(
     if straight:
         out["heading_drift"] = float(abs(wz_mean))
     if bool(np.all(v_step == 0.0)) and not straight and span > 0.0:
-        out["planar_drift"] = float(np.linalg.norm(xy[-1] - xy[0]) / span)
+        out["planar_drift"] = float(_norm(xy[-1] - xy[0]) / span)
     if v_cmd > 0.0:
         bearing = np.arctan2(cmd[:, 1], cmd[:, 0])
         c, s = np.cos(bearing), np.sin(bearing)
