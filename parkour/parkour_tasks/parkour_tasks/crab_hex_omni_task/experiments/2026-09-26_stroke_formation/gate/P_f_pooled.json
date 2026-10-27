@@ -1,0 +1,1541 @@
+{
+  "arm_s2": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_formation/seed2_X06_t3_A15pB/suite__omni/seed001/2026-09-27_09-30-47/",
+  "arm_s3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_formation/seed3_X05_t3_A15pB/suite__omni/seed001/2026-09-27_08-09-09/",
+  "bars": {
+    "side": {
+      "body_offset": -0.05,
+      "stance_stroke": 0.01,
+      "stride_along": 0.02
+    }
+  },
+  "base_s2": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_formation/seed2_X02_t3_A15pB/suite__omni/seed001/2026-09-27_04-08-09/",
+  "base_s3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_formation/seed3_X01_t3_A15pB/suite__omni/seed001/2026-09-26_22-56-51/",
+  "rows": {
+    "back": {
+      "body_offset": {
+        "band": 0.014767006039619446,
+        "base_seed_delta": 0.014767006039619446,
+        "delta_s2": 0.005996089428663254,
+        "delta_s3": -0.0015161335468292236,
+        "mean_delta": 0.002239977940917015,
+        "pooled_mde": 0.007558622048236427
+      },
+      "centring_per_s": {
+        "band": 5.039233030856849e-09,
+        "base_seed_delta": 5.039233030856849e-09,
+        "delta_s2": -2.424371814413462e-09,
+        "delta_s3": 2.6803252950458045e-09,
+        "mean_delta": 1.2797674031617134e-10,
+        "pooled_mde": 1.596089704847258e-09
+      },
+      "knee_cap_lead": {
+        "band": 0.18003007927839254,
+        "base_seed_delta": 0.18003007927839254,
+        "delta_s2": 0.12613217518767267,
+        "delta_s3": -0.22125027182476703,
+        "mean_delta": -0.04755904831854718,
+        "pooled_mde": 0.020938084564491505
+      },
+      "knee_cap_trail": {
+        "band": 0.023803875878737907,
+        "base_seed_delta": 0.010207900088744393,
+        "delta_s2": 0.07665912129988306,
+        "delta_s3": 0.002252135356249352,
+        "mean_delta": 0.039455628328066206,
+        "pooled_mde": 0.023803875878737907
+      },
+      "lead_scuff_frac": {
+        "band": 0.014293379133572981,
+        "base_seed_delta": 0.014293379133572981,
+        "delta_s2": -0.05507578913811856,
+        "delta_s3": 0.006793816011284481,
+        "mean_delta": -0.02414098656341704,
+        "pooled_mde": 0.012264613199827613
+      },
+      "lead_trail_asym": {
+        "band": 0.023157373070716858,
+        "base_seed_delta": 0.023157373070716858,
+        "delta_s2": -0.09847463667392731,
+        "delta_s3": -0.06505133211612701,
+        "mean_delta": -0.08176298439502716,
+        "pooled_mde": 0.012685004528611897
+      },
+      "lead_y": {
+        "band": 0.09826289117336273,
+        "base_seed_delta": 0.09826289117336273,
+        "delta_s2": -0.03590679168701172,
+        "delta_s3": 0.12112410366535187,
+        "mean_delta": 0.042608655989170074,
+        "pooled_mde": 0.008885938208550215
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.18815355002880096,
+        "base_seed_delta": 0.18815355002880096,
+        "delta_s2": -0.3266779035329819,
+        "delta_s3": 0.14415869116783142,
+        "mean_delta": -0.09125960618257523,
+        "pooled_mde": 0.06726223262958227
+      },
+      "stance_stroke": {
+        "band": 0.006804642963106744,
+        "base_seed_delta": 0.0009973933920264244,
+        "delta_s2": 0.012193708680570126,
+        "delta_s3": -0.002689945511519909,
+        "mean_delta": 0.004751881584525108,
+        "pooled_mde": 0.006804642963106744
+      },
+      "stride_along": {
+        "band": 0.047557741330884945,
+        "base_seed_delta": 0.047557741330884945,
+        "delta_s2": 0.007037516663227494,
+        "delta_s3": 0.06571037271554238,
+        "mean_delta": 0.036373944689384936,
+        "pooled_mde": 0.009337633586736695
+      },
+      "stroke_per_s": {
+        "band": 0.10092256281979534,
+        "base_seed_delta": 0.10092256281979534,
+        "delta_s2": 0.16525247709347252,
+        "delta_s3": 0.17019401699684567,
+        "mean_delta": 0.1677232470451591,
+        "pooled_mde": 0.042500353443878536
+      },
+      "stroke_share": {
+        "band": 0.19595807790756226,
+        "base_seed_delta": 0.19595807790756226,
+        "delta_s2": 0.19590768218040466,
+        "delta_s3": -0.1783815324306488,
+        "mean_delta": 0.00876307487487793,
+        "pooled_mde": 0.02578183300793169
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.07495492696762085,
+        "base_seed_delta": 0.07495492696762085,
+        "delta_s2": -0.13028386235237122,
+        "delta_s3": 0.05516153573989868,
+        "mean_delta": -0.03756116330623627,
+        "pooled_mde": 0.004751297086477278
+      }
+    },
+    "diag": {
+      "body_offset": {
+        "band": 0.00880458177998662,
+        "base_seed_delta": 0.008459310978651047,
+        "delta_s2": 0.02520744875073433,
+        "delta_s3": 0.0195743627846241,
+        "mean_delta": 0.022390905767679214,
+        "pooled_mde": 0.00880458177998662
+      },
+      "centring_per_s": {
+        "band": 0.02065392918884754,
+        "base_seed_delta": 0.006506025791168213,
+        "delta_s2": -0.06735575199127197,
+        "delta_s3": -0.035610735416412354,
+        "mean_delta": -0.05148324370384216,
+        "pooled_mde": 0.02065392918884754
+      },
+      "knee_cap_lead": {
+        "band": 0.07003094034860868,
+        "base_seed_delta": 0.07003094034860868,
+        "delta_s2": 0.07986246610175973,
+        "delta_s3": -0.08239983513671101,
+        "mean_delta": -0.0012686845174756378,
+        "pooled_mde": 0.018160682876788473
+      },
+      "knee_cap_trail": {
+        "band": 0.04774286001551381,
+        "base_seed_delta": 0.04774286001551381,
+        "delta_s2": -0.06697936511543373,
+        "delta_s3": 0.03283563890870972,
+        "mean_delta": -0.017071863103362006,
+        "pooled_mde": 0.015949430533082277
+      },
+      "lead_scuff_frac": {
+        "band": 0.05776757689671386,
+        "base_seed_delta": 0.05776757689671386,
+        "delta_s2": -0.02510182301540631,
+        "delta_s3": 0.04376847288882035,
+        "mean_delta": 0.009333324936707021,
+        "pooled_mde": 0.012462842594260918
+      },
+      "lead_trail_asym": {
+        "band": 0.028107923828065394,
+        "base_seed_delta": 0.011979267001152039,
+        "delta_s2": 0.06646400690078735,
+        "delta_s3": -0.0042686015367507935,
+        "mean_delta": 0.03109770268201828,
+        "pooled_mde": 0.028107923828065394
+      },
+      "lead_y": {
+        "band": 0.05622342228889465,
+        "base_seed_delta": 0.05622342228889465,
+        "delta_s2": -0.1055707186460495,
+        "delta_s3": 0.05338399112224579,
+        "mean_delta": -0.026093363761901855,
+        "pooled_mde": 0.017377703171223398
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.28714171051979065,
+        "base_seed_delta": 0.28714171051979065,
+        "delta_s2": -0.3325226753950119,
+        "delta_s3": 0.284368097782135,
+        "mean_delta": -0.024077288806438446,
+        "pooled_mde": 0.07288083806633947
+      },
+      "stance_stroke": {
+        "band": 0.004994766786694527,
+        "base_seed_delta": 0.004994766786694527,
+        "delta_s2": -0.0026176786050200462,
+        "delta_s3": 0.006602033041417599,
+        "mean_delta": 0.0019921772181987762,
+        "pooled_mde": 0.004679927654797209
+      },
+      "stride_along": {
+        "band": 0.022637527962579285,
+        "base_seed_delta": 0.022637527962579285,
+        "delta_s2": -0.011018655287045515,
+        "delta_s3": 0.03798088878781676,
+        "mean_delta": 0.013481116750385623,
+        "pooled_mde": 0.006715874237869075
+      },
+      "stroke_per_s": {
+        "band": 0.03584627978982769,
+        "base_seed_delta": 0.014471925856120005,
+        "delta_s2": 0.10042655194111788,
+        "delta_s3": 0.05589323520301648,
+        "mean_delta": 0.07815989357206718,
+        "pooled_mde": 0.03584627978982769
+      },
+      "stroke_share": {
+        "band": 0.12936103343963623,
+        "base_seed_delta": 0.12936103343963623,
+        "delta_s2": 0.054637640714645386,
+        "delta_s3": -0.1340917944908142,
+        "mean_delta": -0.03972707688808441,
+        "pooled_mde": 0.029508248157799233
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.04668617248535156,
+        "base_seed_delta": 0.04668617248535156,
+        "delta_s2": -0.03848680853843689,
+        "delta_s3": 0.05636554956436157,
+        "mean_delta": 0.008939370512962341,
+        "pooled_mde": 0.009471394866704931
+      }
+    },
+    "fwd": {
+      "body_offset": {
+        "band": 0.025956932455301285,
+        "base_seed_delta": 0.025956932455301285,
+        "delta_s2": 0.02486293390393257,
+        "delta_s3": -0.0025847069919109344,
+        "mean_delta": 0.011139113456010818,
+        "pooled_mde": 0.010563070606440305
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": 0.21019039457896332,
+        "base_seed_delta": 0.21019039457896332,
+        "delta_s2": 0.14449003795406262,
+        "delta_s3": -0.21235641996590082,
+        "mean_delta": -0.0339331910059191,
+        "pooled_mde": 0.02195051529065877
+      },
+      "knee_cap_trail": {
+        "band": 0.04385344510464678,
+        "base_seed_delta": 0.04385344510464678,
+        "delta_s2": 0.08749684634633526,
+        "delta_s3": 0.035278738010613986,
+        "mean_delta": 0.06138779217847462,
+        "pooled_mde": 0.022515353038363602
+      },
+      "lead_scuff_frac": {
+        "band": 0.011568878069750037,
+        "base_seed_delta": 0.010800336797360865,
+        "delta_s2": -0.057078664421711,
+        "delta_s3": 0.0019961516206809526,
+        "mean_delta": -0.027541256400515024,
+        "pooled_mde": 0.011568878069750037
+      },
+      "lead_trail_asym": {
+        "band": 0.07486984133720398,
+        "base_seed_delta": 0.07486984133720398,
+        "delta_s2": -0.09839434921741486,
+        "delta_s3": -0.09542366862297058,
+        "mean_delta": -0.09690900892019272,
+        "pooled_mde": 0.013659791182726616
+      },
+      "lead_y": {
+        "band": 0.12789633870124817,
+        "base_seed_delta": 0.12789633870124817,
+        "delta_s2": -0.03342244029045105,
+        "delta_s3": 0.1349973976612091,
+        "mean_delta": 0.05078747868537903,
+        "pooled_mde": 0.007345595583319663
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.08036942780017853,
+        "base_seed_delta": 0.08036942780017853,
+        "delta_s2": -0.25611621141433716,
+        "delta_s3": -0.01827564835548401,
+        "mean_delta": -0.13719592988491058,
+        "pooled_mde": 0.043177429214119906
+      },
+      "stance_stroke": {
+        "band": 0.012615308165550232,
+        "base_seed_delta": 0.012615308165550232,
+        "delta_s2": 0.004446184262633324,
+        "delta_s3": 0.011427991092205048,
+        "mean_delta": 0.007937087677419186,
+        "pooled_mde": 0.008535892982035873
+      },
+      "stride_along": {
+        "band": 0.06798631410259857,
+        "base_seed_delta": 0.06798631410259857,
+        "delta_s2": 0.001307981194700908,
+        "delta_s3": 0.09045289974053163,
+        "mean_delta": 0.04588044046761627,
+        "pooled_mde": 0.01141586491701009
+      },
+      "stroke_per_s": {
+        "band": 0.1839592374304821,
+        "base_seed_delta": 0.1839592374304821,
+        "delta_s2": 0.13452262380095992,
+        "delta_s3": 0.27345478110290516,
+        "mean_delta": 0.20398870245193254,
+        "pooled_mde": 0.04719366935214547
+      },
+      "stroke_share": {
+        "band": 0.15433645248413086,
+        "base_seed_delta": 0.15433645248413086,
+        "delta_s2": 0.14606618881225586,
+        "delta_s3": -0.14735138416290283,
+        "mean_delta": -0.0006425976753234863,
+        "pooled_mde": 0.025529350899159895
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.057052671909332275,
+        "base_seed_delta": 0.057052671909332275,
+        "delta_s2": -0.1368619203567505,
+        "delta_s3": 0.04275858402252197,
+        "mean_delta": -0.04705166816711426,
+        "pooled_mde": 0.006566276121884582
+      }
+    },
+    "move_turn": {
+      "body_offset": {
+        "band": 0.006635349325370042,
+        "base_seed_delta": 0.004816770553588867,
+        "delta_s2": 0.015176482498645782,
+        "delta_s3": -0.008476074784994125,
+        "mean_delta": 0.0033502038568258286,
+        "pooled_mde": 0.006635349325370042
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": 0.20680091157399705,
+        "base_seed_delta": 0.20680091157399705,
+        "delta_s2": 0.18902610491530947,
+        "delta_s3": -0.21319181760313066,
+        "mean_delta": -0.012082856343910597,
+        "pooled_mde": 0.019030583892205695
+      },
+      "knee_cap_trail": {
+        "band": 0.038563676392149304,
+        "base_seed_delta": 0.038563676392149304,
+        "delta_s2": 0.06879069574960339,
+        "delta_s3": -0.044043085114803926,
+        "mean_delta": 0.012373805317399733,
+        "pooled_mde": 0.01674239723538465
+      },
+      "lead_scuff_frac": {
+        "band": 0.03796138644942593,
+        "base_seed_delta": 0.03796138644942593,
+        "delta_s2": 0.02412783263847096,
+        "delta_s3": -0.04243446303277304,
+        "mean_delta": -0.00915331519715104,
+        "pooled_mde": 0.009078790804777461
+      },
+      "lead_trail_asym": {
+        "band": 0.07968506217002869,
+        "base_seed_delta": 0.07968506217002869,
+        "delta_s2": -0.020811766386032104,
+        "delta_s3": -0.10580876469612122,
+        "mean_delta": -0.06331026554107666,
+        "pooled_mde": 0.009989107400178904
+      },
+      "lead_y": {
+        "band": 0.14594247937202454,
+        "base_seed_delta": 0.14594247937202454,
+        "delta_s2": -0.08924725651741028,
+        "delta_s3": 0.15361171960830688,
+        "mean_delta": 0.0321822315454483,
+        "pooled_mde": 0.007749288342893124
+      },
+      "n_pairs_s2": 200,
+      "n_pairs_s3": 200,
+      "slip_ratio": {
+        "band": 0.19987066090106964,
+        "base_seed_delta": 0.19987066090106964,
+        "delta_s2": -0.047662153840065,
+        "delta_s3": 0.23315094411373138,
+        "mean_delta": 0.09274439513683319,
+        "pooled_mde": 0.0935870387591421
+      },
+      "stance_stroke": {
+        "band": 0.00849769078195095,
+        "base_seed_delta": 0.00849769078195095,
+        "delta_s2": -0.013038436241913587,
+        "delta_s3": 0.011375894770026207,
+        "mean_delta": -0.0008312707359436899,
+        "pooled_mde": 0.0033570109495485653
+      },
+      "stride_along": {
+        "band": 0.02992745325056776,
+        "base_seed_delta": 0.02992745325056776,
+        "delta_s2": -0.032485649466024016,
+        "delta_s3": 0.08635379137828303,
+        "mean_delta": 0.026934070956129506,
+        "pooled_mde": 0.006873015722734648
+      },
+      "stroke_per_s": {
+        "band": 0.020107090324845745,
+        "base_seed_delta": 0.0006954635210158905,
+        "delta_s2": 0.018930171562511394,
+        "delta_s3": 0.05557306911558836,
+        "mean_delta": 0.03725162033904988,
+        "pooled_mde": 0.020107090324845745
+      },
+      "stroke_share": {
+        "band": 0.060100674629211426,
+        "base_seed_delta": 0.060100674629211426,
+        "delta_s2": -0.17971950769424438,
+        "delta_s3": 0.052534282207489014,
+        "mean_delta": -0.06359261274337769,
+        "pooled_mde": 0.046372790075838506
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.06991550326347351,
+        "base_seed_delta": 0.06991550326347351,
+        "delta_s2": -0.10705618560314178,
+        "delta_s3": 0.053506702184677124,
+        "mean_delta": -0.02677474170923233,
+        "pooled_mde": 0.005018567480146875
+      }
+    },
+    "move_turn/l": {
+      "body_offset": {
+        "band": 0.010402189684100449,
+        "base_seed_delta": 0.001653321087360382,
+        "delta_s2": 0.013823065906763077,
+        "delta_s3": -0.013790909200906754,
+        "mean_delta": 1.607835292816162e-05,
+        "pooled_mde": 0.010402189684100449
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": 0.20625499687747006,
+        "base_seed_delta": 0.20625499687747006,
+        "delta_s2": 0.18794032299744695,
+        "delta_s3": -0.21252552595627772,
+        "mean_delta": -0.012292601479415383,
+        "pooled_mde": 0.024241565285248644
+      },
+      "knee_cap_trail": {
+        "band": 0.022742240992393747,
+        "base_seed_delta": 0.022742240992393747,
+        "delta_s2": 0.0674480771073025,
+        "delta_s3": -0.0337326201662585,
+        "mean_delta": 0.016857728470522,
+        "pooled_mde": 0.02243187227461758
+      },
+      "lead_scuff_frac": {
+        "band": 0.04449783010393904,
+        "base_seed_delta": 0.04449783010393904,
+        "delta_s2": 0.0287699763852044,
+        "delta_s3": -0.048088838313683935,
+        "mean_delta": -0.009659430964239768,
+        "pooled_mde": 0.013940442837524705
+      },
+      "lead_trail_asym": {
+        "band": 0.07043410837650299,
+        "base_seed_delta": 0.07043410837650299,
+        "delta_s2": -0.02738291025161743,
+        "delta_s3": -0.09667916595935822,
+        "mean_delta": -0.062031038105487823,
+        "pooled_mde": 0.015426077228039486
+      },
+      "lead_y": {
+        "band": 0.1424267590045929,
+        "base_seed_delta": 0.1424267590045929,
+        "delta_s2": -0.08683086931705475,
+        "delta_s3": 0.14740926027297974,
+        "mean_delta": 0.030289195477962494,
+        "pooled_mde": 0.012348465621471398
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.1294358693063259,
+        "base_seed_delta": 0.038896411657333374,
+        "delta_s2": 0.100425124168396,
+        "delta_s3": 0.1559884250164032,
+        "mean_delta": 0.1282067745923996,
+        "pooled_mde": 0.1294358693063259
+      },
+      "stance_stroke": {
+        "band": 0.0141989525873214,
+        "base_seed_delta": 0.0141989525873214,
+        "delta_s2": -0.018641335424035788,
+        "delta_s3": 0.013009022688493133,
+        "mean_delta": -0.0028161563677713275,
+        "pooled_mde": 0.00518472423427738
+      },
+      "stride_along": {
+        "band": 0.04136350502169629,
+        "base_seed_delta": 0.04136350502169629,
+        "delta_s2": -0.03985180746105481,
+        "delta_s3": 0.09240347293143947,
+        "mean_delta": 0.02627583273519233,
+        "pooled_mde": 0.009411785454825423
+      },
+      "stroke_per_s": {
+        "band": 0.044092709683763956,
+        "base_seed_delta": 0.044092709683763956,
+        "delta_s2": -0.0068082778058538435,
+        "delta_s3": 0.08219885608164143,
+        "mean_delta": 0.037695289137893793,
+        "pooled_mde": 0.024152606411862978
+      },
+      "stroke_share": {
+        "band": 0.1200210452079773,
+        "base_seed_delta": 0.1200210452079773,
+        "delta_s2": -0.196577787399292,
+        "delta_s3": 0.09759822487831116,
+        "mean_delta": -0.04948978126049042,
+        "pooled_mde": 0.0723407911136746
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.07459691166877747,
+        "base_seed_delta": 0.07459691166877747,
+        "delta_s2": -0.10831540822982788,
+        "delta_s3": 0.05993691086769104,
+        "mean_delta": -0.02418924868106842,
+        "pooled_mde": 0.0074559545144438685
+      }
+    },
+    "move_turn/r": {
+      "body_offset": {
+        "band": 0.009930839762091637,
+        "base_seed_delta": 0.009930839762091637,
+        "delta_s2": 0.01600899174809456,
+        "delta_s3": -0.00400511734187603,
+        "mean_delta": 0.006001937203109264,
+        "pooled_mde": 0.009868179971817872
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": 0.21097905606076284,
+        "base_seed_delta": 0.21097905606076284,
+        "delta_s2": 0.19655733523128183,
+        "delta_s3": -0.21249166689207877,
+        "mean_delta": -0.00796716583039847,
+        "pooled_mde": 0.02965120344952395
+      },
+      "knee_cap_trail": {
+        "band": 0.04261572986620232,
+        "base_seed_delta": 0.04261572986620232,
+        "delta_s2": 0.0668702356882579,
+        "delta_s3": -0.03784297282504867,
+        "mean_delta": 0.014513631431604612,
+        "pooled_mde": 0.024448003181361075
+      },
+      "lead_scuff_frac": {
+        "band": 0.03039381695545701,
+        "base_seed_delta": 0.03039381695545701,
+        "delta_s2": 0.017953108810033258,
+        "delta_s3": -0.03024784394262181,
+        "mean_delta": -0.006147367566294276,
+        "pooled_mde": 0.013113551765247849
+      },
+      "lead_trail_asym": {
+        "band": 0.08736974000930786,
+        "base_seed_delta": 0.08736974000930786,
+        "delta_s2": -0.01489153504371643,
+        "delta_s3": -0.11418145895004272,
+        "mean_delta": -0.06453649699687958,
+        "pooled_mde": 0.015466764196753496
+      },
+      "lead_y": {
+        "band": 0.15025073289871216,
+        "base_seed_delta": 0.15025073289871216,
+        "delta_s2": -0.09489457309246063,
+        "delta_s3": 0.15795493125915527,
+        "mean_delta": 0.03153017908334732,
+        "pooled_mde": 0.010532850306481122
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.3253951668739319,
+        "base_seed_delta": 0.3253951668739319,
+        "delta_s2": -0.19765549898147583,
+        "delta_s3": 0.28060439229011536,
+        "mean_delta": 0.04147444665431976,
+        "pooled_mde": 0.15059436857700345
+      },
+      "stance_stroke": {
+        "band": 0.005081515787605893,
+        "base_seed_delta": 0.002151063410565257,
+        "delta_s2": -0.007129104109480977,
+        "delta_s3": 0.009037439711391926,
+        "mean_delta": 0.0009541678009554744,
+        "pooled_mde": 0.005081515787605893
+      },
+      "stride_along": {
+        "band": 0.018445837661135736,
+        "base_seed_delta": 0.018445837661135736,
+        "delta_s2": -0.025119491470993214,
+        "delta_s3": 0.08025854600682307,
+        "mean_delta": 0.02756952726791493,
+        "pooled_mde": 0.00939160680722478
+      },
+      "stroke_per_s": {
+        "band": 0.04229767124560209,
+        "base_seed_delta": 0.04229767124560209,
+        "delta_s2": 0.03171268375012405,
+        "delta_s3": 0.025844147612750834,
+        "mean_delta": 0.028778415681437443,
+        "pooled_mde": 0.02820436697809632
+      },
+      "stroke_share": {
+        "band": 0.06481940150260924,
+        "base_seed_delta": 0.00272977352142334,
+        "delta_s2": -0.13429367542266846,
+        "delta_s3": 0.016924381256103516,
+        "mean_delta": -0.05868464708328247,
+        "pooled_mde": 0.06481940150260924
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.06827133893966675,
+        "base_seed_delta": 0.06827133893966675,
+        "delta_s2": -0.10601668059825897,
+        "delta_s3": 0.04894620180130005,
+        "mean_delta": -0.02853523939847946,
+        "pooled_mde": 0.00732461083680391
+      }
+    },
+    "side": {
+      "body_offset": {
+        "band": 0.025507494807243347,
+        "bar": -0.05,
+        "base_seed_delta": 0.025507494807243347,
+        "delta_s2": 0.0703066810965538,
+        "delta_s3": -0.025620251893997192,
+        "mean_delta": 0.022343214601278305,
+        "pooled_mde": 0.004072283441200851,
+        "verdict": "TIE"
+      },
+      "centring_per_s": {
+        "band": 0.06986206769943237,
+        "base_seed_delta": 0.06986206769943237,
+        "delta_s2": -0.18922759592533112,
+        "delta_s3": 0.08133631944656372,
+        "mean_delta": -0.0539456382393837,
+        "pooled_mde": 0.017453822866082186
+      },
+      "knee_cap_lead": {
+        "band": 0.030082435133320984,
+        "base_seed_delta": 0.030082435133320984,
+        "delta_s2": -0.031024371900146397,
+        "delta_s3": -0.09432758934794166,
+        "mean_delta": -0.06267598062404403,
+        "pooled_mde": 0.010883432277081304
+      },
+      "knee_cap_trail": {
+        "band": 0.06623271182933227,
+        "base_seed_delta": 0.06623271182933227,
+        "delta_s2": -0.09215060140775913,
+        "delta_s3": 0.04150827292830572,
+        "mean_delta": -0.025321164239726704,
+        "pooled_mde": 0.0122175713332109
+      },
+      "lead_scuff_frac": {
+        "band": 0.037754673591529064,
+        "base_seed_delta": 0.037754673591529064,
+        "delta_s2": -0.04986377910087125,
+        "delta_s3": 0.02176539145204659,
+        "mean_delta": -0.014049193824412332,
+        "pooled_mde": 0.00745262033947156
+      },
+      "lead_trail_asym": {
+        "band": 0.036942750215530396,
+        "base_seed_delta": 0.036942750215530396,
+        "delta_s2": 0.11525774002075195,
+        "delta_s3": -0.0492267906665802,
+        "mean_delta": 0.033015474677085876,
+        "pooled_mde": 0.00779961887747049
+      },
+      "lead_y": {
+        "band": 0.04128408432006836,
+        "base_seed_delta": 0.04128408432006836,
+        "delta_s2": -0.09025132656097412,
+        "delta_s3": 0.04727649688720703,
+        "mean_delta": -0.021487414836883545,
+        "pooled_mde": 0.005713784508407113
+      },
+      "n_pairs_s2": 200,
+      "n_pairs_s3": 200,
+      "slip_ratio": {
+        "band": 0.44611334800720215,
+        "base_seed_delta": 0.44611334800720215,
+        "delta_s2": -0.22868281602859497,
+        "delta_s3": 0.3508633077144623,
+        "mean_delta": 0.061090245842933655,
+        "pooled_mde": 0.08974360097199675
+      },
+      "stance_stroke": {
+        "band": 0.0033702393993735313,
+        "bar": 0.01,
+        "base_seed_delta": 0.0033702393993735313,
+        "delta_s2": -0.008475936949253082,
+        "delta_s3": 0.004658379126340151,
+        "mean_delta": -0.0019087789114564657,
+        "pooled_mde": 0.0020451750257052463,
+        "verdict": "TIE"
+      },
+      "stride_along": {
+        "band": 0.0022093592248536654,
+        "bar": 0.02,
+        "base_seed_delta": 0.0010350198280159734,
+        "delta_s2": -0.00043685894272557646,
+        "delta_s3": -0.0009240446579742712,
+        "mean_delta": -0.0006804518003499238,
+        "pooled_mde": 0.0022093592248536654,
+        "verdict": "TIE"
+      },
+      "stroke_per_s": {
+        "band": 0.009051168584793426,
+        "base_seed_delta": 0.003424616182406387,
+        "delta_s2": -0.004106874022978907,
+        "delta_s3": -0.015375269626472315,
+        "mean_delta": -0.009741071824725611,
+        "pooled_mde": 0.009051168584793426
+      },
+      "stroke_share": {
+        "band": 0.014975699968636033,
+        "base_seed_delta": 0.003240644931793213,
+        "delta_s2": -0.09814849495887756,
+        "delta_s3": 0.031266629695892334,
+        "mean_delta": -0.033440932631492615,
+        "pooled_mde": 0.014975699968636033
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.004081275314092633,
+        "base_seed_delta": 0.0029349327087402344,
+        "delta_s2": 0.026353180408477783,
+        "delta_s3": -0.000823974609375,
+        "mean_delta": 0.012764602899551392,
+        "pooled_mde": 0.004081275314092633
+      }
+    },
+    "side/l": {
+      "body_offset": {
+        "band": 0.024149984121322632,
+        "bar": -0.05,
+        "base_seed_delta": 0.024149984121322632,
+        "delta_s2": 0.06800413131713867,
+        "delta_s3": -0.02499278634786606,
+        "mean_delta": 0.021505672484636307,
+        "pooled_mde": 0.006490978924557564,
+        "verdict": "TIE"
+      },
+      "centring_per_s": {
+        "band": 0.07064563035964966,
+        "base_seed_delta": 0.07064563035964966,
+        "delta_s2": -0.17476293444633484,
+        "delta_s3": 0.09170618653297424,
+        "mean_delta": -0.0415283739566803,
+        "pooled_mde": 0.028937619179487215
+      },
+      "knee_cap_lead": {
+        "band": 0.029755242987764552,
+        "base_seed_delta": 0.029755242987764552,
+        "delta_s2": -0.028275612851148102,
+        "delta_s3": -0.08591612401190235,
+        "mean_delta": -0.057095868431525226,
+        "pooled_mde": 0.01438836648531542
+      },
+      "knee_cap_trail": {
+        "band": 0.06951813477642782,
+        "base_seed_delta": 0.06951813477642782,
+        "delta_s2": -0.08043978031602911,
+        "delta_s3": 0.058498104489665664,
+        "mean_delta": -0.010970837913181722,
+        "pooled_mde": 0.012525270366152684
+      },
+      "lead_scuff_frac": {
+        "band": 0.04167739949844579,
+        "base_seed_delta": 0.04167739949844579,
+        "delta_s2": -0.04609681472624677,
+        "delta_s3": 0.03251909115783347,
+        "mean_delta": -0.006788861784206651,
+        "pooled_mde": 0.012044722596841148
+      },
+      "lead_trail_asym": {
+        "band": 0.036981672048568726,
+        "base_seed_delta": 0.036981672048568726,
+        "delta_s2": 0.11484813690185547,
+        "delta_s3": -0.04706215858459473,
+        "mean_delta": 0.03389298915863037,
+        "pooled_mde": 0.013961211964488027
+      },
+      "lead_y": {
+        "band": 0.044176578521728516,
+        "base_seed_delta": 0.044176578521728516,
+        "delta_s2": -0.09101572632789612,
+        "delta_s3": 0.04276248812675476,
+        "mean_delta": -0.02412661910057068,
+        "pooled_mde": 0.006522670388221741
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.4716845452785492,
+        "base_seed_delta": 0.4716845452785492,
+        "delta_s2": -0.2993128001689911,
+        "delta_s3": 0.4856970012187958,
+        "mean_delta": 0.09319210052490234,
+        "pooled_mde": 0.1256742477416992
+      },
+      "stance_stroke": {
+        "band": 0.00246765092597343,
+        "bar": 0.01,
+        "base_seed_delta": 0.001806523185223341,
+        "delta_s2": -0.005967829842120409,
+        "delta_s3": 0.0038536610081791878,
+        "mean_delta": -0.0010570844169706106,
+        "pooled_mde": 0.00246765092597343,
+        "verdict": "TIE"
+      },
+      "stride_along": {
+        "band": 0.0030825359019210586,
+        "bar": 0.02,
+        "base_seed_delta": 0.0008122035508036501,
+        "delta_s2": 0.0015442808032460897,
+        "delta_s3": -0.002347622452090678,
+        "mean_delta": -0.0004016708244222941,
+        "pooled_mde": 0.0030825359019210586,
+        "verdict": "TIE"
+      },
+      "stroke_per_s": {
+        "band": 0.010455829517166025,
+        "base_seed_delta": 0.00887160852741456,
+        "delta_s2": 0.00034554408547657345,
+        "delta_s3": -0.015590870532398882,
+        "mean_delta": -0.007622663223461154,
+        "pooled_mde": 0.010455829517166025
+      },
+      "stroke_share": {
+        "band": 0.017491524945944543,
+        "base_seed_delta": 0.0028538107872009277,
+        "delta_s2": -0.09137827157974243,
+        "delta_s3": 0.03494530916213989,
+        "mean_delta": -0.02821648120880127,
+        "pooled_mde": 0.017491524945944543
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.006695769354701042,
+        "base_seed_delta": 0.0061342716217041016,
+        "delta_s2": 0.02104884386062622,
+        "delta_s3": 0.001888275146484375,
+        "mean_delta": 0.011468559503555298,
+        "pooled_mde": 0.006695769354701042
+      }
+    },
+    "side/r": {
+      "body_offset": {
+        "band": 0.026620060205459595,
+        "bar": -0.05,
+        "base_seed_delta": 0.026620060205459595,
+        "delta_s2": 0.07199329882860184,
+        "delta_s3": -0.02560575306415558,
+        "mean_delta": 0.02319377288222313,
+        "pooled_mde": 0.00526003846898675,
+        "verdict": "TIE"
+      },
+      "centring_per_s": {
+        "band": 0.0687306821346283,
+        "base_seed_delta": 0.0687306821346283,
+        "delta_s2": -0.20050197839736938,
+        "delta_s3": 0.08001822233200073,
+        "mean_delta": -0.060241878032684326,
+        "pooled_mde": 0.02642663158476352
+      },
+      "knee_cap_lead": {
+        "band": 0.03407238620951958,
+        "base_seed_delta": 0.03407238620951958,
+        "delta_s2": -0.035055257896919656,
+        "delta_s3": -0.10220411140511987,
+        "mean_delta": -0.06862968465101976,
+        "pooled_mde": 0.017884420375288375
+      },
+      "knee_cap_trail": {
+        "band": 0.0712689353229699,
+        "base_seed_delta": 0.0712689353229699,
+        "delta_s2": -0.11322796447107464,
+        "delta_s3": 0.026144034012594353,
+        "mean_delta": -0.04354196522924014,
+        "pooled_mde": 0.017322202112725407
+      },
+      "lead_scuff_frac": {
+        "band": 0.03244273216281107,
+        "base_seed_delta": 0.03244273216281107,
+        "delta_s2": -0.0537635688080193,
+        "delta_s3": 0.011479406396313063,
+        "mean_delta": -0.02114208120585312,
+        "pooled_mde": 0.01109332060904761
+      },
+      "lead_trail_asym": {
+        "band": 0.033699214458465576,
+        "base_seed_delta": 0.033699214458465576,
+        "delta_s2": 0.11525774002075195,
+        "delta_s3": -0.04896801710128784,
+        "mean_delta": 0.033144861459732056,
+        "pooled_mde": 0.011099226400256148
+      },
+      "lead_y": {
+        "band": 0.03652381896972656,
+        "base_seed_delta": 0.03652381896972656,
+        "delta_s2": -0.08745023608207703,
+        "delta_s3": 0.05224883556365967,
+        "mean_delta": -0.01760070025920868,
+        "pooled_mde": 0.007467838004231444
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.3743266761302948,
+        "base_seed_delta": 0.3743266761302948,
+        "delta_s2": -0.14598065614700317,
+        "delta_s3": 0.28040841221809387,
+        "mean_delta": 0.06721387803554535,
+        "pooled_mde": 0.1266718559898435
+      },
+      "stance_stroke": {
+        "band": 0.0053719934076070786,
+        "bar": 0.01,
+        "base_seed_delta": 0.0053719934076070786,
+        "delta_s2": -0.012304543517529964,
+        "delta_s3": 0.006389171816408634,
+        "mean_delta": -0.002957685850560665,
+        "pooled_mde": 0.0030556428740965195,
+        "verdict": "TIE"
+      },
+      "stride_along": {
+        "band": 0.0028309116512864785,
+        "bar": 0.02,
+        "base_seed_delta": 0.0012578361052283382,
+        "delta_s2": -0.002417998688697312,
+        "delta_s3": 0.0004995331361421357,
+        "mean_delta": -0.0009592327762775882,
+        "pooled_mde": 0.0028309116512864785,
+        "verdict": "TIE"
+      },
+      "stroke_per_s": {
+        "band": 0.012822544986998101,
+        "base_seed_delta": 0.0033235017936303624,
+        "delta_s2": -0.009281827452404245,
+        "delta_s3": -0.01637549131077279,
+        "mean_delta": -0.012828659381588517,
+        "pooled_mde": 0.012822544986998101
+      },
+      "stroke_share": {
+        "band": 0.02688865046948194,
+        "base_seed_delta": 0.0015134811401367188,
+        "delta_s2": -0.1132790595293045,
+        "delta_s3": 0.017139703035354614,
+        "mean_delta": -0.048069678246974945,
+        "pooled_mde": 0.02688865046948194
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": 0.005640580132603643,
+        "base_seed_delta": 0.003023862838745117,
+        "delta_s2": 0.028976023197174072,
+        "delta_s3": -0.00017774105072021484,
+        "mean_delta": 0.014399141073226929,
+        "pooled_mde": 0.005640580132603643
+      }
+    },
+    "stand": {
+      "body_offset": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "knee_cap_trail": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_scuff_frac": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_trail_asym": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "stance_stroke": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "stride_along": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "stroke_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "stroke_share": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      }
+    },
+    "turn": {
+      "body_offset": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "knee_cap_trail": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_scuff_frac": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_trail_asym": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "n_pairs_s2": 200,
+      "n_pairs_s3": 200,
+      "slip_ratio": {
+        "band": 0.32390835881233215,
+        "base_seed_delta": 0.32390835881233215,
+        "delta_s2": 0.05306205153465271,
+        "delta_s3": 0.7475403249263763,
+        "mean_delta": 0.4003011882305145,
+        "pooled_mde": 0.05077078887261449
+      },
+      "stance_stroke": {
+        "band": 0.007210230454802513,
+        "base_seed_delta": 0.007210230454802513,
+        "delta_s2": -0.02891800133511424,
+        "delta_s3": -0.01132837263867259,
+        "mean_delta": -0.020123186986893415,
+        "pooled_mde": 0.0029378695631748965
+      },
+      "stride_along": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "stroke_per_s": {
+        "band": 0.08005870604558504,
+        "base_seed_delta": 0.08005870604558504,
+        "delta_s2": -0.026477202908806008,
+        "delta_s3": -0.174453615707995,
+        "mean_delta": -0.1004654093084005,
+        "pooled_mde": 0.016434078364397503
+      },
+      "stroke_share": {
+        "band": 0.03543339595198631,
+        "base_seed_delta": 0.0016255378723144531,
+        "delta_s2": -0.0466228723526001,
+        "delta_s3": -0.19060468673706055,
+        "mean_delta": -0.11861377954483032,
+        "pooled_mde": 0.03543339595198631
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      }
+    },
+    "turn/l": {
+      "body_offset": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "knee_cap_trail": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_scuff_frac": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_trail_asym": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.3149355947971344,
+        "base_seed_delta": 0.3149355947971344,
+        "delta_s2": 0.07098007202148438,
+        "delta_s3": 0.7475798428058624,
+        "mean_delta": 0.4092799574136734,
+        "pooled_mde": 0.06202877508476379
+      },
+      "stance_stroke": {
+        "band": 0.010202010162174702,
+        "base_seed_delta": 0.010202010162174702,
+        "delta_s2": -0.030239364132285118,
+        "delta_s3": -0.009115303866565228,
+        "mean_delta": -0.019677333999425173,
+        "pooled_mde": 0.004145951454120221
+      },
+      "stride_along": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "stroke_per_s": {
+        "band": 0.08279206757119878,
+        "base_seed_delta": 0.08279206757119878,
+        "delta_s2": -0.02896336258434859,
+        "delta_s3": -0.17980112404119772,
+        "mean_delta": -0.10438224331277315,
+        "pooled_mde": 0.026382988417192006
+      },
+      "stroke_share": {
+        "band": 0.04223091062158342,
+        "base_seed_delta": 0.011285096406936646,
+        "delta_s2": 0.008959859609603882,
+        "delta_s3": -0.16570055484771729,
+        "mean_delta": -0.0783703476190567,
+        "pooled_mde": 0.04223091062158342
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      }
+    },
+    "turn/r": {
+      "body_offset": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "centring_per_s": {
+        "band": 0.0,
+        "base_seed_delta": 0.0,
+        "delta_s2": 0.0,
+        "delta_s3": 0.0,
+        "mean_delta": 0.0,
+        "pooled_mde": 0.0
+      },
+      "knee_cap_lead": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "knee_cap_trail": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_scuff_frac": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_trail_asym": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "lead_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "n_pairs_s2": 100,
+      "n_pairs_s3": 100,
+      "slip_ratio": {
+        "band": 0.3202226385474205,
+        "base_seed_delta": 0.3202226385474205,
+        "delta_s2": 0.036603063344955444,
+        "delta_s3": 0.7344803437590599,
+        "mean_delta": 0.3855417035520077,
+        "pooled_mde": 0.07111484087072312
+      },
+      "stance_stroke": {
+        "band": 0.004136537607701027,
+        "base_seed_delta": 0.002490440383553505,
+        "delta_s2": -0.0251134536229074,
+        "delta_s3": -0.014650066616013646,
+        "mean_delta": -0.019881760119460523,
+        "pooled_mde": 0.004136537607701027
+      },
+      "stride_along": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "stroke_per_s": {
+        "band": 0.06567778265975646,
+        "base_seed_delta": 0.06567778265975646,
+        "delta_s2": -0.027436468553456245,
+        "delta_s3": -0.16405703211525532,
+        "mean_delta": -0.09574675033435578,
+        "pooled_mde": 0.023807640240241415
+      },
+      "stroke_share": {
+        "band": 0.058563012816011874,
+        "base_seed_delta": 0.011293023824691772,
+        "delta_s2": -0.07621026039123535,
+        "delta_s3": -0.24086177349090576,
+        "mean_delta": -0.15853601694107056,
+        "pooled_mde": 0.058563012816011874
+      },
+      "track_per_s": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      },
+      "trail_y": {
+        "band": null,
+        "base_seed_delta": null,
+        "delta_s2": null,
+        "delta_s3": null,
+        "mean_delta": null,
+        "pooled_mde": null
+      }
+    }
+  }
+}

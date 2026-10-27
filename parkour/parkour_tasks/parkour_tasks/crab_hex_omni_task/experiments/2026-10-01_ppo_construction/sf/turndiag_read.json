@@ -1,0 +1,283 @@
+{
+ "reads": {
+  "band": {
+   "P1B6__B_t3_s16": {
+    "turn": {
+     "facing_closed": 0.5473285897435409,
+     "yaw_progress": 0.02126681298870646,
+     "heading_final": 0.22484494000673294
+    },
+    "turn_mid": {
+     "facing_closed": 0.057459409554532326,
+     "yaw_progress": 0.003144932387216007,
+     "heading_final": 0.949274092912674
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__B_t3_s17": {
+    "turn": {
+     "facing_closed": 0.6380434114444682,
+     "yaw_progress": 0.02627426396383574,
+     "heading_final": 0.1814294457435608
+    },
+    "turn_mid": {
+     "facing_closed": 0.15371803125083505,
+     "yaw_progress": 0.012703771205851807,
+     "heading_final": 0.8522608578205109
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__B_t3_s18": {
+    "turn": {
+     "facing_closed": 0.677799963930294,
+     "yaw_progress": 0.027754394886469528,
+     "heading_final": 0.1614290103316307
+    },
+    "turn_mid": {
+     "facing_closed": 0.2593312947249902,
+     "yaw_progress": 0.020976161243170283,
+     "heading_final": 0.7392460405826569
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__C0_t3_s16": {
+    "turn": {
+     "facing_closed": 0.801299580126809,
+     "yaw_progress": 0.04038650479010287,
+     "heading_final": 0.1020100861787796
+    },
+    "turn_mid": {
+     "facing_closed": 0.6127034813113494,
+     "yaw_progress": 0.0504154437461572,
+     "heading_final": 0.4012872576713562
+    },
+    "survival": {
+     "stand": 0.99,
+     "turn_l05": 0.99,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__C0_t3_s17": {
+    "turn": {
+     "facing_closed": 0.8276072362010831,
+     "yaw_progress": 0.046300697986403024,
+     "heading_final": 0.0816260389983654
+    },
+    "turn_mid": {
+     "facing_closed": 0.8125157879338087,
+     "yaw_progress": 0.0686489284091328,
+     "heading_final": 0.18610667437314987
+    },
+    "survival": {
+     "stand": 0.98,
+     "turn_l05": 1.0,
+     "turn_l10": 0.98,
+     "turn_r05": 0.99,
+     "turn_r10": 0.98
+    }
+   },
+   "P1B6__C0_t3_s18": {
+    "turn": {
+     "facing_closed": 0.7788562589636874,
+     "yaw_progress": 0.039991472483390404,
+     "heading_final": 0.11146273463964462
+    },
+    "turn_mid": {
+     "facing_closed": 0.7035028400113812,
+     "yaw_progress": 0.05926818915491215,
+     "heading_final": 0.2985910624265671
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 0.99
+    }
+   },
+   "FB6k__B_s16": {
+    "turn": {
+     "facing_closed": 0.3780374723788578,
+     "yaw_progress": 0.01610659218223494,
+     "heading_final": 0.3104671984910965
+    },
+    "turn_mid": {
+     "facing_closed": 0.5399681390288906,
+     "yaw_progress": 0.04499404055930427,
+     "heading_final": 0.4610596001148224
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "FB6k__B_s17": {
+    "turn": {
+     "facing_closed": 0.31618968371132566,
+     "yaw_progress": 0.01312899707610389,
+     "heading_final": 0.34512367844581604
+    },
+    "turn_mid": {
+     "facing_closed": 0.15549117827795755,
+     "yaw_progress": 0.012907571337066959,
+     "heading_final": 0.8415822982788086
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "FB6k__B_s18": {
+    "turn": {
+     "facing_closed": 0.5623059156447541,
+     "yaw_progress": 0.023480127878507725,
+     "heading_final": 0.2170373499393463
+    },
+    "turn_mid": {
+     "facing_closed": 0.2984085304426992,
+     "yaw_progress": 0.025131633813804607,
+     "heading_final": 0.7108182609081268
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 0.95,
+     "turn_r05": 1.0,
+     "turn_r10": 0.96
+    }
+   },
+   "W_p1b6": {
+    "turn": {
+     "facing_closed": 0.8547473758480408,
+     "yaw_progress": 0.06419791182118204,
+     "heading_final": 0.0706983171403408
+    },
+    "turn_mid": {
+     "facing_closed": 0.9202737950418385,
+     "yaw_progress": 0.09224629642840196,
+     "heading_final": 0.07851287722587585
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 0.99,
+     "turn_l10": 0.99,
+     "turn_r05": 1.0,
+     "turn_r10": 0.98
+    }
+   },
+   "P1B6__B_t3x_s16": null,
+   "P1B6__B_t3x_s17": null,
+   "P1B6__B_t3x_s18": null,
+   "P1B6__C0_t3x_s16": null,
+   "SF__B_rest_s16": null,
+   "SF__B_rest_s16_c6": null,
+   "SF__B_rest_s17": null,
+   "SF__B_rest_s17_c6": null,
+   "SF__B_rest_s18": null,
+   "SF__B_rest_s18_c6": null,
+   "SF__C0_rest_s16": null,
+   "SF__C0_rest_s16_c6": null,
+   "SF__C0_rest_s17": null,
+   "SF__C0_rest_s17_c6": null,
+   "SF__C0_rest_s18": null,
+   "SF__C0_rest_s18_c6": null
+  },
+  "sampled": {
+   "P1B6__B_t3_s16": {
+    "fwd_ratio": 0.9036801980525083,
+    "side_ratio": 0.5895089209812454,
+    "turn_facing_closed": 0.10681480198391746,
+    "turn_yaw_progress": 0.013541404912696939
+   },
+   "P1B6__B_t3_s17": {
+    "fwd_ratio": 0.8930698091355567,
+    "side_ratio": 0.5634280997869624,
+    "turn_facing_closed": 0.1649904476802192,
+    "turn_yaw_progress": 0.02128881183233413
+   },
+   "P1B6__B_t3_s18": {
+    "fwd_ratio": 0.8380853582460941,
+    "side_ratio": 0.7082454554192146,
+    "turn_facing_closed": 0.2031334362692217,
+    "turn_yaw_progress": 0.026248796515428694
+   },
+   "P1B6__C0_t3_s16": {
+    "fwd_ratio": 0.698640154644136,
+    "side_ratio": 0.5042342640730965,
+    "turn_facing_closed": 0.3773772259208932,
+    "turn_yaw_progress": 0.04910098077976727
+   }
+  },
+  "t3x": {
+   "P1B6__B_t3x_s16": null,
+   "P1B6__B_t3x_s17": null,
+   "P1B6__B_t3x_s18": null,
+   "P1B6__C0_t3x_s16": null
+  },
+  "c4": {
+   "SF__B_c4_s16": null,
+   "SF__B_c4_s17": null,
+   "SF__B_c4_s18": null,
+   "SF__C0_c4_s16": null,
+   "SF__C0_c4_s17": null,
+   "SF__C0_c4_s18": null
+  },
+  "sf": {
+   "SF__B_rest_s16": null,
+   "SF__B_rest_s17": null,
+   "SF__B_rest_s18": null,
+   "SF__C0_rest_s16": null,
+   "SF__C0_rest_s17": null,
+   "SF__C0_rest_s18": null
+  }
+ },
+ "rules": {
+  "t3x": {
+   "n": 0,
+   "artifacts": [],
+   "counted": [],
+   "reading": "INCOMPLETE",
+   "why": "missing: a t3x head missing or NA, in-band turn reads -- notify"
+  },
+  "c4": {
+   "stop": true,
+   "reading": "INCOMPLETE",
+   "why": "c4 reads missing or NA: seeds [16, 17, 18] -- stop and ask"
+  },
+  "c0_trigger": {
+   "run_c0": false,
+   "B_fast_fast_hands_c6x": 0,
+   "checks": "PENDING"
+  },
+  "final": {
+   "gate": "PENDING",
+   "why": "side-first B c6/c6x reads missing or NA"
+  }
+ }
+}

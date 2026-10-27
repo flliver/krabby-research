@@ -1,0 +1,64 @@
+# Side-speed bisection, ANALYSIS.md section 4 step 1 (2026-09-30): the REVERSAL rows for the eval-time mirror
+# canonicalization test (eval_crab_hex_gait.py --canon cmd). A separate manifest so the shared scenarios_omni.yaml
+# (and every omni campaign's eval_sha) does not move.
+#
+# Plain `schedule:` rows (the legacy single-pass kind slow__omni uses, NOT a category suite): one 100-episode pass,
+# world frame, facing pinned at 0 so dir +pi/2 is body +y (lat_l, flag off) and dir -pi/2 is body -y (lat_r, flag on).
+#   rev_direct__omni: stand 2 s -> lat_l 8 s -> lat_r 8 s -> lat_l 8 s at 0.22 m/s (instant reversals)
+#   rev_pause__omni : the same with a 1-s stand before each reversal
+# Labels are unique per row (scoring keys holds by label). Prologue 1.5 s + schedule 26 / 28 s < episode 32 s.
+# Run by hand with the arm's own driver-eval env_vars (run_meta.env_vars of its side22_25__omni stamp), e.g.
+#   <python> .../eval_crab_hex_gait.py --headless --manifest <this file> --scenario rev_direct__omni \
+#     --checkpoint <model.pt> --canon cmd
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: rev_direct__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 32.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 2.0, label: stand}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l_1}
+      - {speed: 0.22, dir: -1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_r_2}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l_3}
+    notes: >-
+      Side reversal, no pause: 2-s stand, then left / right / left side-walking at 0.22 m/s, 8 s each, with an
+      instant command reversal at 10 s and 18 s into the schedule.
+
+  - id: rev_pause__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 32.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 2.0, label: stand}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l_1}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 1.0, label: pause_1}
+      - {speed: 0.22, dir: -1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_r_2}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 1.0, label: pause_2}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l_3}
+    notes: >-
+      Side reversal with a pause: as rev_direct__omni but a 1-s commanded stand before each reversal.

@@ -1,0 +1,1383 @@
+{
+  "cand_spec": "S_f",
+  "chosen": "ADOPT",
+  "eval_sha": "36e5a8af7000f2c3351f693b046257e6d7fba1547077cc2efb6feb00e5a842df",
+  "evidence": {
+    "anchor": "2026-09-26_stroke_formation baseline B_f X01/X02 (reference scoring: no adoption, the reused controls are the anchor)",
+    "anchored_drift": {
+      "R": {
+        "F": 1.2559084954675321,
+        "LEN": 1.5514989022073795,
+        "T": 0.985116988821575
+      },
+      "anchor_seed2": "own s2 screen",
+      "pooled": true,
+      "verdict": "OK",
+      "why": "no block or guard below the anchor",
+      "worse": [],
+      "z": {
+        "F": 2.419739217298204,
+        "LEN": 1.2421198325097085,
+        "T": 2.056714719589111
+      }
+    },
+    "category_notes": {},
+    "decisive": [
+      "stand",
+      "fwd",
+      "side",
+      "back",
+      "turn"
+    ],
+    "levels": {
+      "blocks": {
+        "F": 0.95,
+        "LEN": 0.95,
+        "T": 0.95
+      },
+      "guards": 0.99,
+      "pooled_R": {
+        "F": 1.2559084954675321,
+        "LEN": 1.5514989022073795,
+        "T": 0.985116988821575
+      }
+    },
+    "missing": {
+      "blocks": [],
+      "guards": []
+    },
+    "na_blocks": [],
+    "per_seed": {
+      "s2": {
+        "blocks": {
+          "F": {
+            "R": 1.2559084954675321,
+            "class": "TIE",
+            "z": -0.013903086316520846
+          },
+          "LEN": {
+            "R": 1.5514989022073795,
+            "class": "TIE",
+            "z": -1.4186154036379215
+          },
+          "T": {
+            "R": 0.985116988821575,
+            "class": "TIE",
+            "z": 0.24887983891680257
+          }
+        },
+        "formula": "sign(\u03a3 z_b/R_b)",
+        "score": -0.6727817972017416,
+        "sign": -1
+      },
+      "s3": {
+        "blocks": {
+          "F": {
+            "R": 1.2559084954675321,
+            "class": "BETTER",
+            "z": 4.853381520912929
+          },
+          "LEN": {
+            "R": 1.5514989022073795,
+            "class": "BETTER",
+            "z": 3.9028550686573387
+          },
+          "T": {
+            "R": 0.985116988821575,
+            "class": "BETTER",
+            "z": 3.8645496002614195
+          }
+        },
+        "formula": "sign(\u03a3 z_b/R_b)",
+        "score": 10.302911884060457,
+        "sign": 1
+      }
+    },
+    "pooled": {
+      "absolute_units": false,
+      "blocks": {
+        "F": {
+          "R": 1.2559084954675321,
+          "R_eval": 0.9655309511328086,
+          "R_seed": 1.2559084954675321,
+          "block": "F",
+          "categories": [
+            "turn"
+          ],
+          "class": "BETTER",
+          "k": 2,
+          "level": 0.95,
+          "missing": [],
+          "pooled": true,
+          "resolution_missing": false,
+          "rows": [
+            {
+              "R_eval": 0.049717408672830365,
+              "R_seed": 0.05523484103753845,
+              "a": 0.7164710346135519,
+              "a2": 0.3940952113130162,
+              "b": 0.4669925747635602,
+              "b2": 0.41175773372602176,
+              "delta": 0.11590796871849307,
+              "delta_s2": -0.017662522413005532,
+              "delta_s3": 0.24947845984999167,
+              "level": 0.95,
+              "metric": "cat.turn.facing_closed",
+              "missing": null,
+              "z": 2.3313356792433675
+            },
+            {
+              "R_eval": 0.006605850985229938,
+              "R_seed": 0.009253747740986001,
+              "a": 0.09345010421127276,
+              "a2": 0.05538572189058565,
+              "b": 0.06247636962987599,
+              "b2": 0.05322262188888999,
+              "delta": 0.016568417291546216,
+              "delta_s2": 0.0021631000016956656,
+              "delta_s3": 0.030973734581396767,
+              "level": 0.95,
+              "metric": "cat.turn.yaw_progress",
+              "missing": null,
+              "z": 2.508142755353041
+            }
+          ],
+          "used": [
+            "cat.turn.facing_closed",
+            "cat.turn.yaw_progress"
+          ],
+          "z": 2.419739217298204
+        },
+        "LEN": {
+          "R": 1.5514989022073795,
+          "R_eval": 1.0,
+          "R_seed": 1.5514989022073795,
+          "block": "LEN",
+          "categories": [
+            "side"
+          ],
+          "class": "TIE",
+          "k": 1,
+          "level": 0.95,
+          "missing": [],
+          "pooled": true,
+          "resolution_missing": false,
+          "rows": [
+            {
+              "R_eval": 1.3766856356730623,
+              "R_seed": 2.1359262524314246,
+              "a": 27.017318068010937,
+              "a2": 32.20738377544674,
+              "b": 32.3903225791453,
+              "b2": 30.254396326713874,
+              "delta": 1.7100085312007458,
+              "delta_s2": -1.9529874487328698,
+              "delta_s3": 5.373004511134361,
+              "level": 0.95,
+              "lower_is_better": true,
+              "metric": "cat.side.steps_per_m",
+              "missing": null,
+              "z": 1.2421198325097085
+            }
+          ],
+          "used": [
+            "cat.side.steps_per_m"
+          ],
+          "z": 1.2421198325097085
+        },
+        "T": {
+          "R": 0.985116988821575,
+          "R_eval": 0.5596112574497434,
+          "R_seed": 0.985116988821575,
+          "block": "T",
+          "categories": [
+            "fwd",
+            "side",
+            "back"
+          ],
+          "class": "BETTER",
+          "k": 3,
+          "level": 0.95,
+          "missing": [],
+          "pooled": true,
+          "resolution_missing": false,
+          "rows": [
+            {
+              "R_eval": 0.04100570989921172,
+              "R_seed": 0.06805286576325353,
+              "a": 0.6617888253858384,
+              "a2": 0.5650330343764417,
+              "b": 0.4741682760642807,
+              "b2": 0.5422211418275342,
+              "delta": 0.10521622093523259,
+              "delta_s2": 0.022811892548907475,
+              "delta_s3": 0.1876205493215577,
+              "level": 0.95,
+              "metric": "cat.fwd.ratio",
+              "missing": null,
+              "z": 2.5658919500197515
+            },
+            {
+              "R_eval": 0.017928643218214097,
+              "R_seed": 0.019631190128418297,
+              "a": 0.5389076288033237,
+              "a2": 0.4683575869737648,
+              "b": 0.45761107220076847,
+              "b2": 0.47724226232918676,
+              "delta": 0.03620594062356661,
+              "delta_s2": -0.008884675355421978,
+              "delta_s3": 0.08129655660255519,
+              "level": 0.95,
+              "metric": "cat.side.ratio",
+              "missing": null,
+              "z": 2.0194467692225704
+            },
+            {
+              "R_eval": 0.05257237576823355,
+              "R_seed": 0.010556201926316233,
+              "a": 0.6639768444362544,
+              "a2": 0.5800164867982929,
+              "b": 0.5334015775678661,
+              "b2": 0.5439577794941823,
+              "delta": 0.0833169870862494,
+              "delta_s2": 0.03605870730411054,
+              "delta_s3": 0.13057526686838827,
+              "level": 0.95,
+              "metric": "cat.back.ratio",
+              "missing": null,
+              "z": 1.5848054395250109
+            }
+          ],
+          "used": [
+            "cat.fwd.ratio",
+            "cat.side.ratio",
+            "cat.back.ratio"
+          ],
+          "z": 2.056714719589111
+        }
+      },
+      "category_notes": {},
+      "decisive": [
+        "stand",
+        "fwd",
+        "side",
+        "back",
+        "turn"
+      ],
+      "guards": {
+        "level": 0.99,
+        "missing": [],
+        "rows": [
+          {
+            "R": 0.050701576452323587,
+            "R_binom": 0.07170285705257237,
+            "R_eval": 0.030000000000000027,
+            "R_seed": 0.029999999999999916,
+            "a": 0.99,
+            "a2": 0.99,
+            "above_R": false,
+            "b": 0.93,
+            "b2": 0.96,
+            "binomial": {
+              "R_binom": 0.07170285705257237,
+              "factor": 0.7071067811865475,
+              "n_c": 100.0,
+              "p_bar": 0.9675
+            },
+            "class": "TIE",
+            "delta": 0.044999999999999984,
+            "delta_s2": 0.030000000000000027,
+            "delta_s3": 0.05999999999999994,
+            "level": 0.99,
+            "metric": "cat.stand.survival",
+            "missing": null,
+            "z": 1.4999999999999982
+          },
+          {
+            "R": 0.3336586953759785,
+            "R_eval": 0.3125,
+            "R_seed": 0.25,
+            "a": 2.9166666666666665,
+            "a2": 3.4166666666666665,
+            "above_R": false,
+            "b": 3.0833333333333335,
+            "b2": 3.3333333333333335,
+            "class": "TIE",
+            "delta": 0.04166666666666696,
+            "delta_s2": -0.08333333333333304,
+            "delta_s3": 0.16666666666666696,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.stand.steps_per_s",
+            "missing": null,
+            "z": 0.13333333333333428
+          },
+          {
+            "R": 0.42714166268347087,
+            "R_binom": 0.13159810857065496,
+            "R_eval": 0.11000000000000004,
+            "R_seed": 0.42000000000000004,
+            "a": 0.96,
+            "a2": 0.84,
+            "above_R": false,
+            "b": 0.49,
+            "b2": 0.91,
+            "binomial": {
+              "R_binom": 0.13159810857065496,
+              "factor": 0.7071067811865475,
+              "n_c": 100.0,
+              "p_bar": 0.8
+            },
+            "class": "TIE",
+            "delta": 0.19999999999999996,
+            "delta_s2": -0.07000000000000006,
+            "delta_s3": 0.47,
+            "level": 0.99,
+            "metric": "cat.fwd.survival",
+            "missing": null,
+            "z": 1.818181818181817
+          },
+          {
+            "R": 0.07695257505954314,
+            "R_eval": 0.05080366659411929,
+            "R_seed": 0.06805286576325353,
+            "a": 0.6617888253858384,
+            "a2": 0.5650330343764417,
+            "above_R": true,
+            "b": 0.4741682760642807,
+            "b2": 0.5422211418275342,
+            "class": "TIE",
+            "delta": 0.10521622093523259,
+            "delta_s2": 0.022811892548907475,
+            "delta_s3": 0.1876205493215577,
+            "level": 0.99,
+            "metric": "cat.fwd.ratio",
+            "missing": null,
+            "r_key": "cat.fwd.ratio@guard",
+            "z": 2.0710359702150267
+          },
+          {
+            "R": 0.038538934560172086,
+            "R_eval": 0.0073620144505028955,
+            "R_seed": 0.03818572833727962,
+            "a": 0.14381709293278008,
+            "a2": 0.14289813302735715,
+            "above_R": false,
+            "b": 0.1235971635499557,
+            "b2": 0.16178289188723532,
+            "class": "TIE",
+            "delta": -0.0006675852614731054,
+            "delta_s2": 0.01888475885987817,
+            "delta_s3": -0.02021992938282438,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.fwd.foot_slip",
+            "missing": null,
+            "z": -0.09067969996004327
+          },
+          {
+            "R": 4.701149922353048,
+            "R_eval": 1.9329655435517799,
+            "R_seed": 4.498069885646604,
+            "a": 19.824027351380593,
+            "a2": 25.326461032934684,
+            "above_R": false,
+            "b": 27.23624008756711,
+            "b2": 22.738170201920507,
+            "class": "TIE",
+            "delta": 2.4119609525861705,
+            "delta_s2": -2.5882908310141772,
+            "delta_s3": 7.412212736186518,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.fwd.steps_per_m",
+            "missing": null,
+            "z": 1.247803387200709
+          },
+          {
+            "R": 0.2123970338775944,
+            "R_binom": 0.0631122357491477,
+            "R_eval": 0.044999999999999984,
+            "R_seed": 0.20999999999999996,
+            "a": 0.99,
+            "a2": 0.96,
+            "above_R": false,
+            "b": 0.76,
+            "b2": 0.97,
+            "binomial": {
+              "R_binom": 0.0631122357491477,
+              "factor": 0.7071067811865475,
+              "n_c": 200.0,
+              "p_bar": 0.9199999999999999
+            },
+            "class": "TIE",
+            "delta": 0.10999999999999999,
+            "delta_s2": -0.010000000000000009,
+            "delta_s3": 0.22999999999999998,
+            "level": 0.99,
+            "metric": "cat.side.survival",
+            "missing": null,
+            "z": 2.444444444444445
+          },
+          {
+            "R": 0.024696891747423882,
+            "R_eval": 0.021192113444669265,
+            "R_seed": 0.019631190128418297,
+            "a": 0.5389076288033237,
+            "a2": 0.4683575869737648,
+            "above_R": true,
+            "b": 0.45761107220076847,
+            "b2": 0.47724226232918676,
+            "class": "TIE",
+            "delta": 0.03620594062356661,
+            "delta_s2": -0.008884675355421978,
+            "delta_s3": 0.08129655660255519,
+            "level": 0.99,
+            "metric": "cat.side.ratio",
+            "missing": null,
+            "r_key": "cat.side.ratio@guard",
+            "z": 1.7084629486387526
+          },
+          {
+            "R": 0.03921502820165425,
+            "R_eval": 0.005312637079588366,
+            "R_seed": 0.039034681764897605,
+            "a": 0.23198134289209274,
+            "a2": 0.21483065361056847,
+            "above_R": false,
+            "b": 0.1794266834848992,
+            "b2": 0.2184613652497968,
+            "class": "TIE",
+            "delta": -0.024461973883982593,
+            "delta_s2": 0.0036307116392283456,
+            "delta_s3": -0.05255465940719353,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.side.foot_slip",
+            "missing": null,
+            "z": -4.60448803814733
+          },
+          {
+            "R": 2.406783790123628,
+            "R_eval": 1.568711099327156,
+            "R_seed": 2.1359262524314246,
+            "a": 27.017318068010937,
+            "a2": 32.20738377544674,
+            "above_R": false,
+            "b": 32.3903225791453,
+            "b2": 30.254396326713874,
+            "class": "TIE",
+            "delta": 1.7100085312007458,
+            "delta_s2": -1.9529874487328698,
+            "delta_s3": 5.373004511134361,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.side.steps_per_m",
+            "missing": null,
+            "r_key": "cat.side.steps_per_m@guard",
+            "z": 1.090072309639547
+          },
+          {
+            "R": 0.4659533238426355,
+            "R_binom": 0.1235814148018841,
+            "R_eval": 0.10499999999999998,
+            "R_seed": 0.45999999999999996,
+            "a": 0.98,
+            "a2": 0.86,
+            "above_R": false,
+            "b": 0.51,
+            "b2": 0.97,
+            "binomial": {
+              "R_binom": 0.1235814148018841,
+              "factor": 0.7071067811865475,
+              "n_c": 100.0,
+              "p_bar": 0.8300000000000001
+            },
+            "class": "TIE",
+            "delta": 0.18,
+            "delta_s2": -0.10999999999999999,
+            "delta_s3": 0.47,
+            "level": 0.99,
+            "metric": "cat.back.survival",
+            "missing": null,
+            "z": 1.7142857142857144
+          },
+          {
+            "R": 0.0448669762371813,
+            "R_eval": 0.06167028713341018,
+            "R_seed": 0.010556201926316233,
+            "a": 0.6639768444362544,
+            "a2": 0.5800164867982929,
+            "above_R": true,
+            "b": 0.5334015775678661,
+            "b2": 0.5439577794941823,
+            "class": "TIE",
+            "delta": 0.0833169870862494,
+            "delta_s2": 0.03605870730411054,
+            "delta_s3": 0.13057526686838827,
+            "level": 0.99,
+            "metric": "cat.back.ratio",
+            "missing": null,
+            "r_key": "cat.back.ratio@guard",
+            "z": 1.351006959088926
+          },
+          {
+            "R": 0.029413376290616782,
+            "R_eval": 0.006572399341057614,
+            "R_seed": 0.029043906215663384,
+            "a": 0.14518440978395247,
+            "a2": 0.1432907964418209,
+            "above_R": false,
+            "b": 0.1267861593796799,
+            "b2": 0.1558300655953433,
+            "class": "TIE",
+            "delta": -0.002929490625375092,
+            "delta_s2": 0.012539269153522381,
+            "delta_s3": -0.018398250404272565,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.back.foot_slip",
+            "missing": null,
+            "z": -0.44572620642124366
+          },
+          {
+            "R": 4.291225825403093,
+            "R_eval": 2.395491641043314,
+            "R_seed": 3.9427692024073977,
+            "a": 21.441434160362235,
+            "a2": 27.28241759787726,
+            "above_R": false,
+            "b": 29.678651129564244,
+            "b2": 25.735881927156846,
+            "class": "TIE",
+            "delta": 3.345340649240798,
+            "delta_s2": -1.546535670720413,
+            "delta_s3": 8.23721696920201,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.back.steps_per_m",
+            "missing": null,
+            "z": 1.3965152672308196
+          },
+          {
+            "R": 0.06840733010796421,
+            "R_binom": 0.05984343388292253,
+            "R_eval": 0.057524999999999916,
+            "R_seed": 0.05499999999999994,
+            "a": 0.935,
+            "a2": 0.875,
+            "above_R": false,
+            "b": 0.925,
+            "b2": 0.98,
+            "binomial": {
+              "R_binom": 0.05984343388292253,
+              "factor": 0.7071067811865475,
+              "n_c": 200.0,
+              "p_bar": 0.9287500000000001
+            },
+            "class": "TIE",
+            "delta": -0.04749999999999999,
+            "delta_s2": -0.10499999999999998,
+            "delta_s3": 0.010000000000000009,
+            "level": 0.99,
+            "metric": "cat.turn.survival",
+            "missing": null,
+            "z": -0.8257279443720131
+          },
+          {
+            "R": 0.01935993385332167,
+            "R_eval": 0.003882522325820038,
+            "R_seed": 0.019164290986095595,
+            "a": 0.1192946355493319,
+            "a2": 0.11833538430131624,
+            "above_R": false,
+            "b": 0.10589669979367128,
+            "b2": 0.12506099077976687,
+            "class": "TIE",
+            "delta": -0.003336164638604991,
+            "delta_s2": 0.006725606478450635,
+            "delta_s3": -0.013397935755660617,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.turn.foot_slip",
+            "missing": null,
+            "z": -0.8592776444370737
+          },
+          {
+            "R": 3.738374259114112,
+            "R_eval": 4.40162075315814,
+            "R_seed": 2.0708233806606415,
+            "a": 37.49288388853233,
+            "a2": 67.09351069961879,
+            "above_R": true,
+            "b": 62.73051506226388,
+            "b2": 60.65969168160324,
+            "class": "TIE",
+            "delta": 9.401906077858001,
+            "delta_s2": -6.433819018015548,
+            "delta_s3": 25.23763117373155,
+            "level": 0.99,
+            "lower_is_better": true,
+            "metric": "cat.turn.steps_per_rad",
+            "missing": null,
+            "z": 2.1360100301944875
+          }
+        ],
+        "worse": []
+      },
+      "na_blocks": [],
+      "pooled": true,
+      "present": [
+        "stand",
+        "fwd",
+        "side",
+        "back",
+        "turn"
+      ],
+      "untrained": {
+        "base": [
+          "diag",
+          "move_turn"
+        ],
+        "candidate": [
+          "diag",
+          "move_turn"
+        ]
+      },
+      "watch": {
+        "cat.back.action_jitter": {
+          "a": 0.14437743914145762,
+          "b": 0.12671031379131048,
+          "note": null
+        },
+        "cat.back.cadence_ratio": {
+          "a": 1.0026342744380845,
+          "b": 1.0095325655186982,
+          "note": null
+        },
+        "cat.back.cam_work_per_m": {
+          "a": 1316.9979989813405,
+          "b": 1558.070489307988,
+          "note": null
+        },
+        "cat.back.clock_hz": {
+          "a": 0.3586283046033859,
+          "b": 0.3613848410911418,
+          "note": null
+        },
+        "cat.back.cross_track_ratio": {
+          "a": 0.029891251493780586,
+          "b": 0.037687428407612474,
+          "note": null
+        },
+        "cat.back.direction_error": {
+          "a": 0.04795163853807269,
+          "b": 0.06523834745767929,
+          "note": null
+        },
+        "cat.back.gait_hz": {
+          "a": 0.347900390625,
+          "b": 0.3997802734375,
+          "note": null
+        },
+        "cat.back.heading_final": {
+          "a": 0.10882285982370377,
+          "b": 0.14606887102127075,
+          "note": null
+        },
+        "cat.back.hz_speed_slope": {
+          "a": -1.1306225255205296,
+          "b": 2.1193903969140853,
+          "note": null
+        },
+        "cat.back.offset_R": {
+          "a": 0.9693682646936075,
+          "b": 0.8880399813557385,
+          "note": null
+        },
+        "cat.back.slip_per_m": {
+          "a": 3.0090889457659085,
+          "b": 2.7594485984140986,
+          "note": null
+        },
+        "cat.back.step_rate_hz": {
+          "a": 3.041666666666667,
+          "b": 3.5,
+          "note": null
+        },
+        "cat.back.support_feet": {
+          "a": 2.9025,
+          "b": 2.7066666666666666,
+          "note": null
+        },
+        "cat.back.swing_apex": {
+          "a": 0.1386057287454605,
+          "b": 0.10601119697093964,
+          "note": null
+        },
+        "cat.back.swings_per_m": {
+          "a": 40.93564720178469,
+          "b": 46.97785428189856,
+          "note": null
+        },
+        "cat.back.taps_per_m": {
+          "a": 20.073626980390536,
+          "b": 18.376690091263093,
+          "note": null
+        },
+        "cat.back.tripod": {
+          "a": 0.5816334721355761,
+          "b": 0.4168094492428284,
+          "note": null
+        },
+        "cat.back.work_per_m": {
+          "a": 2088.9635457923587,
+          "b": 2489.232442401605,
+          "note": null
+        },
+        "cat.diag.foot_slip": {
+          "a": 0.1922340948548762,
+          "b": 0.1456428078316806,
+          "note": "untrained"
+        },
+        "cat.diag.ratio": {
+          "a": 0.5406022450494702,
+          "b": 0.49460629802207307,
+          "note": "untrained"
+        },
+        "cat.diag.steps_per_m": {
+          "a": 25.34925254628339,
+          "b": 28.46405027485805,
+          "note": "untrained"
+        },
+        "cat.diag.survival": {
+          "a": 0.87,
+          "b": 0.57,
+          "note": "untrained"
+        },
+        "cat.fwd.action_jitter": {
+          "a": 0.14401540393139564,
+          "b": 0.12583834998429358,
+          "note": null
+        },
+        "cat.fwd.cadence_ratio": {
+          "a": 0.9982940522848929,
+          "b": 0.9999102323142589,
+          "note": null
+        },
+        "cat.fwd.cam_work_per_m": {
+          "a": 1127.3376461809137,
+          "b": 1472.004924668177,
+          "note": null
+        },
+        "cat.fwd.clock_hz": {
+          "a": 0.378184559139977,
+          "b": 0.3931673957687081,
+          "note": null
+        },
+        "cat.fwd.cross_track_ratio": {
+          "a": 0.028606570776750426,
+          "b": 0.04749880709008526,
+          "note": null
+        },
+        "cat.fwd.direction_error": {
+          "a": 0.038474654876950065,
+          "b": 0.09537239523508623,
+          "note": null
+        },
+        "cat.fwd.gait_hz": {
+          "a": 0.37841796875,
+          "b": 0.396728515625,
+          "note": null
+        },
+        "cat.fwd.heading_final": {
+          "a": 0.09714750200510025,
+          "b": 0.15282900631427765,
+          "note": null
+        },
+        "cat.fwd.hz_speed_slope": {
+          "a": -0.7519993064223277,
+          "b": -0.18243180444575646,
+          "note": null
+        },
+        "cat.fwd.offset_R": {
+          "a": 0.9863119591261565,
+          "b": 0.9308535744802598,
+          "note": null
+        },
+        "cat.fwd.slip_per_m": {
+          "a": 2.565260740149479,
+          "b": 2.7042779887548787,
+          "note": null
+        },
+        "cat.fwd.step_rate_hz": {
+          "a": 3.208333333333333,
+          "b": 3.5833333333333335,
+          "note": null
+        },
+        "cat.fwd.support_feet": {
+          "a": 2.9225000000000003,
+          "b": 2.7263969171483624,
+          "note": null
+        },
+        "cat.fwd.swing_apex": {
+          "a": 0.12804757058620453,
+          "b": 0.0972806066274643,
+          "note": null
+        },
+        "cat.fwd.swings_per_m": {
+          "a": 36.55728504161357,
+          "b": 45.783110585077964,
+          "note": null
+        },
+        "cat.fwd.taps_per_m": {
+          "a": 16.440492709842587,
+          "b": 18.465344282088402,
+          "note": null
+        },
+        "cat.fwd.tripod": {
+          "a": 0.5648227057789843,
+          "b": 0.37351145788436,
+          "note": null
+        },
+        "cat.fwd.work_per_m": {
+          "a": 1848.9382677757044,
+          "b": 2324.8400208834,
+          "note": null
+        },
+        "cat.move_turn.by_hand.l.ratio": {
+          "a": 0.4194574149113069,
+          "b": 0.37703536055299636,
+          "note": "untrained"
+        },
+        "cat.move_turn.by_hand.l.survival": {
+          "a": 0.75,
+          "b": 0.33,
+          "note": "untrained"
+        },
+        "cat.move_turn.by_hand.r.ratio": {
+          "a": 0.42022328017709326,
+          "b": 0.453528095242555,
+          "note": "untrained"
+        },
+        "cat.move_turn.by_hand.r.survival": {
+          "a": 0.83,
+          "b": 0.23,
+          "note": "untrained"
+        },
+        "cat.move_turn.ratio": {
+          "a": 0.4194574149113069,
+          "b": 0.4096506111480095,
+          "note": "untrained"
+        },
+        "cat.move_turn.survival": {
+          "a": 0.79,
+          "b": 0.28,
+          "note": "untrained"
+        },
+        "cat.side.action_jitter": {
+          "a": 0.12553816926065142,
+          "b": 0.12581407251158355,
+          "note": null
+        },
+        "cat.side.by_hand.l.foot_slip": {
+          "a": 0.23283997965431652,
+          "b": 0.17876013489889428,
+          "note": null
+        },
+        "cat.side.by_hand.l.ratio": {
+          "a": 0.5351156256992932,
+          "b": 0.4556984020368978,
+          "note": null
+        },
+        "cat.side.by_hand.l.steps_per_m": {
+          "a": 27.35655923237819,
+          "b": 33.311572437480194,
+          "note": null
+        },
+        "cat.side.by_hand.l.survival": {
+          "a": 0.99,
+          "b": 0.78,
+          "note": null
+        },
+        "cat.side.by_hand.r.foot_slip": {
+          "a": 0.2314646884567384,
+          "b": 0.1822912375723701,
+          "note": null
+        },
+        "cat.side.by_hand.r.ratio": {
+          "a": 0.5418854689733208,
+          "b": 0.46469745222793124,
+          "note": null
+        },
+        "cat.side.by_hand.r.steps_per_m": {
+          "a": 26.653239582879536,
+          "b": 32.13552832903655,
+          "note": null
+        },
+        "cat.side.by_hand.r.survival": {
+          "a": 0.99,
+          "b": 0.74,
+          "note": null
+        },
+        "cat.side.cadence_ratio": {
+          "a": 1.0036632947605941,
+          "b": 0.987982013950482,
+          "note": null
+        },
+        "cat.side.cam_work_per_m": {
+          "a": 1865.9490701017926,
+          "b": 1536.0656873140572,
+          "note": null
+        },
+        "cat.side.clock_hz": {
+          "a": 0.3421210570320278,
+          "b": 0.368423894729883,
+          "note": null
+        },
+        "cat.side.cross_track_ratio": {
+          "a": 0.05643191339365175,
+          "b": 0.044649298273854644,
+          "note": null
+        },
+        "cat.side.direction_error": {
+          "a": 0.10311394980267197,
+          "b": 0.09451497027151393,
+          "note": null
+        },
+        "cat.side.gait_hz": {
+          "a": 0.335693359375,
+          "b": 0.35400390625,
+          "note": null
+        },
+        "cat.side.heading_final": {
+          "a": 0.09937094897031784,
+          "b": 0.16818179935216904,
+          "note": null
+        },
+        "cat.side.hz_speed_slope": {
+          "a": -0.3363093823643625,
+          "b": 2.7197924237796087,
+          "note": null
+        },
+        "cat.side.offset_R": {
+          "a": 0.9781592259858438,
+          "b": 0.9675657636197145,
+          "note": null
+        },
+        "cat.side.slip_per_m": {
+          "a": 6.730345242882246,
+          "b": 5.4699433676984075,
+          "note": null
+        },
+        "cat.side.step_rate_hz": {
+          "a": 3.208333333333333,
+          "b": 3.3333333333333335,
+          "note": null
+        },
+        "cat.side.support_feet": {
+          "a": 3.4541666666666666,
+          "b": 3.1356233933161954,
+          "note": null
+        },
+        "cat.side.swing_apex": {
+          "a": 0.06092235445976257,
+          "b": 0.07695835828781128,
+          "note": null
+        },
+        "cat.side.swings_per_m": {
+          "a": 66.04835281123377,
+          "b": 63.00698583512711,
+          "note": null
+        },
+        "cat.side.taps_per_m": {
+          "a": 38.611484406544776,
+          "b": 30.298473111422858,
+          "note": null
+        },
+        "cat.side.tripod": {
+          "a": 0.4280080771188238,
+          "b": 0.46508981601238375,
+          "note": null
+        },
+        "cat.side.work_per_m": {
+          "a": 3460.440351353195,
+          "b": 3238.418601995135,
+          "note": null
+        },
+        "cat.stand.action_fft_freq": {
+          "a": 2.0948720426956573,
+          "b": 2.0760348833050926,
+          "note": null
+        },
+        "cat.stand.action_jitter": {
+          "a": 0.1767848560693686,
+          "b": 0.16563231107062099,
+          "note": null
+        },
+        "cat.stand.cadence_ratio": {
+          "a": 2.167279593568029,
+          "b": 1.75133010172786,
+          "note": null
+        },
+        "cat.stand.clock_hz": {
+          "a": 0.07333569162107656,
+          "b": 0.08482596484282864,
+          "note": null
+        },
+        "cat.stand.clock_restarts": {
+          "a": 3.0,
+          "b": 2.0,
+          "note": null
+        },
+        "cat.stand.contact_switch_hz": {
+          "a": 1.8333333333333333,
+          "b": 1.8194444444444444,
+          "note": null
+        },
+        "cat.stand.drift_speed": {
+          "a": 0.11128562766556392,
+          "b": 0.11070500366934943,
+          "note": null
+        },
+        "cat.stand.foot_disp_end": {
+          "a": 0.27753823185956883,
+          "b": 0.24565057438797813,
+          "note": null
+        },
+        "cat.stand.foot_slip": {
+          "a": 0.13217526213919792,
+          "b": 0.11394911575214466,
+          "note": null
+        },
+        "cat.stand.gait_hz": {
+          "a": 0.4913330078125,
+          "b": 0.445556640625,
+          "note": null
+        },
+        "cat.stand.joint_speed_mean": {
+          "a": 0.727791249034204,
+          "b": 0.8563709503643029,
+          "note": null
+        },
+        "cat.stand.rod_speed_mean": {
+          "a": 0.028918394211472735,
+          "b": 0.029920778592738013,
+          "note": null
+        },
+        "cat.stand.settle_six_down_s": {
+          "a": 12.0,
+          "b": 12.0,
+          "note": null
+        },
+        "cat.stand.six_down_frac": {
+          "a": 0.0033333333333333335,
+          "b": 0.0016666666666666668,
+          "note": null
+        },
+        "cat.stand.support_feet": {
+          "a": 3.075,
+          "b": 2.8566666666666665,
+          "note": null
+        },
+        "cat.stand.work_per_s": {
+          "a": 448.04212101842427,
+          "b": 413.9552784039722,
+          "note": null
+        },
+        "cat.stand.wz_active_frac": {
+          "a": 0.17416666666666666,
+          "b": 0.18166666666666667,
+          "note": null
+        },
+        "cat.turn.action_jitter": {
+          "a": 0.16032835886412583,
+          "b": 0.14198403115178704,
+          "note": null
+        },
+        "cat.turn.by_hand.l.facing_closed": {
+          "a": 0.6989287377607001,
+          "b": 0.47211149291067644,
+          "note": null
+        },
+        "cat.turn.by_hand.l.foot_slip": {
+          "a": 0.12109701576081075,
+          "b": 0.10476457977945193,
+          "note": null
+        },
+        "cat.turn.by_hand.l.steps_per_rad": {
+          "a": 37.70173288168027,
+          "b": 62.74925676454089,
+          "note": null
+        },
+        "cat.turn.by_hand.l.survival": {
+          "a": 0.91,
+          "b": 0.95,
+          "note": null
+        },
+        "cat.turn.by_hand.l.yaw_progress": {
+          "a": 0.09228215938478873,
+          "b": 0.06282679718967604,
+          "note": null
+        },
+        "cat.turn.by_hand.r.facing_closed": {
+          "a": 0.7398445248152338,
+          "b": 0.4419606193206015,
+          "note": null
+        },
+        "cat.turn.by_hand.r.foot_slip": {
+          "a": 0.11774951102880901,
+          "b": 0.1065336423456247,
+          "note": null
+        },
+        "cat.turn.by_hand.r.steps_per_rad": {
+          "a": 37.236532324363324,
+          "b": 62.63284399035439,
+          "note": null
+        },
+        "cat.turn.by_hand.r.survival": {
+          "a": 0.96,
+          "b": 0.9,
+          "note": null
+        },
+        "cat.turn.by_hand.r.yaw_progress": {
+          "a": 0.09519412887589473,
+          "b": 0.06219142348796595,
+          "note": null
+        },
+        "cat.turn.cadence_ratio": {
+          "a": 1.0009762524720123,
+          "b": 1.0009762524720123,
+          "note": null
+        },
+        "cat.turn.cam_work_per_rad": {
+          "a": 1577.7714616646517,
+          "b": 2028.25209364092,
+          "note": null
+        },
+        "cat.turn.clock_hz": {
+          "a": 0.5000001516954051,
+          "b": 0.5000001516954051,
+          "note": null
+        },
+        "cat.turn.gait_hz": {
+          "a": 0.494384765625,
+          "b": 0.50048828125,
+          "note": null
+        },
+        "cat.turn.heading_final": {
+          "a": 0.442069873213768,
+          "b": 0.8474896848201752,
+          "note": null
+        },
+        "cat.turn.offset_R": {
+          "a": 0.9961789833436331,
+          "b": 0.9885903834719779,
+          "note": null
+        },
+        "cat.turn.settle_s": {
+          "a": 11.280000000000001,
+          "b": 10.72,
+          "note": null
+        },
+        "cat.turn.slip_per_rad": {
+          "a": 3.7710279610439437,
+          "b": 4.736523017130529,
+          "note": null
+        },
+        "cat.turn.step_rate_hz": {
+          "a": 3.5,
+          "b": 3.9166666666666665,
+          "note": null
+        },
+        "cat.turn.steps_per_rad_post": {
+          "a": 1.9563661439588103,
+          "b": 3.061468129783411,
+          "note": null
+        },
+        "cat.turn.steps_per_rad_pre": {
+          "a": 37.236532324363324,
+          "b": 62.73051506226388,
+          "note": null
+        },
+        "cat.turn.support_feet": {
+          "a": 2.9783333333333335,
+          "b": 2.7866666666666666,
+          "note": null
+        },
+        "cat.turn.swing_apex": {
+          "a": 0.11871924996376038,
+          "b": 0.11564494669437408,
+          "note": null
+        },
+        "cat.turn.swings_per_rad": {
+          "a": 60.406958836557756,
+          "b": 95.12887779256057,
+          "note": null
+        },
+        "cat.turn.taps_per_rad": {
+          "a": 22.928407070199036,
+          "b": 32.7240762941224,
+          "note": null
+        },
+        "cat.turn.work_per_rad": {
+          "a": 3019.033082863215,
+          "b": 4450.5306917509215,
+          "note": null
+        },
+        "completion": {
+          "a": 0.922,
+          "b": 0.643,
+          "note": "legacy"
+        },
+        "track_ratio_move_tail": {
+          "a": 0.6188541999999992,
+          "b": 0.5704942000000001,
+          "note": "legacy"
+        },
+        "track_ratio_tail": {
+          "a": 0.6188541999999992,
+          "b": 0.5704942000000001,
+          "note": "legacy"
+        },
+        "tripod_walking_dir": {
+          "a": 0.42601314985488226,
+          "b": 0.37351145788436,
+          "note": "legacy"
+        },
+        "turn_survival_l90": {
+          "a": null,
+          "b": null,
+          "note": "N/A (suite)"
+        },
+        "turn_survival_r90": {
+          "a": null,
+          "b": null,
+          "note": "N/A (suite)"
+        }
+      }
+    },
+    "present": [
+      "stand",
+      "fwd",
+      "side",
+      "back",
+      "turn"
+    ],
+    "resolution_id": "D00s, D00bs, D00bs",
+    "untrained": {
+      "base": [
+        "diag",
+        "move_turn"
+      ],
+      "candidate": [
+        "diag",
+        "move_turn"
+      ]
+    }
+  },
+  "pooled_confidence": "clear",
+  "resolution_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-26_stroke_formation/resolution.36e5a8af7000.json",
+  "runs": [
+    {
+      "campaign": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-26_stroke_formation",
+      "candidate": "B_f",
+      "chain": "t3f",
+      "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-26_17-42-44_seed3_X01_t3_A15pB/model_2999.pt",
+      "code_sha": "709161927627f6c00012abf143b3146ff6d51f81acdc709dbb0f04c014f24a30",
+      "eval_sha": "36e5a8af7000f2c3351f693b046257e6d7fba1547077cc2efb6feb00e5a842df",
+      "floor_park": [],
+      "floor_watch": [],
+      "kind": "baseline",
+      "recipe_id": "d695a100e1a7",
+      "role": "base s3",
+      "screen_stage": "t3",
+      "seed": "3",
+      "trained_decisive": [
+        "back",
+        "fwd",
+        "side",
+        "stand",
+        "turn"
+      ],
+      "xid": "X01"
+    },
+    {
+      "campaign": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-26_stroke_formation",
+      "candidate": "B_f",
+      "chain": "t3f",
+      "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-26_22-54-02_seed2_X02_t3_A15pB/model_2999.pt",
+      "code_sha": "709161927627f6c00012abf143b3146ff6d51f81acdc709dbb0f04c014f24a30",
+      "eval_sha": "36e5a8af7000f2c3351f693b046257e6d7fba1547077cc2efb6feb00e5a842df",
+      "floor_park": [],
+      "floor_watch": [],
+      "kind": "baseline",
+      "recipe_id": "d695a100e1a7",
+      "role": "base s2",
+      "screen_stage": "t3",
+      "seed": "2",
+      "trained_decisive": [
+        "back",
+        "fwd",
+        "side",
+        "stand",
+        "turn"
+      ],
+      "xid": "X02"
+    },
+    {
+      "campaign": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-27_stroke_cat_t3",
+      "candidate": "S_cat_f",
+      "chain": "t3f_scat",
+      "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-28_16-40-58_seed3_X01_t3_A15pB/model_2999.pt",
+      "code_sha": "fb17d2ea389eb13c5719fccbf5cf2de4abc4bb2ead470b7fb4ab6b9683866ec0",
+      "eval_sha": "36e5a8af7000f2c3351f693b046257e6d7fba1547077cc2efb6feb00e5a842df",
+      "floor_park": [],
+      "floor_watch": [],
+      "kind": "reference",
+      "recipe_id": "87987a2fcfa1",
+      "reference_row_at": "2026-09-28T18:04:54",
+      "role": "cand s3",
+      "screen_stage": "t3",
+      "seed": "3",
+      "trained_decisive": [
+        "back",
+        "fwd",
+        "side",
+        "stand",
+        "turn"
+      ],
+      "xid": "X01"
+    },
+    {
+      "campaign": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-27_stroke_cat_t3",
+      "candidate": "S_cat_f",
+      "chain": "t3f_scat",
+      "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-28_18-05-55_seed2_X02_t3_A15pB/model_2999.pt",
+      "code_sha": "fb17d2ea389eb13c5719fccbf5cf2de4abc4bb2ead470b7fb4ab6b9683866ec0",
+      "eval_sha": "36e5a8af7000f2c3351f693b046257e6d7fba1547077cc2efb6feb00e5a842df",
+      "floor_park": [],
+      "floor_watch": [],
+      "kind": "reference",
+      "recipe_id": "87987a2fcfa1",
+      "reference_row_at": "2026-09-28T19:40:21",
+      "role": "cand s2",
+      "screen_stage": "t3",
+      "seed": "2",
+      "trained_decisive": [
+        "back",
+        "fwd",
+        "side",
+        "stand",
+        "turn"
+      ],
+      "xid": "X02"
+    }
+  ],
+  "seed_term_ids": [
+    "D00bs",
+    "D00bs"
+  ],
+  "why": "pooled blocks ['F', 'T'] BETTER, nothing WORSE",
+  "worse": []
+}

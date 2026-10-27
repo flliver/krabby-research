@@ -1,0 +1,308 @@
+# Crab-hex gait eval scenario set for the omni task in the ROBOT frame (robot-frame velocity commands
+# campaign, 2026-10-15, experiments/2026-10-15_body_cmd: PLAN D5 / D6, STEP2_SPEC.md §5).
+#
+# BODY ROWS ROUTED THROUGH THE TERM (`manifest_version: 3`, `command_route: term`). A hold here is a
+# robot-frame velocity command `vx`, `vy` (m/s) and `wz` (rad/s), held constant in the BODY frame for
+# the hold. The harness never writes `vel_command_b` on these rows: it hands each step's row to the
+# body command term's `schedule_hook_body` (a head trained under KRABBY_OMNI_COMMAND_FRAME=body), so
+# slot, stand mask and telemetry are the term's own -- the closed loop training drives. A WORLD-trained
+# (facing) head runs these rows only through the NAMED `--command-adapter body_hold` (integrate wz into
+# the facing target with +-0.6 rad anti-windup, travel dir = yaw + atan2(vy, vx)); any other pairing is
+# refused by the harness (gate 0 INVALID). The legacy world rows (scenarios_omni.yaml) are not edited:
+# a body head runs THEM through `--command-adapter world_rate` (reported, never gated).
+#
+# THE ENVELOPE BLOCK IS FROZEN (step 4, 2026-10-15; experiments/2026-10-15_body_cmd/envelope_freeze.md):
+# w_min 0.05; ceiling 0.168 = S1 s18's net turn rate over the first 6 s of the world suite's saturated
+# pure-turn holds (4 reads); w_max 0.21 = 1.2 x the ceiling rounded up; the coupled move+turn cap through
+# (0, 0.21) (0.22, 0.105) (0.30, 0.065) = 1.2 x the smaller of the fwd / lat P1 grid cells' achieved rate at
+# wz cmd 0.30, rounded down to 0.005. It was PROVISIONAL (0.167 / cap 0.13, 0.10) at step 2; the freeze
+# rewrote that block only (eval_sha moved a second time, CHARTER §3 2026-10-15). Every turn level and move_turn row is written as a
+# SYMBOL resolved from this block at parse time -- `w_min`, `ceiling`, `w_max` (and their negatives),
+# `cap80` = 0.8 x the cap's wz at the hold's own |v| (PLAN D3: body move_turn eval rows sit inside the
+# cap) -- so the freeze moves the rows with it and no number below has to be edited by hand. The
+# resolved number and the symbol are both recorded in run_meta. The envelope GRID row does not depend
+# on the envelope (its wz are numbers, and it is exempt from the yaw-rate checks).
+#
+# Validator rules (gait_eval/schedule.py, v3): every hold passes the step-1 `body_cmd_violations`
+# (speed in {0} U [walk floor 0.21, the ellipse cap at atan2(vy, vx)], |wz| in {0} U [w_min, w_max],
+# a moving turn under the coupled cap) -- except the `kind: envelope_grid` row, which probes beyond
+# the yaw-rate envelope on purpose (speed still checked); every scored hold is >= max(settle_s, 4 s) +
+# 2 s long (the body-yaw metrics score the hold-relative window [4 s, hold_s)); no rotate_holds_by_env.
+# `speed_ellipse` is the TRAINED ellipse 0.35:0.35:0.25 (not the world rows' 0.35:0.25:0.25).
+#
+# Every row is Walk-Play with `spawn_yaw: first_face` (face 0 = yaw 0: the spawn heading is pinned) and
+# 100 episodes (envs per wave) at env_seed 1, like the world rows they are read beside.
+#
+# The manifest SHAPE is frozen after the first eval of a row (process-state sensitivity: adding or
+# removing an `env:` block on an evaluated row flips same-seed evals between two repeatable outcomes --
+# scenarios_omni.yaml header). The field / ring rows carry their env blocks from the FIRST eval on.
+#
+# Run (from krabby-research/parkour):
+#   <python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py --headless \
+#     --manifest parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni_body.yaml \
+#     --scenario suite__omni_body --checkpoint <model.pt> [--command-adapter body_hold  # a WORLD head]
+
+manifest_version: 3
+command_route: term
+
+envelope:
+  w_min: 0.05
+  ceiling: 0.168
+  w_max: 0.21
+  cap: [[0.0, 0.21], [0.22, 0.105], [0.30, 0.065]]
+
+speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  # The body twin of suite__omni (the per-category suite, plan 2026-09-21 D1): ten waves, wave k = every
+  # env on [settle 2 s, hold_k 12 s], one category hold per episode, so a fall in one hold never
+  # contaminates another's numbers. The label vocabulary keeps the legacy labels where the meaning
+  # carries over (stand, fwd, lat_l, lat_r, back, diag -- the same body-frame translations the world
+  # suite commands from face 0) and names the turns by hand and level: turn_l_ceiling / turn_r_ceiling
+  # turn on the spot at +-the ceiling (the plant's sustained rate), move_turn_l / move_turn_r walk
+  # forward at 0.22 while turning at +-cap80. `diag` is 0.25 m/s at 45 deg (0.25 cos 45, 0.25 sin 45).
+  # The anchor every pilot gate compares against is the facing three-seed set S1 s16 / s17 / s18 on THIS
+  # row through `body_hold` (PLAN D6).
+  - id: suite__omni_body
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 10
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, vx: 0.0, vy: 0.0, wz: 0.0}
+      - name: fwd
+        kind: translate
+        holds:
+          - {label: fwd, vx: 0.25, vy: 0.0, wz: 0.0}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, vx: 0.0, vy: 0.22, wz: 0.0, hand: l}
+          - {label: lat_r, vx: 0.0, vy: -0.22, wz: 0.0, hand: r}
+      - name: back
+        kind: translate
+        holds:
+          - {label: back, vx: -0.22, vy: 0.0, wz: 0.0}
+      - name: diag
+        kind: translate
+        holds:
+          - {label: diag, vx: 0.1767767, vy: 0.1767767, wz: 0.0}
+      - name: turn
+        kind: turn
+        holds:
+          - {label: turn_l_ceiling, vx: 0.0, vy: 0.0, wz: ceiling, hand: l}
+          - {label: turn_r_ceiling, vx: 0.0, vy: 0.0, wz: -ceiling, hand: r}
+      - name: move_turn
+        kind: move_turn
+        holds:
+          - {label: move_turn_l, vx: 0.22, vy: 0.0, wz: cap80, hand: l}
+          - {label: move_turn_r, vx: 0.22, vy: 0.0, wz: -cap80, hand: r}
+    notes: >-
+      Body-frame per-category suite (PLAN D5): stand, fwd, side l/r, back, diag, turn on the spot at
+      +-ceiling, move_turn at 0.22 m/s with +-cap80. One hold per wave, 100 envs per wave.
+
+  # The turn-rate ladder (PLAN gate 2 TURN WORKS): pure turns at every pre-registered level -- w_min,
+  # 0.08, 0.15, the ceiling, w_max -- both hands, one category per level (turn_<level>, hands l/r), the
+  # suite protocol above. The gate reads the SIGNED net ratio per hand at each level (>= 0.8 above w_min
+  # up to the ceiling, >= 0.5 at w_min), the monotone response, the yaw ripple below the ceiling and
+  # the top rate at w_max. No stand category: the driver never passes --trained-categories to this row.
+  - id: turnlevels__omni_body
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 10
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: turn_w_min
+        kind: turn
+        holds:
+          - {label: turn_l_w_min, vx: 0.0, vy: 0.0, wz: w_min, hand: l}
+          - {label: turn_r_w_min, vx: 0.0, vy: 0.0, wz: -w_min, hand: r}
+      - name: turn_0p08
+        kind: turn
+        holds:
+          - {label: turn_l_0p08, vx: 0.0, vy: 0.0, wz: 0.08, hand: l}
+          - {label: turn_r_0p08, vx: 0.0, vy: 0.0, wz: -0.08, hand: r}
+      - name: turn_0p15
+        kind: turn
+        holds:
+          - {label: turn_l_0p15, vx: 0.0, vy: 0.0, wz: 0.15, hand: l}
+          - {label: turn_r_0p15, vx: 0.0, vy: 0.0, wz: -0.15, hand: r}
+      - name: turn_ceiling
+        kind: turn
+        holds:
+          - {label: turn_l_ceiling, vx: 0.0, vy: 0.0, wz: ceiling, hand: l}
+          - {label: turn_r_ceiling, vx: 0.0, vy: 0.0, wz: -ceiling, hand: r}
+      - name: turn_w_max
+        kind: turn
+        holds:
+          - {label: turn_l_w_max, vx: 0.0, vy: 0.0, wz: w_max, hand: l}
+          - {label: turn_r_w_max, vx: 0.0, vy: 0.0, wz: -w_max, hand: r}
+    notes: >-
+      Pure-turn levels for gate 2: w_min, 0.08, 0.15, ceiling, w_max, both hands, 12-s holds scored on
+      [4, 12) s.
+
+  # The envelope premise grid (PLAN D3 / step 4 P1): the achieved (|v|, wz) of a WORLD head driven
+  # through `body_hold` on |v| in {0, 0.22, 0.30} x {fwd (+x), lat (+y)} x wz in {0, 0.08, 0.15, 0.30}
+  # (|v| = 0 once per wz) = 20 cells, one per wave. It probes BEYOND the yaw-rate envelope on purpose
+  # (0.30 > w_max), so it is `kind: envelope_grid` -- exempt from the yaw-rate / coupled-cap checks (not
+  # from the speed one) -- and a BODY head on it is refused (it could not be asked for wz outside its
+  # envelope). Cell labels (= category names) are g_v<|v|>_<fwd|lat>_w<wz>, decimal points as `p`,
+  # g_v0_w<wz> on the spot; the validator derives each one from its command.
+  - id: grid__omni_body
+    kind: envelope_grid
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 20
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - {name: g_v0_w0, kind: stand, holds: [{label: g_v0_w0, vx: 0.0, vy: 0.0, wz: 0.0}]}
+      - {name: g_v0_w0p08, kind: turn, holds: [{label: g_v0_w0p08, vx: 0.0, vy: 0.0, wz: 0.08}]}
+      - {name: g_v0_w0p15, kind: turn, holds: [{label: g_v0_w0p15, vx: 0.0, vy: 0.0, wz: 0.15}]}
+      - {name: g_v0_w0p3, kind: turn, holds: [{label: g_v0_w0p3, vx: 0.0, vy: 0.0, wz: 0.30}]}
+      - {name: g_v0p22_fwd_w0, kind: translate, holds: [{label: g_v0p22_fwd_w0, vx: 0.22, vy: 0.0, wz: 0.0}]}
+      - {name: g_v0p22_fwd_w0p08, kind: move_turn, holds: [{label: g_v0p22_fwd_w0p08, vx: 0.22, vy: 0.0, wz: 0.08}]}
+      - {name: g_v0p22_fwd_w0p15, kind: move_turn, holds: [{label: g_v0p22_fwd_w0p15, vx: 0.22, vy: 0.0, wz: 0.15}]}
+      - {name: g_v0p22_fwd_w0p3, kind: move_turn, holds: [{label: g_v0p22_fwd_w0p3, vx: 0.22, vy: 0.0, wz: 0.30}]}
+      - {name: g_v0p22_lat_w0, kind: translate, holds: [{label: g_v0p22_lat_w0, vx: 0.0, vy: 0.22, wz: 0.0}]}
+      - {name: g_v0p22_lat_w0p08, kind: move_turn, holds: [{label: g_v0p22_lat_w0p08, vx: 0.0, vy: 0.22, wz: 0.08}]}
+      - {name: g_v0p22_lat_w0p15, kind: move_turn, holds: [{label: g_v0p22_lat_w0p15, vx: 0.0, vy: 0.22, wz: 0.15}]}
+      - {name: g_v0p22_lat_w0p3, kind: move_turn, holds: [{label: g_v0p22_lat_w0p3, vx: 0.0, vy: 0.22, wz: 0.30}]}
+      - {name: g_v0p3_fwd_w0, kind: translate, holds: [{label: g_v0p3_fwd_w0, vx: 0.30, vy: 0.0, wz: 0.0}]}
+      - {name: g_v0p3_fwd_w0p08, kind: move_turn, holds: [{label: g_v0p3_fwd_w0p08, vx: 0.30, vy: 0.0, wz: 0.08}]}
+      - {name: g_v0p3_fwd_w0p15, kind: move_turn, holds: [{label: g_v0p3_fwd_w0p15, vx: 0.30, vy: 0.0, wz: 0.15}]}
+      - {name: g_v0p3_fwd_w0p3, kind: move_turn, holds: [{label: g_v0p3_fwd_w0p3, vx: 0.30, vy: 0.0, wz: 0.30}]}
+      - {name: g_v0p3_lat_w0, kind: translate, holds: [{label: g_v0p3_lat_w0, vx: 0.0, vy: 0.30, wz: 0.0}]}
+      - {name: g_v0p3_lat_w0p08, kind: move_turn, holds: [{label: g_v0p3_lat_w0p08, vx: 0.0, vy: 0.30, wz: 0.08}]}
+      - {name: g_v0p3_lat_w0p15, kind: move_turn, holds: [{label: g_v0p3_lat_w0p15, vx: 0.0, vy: 0.30, wz: 0.15}]}
+      - {name: g_v0p3_lat_w0p3, kind: move_turn, holds: [{label: g_v0p3_lat_w0p3, vx: 0.0, vy: 0.30, wz: 0.30}]}
+    notes: >-
+      Envelope premise grid (P1): 20 cells, one per wave, read by world heads through body_hold to fit
+      w_min / ceiling / w_max / the coupled cap. Refused for a body head.
+
+  # The body twins of experiments/2026-10-07_omni_phase2/scenarios_p2.yaml's 8-hold field / ring rows:
+  # the SAME env blocks and episode lengths (VERBATIM -- the terrain is the comparison), holds translated
+  # to body rows -- stand, fwd, lat_l, diag, back 8 s each, turn_l_ceiling and turn_r_ceiling 12 s each
+  # (on the spot at +-the ceiling; on the world rows these were the +pi/2 turn and the turn back), and
+  # move_turn_l 8 s (0.22 m/s forward at cap80). 72 s of holds + the 1.5-s prologue inside 80 s.
+  # PLAN gate 5 RETENTION reads field_hard (n = 400 over es1 / es2) against the anchor; field_light and
+  # ring_obst likewise.
+  - id: field_hard__omni_body
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_hard
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {vx: 0.0, vy: 0.0, wz: 0.0, hold_s: 8.0, label: stand}
+      - {vx: 0.25, vy: 0.0, wz: 0.0, hold_s: 8.0, label: fwd}
+      - {vx: 0.0, vy: 0.22, wz: 0.0, hold_s: 8.0, label: lat_l}
+      - {vx: 0.1767767, vy: 0.1767767, wz: 0.0, hold_s: 8.0, label: diag}
+      - {vx: -0.22, vy: 0.0, wz: 0.0, hold_s: 8.0, label: back}
+      - {vx: 0.0, vy: 0.0, wz: ceiling, hold_s: 12.0, label: turn_l_ceiling}
+      - {vx: 0.0, vy: 0.0, wz: -ceiling, hold_s: 12.0, label: turn_r_ceiling}
+      - {vx: 0.22, vy: 0.0, wz: cap80, hold_s: 8.0, label: move_turn_l}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.70:1.0"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "wall"
+    notes: Body twin of field_hard__omni (wall field, DIFF 0.70-1.0, pad 1.7 m) -- the main obstacle read.
+
+  - id: field_light__omni_body
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_light
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {vx: 0.0, vy: 0.0, wz: 0.0, hold_s: 8.0, label: stand}
+      - {vx: 0.25, vy: 0.0, wz: 0.0, hold_s: 8.0, label: fwd}
+      - {vx: 0.0, vy: 0.22, wz: 0.0, hold_s: 8.0, label: lat_l}
+      - {vx: 0.1767767, vy: 0.1767767, wz: 0.0, hold_s: 8.0, label: diag}
+      - {vx: -0.22, vy: 0.0, wz: 0.0, hold_s: 8.0, label: back}
+      - {vx: 0.0, vy: 0.0, wz: ceiling, hold_s: 12.0, label: turn_l_ceiling}
+      - {vx: 0.0, vy: 0.0, wz: -ceiling, hold_s: 12.0, label: turn_r_ceiling}
+      - {vx: 0.22, vy: 0.0, wz: cap80, hold_s: 8.0, label: move_turn_l}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.05:0.2"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "wall"
+    notes: Body twin of field_light__omni (wall field at light difficulty 0.05-0.2, pad 1.7 m).
+
+  - id: ring_obst__omni_body
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: ring
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {vx: 0.0, vy: 0.0, wz: 0.0, hold_s: 8.0, label: stand}
+      - {vx: 0.25, vy: 0.0, wz: 0.0, hold_s: 8.0, label: fwd}
+      - {vx: 0.0, vy: 0.22, wz: 0.0, hold_s: 8.0, label: lat_l}
+      - {vx: 0.1767767, vy: 0.1767767, wz: 0.0, hold_s: 8.0, label: diag}
+      - {vx: -0.22, vy: 0.0, wz: 0.0, hold_s: 8.0, label: back}
+      - {vx: 0.0, vy: 0.0, wz: ceiling, hold_s: 12.0, label: turn_l_ceiling}
+      - {vx: 0.0, vy: 0.0, wz: -ceiling, hold_s: 12.0, label: turn_r_ceiling}
+      - {vx: 0.22, vy: 0.0, wz: cap80, hold_s: 8.0, label: move_turn_l}
+    env:
+      KRABBY_FLAT_TERRAIN_GEOM: "ring"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.20:0.70"
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+    notes: >-
+      Body twin of ring_obst__omni (the existing ring course at 0.20-0.70, run_phases.OBST_EVAL as an
+      env block) -- the same-shape control for field_hard__omni_body.

@@ -1,0 +1,21 @@
+skip 0 nSH 100 nW 200
+track_lin_exp    SH   0.7302  W   0.6847  diff  +0.0455
+track_ang_exp    SH   0.9263  W   0.9079  diff  +0.0183
+clock_sched      SH   0.0004  W   0.0002  diff  +0.0002
+clock_apex       SH   0.0002  W   0.0003  diff  -0.0001
+progress         SH   0.1353  W   0.0766  diff  +0.0588
+yaw_progress     SH   0.0000  W  -0.0003  diff  +0.0003
+facing           SH   0.0000  W   0.0000  diff  +0.0000
+facing_turn      SH   0.0000  W   0.0000  diff  +0.0000
+air_time         SH   0.0555  W   0.0177  diff  +0.0379
+L1               SH  -0.3155  W  -0.3401  diff  +0.0246
+cross_vel        SH  -0.0301  W  -0.0235  diff  -0.0066
+action_rate      SH  -0.2332  W  -0.2448  diff  +0.0116
+orientation      SH  -0.0022  W  -0.0035  diff  +0.0013
+lin_vel_z        SH  -0.0016  W  -0.0014  diff  -0.0002
+foot_idle        SH  -0.2603  W  -0.0072  diff  -0.2531
+excess_feet      SH  -0.0051  W  -0.0401  diff  +0.0350
+delta_torque     SH  -0.0701  W  -0.1094  diff  +0.0393
+tibia            SH  -0.0089  W  -0.0720  diff  +0.0631
+speed            SH   0.2162  W   0.1045  diff  +0.1117
+pre              SH   0.9209  W   0.8451  diff  +0.0759

@@ -1,0 +1,64 @@
+{
+ "side22@1": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/dryspec_rows/dry/lr/T4dry_p2a/side22_25lr__omni/seed001/2026-10-19_05-44-46",
+  "job": {
+   "key": "side22@1",
+   "row": "side22@1",
+   "family": "side22",
+   "es": 1,
+   "name": "T4dry_p2a",
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-35-18_seed18_X06_p2a_A15pB/model_114.pt",
+   "env_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/envs/p2a.env",
+   "level_file": null,
+   "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml",
+   "scenario": "side22_25lr__omni",
+   "args": [],
+   "strip": [],
+   "level": null
+  },
+  "at": "2026-10-19T01:48:16"
+ },
+ "field_hard@1": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/dryspec_rows/dry/lr/T4dry_p2a/field_hard__omni/seed001/2026-10-19_05-48-26",
+  "job": {
+   "key": "field_hard@1",
+   "row": "field_hard@1",
+   "family": "field_hard",
+   "es": 1,
+   "name": "T4dry_p2a",
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-35-18_seed18_X06_p2a_A15pB/model_114.pt",
+   "env_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/envs/p2a.field_hard.env",
+   "level_file": null,
+   "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_hard__omni",
+   "args": [],
+   "strip": [],
+   "level": null
+  },
+  "at": "2026-10-19T01:51:30"
+ },
+ "suite_body@1": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/dryspec_rows/dry/lr/T4dry_p2a/suite__omni_body/seed001/2026-10-19_05-51-40",
+  "job": {
+   "key": "suite_body@1",
+   "row": "suite_body@1",
+   "family": "suite_body",
+   "es": 1,
+   "name": "T4dry_p2a",
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-35-18_seed18_X06_p2a_A15pB/model_114.pt",
+   "env_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/envs/p2a.env",
+   "level_file": null,
+   "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni_body.yaml",
+   "scenario": "suite__omni_body",
+   "args": [
+    "--command-adapter",
+    "body_hold",
+    "--trained-categories",
+    "stand,fwd,side,back,diag,turn,move_turn"
+   ],
+   "strip": [],
+   "level": null
+  },
+  "at": "2026-10-19T01:58:19"
+ }
+}

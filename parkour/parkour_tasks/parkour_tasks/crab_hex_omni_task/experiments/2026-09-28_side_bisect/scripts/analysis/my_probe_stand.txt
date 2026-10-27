@@ -1,0 +1,14 @@
+C         hold-start body-y offset: med -0.033 |med| 0.068 frac>+0.05 0.17 frac<-0.05 0.45 corr(off,sin clock) +0.10 | stand-hold end: med +0.003 |med| 0.054 frac>+.05 0.29 <-.05 0.22
+C_s2      hold-start body-y offset: med +0.029 |med| 0.059 frac>+0.05 0.35 frac<-0.05 0.25 corr(off,sin clock) +0.52 | stand-hold end: med +0.028 |med| 0.056 frac>+.05 0.38 <-.05 0.14
+C_mo_s2   hold-start body-y offset: med -0.023 |med| 0.027 frac>+0.05 0.00 frac<-0.05 0.46 corr(off,sin clock) +0.79 | stand-hold end: med -0.013 |med| 0.019 frac>+.05 0.00 <-.05 0.36
+C_mo_s1   hold-start body-y offset: med +0.061 |med| 0.061 frac>+0.05 0.64 frac<-0.05 0.01 corr(off,sin clock) +0.46 | stand-hold end: med +0.068 |med| 0.068 frac>+.05 0.69 <-.05 0.00
+C_mo      hold-start body-y offset: med +0.155 |med| 0.155 frac>+0.05 0.99 frac<-0.05 0.00 corr(off,sin clock) -0.23 | stand-hold end: med +0.155 |med| 0.155 frac>+.05 0.99 <-.05 0.00
+O         hold-start body-y offset: med +0.085 |med| 0.160 frac>+0.05 0.51 frac<-0.05 0.49 corr(off,sin clock) -0.74 | stand-hold end: med -0.088 |med| 0.157 frac>+.05 0.49 <-.05 0.51
+R         hold-start body-y offset: med +0.001 |med| 0.009 frac>+0.05 0.03 frac<-0.05 0.01 corr(off,sin clock) +0.14 | stand-hold end: med -0.001 |med| 0.005 frac>+.05 0.00 <-.05 0.00
+C_band    hold-start body-y offset: med -0.002 |med| 0.088 frac>+0.05 0.47 frac<-0.05 0.48 corr(off,sin clock) -0.67 | stand-hold end: med +0.076 |med| 0.089 frac>+.05 0.52 <-.05 0.47
+C_rsi     hold-start body-y offset: med +0.146 |med| 0.161 frac>+0.05 0.53 frac<-0.05 0.47 corr(off,sin clock) +0.47 | stand-hold end: med +0.001 |med| 0.158 frac>+.05 0.50 <-.05 0.50
+LR4       hold-start body-y offset: med +0.001 |med| 0.015 frac>+0.05 0.03 frac<-0.05 0.04 corr(off,sin clock) -0.38 | stand-hold end: med -0.000 |med| 0.006 frac>+.05 0.00 <-.05 0.01
+LRfa      hold-start body-y offset: med +0.004 |med| 0.085 frac>+0.05 0.45 frac<-0.05 0.37 corr(off,sin clock) -0.81 | stand-hold end: med +0.054 |med| 0.098 frac>+.05 0.50 <-.05 0.43
+C_lr      hold-start body-y offset: med -0.077 |med| 0.077 frac>+0.05 0.01 frac<-0.05 0.68 corr(off,sin clock) -0.03 | stand-hold end: med -0.144 |med| 0.144 frac>+.05 0.00 <-.05 0.90
+C_lr_10   hold-start body-y offset: med +0.071 |med| 0.071 frac>+0.05 0.67 frac<-0.05 0.01 corr(off,sin clock) +0.44 | stand-hold end: med +0.079 |med| 0.079 frac>+.05 0.82 <-.05 0.00
+LR4_dwell hold-start body-y offset: med +0.141 |med| 0.155 frac>+0.05 0.53 frac<-0.05 0.47 corr(off,sin clock) -0.65 | stand-hold end: med -0.146 |med| 0.153 frac>+.05 0.46 <-.05 0.54

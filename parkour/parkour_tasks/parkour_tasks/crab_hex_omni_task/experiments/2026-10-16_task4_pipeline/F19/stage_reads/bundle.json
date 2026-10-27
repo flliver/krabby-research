@@ -1,0 +1,203 @@
+{
+ "run": "F19",
+ "tstar": {
+  "stage": "p3b",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt",
+  "sha256": "03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB",
+  "iteration": 25992,
+  "max_stable": 135,
+  "candidates": [
+   {
+    "stage": "p3b",
+    "max_stable": 135,
+    "zero_kg": "PASS",
+    "accepted": false,
+    "max_margin_used": 0.6619605845918585
+   },
+   {
+    "stage": "p3a",
+    "max_stable": 90,
+    "zero_kg": "FAIL",
+    "accepted": true,
+    "max_margin_used": 2.7098692720929014
+   }
+  ],
+  "considered": [
+   {
+    "stage": "p3a",
+    "status": "accepted",
+    "max_stable": 90,
+    "zero_kg": "FAIL",
+    "zero_kg_fails": [
+     "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ],
+    "max_margin_used": 2.7098692720929014,
+    "zero_kg_watch": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+    ],
+    "accepted": true,
+    "eligible": true,
+    "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3a.json",
+    "halt": {
+     "class": "FAIL",
+     "status": "accepted",
+     "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/p3a.1.json"
+    },
+    "chosen": false,
+    "why": "eligible, not chosen: max_stable 90 < T*'s 135 (p3b); paired 0-kg check FAIL (max margin use 2.71; fails: track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R); ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R); track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R); ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled))"
+   },
+   {
+    "stage": "p3b",
+    "status": "ceiling",
+    "max_stable": 135,
+    "zero_kg": "PASS",
+    "zero_kg_fails": [],
+    "max_margin_used": 0.6619605845918585,
+    "zero_kg_watch": [
+     "ratio back suite es1: worse by 0.0684 > margin 0.0617 (WATCH)",
+     "ratio back suite es2: worse by 0.0714 > margin 0.0617 (WATCH)"
+    ],
+    "accepted": false,
+    "eligible": true,
+    "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3b.json",
+    "halt": null,
+    "chosen": true,
+    "why": "CHOSEN: the highest max_stable (135) among the eligible heads; paired 0-kg check PASS (max margin use 0.66)"
+   }
+  ],
+  "not_trained": [
+   {
+    "stage": "p3c",
+    "status": "skipped",
+    "why": "not considered: no trained head (status skipped: ['p3b'] ended without a head to build on)"
+   }
+  ],
+  "rule": "PLAN Payload -> T*: the trained payload head with the highest max_stable that passes its paired 0-kg check -- or whose 0-kg HALT the user accepted as chance -- tried in descending max_stable (ties to the earlier stage); HALT only if none passes",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02",
+  "label": "sim plant, force side not enforced",
+  "retarget": {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   },
+   "from": "p3a",
+   "previous_record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/history/tstar.1.json"
+  }
+ },
+ "student": {
+  "cand": "c28000",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+  "sha256": "4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059",
+  "iter": 28000,
+  "tstar": "p3b"
+ },
+ "stand": {
+  "sn": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4F19_sn_s19/model_4000.pt",
+   "sha256": "96832099e58b75d1cc86f6f9d98327c56b827c2fac1b6c61c96b07f0a8e97b73"
+  },
+  "sh": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4F19_sh_s19/model_5000.pt",
+   "sha256": "c12692343fcc31d114ee69b56f59c4879c4969f03414832d4a6a3edbbfe55927"
+  }
+ },
+ "stage_heads_by_sha256": {
+  "s1": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_15-52-28_seed19_X01_s1_A15pB/model_5999.pt",
+   "sha256": "b90fb0a551bfd98335a3919b8c58dd51b65a088bc0bb39b0160185e6a7f70571"
+  },
+  "c4": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_18-21-11_seed19_X02_c4_A15pB/model_7498.pt",
+   "sha256": "0cbab2c4127a14d324e1724bf3ee09437d8311699bdb83338573ee9deb1da0fa"
+  },
+  "c5": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-09-27_seed19_X03_c5_A15pB/model_8997.pt",
+   "sha256": "cb071610ed9983072351522dcfaec23cdae9e87f3632b5f8455279ad5dda5871"
+  },
+  "c6": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-57-38_seed19_X04_c6_A15pB/model_10996.pt",
+   "sha256": "06da285328c190e22f4cb1702361ad89fd47befc56fa143ea4928394fa132bfa"
+  },
+  "c6x": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_20-59-46_seed19_X05_c6x_A15pB/model_14995.pt",
+   "sha256": "94ca58e58e5d9359dae792768b63d44496300bd891d44a5ecbeaf4112c89b692"
+  },
+  "p2a": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-21_23-06-12_seed19_X06_p2a_A15pB/model_19994.pt",
+   "sha256": "cd275c6ae7f772f530d87b345b207eb33eab83b49b5b4312bee6c7861aa84515"
+  },
+  "p3a": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB/model_22993.pt",
+   "sha256": "1090c284aabd3ce6d77f5303c51aee87fb98954260774129dbc82854d12aed9c"
+  },
+  "p3b": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt",
+   "sha256": "03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7"
+  },
+  "tstar": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt",
+   "sha256": "03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7"
+  },
+  "sel": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+   "sha256": "4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059"
+  },
+  "sn": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4F19_sn_s19/model_4000.pt",
+   "sha256": "96832099e58b75d1cc86f6f9d98327c56b827c2fac1b6c61c96b07f0a8e97b73"
+  },
+  "sh": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4F19_sh_s19/model_5000.pt",
+   "sha256": "c12692343fcc31d114ee69b56f59c4879c4969f03414832d4a6a3edbbfe55927"
+  }
+ },
+ "status": {
+  "s1": "pass",
+  "c4": "pass",
+  "c5": "pass",
+  "c6": "pass",
+  "c6x": "pass",
+  "p2a": "pass",
+  "p3a": "accepted",
+  "p3b": "ceiling",
+  "p3c": "skipped",
+  "tstar": "pass",
+  "st": "pass",
+  "sel": "pass",
+  "sn": "pass",
+  "sh": "accepted",
+  "bundle": "pending"
+ },
+ "accepted_halts": [
+  {
+   "stage": "p3a",
+   "class": "FAIL",
+   "at": "2026-10-22T11:13:48",
+   "why": "user 2026-10-22: accept, disclose -- paired 0-kg: move_turn 0.79->0.69, diag 1.00->0.96 (real); fwd/back/side drops = p2a overshoot 1.05-1.07 moving to 1.0 (one-sided rule artefact); survival 1.0; CHARTER 7113e84c",
+   "chance_rate_sum": null
+  },
+  {
+   "stage": "sh",
+   "class": "FAIL",
+   "at": "2026-10-23T23:59:28",
+   "why": "DESIGN 3.6 lazy control: R_h beside T*=p3b fails the same K6 bin4 line (0.89/0.845) -> walker-caused, re-anchored; head passes every K6 cell (bin4 0.935/0.95 vs R_h 0.89/0.845), K4 2/3 vs R_h 5/5; decide-record-notify (not a chance acceptance); CHARTER 2026-10-23",
+   "chance_rate_sum": 6.445482854557611e-12
+  }
+ ],
+ "notes": "keep-set record (DESIGN 2.4); bundle_experiment.py keep-set + local tag are PLAN step 11"
+}

@@ -1,0 +1,294 @@
+{
+ "run": "dry",
+ "stage": "p3a",
+ "read_at": "2026-10-19T02:19:57",
+ "thresholds": {
+  "file": "thresholds_v0.json",
+  "version": "v0",
+  "sha256": "c57afde0a5c31e148a3905256f34ecf51d6f04f5e158449a23386ea60ca15d23"
+ },
+ "verdict": "HALT",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "p3a.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.fwd.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.5174247330794826,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.009319592588325683,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "p3a.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 0.65,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.side.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.1320986136195092,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0013607710937450816,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.side.es1"
+  },
+  {
+   "id": "p3a.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.back.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.3375029945387884,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.012870970837051268,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.back.es1"
+  },
+  {
+   "id": "p3a.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.diag.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.3359756518123477,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": false,
+   "missing": false,
+   "rate": 0.013629913445113767,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.diag.es1"
+  },
+  {
+   "id": "p3a.floor.es2",
+   "pass": false,
+   "missing": true,
+   "why": "no suite stamp at env seed 2"
+  },
+  {
+   "id": "p3a.floor.side22_fastfast",
+   "thresholds_id": "p3a.floor.side22_fastfast",
+   "statistic": "side22_25lr feet_ss class, both hands FAST/FAST",
+   "value": [
+    "DEAD",
+    "DEAD"
+   ],
+   "medians": {
+    "lat_l_022": 0.0011139863170569284,
+    "lat_r_022": 0.003891607139007287,
+    "lat_l_025": 0.0010156542609655757,
+    "lat_r_025": 0.005887753991660853
+   },
+   "line": "fastfast",
+   "pass": false,
+   "missing": false,
+   "rate": 0.04454578668986031,
+   "unvalidated": false
+  },
+  {
+   "id": "p3a.capability.stable_at_90",
+   "statistic": "stable at 90 kg (every level <= 90)",
+   "value": null,
+   "line": 90,
+   "direction": ">=",
+   "pass": false,
+   "rate": null,
+   "unvalidated": true,
+   "rate_note": "pending step 8 (payload a-priori: the pilot value as the mean)"
+  },
+  {
+   "id": "p3a.capability.zero_kg_paired",
+   "statistic": "paired 0-kg check vs the run's own p2a",
+   "value": 3.4343872503237782,
+   "line": 1.0,
+   "direction": "<=",
+   "pass": false,
+   "fails": [
+    "survival side suite es1: worse by 0.3150 > margin 0.0917 (R)",
+    "survival back suite es1: worse by 0.5000 > margin 0.1464 (3SE)",
+    "field_light completion field_light: field_light: head 0 vs p2a 0 stamps",
+    "ring_obst completion ring_obst: ring_obst: head 0 vs p2a 0 stamps",
+    "field_turn completion field_turn: field_turn: head 0 vs p2a 0 stamps"
+   ],
+   "rate": null,
+   "unvalidated": true,
+   "rate_note": "paired: <= Phi(-3) per statistic (thresholds.json); drift margin unvalidated"
+  }
+ ],
+ "halt_lines": [
+  "p3a.floor.survival.fwd.es1",
+  "p3a.floor.ratio.fwd.es1",
+  "p3a.floor.survival.side.es1",
+  "p3a.floor.ratio.side.es1",
+  "p3a.floor.survival.back.es1",
+  "p3a.floor.ratio.back.es1",
+  "p3a.floor.survival.diag.es1",
+  "p3a.floor.ratio.diag.es1",
+  "p3a.floor.es2",
+  "p3a.floor.side22_fastfast",
+  "p3a.capability.stable_at_90",
+  "p3a.capability.zero_kg_paired"
+ ],
+ "watch_flags": [],
+ "max_stable": null,
+ "curve": {
+  "0": false
+ },
+ "label": "sim plant, force side not enforced",
+ "zero_kg": {
+  "verdict": "FAIL",
+  "max_margin_used": 3.4343872503237782,
+  "fails": [
+   "survival side suite es1: worse by 0.3150 > margin 0.0917 (R)",
+   "survival back suite es1: worse by 0.5000 > margin 0.1464 (3SE)",
+   "field_light completion field_light: field_light: head 0 vs p2a 0 stamps",
+   "ring_obst completion ring_obst: ring_obst: head 0 vs p2a 0 stamps",
+   "field_turn completion field_turn: field_turn: head 0 vs p2a 0 stamps"
+  ]
+ },
+ "watch": {
+  "field_hard@1": {
+   "completion": 0.0,
+   "n": 100
+  },
+  "side22@1": {
+   "class": [
+    "DEAD",
+    "DEAD"
+   ],
+   "median": {
+    "lat_l_022": 0.0011139863170569284,
+    "lat_r_022": 0.003891607139007287,
+    "lat_l_025": 0.0010156542609655757,
+    "lat_r_025": 0.005887753991660853
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 0.0,
+    "ratio": 0.3375029945387884,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.014962650154043132
+   },
+   "diag": {
+    "n": 100,
+    "survival": 0.0,
+    "ratio": 0.3359756518123477,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.01444204556592281
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 0.0,
+    "ratio": 0.5174247330794826,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.14749160538916162
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.0,
+    "ratio": 0.39746677049060164,
+    "facing_closed": 0.02844424314830496,
+    "yaw_progress": 0.008428442045885191,
+    "tripod": 0.16369423131856617
+   },
+   "side": {
+    "n": 200,
+    "survival": 0.65,
+    "ratio": 0.1320986136195092,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.04497026753589128
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.12699008336978465
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.07784005524239956,
+    "yaw_progress": 0.010817565540358676,
+    "tripod": 0.39890241541545546
+   }
+  }
+ },
+ "head": {
+  "stage": "p3a",
+  "chain": "dry_p3a",
+  "xid": "X07",
+  "seed": "18",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-59-28_seed18_X07_p3a_A15pB/model_133.pt",
+  "sha256": "0f30014ebee3b74e25d13b678fafafccb37fbb8c88a81978fa1ccb3cfce180ff",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-59-28_seed18_X07_p3a_A15pB",
+  "iteration": 133,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/dry/seed18_X07_p3a_A15pB/suite__omni/seed001/2026-10-19_06-01-27",
+  "recorded_at": "2026-10-19T02:08:47"
+ }
+}

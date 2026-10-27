@@ -1,0 +1,43 @@
+{
+ "step": "PLAN step 3 -- M1a: payload knobs + reset event, default-off",
+ "date": "2026-10-16",
+ "head": "5f0b45b8",
+ "files": {
+  "new": [
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/payload_knobs.py",
+   "tests/unit/test_task4_payload.py",
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/scripts/t4_dump_cfgs.py",
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/scripts/t4_payload_dump_check.py"
+  ],
+  "edited_additions_only": [
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/omni_events.py (+327: guarded ManagerTermBase import, __all__, payload section)",
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/omni_knobs.py (+31: path-loader, re-exports, __all__, one call before _mk.apply_motion_knobs)"
+  ]
+ },
+ "unit_tests": {
+  "command": "/home/nickmagus/krabby/isaac_venv/bin/python -m pytest tests/unit/test_task4_payload.py -q",
+  "result": "40 passed",
+  "regression": {
+   "suites": "test_task4_payload + 19 omni knob/driver/RSI suites (phases, clock_hide, field_knobs, stand_power_knobs, stroke_knobs, body_cmd, motion_knobs, observations, ppo_construction_knobs, gate, rsi_cam_stage, omni_rsi, candidates, clock_ladder, side_bisect_ladder, stroke_ladder, stand_support_knobs, p2b_dumpchecks, terrain_knobs)",
+   "main_checkout": "1502 passed, 2 skipped, 4 failed",
+   "failures_attributed": {
+    "test_ppo_construction_knobs::test_dump_audit_off_values_pass_on_a_real_dump": "fails at HEAD 5f0b45b8 too (worktree run)",
+    "test_crab_hex_omni_gate::test_train_without_the_new_kwargs_names_no_run_and_carries_no_overlay": "fails at HEAD too (PYTHONDONTWRITEBYTECODE in the shell env)",
+    "test_crab_hex_omni_candidates::test_a_pre_suite_state_without_eval_sha_takes_the_alias_path": "passes in HEAD+M1a worktree (394/394); fails in main on other sessions' uncommitted 2026-09-19_facing_tracking_ladder state",
+    "test_crab_hex_omni_candidates::test_dry_run_prints_checkpoint_shape_inputs": "same as above"
+   }
+  }
+ },
+ "config_dumps": {
+  "method": "detached worktree at HEAD (scratchpad); 13 knob-off dumps before, the four M1a files copied in, 13 after, same worktree path (the parallel step-4 edits in the main checkout are excluded); harness scripts/t4_dump_cfgs.py (wraps body-cmd bc_dump_cfgs.py), targets = body-cmd dump_targets.json",
+  "knob_off": "13/13 byte-identical (sha256 per target in dump_check.json); no payload_reset term in any",
+  "armed": [
+   "d5_train_p2a: ovl_p2a + KG 0:90 ZERO_FRAC 0.25 COM_XY 0.10 COM_Z 0.309 (Omni-Teacher) -> events.payload_reset present, only that subtree + KRABBY_PAYLOAD_* env differ: PASS",
+   "level90_play_p2a: ovl_p2a on Omni-Teacher-Play + KG 90:90 ZERO_FRAC 0 COM_XY 0 COM_Z 0.309 -> PASS",
+   "zero_walk_c6x: ovl_c6x (Omni-Walk) + KG 0:0 ZERO_FRAC 0 COM_XY 0 COM_Z 0.309 -> PASS",
+   "kg_only_refused: ovl_p2a + KG 0:90 alone -> ValueError at cfg build, no dump: PASS"
+  ],
+  "record": "dump_check.json"
+ },
+ "not_yet_tested": "GPU: PhysX readback of the written mass/CoM/inertia on partial resets, reset-time cost of the set_* calls, and the armed-0:0 vs off bitwise bridge -- PLAN step 8 (C1/C3)"
+}

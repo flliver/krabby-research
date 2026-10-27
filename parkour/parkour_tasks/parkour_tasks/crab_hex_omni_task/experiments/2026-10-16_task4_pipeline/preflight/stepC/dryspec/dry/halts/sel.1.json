@@ -1,0 +1,146 @@
+{
+ "run": "dry",
+ "stage": "sel",
+ "class": "STUDENT",
+ "why": "every candidate's full block failed or none is left",
+ "at": "2026-10-19T04:42:06",
+ "status": "open",
+ "lines": [
+  {
+   "id": "sel.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.5318916848014361,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.009319592588325683,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 0.7,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.1219149477758894,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.0013607710937450816,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.3341697735066068,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.012870970837051268,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.32229305938270325,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.013629913445113767,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "sel.floor.es2",
+   "why": "no suite stamp at env seed 2"
+  },
+  {
+   "id": "sel.floor.side22_fastfast",
+   "statistic": "side22_25lr feet_ss class, both hands FAST/FAST",
+   "value": [
+    "DEAD",
+    "DEAD"
+   ],
+   "line": "fastfast",
+   "rate": 0.04454578668986031,
+   "unvalidated": false
+  },
+  {
+   "id": "student.capability.completion.field_light",
+   "statistic": "field_light completion vs T* on Student-Play",
+   "value": null,
+   "line": null,
+   "direction": ">=",
+   "rate": null,
+   "unvalidated": true,
+   "why": "field_light: student 0 vs T* 0 episodes (not the same rows / env seeds)"
+  },
+  {
+   "id": "student.capability.completion.ring_obst",
+   "statistic": "ring_obst completion vs T* on Student-Play",
+   "value": null,
+   "line": null,
+   "direction": ">=",
+   "rate": null,
+   "unvalidated": true,
+   "why": "ring_obst: student 0 vs T* 0 episodes (not the same rows / env seeds)"
+  },
+  {
+   "id": "student.capability.completion.field_turn",
+   "statistic": "field_turn completion vs T* on Student-Play",
+   "value": null,
+   "line": null,
+   "direction": ">=",
+   "rate": null,
+   "unvalidated": true,
+   "why": "field_turn: student 0 vs T* 0 episodes (not the same rows / env seeds)"
+  }
+ ],
+ "chance_rate_sum": 0.08172703465409611,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/sel.json",
+ "subtree": [
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ]
+}

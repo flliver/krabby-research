@@ -1,0 +1,32 @@
+== side: flip slot 9 (cmd vy) only
+canon C (pi*, target)      lat_l_022  | rod static 0.353 mod 0.313 | cam static 0.132 mod 0.249 | rod sign-flip frac 0.382 | med|mu| rod 7.10 n40
+canon C (pi*, target)      lat_r_022  | rod static 0.359 mod 0.306 | cam static 0.128 mod 0.251 | rod sign-flip frac 0.385 | med|mu| rod 7.07 n40
+canon C_mo_s2 (pi*, target) lat_l_022  | rod static 0.400 mod 0.337 | cam static 0.035 mod 0.147 | rod sign-flip frac 0.399 | med|mu| rod 6.29 n40
+canon C_mo_s2 (pi*, target) lat_r_022  | rod static 0.399 mod 0.328 | cam static 0.030 mod 0.153 | rod sign-flip frac 0.395 | med|mu| rod 6.38 n40
+LRfa                       lat_l_022  | rod static 0.473 mod 0.133 | cam static 0.021 mod 0.019 | rod sign-flip frac 0.343 | med|mu| rod 8.25 n40
+LRfa                       lat_r_022  | rod static 0.489 mod 0.089 | cam static 0.018 mod 0.012 | rod sign-flip frac 0.359 | med|mu| rod 6.80 n40
+LR4                        lat_l_022  | rod static 0.271 mod 0.109 | cam static 0.028 mod 0.034 | rod sign-flip frac 0.223 | med|mu| rod 6.30 n40
+LR4                        lat_r_022  | rod static 0.273 mod 0.125 | cam static 0.026 mod 0.031 | rod sign-flip frac 0.223 | med|mu| rod 6.21 n40
+C_lr                       lat_l_022  | rod static 0.311 mod 0.107 | cam static 0.056 mod 0.031 | rod sign-flip frac 0.230 | med|mu| rod 6.32 n40
+C_lr                       lat_r_022  | rod static 0.395 mod 0.106 | cam static 0.075 mod 0.041 | rod sign-flip frac 0.290 | med|mu| rod 7.17 n40
+C_lr_10                    lat_l_022  | rod static 0.274 mod 0.127 | cam static 0.044 mod 0.029 | rod sign-flip frac 0.202 | med|mu| rod 6.02 n40
+C_lr_10                    lat_r_022  | rod static 0.156 mod 0.106 | cam static 0.044 mod 0.040 | rod sign-flip frac 0.121 | med|mu| rod 5.43 n40
+C_lr_rsi                   lat_l_022  | rod static 0.591 mod 0.069 | cam static 0.007 mod 0.032 | rod sign-flip frac 0.461 | med|mu| rod 5.91 n40
+C_lr_rsi                   lat_r_022  | rod static 0.438 mod 0.130 | cam static 0.041 mod 0.042 | rod sign-flip frac 0.362 | med|mu| rod 7.89 n40
+C_lr_10_rsi                lat_l_022  | rod static 0.217 mod 0.119 | cam static 0.060 mod 0.067 | rod sign-flip frac 0.143 | med|mu| rod 6.93 n40
+C_lr_10_rsi                lat_r_022  | rod static 0.262 mod 0.155 | cam static 0.035 mod 0.040 | rod sign-flip frac 0.196 | med|mu| rod 7.27 n40
+LR4_dwell                  lat_l_022  | rod static 0.112 mod 0.051 | cam static 0.008 mod 0.005 | rod sign-flip frac 0.099 | med|mu| rod 5.46 n40
+LR4_dwell                  lat_r_022  | rod static 0.127 mod 0.067 | cam static 0.009 mod 0.007 | rod sign-flip frac 0.115 | med|mu| rod 7.98 n40
+O (+y only, 4img)          lat_l_022  | rod static 0.486 mod 0.135 | cam static 0.010 mod 0.036 | rod sign-flip frac 0.408 | med|mu| rod 7.94 n40
+R (+y only, 4img)          lat_l_022  | rod static 0.290 mod 0.155 | cam static 0.009 mod 0.004 | rod sign-flip frac 0.240 | med|mu| rod 7.83 n40
+C_band (+y only, 4img)     lat_l_022  | rod static 0.287 mod 0.165 | cam static 0.008 mod 0.012 | rod sign-flip frac 0.232 | med|mu| rod 7.76 n40
+t3 full omni side          lat_l      | rod static 0.507 mod 0.097 | cam static 0.078 mod 0.057 | rod sign-flip frac 0.381 | med|mu| rod 6.89 n40
+t3 full omni side          lat_r      | rod static 0.503 mod 0.111 | cam static 0.087 mod 0.062 | rod sign-flip frac 0.381 | med|mu| rod 6.86 n40
+== fore-aft: flip slot 8 (cmd vx) only
+t3 full omni fore-aft      fwd        | rod static 0.312 mod 0.118 | cam static 0.102 mod 0.086 | rod sign-flip frac 0.263 | med|mu| rod 5.99 n40
+t3 full omni fore-aft      back       | rod static 0.295 mod 0.094 | cam static 0.087 mod 0.056 | rod sign-flip frac 0.249 | med|mu| rod 6.04 n40
+c6 full omni side          lat_l      | rod static 0.578 mod 0.086 | cam static 0.115 mod 0.071 | rod sign-flip frac 0.449 | med|mu| rod 10.68 n40
+c6 full omni side          lat_r      | rod static 0.582 mod 0.076 | cam static 0.126 mod 0.068 | rod sign-flip frac 0.457 | med|mu| rod 10.61 n40
+== fore-aft: flip slot 8 (cmd vx) only
+c6 full omni fore-aft      fwd        | rod static 0.399 mod 0.192 | cam static 0.150 mod 0.133 | rod sign-flip frac 0.329 | med|mu| rod 8.82 n40
+c6 full omni fore-aft      back       | rod static 0.384 mod 0.162 | cam static 0.137 mod 0.104 | rod sign-flip frac 0.315 | med|mu| rod 8.68 n40

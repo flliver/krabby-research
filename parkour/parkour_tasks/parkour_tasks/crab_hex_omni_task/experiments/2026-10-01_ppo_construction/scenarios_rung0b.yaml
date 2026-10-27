@@ -1,0 +1,204 @@
+# Rung 0b: the C_lr_rsi cam-staging diagnostic (CHARTER section 5; plan step 2 item 4). Its own manifest so the shared
+# scenarios_omni.yaml (and every omni campaign's eval_sha) does not move. Run by scripts/rung0b.sh, ONE PROCESS PER ROW,
+# as direct evals (the driver forces RSI_FRAC 0), on X02 (the FAST C head, seed3_X02_s1_A15pB model_2999) with X02's own
+# driver-stamp env (run_meta.env_vars) in the process environment; each row's `env:` block then sets the RSI / staging
+# knobs on top (the harness writes it before the env cfg is built).
+#
+# The 8 rows: {RSI FRAC 0 ("normal spawn"), FRAC 1.0 bank A source 1} x {staging off, on} x env seeds {1, 2}.
+#   * Plain `schedule` rows, NOT category_suite (a suite row forces a settle hold): ONE lat_l 0.22 hold from reset,
+#     `prologue_s: 0`, so step 0 of the hold IS the reset (the [0, 2) s fall share is read from there).
+#   * deterministic mean (sigma 0: the harness's default; no --sample-actions).
+#   * EPISODES: for a schedule row the harness runs ONE episode per env (episodes == parallel envs; a done env is
+#     frozen out, never re-spawned), so ">= 400 episodes per row" is `episodes: 400` = 400 parallel envs in the row's
+#     process (not 100 envs x 4: a schedule row has no waves). At 400 the SE of a fall-share difference is ~0.02.
+#   * a 4-s hold (6-s episode): the reads use [0, 2) s only; the rest is margin.
+#   * every row carries the SAME env keys (manifest-shape sensitivity: an `env:` block on some rows and not others
+#     moves same-seed outcomes between two classes): KRABBY_RSI_FRAC, KRABBY_RSI_BANK, KRABBY_OMNI_RSI_SOURCE,
+#     KRABBY_RSI_CAM_STAGE, KRABBY_RSI_CAM_STAGE_DEBUG. Bank and source are inert at FRAC 0. DEBUG is on in every row:
+#     staging-on RSI envs must log the step-0 applied cam target = clamp(jv, +-pi) rad/s and history cam columns =
+#     clip(jv / pi); staging-off rows must log zeros (scripts/rung0b_read.py checks the logs before deciding).
+#   * the FRAC-0 staging-on rows equal their off twins by construction (no RSI env to stage): the "identical rows ->
+#     no decision" rule is applied to the FRAC-1.0 pairs only.
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: rung0b_frac0_off_e1__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 1
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "0"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: normal spawn (RSI FRAC 0), cam staging OFF, env seed 1; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_frac0_on_e1__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 1
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "1"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: normal spawn (RSI FRAC 0), cam staging ON, env seed 1; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_rsi_off_e1__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 1
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "1.0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "0"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: RSI FRAC 1.0 from bank A (source 1), cam staging OFF, env seed 1; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_rsi_on_e1__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 1
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "1.0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "1"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: RSI FRAC 1.0 from bank A (source 1), cam staging ON, env seed 1; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_frac0_off_e2__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 2
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "0"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: normal spawn (RSI FRAC 0), cam staging OFF, env seed 2; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_frac0_on_e2__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 2
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "1"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: normal spawn (RSI FRAC 0), cam staging ON, env seed 2; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_rsi_off_e2__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 2
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "1.0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "0"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: RSI FRAC 1.0 from bank A (source 1), cam staging OFF, env seed 2; lat_l 0.22 from reset, 400 episodes.
+
+  - id: rung0b_rsi_on_e2__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 400
+    env_seed: 2
+    episode_length_s: 6.0
+    spawn_yaw: first_face
+    defaults: {prologue_s: 0.0}
+    env:
+      KRABBY_RSI_FRAC: "1.0"
+      KRABBY_RSI_BANK: "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-28_side_bisect/rsi_bank_side_lr.npz"
+      KRABBY_OMNI_RSI_SOURCE: "1"
+      KRABBY_RSI_CAM_STAGE: "1"
+      KRABBY_RSI_CAM_STAGE_DEBUG: "1"
+    schedule:
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 4.0, label: lat_l_022}
+    notes: >-
+      Rung 0b row: RSI FRAC 1.0 from bank A (source 1), cam staging ON, env seed 2; lat_l 0.22 from reset, 400 episodes.

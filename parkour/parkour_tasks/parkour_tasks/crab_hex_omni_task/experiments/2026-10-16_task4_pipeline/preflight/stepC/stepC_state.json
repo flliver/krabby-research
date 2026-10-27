@@ -1,0 +1,1845 @@
+{
+ "accepted": [
+  {
+   "at": "2026-10-17T14:16:33",
+   "job": "C4_depth",
+   "why": "user 2026-10-17: accept with disclosure -- no omni row is perception-limited (S1 with perfect scan = blind student = depth student), so depth-helps cannot discriminate; camera use reported as unverified"
+  }
+ ],
+ "jobs": {
+  "C1": {
+   "at": "2026-10-16T23:28:25",
+   "attempt": 1,
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C1_PC_c4": {
+   "at": "2026-10-16T22:22:02",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_PC_c5": {
+   "at": "2026-10-16T22:24:23",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_PC_c6": {
+   "at": "2026-10-16T22:26:43",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_PC_c6x": {
+   "at": "2026-10-16T22:29:03",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_PC_p2a": {
+   "at": "2026-10-16T22:31:23",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_PC_s1": {
+   "at": "2026-10-16T22:19:42",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_PC_s1pay00": {
+   "at": "2026-10-16T22:33:44",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_S1_field_hard": {
+   "at": "2026-10-16T22:44:34",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_S1_suite": {
+   "at": "2026-10-16T22:40:54",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_S1_suite_L000": {
+   "at": "2026-10-16T23:19:48",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_S1_suite_body": {
+   "at": "2026-10-16T22:51:38",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_X10_suite": {
+   "at": "2026-10-16T23:12:45",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_X43_suite": {
+   "at": "2026-10-16T22:58:41",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_X60_suite": {
+   "at": "2026-10-16T23:05:44",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_dumps": {
+   "at": "2026-10-16T22:17:22",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_fwd3a_cur": {
+   "at": "2026-10-16T23:23:02",
+   "rc": 0,
+   "status": "done"
+  },
+  "C1_fwd3a_old": {
+   "at": "2026-10-16T23:21:25",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2": {
+   "at": "2026-10-17T01:16:41",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C2_REFS_suite@1": {
+   "at": "2026-10-17T00:38:13",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_REFS_walkstop@1": {
+   "at": "2026-10-17T00:40:51",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_hard@1": {
+   "at": "2026-10-16T23:42:50",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_hard@2": {
+   "at": "2026-10-17T01:06:02",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_light@1": {
+   "at": "2026-10-16T23:46:20",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_light@2": {
+   "at": "2026-10-17T01:09:30",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_suite@1": {
+   "at": "2026-10-16T23:59:29",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_turn@1": {
+   "at": "2026-10-16T23:52:02",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_field_turn@2": {
+   "at": "2026-10-17T01:15:21",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_grid_body@1": {
+   "at": "2026-10-17T00:27:32",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_ring_obst@1": {
+   "at": "2026-10-16T23:49:48",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_ring_obst@2": {
+   "at": "2026-10-17T01:12:58",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_side22@1": {
+   "at": "2026-10-16T23:39:10",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_suite@1": {
+   "at": "2026-10-16T23:35:31",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_suite@2": {
+   "at": "2026-10-17T01:02:22",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_suite_body@1": {
+   "at": "2026-10-17T00:06:33",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_S1_turnlevels_body@1": {
+   "at": "2026-10-17T00:13:38",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_SH_T17_height": {
+   "at": "2026-10-17T00:52:33",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_SH_T17_zero": {
+   "at": "2026-10-17T00:55:19",
+   "rc": 0,
+   "status": "done"
+  },
+  "C2_X60_turn_band@1": {
+   "at": "2026-10-17T00:31:11",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_S1_curve": {
+   "at": "2026-10-17T02:52:05",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C3_gate": {
+   "at": "2026-10-17T07:53:21",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C3_np": {
+   "at": "2026-10-17T05:34:58",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C3_pilot": {
+   "at": "2026-10-17T04:08:33",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_pilot_live": {
+   "at": "2026-10-17T04:08:52",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C3_readback": {
+   "at": "2026-10-17T01:17:31",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C3_readback_level": {
+   "at": "2026-10-17T01:17:31",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_readback_train": {
+   "at": "2026-10-17T01:17:06",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle": {
+   "at": "2026-10-17T01:22:18",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C3_settle_L000": {
+   "at": "2026-10-17T01:18:12",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle_L045": {
+   "at": "2026-10-17T01:18:53",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle_L090": {
+   "at": "2026-10-17T01:19:34",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle_L135": {
+   "at": "2026-10-17T01:20:15",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle_L180": {
+   "at": "2026-10-17T01:20:56",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle_L225": {
+   "at": "2026-10-17T01:21:37",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_settle_L270": {
+   "at": "2026-10-17T01:22:17",
+   "rc": 0,
+   "status": "done"
+  },
+  "C3_timing": {
+   "at": "2026-10-17T01:26:38",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_camera": {
+   "at": "2026-10-17T07:55:15",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C4_camera_field": {
+   "at": "2026-10-17T07:55:00",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_camera_flat": {
+   "at": "2026-10-17T07:54:09",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_depth": {
+   "at": "2026-10-17T13:28:19",
+   "rc": 3,
+   "status": "accepted"
+  },
+  "C4_depth_field_hard@1": {
+   "at": "2026-10-17T13:03:25",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_depth_field_hard@2": {
+   "at": "2026-10-17T13:07:35",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_depth_suite@1": {
+   "at": "2026-10-17T12:59:14",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_det": {
+   "at": "2026-10-17T08:56:58",
+   "rc": 2,
+   "status": "done",
+   "verdict": "REPORT"
+  },
+  "C4_det_a": {
+   "at": "2026-10-17T08:50:35",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_det_b": {
+   "at": "2026-10-17T08:56:42",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_distill_payload": {
+   "at": "2026-10-17T14:40:28",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_distill_payload_check": {
+   "at": "2026-10-17T14:48:22",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C4_dpay_suite@1_L090": {
+   "at": "2026-10-17T14:48:06",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_live": {
+   "at": "2026-10-17T14:17:12",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C4_parity": {
+   "at": "2026-10-17T08:20:48",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C4_parity_field_hard@1": {
+   "at": "2026-10-17T08:12:08",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_parity_field_hard@2": {
+   "at": "2026-10-17T08:16:16",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_parity_field_light@1": {
+   "at": "2026-10-17T08:20:12",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_parity_side22@1": {
+   "at": "2026-10-17T08:07:57",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_parity_suite@1": {
+   "at": "2026-10-17T08:03:51",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_pilot_depth": {
+   "at": "2026-10-17T10:54:18",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_pilot_zero": {
+   "at": "2026-10-17T12:51:29",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_readback": {
+   "at": "2026-10-17T07:56:11",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C4_readback_student": {
+   "at": "2026-10-17T07:55:56",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_shape_field_hard@1": {
+   "at": "2026-10-17T13:19:29",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_shape_suite@1": {
+   "at": "2026-10-17T13:15:19",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_timing": {
+   "at": "2026-10-17T08:44:13",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_timing_check": {
+   "at": "2026-10-17T08:44:29",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C4_zero_field_hard@1": {
+   "at": "2026-10-17T13:23:42",
+   "rc": 0,
+   "status": "done"
+  },
+  "C4_zero_field_hard@2": {
+   "at": "2026-10-17T13:27:54",
+   "rc": 0,
+   "status": "done"
+  },
+  "C5": {
+   "at": "2026-10-17T15:56:11",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C5_s16_dirsweep@1": {
+   "at": "2026-10-17T14:59:38",
+   "rc": 0,
+   "status": "done"
+  },
+  "C5_s16_dirsweep@2": {
+   "at": "2026-10-17T15:10:56",
+   "rc": 0,
+   "status": "done"
+  },
+  "C5_s17_dirsweep@1": {
+   "at": "2026-10-17T15:22:08",
+   "rc": 0,
+   "status": "done"
+  },
+  "C5_s17_dirsweep@2": {
+   "at": "2026-10-17T15:33:21",
+   "rc": 0,
+   "status": "done"
+  },
+  "C5_s18_dirsweep@1": {
+   "at": "2026-10-17T15:44:39",
+   "rc": 0,
+   "status": "done"
+  },
+  "C5_s18_dirsweep@2": {
+   "at": "2026-10-17T15:55:56",
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_det": {
+   "at": "2026-10-17T16:26:47",
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C6_det_sh_a": {
+   "at": "2026-10-17T16:22:55",
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_det_sh_b": {
+   "at": "2026-10-17T16:26:31",
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_det_sn_a": {
+   "at": "2026-10-17T16:16:11",
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_det_sn_b": {
+   "at": "2026-10-17T16:19:20",
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_emit": {
+   "at": "2026-10-17T15:56:27",
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_new": {
+   "at": "2026-10-17T16:13:05",
+   "attempt": 1,
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C6_sh_new": {
+   "at": "2026-10-17T16:12:49",
+   "attempt": 2,
+   "rc": 0,
+   "status": "done"
+  },
+  "C6_sn_new": {
+   "at": "2026-10-17T15:59:34",
+   "rc": 0,
+   "status": "done"
+  },
+  "C7": {
+   "at": "2026-10-19T04:45:26",
+   "attempt": 1,
+   "rc": 0,
+   "status": "done",
+   "verdict": "PASS"
+  },
+  "C7_dry": {
+   "at": "2026-10-19T04:42:26",
+   "attempt": 1,
+   "rc": 1,
+   "status": "done"
+  },
+  "T4C3_S1_L000.field_light@1": {
+   "at": "2026-10-17T01:44:15",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L000.field_light@2": {
+   "at": "2026-10-17T01:47:46",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L000.suite@1": {
+   "at": "2026-10-17T01:33:41",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L000.suite@2": {
+   "at": "2026-10-17T01:40:45",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L045.field_light@1": {
+   "at": "2026-10-17T02:05:29",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L045.field_light@2": {
+   "at": "2026-10-17T02:09:02",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L045.suite@1": {
+   "at": "2026-10-17T01:54:53",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L045.suite@2": {
+   "at": "2026-10-17T02:01:58",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L090.field_light@1": {
+   "at": "2026-10-17T02:26:53",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L090.field_light@2": {
+   "at": "2026-10-17T02:30:27",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L090.suite@1": {
+   "at": "2026-10-17T02:16:11",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L090.suite@2": {
+   "at": "2026-10-17T02:23:20",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L135.field_light@1": {
+   "at": "2026-10-17T02:48:20",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L135.field_light@2": {
+   "at": "2026-10-17T02:51:55",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L135.suite@1": {
+   "at": "2026-10-17T02:37:36",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_S1_L135.suite@2": {
+   "at": "2026-10-17T02:44:47",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c20500_L090.suite@1": {
+   "at": "2026-10-17T04:16:04",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c20500_L090.suite@2": {
+   "at": "2026-10-17T04:23:14",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c21000_L090.suite@1": {
+   "at": "2026-10-17T04:30:26",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c21000_L090.suite@2": {
+   "at": "2026-10-17T04:37:35",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c21500_L090.suite@1": {
+   "at": "2026-10-17T04:44:46",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c21500_L090.suite@2": {
+   "at": "2026-10-17T04:51:57",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22000_L090.suite@1": {
+   "at": "2026-10-17T04:59:08",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22000_L090.suite@2": {
+   "at": "2026-10-17T05:06:22",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22500_L090.suite@1": {
+   "at": "2026-10-17T05:13:32",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22500_L090.suite@2": {
+   "at": "2026-10-17T05:20:40",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.field_hard@1": {
+   "at": "2026-10-17T05:56:32",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.field_hard@2": {
+   "at": "2026-10-17T06:00:19",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.field_light@1": {
+   "at": "2026-10-17T06:03:54",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.field_light@2": {
+   "at": "2026-10-17T06:07:30",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.field_turn@1": {
+   "at": "2026-10-17T06:17:02",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.field_turn@2": {
+   "at": "2026-10-17T06:19:21",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.ring_obst@1": {
+   "at": "2026-10-17T06:11:06",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.ring_obst@2": {
+   "at": "2026-10-17T06:14:40",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.side22@1": {
+   "at": "2026-10-17T05:52:45",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.suite@1": {
+   "at": "2026-10-17T05:42:00",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993.suite@2": {
+   "at": "2026-10-17T05:49:05",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L000.field_light@1": {
+   "at": "2026-10-17T06:37:03",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L000.field_light@2": {
+   "at": "2026-10-17T06:40:40",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L000.suite@1": {
+   "at": "2026-10-17T06:26:25",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L000.suite@2": {
+   "at": "2026-10-17T06:33:29",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L045.field_light@1": {
+   "at": "2026-10-17T06:58:28",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L045.field_light@2": {
+   "at": "2026-10-17T07:02:07",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L045.suite@1": {
+   "at": "2026-10-17T06:47:46",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L045.suite@2": {
+   "at": "2026-10-17T06:54:50",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L090.field_light@1": {
+   "at": "2026-10-17T07:05:47",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L090.field_light@2": {
+   "at": "2026-10-17T07:09:29",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L090.suite@1": {
+   "at": "2026-10-17T05:27:42",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L090.suite@2": {
+   "at": "2026-10-17T05:34:45",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L135.field_light@1": {
+   "at": "2026-10-17T07:27:32",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L135.field_light@2": {
+   "at": "2026-10-17T07:31:14",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L135.suite@1": {
+   "at": "2026-10-17T07:16:39",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L135.suite@2": {
+   "at": "2026-10-17T07:23:51",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L180.field_light@1": {
+   "at": "2026-10-17T07:49:15",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L180.field_light@2": {
+   "at": "2026-10-17T07:52:50",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L180.suite@1": {
+   "at": "2026-10-17T07:38:26",
+   "rc": 0,
+   "status": "done"
+  },
+  "T4C3_pilot_c22993_L180.suite@2": {
+   "at": "2026-10-17T07:45:38",
+   "rc": 0,
+   "status": "done"
+  }
+ },
+ "log": [
+  {
+   "at": "2026-10-16T22:17:22",
+   "job": "C1_dumps",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:19:42",
+   "job": "C1_PC_s1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:22:02",
+   "job": "C1_PC_c4",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:24:23",
+   "job": "C1_PC_c5",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:26:43",
+   "job": "C1_PC_c6",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:29:03",
+   "job": "C1_PC_c6x",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:31:23",
+   "job": "C1_PC_p2a",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:33:44",
+   "job": "C1_PC_s1pay00",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:40:54",
+   "job": "C1_S1_suite",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:44:34",
+   "job": "C1_S1_field_hard",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:51:38",
+   "job": "C1_S1_suite_body",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T22:58:41",
+   "job": "C1_X43_suite",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:05:44",
+   "job": "C1_X60_suite",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:12:45",
+   "job": "C1_X10_suite",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:19:48",
+   "job": "C1_S1_suite_L000",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:21:25",
+   "job": "C1_fwd3a_old",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:23:02",
+   "job": "C1_fwd3a_cur",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:24:02",
+   "job": "C1",
+   "rc": 3,
+   "status": "stopped"
+  },
+  {
+   "at": "2026-10-16T23:28:25",
+   "job": "C1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:35:31",
+   "job": "C2_S1_suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:39:10",
+   "job": "C2_S1_side22@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:42:50",
+   "job": "C2_S1_field_hard@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:46:20",
+   "job": "C2_S1_field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:49:48",
+   "job": "C2_S1_ring_obst@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:52:02",
+   "job": "C2_S1_field_turn@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-16T23:59:29",
+   "job": "C2_S1_field_suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:06:33",
+   "job": "C2_S1_suite_body@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:13:38",
+   "job": "C2_S1_turnlevels_body@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:27:32",
+   "job": "C2_S1_grid_body@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:31:11",
+   "job": "C2_X60_turn_band@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:38:13",
+   "job": "C2_REFS_suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:40:51",
+   "job": "C2_REFS_walkstop@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:52:33",
+   "job": "C2_SH_T17_height",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T00:55:19",
+   "job": "C2_SH_T17_zero",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:02:22",
+   "job": "C2_S1_suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:06:02",
+   "job": "C2_S1_field_hard@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:09:30",
+   "job": "C2_S1_field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:12:58",
+   "job": "C2_S1_ring_obst@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:15:21",
+   "job": "C2_S1_field_turn@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:16:41",
+   "job": "C2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:17:06",
+   "job": "C3_readback_train",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:17:31",
+   "job": "C3_readback_level",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:17:31",
+   "job": "C3_readback",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:18:12",
+   "job": "C3_settle_L000",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:18:53",
+   "job": "C3_settle_L045",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:19:34",
+   "job": "C3_settle_L090",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:20:15",
+   "job": "C3_settle_L135",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:20:56",
+   "job": "C3_settle_L180",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:21:37",
+   "job": "C3_settle_L225",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:22:17",
+   "job": "C3_settle_L270",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:22:18",
+   "job": "C3_settle",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:26:38",
+   "job": "C3_timing",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:33:41",
+   "job": "T4C3_S1_L000.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:40:45",
+   "job": "T4C3_S1_L000.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:44:15",
+   "job": "T4C3_S1_L000.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:47:46",
+   "job": "T4C3_S1_L000.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T01:54:53",
+   "job": "T4C3_S1_L045.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:01:58",
+   "job": "T4C3_S1_L045.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:05:29",
+   "job": "T4C3_S1_L045.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:09:02",
+   "job": "T4C3_S1_L045.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:16:11",
+   "job": "T4C3_S1_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:23:20",
+   "job": "T4C3_S1_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:26:53",
+   "job": "T4C3_S1_L090.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:30:27",
+   "job": "T4C3_S1_L090.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:37:36",
+   "job": "T4C3_S1_L135.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:44:47",
+   "job": "T4C3_S1_L135.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:48:20",
+   "job": "T4C3_S1_L135.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:51:55",
+   "job": "T4C3_S1_L135.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T02:52:05",
+   "job": "C3_S1_curve",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:08:33",
+   "job": "C3_pilot",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:08:52",
+   "job": "C3_pilot_live",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:16:04",
+   "job": "T4C3_pilot_c20500_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:23:14",
+   "job": "T4C3_pilot_c20500_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:30:26",
+   "job": "T4C3_pilot_c21000_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:37:35",
+   "job": "T4C3_pilot_c21000_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:44:46",
+   "job": "T4C3_pilot_c21500_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:51:57",
+   "job": "T4C3_pilot_c21500_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T04:59:08",
+   "job": "T4C3_pilot_c22000_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:06:22",
+   "job": "T4C3_pilot_c22000_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:13:32",
+   "job": "T4C3_pilot_c22500_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:20:40",
+   "job": "T4C3_pilot_c22500_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:27:42",
+   "job": "T4C3_pilot_c22993_L090.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:34:45",
+   "job": "T4C3_pilot_c22993_L090.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:34:58",
+   "job": "C3_np",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:42:00",
+   "job": "T4C3_pilot_c22993.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:49:05",
+   "job": "T4C3_pilot_c22993.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:52:45",
+   "job": "T4C3_pilot_c22993.side22@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T05:56:32",
+   "job": "T4C3_pilot_c22993.field_hard@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:00:19",
+   "job": "T4C3_pilot_c22993.field_hard@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:03:54",
+   "job": "T4C3_pilot_c22993.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:07:30",
+   "job": "T4C3_pilot_c22993.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:11:06",
+   "job": "T4C3_pilot_c22993.ring_obst@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:14:40",
+   "job": "T4C3_pilot_c22993.ring_obst@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:17:02",
+   "job": "T4C3_pilot_c22993.field_turn@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:19:21",
+   "job": "T4C3_pilot_c22993.field_turn@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:26:25",
+   "job": "T4C3_pilot_c22993_L000.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:33:29",
+   "job": "T4C3_pilot_c22993_L000.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:37:03",
+   "job": "T4C3_pilot_c22993_L000.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:40:40",
+   "job": "T4C3_pilot_c22993_L000.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:47:46",
+   "job": "T4C3_pilot_c22993_L045.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:54:50",
+   "job": "T4C3_pilot_c22993_L045.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T06:58:28",
+   "job": "T4C3_pilot_c22993_L045.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:02:07",
+   "job": "T4C3_pilot_c22993_L045.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:05:47",
+   "job": "T4C3_pilot_c22993_L090.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:09:29",
+   "job": "T4C3_pilot_c22993_L090.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:16:39",
+   "job": "T4C3_pilot_c22993_L135.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:23:51",
+   "job": "T4C3_pilot_c22993_L135.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:27:32",
+   "job": "T4C3_pilot_c22993_L135.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:31:14",
+   "job": "T4C3_pilot_c22993_L135.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:38:26",
+   "job": "T4C3_pilot_c22993_L180.suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:45:38",
+   "job": "T4C3_pilot_c22993_L180.suite@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:49:15",
+   "job": "T4C3_pilot_c22993_L180.field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:52:50",
+   "job": "T4C3_pilot_c22993_L180.field_light@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:53:21",
+   "job": "C3_gate",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:54:09",
+   "job": "C4_camera_flat",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:55:00",
+   "job": "C4_camera_field",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:55:15",
+   "job": "C4_camera",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:55:56",
+   "job": "C4_readback_student",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T07:56:11",
+   "job": "C4_readback",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:03:51",
+   "job": "C4_parity_suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:07:57",
+   "job": "C4_parity_side22@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:12:08",
+   "job": "C4_parity_field_hard@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:16:16",
+   "job": "C4_parity_field_hard@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:20:12",
+   "job": "C4_parity_field_light@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:20:48",
+   "job": "C4_parity",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:44:13",
+   "job": "C4_timing",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:44:29",
+   "job": "C4_timing_check",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:50:35",
+   "job": "C4_det_a",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:56:42",
+   "job": "C4_det_b",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T08:56:58",
+   "job": "C4_det",
+   "rc": 2,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T10:54:18",
+   "job": "C4_pilot_depth",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T12:51:29",
+   "job": "C4_pilot_zero",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T12:59:14",
+   "job": "C4_depth_suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:03:25",
+   "job": "C4_depth_field_hard@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:07:35",
+   "job": "C4_depth_field_hard@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:15:19",
+   "job": "C4_shape_suite@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:19:29",
+   "job": "C4_shape_field_hard@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:23:42",
+   "job": "C4_zero_field_hard@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:27:54",
+   "job": "C4_zero_field_hard@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T13:28:19",
+   "job": "C4_depth",
+   "rc": 3,
+   "status": "stopped"
+  },
+  {
+   "at": "2026-10-17T14:17:12",
+   "job": "C4_live",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T14:40:28",
+   "job": "C4_distill_payload",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T14:48:06",
+   "job": "C4_dpay_suite@1_L090",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T14:48:22",
+   "job": "C4_distill_payload_check",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T14:59:38",
+   "job": "C5_s16_dirsweep@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:10:56",
+   "job": "C5_s16_dirsweep@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:22:08",
+   "job": "C5_s17_dirsweep@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:33:21",
+   "job": "C5_s17_dirsweep@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:44:39",
+   "job": "C5_s18_dirsweep@1",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:55:56",
+   "job": "C5_s18_dirsweep@2",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:56:11",
+   "job": "C5",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:56:27",
+   "job": "C6_emit",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T15:59:34",
+   "job": "C6_sn_new",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:03:05",
+   "job": "C6_sh_new",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:03:20",
+   "job": "C6_new",
+   "rc": 3,
+   "status": "stopped"
+  },
+  {
+   "at": "2026-10-17T16:12:49",
+   "job": "C6_sh_new",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:13:05",
+   "job": "C6_new",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:16:11",
+   "job": "C6_det_sn_a",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:19:20",
+   "job": "C6_det_sn_b",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:22:55",
+   "job": "C6_det_sh_a",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:26:31",
+   "job": "C6_det_sh_b",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-17T16:26:47",
+   "job": "C6_det",
+   "rc": 0,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-18T22:27:57",
+   "job": "C7_dry",
+   "rc": 1,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-18T22:28:13",
+   "job": "C7",
+   "rc": 3,
+   "status": "stopped"
+  },
+  {
+   "at": "2026-10-19T04:42:26",
+   "job": "C7_dry",
+   "rc": 1,
+   "status": "done"
+  },
+  {
+   "at": "2026-10-19T04:42:34",
+   "job": "C7",
+   "rc": 3,
+   "status": "stopped"
+  },
+  {
+   "at": "2026-10-19T04:45:26",
+   "job": "C7",
+   "rc": 0,
+   "status": "done"
+  }
+ ],
+ "schema": 1
+}

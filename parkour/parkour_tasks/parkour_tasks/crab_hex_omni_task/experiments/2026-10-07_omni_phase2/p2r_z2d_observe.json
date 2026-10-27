@@ -1,0 +1,302 @@
+{
+ "suite": {
+  "rows": 100000,
+  "masked": true,
+  "cpu_vs_applied_mu_max_abs": 9.136274456977844e-07,
+  "cpu_vs_applied_mu_mean_abs": 1.1465487403938823e-07,
+  "branch_leg_shares": {
+   "hold": 0.9957216666666666,
+   "wait": 0.0,
+   "lift": 0.004243333333333333,
+   "home": 0.0,
+   "seat": 3.5e-05
+  },
+  "allhold_share": 0.97433,
+  "allhold_mean_mu_minus_R": {
+   "cam": [
+    -0.02370000071823597,
+    0.03220000118017197,
+    -0.023099999874830246,
+    -0.06909999996423721,
+    0.0771000012755394,
+    -0.041200000792741776
+   ],
+   "hip": [
+    -0.01720000058412552,
+    -0.008899999782443047,
+    0.00139999995008111,
+    -0.01590000092983246,
+    0.00419999985024333,
+    -0.002099999925121665
+   ],
+   "knee": [
+    0.01850000023841858,
+    -0.01759999990463257,
+    -0.0013000000035390258,
+    -0.012299999594688416,
+    -0.006000000052154064,
+    -0.0013000000035390258
+   ]
+  },
+  "by_branch": {
+   "hold": {
+    "leg_rows": 597433,
+    "cam_abs": 0.052,
+    "cam_signed": -0.0086,
+    "hip_abs": 0.0116,
+    "hip_signed": -0.0066,
+    "knee_abs": 0.0124,
+    "knee_signed": -0.0033
+   },
+   "lift": {
+    "leg_rows": 2546,
+    "cam_abs": 0.004,
+    "cam_signed": 0.0025,
+    "hip_abs": 0.4833,
+    "hip_signed": 0.4833,
+    "knee_abs": 0.48,
+    "knee_signed": -0.48
+   },
+   "seat": {
+    "leg_rows": 21,
+    "cam_abs": 0.0029,
+    "cam_signed": -0.0017,
+    "hip_abs": 0.0851,
+    "hip_signed": -0.0851,
+    "knee_abs": 0.0773,
+    "knee_signed": -0.0726
+   }
+  },
+  "column_scale_vs_train_banks": {
+   "hip_pos(29:35)": {
+    "observe_mean_abs": 0.0127,
+    "observe_p90_abs": 0.0262,
+    "train_mean_abs": 0.0161,
+    "train_p90_abs": 0.03
+   },
+   "cam(18:30:2)": {
+    "observe_mean_abs": 0.0527,
+    "observe_p90_abs": 0.1073,
+    "train_mean_abs": 0.0465,
+    "train_p90_abs": 0.0623
+   },
+   "proxy(83:89)": {
+    "observe_mean_abs": 0.5,
+    "observe_p90_abs": 0.5,
+    "train_mean_abs": 0.4979,
+    "train_p90_abs": 0.5
+   },
+   "last_act_rods(71:83)": {
+    "observe_mean_abs": 0.0,
+    "observe_p90_abs": 0.0,
+    "train_mean_abs": 0.0184,
+    "train_p90_abs": 0.0162
+   },
+   "roll_pitch(3:5)": {
+    "observe_mean_abs": 0.0056,
+    "observe_p90_abs": 0.0134,
+    "train_mean_abs": 0.0092,
+    "train_p90_abs": 0.0209
+   },
+   "joint_vel(41:65)": {
+    "observe_mean_abs": 0.0013,
+    "observe_p90_abs": 0.003,
+    "train_mean_abs": 0.0021,
+    "train_p90_abs": 0.0034
+   }
+  },
+  "proxy_parked_share": {
+   "observe": 1.0,
+   "train": 0.9401632894736842
+  },
+  "by_step": {
+   "0-3": {
+    "n": 1238,
+    "mu_hip_mean": -0.0081,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "3-6": {
+    "n": 1229,
+    "mu_hip_mean": -0.0124,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "6-10": {
+    "n": 1689,
+    "mu_hip_mean": 0.0005,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "10-20": {
+    "n": 4244,
+    "mu_hip_mean": -0.0056,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "20-50": {
+    "n": 12738,
+    "mu_hip_mean": -0.0049,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "50-100": {
+    "n": 21335,
+    "mu_hip_mean": -0.0055,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "100-300": {
+    "n": 37282,
+    "mu_hip_mean": -0.0066,
+    "R_hold_leg_share": 1.0,
+    "R_lift_or_seat_share": 0.0
+   },
+   "300-1000000": {
+    "n": 20245,
+    "mu_hip_mean": -0.0093,
+    "R_hold_leg_share": 0.979,
+    "R_lift_or_seat_share": 0.021
+   }
+  },
+  "bank": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_OBSZ2d_s18/suite__omni/seed001/2026-10-11_16-38-44/p2r_stand_bank.npz"
+ },
+ "walkstop": {
+  "rows": 100000,
+  "masked": true,
+  "cpu_vs_applied_mu_max_abs": 1.3113021850585938e-06,
+  "cpu_vs_applied_mu_mean_abs": 1.1610779182547049e-07,
+  "branch_leg_shares": {
+   "hold": 0.9008216666666666,
+   "wait": 0.026375,
+   "lift": 0.025021666666666668,
+   "home": 0.023235,
+   "seat": 0.024546666666666668
+  },
+  "allhold_share": 0.75728,
+  "allhold_mean_mu_minus_R": {
+   "cam": [
+    -0.015200000256299973,
+    0.02410000003874302,
+    -0.05620000138878822,
+    -0.033900000154972076,
+    0.0835999995470047,
+    -0.05640000104904175
+   ],
+   "hip": [
+    -0.029100000858306885,
+    -0.022099999710917473,
+    -0.004600000102072954,
+    -0.018400000408291817,
+    -0.009200000204145908,
+    -0.013000000268220901
+   ],
+   "knee": [
+    0.030400000512599945,
+    -0.030500000342726707,
+    0.003800000064074993,
+    -0.015200000256299973,
+    0.010900000110268593,
+    -0.013399999588727951
+   ]
+  },
+  "by_branch": {
+   "hold": {
+    "leg_rows": 540493,
+    "cam_abs": 0.0614,
+    "cam_signed": -0.0103,
+    "hip_abs": 0.0214,
+    "hip_signed": -0.0176,
+    "knee_abs": 0.0227,
+    "knee_signed": -0.0028
+   },
+   "wait": {
+    "leg_rows": 15825,
+    "cam_abs": 0.0975,
+    "cam_signed": -0.009,
+    "hip_abs": 0.0566,
+    "hip_signed": -0.0393,
+    "knee_abs": 0.0607,
+    "knee_signed": -0.0019
+   },
+   "lift": {
+    "leg_rows": 15013,
+    "cam_abs": 0.0648,
+    "cam_signed": -0.0045,
+    "hip_abs": 0.4465,
+    "hip_signed": 0.4465,
+    "knee_abs": 0.4413,
+    "knee_signed": -0.2892
+   },
+   "home": {
+    "leg_rows": 13941,
+    "cam_abs": 0.24,
+    "cam_signed": -0.0925,
+    "hip_abs": 0.2528,
+    "hip_signed": 0.2341,
+    "knee_abs": 0.2575,
+    "knee_signed": -0.0285
+   },
+   "seat": {
+    "leg_rows": 14728,
+    "cam_abs": 0.2759,
+    "cam_signed": -0.0289,
+    "hip_abs": 0.1101,
+    "hip_signed": -0.102,
+    "knee_abs": 0.1096,
+    "knee_signed": -0.0179
+   }
+  },
+  "column_scale_vs_train_banks": {
+   "hip_pos(29:35)": {
+    "observe_mean_abs": 0.0182,
+    "observe_p90_abs": 0.0357,
+    "train_mean_abs": 0.0161,
+    "train_p90_abs": 0.03
+   },
+   "cam(18:30:2)": {
+    "observe_mean_abs": 0.1224,
+    "observe_p90_abs": 0.2356,
+    "train_mean_abs": 0.0465,
+    "train_p90_abs": 0.0623
+   },
+   "proxy(83:89)": {
+    "observe_mean_abs": 0.5,
+    "observe_p90_abs": 0.5,
+    "train_mean_abs": 0.4979,
+    "train_p90_abs": 0.5
+   },
+   "last_act_rods(71:83)": {
+    "observe_mean_abs": 0.0,
+    "observe_p90_abs": 0.0,
+    "train_mean_abs": 0.0184,
+    "train_p90_abs": 0.0162
+   },
+   "roll_pitch(3:5)": {
+    "observe_mean_abs": 0.0083,
+    "observe_p90_abs": 0.0204,
+    "train_mean_abs": 0.0092,
+    "train_p90_abs": 0.0209
+   },
+   "joint_vel(41:65)": {
+    "observe_mean_abs": 0.0031,
+    "observe_p90_abs": 0.0065,
+    "train_mean_abs": 0.0021,
+    "train_p90_abs": 0.0034
+   }
+  },
+  "proxy_parked_share": {
+   "observe": 1.0,
+   "train": 0.9401632894736842
+  },
+  "by_step": {
+   "300-1000000": {
+    "n": 100000,
+    "mu_hip_mean": -0.0269,
+    "R_hold_leg_share": 0.901,
+    "R_lift_or_seat_share": 0.05
+   }
+  },
+  "bank": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_OBSZ2d_s18/walkstop__omni/seed001/2026-10-11_16-45-43/p2r_stand_bank.npz"
+ }
+}

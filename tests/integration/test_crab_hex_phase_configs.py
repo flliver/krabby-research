@@ -64,8 +64,10 @@ RECORDED_WINDOW = {"1a": "0", "2a": "1", "2b": "2", "2c": "3"}
 
 # fields that legitimately differ between a fresh cfg and a recorded run
 ENV_VOLATILE = {("seed",), ("scene", "num_envs"), ("sim", "device")}
+# ``resume_alg_state`` (PPO resume fix, 2026-09-22) is resume behaviour like ``resume`` itself: the
+# recorded lineage windows predate the key, and it changes nothing about a fresh window.
 AGENT_VOLATILE = {("seed",), ("device",), ("max_iterations",), ("resume",), ("load_run",),
-                  ("load_checkpoint",), ("run_name",), ("experiment_name",)}
+                  ("load_checkpoint",), ("run_name",), ("experiment_name",), ("resume_alg_state",)}
 # student subtrees that must equal the 2c teacher's (the student keeps its own observations,
 # rewards, depth camera and camera-placement event; it has no reward curriculum)
 STUDENT_SHARED = (("commands",), ("events",), ("terminations",), ("actions",), ("episode_length_s",),

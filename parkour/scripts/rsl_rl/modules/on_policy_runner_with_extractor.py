@@ -22,8 +22,9 @@ from rsl_rl.runners.on_policy_runner import OnPolicyRunner
 from .feature_extractors import DefaultEstimator
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
-from .ppo_with_extractor import PPOWithExtractor 
+from .ppo_with_extractor import PPOWithExtractor, updates_through_iteration
 from .distillation_with_extractor import DistillationWithExtractor 
+from .omni_student_step import OmniStudentStep, is_omni_student
 from copy import copy 
 import warnings
 
@@ -42,6 +43,56 @@ except ImportError:
             )
             _STORE_CODE_STATE_WARNED = True
         return []
+
+
+#: Algorithm-cfg keys the isaaclab_rl ``RslRlPpoAlgorithmCfg`` carries that ``PPOWithExtractor`` has
+#: no parameter for: dropped with the "Ignoring unsupported PPO config keys" warning. Every other key
+#: the constructor does not accept raises.
+ALG_CFG_IGNORED_KEYS = ("share_cnn_encoders",)
+#: The algorithm-cfg keys the distillation runner passes to ``DistillationWithExtractor``.
+DISTILLATION_ALG_CFG_KEYS = ("learning_rate", "max_grad_norm")
+
+
+def filter_ppo_alg_cfg(alg_class, alg_cfg: dict) -> dict:
+    """The algorithm-cfg keys ``alg_class.__init__`` accepts; raise on any other unknown key.
+
+    Newer IsaacLab/RSL-RL configs inject algorithm keys this project-local class has no use for;
+    those are allow-listed (:data:`ALG_CFG_IGNORED_KEYS`) and dropped with the "Ignoring unsupported
+    PPO config keys" warning, exactly as before. ANY OTHER unknown key is a typo or a knob this
+    checkout's PPO does not implement (a worktree knob reaching the main checkout's PPO, say) and
+    RAISES (PPO-construction plan fix 5b): a silently dropped knob trains the wrong recipe behind a
+    clean log.
+    """
+    init_params = inspect.signature(alg_class.__init__).parameters
+    unknown_keys = sorted(set(alg_cfg) - set(init_params) - set(ALG_CFG_IGNORED_KEYS))
+    if unknown_keys:
+        raise ValueError(
+            f"Unknown algorithm config keys for {alg_class.__name__}: {', '.join(unknown_keys)} "
+            f"(allow-listed and ignored: {', '.join(ALG_CFG_IGNORED_KEYS)})"
+        )
+    filtered_alg_cfg = {k: v for k, v in alg_cfg.items() if k in init_params}
+    dropped_keys = sorted(set(alg_cfg.keys()) - set(filtered_alg_cfg.keys()))
+    if dropped_keys:
+        logging.getLogger(__name__).warning(
+            "Ignoring unsupported PPO config keys for %s: %s",
+            alg_class.__name__,
+            ", ".join(dropped_keys),
+        )
+    return filtered_alg_cfg
+
+
+def warn_unused_distillation_alg_cfg(alg_class, alg_cfg: dict) -> list[str]:
+    """The distillation algorithm takes only ``learning_rate`` / ``max_grad_norm`` from the shared
+    algorithm cfg; the rest is (and stays) unused -- now said out loud rather than dropped silently."""
+    unused_keys = sorted(set(alg_cfg) - set(DISTILLATION_ALG_CFG_KEYS))
+    if unused_keys:
+        logging.getLogger(__name__).warning(
+            "Ignoring algorithm config keys %s does not use: %s",
+            alg_class.__name__,
+            ", ".join(unused_keys),
+        )
+    return unused_keys
+
 
 class OnPolicyRunnerWithExtractor(OnPolicyRunner):
     def _resolve_policy_class(self, class_name: str):
@@ -114,6 +165,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         self.learn = self.learn_rl if self.depth_encoder_cfg is None else self.learn_vision
         if self.depth_encoder_cfg is not None:
             alg_class = eval(self.alg_cfg.pop("class_name"))
+            warn_unused_distillation_alg_cfg(alg_class, self.alg_cfg)
             self.alg: DistillationWithExtractor = alg_class(
                                                     policy = policy, 
                                                     estimator= estimator, 
@@ -128,17 +180,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         else:
             self.dagger_update_freq = self.alg_cfg.pop("dagger_update_freq")
             alg_class = eval(self.alg_cfg.pop("class_name"))
-            # Newer IsaacLab/RSL-RL configs may inject extra algorithm keys
-            # (e.g., "optimizer") not accepted by this project-local class.
-            init_params = inspect.signature(alg_class.__init__).parameters
-            filtered_alg_cfg = {k: v for k, v in self.alg_cfg.items() if k in init_params}
-            dropped_keys = sorted(set(self.alg_cfg.keys()) - set(filtered_alg_cfg.keys()))
-            if dropped_keys:
-                logging.getLogger(__name__).warning(
-                    "Ignoring unsupported PPO config keys for %s: %s",
-                    alg_class.__name__,
-                    ", ".join(dropped_keys),
-                )
+            filtered_alg_cfg = filter_ppo_alg_cfg(alg_class, self.alg_cfg)
             self.alg: PPOWithExtractor = alg_class(
                                                     policy, 
                                                     estimator, 
@@ -342,6 +384,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                     self.alg.compute_returns(privileged_obs)
 
             # update policy
+            self.alg.iteration = it          # the per-hand diagnostic's cadence (read-only; no numerics)
             loss_dict = self.alg.update()
             if hist_encoding:
                 print("Updating dagger...")
@@ -375,6 +418,10 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             self.save(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
 
     def learn_vision(self, num_learning_iterations, init_at_random_ep_len=False):
+        if is_omni_student(self.cfg):
+            # Task 4 M1b: the omni depth student runs the shared step (omni_student_step); the forward
+            # student below is reached only without the flag, and is unchanged.
+            return self._learn_vision_omni(num_learning_iterations, init_at_random_ep_len)
         if not isinstance(self.alg, DistillationWithExtractor):
             raise TypeError('A algorithm must be DistillationWithExtractor, not a ', self.alg)
         else:
@@ -508,6 +555,117 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         if self.log_dir is not None and not self.disable_logs:
             self.save(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
 
+    def _init_vision_writer(self) -> None:
+        """The summary-writer setup of ``learn_vision`` (a copy, so the forward method stays untouched)."""
+        if self.log_dir is not None and self.writer is None and not self.disable_logs:
+            self.logger_type = self.cfg.get("logger", "tensorboard")
+            self.logger_type = self.logger_type.lower()
+            if self.logger_type == "neptune":
+                from rsl_rl.utils.neptune_utils import NeptuneSummaryWriter
+
+                self.writer = NeptuneSummaryWriter(log_dir=self.log_dir, flush_secs=10, cfg=self.cfg)
+                self.writer.log_config(self.env.cfg, self.cfg, self.alg_cfg, self.policy_cfg)
+            elif self.logger_type == "wandb":
+                from rsl_rl.utils.wandb_utils import WandbSummaryWriter
+
+                self.writer = WandbSummaryWriter(log_dir=self.log_dir, flush_secs=10, cfg=self.cfg)
+                self.writer.log_config(self.env.cfg, self.cfg, self.alg_cfg, self.policy_cfg)
+            elif self.logger_type == "tensorboard":
+                from torch.utils.tensorboard import SummaryWriter
+
+                self.writer = SummaryWriter(log_dir=self.log_dir, flush_secs=10)
+            else:
+                raise ValueError("Logger type not found. Please choose 'neptune', 'wandb' or 'tensorboard'.")
+
+    def _learn_vision_omni(self, num_learning_iterations, init_at_random_ep_len=False):
+        """The omni depth student's distillation loop (Task 4 pipeline step 4 / M1b, DESIGN B4).
+
+        ``learn_vision``'s structure -- 120-step DAgger rollouts on the student's own actions, one
+        ``update_depth_actor`` per iteration, the same logging / checkpoint schedule -- with every student
+        computation delegated to :class:`~.omni_student_step.OmniStudentStep` (the step play.py,
+        play_stream_video.py and the eval harness run). Differences from the forward loop, all by design:
+        no ``delta_yaw_ok`` group and no write into obs cols 6-7 (the facing command is a command); the
+        teacher label is ``act_inference`` on the true obs with its own estimator write; the student copy
+        carries the constant field pair in cols 11-12 (+ history) and the estimator in 207-215; the GRU is
+        reset on done rows; the yaw loss has zero weight (``yaws_buffer=None``).
+        """
+        if not isinstance(self.alg, DistillationWithExtractor):
+            raise TypeError("the omni student needs DistillationWithExtractor, not ", self.alg)
+        self._init_vision_writer()
+        step = OmniStudentStep.from_runner(self)
+        #: exposed for tools / tests: the one step object this loop runs
+        self.omni_student_step = step
+
+        obs, extras = self.env.get_observations()
+        obs = obs.to(self.device)
+        depth = step.depth_images(extras["observations"], device=self.device)
+
+        self.alg.depth_encoder.train()
+        self.alg.depth_actor.train()
+        step.reset()
+
+        self.start_learning_iteration = copy(self.current_learning_iteration)
+
+        ep_infos = []
+        lenbuffer = deque(maxlen=100)
+        cur_episode_length = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
+
+        if self.is_distributed:
+            print(f"Synchronizing parameters for rank {self.gpu_global_rank}...")
+            self.alg.broadcast_parameters()
+
+        start_iter = self.current_learning_iteration
+        tot_iter = self.current_learning_iteration + num_learning_iterations
+        for it in range(start_iter, tot_iter):
+            start = time.time()
+            actions_buffer = []
+            for _ in range(self.depth_encoder_cfg['num_steps_per_env']):
+                actions_teacher = step.teacher_actions(obs)
+                actions_student = step.act(obs, depth, self.env.unwrapped.common_step_counter)
+                actions_buffer.append(actions_teacher.detach() - actions_student)
+                obs, _, dones, infos = self.env.step(actions_student.detach().to(self.env.device))
+                obs, dones = (obs.to(self.device), dones.to(self.device))
+                step.reset(dones)
+                depth = step.depth_images(infos["observations"], device=self.device)
+                obs = self.obs_normalizer(obs)
+                if self.log_dir is not None:
+                    if "episode" in infos:
+                        ep_infos.append(infos["episode"])
+                    elif "log" in infos:
+                        ep_infos.append(infos["log"])
+                    cur_episode_length += 1
+                    new_ids = (dones > 0).nonzero(as_tuple=False)
+                    lenbuffer.extend(cur_episode_length[new_ids][:, 0].cpu().numpy().tolist())
+                    cur_episode_length[new_ids] = 0
+
+            stop = time.time()
+            collection_time = stop - start
+            start = stop
+            delta_yaw_ok_percentage = None  # no delta_yaw_ok group (log_vision skips it)
+            actions_buffer = torch.cat(actions_buffer, dim=0)
+            loss_dict = self.alg.update_depth_actor(actions_buffer, None)
+
+            stop = time.time()
+            learn_time = stop - start
+            step.detach()
+
+            self.current_learning_iteration = it
+            if self.log_dir is not None and not self.disable_logs:
+                self.log_vision(locals())
+                if (it-self.start_learning_iteration < 2500 and it % self.save_interval == 0) or \
+                (it-self.start_learning_iteration < 5000 and it % (2*self.save_interval) == 0) or \
+                (it-self.start_learning_iteration >= 5000 and it % (5*self.save_interval) == 0):
+                        self.save(os.path.join(self.log_dir, f"model_{it}.pt"))
+            ep_infos.clear()
+            if it == start_iter and not self.disable_logs:
+                git_file_paths = store_code_state(self.log_dir, self.git_status_repos)
+                if self.logger_type in ["wandb", "neptune"] and git_file_paths:
+                    for path in git_file_paths:
+                        self.writer.save_file(path)
+
+        if self.log_dir is not None and not self.disable_logs:
+            self.save(os.path.join(self.log_dir, f"model_{self.current_learning_iteration}.pt"))
+
     def log(self, locs, width=80, pad=35):
         """Tensorboard / terminal logging for teacher RL (``learn_rl``)."""
         collection_size = self.num_steps_per_env * self.env.num_envs * self.gpu_world_size
@@ -541,8 +699,15 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         for key, value in locs["loss_dict"].items():
             self.writer.add_scalar(f"Loss/{key}", value, locs["it"])
         self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, locs["it"])
+        # PPO-construction telemetry (always on, RNG-free; ``PPOWithExtractor.update``).
+        telemetry = dict(getattr(self.alg, "telemetry", None) or {})
+        for key, value in telemetry.items():
+            self.writer.add_scalar(f"PPO/{key}", value, locs["it"])
         policy = self.alg.policy
-        if hasattr(policy, "std"):
+        if getattr(policy, "noise_std_type", None) == "soft":
+            # the soft-std parameter is unconstrained: log the sigma the distribution actually uses
+            action_std = torch.mean(policy.effective_std()).item()
+        elif hasattr(policy, "std"):
             action_std = torch.mean(policy.std).item()
         elif hasattr(policy, "log_std"):
             action_std = torch.mean(torch.exp(policy.log_std)).item()
@@ -576,6 +741,8 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             log_string += f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.4f}\n"""
         for key, value in locs["loss_dict"].items():
             log_string += f"""{f'Mean {key}:':>{pad}} {value:.4f}\n"""
+        for key, value in telemetry.items():
+            log_string += f"""{f'PPO/{key}:':>{pad}} {value:.6g}\n"""
         if len(locs.get("lenbuffer", [])) > 0:
             log_string += f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
         log_string += ep_string
@@ -628,7 +795,8 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
         for key, value in locs["loss_dict"].items():
             self.writer.add_scalar(f"Loss_depth/{key}", value, locs["it"])
         self.writer.add_scalar("Loss/learning_rate", self.alg.learning_rate, locs["it"])
-        self.writer.add_scalar('Loss_depth/delta_yaw_ok_percent', locs['delta_yaw_ok_percentage'], locs["it"]) 
+        if locs.get('delta_yaw_ok_percentage') is not None:  # (None: the omni student, no delta_yaw_ok group)
+            self.writer.add_scalar('Loss_depth/delta_yaw_ok_percent', locs['delta_yaw_ok_percentage'], locs["it"]) 
 
 
         self.writer.add_scalar("Perf/total_fps", fps, locs["it"])
@@ -663,7 +831,8 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
                 f"""{str.center(width, ' ')}\n\n"""
                 f"""{'Computation:':>{pad}} {fps:.0f} steps/s (collection: {locs[
                     'collection_time']:.3f}s, learning {locs['learn_time']:.3f}s)\n"""
-                f"""{'Delta yaw ok percentage:':>{pad}} {locs['delta_yaw_ok_percentage']:.4f}\n"""
+                + (f"""{'Delta yaw ok percentage:':>{pad}} {locs['delta_yaw_ok_percentage']:.4f}\n"""
+                   if locs.get('delta_yaw_ok_percentage') is not None else "")
 
             )
             for key, value in locs["loss_dict"].items():
@@ -686,6 +855,7 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             'estimator_state_dict': self.alg.estimator.state_dict(),
             "optimizer_state_dict": self.alg.optimizer.state_dict(),
             "iter": self.current_learning_iteration,
+            "alg_state": self.alg.resume_state(),
             "infos": infos,
         }
         # -- Save RND model if used
@@ -737,10 +907,38 @@ class OnPolicyRunnerWithExtractor(OnPolicyRunner):
             # -- RND optimizer if used
             if self.alg.rnd:
                 self.alg.rnd_optimizer.load_state_dict(loaded_dict["rnd_optimizer_state_dict"])
+            # -- algorithm training state (priv_reg schedule counter, adaptive LR, estimator /
+            #    history-encoder / depth optimizers); without it every resume restarts them
+            if self.cfg.get("resume_alg_state", True):
+                self._load_alg_state(loaded_dict)
+            # -- the schedule's LR into the freshly loaded optimizer(s): a fixed / epoch_kl run
+            #    resuming from ANY checkpoint (an adaptive head's floor LR included) trains at its
+            #    own LR, not the saved one (no-op for the adaptive schedule; PPO-construction fix 5a)
+            if isinstance(self.alg, PPOWithExtractor):
+                self.alg.apply_configured_learning_rates()
         # -- load current learning iteration
         if resumed_training:
             self.current_learning_iteration = loaded_dict["iter"]
         return loaded_dict["infos"]
+
+    def _load_alg_state(self, loaded_dict: dict) -> None:
+        state = loaded_dict.get("alg_state")
+        if isinstance(self.alg, PPOWithExtractor) and (state is None or "counter" not in state):
+            # Checkpoint saved before ``alg_state`` existed (or by the distillation runner): rebuild
+            # the counter an uninterrupted run would have reached, and take the adaptive LR from the
+            # policy optimizer, whose param groups carry it at save time.
+            state = {
+                "counter": updates_through_iteration(loaded_dict["iter"], self.dagger_update_freq),
+                "learning_rate": self.alg.optimizer.param_groups[0]["lr"],
+            }
+        if state is None:
+            return
+        self.alg.load_resume_state(state)
+        if isinstance(self.alg, PPOWithExtractor):
+            print(
+                f"[INFO]: Restored algorithm state: counter {self.alg.counter}, "
+                f"learning_rate {self.alg.learning_rate:.3g}"
+            )
 
     def get_estimator_inference_policy(self, device=None):
         self.alg: PPOWithExtractor

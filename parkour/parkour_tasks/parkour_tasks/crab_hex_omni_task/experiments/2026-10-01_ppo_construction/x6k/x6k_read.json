@@ -1,0 +1,552 @@
+{
+ "rows": [
+  {
+   "ref": "C_lr__B_x6k_s11",
+   "source": "C_lr__B_s11",
+   "arm": "B",
+   "m2999": {
+    "hands": {
+     "l": "FAST",
+     "r": "INTERMEDIATE"
+    },
+    "feet": {
+     "l": 0.2398321960278132,
+     "r": 0.1489144165801976
+    },
+    "fall": 0.0025
+   },
+   "points": {
+    "3100": {
+     "hands": {
+      "l": "FAST",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.2454898951541183,
+      "r": 0.14406930757772923
+     },
+     "fall": 0.0
+    },
+    "4000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.24732247604512783,
+      "r": 0.22151700627313964
+     },
+     "fall": 0.0
+    },
+    "5000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.2504661113841579,
+      "r": 0.24413593513493703
+     },
+     "fall": 0.0
+    }
+   },
+   "head": {
+    "hands": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.23716945685757546,
+     "r": 0.22377110052379412
+    },
+    "fall": 0.0
+   },
+   "tail": {
+    "mu_med_cam": 0.27329347401857373,
+    "mu_med_rod": 1.0026363933086395,
+    "priv_reg_head": 0.10000000149011612,
+    "last_step": 5998,
+    "dose_ok": true
+   },
+   "notes": [],
+   "status": "READ",
+   "tripped": false,
+   "first": [
+    "l"
+   ],
+   "second": [
+    "r"
+   ],
+   "artifact": false,
+   "drops": [],
+   "rise": {
+    "l": -0.002662739170237738,
+    "r": 0.07485668394359651
+   },
+   "role": "one-FAST",
+   "completes": true,
+   "second_flat": false,
+   "candidate": true
+  },
+  {
+   "ref": "C_lr__B_x6k_s12",
+   "source": "C_lr__B_s12",
+   "arm": "B",
+   "m2999": {
+    "hands": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.25880019886824274,
+     "r": 0.1930199747227806
+    },
+    "fall": 0.0
+   },
+   "points": {
+    "3100": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.24957404868182564,
+      "r": 0.22430005927217916
+     },
+     "fall": 0.0
+    },
+    "4000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.23769790104148442,
+      "r": 0.20963498568839084
+     },
+     "fall": 0.0
+    },
+    "5000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.25796610474681636,
+      "r": 0.24984774420938508
+     },
+     "fall": 0.0
+    }
+   },
+   "head": {
+    "hands": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.2604331076351105,
+     "r": 0.2619352147029339
+    },
+    "fall": 0.0
+   },
+   "tail": {
+    "mu_med_cam": 0.2838871681690216,
+    "mu_med_rod": 0.9970197135210037,
+    "priv_reg_head": 0.10000000149011612,
+    "last_step": 5998,
+    "dose_ok": true
+   },
+   "notes": [],
+   "status": "READ",
+   "tripped": false,
+   "first": [
+    "l",
+    "r"
+   ],
+   "second": [],
+   "artifact": false,
+   "drops": [],
+   "rise": {
+    "l": 0.00163290876686778,
+    "r": 0.06891523998015331
+   },
+   "role": "FAST/FAST",
+   "stable": true,
+   "candidate": true
+  },
+  {
+   "ref": "C_lr__B_x6k_s13",
+   "source": "C_lr__B_s13",
+   "arm": "B",
+   "m2999": {
+    "hands": {
+     "l": "FAST",
+     "r": "INTERMEDIATE"
+    },
+    "feet": {
+     "l": 0.2281515792668213,
+     "r": 0.13738655482238266
+    },
+    "fall": 0.0025
+   },
+   "points": {
+    "3100": {
+     "hands": {
+      "l": "FAST",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.23262883940150053,
+      "r": 0.1480866345217773
+     },
+     "fall": 0.005
+    },
+    "4000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.232216663091469,
+      "r": 0.19643340622277067
+     },
+     "fall": 0.0025
+    },
+    "5000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.23060743310947648,
+      "r": 0.23561891007299568
+     },
+     "fall": 0.0
+    }
+   },
+   "head": {
+    "hands": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.23998845026317,
+     "r": 0.23882883376877767
+    },
+    "fall": 0.0025
+   },
+   "tail": {
+    "mu_med_cam": 0.30220756471157073,
+    "mu_med_rod": 0.9970031583309173,
+    "priv_reg_head": 0.10000000149011612,
+    "last_step": 5998,
+    "dose_ok": true
+   },
+   "notes": [],
+   "status": "READ",
+   "tripped": false,
+   "first": [
+    "l"
+   ],
+   "second": [
+    "r"
+   ],
+   "artifact": false,
+   "drops": [],
+   "rise": {
+    "l": 0.011836870996348697,
+    "r": 0.10144227894639501
+   },
+   "role": "one-FAST",
+   "completes": true,
+   "second_flat": false,
+   "candidate": true
+  },
+  {
+   "ref": "C_lr__B_x6k_s14",
+   "source": "C_lr__B_s14",
+   "arm": "B",
+   "m2999": {
+    "hands": {
+     "l": "FAST",
+     "r": "INTERMEDIATE"
+    },
+    "feet": {
+     "l": 0.2314488575109111,
+     "r": 0.14438391332179223
+    },
+    "fall": 0.0
+   },
+   "points": {
+    "3100": {
+     "hands": {
+      "l": "FAST",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.24916003021067148,
+      "r": 0.16147477146765155
+     },
+     "fall": 0.0
+    },
+    "4000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.24834994497375903,
+      "r": 0.2501207258170185
+     },
+     "fall": 0.0
+    },
+    "5000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.2614604302363053,
+      "r": 0.2552643056847029
+     },
+     "fall": 0.0
+    }
+   },
+   "head": {
+    "hands": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.26628844496028625,
+     "r": 0.25146537106524836
+    },
+    "fall": 0.0
+   },
+   "tail": {
+    "mu_med_cam": 0.27967860907316205,
+    "mu_med_rod": 1.0336061465740203,
+    "priv_reg_head": 0.10000000149011612,
+    "last_step": 5998,
+    "dose_ok": true
+   },
+   "notes": [],
+   "status": "READ",
+   "tripped": false,
+   "first": [
+    "l"
+   ],
+   "second": [
+    "r"
+   ],
+   "artifact": false,
+   "drops": [],
+   "rise": {
+    "l": 0.03483958744937515,
+    "r": 0.10708145774345612
+   },
+   "role": "one-FAST",
+   "completes": true,
+   "second_flat": false,
+   "candidate": true
+  },
+  {
+   "ref": "C_lr__B_x6k_s15",
+   "source": "C_lr__B_s15",
+   "arm": "B",
+   "m2999": {
+    "hands": {
+     "l": "INTERMEDIATE",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.16458144504235883,
+     "r": 0.24783199968907
+    },
+    "fall": 0.0025
+   },
+   "points": {
+    "3100": {
+     "hands": {
+      "l": "INTERMEDIATE",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.16348279532177856,
+      "r": 0.24208225642918355
+     },
+     "fall": 0.0
+    },
+    "4000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.17432198393498252,
+      "r": 0.2621404867991504
+     },
+     "fall": 0.0
+    },
+    "5000": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.18796466525800778,
+      "r": 0.23466981077956717
+     },
+     "fall": 0.0
+    }
+   },
+   "head": {
+    "hands": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "feet": {
+     "l": 0.21927332611839895,
+     "r": 0.25516213333527676
+    },
+    "fall": 0.0
+   },
+   "tail": {
+    "mu_med_cam": 0.30502091079950333,
+    "mu_med_rod": 1.0705621802806855,
+    "priv_reg_head": 0.10000000149011612,
+    "last_step": 5998,
+    "dose_ok": true
+   },
+   "notes": [],
+   "status": "READ",
+   "tripped": false,
+   "first": [
+    "r"
+   ],
+   "second": [
+    "l"
+   ],
+   "artifact": false,
+   "drops": [],
+   "rise": {
+    "l": 0.054691881076040116,
+    "r": 0.007330133646206771
+   },
+   "role": "one-FAST",
+   "completes": true,
+   "second_flat": false,
+   "candidate": true
+  },
+  {
+   "ref": "C_lr__C0_x6k_s11",
+   "source": "C_lr__C0_s11",
+   "arm": "C0",
+   "m2999": {
+    "hands": {
+     "l": "SLOW",
+     "r": "SLOW"
+    },
+    "feet": {
+     "l": 0.08426275909211028,
+     "r": 0.08118179561606242
+    },
+    "fall": 0.03508771929824561
+   },
+   "points": {
+    "3100": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.08514590094475893,
+      "r": 0.07963112759206234
+     },
+     "fall": 0.0325
+    },
+    "4000": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.08554904287148365,
+      "r": 0.08195368720267668
+     },
+     "fall": 0.02
+    },
+    "5000": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.08605027655778649,
+      "r": 0.0796610034367849
+     },
+     "fall": 0.0025
+    }
+   },
+   "head": {
+    "hands": {
+     "l": "SLOW",
+     "r": "SLOW"
+    },
+    "feet": {
+     "l": 0.08554907536004319,
+     "r": 0.08180965228962253
+    },
+    "fall": 0.025
+   },
+   "tail": {
+    "mu_med_cam": 6.711524538993835,
+    "mu_med_rod": 9.771233797073364,
+    "priv_reg_head": 0.10000000149011612,
+    "last_step": 5998,
+    "dose_ok": false
+   },
+   "notes": [],
+   "status": "READ",
+   "tripped": false,
+   "first": [],
+   "second": [
+    "l",
+    "r"
+   ],
+   "artifact": false,
+   "drops": [],
+   "rise": {
+    "l": 0.0012863162679329077,
+    "r": 0.0006278566735601065
+   },
+   "role": "C0 control",
+   "frozen": true,
+   "candidate": false
+  }
+ ],
+ "reading": {
+  "n_B": 5,
+  "n_one_fast": 4,
+  "artifacts": [],
+  "drops": [],
+  "completes": [
+   "C_lr__B_x6k_s11",
+   "C_lr__B_x6k_s13",
+   "C_lr__B_x6k_s14",
+   "C_lr__B_x6k_s15"
+  ],
+  "second_flat": [],
+  "candidates": [
+   "C_lr__B_x6k_s11",
+   "C_lr__B_x6k_s12",
+   "C_lr__B_x6k_s13",
+   "C_lr__B_x6k_s14",
+   "C_lr__B_x6k_s15"
+  ],
+  "reading": "LATE FORMATION",
+  "why": "4/4 one-FAST forks complete: ['C_lr__B_x6k_s11', 'C_lr__B_x6k_s13', 'C_lr__B_x6k_s14', 'C_lr__B_x6k_s15']",
+  "s12": "STABLE",
+  "c0": "FROZEN"
+ }
+}

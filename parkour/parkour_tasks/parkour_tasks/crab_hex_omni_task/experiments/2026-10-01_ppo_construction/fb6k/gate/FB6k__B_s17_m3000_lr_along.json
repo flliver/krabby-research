@@ -1,0 +1,41 @@
+{
+ "FB6k__B_s17_m3000": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/FB6k__B_s17_m3000/side22_25lr__omni/seed001/2026-10-04_13-54-22",
+  "labels": {
+   "lat_l_022": {
+    "n_s0": 100,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 0,
+    "along_med_s0": 0.15565150154174362,
+    "along_med_moving": 0.15565150154174362
+   },
+   "lat_r_022": {
+    "n_s0": 100,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 0,
+    "along_med_s0": 0.1459441022066733,
+    "along_med_moving": 0.1459441022066733
+   },
+   "lat_l_025": {
+    "n_s0": 100,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 0,
+    "along_med_s0": 0.1667573032943019,
+    "along_med_moving": 0.1667573032943019
+   },
+   "lat_r_025": {
+    "n_s0": 100,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 0,
+    "along_med_s0": 0.15118847353172973,
+    "along_med_moving": 0.15118847353172973
+   }
+  },
+  "class_along": "INTERMEDIATE",
+  "class_along_r": "INTERMEDIATE"
+ }
+}

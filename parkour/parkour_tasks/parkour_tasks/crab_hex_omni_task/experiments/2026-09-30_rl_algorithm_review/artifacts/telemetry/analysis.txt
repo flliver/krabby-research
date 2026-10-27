@@ -1,0 +1,812 @@
+rows 449 ppo 437 student 12
+alg classes Counter({'PPOWithExtractor': 437, 'DistillationWithExtractor': 12})
+no agent yaml []
+parse errors []
+zero iters [('crab_hex_student', '2026-08-05_18-11-52'), ('crab_hex_student', '2026-08-06_14-10-08')]
+
+== OVERVIEW per experiment (PPO runs)
+exp n iters_total iters_med iters_max gpu_h wall_h fps_med s_it_med learnfrac num_envs
+_stopped_partial_runs 1 327 327 327 0.1 0.1 4452 1.38 0.219 Counter({256: 1})
+crab_hex_flat_walk 230 738009 3000 20000 318.7 321.1 3891 1.579 0.19 Counter({256: 221, 64: 9})
+crab_hex_omni_flat_walk 123 249593 1500 8000 94.5 97.1 4547 1.328 0.226 Counter({256: 108, 64: 15})
+crab_hex_omni_teacher 2 10000 5000 5000 4.1 4.2 4613 1.333 0.222 Counter({256: 2})
+crab_hex_side_flat_walk 8 10120 20 5000 5.0 5.1 999 1.645 0.192 Counter({64: 6, 256: 2})
+crab_hex_side_teacher 11 30100 5000 5000 13.6 13.7 3650 1.6 0.193 Counter({256: 6, 64: 5})
+crab_hex_teacher 62 52867 500 3000 26.1 26.3 3557 1.704 0.166 Counter({256: 57, 64: 5})
+TOTAL ppo 437 1091016 462.2 467.7
+student 12 35217 66.2 66.6 fps_med 663.0 s_it 6.707699179649353
+
+== CONFIG census (PPO)
+lr_cfg {'0.0003': 382, '3e-05': 29, '0.0001': 22, '0.0002': 4}
+schedule {'adaptive': 437}
+desired_kl {'0.01': 437}
+entropy_coef {'0.01': 436, '0.005': 1}
+init_noise_std {'1.5': 382, '0.65': 55}
+action_std_max {'None': 434, '0.5': 3}
+action_std_reset {'None': 435, '0.5': 1, '0.4': 1}
+clip_param {'0.2': 437}
+epochs {'5': 437}
+minibatches {'16': 437}
+gamma {'0.99': 437}
+lam {'0.95': 437}
+steps_per_env {'24': 437}
+clip_actions {'1.0': 433, 'None': 4}
+sym_coef {'0.5': 378, '0.0': 59}
+sym_func {'crab_hex_omni_symmetry_augmentation': 112, '': 59, 'crab_hex_symmetry_augmentation': 233, 'crab_hex_omni_symmetry_augmentation_fa': 14, 'crab_hex_side_symmetry_augmentation': 19}
+resume {'False': 204, 'True': 233}
+resume_alg_state {'True': 68, 'None': 369}
+num_envs {'256': 397, '64': 40}
+max_grad_norm {'1.0': 437}
+noise_std_type {'scalar': 437}
+policy_class {'CrabHexActorCriticRMA': 437}
+
+== (1) LR floor
+frac of iterations at floor: all-iter weighted 0.6294
+runs by frac-floor bucket {'<0.5': 148, '0.5-0.9': 213, '0.9-0.99': 45, '0.99-1': 31}
+first floor iter: n None 0 dist Counter({'0': 396, '1-9': 40, '10-99': 1})
+lr_first (logged at iter0) dist Counter({'1e-05': 396, '3.4e-05': 7, '2.3e-05': 7, '1.3e-05': 7, '2e-05': 5, '1.5e-05': 4, '1.2e-05': 3, '0.0002': 2, '8.9e-05': 1, '1.8e-05': 1, '0.00038': 1, '0.00058': 1, '3e-05': 1, '4.5e-05': 1})
+runs whose LR is ever > 1e-4: 197 ever > 2e-5: 396
+iteration-weighted frac > 1e-4: 0.00839
+  _stopped_partial_runs: iter-weighted floor frac 0.3028; runs <0.9 floor: 1/1; median 0.3028
+  crab_hex_flat_walk: iter-weighted floor frac 0.6654; runs <0.9 floor: 188/230; median 0.5955
+  crab_hex_omni_flat_walk: iter-weighted floor frac 0.4490; runs <0.9 floor: 117/123; median 0.4233
+  crab_hex_omni_teacher: iter-weighted floor frac 0.6713; runs <0.9 floor: 2/2; median 0.6713
+  crab_hex_side_flat_walk: iter-weighted floor frac 0.4111; runs <0.9 floor: 8/8; median 0.8000
+  crab_hex_side_teacher: iter-weighted floor frac 0.7457; runs <0.9 floor: 11/11; median 0.7500
+  crab_hex_teacher: iter-weighted floor frac 0.9483; runs <0.9 floor: 34/62; median 0.8530
+
+ LR off-floor fraction by run decile (iteration-weighted over PPO runs with >=500 its)
+  [0.4462 0.4281 0.4055 0.3859 0.373  0.3588 0.3479 0.3329 0.3185 0.3075]
+
+ LR off-floor vs config groups (iteration-weighted)
+   ('sym', 0.0): runs 59, iters 90826, floor frac 0.9125
+   ('sym', 0.5): runs 378, iters 1000190, floor frac 0.6037
+   ('lr_cfg', 0.0001): runs 22, iters 13500, floor frac 0.8410
+   ('lr_cfg', 0.0002): runs 4, iters 2000, floor frac 1.0000
+   ('lr_cfg', 0.0003): runs 382, iters 1038649, floor frac 0.6132
+   ('lr_cfg', 3e-05): runs 29, iters 36867, floor frac 0.9888
+   ('resume', False): runs 204, iters 492331, floor frac 0.4886
+   ('resume', True): runs 233, iters 598685, floor frac 0.7451
+   ('std_cap', 0.5): runs 3, iters 2040, floor frac 0.9985
+   ('std_cap', None): runs 434, iters 1088976, floor frac 0.6287
+   ('ent', 0.005): runs 1, iters 20, floor frac 0.8500
+   ('ent', 0.01): runs 436, iters 1090996, floor frac 0.6294
+
+ LR off-floor rate conditional on sigma state (iteration-weighted)
+  sigma<cap: off-floor 0.5683231281690896 of 317323 | sigma at cap: off-floor 0.28952569042242854 of 773693
+
+ runs with LR off floor >= 10% of iterations:
+   crab_hex_omni_flat_walk/2026-09-27_00-15-39_seed3_X03_t3_A15pB its=3000 floor=0.232 lrmax=5.77e-04 exc=538 longest=35 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1578 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_17-17-17_clockdep_smoke_ramp its=30 floor=0.233 lrmax=5.06e-05 exc=5 longest=11 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_23-11-00 its=1000 floor=0.264 lrmax=3.84e-04 exc=195 longest=22 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_17-16-21_clockdep_smoke_hide its=30 floor=0.267 lrmax=5.06e-05 exc=6 longest=13 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-27_08-48-50 its=11 floor=0.273 lrmax=3.84e-04 exc=3 longest=6 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-04_13-09-45 its=200 floor=0.275 lrmax=2.56e-04 exc=40 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_21-38-25 its=1500 floor=0.278 lrmax=3.84e-04 exc=304 longest=20 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-04_23-28-09 its=300 floor=0.290 lrmax=3.84e-04 exc=66 longest=13 sym=0.0 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-04_19-32-42 its=17 floor=0.294 lrmax=3.84e-04 exc=4 longest=6 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-27_02-56-58_seed3_X05_t3_A15pB its=3000 floor=0.296 lrmax=3.84e-04 exc=637 longest=27 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1975 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-30_11-50-15_seed2_X18_s1_A15pB its=1327 floor=0.296 lrmax=3.84e-04 exc=291 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_23-31-40_seed2_X13_s1_A15pB its=485 floor=0.297 lrmax=5.77e-04 exc=106 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_20-54-26 its=20 floor=0.300 lrmax=2.56e-04 exc=4 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_15-37-55_seed3_X09_t3_A15pB its=3000 floor=0.303 lrmax=3.84e-04 exc=631 longest=26 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1910 resume=False init_std=1.5
+   _stopped_partial_runs/2026-09-26_19-04-22_seed2_X02_t3_A15pB its=327 floor=0.303 lrmax=3.84e-04 exc=72 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_03-52-04_seed2_X06_t3_A15pB_e2 its=2063 floor=0.307 lrmax=3.84e-04 exc=425 longest=23 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1704 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-30_10-35-34_seed3_X17_s1_A15pB its=3000 floor=0.308 lrmax=3.84e-04 exc=651 longest=19 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2157 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-27_01-35-20_seed2_X04_t3_A15pB its=3000 floor=0.309 lrmax=3.84e-04 exc=639 longest=27 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2124 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_20-35-23 its=500 floor=0.310 lrmax=3.84e-04 exc=108 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB its=3000 floor=0.310 lrmax=3.84e-04 exc=638 longest=28 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2302 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_23-44-00 its=1000 floor=0.311 lrmax=5.06e-05 exc=221 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.77 std_pin_it=None resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_00-14-10 its=1000 floor=0.315 lrmax=5.77e-04 exc=215 longest=20 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-26_17-42-44_seed3_X01_t3_A15pB its=3000 floor=0.325 lrmax=5.77e-04 exc=684 longest=18 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2119 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-28_16-40-58_seed3_X01_t3_A15pB its=3000 floor=0.325 lrmax=5.77e-04 exc=673 longest=24 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1768 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_23-21-43_seed3_X05_t3_A15pB its=3000 floor=0.327 lrmax=3.84e-04 exc=620 longest=28 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2389 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_20-33-42_seed3_X11_s1_A15pB its=3000 floor=0.329 lrmax=3.84e-04 exc=658 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2491 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-26_22-54-02_seed2_X02_t3_A15pB its=3000 floor=0.331 lrmax=3.84e-04 exc=692 longest=18 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2685 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-18_23-40-21 its=1000 floor=0.333 lrmax=5.77e-04 exc=222 longest=18 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_18-53-10 its=30 floor=0.333 lrmax=5.77e-04 exc=5 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_01-52-56_seed3_X02_s1_A15pB its=3000 floor=0.333 lrmax=5.77e-04 exc=670 longest=21 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2267 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-30_12-27-45_seed3_X19_s1_A15pB its=3000 floor=0.336 lrmax=3.84e-04 exc=664 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2019 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_00-40-18_seed3_X01_s1_A15pB its=3000 floor=0.344 lrmax=3.84e-04 exc=693 longest=18 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2499 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_10-52-23_seed3_X05_s1_A15pB its=3000 floor=0.344 lrmax=3.84e-04 exc=682 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2129 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_22-15-30_seed3_X12_s1_A15pB its=3000 floor=0.346 lrmax=3.84e-04 exc=718 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2831 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_17-15-38_clockdep_smoke_p1_resume its=20 floor=0.350 lrmax=5.06e-05 exc=4 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_00-19-48_seed3_X01_1b_A15pB its=20 floor=0.350 lrmax=2.56e-04 exc=6 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_05-52-43_seed2_X07_1c_A15pB its=6162 floor=0.353 lrmax=5.77e-04 exc=1397 longest=24 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2412 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-30_09-05-43_seed3_X16_s1_A15pB its=3000 floor=0.355 lrmax=3.84e-04 exc=684 longest=20 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1667 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_14-16-00_seed2_X02_1c_A15pB its=8000 floor=0.357 lrmax=5.77e-04 exc=1866 longest=23 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2362 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_09-38-00 its=84 floor=0.357 lrmax=3.84e-04 exc=22 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_19-18-51_seed3_X10_s1_A15pB its=3000 floor=0.358 lrmax=3.84e-04 exc=694 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2566 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-28_18-05-55_seed2_X02_t3_A15pB its=3000 floor=0.359 lrmax=3.84e-04 exc=713 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2330 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_14-36-09_seed2_X08_s1_A15pB its=3000 floor=0.359 lrmax=3.84e-04 exc=698 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2748 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_04-48-05_seed2_X07_t3_A15pB_c its=2900 floor=0.359 lrmax=5.77e-04 exc=704 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.59 std_pin_it=2585 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_09-39-22_seed3_X04_s1_A15pB its=3000 floor=0.359 lrmax=3.84e-04 exc=692 longest=19 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-20_21-57-39 its=1000 floor=0.361 lrmax=3.84e-04 exc=238 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_20-15-11_seed3_X05_1c_A15pB its=424 floor=0.363 lrmax=5.77e-04 exc=108 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-30_00-00-38_seed3_X14_s1_A15pB its=3000 floor=0.363 lrmax=3.84e-04 exc=687 longest=19 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2238 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_17-19-39_seed3_X03_c1_A15pB its=1000 floor=0.364 lrmax=3.84e-04 exc=243 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_19-19-10_seed3_X04_c1_A15pB its=1000 floor=0.364 lrmax=3.84e-04 exc=243 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-18_02-35-35 its=5000 floor=0.367 lrmax=3.84e-04 exc=1154 longest=28 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1579 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_18-09-45_seed1_X09_s1_A15pB its=3000 floor=0.367 lrmax=3.84e-04 exc=726 longest=28 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2636 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_02-37-01_seed3_X06_1c_A15pB its=8000 floor=0.367 lrmax=3.84e-04 exc=1892 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2365 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_23-29-27_seed3_X05_1c_A15pB_c its=7600 floor=0.368 lrmax=1.71e-04 exc=1749 longest=35 sym=0.5 lr_cfg=0.0003 std_first=1.72 std_pin_it=1196 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-30_01-15-33_seed3_X15_s1_A15pB its=3000 floor=0.369 lrmax=3.84e-04 exc=666 longest=29 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_03-00-02_seed2_X06_t3_A15pB its=2018 floor=0.372 lrmax=3.84e-04 exc=483 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-27_04-16-39_seed2_X06_t3_A15pB its=3000 floor=0.375 lrmax=3.84e-04 exc=710 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_21-17-41 its=500 floor=0.376 lrmax=5.77e-04 exc=118 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_13-23-08_seed2_X07_s1_A15pB its=3000 floor=0.376 lrmax=3.84e-04 exc=723 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2850 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_23-18-14 its=2000 floor=0.377 lrmax=2.56e-04 exc=462 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-20_21-12-52 its=1000 floor=0.385 lrmax=5.77e-04 exc=240 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_19-47-11_seed3_X04_c2_A15pB its=1000 floor=0.386 lrmax=5.06e-05 exc=245 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.71 std_pin_it=None resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-27_18-58-15 its=2000 floor=0.389 lrmax=3.84e-04 exc=491 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-04_18-20-39 its=2503 floor=0.392 lrmax=2.56e-04 exc=617 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2367 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_03-33-39 its=2000 floor=0.394 lrmax=3.84e-04 exc=481 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_08-28-30_seed3_X03_s1_A15pB its=3000 floor=0.397 lrmax=2.56e-04 exc=736 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_11-20-39 its=30 floor=0.400 lrmax=3.84e-04 exc=7 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_00-21-49_seed3_X01_1b_A15pB its=20 floor=0.400 lrmax=3.84e-04 exc=5 longest=4 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_12-21-45 its=1808 floor=0.400 lrmax=3.84e-04 exc=431 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-20_16-23-35 its=2000 floor=0.404 lrmax=2.56e-04 exc=459 longest=29 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_19-28-16 its=1000 floor=0.404 lrmax=8.65e-04 exc=246 longest=18 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_20-37-00 its=1000 floor=0.404 lrmax=3.84e-04 exc=245 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_20-41-25_seed3_X04_c3_A15pB its=1000 floor=0.405 lrmax=5.06e-05 exc=247 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.89 std_pin_it=None resume=True init_std=1.5
+   crab_hex_side_flat_walk/2026-09-12_00-31-09 its=5000 floor=0.406 lrmax=5.77e-04 exc=1220 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2426 resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-11_10-57-55 its=5000 floor=0.407 lrmax=3.84e-04 exc=1195 longest=20 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2223 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_06-36-23 its=2000 floor=0.408 lrmax=3.84e-04 exc=483 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_18-15-09_seed3_X03_c3_A15pB its=1000 floor=0.409 lrmax=5.06e-05 exc=258 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.90 std_pin_it=None resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_10-32-02_seed3_X08_c4_A15pB its=1500 floor=0.410 lrmax=5.06e-05 exc=381 longest=12 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-04_15-49-15 its=5000 floor=0.410 lrmax=3.84e-04 exc=1194 longest=40 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2490 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_18-29-32_seed3_X01_c4_A15pB its=1500 floor=0.412 lrmax=5.06e-05 exc=377 longest=13 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_10-27-12_seed3_X04_c4_A15pB its=1500 floor=0.412 lrmax=5.06e-05 exc=377 longest=13 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-20_22-40-59 its=1000 floor=0.413 lrmax=3.84e-04 exc=230 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_12-09-37_seed3_X06_s1_A15pB its=3000 floor=0.414 lrmax=3.84e-04 exc=735 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-02_21-12-20 its=5000 floor=0.415 lrmax=3.84e-04 exc=1220 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2880 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_17-47-39_seed3_X03_c2_A15pB its=1000 floor=0.416 lrmax=5.06e-05 exc=251 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.71 std_pin_it=None resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_09-25-23 its=5000 floor=0.418 lrmax=3.84e-04 exc=1232 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1590 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-06_02-36-19 its=5000 floor=0.418 lrmax=2.56e-04 exc=1214 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2799 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-03_09-49-31 its=3220 floor=0.419 lrmax=3.84e-04 exc=800 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3081 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_03-36-23 its=2000 floor=0.420 lrmax=3.84e-04 exc=459 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1574 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_00-51-42 its=1000 floor=0.421 lrmax=3.84e-04 exc=254 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_04-36-23 its=2000 floor=0.421 lrmax=3.84e-04 exc=491 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_17-24-32 its=19 floor=0.421 lrmax=5.77e-04 exc=6 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_16-51-20 its=5000 floor=0.423 lrmax=2.56e-04 exc=1224 longest=19 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2629 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-06_21-32-46 its=5000 floor=0.423 lrmax=2.56e-04 exc=1224 longest=19 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2629 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_08-25-06_seed3_X08_c4_A15pB its=1500 floor=0.423 lrmax=5.06e-05 exc=368 longest=13 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-06_11-13-20 its=5000 floor=0.423 lrmax=3.84e-04 exc=1229 longest=20 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2646 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_22-00-14 its=2000 floor=0.433 lrmax=3.84e-04 exc=479 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_08-05-40_seed3_X03_c4_A15pB its=1500 floor=0.433 lrmax=5.06e-05 exc=367 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-06_16-03-30 its=5000 floor=0.434 lrmax=3.84e-04 exc=1218 longest=21 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2637 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_03-00-33 its=5000 floor=0.434 lrmax=2.56e-04 exc=1194 longest=23 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2257 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_05-36-23 its=2000 floor=0.435 lrmax=3.84e-04 exc=484 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-04_22-02-27 its=5000 floor=0.439 lrmax=3.84e-04 exc=1213 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2890 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_00-42-14 its=2000 floor=0.440 lrmax=3.84e-04 exc=514 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1850 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_18-39-10_seed3_X03_c4_A15pB its=1500 floor=0.440 lrmax=5.06e-05 exc=384 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.99 std_pin_it=49 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_21-02-35_seed2_X02_c4_A15pB its=1500 floor=0.440 lrmax=5.06e-05 exc=395 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_21-07-25_seed3_X04_c4_A15pB its=1500 floor=0.441 lrmax=5.06e-05 exc=393 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.99 std_pin_it=102 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-20_21-35-15 its=1000 floor=0.442 lrmax=3.84e-04 exc=244 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_19-20-33_seed3_X01_c5_A15pB its=1500 floor=0.443 lrmax=5.06e-05 exc=378 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-05_12-03-33 its=5000 floor=0.444 lrmax=3.84e-04 exc=1244 longest=34 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2191 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-31_03-42-16 its=5000 floor=0.445 lrmax=3.84e-04 exc=1194 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2967 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-04_19-33-30 its=5000 floor=0.445 lrmax=2.56e-04 exc=1273 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2367 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_04-35-39 its=2000 floor=0.449 lrmax=3.84e-04 exc=493 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_21-37-35 its=5000 floor=0.450 lrmax=2.56e-04 exc=1188 longest=21 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2364 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_11-12-21_seed3_X01_1c_A15pB its=8000 floor=0.452 lrmax=3.84e-04 exc=1935 longest=42 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2543 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_00-31-35 its=5000 floor=0.454 lrmax=2.56e-04 exc=1246 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2880 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_00-40-45_seed3_X05_c4_A15pB its=1500 floor=0.457 lrmax=5.06e-05 exc=385 longest=12 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-03_02-14-33 its=5000 floor=0.459 lrmax=3.84e-04 exc=1151 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2067 resume=False init_std=1.5
+   crab_hex_teacher/2026-08-18_23-55-02 its=100 floor=0.460 lrmax=4.50e-05 exc=28 longest=6 sym=0.0 lr_cfg=3e-05 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-28_05-35-39 its=3000 floor=0.461 lrmax=5.06e-05 exc=737 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.93 std_pin_it=808 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_11-22-06_seed3_X08_c5_A15pB its=1500 floor=0.461 lrmax=5.06e-05 exc=390 longest=14 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-23_03-17-24 its=5000 floor=0.462 lrmax=5.77e-04 exc=1276 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3153 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-23_22-06-56 its=5000 floor=0.464 lrmax=3.84e-04 exc=1236 longest=21 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1716 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_19-11-53_seed3_X03_c5_A15pB its=1500 floor=0.465 lrmax=5.06e-05 exc=400 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_21-44-06_seed2_X02_c5_A15pB its=1500 floor=0.465 lrmax=5.06e-05 exc=386 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_17-54-37 its=1000 floor=0.465 lrmax=3.84e-04 exc=257 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_01-06-53 its=5000 floor=0.467 lrmax=5.77e-04 exc=1273 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3527 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_07-05-07 its=2000 floor=0.469 lrmax=3.84e-04 exc=508 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_07-36-23 its=2000 floor=0.469 lrmax=3.84e-04 exc=516 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_18-54-11 its=5000 floor=0.470 lrmax=5.77e-04 exc=1249 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2323 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-23_14-10-59 its=5000 floor=0.470 lrmax=3.84e-04 exc=1218 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=1802 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_05-27-19 its=5000 floor=0.472 lrmax=3.84e-04 exc=1195 longest=20 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2213 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-04_13-18-07 its=5000 floor=0.472 lrmax=2.56e-04 exc=1262 longest=23 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2749 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_06-03-07_seed2_X07_c4_A15pB its=1500 floor=0.475 lrmax=5.06e-05 exc=382 longest=15 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_21-57-56_seed3_X04_c5_A15pB its=1500 floor=0.479 lrmax=3.37e-05 exc=394 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-20_22-19-16 its=1000 floor=0.481 lrmax=3.84e-04 exc=226 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_18-18-00 its=1000 floor=0.481 lrmax=5.77e-04 exc=243 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_05-00-25 its=2000 floor=0.484 lrmax=5.06e-05 exc=491 longest=11 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-03_07-16-23 its=5000 floor=0.488 lrmax=3.84e-04 exc=1221 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2511 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_07-56-31 its=5000 floor=0.488 lrmax=3.84e-04 exc=1235 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2884 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-17_00-13-40 its=5000 floor=0.489 lrmax=5.06e-05 exc=1282 longest=16 sym=0.5 lr_cfg=0.0003 std_first=1.93 std_pin_it=644 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_17-08-24 its=1000 floor=0.491 lrmax=5.77e-04 exc=266 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-28_13-42-11 its=5000 floor=0.495 lrmax=3.84e-04 exc=1228 longest=14 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2549 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_20-14-29 its=1000 floor=0.495 lrmax=3.84e-04 exc=252 longest=8 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-20_19-01-38 its=2000 floor=0.496 lrmax=3.84e-04 exc=457 longest=19 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_11-08-13_seed3_X04_c5_A15pB its=1500 floor=0.496 lrmax=5.06e-05 exc=377 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_20-14-48 its=2000 floor=0.497 lrmax=5.06e-05 exc=513 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-23_10-17-59 its=5000 floor=0.499 lrmax=3.84e-04 exc=1231 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2913 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-24_21-37-19 its=5000 floor=0.500 lrmax=3.84e-04 exc=1242 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2180 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_15-06-55 its=2 floor=0.500 lrmax=5.77e-04 exc=1 longest=1 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-27_18-56-30 its=2 floor=0.500 lrmax=5.77e-04 exc=1 longest=1 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_09-11-45 its=20 floor=0.500 lrmax=3.37e-05 exc=7 longest=3 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_17-14-42_clockdep_smoke_p1 its=30 floor=0.500 lrmax=3.37e-05 exc=8 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_09-28-42_seed3_X03_c6_A15pB its=2000 floor=0.500 lrmax=3.37e-05 exc=524 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_16-54-58_seed3_X09_m2_A15pB its=5000 floor=0.503 lrmax=5.06e-05 exc=1246 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-27_20-06-16 its=3000 floor=0.504 lrmax=5.06e-05 exc=742 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.96 std_pin_it=379 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_08-47-11_seed3_X03_c5_A15pB its=1500 floor=0.505 lrmax=5.06e-05 exc=386 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-22_16-56-30 its=5000 floor=0.509 lrmax=5.77e-04 exc=1263 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2221 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_22-25-37_seed2_X02_c6_A15pB its=2000 floor=0.509 lrmax=5.06e-05 exc=492 longest=14 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_08-16-57_seed2_X07_1c_A15pB_c its=1900 floor=0.510 lrmax=5.06e-05 exc=493 longest=11 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-18_23-52-33 its=100 floor=0.510 lrmax=3.37e-05 exc=20 longest=8 sym=0.0 lr_cfg=3e-05 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-27_08-40-57 its=105 floor=0.514 lrmax=3.84e-04 exc=28 longest=6 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB its=2000 floor=0.515 lrmax=5.06e-05 exc=535 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_01-34-48 its=1000 floor=0.519 lrmax=3.84e-04 exc=260 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-05_19-18-29 its=5000 floor=0.519 lrmax=5.06e-05 exc=1279 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-24_11-16-30 its=5000 floor=0.520 lrmax=5.77e-04 exc=1237 longest=13 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2147 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-03_04-53-36 its=5000 floor=0.522 lrmax=5.77e-04 exc=1223 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2458 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_06-46-07_seed2_X07_c5_A15pB its=1500 floor=0.524 lrmax=5.06e-05 exc=408 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_19-51-06 its=1000 floor=0.525 lrmax=3.84e-04 exc=233 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_11-22-17 its=5000 floor=0.527 lrmax=3.84e-04 exc=1245 longest=12 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3952 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_17-31-29 its=1000 floor=0.528 lrmax=3.84e-04 exc=242 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_21-08-49 its=2000 floor=0.528 lrmax=5.06e-05 exc=525 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_05-52-47 its=5000 floor=0.530 lrmax=3.84e-04 exc=1260 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2255 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-02_23-43-36 its=5000 floor=0.535 lrmax=3.84e-04 exc=1218 longest=18 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2799 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-06_18-32-32 its=5000 floor=0.536 lrmax=5.06e-05 exc=1233 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-22_13-15-41 its=5000 floor=0.537 lrmax=5.77e-04 exc=1216 longest=17 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2122 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-20_23-24-48 its=1000 floor=0.542 lrmax=3.84e-04 exc=247 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_07-29-08_seed2_X07_c6_A15pB its=2000 floor=0.543 lrmax=3.37e-05 exc=530 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_19-20-47 its=2000 floor=0.544 lrmax=3.37e-05 exc=523 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_16-24-47 its=2000 floor=0.545 lrmax=5.06e-05 exc=485 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_04-03-34 its=5000 floor=0.547 lrmax=3.84e-04 exc=1232 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2979 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-06_13-42-22 its=5000 floor=0.548 lrmax=5.06e-05 exc=1263 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_18-26-47 its=2000 floor=0.548 lrmax=5.06e-05 exc=494 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_06-56-25 its=2000 floor=0.550 lrmax=5.06e-05 exc=492 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-22_07-51-18 its=2775 floor=0.551 lrmax=3.84e-04 exc=691 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_22-33-56_seed3_X04_c6_A15pB its=2000 floor=0.552 lrmax=3.37e-05 exc=520 longest=11 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_19-05-22 its=1000 floor=0.554 lrmax=3.84e-04 exc=252 longest=8 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_05-58-25 its=2000 floor=0.554 lrmax=3.37e-05 exc=515 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-06_23-59-54 its=5000 floor=0.554 lrmax=5.06e-05 exc=1264 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_19-47-54_seed3_X03_c6_A15pB its=2000 floor=0.556 lrmax=3.37e-05 exc=530 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_20-09-04_seed3_X01_c6_A15pB its=2000 floor=0.557 lrmax=3.37e-05 exc=507 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_01-55-55 its=1000 floor=0.560 lrmax=3.84e-04 exc=230 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_22-51-25 its=5000 floor=0.560 lrmax=3.84e-04 exc=1225 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2918 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_15-32-46 its=2000 floor=0.560 lrmax=5.06e-05 exc=507 longest=13 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_20-02-04 its=2000 floor=0.560 lrmax=5.06e-05 exc=503 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-09-07_13-24-28 its=200 floor=0.560 lrmax=3.37e-05 exc=56 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_17-22-47 its=2000 floor=0.561 lrmax=5.06e-05 exc=497 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_00-37-47 its=2000 floor=0.562 lrmax=5.06e-05 exc=507 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_11-22-17 its=1000 floor=0.569 lrmax=3.84e-04 exc=248 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_03-32-07_seed2_X02_c6ft_A15pB its=2000 floor=0.570 lrmax=3.37e-05 exc=508 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-16_19-13-33 its=100 floor=0.570 lrmax=3.37e-05 exc=25 longest=5 sym=0.0 lr_cfg=3e-05 std_first=1.90 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-31_16-52-44 its=2000 floor=0.572 lrmax=3.37e-05 exc=488 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_01-23-45_seed3_X05_c5_A15pB its=1500 floor=0.574 lrmax=5.06e-05 exc=366 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_01-13-13 its=1000 floor=0.578 lrmax=3.84e-04 exc=238 longest=8 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-23_12-16-28 its=5000 floor=0.580 lrmax=3.84e-04 exc=1174 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2100 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-31_22-41-32 its=2000 floor=0.580 lrmax=3.37e-05 exc=496 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-16_19-18-09 its=100 floor=0.580 lrmax=3.37e-05 exc=25 longest=4 sym=0.0 lr_cfg=3e-05 std_first=1.90 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-21_00-07-43 its=1000 floor=0.582 lrmax=3.84e-04 exc=234 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_08-58-48 its=3694 floor=0.582 lrmax=3.84e-04 exc=919 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2690 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-06_05-05-22 its=5000 floor=0.584 lrmax=5.06e-05 exc=1190 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_02-38-36_seed3_X01_c6ft_A15pB its=2000 floor=0.585 lrmax=3.37e-05 exc=515 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-22_23-15-14 its=5000 floor=0.586 lrmax=3.84e-04 exc=1186 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2260 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-24_11-51-44_seed3_X04_c6_A15pB its=2000 floor=0.586 lrmax=3.37e-05 exc=510 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-28_08-05-07 its=3000 floor=0.586 lrmax=5.06e-05 exc=733 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.99 std_pin_it=51 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_03-51-02 its=5000 floor=0.592 lrmax=5.06e-05 exc=1177 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_16-45-35 its=1000 floor=0.595 lrmax=5.77e-04 exc=219 longest=29 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_teacher/2026-09-18_09-41-10 its=5000 floor=0.596 lrmax=5.06e-05 exc=1230 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_07-50-25 its=3000 floor=0.596 lrmax=5.06e-05 exc=738 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-24_00-10-08 its=5000 floor=0.598 lrmax=5.06e-05 exc=1191 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-28_09-42-07 its=5000 floor=0.600 lrmax=2.56e-04 exc=1153 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2110 resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-18_02-20-55 its=20 floor=0.600 lrmax=3.84e-04 exc=4 longest=4 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_11-08-58_seed3_X01_1a_A15pB its=20 floor=0.600 lrmax=5.77e-04 exc=5 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-21_18-10-01_seed3_X01_1a_A15pB its=20 floor=0.600 lrmax=5.77e-04 exc=5 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-29_00-15-17_seed3_X01_1b_A15pB its=20 floor=0.600 lrmax=5.77e-04 exc=5 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_00-29-11 its=1000 floor=0.604 lrmax=3.84e-04 exc=213 longest=15 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_01-37-04 its=2000 floor=0.606 lrmax=5.06e-05 exc=496 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_07-36-47 its=5000 floor=0.608 lrmax=3.84e-04 exc=1128 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2994 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-23_01-11-03 its=5000 floor=0.609 lrmax=5.77e-04 exc=1170 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2646 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-29_04-02-24 its=2000 floor=0.611 lrmax=3.37e-05 exc=470 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_14-53-27_seed3_X03_c6x_A15pB its=4000 floor=0.612 lrmax=3.37e-05 exc=954 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_14-31-54 its=5000 floor=0.613 lrmax=3.37e-05 exc=1177 longest=11 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-16_19-22-38 its=500 floor=0.614 lrmax=5.06e-05 exc=115 longest=7 sym=0.0 lr_cfg=0.0001 std_first=1.91 std_pin_it=None resume=True init_std=0.65
+   crab_hex_side_teacher/2026-09-11_14-50-01 its=5000 floor=0.615 lrmax=5.06e-05 exc=1222 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_11-45-42 its=1000 floor=0.616 lrmax=3.84e-04 exc=233 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-31_19-08-04 its=2000 floor=0.617 lrmax=5.06e-05 exc=472 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-01_02-22-26 its=5000 floor=0.624 lrmax=5.06e-05 exc=1173 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_18-41-10 its=1000 floor=0.625 lrmax=3.84e-04 exc=239 longest=6 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_13-09-25_seed2_X02_c6x_A15pB its=4000 floor=0.625 lrmax=3.37e-05 exc=963 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_04-42-23_seed2_X07_t3_A15pB its=164 floor=0.628 lrmax=3.84e-04 exc=42 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-06_00-09-00 its=5000 floor=0.630 lrmax=5.06e-05 exc=1188 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-28_02-04-13 its=3000 floor=0.631 lrmax=5.06e-05 exc=678 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_06-04-16 its=5000 floor=0.636 lrmax=5.06e-05 exc=1144 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_11-25-53_seed3_X01_c6x_A15pB its=4000 floor=0.638 lrmax=3.37e-05 exc=952 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_22-02-49 its=3000 floor=0.640 lrmax=5.06e-05 exc=695 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_03-24-42 its=100 floor=0.640 lrmax=2.25e-05 exc=24 longest=4 sym=0.0 lr_cfg=3e-05 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_teacher/2026-09-09_14-29-39 its=200 floor=0.640 lrmax=3.37e-05 exc=52 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_23-24-23 its=5000 floor=0.640 lrmax=5.06e-05 exc=1144 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-20_23-46-34 its=1000 floor=0.643 lrmax=3.84e-04 exc=219 longest=8 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-31_23-49-32 its=5000 floor=0.644 lrmax=3.37e-05 exc=1177 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-05_14-32-24 its=5000 floor=0.647 lrmax=5.06e-05 exc=1141 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-25_02-06-46_seed3_X05_c6_A15pB its=2000 floor=0.647 lrmax=3.37e-05 exc=477 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_side_teacher/2026-09-12_03-04-37 its=5000 floor=0.648 lrmax=3.37e-05 exc=1138 longest=9 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_12-41-20 its=2000 floor=0.650 lrmax=3.37e-05 exc=464 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_01-37-43 its=5000 floor=0.652 lrmax=5.06e-05 exc=1152 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-22_20-54-09 its=5000 floor=0.653 lrmax=5.77e-04 exc=1128 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2444 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-30_07-17-46 its=2000 floor=0.654 lrmax=3.37e-05 exc=469 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_21-08-05 its=3000 floor=0.657 lrmax=3.37e-05 exc=695 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_06-22-28 its=2000 floor=0.659 lrmax=3.37e-05 exc=458 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_07-05-28 its=100 floor=0.660 lrmax=3.37e-05 exc=21 longest=5 sym=0.0 lr_cfg=3e-05 std_first=1.97 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-30_08-11-47 its=2000 floor=0.661 lrmax=3.37e-05 exc=444 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_21-01-15 its=5000 floor=0.667 lrmax=3.84e-04 exc=1086 longest=10 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3174 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-20_23-01-45 its=1000 floor=0.669 lrmax=5.77e-04 exc=215 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_15-04-05 its=5000 floor=0.671 lrmax=3.84e-04 exc=1034 longest=8 sym=0.0 lr_cfg=0.0003 std_first=1.50 std_pin_it=3380 resume=False init_std=1.5
+   crab_hex_teacher/2026-08-17_07-11-18 its=500 floor=0.674 lrmax=3.37e-05 exc=107 longest=4 sym=0.0 lr_cfg=0.0001 std_first=1.97 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-23_08-22-05 its=5000 floor=0.674 lrmax=3.37e-05 exc=1114 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-29_02-35-04 its=3000 floor=0.676 lrmax=3.37e-05 exc=669 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_17-46-45 its=3000 floor=0.677 lrmax=3.37e-05 exc=666 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_07-07-57 its=100 floor=0.680 lrmax=3.37e-05 exc=20 longest=3 sym=0.0 lr_cfg=3e-05 std_first=1.97 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-30_10-37-20 its=2000 floor=0.682 lrmax=3.37e-05 exc=430 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_11-41-20 its=2000 floor=0.685 lrmax=5.06e-05 exc=441 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-07_02-19-49 its=5000 floor=0.695 lrmax=5.06e-05 exc=1054 longest=8 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-22_00-41-24 its=5000 floor=0.696 lrmax=3.84e-04 exc=1023 longest=11 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3443 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_02-27-29 its=5000 floor=0.702 lrmax=3.84e-04 exc=1057 longest=6 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2932 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-21_14-55-08 its=5000 floor=0.706 lrmax=5.06e-05 exc=1070 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-21_12-17-35 its=5000 floor=0.710 lrmax=5.06e-05 exc=1020 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_03-21-53 its=100 floor=0.710 lrmax=2.25e-05 exc=25 longest=2 sym=0.0 lr_cfg=3e-05 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_teacher/2026-08-16_19-42-04 its=500 floor=0.714 lrmax=3.37e-05 exc=94 longest=5 sym=0.0 lr_cfg=0.0001 std_first=1.93 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-22_06-03-19 its=5000 floor=0.721 lrmax=3.84e-04 exc=961 longest=9 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=2572 resume=False init_std=1.5
+   crab_hex_teacher/2026-08-18_23-57-56 its=500 floor=0.732 lrmax=3.37e-05 exc=97 longest=4 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-21_02-18-08 its=5000 floor=0.733 lrmax=3.84e-04 exc=930 longest=7 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=3327 resume=False init_std=1.5
+   crab_hex_teacher/2026-08-16_19-59-49 its=500 floor=0.740 lrmax=3.37e-05 exc=99 longest=3 sym=0.0 lr_cfg=0.0001 std_first=1.95 std_pin_it=None resume=True init_std=0.65
+   crab_hex_teacher/2026-08-17_03-40-24 its=500 floor=0.742 lrmax=3.37e-05 exc=96 longest=4 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_teacher/2026-08-17_13-32-42 its=500 floor=0.744 lrmax=2.25e-05 exc=96 longest=4 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_side_teacher/2026-09-11_17-19-40 its=5000 floor=0.746 lrmax=3.37e-05 exc=952 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_teacher/2026-09-18_12-58-58 its=5000 floor=0.747 lrmax=3.37e-05 exc=959 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_07-24-27 its=500 floor=0.748 lrmax=3.37e-05 exc=86 longest=5 sym=0.0 lr_cfg=0.0001 std_first=1.98 std_pin_it=None resume=True init_std=0.65
+   crab_hex_omni_flat_walk/2026-09-18_02-19-48 its=20 floor=0.750 lrmax=1.71e-04 exc=4 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-18_08-16-22 its=20 floor=0.750 lrmax=1.71e-04 exc=4 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-18_21-41-05 its=20 floor=0.750 lrmax=1.71e-04 exc=4 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_07-17-38 its=20 floor=0.750 lrmax=1.71e-04 exc=4 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_teacher/2026-09-16_17-48-05 its=20 floor=0.750 lrmax=7.59e-05 exc=3 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_teacher/2026-09-16_17-49-02 its=20 floor=0.750 lrmax=7.59e-05 exc=3 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_teacher/2026-09-16_19-57-16 its=20 floor=0.750 lrmax=7.59e-05 exc=3 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_teacher/2026-09-16_23-00-24 its=20 floor=0.750 lrmax=7.59e-05 exc=3 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_teacher/2026-09-18_02-18-38 its=20 floor=0.750 lrmax=7.59e-05 exc=3 longest=3 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-30_15-22-57 its=5000 floor=0.751 lrmax=3.37e-05 exc=953 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-01_06-41-40 its=2000 floor=0.751 lrmax=3.37e-05 exc=388 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-19_00-11-02 its=500 floor=0.756 lrmax=3.37e-05 exc=93 longest=3 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_omni_flat_walk/2026-09-28_08-11-28_seed3_X01_c6y_A15pB its=4000 floor=0.759 lrmax=3.37e-05 exc=725 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-26_06-32-38_seed3_X03_c6y_A15pB its=4000 floor=0.761 lrmax=3.37e-05 exc=736 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-26_03-01-22_seed3_X01_c6y_A15pB its=4000 floor=0.762 lrmax=3.37e-05 exc=747 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_03-27-33 its=500 floor=0.764 lrmax=3.37e-05 exc=97 longest=3 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_side_teacher/2026-09-12_05-24-07 its=5000 floor=0.768 lrmax=3.37e-05 exc=892 longest=10 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-26_08-21-34_seed3_X04_c6y_A15pB its=4000 floor=0.777 lrmax=3.37e-05 exc=726 longest=7 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-07_04-38-50 its=5000 floor=0.778 lrmax=3.37e-05 exc=875 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-26_04-47-00_seed2_X02_c6y_A15pB its=4000 floor=0.781 lrmax=3.37e-05 exc=703 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-28_14-37-59_seed2_X02_c6y_A15pB its=4000 floor=0.781 lrmax=3.37e-05 exc=698 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-16_20-18-27 its=500 floor=0.782 lrmax=3.37e-05 exc=88 longest=3 sym=0.0 lr_cfg=0.0001 std_first=1.97 std_pin_it=None resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-30_13-39-21 its=3000 floor=0.783 lrmax=3.37e-05 exc=517 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-01_04-52-20 its=2000 floor=0.788 lrmax=3.37e-05 exc=345 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_09-07-47 its=3000 floor=0.789 lrmax=3.37e-05 exc=502 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-19_00-37-04 its=500 floor=0.794 lrmax=3.37e-05 exc=82 longest=6 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-09-01_07-35-40 its=2000 floor=0.796 lrmax=3.37e-05 exc=338 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-16_19-59-27 its=20 floor=0.800 lrmax=1.71e-04 exc=4 longest=1 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_07-18-37 its=20 floor=0.800 lrmax=1.14e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-11_05-18-40 its=20 floor=0.800 lrmax=1.71e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-16_17-44-10 its=20 floor=0.800 lrmax=1.71e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-16_17-45-09 its=20 floor=0.800 lrmax=1.71e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-16_19-55-19 its=20 floor=0.800 lrmax=1.71e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-16_22-58-36 its=20 floor=0.800 lrmax=1.71e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_side_flat_walk/2026-09-18_02-16-50 its=20 floor=0.800 lrmax=1.71e-04 exc=3 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_flat_walk/2026-09-01_05-47-39 its=2000 floor=0.808 lrmax=3.37e-05 exc=309 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-01_08-29-40 its=2000 floor=0.808 lrmax=3.37e-05 exc=314 longest=3 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-19_00-24-05 its=500 floor=0.812 lrmax=3.37e-05 exc=73 longest=2 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_teacher/2026-08-19_00-50-03 its=500 floor=0.814 lrmax=3.37e-05 exc=76 longest=5 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-30_19-09-35 its=2000 floor=0.815 lrmax=3.37e-05 exc=304 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_21-43-02 its=2000 floor=0.816 lrmax=3.37e-05 exc=302 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-23_18-12-12 its=5000 floor=0.819 lrmax=3.37e-05 exc=756 longest=6 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-24_09-19-09 its=5000 floor=0.819 lrmax=3.37e-05 exc=764 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-23_16-18-56 its=5000 floor=0.824 lrmax=3.37e-05 exc=760 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_side_teacher/2026-09-11_19-43-19 its=5000 floor=0.828 lrmax=3.37e-05 exc=721 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_14-03-26 its=500 floor=0.830 lrmax=2.25e-05 exc=66 longest=3 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-09-01_10-45-00 its=5000 floor=0.833 lrmax=3.37e-05 exc=706 longest=5 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-23_20-08-24 its=5000 floor=0.834 lrmax=3.37e-05 exc=708 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-24_19-06-17 its=5000 floor=0.835 lrmax=3.37e-05 exc=720 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_18-06-13 its=2000 floor=0.840 lrmax=3.37e-05 exc=269 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-24_15-11-50 its=5000 floor=0.844 lrmax=3.37e-05 exc=667 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_08-16-16 its=5000 floor=0.850 lrmax=3.37e-05 exc=645 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-18_21-39-52 its=20 floor=0.850 lrmax=1.14e-04 exc=3 longest=1 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_07-16-25 its=20 floor=0.850 lrmax=1.14e-04 exc=3 longest=1 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-19_07-24-22 its=20 floor=0.850 lrmax=1.14e-04 exc=3 longest=1 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_omni_flat_walk/2026-09-23_00-27-09_smoke_motionA_allknobs its=20 floor=0.850 lrmax=3.37e-05 exc=2 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=0 resume=False init_std=1.5
+   crab_hex_teacher/2026-09-16_17-46-08 its=20 floor=0.850 lrmax=2.56e-04 exc=2 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_teacher/2026-09-16_17-47-06 its=20 floor=0.850 lrmax=2.56e-04 exc=2 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_teacher/2026-09-16_19-56-19 its=20 floor=0.850 lrmax=2.56e-04 exc=2 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_teacher/2026-09-16_22-59-31 its=20 floor=0.850 lrmax=2.56e-04 exc=2 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_teacher/2026-09-18_02-17-45 its=20 floor=0.850 lrmax=2.56e-04 exc=2 longest=2 sym=0.5 lr_cfg=0.0003 std_first=1.50 std_pin_it=None resume=False init_std=1.5
+   crab_hex_teacher/2026-08-17_13-47-10 its=500 floor=0.852 lrmax=2.25e-05 exc=62 longest=4 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_teacher/2026-08-17_07-38-02 its=500 floor=0.854 lrmax=2.25e-05 exc=60 longest=3 sym=0.0 lr_cfg=0.0001 std_first=1.99 std_pin_it=138 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-08-30_22-47-02 its=5000 floor=0.864 lrmax=3.37e-05 exc=584 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-31_01-12-23 its=5000 floor=0.864 lrmax=3.37e-05 exc=594 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-19_01-02-28 its=500 floor=0.866 lrmax=2.25e-05 exc=56 longest=3 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_side_teacher/2026-09-12_07-45-40 its=5000 floor=0.869 lrmax=3.37e-05 exc=567 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-25_12-33-44 its=5000 floor=0.873 lrmax=2.25e-05 exc=556 longest=3 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-30_20-11-36 its=3000 floor=0.875 lrmax=3.37e-05 exc=325 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-09-01_09-23-40 its=3000 floor=0.876 lrmax=3.37e-05 exc=326 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-04_11-55-56 its=13159 floor=0.885 lrmax=2.56e-04 exc=919 longest=17 sym=0.0 lr_cfg=0.0003 std_first=1.50 std_pin_it=4596 resume=False init_std=1.5
+   crab_hex_flat_walk/2026-08-22_04-17-22 its=5000 floor=0.889 lrmax=3.37e-05 exc=482 longest=4 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_teacher/2026-08-17_14-16-17 its=500 floor=0.890 lrmax=3.37e-05 exc=48 longest=4 sym=0.0 lr_cfg=0.0001 std_first=2.00 std_pin_it=0 resume=True init_std=0.65
+   crab_hex_flat_walk/2026-09-07_06-57-52 its=5000 floor=0.895 lrmax=3.37e-05 exc=486 longest=3 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-25_14-30-49 its=5000 floor=0.895 lrmax=2.25e-05 exc=495 longest=2 sym=0.5 lr_cfg=0.0003 std_first=2.00 std_pin_it=0 resume=True init_std=1.5
+   crab_hex_flat_walk/2026-08-04_23-34-31 its=20000 floor=0.899 lrmax=3.84e-04 exc=1288 longest=13 sym=0.0 lr_cfg=0.0003 std_first=1.50 std_pin_it=3661 resume=False init_std=1.5
+
+== (2) sigma pinning
+runs ever at cap: 306 / 437
+runs pinned at iter 0 (std_first>=cap-0.01): 209
+iteration-weighted frac at cap: 0.7091
+std_last dist: Counter({'2.0': 322, '1.5': 53, '1.7': 25, '1.9': 16, '1.6': 14, '1.8': 5, '0.5': 2})
+std_max (raw param) dist: [('2.00', 300), ('1.50', 31), ('1.51', 12), ('1.99', 11), ('1.52', 8), ('1.71', 7), ('1.98', 6), ('1.58', 4), ('1.70', 4), ('1.93', 4), ('1.68', 3), ('1.73', 3)]
+from-scratch-like runs (std_first == init): 204 pinned eventually: 88 first-pin iter percentiles: [   0. 1792. 2154. 2435. 2807. 3103. 4596.]
+never pinned fresh runs (its): [2, 2, 2, 11, 17, 19, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 30, 30, 84, 105, 164, 200, 300, 327, 424, 485, 500, 500, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1327, 1500, 1808, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000, 2018, 2775, 3000, 3000, 3000, 3000, 3000]
+  _stopped_partial_runs: iter-weighted frac at cap 0.000; runs ending at cap 0/1
+  crab_hex_flat_walk: iter-weighted frac at cap 0.721; runs ending at cap 169/230
+  crab_hex_omni_flat_walk: iter-weighted frac at cap 0.588; runs ending at cap 80/123
+  crab_hex_omni_teacher: iter-weighted frac at cap 1.000; runs ending at cap 2/2
+  crab_hex_side_flat_walk: iter-weighted frac at cap 0.529; runs ending at cap 2/8
+  crab_hex_side_teacher: iter-weighted frac at cap 0.997; runs ending at cap 6/11
+  crab_hex_teacher: iter-weighted frac at cap 0.931; runs ending at cap 47/62
+
+ std trajectory percentiles for fresh runs (value at iteration k):
+   it 0: n=204 p10/50/90 = [1.5 1.5 1.5]
+   it 100: n=150 p10/50/90 = [1.531 1.562 1.58 ]
+   it 300: n=146 p10/50/90 = [1.564 1.613 1.655]
+   it 500: n=141 p10/50/90 = [1.598 1.651 1.707]
+   it 1000: n=109 p10/50/90 = [1.707 1.761 1.839]
+   it 2000: n=92 p10/50/90 = [1.876 1.948 1.991]
+   it 3000: n=60 p10/50/90 = [1.974 2.    2.   ]
+   it 5000: n=6 p10/50/90 = [1.996 2.    2.   ]
+   it 10000: n=2 p10/50/90 = [2. 2. 2.]
+
+== (3) non-default knob runs
+  crab_hex_flat_walk/2026-08-04_11-55-56 ['sym=0.0'] its=13159 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/2.56e-04 floorfrac=0.885 std first/last/max=1.500/2.000/2.000 pinfrac=0.651 rew 4.35->19.26 eplen 438->993 resume=False
+  crab_hex_flat_walk/2026-08-04_23-28-09 ['sym=0.0'] its=300 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.84e-04 floorfrac=0.290 std first/last/max=1.500/1.579/1.579 pinfrac=0.000 rew 0.95->23.46 eplen 227->984 resume=False
+  crab_hex_flat_walk/2026-08-04_23-34-31 ['sym=0.0'] its=20000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.84e-04 floorfrac=0.899 std first/last/max=1.500/2.000/2.000 pinfrac=0.817 rew 2.14->43.07 eplen 438->993 resume=False
+  crab_hex_flat_walk/2026-08-22_15-04-05 ['sym=0.0'] its=5000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.84e-04 floorfrac=0.671 std first/last/max=1.500/2.000/2.000 pinfrac=0.324 rew 1.50->27.60 eplen 206->821 resume=False
+  crab_hex_omni_flat_walk/2026-09-23_00-27-09_smoke_motionA_allknobs ['std_max=0.5', 'ent=0.005'] its=20 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.850 std first/last/max=1.500/1.500/1.500 pinfrac=1.000 rew 0.01->0.04 eplen 12->268 resume=False
+  crab_hex_omni_flat_walk/2026-09-23_00-37-45_smoke_motionB_forkX08c6 ['std_max=0.5', 'std_reset=0.5'] its=20 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=0.503/0.503/0.503 pinfrac=1.000 rew 0.34->4.09 eplen 12->244 resume=True
+  crab_hex_omni_flat_walk/2026-09-23_04-25-38_seed3_X03_c6ft_A15pB ['std_max=0.5', 'std_reset=0.4'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=0.402/0.500/0.500 pinfrac=0.652 rew 12.63->50.03 eplen 384->1590 resume=True
+  crab_hex_teacher/2026-08-05_09-21-20 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.970 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.73->10.98 eplen 70->963 resume=True
+  crab_hex_teacher/2026-08-05_16-52-57 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=1.33e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.930 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 1.69->9.97 eplen 71->953 resume=True
+  crab_hex_teacher/2026-08-05_17-01-42 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.998 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.60->3.28 eplen 355->665 resume=True
+  crab_hex_teacher/2026-08-05_17-36-56 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.69->3.61 eplen 377->739 resume=True
+  crab_hex_teacher/2026-08-06_14-08-45 ['init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.01->0.01 eplen 51->54 resume=True
+  crab_hex_teacher/2026-08-06_21-53-16 ['init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.04->0.23 eplen 64->101 resume=True
+  crab_hex_teacher/2026-08-06_22-05-31 ['init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.24->0.63 eplen 95->162 resume=True
+  crab_hex_teacher/2026-08-06_22-17-36 ['init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.58->0.79 eplen 130->169 resume=True
+  crab_hex_teacher/2026-08-16_19-13-33 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=3.00e-05/1.50e-05/1.00e-05/3.37e-05 floorfrac=0.570 std first/last/max=1.900/1.904/1.904 pinfrac=0.000 rew 0.22->2.40 eplen 77->493 resume=True
+  crab_hex_teacher/2026-08-16_19-18-09 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.580 std first/last/max=1.904/1.907/1.907 pinfrac=0.000 rew 0.59->1.95 eplen 85->355 resume=True
+  crab_hex_teacher/2026-08-16_19-22-38 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/2.25e-05/1.00e-05/5.06e-05 floorfrac=0.614 std first/last/max=1.907/1.927/1.927 pinfrac=0.000 rew 0.84->2.37 eplen 186->510 resume=True
+  crab_hex_teacher/2026-08-16_19-42-04 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.98e-05/2.25e-05/1.00e-05/3.37e-05 floorfrac=0.714 std first/last/max=1.927/1.948/1.948 pinfrac=0.000 rew 2.03->2.84 eplen 302->524 resume=True
+  crab_hex_teacher/2026-08-16_19-59-49 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.740 std first/last/max=1.948/1.968/1.968 pinfrac=0.000 rew 2.32->2.86 eplen 297->571 resume=True
+  crab_hex_teacher/2026-08-16_20-18-27 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.782 std first/last/max=1.968/1.979/1.979 pinfrac=0.000 rew 2.40->3.22 eplen 327->603 resume=True
+  crab_hex_teacher/2026-08-17_03-21-53 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=1.00e-05/1.50e-05/1.00e-05/2.25e-05 floorfrac=0.710 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.26->4.03 eplen 71->619 resume=True
+  crab_hex_teacher/2026-08-17_03-24-42 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=1.00e-05/2.25e-05/1.00e-05/2.25e-05 floorfrac=0.640 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.74->3.06 eplen 73->574 resume=True
+  crab_hex_teacher/2026-08-17_03-27-33 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.98e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.764 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.68->1.29 eplen 185->342 resume=True
+  crab_hex_teacher/2026-08-17_03-40-24 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.50e-05/1.00e-05/3.37e-05 floorfrac=0.742 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 1.19->1.45 eplen 228->292 resume=True
+  crab_hex_teacher/2026-08-17_07-05-28 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.660 std first/last/max=1.967/1.969/1.969 pinfrac=0.000 rew 0.30->3.66 eplen 75->612 resume=True
+  crab_hex_teacher/2026-08-17_07-07-57 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=2.00e-05/1.50e-05/1.00e-05/3.37e-05 floorfrac=0.680 std first/last/max=1.969/1.970/1.970 pinfrac=0.000 rew 0.81->3.32 eplen 75->615 resume=True
+  crab_hex_teacher/2026-08-17_07-11-18 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.32e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.674 std first/last/max=1.970/1.979/1.979 pinfrac=0.000 rew 0.87->1.87 eplen 224->416 resume=True
+  crab_hex_teacher/2026-08-17_07-24-27 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.32e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.748 std first/last/max=1.979/1.988/1.988 pinfrac=0.000 rew 1.68->2.51 eplen 262->418 resume=True
+  crab_hex_teacher/2026-08-17_07-38-02 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.98e-05/1.00e-05/1.00e-05/2.25e-05 floorfrac=0.854 std first/last/max=1.988/1.995/1.995 pinfrac=0.724 rew 2.32->3.07 eplen 286->494 resume=True
+  crab_hex_teacher/2026-08-17_13-32-42 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/2.25e-05 floorfrac=0.744 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.73->1.35 eplen 169->265 resume=True
+  crab_hex_teacher/2026-08-17_13-47-10 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.32e-05/1.00e-05/1.00e-05/2.25e-05 floorfrac=0.852 std first/last/max=1.995/2.000/2.000 pinfrac=1.000 rew 2.49->3.27 eplen 261->452 resume=True
+  crab_hex_teacher/2026-08-17_14-03-26 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.32e-05/1.00e-05/1.00e-05/2.25e-05 floorfrac=0.830 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.68->3.38 eplen 272->438 resume=True
+  crab_hex_teacher/2026-08-17_14-16-17 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.890 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.82->3.35 eplen 270->392 resume=True
+  crab_hex_teacher/2026-08-18_23-52-33 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=2.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.510 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.33->5.21 eplen 70->896 resume=True
+  crab_hex_teacher/2026-08-18_23-55-02 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=100 lr first/last/min/max=4.50e-05/1.00e-05/1.00e-05/4.50e-05 floorfrac=0.460 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.88->4.55 eplen 71->856 resume=True
+  crab_hex_teacher/2026-08-18_23-57-56 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.732 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 1.64->2.59 eplen 300->594 resume=True
+  crab_hex_teacher/2026-08-19_00-11-02 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.32e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.756 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.06->3.16 eplen 324->584 resume=True
+  crab_hex_teacher/2026-08-19_00-24-05 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.812 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.61->3.76 eplen 323->610 resume=True
+  crab_hex_teacher/2026-08-19_00-37-04 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.32e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.794 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.69->3.61 eplen 306->541 resume=True
+  crab_hex_teacher/2026-08-19_00-50-03 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/3.37e-05 floorfrac=0.814 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 2.97->3.84 eplen 306->553 resume=True
+  crab_hex_teacher/2026-08-19_01-02-28 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=500 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/2.25e-05 floorfrac=0.866 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 3.02->3.78 eplen 308->532 resume=True
+  crab_hex_teacher/2026-08-26_00-47-34 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.998 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 381->483 resume=True
+  crab_hex_teacher/2026-08-26_01-47-15 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 276->214 resume=True
+  crab_hex_teacher/2026-08-26_02-46-40 ['lr=0.0001', 'init_std=0.65', 'sym=0.0'] its=3000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.998 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.01->0.06 eplen 167->100 resume=True
+  crab_hex_teacher/2026-08-26_04-27-30 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.998 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 378->434 resume=True
+  crab_hex_teacher/2026-08-26_05-26-32 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.995 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 272->214 resume=True
+  crab_hex_teacher/2026-08-26_06-25-39 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.998 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 170->161 resume=True
+  crab_hex_teacher/2026-08-26_07-24-26 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 147->216 resume=True
+  crab_hex_teacher/2026-08-26_08-26-46 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.997 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 369->261 resume=True
+  crab_hex_teacher/2026-08-26_09-25-52 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.987 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.00 eplen 197->131 resume=True
+  crab_hex_teacher/2026-08-26_10-26-43 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.997 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.04 eplen 123->142 resume=True
+  crab_hex_teacher/2026-08-26_11-31-53 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.04->0.07 eplen 134->114 resume=True
+  crab_hex_teacher/2026-08-26_12-38-32 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.993 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.01 eplen 375->884 resume=True
+  crab_hex_teacher/2026-08-26_13-38-26 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.01->0.07 eplen 437->720 resume=True
+  crab_hex_teacher/2026-08-26_14-36-14 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.05->0.09 eplen 393->485 resume=True
+  crab_hex_teacher/2026-08-26_15-34-17 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=1254 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.08->0.11 eplen 312->498 resume=True
+  crab_hex_teacher/2026-08-26_16-12-32 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.999 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.02->0.03 eplen 431->464 resume=True
+  crab_hex_teacher/2026-08-26_17-11-13 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.03->0.08 eplen 330->341 resume=True
+  crab_hex_teacher/2026-08-26_18-09-55 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.07->0.12 eplen 239->359 resume=True
+  crab_hex_teacher/2026-08-26_19-08-02 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=2000 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.00e-05 floorfrac=1.000 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.10->0.15 eplen 244->334 resume=True
+  crab_hex_teacher/2026-08-26_20-07-27 ['lr=3e-05', 'init_std=0.65', 'sym=0.0'] its=613 lr first/last/min/max=1.00e-05/1.00e-05/1.00e-05/1.50e-05 floorfrac=0.998 std first/last/max=2.000/2.000/2.000 pinfrac=1.000 rew 0.00->0.01 eplen 434->852 resume=True
+
+== (4) value loss
+  _stopped_partial_runs: vf first-100 median p50=0.001411 [p10 0.00141, p90 0.00141]; last-100 p50=0.00388 [p10 0.00388, p90 0.00388]; last/first p50=2.75; max over runs 0.04428; runs with last>first 1/1
+  crab_hex_flat_walk: vf first-100 median p50=0.006171 [p10 0.0016, p90 0.0202]; last-100 p50=0.01214 [p10 0.00412, p90 0.0235]; last/first p50=1.25; max over runs 0.3633; runs with last>first 163/230
+  crab_hex_omni_flat_walk: vf first-100 median p50=0.004725 [p10 0.00121, p90 0.0146]; last-100 p50=0.005806 [p10 0.0014, p90 0.00869]; last/first p50=1.2; max over runs 0.05863; runs with last>first 87/123
+  crab_hex_omni_teacher: vf first-100 median p50=0.008318 [p10 0.00623, p90 0.0104]; last-100 p50=0.008457 [p10 0.00657, p90 0.0103]; last/first p50=1.03; max over runs 0.04851; runs with last>first 1/2
+  crab_hex_side_flat_walk: vf first-100 median p50=0.01492 [p10 0.00331, p90 0.0149]; last-100 p50=0.001642 [p10 0.00164, p90 0.0173]; last/first p50=0.11; max over runs 0.04743; runs with last>first 2/8
+  crab_hex_side_teacher: vf first-100 median p50=0.01799 [p10 0.0168, p90 0.0227]; last-100 p50=0.01584 [p10 0.00175, p90 0.022]; last/first p50=0.871; max over runs 0.3525; runs with last>first 4/11
+  crab_hex_teacher: vf first-100 median p50=0.004163 [p10 9.55e-06, p90 0.0186]; last-100 p50=0.003486 [p10 7.12e-06, p90 0.00982]; last/first p50=0.979; max over runs 0.463; runs with last>first 30/62
+  vf_last / rew_final^2 (fresh-ish runs) p50: 2.2160982931839808e-05
+  surrogate last-100 median p10/50/90: [-0.01488967 -0.00831698 -0.00502594]
+  entropy first/last p50: 37.398826599121094 38.01754379272461
+  symmetry loss last-100 median p10/50/90: [0.01688851 0.02637865 0.05011964] first-100: [0.01435067 0.02405217 0.04858216]
+
+== (6) reward curves
+  _stopped_partial_runs fresh n=1: its-to-90% p25/50/75=[299. 299. 299.] as frac of run p50=0.92; run length p50=327.0
+  crab_hex_flat_walk fresh n=114: its-to-90% p25/50/75=[ 553. 1093. 1823.] as frac of run p50=0.55; run length p50=2000.0
+  crab_hex_flat_walk resumed n=113: its-to-90% p50=85.0; frac p50=0.04
+  crab_hex_omni_flat_walk fresh n=65: its-to-90% p25/50/75=[  19. 1130. 1844.] as frac of run p50=0.66; run length p50=3000.0
+  crab_hex_omni_flat_walk resumed n=55: its-to-90% p50=139.0; frac p50=0.10
+  crab_hex_omni_teacher resumed n=2: its-to-90% p50=144.0; frac p50=0.03
+  crab_hex_side_flat_walk fresh n=8: its-to-90% p25/50/75=[ 19.  19. 536.] as frac of run p50=1.00; run length p50=20.0
+  crab_hex_side_teacher fresh n=5: its-to-90% p25/50/75=[17. 17. 17.] as frac of run p50=0.89; run length p50=20.0
+  crab_hex_side_teacher resumed n=6: its-to-90% p50=106.0; frac p50=0.02
+  crab_hex_teacher fresh n=5: its-to-90% p25/50/75=[19. 19. 19.] as frac of run p50=1.00; run length p50=20.0
+  crab_hex_teacher resumed n=57: its-to-90% p50=147.0; frac p50=0.54
+ late decline (smoothed max - final)/(max - start) > 0.2, runs >= 1000 its:
+   crab_hex_flat_walk/2026-08-04_11-55-56 its=13159 decline=0.64 rew start/max/final=4.35/45.90/19.26 max@4991 eplen 438->993 resume=False
+   crab_hex_flat_walk/2026-08-22_04-17-22 its=5000 decline=0.29 rew start/max/final=11.94/28.41/23.71 max@2807 eplen 421->756 resume=True
+   crab_hex_flat_walk/2026-08-24_17-07-16 its=5000 decline=0.20 rew start/max/final=15.65/36.81/32.54 max@2855 eplen 409->832 resume=True
+   crab_hex_flat_walk/2026-08-25_16-34-38 its=5000 decline=0.23 rew start/max/final=18.19/41.55/36.19 max@2183 eplen 428->852 resume=True
+   crab_hex_flat_walk/2026-08-29_16-24-47 its=2000 decline=0.27 rew start/max/final=12.97/28.49/24.34 max@230 eplen 409->780 resume=True
+   crab_hex_flat_walk/2026-08-29_21-08-49 its=2000 decline=0.24 rew start/max/final=11.00/24.45/21.27 max@558 eplen 410->839 resume=True
+   crab_hex_flat_walk/2026-08-30_01-37-43 its=5000 decline=0.27 rew start/max/final=15.96/39.17/32.83 max@4562 eplen 406->809 resume=True
+   crab_hex_flat_walk/2026-08-30_18-06-13 its=2000 decline=0.23 rew start/max/final=13.14/28.77/25.15 max@398 eplen 423->795 resume=True
+   crab_hex_flat_walk/2026-08-30_19-09-35 its=2000 decline=0.22 rew start/max/final=12.60/51.67/42.94 max@155 eplen 373->1378 resume=True
+   crab_hex_flat_walk/2026-08-30_21-43-02 its=2000 decline=0.32 rew start/max/final=10.44/37.94/29.15 max@571 eplen 323->985 resume=True
+   crab_hex_flat_walk/2026-08-30_22-47-02 its=5000 decline=0.30 rew start/max/final=12.60/51.67/40.02 max@155 eplen 373->1262 resume=True
+   crab_hex_flat_walk/2026-08-31_01-12-23 its=5000 decline=0.22 rew start/max/final=13.14/28.77/25.38 max@398 eplen 423->816 resume=True
+   crab_hex_flat_walk/2026-08-31_08-16-16 its=5000 decline=0.21 rew start/max/final=12.89/27.56/24.51 max@95 eplen 426->831 resume=True
+   crab_hex_flat_walk/2026-08-31_10-46-19 its=5000 decline=0.23 rew start/max/final=12.67/28.77/25.09 max@1354 eplen 413->842 resume=True
+   crab_hex_flat_walk/2026-08-31_17-46-45 its=3000 decline=0.26 rew start/max/final=16.53/36.96/31.61 max@112 eplen 413->861 resume=True
+   crab_hex_flat_walk/2026-08-31_23-49-32 its=5000 decline=0.24 rew start/max/final=15.63/33.18/28.99 max@317 eplen 418->831 resume=True
+   crab_hex_flat_walk/2026-09-01_05-47-39 its=2000 decline=0.54 rew start/max/final=12.73/26.89/19.31 max@107 eplen 425->762 resume=True
+   crab_hex_flat_walk/2026-09-01_09-23-40 its=3000 decline=0.24 rew start/max/final=12.67/28.45/24.61 max@234 eplen 438->806 resume=True
+   crab_hex_flat_walk/2026-09-01_13-17-11 its=2000 decline=0.20 rew start/max/final=11.94/26.08/23.24 max@265 eplen 396->794 resume=True
+   crab_hex_flat_walk/2026-09-01_14-16-31 its=2000 decline=0.33 rew start/max/final=12.08/24.19/20.25 max@151 eplen 405->813 resume=True
+   crab_hex_flat_walk/2026-09-01_15-10-31 its=5000 decline=0.49 rew start/max/final=11.88/24.35/18.19 max@378 eplen 403->743 resume=True
+   crab_hex_flat_walk/2026-09-01_17-50-56 its=2000 decline=0.36 rew start/max/final=10.01/19.39/15.98 max@97 eplen 380->669 resume=True
+   crab_hex_flat_walk/2026-09-01_18-46-14 its=2000 decline=0.35 rew start/max/final=10.09/18.99/15.91 max@505 eplen 383->726 resume=True
+   crab_hex_flat_walk/2026-09-01_19-40-14 its=5000 decline=0.25 rew start/max/final=10.09/18.99/16.77 max@505 eplen 383->751 resume=True
+   crab_hex_flat_walk/2026-09-01_23-46-54 its=2000 decline=0.39 rew start/max/final=8.87/17.79/14.35 max@671 eplen 380->713 resume=True
+   crab_hex_flat_walk/2026-09-02_00-42-53 its=5000 decline=0.36 rew start/max/final=8.87/17.79/14.54 max@671 eplen 380->720 resume=True
+   crab_hex_flat_walk/2026-09-02_07-35-22 its=5000 decline=0.23 rew start/max/final=12.68/26.60/23.42 max@2612 eplen 408->772 resume=True
+   crab_hex_flat_walk/2026-09-02_09-51-23 its=5000 decline=0.34 rew start/max/final=12.18/26.24/21.53 max@2175 eplen 397->723 resume=True
+   crab_hex_flat_walk/2026-09-03_15-41-21 its=5000 decline=0.36 rew start/max/final=9.75/20.85/16.87 max@1766 eplen 377->710 resume=True
+   crab_hex_flat_walk/2026-09-03_18-16-56 its=5000 decline=0.23 rew start/max/final=8.95/18.76/16.47 max@4287 eplen 377->748 resume=True
+   crab_hex_flat_walk/2026-09-03_20-42-17 its=5000 decline=0.36 rew start/max/final=9.28/23.36/18.30 max@3405 eplen 326->687 resume=True
+   crab_hex_flat_walk/2026-09-03_23-07-36 its=5000 decline=0.35 rew start/max/final=9.79/19.35/16.02 max@3253 eplen 377->645 resume=True
+   crab_hex_flat_walk/2026-09-04_01-34-51 its=2542 decline=0.54 rew start/max/final=8.01/49.21/27.01 max@481 eplen 292->1210 resume=True
+   crab_hex_flat_walk/2026-09-04_02-59-06 its=5000 decline=0.37 rew start/max/final=8.01/49.21/33.83 max@481 eplen 292->1463 resume=True
+   crab_hex_flat_walk/2026-09-04_05-18-20 its=5000 decline=0.40 rew start/max/final=10.33/22.48/17.67 max@2589 eplen 385->690 resume=True
+   crab_hex_flat_walk/2026-09-05_12-03-33 its=5000 decline=0.22 rew start/max/final=1.28/50.24/39.27 max@1624 eplen 135->1039 resume=False
+   crab_hex_flat_walk/2026-09-06_23-59-54 its=5000 decline=0.25 rew start/max/final=13.97/69.56/55.94 max@278 eplen 347->1408 resume=True
+   crab_hex_flat_walk/2026-09-07_04-38-50 its=5000 decline=0.31 rew start/max/final=12.34/50.08/38.37 max@149 eplen 349->1426 resume=True
+   crab_hex_flat_walk/2026-09-07_06-57-52 its=5000 decline=0.33 rew start/max/final=11.42/41.72/31.78 max@132 eplen 353->1314 resume=True
+   crab_hex_flat_walk/2026-09-07_09-16-39 its=5000 decline=0.30 rew start/max/final=10.73/36.37/28.68 max@245 eplen 372->1297 resume=True
+   crab_hex_omni_flat_walk/2026-09-25_00-40-45_seed3_X05_c4_A15pB its=1500 decline=0.27 rew start/max/final=6.29/22.09/17.81 max@1073 eplen 310->830 resume=True
+   crab_hex_side_teacher/2026-09-11_19-43-19 its=5000 decline=0.28 rew start/max/final=12.73/53.48/42.10 max@170 eplen 338->1704 resume=True
+   crab_hex_side_teacher/2026-09-12_07-45-40 its=5000 decline=0.31 rew start/max/final=14.90/62.20/47.43 max@159 eplen 367->1765 resume=True
+   crab_hex_teacher/2026-08-26_00-47-34 its=2000 decline=1.24 rew start/max/final=0.00/0.00/0.00 max@845 eplen 381->483 resume=True
+   crab_hex_teacher/2026-08-26_04-27-30 its=2000 decline=1.14 rew start/max/final=0.00/0.00/0.00 max@880 eplen 378->434 resume=True
+   crab_hex_teacher/2026-08-26_05-26-32 its=2000 decline=1.22 rew start/max/final=0.00/0.00/0.00 max@173 eplen 272->214 resume=True
+   crab_hex_teacher/2026-08-26_06-25-39 its=2000 decline=1.05 rew start/max/final=0.00/0.00/0.00 max@288 eplen 170->161 resume=True
+   crab_hex_teacher/2026-08-26_07-24-26 its=2000 decline=0.67 rew start/max/final=0.00/0.00/0.00 max@1829 eplen 147->216 resume=True
+   crab_hex_teacher/2026-08-26_08-26-46 its=2000 decline=0.95 rew start/max/final=0.00/0.00/0.00 max@0 eplen 369->261 resume=True
+   crab_hex_teacher/2026-08-26_14-36-14 its=2000 decline=0.28 rew start/max/final=0.05/0.11/0.09 max@1942 eplen 393->485 resume=True
+
+== (7) anomalies
+ non-finite scalar values: []
+ LR jump ratio >1.6 between consecutive iterations (max possible per-iteration x1.5^80):
+   _stopped_partial_runs/2026-09-26_19-04-22_seed2_X02_t3_A15pB max jump x38.4
+   crab_hex_flat_walk/2026-08-04_11-55-56 max jump x17.1
+   crab_hex_flat_walk/2026-08-04_23-28-09 max jump x25.6
+   crab_hex_flat_walk/2026-08-04_23-34-31 max jump x25.6
+   crab_hex_flat_walk/2026-08-20_16-23-35 max jump x25.6
+   crab_hex_flat_walk/2026-08-20_19-01-38 max jump x38.4
+   crab_hex_flat_walk/2026-08-20_21-12-52 max jump x57.7
+   crab_hex_flat_walk/2026-08-20_21-35-15 max jump x38.4
+   crab_hex_flat_walk/2026-08-20_21-57-39 max jump x38.4
+   crab_hex_flat_walk/2026-08-20_22-19-16 max jump x38.4
+   crab_hex_flat_walk/2026-08-20_22-40-59 max jump x38.4
+   crab_hex_flat_walk/2026-08-20_23-01-45 max jump x57.7
+   crab_hex_flat_walk/2026-08-20_23-24-48 max jump x38.4
+   crab_hex_flat_walk/2026-08-20_23-46-34 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_00-07-43 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_00-29-11 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_00-51-42 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_01-13-13 max jump x25.6
+   crab_hex_flat_walk/2026-08-21_01-34-48 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_01-55-55 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_02-18-08 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_04-03-34 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_05-52-47 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_07-36-47 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_09-25-23 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_11-22-17 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_11-45-42 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_16-45-35 max jump x57.7
+   crab_hex_flat_walk/2026-08-21_17-08-24 max jump x57.7
+   crab_hex_flat_walk/2026-08-21_17-31-29 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_17-54-37 max jump x25.6
+   crab_hex_flat_walk/2026-08-21_18-18-00 max jump x57.7
+   crab_hex_flat_walk/2026-08-21_18-41-10 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_19-05-22 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_19-28-16 max jump x86.5
+   crab_hex_flat_walk/2026-08-21_19-51-06 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_20-14-29 max jump x25.6
+   crab_hex_flat_walk/2026-08-21_20-37-00 max jump x38.4
+   crab_hex_flat_walk/2026-08-21_21-01-15 max jump x25.6
+   crab_hex_flat_walk/2026-08-21_22-51-25 max jump x25.6
+   crab_hex_flat_walk/2026-08-22_00-41-24 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_02-27-29 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_06-03-19 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_07-51-18 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_08-58-48 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_11-20-39 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_11-22-17 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_13-15-41 max jump x11.4
+   crab_hex_flat_walk/2026-08-22_15-04-05 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_16-56-30 max jump x57.7
+   crab_hex_flat_walk/2026-08-22_18-53-10 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_18-54-11 max jump x38.4
+   crab_hex_flat_walk/2026-08-22_20-54-09 max jump x57.7
+   crab_hex_flat_walk/2026-08-22_23-15-14 max jump x38.4
+   crab_hex_flat_walk/2026-08-23_01-11-03 max jump x57.7
+   crab_hex_flat_walk/2026-08-23_03-17-24 max jump x57.7
+   crab_hex_flat_walk/2026-08-23_10-17-59 max jump x38.4
+   crab_hex_flat_walk/2026-08-23_12-16-28 max jump x38.4
+   crab_hex_flat_walk/2026-08-23_14-10-59 max jump x38.4
+   crab_hex_flat_walk/2026-08-23_22-06-56 max jump x25.6
+   crab_hex_flat_walk/2026-08-24_11-16-30 max jump x57.7
+   crab_hex_flat_walk/2026-08-24_21-37-19 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_01-06-53 max jump x57.7
+   crab_hex_flat_walk/2026-08-27_03-36-23 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_04-36-23 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_05-36-23 max jump x25.6
+   crab_hex_flat_walk/2026-08-27_06-36-23 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_07-36-23 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_08-40-57 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_08-48-50 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_15-06-55 max jump x57.7
+   crab_hex_flat_walk/2026-08-27_18-56-30 max jump x57.7
+   crab_hex_flat_walk/2026-08-27_18-58-15 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_22-00-14 max jump x38.4
+   crab_hex_flat_walk/2026-08-27_23-18-14 max jump x25.6
+   crab_hex_flat_walk/2026-08-28_00-42-14 max jump x25.6
+   crab_hex_flat_walk/2026-08-28_03-33-39 max jump x38.4
+   crab_hex_flat_walk/2026-08-28_04-35-39 max jump x25.6
+   crab_hex_flat_walk/2026-08-28_07-05-07 max jump x38.4
+   crab_hex_flat_walk/2026-08-28_09-38-00 max jump x38.4
+   crab_hex_flat_walk/2026-08-28_09-42-07 max jump x25.6
+   crab_hex_flat_walk/2026-08-28_12-21-45 max jump x38.4
+   crab_hex_flat_walk/2026-08-28_13-42-11 max jump x38.4
+   crab_hex_flat_walk/2026-08-28_17-24-32 max jump x57.7
+   crab_hex_flat_walk/2026-08-31_03-42-16 max jump x25.6
+   crab_hex_flat_walk/2026-09-02_21-12-20 max jump x25.6
+   crab_hex_flat_walk/2026-09-02_23-43-36 max jump x38.4
+   crab_hex_flat_walk/2026-09-03_02-14-33 max jump x38.4
+   crab_hex_flat_walk/2026-09-03_04-53-36 max jump x57.7
+   crab_hex_flat_walk/2026-09-03_07-16-23 max jump x38.4
+   crab_hex_flat_walk/2026-09-03_09-49-31 max jump x38.4
+   crab_hex_flat_walk/2026-09-04_13-09-45 max jump x25.6
+   crab_hex_flat_walk/2026-09-04_13-18-07 max jump x25.6
+   crab_hex_flat_walk/2026-09-04_15-49-15 max jump x25.6
+   crab_hex_flat_walk/2026-09-04_18-20-39 max jump x25.6
+   crab_hex_flat_walk/2026-09-04_19-32-42 max jump x38.4
+   crab_hex_flat_walk/2026-09-04_19-33-30 max jump x25.6
+   crab_hex_flat_walk/2026-09-04_22-02-27 max jump x38.4
+   crab_hex_flat_walk/2026-09-05_00-31-35 max jump x25.6
+   crab_hex_flat_walk/2026-09-05_03-00-33 max jump x25.6
+   crab_hex_flat_walk/2026-09-05_05-27-19 max jump x38.4
+   crab_hex_flat_walk/2026-09-05_07-56-31 max jump x38.4
+   crab_hex_flat_walk/2026-09-05_12-03-33 max jump x38.4
+   crab_hex_flat_walk/2026-09-05_16-51-20 max jump x25.6
+   crab_hex_flat_walk/2026-09-05_21-37-35 max jump x25.6
+   crab_hex_flat_walk/2026-09-06_02-36-19 max jump x25.6
+   crab_hex_flat_walk/2026-09-06_11-13-20 max jump x38.4
+   crab_hex_flat_walk/2026-09-06_16-03-30 max jump x38.4
+   crab_hex_flat_walk/2026-09-06_21-32-46 max jump x25.6
+   crab_hex_flat_walk/2026-09-11_03-38-31 max jump x17.1
+   crab_hex_flat_walk/2026-09-11_05-06-41 max jump x17.1
+   crab_hex_flat_walk/2026-09-11_05-20-45 max jump x17.1
+   crab_hex_flat_walk/2026-09-16_17-41-41 max jump x17.1
+   crab_hex_flat_walk/2026-09-16_17-42-57 max jump x17.1
+   crab_hex_flat_walk/2026-09-16_19-54-18 max jump x17.1
+   crab_hex_flat_walk/2026-09-16_22-57-39 max jump x17.1
+   crab_hex_flat_walk/2026-09-18_02-15-42 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-16_19-59-27 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-16_20-00-18 max jump x11.4
+   crab_hex_omni_flat_walk/2026-09-16_20-35-23 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-16_20-54-26 max jump x25.6
+   crab_hex_omni_flat_walk/2026-09-16_21-17-41 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-16_21-38-25 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-16_23-11-00 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-18_02-19-48 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-18_02-20-55 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-18_02-35-35 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-18_08-16-22 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-18_21-39-52 max jump x11.4
+   crab_hex_omni_flat_walk/2026-09-18_21-41-05 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-18_23-40-21 max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-19_00-14-10 max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-19_07-16-25 max jump x11.4
+   crab_hex_omni_flat_walk/2026-09-19_07-17-38 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-19_07-18-37 max jump x11.4
+   crab_hex_omni_flat_walk/2026-09-19_07-19-55 max jump x17.1
+   crab_hex_omni_flat_walk/2026-09-19_07-24-22 max jump x11.4
+   crab_hex_omni_flat_walk/2026-09-19_11-08-58_seed3_X01_1a_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-19_11-12-21_seed3_X01_1c_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-19_14-16-00_seed2_X02_1c_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-19_17-19-39_seed3_X03_c1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-19_19-19-10_seed3_X04_c1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-19_20-15-11_seed3_X05_1c_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-21_18-10-01_seed3_X01_1a_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-21_23-29-27_seed3_X05_1c_A15pB_c max jump x11.4
+   crab_hex_omni_flat_walk/2026-09-22_02-37-01_seed3_X06_1c_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-22_05-52-43_seed2_X07_1c_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-22_15-37-55_seed3_X09_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-24_23-21-43_seed3_X05_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-25_03-00-02_seed2_X06_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-25_03-52-04_seed2_X06_t3_A15pB_e2 max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-25_04-42-23_seed2_X07_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-25_04-48-05_seed2_X07_t3_A15pB_c max jump x25.6
+   crab_hex_omni_flat_walk/2026-09-26_17-42-44_seed3_X01_t3_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-26_22-54-02_seed2_X02_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-27_00-15-39_seed3_X03_t3_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-27_01-35-20_seed2_X04_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-27_02-56-58_seed3_X05_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-27_04-16-39_seed2_X06_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-28_16-40-58_seed3_X01_t3_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-28_18-05-55_seed2_X02_t3_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_00-15-17_seed3_X01_1b_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-29_00-19-48_seed3_X01_1b_A15pB max jump x25.6
+   crab_hex_omni_flat_walk/2026-09-29_00-21-49_seed3_X01_1b_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_00-40-18_seed3_X01_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_01-52-56_seed3_X02_s1_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-29_08-28-30_seed3_X03_s1_A15pB max jump x25.6
+   crab_hex_omni_flat_walk/2026-09-29_09-39-22_seed3_X04_s1_A15pB max jump x25.6
+   crab_hex_omni_flat_walk/2026-09-29_10-52-23_seed3_X05_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_12-09-37_seed3_X06_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_13-23-08_seed2_X07_s1_A15pB max jump x25.6
+   crab_hex_omni_flat_walk/2026-09-29_14-36-09_seed2_X08_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_18-09-45_seed1_X09_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_19-18-51_seed3_X10_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_20-33-42_seed3_X11_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_22-15-30_seed3_X12_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-29_23-31-40_seed2_X13_s1_A15pB max jump x57.7
+   crab_hex_omni_flat_walk/2026-09-30_00-00-38_seed3_X14_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-30_01-15-33_seed3_X15_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-30_09-05-43_seed3_X16_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-30_10-35-34_seed3_X17_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-30_11-50-15_seed2_X18_s1_A15pB max jump x38.4
+   crab_hex_omni_flat_walk/2026-09-30_12-27-45_seed3_X19_s1_A15pB max jump x38.4
+   crab_hex_side_flat_walk/2026-09-11_05-18-40 max jump x17.1
+   crab_hex_side_flat_walk/2026-09-11_10-57-55 max jump x38.4
+   crab_hex_side_flat_walk/2026-09-12_00-31-09 max jump x38.4
+   crab_hex_side_flat_walk/2026-09-16_17-44-10 max jump x17.1
+   crab_hex_side_flat_walk/2026-09-16_17-45-09 max jump x17.1
+   crab_hex_side_flat_walk/2026-09-16_19-55-19 max jump x17.1
+   crab_hex_side_flat_walk/2026-09-16_22-58-36 max jump x17.1
+   crab_hex_side_flat_walk/2026-09-18_02-16-50 max jump x17.1
+   crab_hex_teacher/2026-09-16_17-46-08 max jump x11.4
+   crab_hex_teacher/2026-09-16_17-47-06 max jump x11.4
+   crab_hex_teacher/2026-09-16_19-56-19 max jump x11.4
+   crab_hex_teacher/2026-09-16_22-59-31 max jump x11.4
+   crab_hex_teacher/2026-09-18_02-17-45 max jump x11.4
+ vf_max > 100: []
+ surrogate max > 1: [('crab_hex_flat_walk', '2026-08-04_11-55-56', 12.97)]
+ num_envs != 256: [('crab_hex_flat_walk', '2026-08-29_15-31-46', 64), ('crab_hex_flat_walk', '2026-09-11_03-38-31', 64), ('crab_hex_flat_walk', '2026-09-11_05-06-41', 64), ('crab_hex_flat_walk', '2026-09-11_05-20-45', 64), ('crab_hex_flat_walk', '2026-09-16_17-41-41', 64), ('crab_hex_flat_walk', '2026-09-16_17-42-57', 64), ('crab_hex_flat_walk', '2026-09-16_19-54-18', 64), ('crab_hex_flat_walk', '2026-09-16_22-57-39', 64), ('crab_hex_flat_walk', '2026-09-18_02-15-42', 64), ('crab_hex_omni_flat_walk', '2026-09-16_19-58-27', 64), ('crab_hex_omni_flat_walk', '2026-09-16_19-59-27', 64), ('crab_hex_omni_flat_walk', '2026-09-16_20-00-18', 64), ('crab_hex_omni_flat_walk', '2026-09-18_02-19-48', 64), ('crab_hex_omni_flat_walk', '2026-09-18_08-16-22', 64), ('crab_hex_omni_flat_walk', '2026-09-18_08-17-51', 64), ('crab_hex_omni_flat_walk', '2026-09-18_21-39-52', 64), ('crab_hex_omni_flat_walk', '2026-09-18_21-41-05', 64), ('crab_hex_omni_flat_walk', '2026-09-19_07-16-25', 64), ('crab_hex_omni_flat_walk', '2026-09-19_07-17-38', 64), ('crab_hex_omni_flat_walk', '2026-09-19_07-18-37', 64), ('crab_hex_omni_flat_walk', '2026-09-19_07-19-55', 64), ('crab_hex_omni_flat_walk', '2026-09-19_07-24-22', 64), ('crab_hex_omni_flat_walk', '2026-09-23_00-27-09_smoke_motionA_allknobs', 64), ('crab_hex_omni_flat_walk', '2026-09-23_00-37-45_smoke_motionB_forkX08c6', 64), ('crab_hex_side_flat_walk', '2026-09-11_05-18-40', 64), ('crab_hex_side_flat_walk', '2026-09-16_17-44-10', 64), ('crab_hex_side_flat_walk', '2026-09-16_17-45-09', 64), ('crab_hex_side_flat_walk', '2026-09-16_19-55-19', 64), ('crab_hex_side_flat_walk', '2026-09-16_22-58-36', 64), ('crab_hex_side_flat_walk', '2026-09-18_02-16-50', 64), ('crab_hex_side_teacher', '2026-09-16_17-48-05', 64), ('crab_hex_side_teacher', '2026-09-16_17-49-02', 64), ('crab_hex_side_teacher', '2026-09-16_19-57-16', 64), ('crab_hex_side_teacher', '2026-09-16_23-00-24', 64), ('crab_hex_side_teacher', '2026-09-18_02-18-38', 64), ('crab_hex_student', '2026-08-19_08-44-43', 192), ('crab_hex_student', '2026-08-19_16-17-40', 192), ('crab_hex_student', '2026-08-19_23-00-20', 192), ('crab_hex_student', '2026-09-07_13-30-34', 192), ('crab_hex_student', '2026-09-07_13-59-12', 192), ('crab_hex_student', '2026-09-07_23-13-07', 192), ('crab_hex_student', '2026-09-08_05-54-01', 192), ('crab_hex_student', '2026-09-09_02-06-51', 192), ('crab_hex_teacher', '2026-09-16_17-46-08', 64), ('crab_hex_teacher', '2026-09-16_17-47-06', 64), ('crab_hex_teacher', '2026-09-16_19-56-19', 64), ('crab_hex_teacher', '2026-09-16_22-59-31', 64), ('crab_hex_teacher', '2026-09-18_02-17-45', 64)]
+ iters_logged != last-first+1: []

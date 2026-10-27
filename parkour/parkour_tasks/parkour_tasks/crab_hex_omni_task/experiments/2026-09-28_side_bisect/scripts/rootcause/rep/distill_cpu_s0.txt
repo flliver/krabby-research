@@ -1,0 +1,11 @@
+samples 54900 train 44100 test 10800 teacher med|mu| 6.51776647567749
+init: sign agree L 0.469 R 0.522 | cmd-flip rod mod 0.000 static 0.000 | rod O1 student 0.014 (teacher 0.575) E1 0.013 (0.428)
+ep  1 train mse 45.420 (0s): sign agree L 0.805 R 0.824 | cmd-flip rod mod 0.005 static 0.003 | rod O1 student 0.707 (teacher 0.575) E1 0.397 (0.428)
+ep  2 train mse 20.507 (1s): sign agree L 0.893 R 0.879 | cmd-flip rod mod 0.006 static 0.004 | rod O1 student 0.666 (teacher 0.575) E1 0.504 (0.428)
+ep  3 train mse 14.818 (1s): sign agree L 0.912 R 0.906 | cmd-flip rod mod 0.006 static 0.004 | rod O1 student 0.660 (teacher 0.575) E1 0.478 (0.428)
+ep  5 train mse 8.584 (1s): sign agree L 0.938 R 0.932 | cmd-flip rod mod 0.005 static 0.001 | rod O1 student 0.621 (teacher 0.575) E1 0.431 (0.428)
+ep  8 train mse 4.350 (2s): sign agree L 0.958 R 0.956 | cmd-flip rod mod 0.007 static 0.003 | rod O1 student 0.582 (teacher 0.575) E1 0.429 (0.428)
+ep 12 train mse 3.239 (3s): sign agree L 0.961 R 0.961 | cmd-flip rod mod 0.013 static 0.007 | rod O1 student 0.579 (teacher 0.575) E1 0.429 (0.428)
+ep 20 train mse 2.480 (5s): sign agree L 0.968 R 0.969 | cmd-flip rod mod 0.020 static 0.009 | rod O1 student 0.578 (teacher 0.575) E1 0.427 (0.428)
+ep 30 train mse 1.387 (8s): sign agree L 0.976 R 0.975 | cmd-flip rod mod 0.028 static 0.006 | rod O1 student 0.575 (teacher 0.575) E1 0.429 (0.428)
+ep 40 train mse 0.976 (10s): sign agree L 0.978 R 0.979 | cmd-flip rod mod 0.034 static 0.008 | rod O1 student 0.574 (teacher 0.575) E1 0.429 (0.428)

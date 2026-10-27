@@ -1,0 +1,947 @@
+{
+ "_sources": {
+  "dimensions": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/crab_hex_dimensions.py",
+  "foot_fk": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/crab_hex_foot_fk.py",
+  "linkage": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/crab_hex_linkage.py",
+  "r_knob": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+  "restance_module_sha256": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4",
+  "sn_table_core_sha256": "2a2413b5294f2d9f6816e17e27ae126276a87d87c2cac175191642a5981e0c84",
+  "usd": "/home/nickmagus/krabby/krabby-research/assets/crab.usda"
+ },
+ "knee_folded": {
+  "body_half_m": [
+   0.3556,
+   0.6096,
+   0.15875
+  ],
+  "body_size_m": [
+   0.7111999999999999,
+   1.2191999999999998,
+   0.3175
+  ],
+  "height_scan": "the height scanner ray-casts /World/ground only (RayCasterCfg.mesh_prim_paths of the forward teacher scene): the table is INVISIBLE to it; the policy's scan reads the floor ~0.80 m below the root at the start (~1.06 m when standing), i.e. the body looks ~0.26 m low",
+  "leg_mounts": {
+   "hip_plate_u_m": [
+    0.0,
+    0.127
+   ],
+   "hip_plate_z_body_m": [
+    -0.306,
+    0.306
+   ],
+   "splay_deg": 15.0,
+   "yaw_axis_abs_y_m": 0.6095999999999999,
+   "yaw_axis_x_m": [
+    -0.2921,
+    -0.2921,
+    0.0,
+    0.0,
+    0.2921,
+    0.2921
+   ]
+  },
+  "pose": {
+   "defaults": {
+    "hip": 0.027169998105984527,
+    "knee_left": 0.31020612922871676
+   },
+   "fold_search": {
+    "binding": "plate_clearance",
+    "clearance_req_m": 0.02,
+    "clearances": {
+     "femur_body_m": 0.03868656286071823,
+     "min_m": 0.02010236128534526,
+     "tibia_body_m": 0.18177530774967235,
+     "tibia_plate_m": 0.02010236128534526
+    },
+    "knee_rad": 1.3552061292286781,
+    "knee_stop_rad": 1.4835298641951802,
+    "step_rad": 0.001
+   },
+   "hip_binding": "joint_stop",
+   "hip_deg": -44.5,
+   "hip_hold_action": -3.2153660609738446,
+   "hip_rad": -0.7766715171374766,
+   "hip_rod_m": 0.45715102029432336,
+   "hip_rod_min_angle_deg": -48.713218195475385,
+   "hip_rod_min_angle_rad": -0.8502060467534561,
+   "hip_rod_norm": -0.9284897970567668,
+   "hip_stop_rad": -0.7853981633974483,
+   "joint_pos": {
+    "FL_Body_CamShaft_RevoluteJoint": 0.0,
+    "FL_Body_Hip_RevoluteJoint": 0.0,
+    "FL_Femur_Tibia_RevoluteJoint": 1.3552061292286781,
+    "FL_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "FR_Body_CamShaft_RevoluteJoint": 0.0,
+    "FR_Body_Hip_RevoluteJoint": 0.0,
+    "FR_Femur_Tibia_RevoluteJoint": -1.3552061292286781,
+    "FR_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "ML_Body_CamShaft_RevoluteJoint": 0.0,
+    "ML_Body_Hip_RevoluteJoint": 0.0,
+    "ML_Femur_Tibia_RevoluteJoint": 1.3552061292286781,
+    "ML_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "MR_Body_CamShaft_RevoluteJoint": 0.0,
+    "MR_Body_Hip_RevoluteJoint": 0.0,
+    "MR_Femur_Tibia_RevoluteJoint": -1.3552061292286781,
+    "MR_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "RL_Body_CamShaft_RevoluteJoint": 0.0,
+    "RL_Body_Hip_RevoluteJoint": 0.0,
+    "RL_Femur_Tibia_RevoluteJoint": 1.3552061292286781,
+    "RL_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "RR_Body_CamShaft_RevoluteJoint": 0.0,
+    "RR_Body_Hip_RevoluteJoint": 0.0,
+    "RR_Femur_Tibia_RevoluteJoint": -1.3552061292286781,
+    "RR_Hip_Femur_RevoluteJoint": -0.7766715171374766
+   },
+   "knee_binding": "plate_clearance",
+   "knee_hold_action_left": 1.305588659392339,
+   "knee_interior_deg": 12.352408424935916,
+   "knee_left_deg": 77.64759157506408,
+   "knee_left_rad": 1.3552061292286781,
+   "knee_right_rad": -1.3552061292286781,
+   "knee_rod_m": 0.571999884278222,
+   "knee_rod_min_angle_deg": -41.59450033238155,
+   "knee_rod_min_angle_rad": -0.7259609815219338,
+   "knee_rod_norm": 0.2199988427822197,
+   "limit_margin_deg": 0.5,
+   "link_clearances": {
+    "femur_body_m": 0.03868656286071823,
+    "min_m": 0.02010236128534526,
+    "tibia_body_m": 0.18177530774967235,
+    "tibia_plate_m": 0.02010236128534526
+   },
+   "mirroring": "hip: same sign on every leg; knee: right legs (FR/MR/RR) carry the 180-deg Z frame flip -> knee_right = -knee_left (crab_hex_scene_cfg, crab_hex_dimensions.KNEE_SIM_LIMITS_RIGHT_DEG)",
+   "pose": "knee_folded",
+   "rod_window_m": [
+    0.45,
+    0.65
+   ]
+  },
+  "r_at_start": {
+   "becomes_down_when_hip_obs_ge_rad": -0.05,
+   "branches": {
+    "FL": "seat",
+    "FR": "seat",
+    "ML": "seat",
+    "MR": "seat",
+    "RL": "seat",
+    "RR": "seat"
+   },
+   "eps_air": 0.05,
+   "eps_step": 0.3,
+   "hip_obs_rad": -0.8038415152434611,
+   "p_down_rad": -0.05,
+   "p_up_rad": -0.0625,
+   "reading": "every leg UP and not DOWN, cam inside eps_air -> SEAT on all six: rods 0 (default targets), cam 0 -> R's action is the zero action until a hip is within |p_down| of its default (then HOLD: rods 0, cam trim -clip(k_h c, +-trim)); LIFT needs a DOWN leg with |cam| > eps_step",
+   "target": [
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    -0.0,
+    0.0,
+    -0.0,
+    0.0,
+    -0.0,
+    0.0
+   ],
+   "target_is_zero": true,
+   "tilt_max": 0.1
+  },
+  "slew_zero_action": {
+   "belly_gap_at_end_if_lifted_m": 0.2623843919824218,
+   "end_hip_rad": 0.027169998105984527,
+   "end_knee_left_rad": 0.31020612922871676,
+   "end_toe_z_body_m": -1.0361343919824217,
+   "floor_toe_z_body_m": -0.7787499999999999,
+   "hip_enters_action_window_s": 2.255,
+   "hip_rod_arrives_s": 3.32,
+   "knee_rod_arrives_s": 0.67,
+   "lift_if_body_follows_m": 0.2573843919824218,
+   "note": "kinematic only: rod slew at the loaded speed, PD tracking lag, loads and the body's rise ignored",
+   "physics_dt": 0.005,
+   "toe_reaches_floor_s": 1.115,
+   "trace_every_0p1s": [
+    [
+     0.0,
+     -0.7766715171374767,
+     1.3552061292286743,
+     -0.5229909160330013
+    ],
+    [
+     0.1,
+     -0.7490128506777518,
+     1.1885411561696464,
+     -0.590547058757622
+    ],
+    [
+     0.2,
+     -0.7218853785524407,
+     1.0729278615904998,
+     -0.6304167579210715
+    ],
+    [
+     0.3,
+     -0.6952320530642618,
+     0.9775647382424428,
+     -0.6598996619487822
+    ],
+    [
+     0.4,
+     -0.6690030959483144,
+     0.8937034080212513,
+     -0.6837243515854957
+    ],
+    [
+     0.5,
+     -0.6431546961296281,
+     0.8173844583967417,
+     -0.7039441405697523
+    ],
+    [
+     0.6,
+     -0.6176479868422103,
+     0.7464157723130627,
+     -0.7216440883493636
+    ],
+    [
+     0.7,
+     -0.592448231873839,
+     0.6993638080969249,
+     -0.7358727789062349
+    ],
+    [
+     0.8,
+     -0.5675241706087133,
+     0.6926593190189854,
+     -0.7463108879099235
+    ],
+    [
+     0.9,
+     -0.5428474852063863,
+     0.6850251059041895,
+     -0.7566866947884703
+    ],
+    [
+     1.0,
+     -0.5183923628081728,
+     0.6765158259305297,
+     -0.7670395223081643
+    ],
+    [
+     1.1,
+     -0.494135132449824,
+     0.6671818220133048,
+     -0.7774021711441473
+    ],
+    [
+     1.2,
+     -0.4700539612543295,
+     0.6570693688315037,
+     -0.7878019183616896
+    ],
+    [
+     1.3,
+     -0.4461285980570431,
+     0.6462209007687046,
+     -0.7982613698164148
+    ],
+    [
+     1.4,
+     -0.4223401552636412,
+     0.6346752258371742,
+     -0.8087991876702453
+    ],
+    [
+     1.5,
+     -0.39867092172355667,
+     0.6224677278089095,
+     -0.8194307109421103
+    ],
+    [
+     1.6,
+     -0.3751042009003329,
+     0.609630557595569,
+     -0.8301684843827264
+    ],
+    [
+     1.7,
+     -0.3516241697641558,
+     0.596192814198058,
+     -0.8410227087972337
+    ],
+    [
+     1.8,
+     -0.32821575471178654,
+     0.5821807151382796,
+     -0.852001624119135
+    ],
+    [
+     1.9,
+     -0.30486452150107457,
+     0.567617756082203,
+     -0.8631118349859672
+    ],
+    [
+     2.0,
+     -0.2815565767186461,
+     0.5525248592882962,
+     -0.8743585872292926
+    ],
+    [
+     2.1,
+     -0.25827847871531695,
+     0.5369205105139857,
+     -0.885746002532811
+    ],
+    [
+     2.2,
+     -0.2350171562700949,
+     0.5208208840479936,
+     -0.89727727750631
+    ],
+    [
+     2.3,
+     -0.2117598334995694,
+     0.5042399555829651,
+     -0.9089548525495971
+    ],
+    [
+     2.4,
+     -0.18849395972934868,
+     0.48718960268421574,
+     -0.9207805551231738
+    ],
+    [
+     2.5,
+     -0.16520714319875962,
+     0.4696796926362401,
+     -0.9327557213874023
+    ],
+    [
+     2.6,
+     -0.1418870875872955,
+     0.4517181574525626,
+     -0.9448812996071814
+    ],
+    [
+     2.7,
+     -0.11852153043708524,
+     0.43331105581197765,
+     -0.9571579382342335
+    ],
+    [
+     2.8,
+     -0.09509818260428093,
+     0.414462621632949,
+     -0.9695860611643548
+    ],
+    [
+     2.9,
+     -0.07160466790647457,
+     0.3951752989153035,
+     -0.9821659323140874
+    ],
+    [
+     3.0,
+     -0.048028462144833695,
+     0.37544976236166017,
+     -0.9948977113627903
+    ],
+    [
+     3.1,
+     -0.024356830669223006,
+     0.35528492313721544,
+     -1.0077815022553893
+    ],
+    [
+     3.2,
+     -0.0005767636218505512,
+     0.3346779189303498,
+     -1.020817395852724
+    ],
+    [
+     3.3,
+     0.023325092061329933,
+     0.31362408723204294,
+     -1.0340055079453994
+    ]
+   ]
+  },
+  "spawn_arithmetic": "root z = table top 0.635 + body half height 0.15875 + clearance 0.005 = 0.79875 m (root link chassis/body = the 0.7112 x 1.2192 x 0.3175 m box, centred on the root frame)",
+  "spawn_root_z_m": 0.79875,
+  "standing_belly_gap_m": 0.2702500000000001,
+  "standing_root_z_m": 1.064,
+  "stood_definition": "STOOD iff (1) last 3.0 s (150 control steps): on EVERY step the chassis box's lowest point >= 0.10 m above the table-top plane (z >= 0.735 m), AND on >= 95 % of the steps (>= 143 of 150) >= 5 of 6 footpads loaded on the floor (net contact >= 20 N, footpad centre z <= 0.15 m; the tolerance absorbs post-settle load flickers); (2) whole episode: body tilt (body z vs world z) <= 0.5 rad (else FALL); (3) whole episode: the chassis' lowest point never below the table-top plane by more than 0.05 m (else FELL OFF THE TABLE); (4) no termination (only a time-out 2 s past the episode remains). Reported, not gated: stood_strict (>= 5 feet on EVERY window step), the window share of steps with >= 5 feet and the window's min feet, lift-off (belly gap > 0.02 m held 0.5 s), final root z / gap / feet, max tilt, cams homed at the end (worst |cam| <= 0.10 rad).",
+  "table": {
+   "base_z_m": -0.05,
+   "center_z_m": 0.2925,
+   "jitter": {
+    "rule": "per-env table offset; env 0 nominal; robot fixed at the env origin, yaw 0",
+    "xy_m": 0.03,
+    "yaw_deg": 10.0
+   },
+   "kind": "kinematic RigidObject cuboid per env ({ENV_REGEX_NS}/SnTable), terrain material",
+   "size_m": [
+    0.9,
+    0.7,
+    0.685
+   ],
+   "top_in": 25.0,
+   "top_z_m": 0.635
+  },
+  "table_leg_clearance": {
+   "any_toe_inside_table_footprint": false,
+   "hip_plate_bottom_world_z_m": 0.49274999999999997,
+   "lateral_clearance_m": 0.15348860462280645,
+   "leg_inner_abs_y_m": 0.6063129981271979,
+   "lowest_toe_pad_world_z_m": 0.2557590839670004,
+   "table_max_abs_y_m": 0.4528243935043914,
+   "toes": {
+    "FL": {
+     "above_table_top": false,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 0.18459377590158454,
+     "pad_bottom_world_z": 0.2557590839670004,
+     "toe_body": [
+      -0.29955385602724344,
+      -0.637418169405976,
+      -0.5229909160329995
+     ],
+     "toe_world_z": 0.27575908396700044
+    },
+    "FR": {
+     "above_table_top": false,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 0.18459377590158454,
+     "pad_bottom_world_z": 0.2557590839670004,
+     "toe_body": [
+      -0.29955385602724344,
+      0.637418169405976,
+      -0.5229909160329995
+     ],
+     "toe_world_z": 0.27575908396700044
+    },
+    "ML": {
+     "above_table_top": false,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 0.18557509466422806,
+     "pad_bottom_world_z": 0.2557590839670004,
+     "toe_body": [
+      0.0,
+      -0.6383994881686195,
+      -0.5229909160329995
+     ],
+     "toe_world_z": 0.27575908396700044
+    },
+    "MR": {
+     "above_table_top": false,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 0.18557509466422806,
+     "pad_bottom_world_z": 0.2557590839670004,
+     "toe_body": [
+      0.0,
+      0.6383994881686195,
+      -0.5229909160329995
+     ],
+     "toe_world_z": 0.27575908396700044
+    },
+    "RL": {
+     "above_table_top": false,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 0.18459377590158454,
+     "pad_bottom_world_z": 0.2557590839670004,
+     "toe_body": [
+      0.29955385602724344,
+      -0.637418169405976,
+      -0.5229909160329995
+     ],
+     "toe_world_z": 0.27575908396700044
+    },
+    "RR": {
+     "above_table_top": false,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 0.18459377590158454,
+     "pad_bottom_world_z": 0.2557590839670004,
+     "toe_body": [
+      0.29955385602724344,
+      0.637418169405976,
+      -0.5229909160329995
+     ],
+     "toe_world_z": 0.27575908396700044
+    }
+   },
+   "toes_touch_floor_at_spawn": false
+  }
+ },
+ "rod_min": {
+  "body_half_m": [
+   0.3556,
+   0.6096,
+   0.15875
+  ],
+  "body_size_m": [
+   0.7111999999999999,
+   1.2191999999999998,
+   0.3175
+  ],
+  "height_scan": "the height scanner ray-casts /World/ground only (RayCasterCfg.mesh_prim_paths of the forward teacher scene): the table is INVISIBLE to it; the policy's scan reads the floor ~0.80 m below the root at the start (~1.06 m when standing), i.e. the body looks ~0.26 m low",
+  "leg_mounts": {
+   "hip_plate_u_m": [
+    0.0,
+    0.127
+   ],
+   "hip_plate_z_body_m": [
+    -0.306,
+    0.306
+   ],
+   "splay_deg": 15.0,
+   "yaw_axis_abs_y_m": 0.6095999999999999,
+   "yaw_axis_x_m": [
+    -0.2921,
+    -0.2921,
+    0.0,
+    0.0,
+    0.2921,
+    0.2921
+   ]
+  },
+  "pose": {
+   "defaults": {
+    "hip": 0.027169998105984527,
+    "knee_left": 0.31020612922871676
+   },
+   "fold_search": null,
+   "hip_binding": "joint_stop",
+   "hip_deg": -44.5,
+   "hip_hold_action": -3.2153660609738446,
+   "hip_rad": -0.7766715171374766,
+   "hip_rod_m": 0.45715102029432336,
+   "hip_rod_min_angle_deg": -48.713218195475385,
+   "hip_rod_min_angle_rad": -0.8502060467534561,
+   "hip_rod_norm": -0.9284897970567668,
+   "hip_stop_rad": -0.7853981633974483,
+   "joint_pos": {
+    "FL_Body_CamShaft_RevoluteJoint": 0.0,
+    "FL_Body_Hip_RevoluteJoint": 0.0,
+    "FL_Femur_Tibia_RevoluteJoint": -0.7259609815219338,
+    "FL_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "FR_Body_CamShaft_RevoluteJoint": 0.0,
+    "FR_Body_Hip_RevoluteJoint": 0.0,
+    "FR_Femur_Tibia_RevoluteJoint": 0.7259609815219338,
+    "FR_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "ML_Body_CamShaft_RevoluteJoint": 0.0,
+    "ML_Body_Hip_RevoluteJoint": 0.0,
+    "ML_Femur_Tibia_RevoluteJoint": -0.7259609815219338,
+    "ML_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "MR_Body_CamShaft_RevoluteJoint": 0.0,
+    "MR_Body_Hip_RevoluteJoint": 0.0,
+    "MR_Femur_Tibia_RevoluteJoint": 0.7259609815219338,
+    "MR_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "RL_Body_CamShaft_RevoluteJoint": 0.0,
+    "RL_Body_Hip_RevoluteJoint": 0.0,
+    "RL_Femur_Tibia_RevoluteJoint": -0.7259609815219338,
+    "RL_Hip_Femur_RevoluteJoint": -0.7766715171374766,
+    "RR_Body_CamShaft_RevoluteJoint": 0.0,
+    "RR_Body_Hip_RevoluteJoint": 0.0,
+    "RR_Femur_Tibia_RevoluteJoint": 0.7259609815219338,
+    "RR_Hip_Femur_RevoluteJoint": -0.7766715171374766
+   },
+   "knee_binding": "rod_min",
+   "knee_hold_action_left": -7.032196793520877,
+   "knee_interior_deg": 131.59450033238156,
+   "knee_left_deg": -41.59450033238155,
+   "knee_left_rad": -0.7259609815219338,
+   "knee_right_rad": 0.7259609815219338,
+   "knee_rod_m": 0.45,
+   "knee_rod_min_angle_deg": -41.59450033238155,
+   "knee_rod_min_angle_rad": -0.7259609815219338,
+   "knee_rod_norm": -1.0000000000000002,
+   "limit_margin_deg": 0.5,
+   "link_clearances": {
+    "femur_body_m": 0.03868656286071823,
+    "min_m": 0.03868656286071823,
+    "tibia_body_m": 0.328718043061449,
+    "tibia_plate_m": 0.19996776728027987
+   },
+   "mirroring": "hip: same sign on every leg; knee: right legs (FR/MR/RR) carry the 180-deg Z frame flip -> knee_right = -knee_left (crab_hex_scene_cfg, crab_hex_dimensions.KNEE_SIM_LIMITS_RIGHT_DEG)",
+   "pose": "rod_min",
+   "rod_window_m": [
+    0.45,
+    0.65
+   ]
+  },
+  "r_at_start": {
+   "becomes_down_when_hip_obs_ge_rad": -0.05,
+   "branches": {
+    "FL": "seat",
+    "FR": "seat",
+    "ML": "seat",
+    "MR": "seat",
+    "RL": "seat",
+    "RR": "seat"
+   },
+   "eps_air": 0.05,
+   "eps_step": 0.3,
+   "hip_obs_rad": -0.8038415152434611,
+   "p_down_rad": -0.05,
+   "p_up_rad": -0.0625,
+   "reading": "every leg UP and not DOWN, cam inside eps_air -> SEAT on all six: rods 0 (default targets), cam 0 -> R's action is the zero action until a hip is within |p_down| of its default (then HOLD: rods 0, cam trim -clip(k_h c, +-trim)); LIFT needs a DOWN leg with |cam| > eps_step",
+   "target": [
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    -0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    -0.0,
+    0.0,
+    -0.0,
+    0.0,
+    -0.0,
+    0.0
+   ],
+   "target_is_zero": true,
+   "tilt_max": 0.1
+  },
+  "slew_zero_action": {
+   "belly_gap_at_end_if_lifted_m": 0.2623843919824218,
+   "end_hip_rad": 0.027169998105984527,
+   "end_knee_left_rad": 0.31020612922871676,
+   "end_toe_z_body_m": -1.0361343919824217,
+   "floor_toe_z_body_m": -0.7787499999999999,
+   "hip_enters_action_window_s": 2.255,
+   "hip_rod_arrives_s": 3.32,
+   "knee_rod_arrives_s": 3.035,
+   "lift_if_body_follows_m": 0.2573843919824218,
+   "note": "kinematic only: rod slew at the loaded speed, PD tracking lag, loads and the body's rise ignored",
+   "physics_dt": 0.005,
+   "toe_reaches_floor_s": 1.61,
+   "trace_every_0p1s": [
+    [
+     0.0,
+     -0.7766715171374767,
+     -0.7259609815219337,
+     0.11194551598808261
+    ],
+    [
+     0.1,
+     -0.7490128506777518,
+     -0.671853278303141,
+     0.0331870066892634
+    ],
+    [
+     0.2,
+     -0.7218853785524407,
+     -0.6205092641456603,
+     -0.04217063314103195
+    ],
+    [
+     0.3,
+     -0.6952320530642618,
+     -0.571514533066022,
+     -0.11422638429044105
+    ],
+    [
+     0.4,
+     -0.6690030959483144,
+     -0.5245476811950436,
+     -0.18305874964432453
+    ],
+    [
+     0.5,
+     -0.6431546961296281,
+     -0.47935382799795734,
+     -0.24873273421069506
+    ],
+    [
+     0.6,
+     -0.6176479868422103,
+     -0.43572710064316855,
+     -0.31130431079664134
+    ],
+    [
+     0.7,
+     -0.592448231873839,
+     -0.3934986328191937,
+     -0.37082338725757125
+    ],
+    [
+     0.8,
+     -0.5675241706087133,
+     -0.35252809626696635,
+     -0.42733584178562
+    ],
+    [
+     0.9,
+     -0.5428474852063863,
+     -0.31269757394902953,
+     -0.48088495707642864
+    ],
+    [
+     1.0,
+     -0.5183923628081728,
+     -0.27390703127984506,
+     -0.5315124544021074
+    ],
+    [
+     1.1,
+     -0.494135132449824,
+     -0.23607090586039658,
+     -0.5792592540078091
+    ],
+    [
+     1.2,
+     -0.4700539612543295,
+     -0.19911549759077607,
+     -0.6241660437642991
+    ],
+    [
+     1.3,
+     -0.4461285980570431,
+     -0.16297694285445985,
+     -0.6662737106199076
+    ],
+    [
+     1.4,
+     -0.4223401552636412,
+     -0.12759962246747225,
+     -0.705623672046493
+    ],
+    [
+     1.5,
+     -0.39867092172355667,
+     -0.09293489691494194,
+     -0.7422581334032657
+    ],
+    [
+     1.6,
+     -0.3751042009003329,
+     -0.05894009214047885,
+     -0.7762202896519101
+    ],
+    [
+     1.7,
+     -0.3516241697641558,
+     -0.025577679734924752,
+     -0.8075544847751013
+    ],
+    [
+     1.8,
+     -0.32821575471178654,
+     0.007185390133341407,
+     -0.8363063387385723
+    ],
+    [
+     1.9,
+     -0.30486452150107457,
+     0.039378234328479755,
+     -0.8625228493677957
+    ],
+    [
+     2.0,
+     -0.2815565767186461,
+     0.07102648464045647,
+     -0.8862524747469014
+    ],
+    [
+     2.1,
+     -0.25827847871531695,
+     0.10215265614952473,
+     -0.9075452004694523
+    ],
+    [
+     2.2,
+     -0.2350171562700949,
+     0.13277645010280145,
+     -0.9264525951315762
+    ],
+    [
+     2.3,
+     -0.2117598334995694,
+     0.16291500220803273,
+     -0.9430278567585094
+    ],
+    [
+     2.4,
+     -0.18849395972934868,
+     0.19258308484874945,
+     -0.9573258523276418
+    ],
+    [
+     2.5,
+     -0.16520714319875962,
+     0.22179326986365522,
+     -0.9694031521468879
+    ],
+    [
+     2.6,
+     -0.1418870875872955,
+     0.25055605707142736,
+     -0.9793180605326717
+    ],
+    [
+     2.7,
+     -0.11852153043708524,
+     0.27887997255820085,
+     -0.987130643982352
+    ],
+    [
+     2.8,
+     -0.09509818260428093,
+     0.3067716398047549,
+     -0.9929027578332277
+    ],
+    [
+     2.9,
+     -0.07160466790647457,
+     0.33423582595824586,
+     -0.9966980722304284
+    ],
+    [
+     3.0,
+     -0.048028462144833695,
+     0.36127546490760776,
+     -0.9985820980779738
+    ],
+    [
+     3.1,
+     -0.024356830669223006,
+     0.35528492313721544,
+     -1.0077815022553893
+    ],
+    [
+     3.2,
+     -0.0005767636218505512,
+     0.3346779189303498,
+     -1.020817395852724
+    ],
+    [
+     3.3,
+     0.023325092061329933,
+     0.31362408723204294,
+     -1.0340055079453994
+    ]
+   ]
+  },
+  "spawn_arithmetic": "root z = table top 0.635 + body half height 0.15875 + clearance 0.005 = 0.79875 m (root link chassis/body = the 0.7112 x 1.2192 x 0.3175 m box, centred on the root frame)",
+  "spawn_root_z_m": 0.79875,
+  "standing_belly_gap_m": 0.2702500000000001,
+  "standing_root_z_m": 1.064,
+  "stood_definition": "STOOD iff (1) last 3.0 s (150 control steps): on EVERY step the chassis box's lowest point >= 0.10 m above the table-top plane (z >= 0.735 m), AND on >= 95 % of the steps (>= 143 of 150) >= 5 of 6 footpads loaded on the floor (net contact >= 20 N, footpad centre z <= 0.15 m; the tolerance absorbs post-settle load flickers); (2) whole episode: body tilt (body z vs world z) <= 0.5 rad (else FALL); (3) whole episode: the chassis' lowest point never below the table-top plane by more than 0.05 m (else FELL OFF THE TABLE); (4) no termination (only a time-out 2 s past the episode remains). Reported, not gated: stood_strict (>= 5 feet on EVERY window step), the window share of steps with >= 5 feet and the window's min feet, lift-off (belly gap > 0.02 m held 0.5 s), final root z / gap / feet, max tilt, cams homed at the end (worst |cam| <= 0.10 rad).",
+  "table": {
+   "base_z_m": -0.05,
+   "center_z_m": 0.2925,
+   "jitter": {
+    "rule": "per-env table offset; env 0 nominal; robot fixed at the env origin, yaw 0",
+    "xy_m": 0.03,
+    "yaw_deg": 10.0
+   },
+   "kind": "kinematic RigidObject cuboid per env ({ENV_REGEX_NS}/SnTable), terrain material",
+   "size_m": [
+    0.9,
+    0.7,
+    0.685
+   ],
+   "top_in": 25.0,
+   "top_z_m": 0.635
+  },
+  "table_leg_clearance": {
+   "any_toe_inside_table_footprint": false,
+   "hip_plate_bottom_world_z_m": 0.49274999999999997,
+   "lateral_clearance_m": 0.15348860462280645,
+   "leg_inner_abs_y_m": 0.6063129981271979,
+   "lowest_toe_pad_world_z_m": 0.8906955159880825,
+   "table_max_abs_y_m": 0.4528243935043914,
+   "toes": {
+    "FL": {
+     "above_table_top": true,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 1.416114820598866,
+     "pad_bottom_world_z": 0.8906955159880825,
+     "toe_body": [
+      -0.6295389254158126,
+      -1.8689392141032575,
+      0.11194551598808261
+     ],
+     "toe_world_z": 0.9106955159880825
+    },
+    "FR": {
+     "above_table_top": true,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 1.416114820598866,
+     "pad_bottom_world_z": 0.8906955159880825,
+     "toe_body": [
+      -0.6295389254158126,
+      1.8689392141032575,
+      0.11194551598808261
+     ],
+     "toe_world_z": 0.9106955159880825
+    },
+    "ML": {
+     "above_table_top": true,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 1.4605394979130648,
+     "pad_bottom_world_z": 0.8906955159880825,
+     "toe_body": [
+      0.0,
+      -1.9133638914174562,
+      0.11194551598808261
+     ],
+     "toe_world_z": 0.9106955159880825
+    },
+    "MR": {
+     "above_table_top": true,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 1.4605394979130648,
+     "pad_bottom_world_z": 0.8906955159880825,
+     "toe_body": [
+      0.0,
+      1.9133638914174562,
+      0.11194551598808261
+     ],
+     "toe_world_z": 0.9106955159880825
+    },
+    "RL": {
+     "above_table_top": true,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 1.416114820598866,
+     "pad_bottom_world_z": 0.8906955159880825,
+     "toe_body": [
+      0.6295389254158126,
+      -1.8689392141032575,
+      0.11194551598808261
+     ],
+     "toe_world_z": 0.9106955159880825
+    },
+    "RR": {
+     "above_table_top": true,
+     "inside_table_footprint_nominal": false,
+     "lateral_clear_of_worst_table_m": 1.416114820598866,
+     "pad_bottom_world_z": 0.8906955159880825,
+     "toe_body": [
+      0.6295389254158126,
+      1.8689392141032575,
+      0.11194551598808261
+     ],
+     "toe_world_z": 0.9106955159880825
+    }
+   },
+   "toes_touch_floor_at_spawn": false
+  }
+ }
+}

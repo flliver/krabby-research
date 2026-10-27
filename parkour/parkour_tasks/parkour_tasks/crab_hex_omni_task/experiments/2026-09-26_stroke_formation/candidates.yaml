@@ -1,0 +1,194 @@
+# The stroke/posture FORMATION campaign, Stage 1 (the t3 gate) -- its only machine-readable specification.
+#
+# Design: the user's (2026-09-26), after the stroke/posture screen (../2026-09-26_stroke_posture/CLOSE.md) found that
+# neither term moved the omni side posture in a 4000-it fine-tune of W, and a scoping pass showed the posture forms
+# within the first ~1000 its of side commands in every omni lineage and is complete by the end of C1d's t3 stage.
+# Apply BOTH terms during formation: a t3 GATE first (this file), then Stage 2 (c4 -> c5 -> c6 -> c6x) only for arms
+# that move their own target. The question, the gate, the stop rule and Stage 2 are in CHARTER.md beside this file.
+#
+# THE SHAPE. One chain `t3f` of ONE stage `t3`: C1d's `curriculum_turnfirst` t3 VERBATIM (../2026-09-19_facing_
+# tracking_ladder/candidates.yaml) -- preset 1a, FROM SCRATCH, 3000 its, its overlay and its floor unchanged, the
+# clock HELD (no K: no KRABBY_CLOCK_W / KRABBY_APEX_W / KRABBY_OMNI_CLOCK_HIDE anywhere in this file; the preset's
+# clock reward and clock obs are live, as in X08:t3). The CHAIN overlay adds both stroke/posture knobs at eps and the
+# per-category reward telemetry flag, so the baseline B_f inherits them and every arm differs from B_f in ONE weight.
+#
+# DOSES ARE FINAL (t3 dose smoke, 2026-09-26; CHARTER.md): w_S 0.119 = 0.135 / r_S 1.134 (fwd row; 0.135 was R4
+# re-derived on X08:t3's E3, fwd delivered 9.9 %) and w_P 0.158 = 0.16 / r_P 1.015 (side row). The campaign's
+# candidates_sha256 is recorded at the first launch.
+#
+# SEEDS: every arm runs at s3 AND s2 whatever its s3 verdict (`pair_on: [always]`): the formation seed band
+# (~0.05 m side body_offset) equals P's bar, so a single-seed arm is uninterpretable. Queue: B_f s3, B_f s2,
+# S_f s3, S_f s2, P_f s3, P_f s2.
+#
+# THE DRIVER DOES NOT DECIDE THE GATE. The t3 gate is the ORCHESTRATOR's, from the pooled two-seed readout
+# (`replay_stroke_posture.py readout` on the six t3 suite evals; CHARTER.md). The driver's rule below exists
+# because the validator requires a v2 rule and every DECISION needs a loaded D00s; it is configured so that it
+# never stops the queue (no block RIG -> no flag machinery and no flag / baseline-floor park; pair_on [always] ->
+# every s3 line is paired) and so that every run records its t3 suite eval (stage eval [suite]).
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: Every arm is screened by the whole 3000-iteration t3 stage (from scratch), scored on the per-category suite
+#: `suite__omni` of its stage-end head.
+screen: {chain: t3f, eval: [suite], iters: 3000}
+
+promotion: {enabled: false}
+
+#: B_f = C1d's t3 with both stroke/posture knobs at eps (s3 AND s2, from scratch; its pair is D00bs). X08:t3 is
+#: NOT an exact twin (no eps knobs, no telemetry flag, and a different code_sha): B_f is the in-campaign control.
+baseline: {id: B_f, chain: t3f}
+
+#: Pinned onto every composed stage env (validator `_check_require_env`): the telemetry flag only. The two eps
+#: knobs cannot be pinned -- each arm re-sets one of them (a require_env value is exact, so S_f and P_f would be
+#: refused); B_f's eps values are shown on the dry run's stage-env lines instead.
+require_env:
+  KRABBY_OMNI_REWARD_SPLIT: "1"
+
+# ---------------------------------------------------------------------------- resolution (D00s)
+# The clock campaign's step-0 suite evals E1 and E2, UNCHANGED (eval_sha 36e5a8af7000), exactly as wave 2 and the
+# stroke/posture screen computed D00s from them: X08-c6 is the control (decision_rule.control_head), X08-c4 its one
+# cross-head pair. NO seed_pair rows: D00bs is built from B_f's own s3/s2 screens. The driver computes D00s at the
+# first launch (a migration item). These eval-only numbers never decide the gate (CHARTER.md).
+resolution_inputs:
+  - {head: X08-c6, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41"}
+  - {head: X08-c4, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E2_X08-c4_visible/suite__omni/seed001/2026-09-23_21-31-11"}
+
+# ---------------------------------------------------------------------------- the decision rule (RECORD ONLY)
+# Rule v2, the stroke/posture screen's blocks F, T and LEN plus its 23 guards, WITHOUT block RIG: RIG is what arms
+# the clock campaign's flag machinery (flag parks at the s3 and pooled lines, the baseline-floor park), and any park
+# would stop the six runs this stage needs. Block F_mt is dropped: t3 trains no move_turn, so it has no member at
+# decisive(B_f) = stand, fwd, side, back, turn (as do diag's T/LEN members and the diag / move_turn guards, which
+# read N/A). NO adopt_requires.
+decision_rule:
+  rule_version: 2
+  #: `always` (run_candidates.PAIR_ON_CASES, 2026-09-26): EVERY decided s3 ADOPT or REJECT queues its seed-2 pair,
+  #: whatever its class; the pooled line closes it. A floor or dead_walker REJECT at s3 is not paired (see CHARTER.md:
+  #: that arm has already failed the gate's health criterion).
+  pair_on: [always]
+  steps_guard_flag: false
+  text: >-
+    STROKE FORMATION, STAGE 1 (t3 gate): RECORD ONLY. The driver screens B_f (C1d's t3 from scratch, 3000 its,
+    clock held, both stroke/posture knobs at eps), S_f (the per-foot stroke income at w_S) and P_f (the side
+    body-centring bonus at w_P) at seeds 3 AND 2 -- pair_on [always] queues every arm's seed-2 run whatever its
+    seed-3 class -- and records each run's t3 suite__omni eval. Its ADOPT/REJECT lines are mechanical (blocks F,
+    T, LEN at 95 %, the 23 guards at 99 %, R_i = max(R_eval from D00s X08-c6 vs X08-c4, R_seed from D00bs
+    B_f s3 vs s2)) and DECIDE NOTHING: the t3 gate is the orchestrator's, from the pooled two-seed readout
+    (replay_stroke_posture.py readout on the six suite evals), pre-registered in CHARTER.md -- P passes on pooled
+    side body_offset <= -0.05 m vs B_f; S passes on a landed dose plus a stroke key moved beyond its band; health
+    = moving ratio >= 0.30 on fwd/side/back plus the t3 floor, unison flag vs B_f. No block RIG, so no flag and no
+    park: the queue runs its six screens unless a run dies (infra/NaN twice) or a candidate s3 trips the t3 floor
+    or the dead_walker abort (a clear REJECT, not paired: that arm fails the gate's health criterion).
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      #: the mechanism block (side and diag steps per metre, lower is better): side is the outcome LEN readout;
+      #: at t3 the cadence is clock-locked, so LEN is REPORTED ONLY (CHARTER.md).
+      LEN: {level: 0.95, units: ratio, members: {side: [steps_per_m], diag: [steps_per_m]}}
+    guards:
+      level: 0.99
+      members:                      # 23: 2 + 4 x 4 + 3 + 2 (wave 2's)
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, support_feet, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [support_feet, steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260923}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+# `t3f` = C1d's `curriculum_turnfirst` t3, verbatim, plus the chain-level eps knobs and telemetry flag.
+chains:
+  t3f:
+    notes: >-
+      C1d's t3 (c3's pool and economy from scratch for 3000 iterations, clock held) with both stroke/posture
+      knobs armed at eps and the per-category reward telemetry flag -- B_f is this chain; S_f doses the per-foot
+      stroke income, P_f the side body-centring bonus, each from iteration 0 of formation.
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          # C1d's curriculum_turnfirst t3 overlay, verbatim
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          # both stroke/posture knobs ARMED at eps (every arm differs from B_f in one weight) + telemetry
+          KRABBY_OMNI_STROKE_W: "0.001"
+          KRABBY_OMNI_CENTRING_W: "0.001"
+          KRABBY_OMNI_REWARD_SPLIT: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        # the facing ladder's t3 floor, verbatim
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Queue (the driver's own order, pair_on [always]): B_f s3 -> B_f s2 -> S_f s3 -> S_f s2 -> P_f s3 -> P_f s2. Each
+# arm's overlay OVERRIDES the chain's eps for its one knob, declared in `overrides_chain`.
+candidates:
+  - id: S_f
+    control: baseline
+    overrides_chain: [KRABBY_OMNI_STROKE_W]
+    overlay:
+      t3: {KRABBY_OMNI_STROKE_W: "0.119"}     # FINAL: 0.135 / r_S 1.134 (t3 dose smoke, fwd row)
+    question: >-
+      Armed from iteration 0 of formation (C1d's t3, from scratch, clock held), does the per-foot loaded
+      stance-stroke income at w_S land (fwd delivered >= 0.5 x the replay prediction) and move the stroke --
+      side stance_stroke, side stroke_share or fwd stance_stroke beyond its band, pooled over seeds 3 and 2
+      against B_f -- and does it lengthen side strides (stride_along, stance_stroke) or shrink the lateral
+      body lead as it forms?
+  - id: P_f
+    control: baseline
+    overrides_chain: [KRABBY_OMNI_CENTRING_W]
+    overlay:
+      t3: {KRABBY_OMNI_CENTRING_W: "0.158"}   # FINAL: 0.16 / r_P 1.015 (t3 dose smoke, side row)
+    question: >-
+      Armed from iteration 0 of formation (C1d's t3, from scratch, clock held), does the side body-centring
+      bonus at w_P keep the lateral posture from forming -- pooled side body_offset <= -0.05 m against B_f over
+      seeds 3 and 2 -- and does the recentred posture lengthen side strides?
+
+# ---------------------------------------------------------------------------- milestones
+milestones: []

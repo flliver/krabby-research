@@ -1,0 +1,33 @@
+{
+ "run": "R18",
+ "stage": "p2a",
+ "class": "GUARD",
+ "why": "pipeline.lock.json changed since the run was pinned (d4516ad7d007)",
+ "at": "2026-10-19T16:48:17",
+ "status": "amended",
+ "lines": [],
+ "chance_rate_sum": null,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": null,
+ "subtree": [
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "retry"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-19T16:48:45",
+  "kind": "amend",
+  "charter": "CHARTER 2026-10-19 16:48 re-pin (live-watch fix, user decision); commit ce5fb385, tag task4-pin-2026-10-19b",
+  "why": "sanctioned re-pin: lock rewritten with the verified driver_run_dir fix"
+ }
+}

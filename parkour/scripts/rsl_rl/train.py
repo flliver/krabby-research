@@ -6,9 +6,18 @@
 """Script to train RL agent with RSL-RL."""
 
 """Launch Isaac Sim Simulator first."""
-import os 
+import os
 import argparse
 import sys
+
+# ``parkour/`` is on sys.path (the isaaclab_parkour editable .pth), so the bare name ``parkour_tasks``
+# resolves to the OUTER ``parkour/parkour_tasks`` directory as a namespace package and the real
+# ``parkour_tasks/__init__.py`` (``import_packages`` -> every task package's gym registrations) never
+# runs; only packages some library imports by name got registered. Put the source dir first so the
+# ``import parkour_tasks`` below registers every task package (same surgery as eval_crab_hex_gait.py).
+_PARKOUR_TASKS_SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "parkour_tasks"))
+if _PARKOUR_TASKS_SRC not in sys.path:
+    sys.path.insert(0, _PARKOUR_TASKS_SRC)
 
 from isaaclab.app import AppLauncher
 

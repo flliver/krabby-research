@@ -1,0 +1,255 @@
+# The clock-deprecation WAVE 2 ladder -- the campaign's only machine-readable specification.
+#
+# Plan: /home/nickmagus/.claude/plans/lets-explore-options-for-groovy-spindle.md step 14, AMENDED by the
+# user on 2026-09-25 (parkour/outputs/omni_plan/clock_deprecation/c7_design/STAGE_PLAN.md and
+# RECOMMENDATION.md; CHARTER.md beside this file): the first wave-2 arm is a HARD CUT, not the
+# pre-registered ramp. The question, the settled decisions and the stop points are in CHARTER.md.
+#
+# THE SHAPE. One extra phase-1 stage `c6x` after C1d's c6: 4000 iterations of C1d's c6 overlay
+# verbatim, forked from X0 s3's c6 head (the wave-1 clock-held baseline, clock held through c6). The
+# baseline X0x is that extension with the clock held (s3 and s2 -- both fork the same s3 head, as
+# wave 1's X02 forked the s3 t3; its pair gives D00bs). The one candidate W removes the clock --
+# K = {KRABBY_CLOCK_W: 0.001, KRABBY_APEX_W: 0.001, KRABBY_OMNI_CLOCK_HIDE: 1} -- from iteration 0
+# of c6x, so all 4000 iterations are clock-free and NO command category arrives with the removal
+# (every wave-1 boundary added one). The decision rule, R composition, flags and classes are wave
+# 1's, copied verbatim (the pilot key excepted); D00s reuses wave 1's E1/E2 stamps.
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: The screen W is judged by: the whole 4000-iteration c6x stage at seed 3, scored on the
+#: per-category suite `suite__omni` of its stage-end head (model_11995).
+screen: {chain: c6x, eval: [suite], iters: 4000}
+
+promotion: {enabled: false}
+
+baseline: {id: X0x, chain: c6x}
+
+# ---------------------------------------------------------------------------- resolution (D00s)
+# The step-0 suite evals E1 and E2 (plan step 9), in run_dir form: both heads EXIST and are
+# evaluated at the current eval_sha before launch, and D00s is computed standalone from them (plan
+# step 10, "Before launch" 3). X08-c6 is the control (decision_rule.control_head); X08-c4 (the same
+# C1d chain, 3500 iterations earlier) is its one cross-head pair. NO seed_pair rows: D00bs is built
+# from X0's own s3/s2 screens. The two values are PLACEHOLDERS the orchestrator substitutes with the
+# recorded stamp directories (repo-relative). Head labels use '-'.
+#   E1 = X08-c6: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/model_7996.pt
+#   E2 = X08-c4: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_10-32-02_seed3_X08_c4_A15pB/model_4498.pt
+resolution_inputs:
+  - {head: X08-c6, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41"}
+  - {head: X08-c4, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E2_X08-c4_visible/suite__omni/seed001/2026-09-23_21-31-11"}
+
+# ---------------------------------------------------------------------------- the decision rule
+# Rule v2 (per category), as in the motion-quality ladder with Q replaced by the rigidity block RIG
+# and `adopt_requires: RIG`. Signs come from eval_categories.metric_sign: steps_per_m,
+# steps_per_rad, steps_per_s, taps_per_* and foot_slip are LOWER-is-better; support_feet and
+# swing_apex keep +1. `per_category` is this campaign's OWN template.
+decision_rule:
+  rule_version: 2
+  adopt_requires: RIG
+  #: the s3 outcomes that queue a seed-2 pair instead of deciding (run_candidates.PAIR_ON_CASES)
+  pair_on: [adopt, neutral, lone_guard]
+  #: (wave 2: no pilot key -- the wave-1 pilot stop named A6000 and was released at S3p)
+  #: the D00s null-band fallback (plan step 10): true arms the "steps adverse > 15 %" flag, set
+  #: only together with removing the five steps @guard entries from guards.members
+  steps_guard_flag: false
+  text: >-
+    WAVE 2: the baseline is X0x (the c6x extension with the clock held) and the one candidate is W (the
+    hard cut); every "X0" below reads X0x and every wave-1 arm name reads W. Every metric is a per-category number of the suite__omni row (summarize()['cat'][c]: the median
+    pooled over both hands of a paired category; survival = the category's own-hold survival),
+    computed over each category's 12-s command window. The control of every arm is the baseline X0
+    (control: baseline), never another arm. Blocks (95 %, two-sided): F = turn: facing_closed,
+    yaw_progress; F_mt = move_turn: facing_closed, yaw_progress; T = fwd, side, back, diag: ratio;
+    RIG (rigidity, 10 members) = steps_per_m on fwd, side, back, diag and steps_per_rad on turn
+    (stepping without travel, LOWER is better; a step is an unloaded run of >= 5 env steps; turn
+    uses its whole hold, and the pre/post-closure split is WATCH) plus support_feet (the mean
+    loaded-foot count, force > 50 N) on fwd, side, back, diag, turn (HIGHER is better). Each delta
+    is sign x (candidate - control), so z > R is BETTER in every block; z_b = mean_i(delta_i / R_i);
+    BETTER if z > R, WORSE if z < -R, else TIE. Guards (99 %, one-sided; 23): survival on all seven
+    categories (floored at R_binom); move_turn.ratio; ratio@guard on fwd, side, back, diag;
+    foot_slip (per-foot mean planar speed of loaded feet, lower is better; per foot, so it catches
+    dragging, skating and pivot-skate turns without scaling with support_feet) on fwd, side, back,
+    diag AND turn; steps_per_m@guard on fwd, side, back, diag and steps_per_rad@guard on turn;
+    stand.steps_per_s (stand stillness must not get worse; not decisive, stand stepping is not
+    clock-driven). A guard that is also a block member is resolved under its own key
+    (cat.<c>.<key>@guard). R_i = max(R_eval,i, R_seed,i) (+ R_binom for the survival guards), R_eval
+    from D00s (X08-c6 vs X08-c4), R_seed from D00bs (X0 s3 vs s2). ADOPTION (adopt_requires: RIG):
+    ADOPT = RIG BETTER, nothing WORSE, no floor, anchored drift OK (the drift anchor is pinned to
+    X0). Clear REJECT = any block or guard WORSE, RIG TIE or WORSE while another block is BETTER, or
+    a stage floor -- except the pair_on cases. pair_on [adopt, neutral, lone_guard]: an s3 ADOPT, a
+    NEUTRAL line (RIG TIE, nothing WORSE) and a lone-guard line (RIG BETTER, exactly one guard
+    WORSE, no block WORSE) each queue a seed-2 pair; the s3 entry stays speculative until pooled,
+    the pooled decision is final and again requires pooled RIG BETTER. BALANCED RIG (user, settled
+    decision 11): a WIN, and any ranking of WINs, also needs the steps part and the support part of
+    RIG's z to be >= 0 each; a pooled ADOPT with a negative part is classed NEUTRAL (support_feet
+    resolves at 0.7-2 % against steps at 4-13 %, so RIG must not be won on the loaded-foot count
+    alone). Classes (arm_class; the pooled line when one exists, all against X0; precedence BREAK >
+    RIGID > NEUTRAL): WIN = a pooled ADOPT with both RIG parts >= 0 and removal verification passed;
+    BREAK = F, F_mt or T WORSE, any guard WORSE, or a floor; RIGID = RIG WORSE and nothing else
+    WORSE; NEUTRAL = nothing WORSE and RIG TIE, or a pooled ADOPT with a negative RIG part;
+    UNCLASSED = RIG N/A or MISSING, a guard MISSING, SKIPped, or user-overruled (asked at S4).
+    Boundaries work iff at least one WIN with no unresolved flag. FLAGS (stop and ask, never a
+    verdict; every flagged DECISION parks the driver until `ledger_cli ack-flag`; read on the pooled
+    pair when one exists, the member's MDE printed): the margins of settled decision 7 against the
+    matched clock-held twin -- turn facing_closed down >= 0.05, move_turn facing_closed down >=
+    0.10, any category's survival down >= 0.05, any walking speed ratio down >= 0.05; taps up > 25
+    %; swing_apex down >= 30 % (lift loss); support_feet down > 10 % in any category; with
+    steps_guard_flag, steps_per_m / steps_per_rad adverse by > 15 % of X0's value; speed-driven
+    (the steps members' mean delta/R on the BETTER side, their mean dlog step_rate_hz >= 0 and the T
+    z > 0); removal verification failed. Removal-verification failures and the pilot stop (A6000's
+    seed-3 line with RIG TIE, before its pair and before A4500) park at the seed-3 line, never
+    deferred to the pooled line; a baseline screen that trips a floor parks too. Tripod is NOT a
+    flag: a coherent tripod's score falls by construction as duty rises (coh x (1-d)/d), which is
+    the success direction. Removal verification (hard checks): every HIDE eval shows clock_obs == 0
+    and the carry in run_meta; every clock-free stage ends with effective clock weights <= 0.001;
+    clock_hidden_frac is 1.0 over the tail. WATCH, never scored: the cadence set (gait_hz, clock_hz,
+    cadence_ratio, hz_speed_slope), offset_R, step_rate_hz, taps, swing_apex, the turn
+    steps_per_rad split before and after closure, move_turn steps_per_rad and support_feet, stand
+    support_feet, tripod, slip_per_m, the motion-quality ladder's Q members, six_down_frac,
+    direction_error, cross_track_ratio, heading_final, settle_s, stand.drift_speed, both hands of
+    every paired category and every per_category.demoted member with its reason; outside the row:
+    saturation, training clock adherence, value loss and episode length over the 300 its after a
+    removal, and R_twin(c4).
+  #: RECORD ONLY -- the stop-and-ask flag thresholds, frozen into D00s with the rest of this block.
+  #: The driver does NOT read them from here: they are run_candidates.py constants (MARGIN_FLAGS,
+  #: TAPS_UP_FRAC, APEX_DOWN_FRAC, SUPPORT_DOWN_FRAC, STEPS_UP_FRAC, IMMEDIATE_FLAGS) and must agree
+  #: with this block. Each delta is candidate - control (X0); a fraction is relative to X0's value.
+  flags:
+    margin:                         # settled decision 7, against the matched clock-held twin
+      turn.facing_closed: -0.05
+      move_turn.facing_closed: -0.10
+      any_category.survival: -0.05
+      any_walking_category.ratio: -0.05   # fwd, side, back, diag, move_turn
+    taps_up_frac: 0.25              # taps_per_m (fwd/side/back/diag), taps_per_rad (turn/move_turn)
+    swing_apex_down_frac: 0.30      # lift loss; the lift rescue is a re-budget option
+    support_feet_down_frac: 0.10    # any category
+    steps_up_frac: 0.15             # only with steps_guard_flag: true
+    speed_driven: steps members' mean delta/R BETTER, mean dlog step_rate_hz >= 0, T z > 0
+    removal_verification: every clock-free stage verified (clock_obs, weights, clock_hidden_frac)
+    immediate: [removal, pilot]     # park at the seed-3 line, never deferred to the pooled line
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      RIG:
+        level: 0.95
+        units: ratio
+        members:
+          fwd: [steps_per_m, support_feet]
+          side: [steps_per_m, support_feet]
+          back: [steps_per_m, support_feet]
+          diag: [steps_per_m, support_feet]
+          turn: [steps_per_rad, support_feet]
+    guards:
+      level: 0.99
+      members:                      # 23: 2 + 4 x 4 + 3 + 2
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+      # no composite: cat_tripod_min is WATCH only (tripod falls by construction as duty rises)
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    # Scored members with ZERO spread on E1/E2 (no finite R in D00s) are demoted here BEFORE launch
+    # -- one line each, `{category: {key: "<why>"}}`, as printed by
+    #   run_candidates.py --campaign-dir <this dir> --q-spread-check <E1 stamp> <E2 stamp> --q-spread-heads X08-c6,X08-c4
+    # (never --accept-resolution). CAUTION: `demoted` strips a member from EVERY block and guard,
+    # RIG included (eval_categories.expand_rule). The D00s null-band fallback therefore does NOT
+    # demote: it removes the five steps @guard entries from guards.members only and sets
+    # steps_guard_flag: true (plan step 10). Empty until the spread check has run.
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260923}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+# `c6x` is every screen: ONE extra stage after C1d's c6 on preset 1a, C1d's c6 overlay VERBATIM (from
+# the wave-1 `tail` chain), forked from X0 s3's c6 head by the `checkpoint:` resume kind. C1d's c6
+# has no step-keyed curriculum (env.yaml `curriculum: null`), so X0x is simply 4000 more iterations
+# of the same command pool with the clock held. The PPO resume fix (eabe7324) carries the priv_reg
+# counter, LR and aux optimisers across the fork.
+#
+# FLOOR (plan step 14): X0 s3 c6's suite survival - 0.20 (X01:c6 stand 0.99, fwd 0.85, side 0.97,
+# back 0.88, diag 0.72, turn 0.985, move_turn 0.745). A FLOOR on W is BREAK; on X0x it parks.
+chains:
+  c6x:
+    notes: >-
+      C1d's c6 extended by 4000 iterations from X0 s3's c6 head (model_7996) -- X0x is this chain with
+      the clock held, W is this chain with the removal set K from its first iteration.
+    stages:
+      - stage: c6x
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-23_20-09-04_seed3_X01_c6_A15pB/model_7996.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.79, fwd: 0.65, side: 0.77, back: 0.68, diag: 0.52, turn: 0.785,
+                            move_turn: 0.545}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# One candidate. `kind: clock` (validator rule (v): it ends phase 1 with HIDE=1 and both effective
+# end weights <= 0.001), `control: baseline` (judged against X0x's own screens, drift anchor pinned
+# to X0x), HIDE carried into its evals (never a ramp). pair_on [adopt, neutral, lone_guard] queues
+# W's seed-2 pair; otherwise W s3 is final. The pre-launch check E10 (STAGE_PLAN.md step 1) ran on
+# 2026-09-25 and did NOT fire its switch to the ramp (hidden stand/side/turn survival >= 0.995).
+candidates:
+  - id: W
+    kind: clock
+    control: baseline
+    eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
+    overlay:
+      c6x: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+    question: >-
+      On a mature c6 policy, with no command category arriving, does cutting both clock rewards (to
+      eps 0.001) and the clock observation (zeroed, width kept) for a further 4000 iterations make
+      the gait less rigid (RIG BETTER with both its steps and support parts >= 0) without losing
+      facing, turning, speed, slip or survival against the same 4000 iterations with the clock held
+      (X0x)?
+
+# ---------------------------------------------------------------------------- milestones
+milestones: []

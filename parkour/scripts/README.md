@@ -2,6 +2,16 @@
 
 This directory contains helper scripts for the Parkour project. The most relevant one for day-to-day workflows is `publish_weights.py` which packages the latest training checkpoints into version-controlled assets.
 
+## rsl_rl/
+
+The RSL-RL entry points: `rsl_rl/train.py` (training), `rsl_rl/play.py` (play a checkpoint; it also writes an
+`exported_teacher/` or `exported_deploy/` export beside the checkpoint) and `rsl_rl/play_stream_video.py` (the
+memory-safe recorder: one streamed mp4 instead of `play.py --video`, run under a `systemd-run` MemoryMax scope).
+Commands per task are in the crab-hex task READMEs (`parkour/parkour_tasks/parkour_tasks/crab_hex_{forward,sideways,omni}_task/README.md`).
+
+The crab-hex checkpoints of record are NOT published through `publish_weights.py`: each task bundles its own into
+`parkour_tasks/parkour_tasks/<task>/policy/` with that task's `experiments/tools/bundle_policy.py` (forward and omni).
+
 ## publish_weights.py
 
 Publishes the latest checkpoints from `logs/<workflow>/<experiment>/...` into `parkour/assets/weights/` so they are easy to consume and track in version control. It writes both the weight file and a small JSON metadata file per experiment.

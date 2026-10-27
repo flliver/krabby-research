@@ -1,0 +1,36 @@
+{
+ "stage": "c6x",
+ "reference": "parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB",
+ "pconfig": {
+  "new": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_10-17-50_seed18_X05_c6x_A15pB",
+  "old": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB",
+  "files": {
+   "env.yaml": {
+    "n_keys_old": 1423,
+    "n_keys_new": 1423,
+    "allowed": [],
+    "not_allowed": []
+   },
+   "agent.yaml": {
+    "n_keys_old": 79,
+    "n_keys_new": 79,
+    "allowed": [
+     {
+      "key": "load_checkpoint",
+      "old": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_01-30-49_seed18_X60_c6_A15pB/model_10996.pt'",
+      "new": "'/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_09-16-28_seed18_X04_c6_A15pB/model_10996.pt'",
+      "why": "allowed key"
+     },
+     {
+      "key": "run_name",
+      "old": "'seed18_X60_c6x_A15pB'",
+      "new": "'seed18_X05_c6x_A15pB'",
+      "why": "allowed key"
+     }
+    ],
+    "not_allowed": []
+   }
+  },
+  "pass": true
+ }
+}

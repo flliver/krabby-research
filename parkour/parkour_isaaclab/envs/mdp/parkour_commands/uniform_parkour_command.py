@@ -12,6 +12,7 @@ from isaaclab.assets import Articulation
 from isaaclab.managers import CommandTerm 
 from isaaclab.markers import VisualizationMarkers
 
+from ..travel_frame import heading_with_offset, vel_travel_xy
 from .command_sampling import sample_slot
 
 if TYPE_CHECKING:
@@ -51,8 +52,12 @@ class UniformParkourCommand(CommandTerm):
         max_command_time = self.cfg.resampling_time_range[1]
         max_command_step = max_command_time / self._env.step_dt
         # logs data
+        # The command lives in the travel frame, which is the body frame rotated by
+        # ``travel_yaw = -heading_offset``; at offset 0 the helper hands back the body
+        # velocity itself and this is the original expression.
+        vel_travel = vel_travel_xy(self.robot.data.root_lin_vel_b[:, :2], -getattr(self.cfg, "heading_offset", 0.0))
         self.metrics["error_vel_xy"] += (
-            torch.norm(self.vel_command_b[:, :2] - self.robot.data.root_lin_vel_b[:, :2], dim=-1) / max_command_step
+            torch.norm(self.vel_command_b[:, :2] - vel_travel, dim=-1) / max_command_step
         )
         self.metrics["error_vel_yaw"] += (
             torch.abs(self.vel_command_b[:, 2] - self.robot.data.root_ang_vel_b[:, 2]) / max_command_step
@@ -74,12 +79,19 @@ class UniformParkourCommand(CommandTerm):
             )
             self.vel_command_b[env_ids, 0] = vx
             self.vel_command_b[env_ids, 1] = 0.0
-            self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
+            self.heading_target[env_ids] = heading_with_offset(
+                r.uniform_(*self.cfg.ranges.heading), getattr(self.cfg, "heading_offset", 0.0)
+            )
             return
         # -- linear velocity - x direction
         self.vel_command_b[env_ids, 0] = r.uniform_(*self.cfg.ranges.lin_vel_x)
         # heading target
-        self.heading_target[env_ids] = r.uniform_(*self.cfg.ranges.heading)
+        # ``heading_offset`` (absent on the forward command cfg -> 0.0, identity) turns the
+        # sampled waypoint heading into the chassis yaw the travel axis needs. The result may
+        # leave [-pi, pi]; every consumer wraps the difference, so that is safe.
+        self.heading_target[env_ids] = heading_with_offset(
+            r.uniform_(*self.cfg.ranges.heading), getattr(self.cfg, "heading_offset", 0.0)
+        )
         # update standing envs
         if self.cfg.small_commands_to_zero:
             self.vel_command_b[env_ids, :2] *= torch.abs(self.vel_command_b[env_ids, 0:1]) \

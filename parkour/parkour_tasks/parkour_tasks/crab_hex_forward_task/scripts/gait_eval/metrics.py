@@ -169,6 +169,87 @@ def roll_pitch_from_quat_wxyz(quat: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
 
 # --------------------------------------------------------------------------------------
+# travel frame (sideways-task harness sharing, 2026-09-11): every helper below returns the
+# SAME object/array at travel_yaw == 0.0 (or skips the rotation entirely), so the forward task
+# -- which always calls these with travel_yaw 0.0 -- stays byte-identical. This module stays
+# torch-free by design (see the module docstring), so these duplicate --  in numpy -- the
+# rotation convention pinned in ``parkour_isaaclab/envs/mdp/travel_frame.py``.
+#
+# Omni task (2026-09-16): ``travel_yaw`` may also be a ``(T,)`` array -- one angle per step, the
+# direction of that step's command, since an omni policy's travel frame turns during the episode.
+# The scalar branches below are TODAY'S expressions, character for character, and the identity
+# fast path is still keyed on a scalar 0.0, so the forward and sideways rows are bit-identical.
+# --------------------------------------------------------------------------------------
+def _is_identity_yaw(travel_yaw) -> bool:
+    """True only for a scalar 0.0 -- the identity fast path (never for an array, even all-zero)."""
+    return np.ndim(travel_yaw) == 0 and float(travel_yaw) == 0.0
+
+
+def _bcast_angle(angle, ndim: int) -> tuple[np.ndarray, np.ndarray]:
+    """``(cos, sin)`` of a per-step angle array, shaped to broadcast against ``ndim``-D operands."""
+    ang = np.asarray(angle, dtype=np.float64)
+    c, s = np.cos(ang), np.sin(ang)
+    extra = ndim - 1 - ang.ndim
+    if extra > 0:
+        c = c.reshape(c.shape + (1,) * extra)
+        s = s.reshape(s.shape + (1,) * extra)
+    return c, s
+
+
+def _rotate_xy(xy: np.ndarray, angle) -> np.ndarray:
+    """Rotate the planar vectors in ``xy[..., :2]`` by ``angle`` radians (numpy).
+
+    Same convention as ``parkour_isaaclab.envs.mdp.travel_frame.rotate_xy``, duplicated here
+    because this module stays torch-free. ``angle`` is a scalar, or an array broadcastable against
+    ``xy``'s leading axes (e.g. ``(T,)`` for ``xy`` of shape ``(T, 2)``).
+    """
+    if np.ndim(angle) == 0:
+        c, s = math.cos(angle), math.sin(angle)
+    else:
+        c, s = _bcast_angle(angle, np.asarray(xy).ndim)
+    x = xy[..., 0]
+    y = xy[..., 1]
+    return np.stack((c * x - s * y, s * x + c * y), axis=-1)
+
+
+def _yaw_rotate_quat_wxyz(quat: np.ndarray, angle) -> np.ndarray:
+    r"""Right-multiply ``(w, x, y, z)`` quaternions by the z-rotation ``q_z(angle)``.
+
+    Computes :math:`q \otimes q_z(\text{angle})`, i.e. the quaternion is rotated about its OWN z
+    axis by ``angle`` (intrinsic rotation) -- so the rotated frame's x axis is the travel axis
+    when ``angle == travel_yaw``. Vectorised over any leading shape, e.g. ``(T, 4)``; ``angle``
+    may be a scalar or a per-step array broadcastable against those leading axes.
+    """
+    quat = np.asarray(quat, dtype=np.float64)
+    w, x, y, z = quat[..., 0], quat[..., 1], quat[..., 2], quat[..., 3]
+    if np.ndim(angle) == 0:
+        cw = math.cos(angle / 2.0)
+        sw = math.sin(angle / 2.0)
+    else:
+        cw, sw = _bcast_angle(np.asarray(angle, dtype=np.float64) / 2.0, quat.ndim)
+    return np.stack(
+        (w * cw - z * sw, x * cw + y * sw, y * cw - x * sw, z * cw + w * sw), axis=-1
+    )
+
+
+def lin_vel_to_travel_frame(lin_vel_b: np.ndarray, travel_yaw=0.0) -> np.ndarray:
+    """Express a body-frame ``(..., 3)`` linear velocity in the travel frame.
+
+    The numpy analogue of ``parkour_isaaclab.envs.mdp.travel_frame.vel_travel_xy`` (this module
+    stays torch-free), extended to carry the z component through unchanged. At ``travel_yaw ==
+    0.0`` this is the identity and returns ``lin_vel_b`` itself (same object). At ``travel_yaw ==
+    +pi/2`` it maps ``(vx, vy, vz) -> (vy, -vx, vz)``. ``travel_yaw`` may also be a ``(T,)``
+    per-step array (omni rows), in which case each step is rotated by its own angle.
+    """
+    if _is_identity_yaw(travel_yaw):
+        return lin_vel_b
+    lin_vel_b = np.asarray(lin_vel_b, dtype=np.float64)
+    angle = -np.asarray(travel_yaw, dtype=np.float64) if np.ndim(travel_yaw) else -travel_yaw
+    xy = _rotate_xy(lin_vel_b[..., :2], angle)
+    return np.concatenate([xy, lin_vel_b[..., 2:3]], axis=-1)
+
+
+# --------------------------------------------------------------------------------------
 # tripod phasing -- the gateable score
 # --------------------------------------------------------------------------------------
 def tripod_window_metrics(
@@ -598,8 +679,10 @@ def tracking_metrics(
     return out
 
 
-def orientation_metrics(root_quat_w: np.ndarray) -> dict:
-    roll, pitch = roll_pitch_from_quat_wxyz(root_quat_w)
+def orientation_metrics(root_quat_w: np.ndarray, *, travel_yaw=0.0) -> dict:
+    """``travel_yaw`` is a scalar or a ``(T,)`` per-step array (see the travel-frame note above)."""
+    quat = root_quat_w if _is_identity_yaw(travel_yaw) else _yaw_rotate_quat_wxyz(root_quat_w, travel_yaw)
+    roll, pitch = roll_pitch_from_quat_wxyz(quat)
     if roll.size == 0:
         return {"roll_rms": None, "pitch_rms": None, "roll_max_abs": None, "pitch_max_abs": None}
     return {
@@ -607,6 +690,218 @@ def orientation_metrics(root_quat_w: np.ndarray) -> dict:
         "pitch_rms": float(np.sqrt(np.mean(pitch**2))),
         "roll_max_abs": float(np.abs(roll).max()),
         "pitch_max_abs": float(np.abs(pitch).max()),
+    }
+
+
+# --------------------------------------------------------------------------------------
+# facing (omni task, 2026-09-16): the second command channel. Travel direction is scored by
+# ``tracking_metrics``; this scores "did the body reach and hold the commanded world heading".
+# --------------------------------------------------------------------------------------
+#: |heading error| below this counts as "on target" for ``settle_time_s`` (rad).
+FACING_SETTLE_TOL_RAD = 0.15
+#: Smallest INITIAL |heading error| a ``facing_closed`` fraction is computed from (rad).
+#:
+#: The closed fraction divides by the error the window started with, so a window that starts
+#: already on target measures nothing: ``1 - final/initial`` on ``initial = 0.02`` turns a 0.01-rad
+#: wobble into -0.5 "opened", and on ``initial = 0`` it is undefined. Below this floor the metric is
+#: ``None`` (UNINFORMATIVE, counted in ``n_uninformative``) rather than a number nobody can compare
+#: -- a stand hold's facing entry must not dilute a turn hold's. 0.15 rad is the settle tolerance:
+#: an error the metric would call "already on target" cannot also be a turn worth scoring.
+FACING_CLOSED_MIN_INITIAL_RAD = 0.15
+
+
+def facing_metrics(
+    heading_err_t: np.ndarray,
+    wz_t: np.ndarray,
+    dt: float,
+    *,
+    wz_cmd_t: np.ndarray | None = None,
+    settle_tol: float = FACING_SETTLE_TOL_RAD,
+    cmd_eps: float = 1e-6,
+    constant_target: bool = True,
+    min_initial: float = FACING_CLOSED_MIN_INITIAL_RAD,
+) -> dict:
+    """Facing-command tracking over one window.
+
+    ``heading_err_t`` is the per-step wrapped error ``wrap(heading_target - heading_w)`` (rad),
+    ``wz_t`` the achieved body yaw rate and ``wz_cmd_t`` (optional) the commanded one.
+
+    * ``heading_error_rms`` / ``heading_error_max_abs`` / ``heading_error_final_abs`` /
+      ``heading_error_initial_abs`` -- the window's error, its worst step, where it ended up and
+      where it started. Scored over the WHOLE hold, not the steady window: a turn command *is* the
+      transient, and masking the settle window out would throw away the only steps that measure it.
+    * ``facing_closed`` -- the fraction of the window's INITIAL heading error that was closed by its
+      end: ``clip(1 - final/max(initial, min_initial), -1, 1)``. 1.0 = the turn was completed, 0.0 =
+      the error ended where it started, negative = the body opened the error (clipped at -1 so one
+      spinning episode cannot dominate a median). Scale-free where ``heading_error_final_abs`` is
+      not: a hold that starts at 1.57 rad and one that starts at 0.3 rad are directly comparable,
+      which is what makes it a decision-rule quantity rather than a report line. ``None``
+      (UNINFORMATIVE, with ``n_uninformative`` 1) when ``initial < min_initial`` -- there was no
+      turn to close -- and when ``constant_target`` is False, for the same reason
+      ``net_yaw_rate_toward`` is: across holds the target moves, so "the initial error" is the
+      initial error of a DIFFERENT command than the final one. A hold containing a fall is scored on
+      its truncated window (the caller's window mask already ends at the fall), so ``final`` is the
+      error at the fall, not at a hold end the episode never reached.
+    * ``n_uninformative`` -- 1 when the window carried steps and a constant target but was too
+      close to its target to yield a ``facing_closed``, else 0. Summed over a HOLD's episodes (the
+      ``constant_target=True`` call) it is the count of episodes the closed fraction could not be
+      measured on: the same number as ``heading_error_rms``'s aggregate ``n`` minus
+      ``facing_closed``'s. That identity is per hold only -- an EPISODE-level window
+      (``constant_target=False``) yields ``facing_closed`` ``None`` with ``n_uninformative`` 0,
+      because the refusal there is "the target moved", not "there was nothing to close".
+    * ``settle_time_s`` -- time from the window start until ``|err|`` drops below ``settle_tol``
+      **and stays there to the end**; ``None`` when it never does (so "slow" and "never" are
+      different answers, and neither is silently 0).
+    * ``yaw_progress_rate`` -- mean of ``wz_t * sign(wz_cmd_t)`` over the steps that carry a yaw
+      command (rad/s **toward** the commanded turn; ``None`` when there are no such steps). SIGNED
+      and direction-aware: gait wobble averages to ~0 here, a body turning the wrong way is
+      negative, and a body turning with the command is positive. **This is the gate quantity**
+      (``gate_1c``'s turning-rate criterion).
+    * ``net_yaw_rate_toward`` -- the window's SIGNED net rotation toward its initial facing target,
+      as a mean rate (rad/s; positive = turned toward the target). Derivation: with the target
+      heading CONSTANT over the window, ``err_t = wrap(target - yaw_t)``, so
+      ``unwrap(err)[-1] - unwrap(err)[0] = -(yaw[-1] - yaw[0])`` -- the unwrapped error carries the
+      body's net rotation with the opposite sign, and the ``+-pi`` wrap that makes the raw error
+      unusable is removed. Hence ``net = -(unwrap(err)[-1] - unwrap(err)[0]) / (n*dt) *
+      sign(err[0])``, the last factor turning "rotation in the +z sense" into "rotation toward the
+      target" for a left (``err[0] > 0``) or a right (``err[0] < 0``) turn alike. ``n*dt`` is the
+      window duration, matching ``settle_time_s``'s ``(i+1)*dt`` convention. ``None`` when ``n < 2``
+      or when ``constant_target=False``; an ``err[0]`` of exactly 0.0 leaves "toward" undefined and
+      yields 0.0. **Only valid per hold** -- pass ``constant_target=False`` for a window that spans
+      several holds (an episode), where the target steps between holds and ``unwrap`` would absorb
+      those steps into the body's rotation.
+    * ``yaw_rate_ratio`` -- mean achieved ``|wz|`` / mean commanded ``|wz|`` over the steps that
+      carry a yaw command (``n_turn_steps``). Kept for continuity only. **WOBBLE-SENSITIVE, NOT a
+      gate quantity**: both sides are magnitudes, so the per-step yaw oscillation of the gait
+      ("|wz| large, net rotation ~0") scores as well as a real turn. Measured 2026-09-17 on the
+      yaw-capability smoke: 0.946 on a ``turn_l90`` hold whose net rotation was -0.025 rad/s against
+      a +0.30 rad/s command. Gate on ``yaw_progress_rate`` instead.
+    """
+    err = np.asarray(heading_err_t, dtype=np.float64).ravel()
+    wz = np.asarray(wz_t, dtype=np.float64).ravel()
+    out: dict[str, Any] = {
+        "n_steps": int(err.size),
+        "heading_error_rms": None,
+        "heading_error_final_abs": None,
+        "heading_error_initial_abs": None,
+        "heading_error_max_abs": None,
+        "facing_closed": None,
+        "n_uninformative": 0,
+        "settle_time_s": None,
+        "yaw_rate_ratio": None,
+        "yaw_progress_rate": None,
+        "net_yaw_rate_toward": None,
+        "n_turn_steps": 0,
+    }
+    if err.size:
+        abs_err = np.abs(err)
+        out["heading_error_rms"] = float(np.sqrt(np.mean(err**2)))
+        out["heading_error_final_abs"] = float(abs_err[-1])
+        out["heading_error_initial_abs"] = float(abs_err[0])
+        out["heading_error_max_abs"] = float(abs_err.max())
+        if constant_target:
+            initial = float(abs_err[0])
+            if initial < float(min_initial):
+                out["n_uninformative"] = 1
+            else:
+                closed = 1.0 - float(abs_err[-1]) / max(initial, float(min_initial))
+                out["facing_closed"] = float(min(1.0, max(-1.0, closed)))
+        # First index from which every later step is inside the tolerance.
+        outside = np.flatnonzero(abs_err >= settle_tol)
+        if outside.size == 0:
+            out["settle_time_s"] = 0.0
+        elif int(outside[-1]) + 1 < abs_err.size:
+            out["settle_time_s"] = float((int(outside[-1]) + 1) * dt)
+    if err.size >= 2 and constant_target and dt > 0.0:
+        unwrapped = np.unwrap(err)
+        d_yaw = -(unwrapped[-1] - unwrapped[0])          # constant target => dyaw = -d(unwrap(err))
+        out["net_yaw_rate_toward"] = float(d_yaw / (err.size * dt) * np.sign(err[0]))
+
+    if wz_cmd_t is not None:
+        cmd = np.asarray(wz_cmd_t, dtype=np.float64).ravel()
+        n = min(cmd.size, wz.size)
+        turning = np.abs(cmd[:n]) > cmd_eps
+        out["n_turn_steps"] = int(turning.sum())
+        if out["n_turn_steps"]:
+            out["yaw_progress_rate"] = float((wz[:n][turning] * np.sign(cmd[:n][turning])).mean())
+            denom = float(np.abs(cmd[:n][turning]).mean())
+            if denom > 0.0:
+                out["yaw_rate_ratio"] = float(np.abs(wz[:n][turning]).mean() / denom)
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# per-hold motion / travel direction (omni per-category eval, 2026-09-21, plan D3): world rows
+# only, additive -- no body-row code path calls these.
+# --------------------------------------------------------------------------------------
+def travel_direction_metrics(vel_travel_xy: np.ndarray, cmd_speed, *, min_speed: float = 0.02) -> dict | None:
+    """How well a moving hold held its commanded DIRECTION (plan D3 ``direction``).
+
+    ``vel_travel_xy`` is the ``(T, 2)`` achieved velocity in the travel frame (x along the
+    commanded direction, y to its left -- the frame ``tracking_metrics`` already reads), and
+    ``cmd_speed`` the commanded speed (scalar or ``(T,)``; its mean is used). With ``v̄`` the mean
+    travel-frame velocity over the window:
+
+    * ``direction_error_rad`` -- ``|atan2(v̄_y, v̄_x)|``, the angle between where the body went and
+      where it was sent (0 = on the commanded line, pi = backwards). ``None`` when ``|v̄| <
+      min_speed``: a body that did not move has no direction, and a number there would be noise;
+    * ``cross_track_ratio`` -- ``|v̄_y| / mean(cmd_speed)``, the sideways drift as a fraction of the
+      commanded speed (``None`` on a zero command);
+    * ``travel_speed_m_s`` -- ``|v̄|``, the net travel speed in whatever direction the body went
+      (WATCH only: the along-command speed a block reads is ``tracking.vx.actual_mean``).
+
+    ``None`` on an empty window.
+    """
+    v = np.asarray(vel_travel_xy, dtype=np.float64).reshape(-1, 2)
+    if v.shape[0] == 0:
+        return None
+    mean = v.mean(axis=0)
+    speed = float(math.hypot(float(mean[0]), float(mean[1])))
+    cmd = float(np.mean(np.asarray(cmd_speed, dtype=np.float64)))
+    return {
+        "direction_error_rad": (
+            float(abs(math.atan2(float(mean[1]), float(mean[0])))) if speed >= float(min_speed) else None
+        ),
+        "cross_track_ratio": (float(abs(float(mean[1])) / cmd) if cmd > 0.0 else None),
+        "travel_speed_m_s": speed,
+    }
+
+
+def hold_motion_metrics(
+    root_pos_w: np.ndarray,
+    root_quat_w: np.ndarray,
+    root_lin_vel_b: np.ndarray,
+    contact: np.ndarray,
+    dt: float,
+) -> dict | None:
+    """What the body did over one whole hold (plan D3 ``motion``); ``None`` on an empty window.
+
+    * ``speed_abs_mean_m_s`` -- mean planar body speed ``‖v_xy,body‖`` (a stand hold's drift);
+    * ``pos_drift_m`` -- planar distance between the window's first and last root position;
+    * ``path_len_m`` -- planar path length of the root over the window;
+    * ``yaw_drift_rad`` -- SIGNED net yaw change (unwrapped last minus first; + = left);
+    * ``foot_lift_count`` -- contact -> air transitions, summed over the six feet;
+    * ``contact_churn_per_s`` -- every contact state change (lift or touchdown), summed over the
+      feet, per second of window (``n_steps * dt``);
+    * ``n_steps``.
+    """
+    pos = np.asarray(root_pos_w, dtype=np.float64)
+    n = int(pos.shape[0]) if pos.ndim >= 1 else 0
+    if n == 0:
+        return None
+    xy = pos[:, :2]
+    vel = np.asarray(root_lin_vel_b, dtype=np.float64)[:, :2]
+    yaw = np.unwrap(yaw_from_quat_wxyz(root_quat_w))
+    c = np.asarray(contact, dtype=bool).astype(np.int8)
+    changes = np.diff(c, axis=0) if n > 1 else np.zeros((0,) + c.shape[1:], dtype=np.int8)
+    return {
+        "speed_abs_mean_m_s": float(np.linalg.norm(vel, axis=-1).mean()),
+        "pos_drift_m": float(np.linalg.norm(xy[-1] - xy[0])),
+        "path_len_m": float(np.linalg.norm(np.diff(xy, axis=0), axis=-1).sum()) if n > 1 else 0.0,
+        "yaw_drift_rad": float(yaw[-1] - yaw[0]),
+        "foot_lift_count": int(np.count_nonzero(changes < 0)),
+        "contact_churn_per_s": float(np.count_nonzero(changes) / (n * dt)) if dt > 0.0 else None,
+        "n_steps": n,
     }
 
 
@@ -813,11 +1108,12 @@ def support_polygon_metrics(
     prefall_s: float = 1.0,
     exclude_last_s: float = 0.1,
     return_series: bool = False,
+    travel_yaw=0.0,
 ) -> dict:
     """Static-stability margins of the loaded-foot support polygon, in the heading frame.
 
     Per frame: the loaded set ``L = {i : force >= support_threshold_n}``; feet and the CoM
-    projected into the heading frame (yaw-only rotation about the root, +x' = forward);
+    projected into the heading frame (yaw-only rotation about the root, +x' = forward, i.e. the travel axis when travel_yaw is nonzero);
     ``fwd_ray_margin_m`` (primary, pure-pitch tipping quantity), ``min_edge_margin_m``
     (classic static stability margin), ``tip_angle_fwd_deg = atan2(fwd_ray_margin, h)``,
     ``lead_contact_tip_deg = atan2(max x' of L - c_x', h)`` (the historical definition),
@@ -837,6 +1133,11 @@ def support_polygon_metrics(
     T = foot_pos_w.shape[0]
     com = root if com_pos_w is None else np.asarray(com_pos_w, dtype=np.float64)
     yaw = yaw_from_quat_wxyz(root_quat_w)
+    if not _is_identity_yaw(travel_yaw):
+        # Heading frame built from the travel axis rather than body +x -- see module-level
+        # convention note. fwd_ray_margin_m / tip_angle_fwd_deg / fore_aft_span_m then read along
+        # the travel axis instead of body +x. A ``(T,)`` travel_yaw turns the frame per step.
+        yaw = yaw + travel_yaw
     c, s = np.cos(-yaw), np.sin(-yaw)
 
     def to_heading(vec_xy):  # (T, K, 2) world-relative -> heading frame
@@ -918,6 +1219,7 @@ def fall_direction_metrics(
     root_ang_vel_b: np.ndarray | None = None,
     class_threshold_rad: float = 0.35,
     rate_window_s: float = 0.5,
+    travel_yaw=0.0,
 ) -> dict:
     """Classify a termination by attitude at the failure step.
 
@@ -925,13 +1227,23 @@ def fall_direction_metrics(
     ``roll``, or ``none`` (no crab_failure in the trace). Positive pitch = nose-down, matching
     ``penalty_base_pitch_forward_linear``. Also reports time-to-fall and the peak pitch rate
     over the last ``rate_window_s`` when ``root_ang_vel_b`` is given.
+
+    ``travel_yaw`` rotates the quaternion (and the ang-vel xy plane) into the travel frame before
+    the roll/pitch decomposition, so the labels ``pitch_fwd``/``pitch_back`` keep meaning "tips
+    along the travel axis" for a sideways-walking robot. At ``travel_yaw == 0.0`` (the forward
+    task) this is exactly today's body-frame computation.
     """
     fails = np.flatnonzero(np.asarray(crab_failure, dtype=bool))
     if fails.size == 0:
         return {"fall_class": "none", "t_fail_s": None, "pitch_at_fail": None,
                 "roll_at_fail": None, "max_pitch_rate": None}
     t = int(fails[0])
-    roll, pitch = roll_pitch_from_quat_wxyz(np.asarray(root_quat_w)[t])
+    quat_t = np.asarray(root_quat_w)[t]
+    if not _is_identity_yaw(travel_yaw):
+        # A (T,) travel_yaw is per step: the failure step's own command direction is the frame the
+        # fall is classified in.
+        quat_t = _yaw_rotate_quat_wxyz(quat_t, travel_yaw[t] if np.ndim(travel_yaw) else travel_yaw)
+    roll, pitch = roll_pitch_from_quat_wxyz(quat_t)
     roll, pitch = float(roll), float(pitch)
     if abs(pitch) >= class_threshold_rad and abs(pitch) >= abs(roll):
         cls = "pitch_fwd" if pitch > 0 else "pitch_back"
@@ -943,7 +1255,812 @@ def fall_direction_metrics(
     if root_ang_vel_b is not None:
         w = np.asarray(root_ang_vel_b, dtype=np.float64)
         lo = max(0, t - int(round(rate_window_s / dt)))
-        seg = w[lo:t + 1, 1]
+        if _is_identity_yaw(travel_yaw):
+            seg = w[lo:t + 1, 1]
+        else:
+            angle = np.asarray(travel_yaw, dtype=np.float64)[lo:t + 1] if np.ndim(travel_yaw) else travel_yaw
+            seg = _rotate_xy(w[lo:t + 1, :2], -angle)[:, 1]
         rate = float(np.abs(seg).max()) if seg.size else None
     return {"fall_class": cls, "t_fail_s": t * dt, "pitch_at_fail": pitch,
             "roll_at_fail": roll, "max_pitch_rate": rate}
+
+
+# ---------------------------------------------------------------------------------------------
+# Motion quality (gait-motion-quality plan, step 1, 2026-09-22)
+# ---------------------------------------------------------------------------------------------
+#: Contact threshold for every motion-quality metric, newtons. Mirrors
+#: ``crab_hex_forward_task/mdp/crab_hex_clock_reward.TOUCH_REF_N`` (the clock reward's "really
+#: loaded" half-load point; pinned against that file's source by a unit test) -- NOT the scenario's
+#: ``contact_force_threshold``, which the tripod score uses and which a lightly grazing foot clears.
+MOTION_TOUCH_REF_N = 50.0
+#: ``settle_six_down_s``: six-down must then HOLD this long to count as settled (a touchdown that
+#: is lifted again 0.1 s later is not a settled stance).
+SIX_DOWN_DWELL_S = 0.5
+#: Per-metre metrics are undefined (``None``) below this net planar displacement, metres.
+MIN_TRAVEL_M = 0.05
+#: Per-radian metrics are undefined (``None``) below this |net yaw|, radians.
+MIN_NET_YAW_RAD = 0.05
+#: Spectra need at least this many samples (``action_fft_freq`` / ``action_sm``).
+MIN_FFT_STEPS = 16
+
+#: Every motion-quality key a category summary carries, in print order.
+MOTION_QUALITY_KEYS: tuple[str, ...] = (
+    "action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean", "contact_switch_hz",
+    "foot_slip", "wz_active_frac", "clock_restarts",
+    "swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m",
+    "swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad",
+    "six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s",
+)
+
+_ALL_CATS = frozenset({"stand", "fwd", "side", "back", "diag", "turn", "move_turn"})
+_TRANSLATE = frozenset({"fwd", "side", "back", "diag"})
+_TURNING = frozenset({"turn", "move_turn"})
+#: key -> the categories it is DEFINED on (the plan's step-1 table). Everywhere else the key is
+#: ``None`` -- N/A, never 0: a per-metre number where the only distance is drift is noise, and a
+#: stand-only number on a walking hold means nothing.
+MOTION_QUALITY_APPLIES: dict[str, frozenset] = {
+    **{k: _ALL_CATS for k in ("action_jitter", "action_fft_freq", "joint_speed_mean", "rod_speed_mean",
+                              "contact_switch_hz", "foot_slip", "wz_active_frac", "clock_restarts")},
+    **{k: _TRANSLATE for k in ("swings_per_m", "slip_per_m", "work_per_m", "cam_work_per_m")},
+    **{k: _TURNING for k in ("swings_per_rad", "slip_per_rad", "work_per_rad", "cam_work_per_rad")},
+    **{k: frozenset({"stand"}) for k in ("six_down_frac", "settle_six_down_s", "foot_disp_end", "work_per_s")},
+}
+
+
+def motion_joint_groups(joint_names: Sequence[str]) -> dict[str, list[int]]:
+    """Articulation joint indices for the motion-quality metrics.
+
+    * ``rod`` -- the linear-actuator (lead-screw) joints: hip pitch ``*_Hip_Femur_RevoluteJoint`` and
+      knee ``*_Femur_Tibia_RevoluteJoint`` (``parkour_actions.CrabHexDelayedJointPositionAction``'s
+      pitch linkage);
+    * ``cam`` -- the cam mechanism: the velocity-commanded ``*_Body_CamShaft_RevoluteJoint`` motor
+      AND the ``*_Body_Hip_RevoluteJoint`` it drives through the high-gain linkage emulator (that
+      actuator carries the cam's mechanical load in sim);
+    * ``actuated`` -- the 18 policy-commanded joints (camshaft + rod), i.e. the action set.
+    """
+    groups: dict[str, list[int]] = {"rod": [], "cam": [], "actuated": []}
+    for i, name in enumerate(joint_names):
+        if "_Hip_Femur_" in name or "_Femur_Tibia_" in name:
+            groups["rod"].append(i)
+            groups["actuated"].append(i)
+        elif "_Body_CamShaft_" in name:
+            groups["cam"].append(i)
+            groups["actuated"].append(i)
+        elif "_Body_Hip_" in name:
+            groups["cam"].append(i)
+    return groups
+
+
+def action_jitter(actions: np.ndarray) -> float | None:
+    """Mean absolute SECOND difference of the actions, ``mean_t,d |a[t+1] - 2 a[t] + a[t-1]|``.
+
+    Action units per step^2 (raw policy units; the harness clips to ``clip_actions`` first). A
+    constant or a straight ramp scores 0; a +-a sawtooth at the step rate scores 4a. ``None`` under
+    three steps.
+    """
+    a = np.asarray(actions, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[:, None]
+    if a.shape[0] < 3:
+        return None
+    return float(np.abs(a[2:] - 2.0 * a[1:-1] + a[:-2]).mean())
+
+
+def _action_spectrum(actions: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray] | None:
+    a = np.asarray(actions, dtype=np.float64)
+    if a.ndim == 1:
+        a = a[:, None]
+    n = a.shape[0]
+    if n < MIN_FFT_STEPS or not dt > 0.0:
+        return None
+    spec = np.fft.rfft(a - a.mean(axis=0, keepdims=True), axis=0)
+    freqs = np.fft.rfftfreq(n, d=dt)
+    return freqs, np.abs(spec)
+
+
+def action_fft_freq(actions: np.ndarray, dt: float) -> float | None:
+    """POWER-weighted mean frequency of the actions, Hz: ``sum_{d,i} P_di f_i / sum_{d,i} P_di``.
+
+    Each action dimension is de-meaned (so a held offset carries no power), ``P = |rfft|^2``, the DC
+    bin is excluded and the power is pooled over dimensions (a dimension that barely moves barely
+    counts). The Christmann et al. 2024 smoothness family (see :func:`action_sm` for their exact
+    amplitude-weighted ``Sm``); this form reads directly as "where the action energy sits".
+    ``None`` under :data:`MIN_FFT_STEPS` steps or when the actions carry no AC power at all.
+    """
+    got = _action_spectrum(actions, dt)
+    if got is None:
+        return None
+    freqs, amp = got
+    power = amp[1:] ** 2
+    total = float(power.sum())
+    if not total > _VAR_EPS:
+        return None
+    return float((power * freqs[1:, None]).sum() / total)
+
+
+def action_sm(actions: np.ndarray, dt: float) -> float | None:
+    """Christmann et al. 2024's smoothness ``Sm = 2 / (n f_s) * sum_i M_i f_i``, mean over dims.
+
+    ``M_i = |rfft(a - mean)|_i / T`` (amplitude), ``n`` the number of rfft bins, ``f_s = 1/dt``.
+    Kept beside :func:`action_fft_freq` as the literature's own number (diagnostic, not a category
+    key). ``None`` under :data:`MIN_FFT_STEPS` steps.
+    """
+    got = _action_spectrum(actions, dt)
+    if got is None:
+        return None
+    freqs, amp = got
+    T = (freqs.size - 1) * 2 if freqs.size > 1 else 1
+    m = amp / max(1, T)
+    fs = 1.0 / dt
+    per_dim = 2.0 / (freqs.size * fs) * (m * freqs[:, None]).sum(axis=0)
+    return float(per_dim.mean())
+
+
+def contact_transitions(contact: np.ndarray) -> tuple[int, int]:
+    """``(liftoffs, touchdowns)`` summed over feet: True->False and False->True between steps."""
+    c = np.asarray(contact, dtype=bool).astype(np.int8)
+    if c.shape[0] < 2:
+        return 0, 0
+    d = np.diff(c, axis=0)
+    return int(np.count_nonzero(d < 0)), int(np.count_nonzero(d > 0))
+
+
+def settle_time_s(mask: np.ndarray, dt: float, dwell_s: float = SIX_DOWN_DWELL_S) -> float | None:
+    """Seconds from the window start to the first step that begins a run of ``mask`` at least
+    ``dwell_s`` long (``ceil(dwell_s/dt)`` steps); ``None`` when no such run exists (censored)."""
+    m = np.asarray(mask, dtype=bool)
+    need = max(1, int(math.ceil(dwell_s / dt - 1e-9)))
+    for start, end in contiguous_runs(m):
+        if end - start >= need:
+            return float(start * dt)
+    return None
+
+
+def motion_quality_metrics(
+    category: str,
+    *,
+    dt: float,
+    actions: np.ndarray | None,
+    foot_force_norm: np.ndarray,
+    foot_pos_w: np.ndarray,
+    foot_lin_vel_w: np.ndarray,
+    root_pos_w: np.ndarray,
+    root_quat_w: np.ndarray,
+    cmd_wz: np.ndarray,
+    joint_vel: np.ndarray | None = None,
+    applied_torque: np.ndarray | None = None,
+    groups: dict[str, Sequence[int]] | None = None,
+    clock_running: np.ndarray | None = None,
+    rod_speed: np.ndarray | None = None,
+    action_clip: float | None = None,
+    hold_s_nominal: float | None = None,
+    touch_ref_n: float = MOTION_TOUCH_REF_N,
+    metric_class: str | None = None,
+) -> dict | None:
+    """The motion-quality block of one episode's OWN hold (``hold["quality"]``); ``None`` if empty.
+
+    ``metric_class`` (opt-in, Task 4 E1): read :data:`MOTION_QUALITY_APPLIES` as that class
+    (:func:`applicability_category`) instead of as ``category``; the block then also records it. ``None``
+    (every pre-E1 row) is the by-name rule, unchanged.
+
+    Every array is the hold's window only (time first). The keys of :data:`MOTION_QUALITY_KEYS`
+    are always present; a key not defined on ``category`` (:data:`MOTION_QUALITY_APPLIES`) or not
+    measurable on this window (missing input, too short, no distance) is ``None`` -- never 0.
+
+    Definitions (``loaded`` = foot force > ``touch_ref_n`` = 50 N; ``W`` = the window, ``|W|`` its
+    duration ``n * dt``):
+
+    * ``action_jitter`` -- :func:`action_jitter` of the actions clipped to ``+-action_clip``;
+    * ``action_fft_freq`` -- :func:`action_fft_freq`, Hz;
+    * ``joint_speed_mean`` -- mean ``|qdot|`` over the ``actuated`` joints, rad/s;
+    * ``rod_speed_mean`` -- mean ``|rod speed|`` over the 12 linear actuators, m/s (the action term's
+      slew-limited rod-length rate, recorded by the harness as ``rod_speed``);
+    * ``contact_switch_hz`` -- loaded<->unloaded transitions per foot per second (mean over feet);
+    * ``foot_slip`` -- mean planar speed of the loaded feet over loaded (step, foot) samples, m/s;
+    * ``wz_active_frac`` -- fraction of steps whose APPLIED yaw-rate command is nonzero (the heading
+      relay engaged: the dead band zeroes it exactly);
+    * ``clock_restarts`` -- gait-clock stopped->running transitions inside the window (a count;
+      needs the harness's ``clock_running``);
+    * per metre (translation categories), ``D`` = net planar root displacement over the window,
+      ``None`` below :data:`MIN_TRAVEL_M`: ``swings_per_m`` = liftoffs (loaded->unloaded, summed over
+      feet) / D; ``slip_per_m`` = (sum over loaded samples of planar foot speed * dt) / D (m/m);
+      ``work_per_m`` = (sum over rod joints and steps of max(tau*qdot, 0) * dt) / D, J/m;
+      ``cam_work_per_m`` = (sum over cam joints of |tau*qdot| * dt) / D, J/m;
+    * per radian (turn, move_turn), the same numerators over ``|net yaw|`` (unwrapped, ``None`` below
+      :data:`MIN_NET_YAW_RAD`): ``swings_per_rad``, ``slip_per_rad`` (m/rad), ``work_per_rad``,
+      ``cam_work_per_rad`` (J/rad);
+    * stand only: ``six_down_frac`` = fraction of steps with all six feet loaded;
+      ``settle_six_down_s`` = :func:`settle_time_s` of six-down (first run >= 0.5 s), CENSORED at
+      ``hold_s_nominal`` (else ``|W|``) when never reached, with ``settle_six_down_censored`` True;
+      ``foot_disp_end`` = mean over feet of the planar distance between each foot's position at the
+      window's last step and at its first (the footholds at the end of the settle hold), m;
+      ``work_per_s`` = (rod positive work + cam |work|) / |W|, W.
+
+    Extra (non-category) fields: ``category``, ``n_steps``, ``duration_s``, ``distance_m``,
+    ``net_yaw_rad``, ``liftoffs``, ``touchdowns``, ``rod_work_pos_j``, ``cam_work_abs_j``,
+    ``slip_m``, ``action_sm``, ``settle_six_down_censored``, ``touch_ref_n``.
+    """
+    force = np.asarray(foot_force_norm, dtype=np.float64)
+    n = int(force.shape[0]) if force.ndim >= 1 else 0
+    if n == 0:
+        return None
+    dur = n * dt
+    loaded = force > touch_ref_n
+    as_cat = applicability_category(category, metric_class)
+    applies = {k: as_cat in cats for k, cats in MOTION_QUALITY_APPLIES.items()}
+    out: dict[str, Any] = {k: None for k in MOTION_QUALITY_KEYS}
+    extra: dict[str, Any] = {"category": category, "n_steps": n, "duration_s": dur,
+                             "touch_ref_n": float(touch_ref_n), "settle_six_down_censored": None}
+    if metric_class is not None:
+        extra["metric_class"] = metric_class
+
+    # ---- actions
+    acts = None
+    if actions is not None:
+        acts = np.asarray(actions, dtype=np.float64)
+        if action_clip is not None:
+            acts = np.clip(acts, -float(action_clip), float(action_clip))
+    out["action_jitter"] = action_jitter(acts) if acts is not None else None
+    out["action_fft_freq"] = action_fft_freq(acts, dt) if acts is not None else None
+    extra["action_sm"] = action_sm(acts, dt) if acts is not None else None
+
+    # ---- joints
+    g = {k: list(v) for k, v in (groups or {}).items()}
+    jv = np.asarray(joint_vel, dtype=np.float64) if joint_vel is not None else None
+    if jv is not None and g.get("actuated"):
+        out["joint_speed_mean"] = float(np.abs(jv[:, g["actuated"]]).mean())
+    if rod_speed is not None:
+        rs = np.asarray(rod_speed, dtype=np.float64)
+        out["rod_speed_mean"] = float(np.abs(rs).mean()) if rs.size else None
+    rod_work = cam_work = None
+    if jv is not None and applied_torque is not None and g.get("rod") and g.get("cam"):
+        power = np.asarray(applied_torque, dtype=np.float64) * jv
+        rod_work = float(np.clip(power[:, g["rod"]], 0.0, None).sum() * dt)
+        cam_work = float(np.abs(power[:, g["cam"]]).sum() * dt)
+    extra["rod_work_pos_j"], extra["cam_work_abs_j"] = rod_work, cam_work
+
+    # ---- contacts, slip
+    lifts, downs = contact_transitions(loaded)
+    extra["liftoffs"], extra["touchdowns"] = lifts, downs
+    out["contact_switch_hz"] = float((lifts + downs) / (loaded.shape[1] * dur)) if dur > 0 else None
+    speed_xy = np.linalg.norm(np.asarray(foot_lin_vel_w, dtype=np.float64)[..., :2], axis=-1)
+    out["foot_slip"] = float(speed_xy[loaded].mean()) if loaded.any() else None
+    slip_m = float(speed_xy[loaded].sum() * dt)
+    extra["slip_m"] = slip_m
+
+    # ---- command / clock
+    wz = np.asarray(cmd_wz, dtype=np.float64)
+    out["wz_active_frac"] = float(np.count_nonzero(wz != 0.0) / wz.size) if wz.size else None
+    if clock_running is not None:
+        cr = np.asarray(clock_running, dtype=bool).astype(np.int8)
+        out["clock_restarts"] = int(np.count_nonzero(np.diff(cr) > 0)) if cr.size > 1 else 0
+
+    # ---- normalisers
+    xy = np.asarray(root_pos_w, dtype=np.float64)[:, :2]
+    dist = float(np.linalg.norm(xy[-1] - xy[0]))
+    yaw = np.unwrap(yaw_from_quat_wxyz(np.asarray(root_quat_w, dtype=np.float64)))
+    net_yaw = float(abs(yaw[-1] - yaw[0]))
+    extra["distance_m"], extra["net_yaw_rad"] = dist, net_yaw
+
+    def _per(num: float | None, den: float, floor: float) -> float | None:
+        return None if num is None or den < floor else float(num / den)
+
+    out["swings_per_m"] = _per(float(lifts), dist, MIN_TRAVEL_M)
+    out["slip_per_m"] = _per(slip_m, dist, MIN_TRAVEL_M)
+    out["work_per_m"] = _per(rod_work, dist, MIN_TRAVEL_M)
+    out["cam_work_per_m"] = _per(cam_work, dist, MIN_TRAVEL_M)
+    out["swings_per_rad"] = _per(float(lifts), net_yaw, MIN_NET_YAW_RAD)
+    out["slip_per_rad"] = _per(slip_m, net_yaw, MIN_NET_YAW_RAD)
+    out["work_per_rad"] = _per(rod_work, net_yaw, MIN_NET_YAW_RAD)
+    out["cam_work_per_rad"] = _per(cam_work, net_yaw, MIN_NET_YAW_RAD)
+
+    # ---- stand
+    six = loaded.all(axis=1)
+    out["six_down_frac"] = float(six.mean())
+    settle = settle_time_s(six, dt)
+    if settle is None:
+        out["settle_six_down_s"] = float(hold_s_nominal) if hold_s_nominal is not None else float(dur)
+        extra["settle_six_down_censored"] = True
+    else:
+        out["settle_six_down_s"] = settle
+        extra["settle_six_down_censored"] = False
+    fp = np.asarray(foot_pos_w, dtype=np.float64)
+    out["foot_disp_end"] = float(np.linalg.norm(fp[-1, :, :2] - fp[0, :, :2], axis=-1).mean())
+    out["work_per_s"] = (float((rod_work + cam_work) / dur)
+                         if rod_work is not None and cam_work is not None and dur > 0 else None)
+
+    for k in MOTION_QUALITY_KEYS:
+        if not applies[k]:
+            out[k] = None
+    if as_cat != "stand":
+        extra["settle_six_down_censored"] = None
+    return {**out, **extra}
+
+
+# ---------------------------------------------------------------------------------------------
+# Rigidity (clock-deprecation plan, step 3, 2026-09-23)
+# ---------------------------------------------------------------------------------------------
+# NOTE(clock-deprecation 2026-09-23): the two side effects of the gait clock the campaign prices
+# -- stepping without travel, and the fixed 50/50 tripod (scored as the loaded-foot count) -- plus
+# the WATCH set that says whether the cadence still follows the clock. Additive: only the
+# category suite's OWN hold carries a ``rigidity`` block (``report.score_episode``), so every
+# other row and every earlier key is unchanged. Contacts use ``MOTION_TOUCH_REF_N`` (loaded =
+# force > 50 N) like the motion-quality block, and the per-metre / per-radian floors are its
+# ``MIN_TRAVEL_M`` / ``MIN_NET_YAW_RAD``.
+#: A STEP is an unloaded run of at least this many env steps (0.10 s at dt 0.02 s); an unloaded run
+#: of 1 .. this-1 steps is a TAP (micro-lift chatter, not a stride).
+RIGIDITY_STEP_MIN_STEPS = 5
+#: ``gait_hz``'s search band, Hz.
+GAIT_HZ_BAND: tuple[float, float] = (0.1, 3.0)
+#: ``gait_hz``'s zero padding: the FFT length is this many times the next power of two >= the window.
+GAIT_FFT_PAD = 8
+#: The clock is "running" at or above this rate, Hz: ``cadence_ratio`` and the per-episode
+#: gait-vs-clock phase offset are ``None`` below it (a stopped clock has no phase to follow).
+MIN_CLOCK_HZ = 0.05
+#: ``hz_speed_slope`` / ``offset_R`` need at least this many contributing episodes.
+MIN_POOLED_EPISODES = 3
+
+#: The per-episode rigidity keys of an own hold's ``rigidity`` block, in print order. A category's
+#: summary value is the MEDIAN of these over its episodes (like every motion-quality key).
+RIGIDITY_EPISODE_KEYS: tuple[str, ...] = (
+    "steps_per_m", "steps_per_rad", "support_feet", "steps_per_s",
+    "taps_per_m", "taps_per_rad", "swing_apex", "step_rate_hz",
+    "gait_hz", "clock_hz", "cadence_ratio", "steps_per_rad_pre", "steps_per_rad_post",
+)
+#: The rigidity keys that are ONE statistic across a category's episodes (never a per-episode
+#: value): :func:`rigidity_pooled_metrics`, computed by ``report._suite_block``.
+RIGIDITY_POOLED_KEYS: tuple[str, ...] = ("hz_speed_slope", "offset_R")
+#: Every rigidity key a category summary carries, in print order.
+RIGIDITY_KEYS: tuple[str, ...] = RIGIDITY_EPISODE_KEYS + RIGIDITY_POOLED_KEYS
+
+_MOVING = _ALL_CATS - {"stand"}
+#: key -> the categories it is DEFINED on; everywhere else it is ``None`` (N/A, never 0), the
+#: motion-quality convention. Per-metre keys on the translation categories, per-radian keys on the
+#: turning ones (the plan's RIG members are turn only; move_turn is WATCH), ``steps_per_s`` on stand
+#: (the stand guard), the before/after-closure split on turn, and the speed slope wherever a speed
+#: is commanded.
+RIGIDITY_APPLIES: dict[str, frozenset] = {
+    **{k: _TRANSLATE for k in ("steps_per_m", "taps_per_m")},
+    **{k: _TURNING for k in ("steps_per_rad", "taps_per_rad")},
+    **{k: _ALL_CATS for k in ("support_feet", "gait_hz", "clock_hz", "cadence_ratio")},
+    "steps_per_s": frozenset({"stand"}),
+    **{k: _MOVING for k in ("step_rate_hz", "swing_apex", "offset_R")},
+    **{k: frozenset({"turn"}) for k in ("steps_per_rad_pre", "steps_per_rad_post")},
+    "hz_speed_slope": _TRANSLATE | frozenset({"move_turn"}),
+}
+
+# NOTE(Task 4 pipeline E1, 2026-10-16): the OPT-IN ``metric_class`` of a manifest-v3 category
+# (``gait_eval.schedule.METRIC_CLASSES``). The two applicability maps above are keyed on the category
+# NAME, so a category named anything else (a direction-sweep bin ``d022``) reads None for every
+# class-specific key. A category that sets ``metric_class`` is scored as the class's representative
+# below instead; a category that does not (every row written before E1) is looked up by name, unchanged.
+#: ``metric_class`` -> the category whose applicability it borrows. ``translate`` -> ``fwd``: the four
+#: translation categories are interchangeable in every applicability map (asserted below).
+METRIC_CLASS_CATEGORY: dict[str, str] = {"stand": "stand", "translate": "fwd", "turn": "turn",
+                                         "move_turn": "move_turn"}
+for _key, _cats in {**MOTION_QUALITY_APPLIES, **RIGIDITY_APPLIES}.items():
+    # ``fwd`` stands for every translation category only while they share every applicability set.
+    assert len({c in _cats for c in _TRANSLATE}) == 1, f"{_key}: the translation categories disagree"
+del _key, _cats
+
+
+def applicability_category(category: str, metric_class: str | None = None) -> str:
+    """The name the applicability maps are read with: ``category`` itself (no ``metric_class``: the
+    by-name rule every pre-E1 row uses), else the class's representative (:data:`METRIC_CLASS_CATEGORY`)."""
+    if metric_class is None:
+        return category
+    try:
+        return METRIC_CLASS_CATEGORY[metric_class]
+    except KeyError:
+        raise ValueError(f"metric_class {metric_class!r}: expected one of {sorted(METRIC_CLASS_CATEGORY)}") from None
+
+
+def step_tap_runs(loaded: np.ndarray, *,
+                  min_step_steps: int = RIGIDITY_STEP_MIN_STEPS) -> tuple[list, list, int]:
+    """``(steps, taps, censored)`` of a ``(T, 6)`` loaded mask: ``(foot, start, end)`` unloaded runs.
+
+    A run is counted only when it BEGINS AT A LIFTOFF inside the window (``start > 0``): a foot
+    already in the air at the first step lifted before the window, and counting it would bias a
+    12-s count upward by the fraction of feet airborne at the start. A step is a run of at least
+    ``min_step_steps`` (found with :func:`debounce`, which drops the shorter runs); a tap is a run of
+    ``1 .. min_step_steps - 1``. A run still unloaded at the window's LAST step and shorter than
+    ``min_step_steps`` could be either, so it is ``censored`` (counted in neither); one already
+    ``min_step_steps`` long is a step.
+    """
+    lo = np.asarray(loaded, dtype=bool)
+    n = int(lo.shape[0])
+    steps: list[tuple[int, int, int]] = []
+    taps: list[tuple[int, int, int]] = []
+    censored = 0
+    for f in range(lo.shape[1]):
+        up = ~lo[:, f]
+        for start, end in contiguous_runs(debounce(up, min_true=min_step_steps)):
+            if start > 0:
+                steps.append((f, start, end))
+        for start, end in contiguous_runs(up):
+            if start == 0 or end - start >= min_step_steps:
+                continue
+            if end == n:
+                censored += 1
+            else:
+                taps.append((f, start, end))
+    return steps, taps, censored
+
+
+def _tripod_difference(loaded: np.ndarray) -> np.ndarray:
+    """``a(t) - b(t)``: the two tripod sets' loaded-foot counts (float)."""
+    lo = np.asarray(loaded, dtype=bool)
+    return (lo[:, TRIPOD_A_IDX].sum(axis=1) - lo[:, TRIPOD_B_IDX].sum(axis=1)).astype(np.float64)
+
+
+def gait_frequency_hz(loaded: np.ndarray, dt: float, *, band: tuple[float, float] = GAIT_HZ_BAND,
+                      pad: int = GAIT_FFT_PAD) -> float | None:
+    """``gait_hz``: the peak of the zero-padded FFT, within ``band``, of ``a(t) - b(t)``.
+
+    ``a`` / ``b`` are the loaded-foot counts of tripod sets A / B, so a tripod gait puts its cycle
+    rate at the peak whatever its duty, and a wave or ripple gait still has a fundamental there.
+    The signal is de-meaned; the FFT is ``pad`` times the next power of two long (a finer grid than
+    the ``1 / (n dt)`` bin, which zero padding interpolates). ``None`` under :data:`MIN_FFT_STEPS`
+    steps or when ``a - b`` is constant (no alternation at all).
+    """
+    x = _tripod_difference(loaded)
+    n = int(x.size)
+    if n < MIN_FFT_STEPS or not dt > 0.0:
+        return None
+    x = x - x.mean()
+    if not float(x.var()) > _VAR_EPS:
+        return None
+    n_fft = int(pad) * (1 << int(math.ceil(math.log2(n))))
+    amp = np.abs(np.fft.rfft(x, n=n_fft))
+    freqs = np.fft.rfftfreq(n_fft, d=dt)
+    sel = (freqs >= band[0]) & (freqs <= band[1])
+    if not sel.any():
+        return None
+    return float(freqs[sel][int(np.argmax(amp[sel]))])
+
+
+def clock_frequency_hz(clock_phase: np.ndarray, dt: float) -> float | None:
+    """``clock_hz``: the recorded gait-clock phase's mean rate, ``unwrap`` delta / (2 pi (n - 1) dt).
+
+    ``clock_phase`` is the action term's ``clock_phase`` in radians (``[0, 2 pi)``, advanced at most
+    ~0.06 rad per step, so ``np.unwrap`` is exact). The env keeps integrating it after the clock is
+    removed from reward and observation, so the command-locked cadence law stays measurable.
+    ``None`` under two samples.
+    """
+    ph = np.asarray(clock_phase, dtype=np.float64).ravel()
+    if ph.size < 2 or not dt > 0.0:
+        return None
+    u = np.unwrap(ph)
+    return float((u[-1] - u[0]) / (2.0 * math.pi * (ph.size - 1) * dt))
+
+
+def _analytic_phase(x: np.ndarray) -> np.ndarray:
+    """Instantaneous phase of the analytic signal of a real series (a numpy Hilbert transform)."""
+    n = int(x.size)
+    h = np.zeros(n)
+    h[0] = 1.0
+    if n % 2 == 0:
+        h[n // 2] = 1.0
+        h[1:n // 2] = 2.0
+    else:
+        h[1:(n + 1) // 2] = 2.0
+    return np.angle(np.fft.ifft(np.fft.fft(x) * h))
+
+
+def gait_clock_phase_offset(loaded: np.ndarray, clock_phase: np.ndarray) -> tuple[float | None, float | None]:
+    """``(mean offset, PLV)`` of the gait phase against the clock phase over one window.
+
+    The gait phase is the analytic-signal phase of the de-meaned ``a(t) - b(t)``; the offset is the
+    circular mean of ``gait - clock`` (radians, ``(-pi, pi]``) and the PLV its resultant length
+    (1 = locked within the window). Across episodes the clock's reset phase is uniform, so the
+    offsets concentrate (``offset_R`` near 1) only when the gait follows the OBSERVED clock phase; a
+    policy that keeps the clock's cadence but not its phase scatters them. ``None`` under
+    :data:`MIN_FFT_STEPS` steps or with no alternation.
+    """
+    x = _tripod_difference(loaded)
+    ph = np.asarray(clock_phase, dtype=np.float64).ravel()
+    n = min(int(x.size), int(ph.size))
+    if n < MIN_FFT_STEPS:
+        return None, None
+    x = x[:n] - x[:n].mean()
+    if not float(x.var()) > _VAR_EPS:
+        return None, None
+    z = np.exp(1j * (_analytic_phase(x) - ph[:n])).mean()
+    return float(np.angle(z)), float(abs(z))
+
+
+def rayleigh_test(angles: Sequence[float]) -> tuple[float | None, float | None, int]:
+    """``(R, p, n)``: the resultant length of ``angles`` and its Rayleigh p (uniformity null).
+
+    ``R = |mean exp(i a)|``; ``p`` is Zar's approximation
+    ``exp(sqrt(1 + 4n + 4(n^2 - (nR)^2)) - (1 + 2n))`` (Biostatistical Analysis, eq. 27.4), clipped
+    to ``[0, 1]``. Under the null ``R`` is about ``sqrt(pi / (4 n))``; its 99 % critical value is about
+    ``sqrt(4.6 / n)`` (0.21 at n = 100). ``None`` values under :data:`MIN_POOLED_EPISODES` angles.
+    """
+    a = np.asarray([v for v in angles if v is not None and math.isfinite(v)], dtype=np.float64)
+    n = int(a.size)
+    if n < MIN_POOLED_EPISODES:
+        return None, None, n
+    r = float(abs(np.exp(1j * a).mean()))
+    rn = n * r
+    p = math.exp(math.sqrt(max(0.0, 1.0 + 4.0 * n + 4.0 * (n * n - rn * rn))) - (1.0 + 2.0 * n))
+    return r, float(min(1.0, max(0.0, p))), n
+
+
+def ols_slope(x: Sequence[float], y: Sequence[float]) -> tuple[float | None, int]:
+    """``(slope, n)``: the least-squares slope of ``y`` on ``x`` over the finite pairs.
+
+    ``None`` under :data:`MIN_POOLED_EPISODES` pairs or when ``x`` does not vary.
+    """
+    pairs = [(float(a), float(b)) for a, b in zip(x, y)
+             if a is not None and b is not None and math.isfinite(a) and math.isfinite(b)]
+    n = len(pairs)
+    if n < MIN_POOLED_EPISODES:
+        return None, n
+    xs = np.asarray([p[0] for p in pairs])
+    ys = np.asarray([p[1] for p in pairs])
+    dx = xs - xs.mean()
+    sxx = float((dx * dx).sum())
+    if not sxx > _VAR_EPS:
+        return None, n
+    return float((dx * (ys - ys.mean())).sum() / sxx), n
+
+
+def rigidity_metrics(
+    category: str,
+    *,
+    dt: float,
+    foot_force_norm: np.ndarray,
+    root_pos_w: np.ndarray,
+    root_quat_w: np.ndarray,
+    foot_pos_w: np.ndarray | None = None,
+    terrain_z: np.ndarray | None = None,
+    clock_phase: np.ndarray | None = None,
+    heading_err: np.ndarray | None = None,
+    touch_ref_n: float = MOTION_TOUCH_REF_N,
+    min_step_steps: int = RIGIDITY_STEP_MIN_STEPS,
+    metric_class: str | None = None,
+) -> dict | None:
+    """The rigidity block of one episode's OWN hold (``hold["rigidity"]``); ``None`` if empty.
+
+    ``metric_class`` (opt-in, Task 4 E1): read :data:`RIGIDITY_APPLIES` as that class
+    (:func:`applicability_category`) instead of as ``category``; the block then also records it. ``None``
+    (every pre-E1 row) is the by-name rule, unchanged.
+
+    Every array is the hold's whole 12-s command window (time first). The keys of
+    :data:`RIGIDITY_EPISODE_KEYS` are always present; a key not defined on ``category``
+    (:data:`RIGIDITY_APPLIES`) or not measurable here (missing input, under its floor) is ``None``
+    -- never 0. The two :data:`RIGIDITY_POOLED_KEYS` are across-episode statistics and are not in
+    this block; ``speed_m_s`` and ``phase_offset_rad`` below are their per-episode inputs.
+
+    Definitions (``loaded`` = foot force > ``touch_ref_n`` = 50 N; ``W`` = the window, ``|W|`` =
+    ``n * dt``; steps and taps from :func:`step_tap_runs`, summed over the six feet):
+
+    * ``D`` = net planar root displacement, ``Y`` = |net yaw| (unwrapped) -- the motion-quality
+      normalisers;
+    * ``steps_per_m`` = steps / D (``None`` if D < :data:`MIN_TRAVEL_M`); ``taps_per_m`` = taps / D;
+    * ``steps_per_rad`` = steps / Y (``None`` if Y < :data:`MIN_NET_YAW_RAD`); ``taps_per_rad`` =
+      taps / Y;
+    * ``support_feet`` = mean over steps of the loaded-foot count (a 50/50 tripod reads 3, a wave
+      gait 5; higher is the longer stance the campaign hopes for);
+    * ``steps_per_s`` (stand) and ``step_rate_hz`` (every other category) = steps / |W| -- the same
+      rate, the first the stand-stillness guard, the second the speed decomposition
+      (``steps_per_m = step_rate_hz / speed``); divide by 6 for a per-foot cadence;
+    * ``swing_apex`` = median over the steps that ended inside the window of each step's peak foot
+      height above ``terrain_z``, calibrated by :func:`swing_clearance_metrics`'s stance offset (the
+      median height of the loaded samples). MESH TERRAIN ONLY: the caller passes ``terrain_z=None``
+      under the root-offset fallback, and the key is then ``None``;
+    * ``gait_hz`` = :func:`gait_frequency_hz`; ``clock_hz`` = :func:`clock_frequency_hz` of the
+      recorded ``clock_phase``; ``cadence_ratio`` = gait_hz / clock_hz (``None`` if clock_hz <
+      :data:`MIN_CLOCK_HZ`);
+    * ``steps_per_rad_pre`` / ``steps_per_rad_post`` (turn) = the steps that lifted off before /
+      at-or-after CLOSURE, each over the whole hold's Y, so the two sum to ``steps_per_rad`` (the
+      post part is the stepping done once the turn was over -- stepping without travel). Closure is
+      the first step with ``|heading_err| < FACING_SETTLE_TOL_RAD`` (0.15 rad, the facing metrics'
+      "on target"); a hold that never closes has ``post`` ``None`` and every step in ``pre``.
+
+    Extra (non-category) fields: ``category``, ``n_steps``, ``duration_s``, ``distance_m``,
+    ``net_yaw_rad``, ``speed_m_s`` (D / |W|), ``steps``, ``taps``, ``runs_censored``,
+    ``phase_offset_rad`` / ``phase_plv`` (:func:`gait_clock_phase_offset`, only while the clock runs
+    at >= :data:`MIN_CLOCK_HZ`), ``closure_s``, ``stance_z_offset_m``, ``swing_apex_n``,
+    ``touch_ref_n``, ``min_step_steps``.
+    """
+    force = np.asarray(foot_force_norm, dtype=np.float64)
+    n = int(force.shape[0]) if force.ndim >= 1 else 0
+    if n == 0:
+        return None
+    dur = n * dt
+    loaded = force > touch_ref_n
+    out: dict[str, Any] = {k: None for k in RIGIDITY_EPISODE_KEYS}
+    extra: dict[str, Any] = {"category": category, "n_steps": n, "duration_s": dur,
+                             "touch_ref_n": float(touch_ref_n), "min_step_steps": int(min_step_steps),
+                             "closure_s": None, "phase_offset_rad": None, "phase_plv": None,
+                             "stance_z_offset_m": None, "swing_apex_n": 0}
+    as_cat = applicability_category(category, metric_class)
+    if metric_class is not None:
+        extra["metric_class"] = metric_class
+
+    # ---- steps and taps
+    steps, taps, censored = step_tap_runs(loaded, min_step_steps=min_step_steps)
+    n_steps_, n_taps = len(steps), len(taps)
+    extra["steps"], extra["taps"], extra["runs_censored"] = n_steps_, n_taps, censored
+
+    # ---- normalisers (the motion-quality convention)
+    xy = np.asarray(root_pos_w, dtype=np.float64)[:, :2]
+    dist = float(np.linalg.norm(xy[-1] - xy[0]))
+    yaw = np.unwrap(yaw_from_quat_wxyz(np.asarray(root_quat_w, dtype=np.float64)))
+    net_yaw = float(abs(yaw[-1] - yaw[0]))
+    extra["distance_m"], extra["net_yaw_rad"] = dist, net_yaw
+    extra["speed_m_s"] = float(dist / dur) if dur > 0 else None
+
+    def _per(num: float, den: float, floor: float) -> float | None:
+        return None if den < floor else float(num / den)
+
+    out["steps_per_m"] = _per(float(n_steps_), dist, MIN_TRAVEL_M)
+    out["taps_per_m"] = _per(float(n_taps), dist, MIN_TRAVEL_M)
+    out["steps_per_rad"] = _per(float(n_steps_), net_yaw, MIN_NET_YAW_RAD)
+    out["taps_per_rad"] = _per(float(n_taps), net_yaw, MIN_NET_YAW_RAD)
+    out["support_feet"] = float(loaded.sum(axis=1).mean())
+    rate = float(n_steps_ / dur) if dur > 0 else None
+    out["steps_per_s"] = out["step_rate_hz"] = rate
+
+    # ---- swing apex (mesh terrain only)
+    if foot_pos_w is not None and terrain_z is not None:
+        fp = np.asarray(foot_pos_w, dtype=np.float64)
+        tz = np.asarray(terrain_z, dtype=np.float64)
+        offset = swing_clearance_metrics(loaded, fp, tz)["stance_z_offset_m"]
+        clearance = fp[:, :, 2] - tz - offset
+        peaks = [float(clearance[s:e, f].max()) for f, s, e in steps if e < n]
+        extra["stance_z_offset_m"], extra["swing_apex_n"] = float(offset), len(peaks)
+        out["swing_apex"] = float(np.median(peaks)) if peaks else None
+
+    # ---- cadence and phase
+    out["gait_hz"] = gait_frequency_hz(loaded, dt)
+    if clock_phase is not None:
+        out["clock_hz"] = clock_frequency_hz(clock_phase, dt)
+        if out["clock_hz"] is not None and out["clock_hz"] >= MIN_CLOCK_HZ:
+            if out["gait_hz"] is not None:
+                out["cadence_ratio"] = float(out["gait_hz"] / out["clock_hz"])
+            extra["phase_offset_rad"], extra["phase_plv"] = gait_clock_phase_offset(loaded, clock_phase)
+
+    # ---- the turn split around closure
+    if heading_err is not None and out["steps_per_rad"] is not None:
+        err = np.abs(np.asarray(heading_err, dtype=np.float64).ravel())
+        on = np.flatnonzero(err < FACING_SETTLE_TOL_RAD)
+        if on.size:
+            t_c = int(on[0])
+            extra["closure_s"] = float(t_c * dt)
+            pre = sum(1 for _f, s, _e in steps if s < t_c)
+            out["steps_per_rad_pre"] = float(pre / net_yaw)
+            out["steps_per_rad_post"] = float((n_steps_ - pre) / net_yaw)
+        else:
+            out["steps_per_rad_pre"] = out["steps_per_rad"]
+
+    for k in RIGIDITY_EPISODE_KEYS:
+        if as_cat not in RIGIDITY_APPLIES[k]:
+            out[k] = None
+    return {**out, **extra}
+
+
+def rigidity_pooled_metrics(category: str, blocks: Sequence[dict | None],
+                            metric_class: str | None = None) -> dict[str, dict]:
+    """The across-episode rigidity keys of one category (or one hand of it).
+
+    ``metric_class``: as in :func:`rigidity_metrics` (opt-in; ``None`` = the by-name rule).
+
+    ``blocks`` are the category's own-hold :func:`rigidity_metrics` blocks (``None`` entries --
+    unmeasured holds -- are skipped). Returns ``{key: {"value", "n", ...}}`` for every
+    :data:`RIGIDITY_POOLED_KEYS`; ``value`` is ``None`` off :data:`RIGIDITY_APPLIES` or under
+    :data:`MIN_POOLED_EPISODES` contributing episodes.
+
+    * ``hz_speed_slope`` -- the OLS slope (Hz per m/s) of per-episode ``gait_hz`` on ``speed_m_s``
+      within the category: about 0 while the clock locks the cadence to the COMMAND (every episode
+      of a category shares one command), positive when the cadence follows the ACHIEVED speed;
+    * ``offset_R`` -- :func:`rayleigh_test`'s R over the per-episode ``phase_offset_rad``, with its
+      ``rayleigh_p``: near 1 when the gait follows the observed clock phase (the reset phase is
+      uniform and evals run with RSI off), at the null when it ignores it.
+    """
+    got = [b for b in blocks if b]
+    out: dict[str, dict] = {}
+    category = applicability_category(category, metric_class)
+    if category in RIGIDITY_APPLIES["hz_speed_slope"]:
+        slope, n = ols_slope([b.get("speed_m_s") for b in got], [b.get("gait_hz") for b in got])
+    else:
+        slope, n = None, 0
+    out["hz_speed_slope"] = {"value": slope, "n": n}
+    if category in RIGIDITY_APPLIES["offset_R"]:
+        r, p, n = rayleigh_test([b.get("phase_offset_rad") for b in got])
+    else:
+        r, p, n = None, None, 0
+    out["offset_R"] = {"value": r, "n": n, "rayleigh_p": p}
+    return out
+
+
+# --------------------------------------------------------------------------------------
+# body yaw (robot-frame velocity commands campaign, 2026-10-15; PLAN D5, STEP2_SPEC §3): every hold
+# of a v3 (body-route) run and of an adapter run. Additive -- no v1 / v2 code path calls these.
+# --------------------------------------------------------------------------------------
+#: The per-hold ``body`` block's keys (``hold["body"]``), each ``None`` where it is not defined.
+BODY_YAW_KEYS: tuple[str, ...] = ("net_yaw_rate", "net_yaw_ratio", "wz_ratio", "yaw_ripple", "heading_drift",
+                                  "planar_drift", "body_ratio", "cross_body")
+#: The ripple's block length (non-overlapping 1-s blocks of ``root_ang_vel_b[:, 2]``).
+BODY_RIPPLE_BLOCK_S = 1.0
+
+
+def body_yaw_metrics(
+    root_quat_w: np.ndarray,
+    root_ang_vel_b: np.ndarray,
+    root_lin_vel_b: np.ndarray,
+    root_pos_w: np.ndarray,
+    cmd_body: np.ndarray,
+    dt: float,
+    *,
+    block_s: float = BODY_RIPPLE_BLOCK_S,
+) -> dict | None:
+    """Yaw-rate and body-frame translation tracking over ONE hold's scored window; ``None`` if empty.
+
+    Every array is the window (time first): ``root_quat_w`` ``(n, 4)`` wxyz, ``root_ang_vel_b`` /
+    ``root_lin_vel_b`` ``(n, 3)``, ``root_pos_w`` ``(n, 3)`` and ``cmd_body`` ``(n, 3)`` -- the BODY
+    command ``(vx, vy, wz)`` the hold asked for at each step (a v3 row's constant row; on a
+    ``world_rate`` adapter run the shaped command the body head was handed). With ``T = (n - 1) dt``
+    (the span the first and last samples bracket), ``wz_cmd`` = the window's mean commanded wz and
+    ``v_cmd`` = its mean commanded ``|v|``:
+
+    * ``net_yaw_rate`` -- (unwrapped yaw from ``root_quat_w``)[last] - [first], over ``T``;
+    * ``net_yaw_ratio`` -- ``net_yaw_rate / wz_cmd``, SIGNED (a turn the wrong way is negative);
+      ``None`` where ``wz_cmd == 0``. THE gated turn statistic (PLAN D5);
+    * ``wz_ratio`` -- mean ``root_ang_vel_b[:, 2]`` / ``wz_cmd`` (signed; reported, never gated);
+    * ``yaw_ripple`` -- the population std (ddof 0) of the non-overlapping ``block_s`` block means of
+      ``root_ang_vel_b[:, 2]`` (a trailing partial block is dropped; ``None`` under two blocks): 0 for
+      a constant-rate turn, large for the facing relay's stop-go;
+    * ``heading_drift`` -- straight holds (the commanded wz is 0 at every step) only: ``|mean
+      root_ang_vel_b[:, 2]|``;
+    * ``planar_drift`` -- pure turns (``|v|`` commanded 0 at every step, wz not) only: ``|xy[last] -
+      xy[first]| / T``;
+    * ``body_ratio`` / ``cross_body`` -- moving holds (``v_cmd > 0``) only: the mean achieved body
+      velocity projected on each step's commanded bearing ``atan2(vy, vx)``, over ``v_cmd``; and the
+      mean ``|perpendicular component|`` (m/s).
+
+    Extra fields: ``n_steps``, ``window_s`` (``T``), ``wz_cmd``, ``v_cmd``, ``wz_mean``, ``net_yaw_rad``.
+    """
+    q = np.asarray(root_quat_w, dtype=np.float64).reshape(-1, 4)
+    n = int(q.shape[0])
+    if n == 0:
+        return None
+    w = np.asarray(root_ang_vel_b, dtype=np.float64).reshape(-1, 3)[:, 2]
+    vel = np.asarray(root_lin_vel_b, dtype=np.float64).reshape(-1, 3)[:, :2]
+    xy = np.asarray(root_pos_w, dtype=np.float64).reshape(-1, 3)[:, :2]
+    cmd = np.asarray(cmd_body, dtype=np.float64).reshape(-1, 3)
+    out: dict[str, Any] = {k: None for k in BODY_YAW_KEYS}
+    span = (n - 1) * float(dt)
+    yaw = np.unwrap(yaw_from_quat_wxyz(q))
+    v_step = np.hypot(cmd[:, 0], cmd[:, 1])
+    wz_cmd = float(cmd[:, 2].mean())
+    v_cmd = float(v_step.mean())
+    wz_mean = float(w.mean())
+    out.update({"n_steps": n, "window_s": span, "wz_cmd": wz_cmd, "v_cmd": v_cmd, "wz_mean": wz_mean,
+                "net_yaw_rad": float(yaw[-1] - yaw[0])})
+    if span > 0.0:
+        out["net_yaw_rate"] = float((yaw[-1] - yaw[0]) / span)
+        if wz_cmd != 0.0:
+            out["net_yaw_ratio"] = float(out["net_yaw_rate"] / wz_cmd)
+    if wz_cmd != 0.0:
+        out["wz_ratio"] = float(wz_mean / wz_cmd)
+    block = max(1, int(round(float(block_s) / float(dt))))
+    n_blocks = n // block
+    if n_blocks >= 2:
+        means = w[: n_blocks * block].reshape(n_blocks, block).mean(axis=1)
+        out["yaw_ripple"] = float(np.std(means))
+    straight = bool(np.all(cmd[:, 2] == 0.0))
+    if straight:
+        out["heading_drift"] = float(abs(wz_mean))
+    if bool(np.all(v_step == 0.0)) and not straight and span > 0.0:
+        out["planar_drift"] = float(np.linalg.norm(xy[-1] - xy[0]) / span)
+    if v_cmd > 0.0:
+        bearing = np.arctan2(cmd[:, 1], cmd[:, 0])
+        c, s = np.cos(bearing), np.sin(bearing)
+        along = vel[:, 0] * c + vel[:, 1] * s
+        perp = -vel[:, 0] * s + vel[:, 1] * c
+        out["body_ratio"] = float(along.mean() / v_cmd)
+        out["cross_body"] = float(np.abs(perp).mean())
+    return out

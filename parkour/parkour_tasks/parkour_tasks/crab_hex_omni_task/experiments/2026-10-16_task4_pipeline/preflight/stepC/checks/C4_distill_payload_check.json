@@ -1,0 +1,29 @@
+{
+ "check": "C4_distill_payload_check",
+ "class": "stop",
+ "expected": {
+  "kg_mean": 33.75,
+  "loaded_frac": 0.75
+ },
+ "final": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_14-17-30_T4C4_dpay/model_23192.pt",
+ "kg_mean_last50": 31.138351020812987,
+ "loaded_frac_last50": 0.7168402802944184,
+ "row_90kg": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C4_dpay_L090/suite__omni/seed001/2026-10-17_18-40-46",
+  "survival": {
+   "back": 1.0,
+   "diag": 1.0,
+   "fwd": 0.99,
+   "side": 1.0
+  }
+ },
+ "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_14-17-30_T4C4_dpay",
+ "timing": {
+  "h_per_1k": 1.904510259628296,
+  "h_per_1k_span": 1.8986282364912168,
+  "n": 180,
+  "s_per_it": 6.856236934661865,
+  "s_per_it_span": 6.835061651368381
+ },
+ "verdict": "PASS"
+}

@@ -1,0 +1,12 @@
+O         start leaning TOWARD travel: n101 feet 0.096 stall 0.00 | OPPOSITE: n 91 feet 0.080 stall 0.00 | centred: n  0 | corr(off0,v) +0.44
+R         start leaning TOWARD travel: n  5 feet 0.077 stall 0.00 | OPPOSITE: n  1 feet 0.081 stall 0.00 | centred: n186 feet 0.076 stall 0.00 | corr(off0,v) -0.05
+C_band    start leaning TOWARD travel: n 89 feet 0.096 stall 0.00 | OPPOSITE: n 89 feet 0.093 stall 0.00 | centred: n  6 feet 0.093 stall 0.00 | corr(off0,v) +0.05
+C_rsi     start leaning TOWARD travel: n101 feet 0.084 stall 0.00 | OPPOSITE: n 93 feet -0.007 stall 0.81 | centred: n  0 | corr(off0,v) +0.85
+LR4_dwell start leaning TOWARD travel: n191 feet 0.068 stall 0.00 | OPPOSITE: n205 feet -0.004 stall 1.00 | centred: n  0 | corr(off0,v) +0.98
+LR4       start leaning TOWARD travel: n 11 feet 0.093 stall 0.09 | OPPOSITE: n 14 feet 0.088 stall 0.00 | centred: n354 feet 0.088 stall 0.01 | corr(off0,v) -0.01
+LRfa      start leaning TOWARD travel: n158 feet 0.070 stall 0.01 | OPPOSITE: n159 feet 0.074 stall 0.00 | centred: n 69 feet 0.071 stall 0.00 | corr(off0,v) -0.24
+C_lr      start leaning TOWARD travel: n134 feet 0.065 stall 0.03 | OPPOSITE: n136 feet 0.074 stall 0.01 | centred: n120 feet 0.072 stall 0.02 | corr(off0,v) -0.20
+C_lr_10   start leaning TOWARD travel: n112 feet 0.085 stall 0.00 | OPPOSITE: n115 feet 0.067 stall 0.06 | centred: n113 feet 0.078 stall 0.03 | corr(off0,v) +0.32
+C         start leaning TOWARD travel: n 32 feet 0.218 stall 0.00 | OPPOSITE: n 79 feet 0.210 stall 0.00 | centred: n 69 feet 0.213 stall 0.00 | corr(off0,v) +0.04
+C_mo      start leaning TOWARD travel: n198 feet 0.166 stall 0.00 | OPPOSITE: n  0 | centred: n  1 feet 0.168 stall 0.00 | corr(off0,v) +0.00
+C_mo_s2   start leaning TOWARD travel: n  0 | OPPOSITE: n 87 feet 0.204 stall 0.00 | centred: n105 feet 0.207 stall 0.00 | corr(off0,v) +0.00

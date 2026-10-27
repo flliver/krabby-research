@@ -1,0 +1,67 @@
+campaign: 2026-09-11_0414_sideways_formation
+era: B
+dates: "2026-09-11.."
+question: Does the sideways-walk task (a thin subclass of the forward cfgs, travel axis rotated
+  to body +y, fore-aft mirror-symmetry loss, RSI off) form a usable tripod gait through the
+  forward schedule of record (1a formation -> 2a/2b/2c elements)?
+verdict: 'HEAD NAMED (user decision 2026-09-12, two seeds + neighbour-checkpoint evals): the seed-2
+  window-2a teacher 2026-09-12_03-04-37/model_9998.pt is the sideways teacher of record. The chain
+  peaks at 2a on both seeds and the 2c window is a replicated step-onset regression (-0.19 seed 3 /
+  -0.14 seed 2 vs 2b, pooled ~-0.17 [-0.24,-0.10]); the clock-anneal-vs-extra-iterations question is
+  NOT settled (no clock-held control was run). Phase 3 not attempted: the shared random_camera_position
+  frame bug and the +y mount decision are both open.'
+plant: A15+B
+aliases: []
+records:
+- CHARTER.md
+- REPORT.md
+- CHANGELOG.md
+- state.json
+- heads.json
+# ``bundle_experiment.py --check`` requires every listed record to exist (the driver writes the
+# last four; first committed at the 1a gate halt of 2026-09-11, re-committed as the campaign runs).
+head:
+  role: teacher_2a
+  task: Isaac-Crab-Hex-Side-Teacher-v0
+  source: parkour/logs/rsl_rl/crab_hex_side_teacher/2026-09-12_03-04-37/model_9998.pt
+  sha256: 27a51c2b7cc9104a83b6645f0c37f1a9d033e7f11bcfd0a8d855a5e092dc05f5
+  dest: head/model_9998.pt
+  why: 'Best or tied-best on all nine headline cells (3 rows x {completion, creep tripod, low
+    tripod}) with four resolved leads and no resolved headline loss -- no other head of the eight
+    has that property. Its advantage is the WINDOW, not the checkpoint draw: neighbour checkpoints
+    model_9800 / 9900 score 0.98/2 and 0.99/1 on the flat canary and 0.86/14 and 0.90/10 on step
+    onset, so 2a occupies 0.97-0.99 flat / 0.86-0.90 step against 2b''s 0.87-0.93 / 0.75-0.84 --
+    non-overlapping ranges on both rows. Trained at the highest terrain level of its own chain
+    (6.30 vs 5.75/6.18) with the lowest window failure rate, so not an easier-curriculum artefact.
+    Caveat for phase 3: 2a predates KRABBY_HEADING=-1.2:1.2 (introduced at 2b), and the 3a student
+    MDP is _student_env(env_2c) == _student_env(env_2b) -- distilling from this head would query it
+    off its training command distribution or need a preset fork; distil from the 2b head
+    (2026-09-12_05-24-07/model_14997.pt) instead if phase 3 is run.'
+  metrics:
+    slow_canary: walking-hold tripod 0.644 (creep 0.644 / low 0.700) / completion 0.97 / 3 falls
+    slow_canary_neighbours: model_9800 0.98 / 2, model_9900 0.99 / 1 (same canary env)
+    step_onset: walking-hold tripod 0.370 / completion 0.88 / 12 falls
+    step_onset_neighbours: model_9800 0.86 / 14, model_9900 0.90 / 10
+    obstacle_recal2b2w: completion 0.97 / 3 falls (walking-hold tripod 0.640; eval env inherits the
+      2a preset, so this row is not head-matched against 2b/2c -- see the CHARTER Log)
+    creep_tracking: 0.877 (ratio median at the 0.25 hold)
+    duty_A_B: in [0.30, 0.55] at every walking hold, |A-B| <= 0.055; no cam free-spin
+  env:
+    KRABBY_SIDE_PHASE: 2a
+    KRABBY_PLANT: A15+B
+    KRABBY_HEX_TEACHER_MODE: 2a
+    KRABBY_STAND_FRAC: '0.2'
+    KRABBY_EPISODE_S: '40'
+    KRABBY_FLAT_TERRAIN_GEOM: recal2b2w
+    KRABBY_FLAT_TERRAIN_DIFF: 0.20:0.70
+    KRABBY_FLAT_TERRAIN_CURRICULUM: '1'
+    KRABBY_RSI_FRAC: '<absent -- RSI off for the whole campaign>'
+evals:
+- source: parkour/logs/rsl_rl/gait_eval/side_phases
+  dest: evals/side_phases
+keep_globs:
+- run_meta.json
+- scenario_metrics.json
+- summary.md
+- gait_diagram_*.png
+paths_note: true

@@ -40,6 +40,11 @@ class CrabHexParkourRslRlOnPolicyRunnerCfg(ParkourRslRlOnPolicyRunnerCfg):
     num_steps_per_env: int = 24
     save_interval: int = 100
     empirical_normalization: bool = False
+    # A resume continues the run: restore the priv_reg schedule counter, the adaptive learning
+    # rate and the estimator / history-encoder / depth optimizers from the checkpoint (legacy
+    # checkpoints: counter rebuilt from ``iter``). False replays the pre-2026-09-22 behaviour, where
+    # every resume -- every curriculum chain stage -- restarted them.
+    resume_alg_state: bool = True
 
 
 @configclass

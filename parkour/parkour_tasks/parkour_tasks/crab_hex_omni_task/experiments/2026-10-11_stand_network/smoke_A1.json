@@ -1,0 +1,202 @@
+{
+ "checks": [
+  {
+   "line": "~1/2 control, ~1/6 per spoiler (max(0.05, 3 SE))",
+   "n_stands": 2044,
+   "name": "a1_assignment_shares",
+   "pass": true,
+   "value": {
+    "chatter": {
+     "expected": 0.16666666666666666,
+     "n": 346,
+     "share": 0.16927592954990214,
+     "tol": 0.05
+    },
+    "control": {
+     "expected": 0.5,
+     "n": 989,
+     "share": 0.48385518590998045,
+     "tol": 0.05
+    },
+    "statue": {
+     "expected": 0.16666666666666666,
+     "n": 364,
+     "share": 0.1780821917808219,
+     "tol": 0.05
+    },
+    "stuck_lift": {
+     "expected": 0.16666666666666666,
+     "n": 345,
+     "share": 0.1687866927592955,
+     "tol": 0.05
+    }
+   }
+  },
+  {
+   "line": "every executed stand row is R's target or its stand's spoiler",
+   "name": "a1_executed_r_or_spoiler",
+   "pass": true,
+   "value": {
+    "mismatched_rows": 0.0,
+    "spoiler_window_rows": 153172.0
+   }
+  },
+  {
+   "line": "0 optimizer steps, 0 student forwards, no checkpoint",
+   "name": "a1_no_optimizer",
+   "pass": true,
+   "value": {
+    "checkpoints": 0,
+    "opt_steps": 0,
+    "optimizer": false,
+    "student_forwards": 0
+   }
+  },
+  {
+   "line": "max sigma on stand rows == 0",
+   "name": "a1_dart_zero",
+   "pass": true,
+   "value": 0.0
+  },
+  {
+   "line": "statue window rows execute exactly 0 (after the +-1 clip)",
+   "name": "a1_statue_zero",
+   "pass": true,
+   "value": {
+    "max_abs_executed": 0.0,
+    "rows": 53316.0
+   }
+  },
+  {
+   "line": "every channel's pre-clip sigma in [0.27, 0.33] (post-clip realised reported)",
+   "name": "a1_chatter_sigma",
+   "pass": true,
+   "value": {
+    "rows": 49418.0,
+    "sigma_post_clip_vs_R": [
+     0.2948692671889414,
+     0.2976913846875395,
+     0.29643444179408496,
+     0.2952924385094496,
+     0.29557354709877903,
+     0.29670548333329394,
+     0.2975509739642298,
+     0.29941756575318873,
+     0.3000914746679191,
+     0.29786255440544634,
+     0.29802694713034406,
+     0.29895941999504794,
+     0.2985413590425225,
+     0.29974520837988083,
+     0.29776866582304923,
+     0.2990094654833362,
+     0.2986545908943362,
+     0.29830203574537717
+    ],
+    "sigma_pre_clip": [
+     0.2993732038657613,
+     0.30169884487720616,
+     0.30013802190297056,
+     0.29939221743351074,
+     0.29990336294677017,
+     0.3015536958721647,
+     0.29893266293578913,
+     0.3006813258564688,
+     0.30138475243940016,
+     0.29921460928085775,
+     0.29950548376900776,
+     0.300343950468028,
+     0.30011827890768344,
+     0.30108923779823965,
+     0.29909554810727385,
+     0.30017368904001657,
+     0.30000595884807485,
+     0.2997486185968292
+    ]
+   }
+  },
+  {
+   "line": ">= 0.5 of stuck-lift stands: held leg hip <= p_up and |c| > 0.3 at takeover",
+   "name": "a1_stuck_lift_state",
+   "pass": true,
+   "value": {
+    "held_up_and_off_home": 308,
+    "p_up": -0.0625,
+    "share": 0.9903536977491961,
+    "stands_reaching_takeover": 311
+   }
+  },
+  {
+   "line": "|c| read on the stand's last acted row (value), every exit at its scheduled end - 1 (+-1), the first-draw read == the stand-end read on unmerged exits",
+   "name": "a1_last_row_read",
+   "pass": true,
+   "value": {
+    "exit_schedule_exact": 1400,
+    "exit_schedule_off_by_more_than_1": 0,
+    "exits": 1402,
+    "first_draw_read_mismatch": 0,
+    "records": 2044,
+    "unmerged_exits": 964,
+    "value_mismatch_rows": 0.0
+   }
+  },
+  {
+   "line": "scored on the FIRST draw = its scheduled length >= 8 s, not timeout-cut, not a run-start stand, ended by reaching its end / a fall",
+   "name": "a1_scored_filter",
+   "pass": true,
+   "value": {
+    "excluded": {
+     "cut": 209,
+     "run_start": 168,
+     "short": 1182,
+     "timeout_or_other": 0
+    },
+    "scored": 485,
+    "violations": 0
+   }
+  },
+  {
+   "line": "every stand record has terrain_level >= 0 and the accessor never failed",
+   "name": "terrain_level_recorded",
+   "pass": true,
+   "value": {
+    "accessor_failures": 0,
+    "first_error": null,
+    "records": 2044,
+    "terrain_level_missing": 0
+   }
+  }
+ ],
+ "run": {
+  "arm": null,
+  "checkpoints": [],
+  "final_checkpoint": null,
+  "iterations_run": 100,
+  "iterations_schedule": 100,
+  "mode": "recover_probe",
+  "opt_steps": 0,
+  "s_per_iter": 1.4961256766319275,
+  "status": "done",
+  "student_forwards": 0,
+  "wall_s": 149.61256742477417
+ },
+ "s_per_iter": 1.4961256766319275,
+ "verdict": {
+  "failed": [],
+  "kind": "a1",
+  "plan_text": {
+   "a1_assignment_shares": "assignment ~ 1/2 control and 1/6 per spoiler",
+   "a1_chatter_sigma": "chatter's realised sigma ~ 0.3 per channel",
+   "a1_dart_zero": "DART sigma = 0",
+   "a1_executed_r_or_spoiler": "executed stand rows are R or spoiler only",
+   "a1_last_row_read": "the stand-end value is read on the last stand row before the exit",
+   "a1_no_optimizer": "no optimizer step runs",
+   "a1_scored_filter": "scored-stand filter per A1",
+   "a1_statue_zero": "statue executes exactly 0",
+   "a1_stuck_lift_state": "on most stuck-lift stands the held leg is up (hip <= R's up threshold) with |c| > 0.3",
+   "terrain_level_recorded": "every stand record carries its terrain level (A1: 'same terrain levels')"
+  },
+  "problems": [],
+  "verdict": "PASS"
+ }
+}

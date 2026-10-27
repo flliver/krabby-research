@@ -1,0 +1,197 @@
+{
+ "checks": [
+  {
+   "line": "|share - 0.5| <= 0.05",
+   "name": "stand_row_share",
+   "pass": true,
+   "rows": 2457600.0,
+   "stand_rows": 1236896.0,
+   "value": 0.5032942708333333
+  },
+  {
+   "line": "walk->stand handovers > 0 and stand exits > 0",
+   "name": "handovers",
+   "pass": true,
+   "value": {
+    "exits": 1414,
+    "falls_in_stand": 9,
+    "handover": 1401.0,
+    "per_1000_env_steps": {
+     "exits": 0.5753580729166666,
+     "handover": 0.570068359375
+    },
+    "run_start": 513.0,
+    "spawn": 618.0
+   }
+  },
+  {
+   "line": "student-executed stand rows exist (shares reported)",
+   "name": "branch_shares_student_rows",
+   "pass": true,
+   "rows_by_executor": {
+    "beta_r": 1078550.0,
+    "control": 133415.0,
+    "student": 24931.0
+   },
+   "student_rows": 24931.0,
+   "value": {
+    "hold": 0.27316058989477626,
+    "home": 0.162147527175003,
+    "lift": 0.0024333828032035085,
+    "seat": 0.43907852339122644,
+    "wait": 0.12317997673579079
+   }
+  },
+  {
+   "line": "LIFT-onset rows on student-visited stand rows > 0 (pre-oversampling dose reported) and >= 0.01 of the minibatch loss weight after balancing (oversampling + per-leg weights)",
+   "name": "lift_onset_after_balancing",
+   "pass": true,
+   "value": {
+    "buffer_onset_share": 0.005392057821154594,
+    "loss_weight_share_after_balancing": 0.5070461837241299,
+    "minibatch_row_share_reported": 0.10275863647460938,
+    "onset_rows_student": 113.0,
+    "pre_oversampling_share_all_stand_rows": 0.005381212325045921,
+    "pre_oversampling_share_student_rows": 0.004532509726846095,
+    "student_stand_rows": 24931.0
+   }
+  },
+  {
+   "line": "beta = 1 -> 0 linearly over the first third, then 0 (function); realized R share of non-control episode draws within max(0.02, 4 SE) of the mean beta at draw",
+   "name": "beta_schedule",
+   "pass": true,
+   "value": {
+    "beta(0)": 1.0,
+    "beta(T/3)": 0.0,
+    "beta(T/6)": 0.5,
+    "control_share": 0.10408432147562582,
+    "expected_beta_r_share": 0.9729132360103083,
+    "realized_beta_r_share": 0.9642156862745098
+   }
+  },
+  {
+   "line": "realized pre-clip sigma within 10 % of 0.1 / 0.3; sigma-0 rows exactly clean",
+   "name": "dart_sigma_realized",
+   "pass": true,
+   "value": {
+    "0.0": {
+     "max_abs_deviation": 0.0
+    },
+    "0.1": {
+     "n_entries": 5078286.0,
+     "sigma_post_clip": 0.0998694632888574,
+     "sigma_pre_clip": 0.09998355812886398
+    },
+    "0.3": {
+     "n_entries": 5051448.0,
+     "sigma_post_clip": 0.2984668095287165,
+     "sigma_pre_clip": 0.2996802806511442
+    }
+   }
+  },
+  {
+   "line": "no obs-affecting difference from the REFS eval stamp",
+   "name": "obs_parity_env",
+   "pass": true,
+   "value": []
+  },
+  {
+   "line": "1149 wide; clock / stand-bit cols 15-16 (+ history copies) == 0",
+   "name": "obs_parity_cols",
+   "pass": true,
+   "value": []
+  },
+  {
+   "line": "same device, same batch: CPU torch.equal, GPU atol 1e-5 (CHARTER)",
+   "name": "forward_parity",
+   "pass": true,
+   "value": {
+    "capture": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_SMOKE_full_s18/smoke_capture.pt",
+    "device": "cuda:0",
+    "equal": true,
+    "max_abs_diff": 0.0,
+    "pass": true,
+    "rows": 1024,
+    "rule": "CPU torch.equal; GPU atol 1e-5",
+    "stand_rows": 511
+   }
+  },
+  {
+   "line": "S1 act_inference twice on one obs -> equal",
+   "name": "s1_deterministic",
+   "pass": true,
+   "value": true
+  },
+  {
+   "line": "the pre-allocated reservoir <= the cap (a reservoir never grows past it)",
+   "name": "buffer_projection",
+   "pass": true,
+   "value": {
+    "allocated_bytes": 3999996065,
+    "cap_bytes": 4000000000,
+    "cap_rows": 1014455,
+    "cuda_max_allocated": 4135392768,
+    "projected_fill": 1.0,
+    "projected_rows_seen": 37106880.0,
+    "rows_per_iter": 12368.96
+   }
+  },
+  {
+   "line": "strict load, all keys, estimator == S1's",
+   "name": "ckpt_loads",
+   "pass": true,
+   "value": {
+    "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_SMOKE_full_s18/model_100.pt",
+    "reasons": []
+   }
+  },
+  {
+   "line": "every stand record has terrain_level >= 0 and the accessor never failed",
+   "name": "terrain_level_recorded",
+   "pass": true,
+   "value": {
+    "accessor_failures": 0,
+    "first_error": null,
+    "records": 2033,
+    "terrain_level_missing": 0
+   }
+  }
+ ],
+ "run": {
+  "arm": "full",
+  "checkpoints": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_SMOKE_full_s18/model_100.pt"
+  ],
+  "final_checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_SMOKE_full_s18/model_100.pt",
+  "iterations_run": 100,
+  "iterations_schedule": 3000,
+  "mode": "dagger",
+  "opt_steps": 1600,
+  "s_per_iter": 1.5396789264678956,
+  "status": "done",
+  "student_forwards": 2400,
+  "wall_s": 153.9678921699524
+ },
+ "s_per_iter": 1.5396789264678956,
+ "verdict": {
+  "failed": [],
+  "kind": "dagger",
+  "plan_text": {
+   "beta_schedule": "the beta schedule function (asserted, not reached)",
+   "branch_shares_student_rows": "branch shares on student-visited rows",
+   "buffer_projection": "buffer memory projected to the final iteration count fits the cap",
+   "ckpt_loads": "saved ckpt loads strictly (rsl_rl load path), estimator == S1's (stand_net walkstop row: sn_eval_rows.sh)",
+   "dart_sigma_realized": "DART sigma realized",
+   "forward_parity": "a trainer-captured obs batch fed to the stand_net forward returns the trainer's action bitwise (in-process, same batch); capture saved for the offline StandNetMode replay",
+   "handovers": "handover count",
+   "lift_onset_after_balancing": "LIFT-onset >= 1 % after balancing",
+   "obs_parity_cols": "cols 0-1148 of a stand row: layout / clock / stand-bit columns as the eval's (D5)",
+   "obs_parity_env": "the trainer env carries every obs-affecting var of the eval stamp",
+   "s1_deterministic": "S1 runs deterministic act_inference",
+   "stand_row_share": "stand-row share ~ 0.5",
+   "terrain_level_recorded": "every stand record carries its terrain level (step 7: 'same terrain levels')"
+  },
+  "problems": [],
+  "verdict": "PASS"
+ }
+}

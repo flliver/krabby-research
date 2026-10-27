@@ -1,0 +1,67 @@
+== score_reference: driver decide_pooled on reference screens vs reused controls
+
+runs:
+  base s3  2026-09-26_stroke_posture X01 (baseline B s3, chain c6y) eval_sha 36e5a8af7000 code_sha 709161927627 floor_watch none
+  base s2  2026-09-26_stroke_posture X02 (baseline B s2, chain c6y) eval_sha 36e5a8af7000 code_sha 709161927627 floor_watch none
+  cand s3  2026-09-27_stroke_cat_W X01 (reference S_cat s3, chain c6y_scat) eval_sha 36e5a8af7000 code_sha fb17d2ea389e floor_watch none
+  cand s2  2026-09-27_stroke_cat_W X02 (reference S_cat s2, chain c6y_scat) eval_sha 36e5a8af7000 code_sha fb17d2ea389e floor_watch none
+
+resolution resolution.36e5a8af7000.json (D00s, D00bs, D00bs); cand_spec S; eval_sha 36e5a8af7000
+
+PICK REJECT (clear): pooled WORSE on guard cat.fwd.ratio, guard cat.fwd.foot_slip, guard cat.back.foot_slip, guard cat.turn.foot_slip
+WORSE (pooled): ['guard cat.fwd.ratio', 'guard cat.fwd.foot_slip', 'guard cat.back.foot_slip', 'guard cat.turn.foot_slip']
+
+pooled blocks (z / R, class):
+  F      z -0.7793  R 1.8105  TIE
+      cat.turn.facing_closed: delta -0.0371 (s3 -0.0240, s2 -0.0503) z -0.747
+      cat.turn.yaw_progress: delta -0.0054 (s3 -0.0039, s2 -0.0068) z -0.812
+  F_mt   z -0.9853  R 2.4506  TIE
+      cat.move_turn.facing_closed: delta -0.0150 (s3 -0.1809, s2 +0.1508) z -0.372
+      cat.move_turn.yaw_progress: delta -0.0095 (s3 -0.0307, s2 +0.0116) z -1.598
+  T      z -1.3196  R 1.6653  TIE
+      cat.fwd.ratio: delta -0.0851 (s3 -0.1499, s2 -0.0203) z -2.075
+      cat.side.ratio: delta -0.0108 (s3 -0.0464, s2 +0.0248) z -0.604
+      cat.back.ratio: delta -0.0687 (s3 -0.1203, s2 -0.0171) z -1.306
+      cat.diag.ratio: delta -0.0330 (s3 -0.0840, s2 +0.0180) z -1.293
+  RIG    z +0.7482  R 0.4152  BETTER
+      cat.fwd.steps_per_m: delta -1.6192 (s3 -3.7742, s2 +0.5357) z -0.990
+      cat.fwd.support_feet: delta +0.1042 (s3 +0.1993, s2 +0.0092) z +3.474
+      cat.side.steps_per_m: delta -0.8939 (s3 -2.9597, s2 +1.1719) z -0.649
+      cat.side.support_feet: delta +0.0908 (s3 +0.1383, s2 +0.0433) z +3.302
+      cat.back.steps_per_m: delta -1.1910 (s3 -3.5632, s2 +1.1812) z -0.586
+      cat.back.support_feet: delta +0.1050 (s3 +0.1908, s2 +0.0192) z +3.548
+      cat.diag.steps_per_m: delta -1.6055 (s3 -4.4372, s2 +1.2262) z -0.989
+      cat.diag.support_feet: delta +0.0527 (s3 +0.1568, s2 -0.0514) z +0.710
+      cat.turn.steps_per_rad: delta -3.1148 (s3 -2.2158, s2 -4.0138) z -0.799
+      cat.turn.support_feet: delta +0.0100 (s3 +0.1000, s2 -0.0800) z +0.462
+  LEN    z -0.8194  R 1.5274  TIE
+      cat.side.steps_per_m: delta -0.8939 (s3 -2.9597, s2 +1.1719) z -0.649
+      cat.diag.steps_per_m: delta -1.6055 (s3 -4.4372, s2 +1.2262) z -0.989
+
+guards (23, level 0.99; WORSE ['cat.back.foot_slip', 'cat.fwd.foot_slip', 'cat.fwd.ratio', 'cat.turn.foot_slip']; MISSING none):
+  ok      cat.stand.survival: delta +0.0050 z +0.167
+  ok      cat.stand.steps_per_s: delta -0.0417 z -0.133
+  ok      cat.fwd.survival: delta -0.0600 z -0.545
+  WORSE   cat.fwd.ratio: delta -0.0851 z -1.675
+  WORSE   cat.fwd.foot_slip: delta -0.0174 z -2.363
+  ok      cat.fwd.steps_per_m: delta -1.6192 z -0.838
+  ok      cat.side.survival: delta +0.0050 z +0.111
+  ok      cat.side.ratio: delta -0.0108 z -0.511
+  ok      cat.side.foot_slip: delta -0.0069 z -1.294
+  ok      cat.side.steps_per_m: delta -0.8939 z -0.570
+  ok      cat.back.survival: delta -0.0150 z -0.143
+  ok      cat.back.ratio: delta -0.0687 z -1.113
+  WORSE   cat.back.foot_slip: delta -0.0109 z -1.654
+  ok      cat.back.steps_per_m: delta -1.1910 z -0.497
+  ok      cat.diag.survival: delta +0.1700 z +1.214
+  ok      cat.diag.ratio: delta -0.0330 z -1.134
+  ok      cat.diag.foot_slip: delta -0.0013 z -0.130
+  ok      cat.diag.steps_per_m: delta -1.6055 z -0.793
+  ok      cat.turn.survival: delta -0.0075 z -0.130
+  WORSE   cat.turn.foot_slip: delta -0.0095 z -2.450
+  ok      cat.turn.steps_per_rad: delta -3.1148 z -0.708
+  ok      cat.move_turn.survival: delta +0.1425 z +1.425
+  ok      cat.move_turn.ratio: delta -0.0504 z -1.374
+
+per seed (sign of sum z_b/R_b): s3 -1.945 (F TIE, F_mt WORSE, T WORSE, RIG BETTER, LEN WORSE), s2 +1.227 (F TIE, F_mt BETTER, T TIE, RIG TIE, LEN TIE)
+anchored drift: FAIL (drifted below the anchor on guard cat.fwd.ratio, guard cat.fwd.foot_slip, guard cat.back.foot_slip, guard cat.turn.foot_slip)

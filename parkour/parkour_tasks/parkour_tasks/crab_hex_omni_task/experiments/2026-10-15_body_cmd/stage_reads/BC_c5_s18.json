@@ -1,0 +1,12 @@
+{
+  "chain": "BC_c5_s18",
+  "stage": "c5",
+  "seed": 18,
+  "xid": "X06",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_06-09-05_seed18_X06_c5_A15pB/model_8997.pt",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_06-09-05_seed18_X06_c5_A15pB",
+  "tag": "seed18_X06_c5_A15pB",
+  "audit": "PASS",
+  "head_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/body_cmd_train/seed18_X06_c5_A15pB/suite__omni_body/seed001/2026-10-16_10-45-06",
+  "stage_read_rc": 2
+}

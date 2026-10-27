@@ -1,0 +1,420 @@
+83c83
+< seed: 2
+---
+> seed: 3
+142c142,143
+<       - 0.7071067811865476
+---
+>       - 1.0
+>       - 0.0
+145d145
+<       - -0.7071067811865476
+368,370c368,370
+<       - 16.0
+<       - 4.0
+<       border_width: 20.0
+---
+>       - 10
+>       - 10
+>       border_width: 20
+373c373
+<       num_cols: 40
+---
+>       num_cols: 20
+379,381c379,381
+<         parkour_gap:
+<           function: parkour_isaaclab.terrains.extreme_parkour.extreme_parkour_terrians:parkour_gap_terrain
+<           proportion: 0.04999999999999999
+---
+>         parkour_flat:
+>           function: parkour_isaaclab.terrains.omni.omni_terrains:omni_flat_terrain
+>           proportion: 0.8
+383,384c383,384
+<           - 16.0
+<           - 4.0
+---
+>           - 10
+>           - 10
+408c408
+<           - 0.9
+---
+>           - 0.6
+412,418c412,416
+<           gap_size: 0.08 + 0.35 * difficulty
+<           gap_depth: !!python/tuple
+<           - 0.05
+<           - 0.12
+<         parkour_hurdle:
+<           function: parkour_isaaclab.terrains.extreme_parkour.extreme_parkour_terrians:parkour_hurdle_terrain
+<           proportion: 0.04999999999999999
+---
+>           clear_radius: 2.0
+>           ring_outer_radius: 4.5
+>         omni_ring_sparse:
+>           function: parkour_isaaclab.terrains.omni.omni_terrains:omni_ring_terrain
+>           proportion: 0.09999999999999998
+420,421c418,419
+<           - 16.0
+<           - 4.0
+---
+>           - 10
+>           - 10
+439,480d436
+<           - 1.2
+<           - 2.2
+<           y_range: !!python/tuple
+<           - -0.4
+<           - 0.4
+<           half_valid_width: !!python/tuple
+<           - 0.4
+<           - 0.8
+<           pad_width: 0.1
+<           pad_height: 0.0
+<           stone_len: 0.1 + 0.3 * difficulty
+<           hurdle_height_range: 0.1+0.1*difficulty, 0.15+0.25*difficulty
+<         parkour_flat:
+<           function: parkour_isaaclab.terrains.extreme_parkour.extreme_parkour_terrians:parkour_hurdle_terrain
+<           proportion: 0.8
+<           size: !!python/tuple
+<           - 16.0
+<           - 4.0
+<           flat_patch_sampling: null
+<           border_width: 0.0
+<           horizontal_scale: 0.08
+<           vertical_scale: 0.005
+<           slope_threshold: 1.5
+<           platform_len: 2.5
+<           platform_height: 0.0
+<           use_simplified: false
+<           edge_width_thresh: 0.05
+<           apply_roughness: true
+<           apply_flat: true
+<           downsampled_scale: 0.075
+<           noise_range: !!python/tuple
+<           - 0.02
+<           - 0.02
+<           noise_step: 0.005
+<           x_range: !!python/tuple
+<           - 1.2
+<           - 2.2
+<           y_range: !!python/tuple
+<           - -0.4
+<           - 0.4
+<           half_valid_width: !!python/tuple
+<           - 0.4
+482,509d437
+<           pad_width: 0.1
+<           pad_height: 0.0
+<           stone_len: 0.1 + 0.3 * difficulty
+<           hurdle_height_range: 0.1+0.1*difficulty, 0.15+0.15*difficulty
+<         parkour_step:
+<           function: parkour_isaaclab.terrains.extreme_parkour.extreme_parkour_terrians:parkour_step_terrain
+<           proportion: 0.04999999999999999
+<           size: !!python/tuple
+<           - 16.0
+<           - 4.0
+<           flat_patch_sampling: null
+<           border_width: 0.0
+<           horizontal_scale: 0.08
+<           vertical_scale: 0.005
+<           slope_threshold: 1.5
+<           platform_len: 2.5
+<           platform_height: 0.0
+<           use_simplified: false
+<           edge_width_thresh: 0.05
+<           apply_roughness: true
+<           apply_flat: false
+<           downsampled_scale: 0.075
+<           noise_range: !!python/tuple
+<           - 0.02
+<           - 0.02
+<           noise_step: 0.005
+<           x_range: !!python/tuple
+<           - 0.3
+515,544d442
+<           - 0.5
+<           - 1
+<           pad_width: 0.1
+<           pad_height: 0.0
+<           step_height: 0.1 + 0.35*difficulty
+<         parkour:
+<           function: parkour_isaaclab.terrains.extreme_parkour.extreme_parkour_terrians:parkour_terrain
+<           proportion: 0.04999999999999999
+<           size: !!python/tuple
+<           - 16.0
+<           - 4.0
+<           flat_patch_sampling: null
+<           border_width: 0.0
+<           horizontal_scale: 0.08
+<           vertical_scale: 0.005
+<           slope_threshold: 1.5
+<           platform_len: 2.5
+<           platform_height: 0.0
+<           use_simplified: false
+<           edge_width_thresh: 0.05
+<           apply_roughness: true
+<           apply_flat: false
+<           downsampled_scale: 0.075
+<           noise_range: !!python/tuple
+<           - 0.02
+<           - 0.02
+<           noise_step: 0.005
+<           x_range: -0.1, 0.1+0.3*difficulty
+<           y_range: 0.2, 0.3+0.1*difficulty
+<           half_valid_width: !!python/tuple
+549,559c447,455
+<           pit_depth: !!python/tuple
+<           - 0.05
+<           - 0.12
+<           stone_width: 1.0
+<           last_stone_len: 1.6
+<           stone_len: 0.9 - 0.3*difficulty, 1 - 0.2*difficulty
+<           incline_height: 0.25*difficulty
+<           last_incline_height: incline_height + 0.1 - 0.1*difficulty
+<         parkour_demo:
+<           function: parkour_isaaclab.terrains.extreme_parkour.extreme_parkour_terrians:parkour_demo_terrain
+<           proportion: 0.0
+---
+>           clear_radius: 2.0
+>           ring_outer_radius: 4.5
+>           n_blocks: 8
+>           bar_fraction: 0.5
+>           hurdle_height_range: 0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty
+>           step_height: 0.02 + 0.06 * difficulty
+>         omni_ring_dense:
+>           function: parkour_isaaclab.terrains.omni.omni_terrains:omni_ring_terrain
+>           proportion: 0.09999999999999998
+561,562c457,458
+<           - 16.0
+<           - 4.0
+---
+>           - 10
+>           - 10
+589a486,491
+>           clear_radius: 2.0
+>           ring_outer_radius: 4.5
+>           n_blocks: 16
+>           bar_fraction: 0.5
+>           hurdle_height_range: 0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty
+>           step_height: 0.02 + 0.06 * difficulty
+631c533
+<       - 0.6
+---
+>       - 0.0
+780c682
+<       func: parkour_tasks.crab_hex_forward_task.mdp.observations:CrabHexParkourObservations
+---
+>       func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_observations:CrabHexOmniParkourObservations
+829a732,734
+>         facing_obs_encoding: raw
+>         facing_obs_clip: 0.6
+>         clock_hide: true
+872c777
+<     func: parkour_isaaclab.envs.mdp.events:reset_root_state
+---
+>     func: parkour_tasks.crab_hex_omni_task.mdp.omni_events:reset_root_state_ring
+874c779,805
+<       offset: 3.0
+---
+>       asset_cfg:
+>         name: robot
+>         joint_names: null
+>         joint_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         fixed_tendon_names: null
+>         fixed_tendon_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         body_names: null
+>         body_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         object_collection_names: null
+>         object_collection_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         preserve_order: false
+>       offset: 0.0
+>       yaw_range: !!python/tuple
+>       - -3.14159
+>       - 3.14159
+965a897,910
+>   rsi_reference_reset:
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rsi:reset_from_reference_states_omni
+>     params:
+>       bank_path: /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/rsi_bank_omni.npz
+>       fraction: 0.2
+>       yaw_range: !!python/tuple
+>       - -3.14159
+>       - 3.14159
+>       walk_floor: 0.21000000000000002
+>       source: all
+>     mode: reset
+>     interval_range_s: null
+>     is_global_time: false
+>     min_step_count_between_reset: 0
+978c923
+<     func: parkour_isaaclab.envs.mdp.rewards:track_lin_vel_travel_exp
+---
+>     func: isaaclab.envs.mdp.rewards:track_lin_vel_xy_exp
+981c926
+<       std: 0.31622776601683794
+---
+>       std: 0.2
+990c935
+<     func: parkour_isaaclab.envs.mdp.rewards:penalty_lin_vel_y_l2
+---
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:penalty_cross_command_vel_l2
+1163,1164c1108,1109
+<       combine: sum
+<     weight: 1.0
+---
+>       combine: product
+>     weight: 0.001
+1196c1141
+<     weight: 1.0
+---
+>     weight: 0.001
+1655c1600
+<     func: parkour_isaaclab.envs.mdp.rewards:reward_tracking_goal_vel_on_parkour
+---
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_tracking_command_vel_on_obstacle
+1680a1626
+>       command_name: base_velocity
+1683c1629
+<     func: parkour_isaaclab.envs.mdp.rewards:reward_tracking_yaw_on_parkour
+---
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_facing_exp
+1709c1655,1656
+<     weight: 0.0
+---
+>       command_name: base_velocity
+>     weight: 0.2
+2032c1979
+<     weight: -1.0
+---
+>     weight: -2.0
+2034c1981
+<     func: parkour_isaaclab.envs.mdp.rewards:reward_obstacle_clearance
+---
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_obstacle_clearance_omni
+2201a2149,2206
+>   reward_yaw_progress:
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_yaw_progress
+>     params:
+>       command_name: base_velocity
+>       asset_cfg:
+>         name: robot
+>         joint_names: null
+>         joint_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         fixed_tendon_names: null
+>         fixed_tendon_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         body_names: null
+>         body_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         object_collection_names: null
+>         object_collection_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         preserve_order: false
+>       clip: null
+>     weight: 1.0
+>   reward_facing_turn:
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:reward_facing_exp_turn_slot
+>     params:
+>       asset_cfg:
+>         name: robot
+>         joint_names: null
+>         joint_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         fixed_tendon_names: null
+>         fixed_tendon_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         body_names: null
+>         body_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         object_collection_names: null
+>         object_collection_ids: !!python/object/apply:builtins.slice
+>         - null
+>         - null
+>         - null
+>         preserve_order: false
+>       parkour_name: base_parkour
+>       command_name: base_velocity
+>     weight: 0.0
+2204c2209
+<     func: parkour_isaaclab.envs.mdp.terminations:terminate_episode
+---
+>     func: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_rewards:terminate_episode_no_goals
+2287c2292
+<     class_type: parkour_isaaclab.envs.mdp.parkour_commands.uniform_parkour_command:UniformParkourCommand
+---
+>     class_type: parkour_tasks.crab_hex_omni_task.mdp.crab_hex_omni_command:CrabHexOmniCommand
+2305c2310
+<       ang_vel_clip: 0.4
+---
+>       ang_vel_clip: 0.2
+2380c2385,2402
+<     heading_offset: -1.5707963267948966
+---
+>     slot_probs: !!python/tuple
+>     - 0.15
+>     - 0.55
+>     - 0.1
+>     - 0.2
+>     speed_ellipse: !!python/tuple
+>     - 0.35
+>     - 0.25
+>     - 0.25
+>     facing_delta: !!python/tuple
+>     - 0.2
+>     - 0.6
+>     travel_dir_range: !!python/tuple
+>     - -3.141592653589793
+>     - 3.141592653589793
+>     ang_vel_max: 0.3
+>     dir_band: null
+>     cmd_pool: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+2383c2405
+<     class_type: parkour_isaaclab.envs.mdp.parkours.parkour_event:ParkourEvent
+---
+>     class_type: parkour_tasks.crab_hex_omni_task.mdp.omni_parkour_event:OmniParkourEvent
+2391,2392c2413,2414
+<     move_up_frac: 0.8
+<     move_down_frac: 0.4
+---
+>     move_up_frac: 0.45
+>     move_down_frac: 0.25
+2525c2547,2556
+< travel_yaw: 1.5707963267948966
+---
+>     clear_radius_m: 2.0
+>     ring_outer_radius_m: 4.5
+>     n_sectors: 8
+>     min_cmd_dist_m: 1.0
+>     block_height_tol_m: 0.03
+>     foot_body_names: !!python/tuple
+>     - .*_Footpad
+>     command_name: base_velocity
+> omni_command: true
+> omni_clock_turn_radius: 1.2

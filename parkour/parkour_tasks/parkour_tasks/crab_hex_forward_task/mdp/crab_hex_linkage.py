@@ -220,3 +220,40 @@ def knee_default_left_rad() -> float:
 
 def knee_default_right_rad() -> float:
     return -knee_default_left_rad()
+
+
+# --------------------------------------------------------------------------------------
+# Optional first-order low-pass on the rod-length COMMAND (``KRABBY_ACTION_LPF_HZ``, omni
+# motion-quality campaign 2026-09-22; DEFAULT OFF -- nothing calls these unless the action
+# cfg carries ``lpf_hz``). Pure torch so the unit tests pin the exact arithmetic the action
+# term runs.
+# --------------------------------------------------------------------------------------
+def lpf_alpha(cutoff_hz: float, dt: float) -> float:
+    """Discrete first-order low-pass gain for a ``cutoff_hz`` corner sampled every ``dt`` s.
+
+    ``y += alpha * (x - y)`` with ``alpha = 1 - exp(-2 pi f_c dt)`` -- the exact
+    zero-order-hold discretisation of ``tau dy/dt = x - y`` with ``tau = 1 / (2 pi f_c)``, so
+    the corner does not move with the physics step. ``cutoff_hz`` must be positive.
+    """
+    if not (cutoff_hz > 0.0 and dt > 0.0):
+        raise ValueError(f"lpf_alpha needs cutoff_hz > 0 and dt > 0, got {cutoff_hz!r}, {dt!r}")
+    return 1.0 - math.exp(-2.0 * math.pi * float(cutoff_hz) * float(dt))
+
+
+def lpf_step(state: torch.Tensor, target: torch.Tensor, alpha: float) -> torch.Tensor:
+    """One low-pass step: ``state + alpha * (target - state)`` (returns a new tensor)."""
+    return state + alpha * (target - state)
+
+
+def hip_rod_normalized(length: torch.Tensor) -> torch.Tensor:
+    """Hip rod length mapped to ``[-1, 1]`` over its stroke window (0 = mid-stroke)."""
+    mid = (HIP_LEN_MIN_M + HIP_LEN_MAX_M) / 2.0
+    half = (HIP_LEN_MAX_M - HIP_LEN_MIN_M) / 2.0
+    return (length - mid) / half
+
+
+def knee_rod_normalized(length: torch.Tensor) -> torch.Tensor:
+    """Knee rod length mapped to ``[-1, 1]`` over its stroke window (0 = mid-stroke)."""
+    mid = (KNEE_LEN_MIN_M + KNEE_LEN_MAX_M) / 2.0
+    half = (KNEE_LEN_MAX_M - KNEE_LEN_MIN_M) / 2.0
+    return (length - mid) / half

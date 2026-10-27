@@ -1,0 +1,134 @@
+{
+ "check": "C2",
+ "class": "report",
+ "dirsweep_body": "no recorded stamp: anchored by C5 (report-only)",
+ "families": {
+  "REFS:suite": {
+   "bitwise": true,
+   "ref": "REFS_suite_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/T4C2_REFS_S1/suite__omni/seed001/2026-10-17_04-31-21"
+  },
+  "REFS:walkstop": {
+   "bitwise": true,
+   "ref": "REFS_walkstop_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/T4C2_REFS_S1/walkstop__omni/seed001/2026-10-17_04-38-23"
+  },
+  "field_hard": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "REF_field_hard_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_hard__omni/seed001/2026-10-17_03-39-20"
+  },
+  "field_light": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "REF_field_light_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_light__omni/seed001/2026-10-17_03-43-00"
+  },
+  "field_suite": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": true,
+   "raw_bitwise": true,
+   "ref": "REFS_field_suite_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_suite__omni/seed001/2026-10-17_03-52-12"
+  },
+  "field_turn": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "REF_field_turn_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_turn__omni/seed001/2026-10-17_03-49-59"
+  },
+  "grid_body": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "ANC_grid_body_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/grid__omni_body/seed001/2026-10-17_04-13-49"
+  },
+  "hraise": {
+   "aggregate_equal": true,
+   "aggregate_keys_differ": null,
+   "ref": "SH_T17_hraise_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/T4C2_SH_T17/hraise__omni/seed001/2026-10-17_04-48-05"
+  },
+  "hwalkstop": {
+   "aggregate_equal": true,
+   "aggregate_keys_differ": null,
+   "ref": "SH_T17_hwalkstop_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/T4C2_SH_T17/hwalkstop__omni/seed001/2026-10-17_04-41-01"
+  },
+  "ring_obst": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "REF_ring_obst_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/ring_obst__omni/seed001/2026-10-17_03-46-30"
+  },
+  "side22": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "P2_side22_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/side22_25lr__omni/seed001/2026-10-17_03-35-41"
+  },
+  "suite": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": true,
+   "raw_bitwise": true,
+   "ref": "REFS_suite_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36"
+  },
+  "suite_body": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": true,
+   "raw_bitwise": true,
+   "ref": "ANC_suite_body_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni_body/seed001/2026-10-17_03-59-40"
+  },
+  "turn_band": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "ref": "TB_c6x_es1 (X60 c6x)",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_X60/turn_band__omni/seed001/2026-10-17_04-27-42"
+  },
+  "turnlevels_body": {
+   "aggregate_keys_differ": null,
+   "bitwise": true,
+   "n_value_mismatch": 0,
+   "only_metadata_differs": false,
+   "raw_bitwise": true,
+   "ref": "ANC_turnlevels_body_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/turnlevels__omni_body/seed001/2026-10-17_04-06-43"
+  },
+  "walkstop(SH zero)": {
+   "aggregate_equal": true,
+   "aggregate_keys_differ": null,
+   "ref": "SH_T17z_walkstop_es1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/T4C2_SH_T17z/walkstop__omni/seed001/2026-10-17_04-52-43"
+  }
+ },
+ "reanchor": [],
+ "reanchor_procedure": "STEPC_RULES C2.3 (before the v1 freeze, at the pin)",
+ "verdict": "PASS"
+}

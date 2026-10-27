@@ -1,0 +1,3 @@
+# C2_REFS_walkstop@1 [C2 p2row] the REFS(T*) launcher path (run_arm --row-eval, P2_REANCHOR=1) vs REFS_S1_s18
+set -u
+P2_REANCHOR=1 bash /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scripts/run_arm.sh --row-eval T4C2_REFS_S1 /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24 /home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scenarios_p2s.yaml walkstop__omni 1

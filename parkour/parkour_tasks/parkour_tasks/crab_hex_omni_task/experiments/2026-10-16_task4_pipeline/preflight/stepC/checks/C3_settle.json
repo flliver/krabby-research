@@ -1,0 +1,107 @@
+{
+ "check": "C3_settle",
+ "class": "stop",
+ "levels": {
+  "0": {
+   "max_tilt_deg": 1.7614667756320608,
+   "mean_sag_m": 0.0008700633780998057,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L000/adhoc/seed001/2026-10-17_05-17-41",
+   "sum_foot_force_ratio": 0.9761731998024915,
+   "sum_foot_force_rel_0kg": 1.0,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  },
+  "45": {
+   "max_tilt_deg": 1.8398813777130774,
+   "mean_sag_m": 0.0009562831306666603,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L045/adhoc/seed001/2026-10-17_05-18-22",
+   "sum_foot_force_ratio": 0.9735084148921291,
+   "sum_foot_force_rel_0kg": 0.997270172023877,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  },
+  "90": {
+   "max_tilt_deg": 1.8937162632056177,
+   "mean_sag_m": 0.001022274295488984,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L090/adhoc/seed001/2026-10-17_05-19-03",
+   "sum_foot_force_ratio": 0.9734006154942146,
+   "sum_foot_force_rel_0kg": 0.99715974141798,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  },
+  "135": {
+   "max_tilt_deg": 1.9491654204259563,
+   "mean_sag_m": 0.0011069540653312615,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L135/adhoc/seed001/2026-10-17_05-19-44",
+   "sum_foot_force_ratio": 0.9727743035805547,
+   "sum_foot_force_rel_0kg": 0.9965181422491167,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  },
+  "180": {
+   "max_tilt_deg": 1.9952210139682693,
+   "mean_sag_m": 0.0011579327677425644,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L180/adhoc/seed001/2026-10-17_05-20-25",
+   "sum_foot_force_ratio": 0.9725879590028973,
+   "sum_foot_force_rel_0kg": 0.9963272493033822,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  },
+  "225": {
+   "max_tilt_deg": 2.033302093215502,
+   "mean_sag_m": 0.001206542446947928,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L225/adhoc/seed001/2026-10-17_05-21-06",
+   "sum_foot_force_ratio": 0.9726993967202772,
+   "sum_foot_force_rel_0kg": 0.9964414070342054,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  },
+  "270": {
+   "max_tilt_deg": 2.0806707014865493,
+   "mean_sag_m": 0.0012672650055926965,
+   "n": 32,
+   "payload_problems": [],
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/lr/T4C3_settle_L270/adhoc/seed001/2026-10-17_05-21-47",
+   "sum_foot_force_ratio": 0.9721093083640265,
+   "sum_foot_force_rel_0kg": 0.9958369155808752,
+   "terminated": 0,
+   "termination_reasons": {
+    "schedule_complete": 32
+   },
+   "tips": false
+  }
+ },
+ "sum_force_ref_0kg": 0.9761731998024915,
+ "tips_above_90": [],
+ "verdict": "PASS"
+}

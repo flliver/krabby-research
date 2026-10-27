@@ -1,0 +1,591 @@
+{
+  "RG1": {
+    "held_reversed": [
+      {
+        "category": "fwd",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.7161317983674718,
+          "healthy_total": 0.44324492949671845,
+          "ordering": false
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": 1.265800429361433,
+          "healthy_total": 1.0434332525802643,
+          "ordering": false
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 52445,
+        "note": "no clock-held ordering: not an RG1 criterion",
+        "pass": null,
+        "ratio_floor": 0.8243268278133324,
+        "ratio_free": 0.6189432315492215,
+        "ratio_held": 0.8243268278133324
+      },
+      {
+        "category": "diag",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.49568856184162047,
+          "healthy_total": 0.10346577755311048,
+          "ordering": false
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": 1.091041238946953,
+          "healthy_total": 0.6579671930248403,
+          "ordering": false
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 49663,
+        "note": "no clock-held ordering: not an RG1 criterion",
+        "pass": null,
+        "ratio_floor": 0.6030635410810818,
+        "ratio_free": 0.2087314203271232,
+        "ratio_held": 0.6030635410810818
+      },
+      {
+        "category": "fwd",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.7161317983674718,
+          "healthy_total": 0.1353970801066351,
+          "ordering": false
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": 1.265800429361433,
+          "healthy_total": 0.7160391261812342,
+          "ordering": false
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 47800,
+        "note": "no clock-held ordering: not an RG1 criterion",
+        "pass": null,
+        "ratio_floor": 0.5656809000629422,
+        "ratio_free": 0.1890672644550804,
+        "ratio_held": 0.5656809000629422
+      },
+      {
+        "category": "side",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.3263137757706085,
+          "healthy_total": 0.2597718638566022,
+          "ordering": false
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": 0.8060902962747327,
+          "healthy_total": 0.7997276768957788,
+          "ordering": false
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 105516,
+        "note": "no clock-held ordering: not an RG1 criterion",
+        "pass": null,
+        "ratio_floor": 0.9921068155660003,
+        "ratio_free": 0.7960799792872251,
+        "ratio_held": 0.9921068155660003
+      },
+      {
+        "category": "back",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.6862226383331986,
+          "healthy_total": 0.11605373214161374,
+          "ordering": false
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": 1.1132840253325629,
+          "healthy_total": 0.6944148574588187,
+          "ordering": false
+        },
+        "n_degenerate": 54450,
+        "n_healthy": 49526,
+        "note": "no clock-held ordering: not an RG1 criterion",
+        "pass": null,
+        "ratio_floor": 0.623753545059071,
+        "ratio_free": 0.16911964959871129,
+        "ratio_held": 0.623753545059071
+      },
+      {
+        "category": "diag",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.49568856184162047,
+          "healthy_total": 0.0850718234542387,
+          "ordering": false
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": 1.091041238946953,
+          "healthy_total": 0.6327752448001951,
+          "ordering": false
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 44292,
+        "note": "no clock-held ordering: not an RG1 criterion",
+        "pass": null,
+        "ratio_floor": 0.5799737188769644,
+        "ratio_free": 0.17162353542751377,
+        "ratio_held": 0.5799737188769644
+      }
+    ],
+    "pass": false,
+    "rows": [
+      {
+        "category": "fwd",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -36.15739144142926,
+          "healthy_total": 0.44324492949671845,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": -35.97704768942844,
+          "healthy_total": 1.0434332525802643,
+          "ordering": true
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 52445,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.9770, free -36.1574); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "side",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.14865009203253,
+          "healthy_total": 0.3083372670766116,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": -34.96737588409258,
+          "healthy_total": 0.8807738179124167,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 108768,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -34.9674, free -35.1487); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "back",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.5864744754808,
+          "healthy_total": 0.5409920927905478,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": -35.40673413556225,
+          "healthy_total": 1.1581763943635517,
+          "ordering": true
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 52349,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.4067, free -35.5865); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "diag",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.34283511652795,
+          "healthy_total": 0.10346577755311048,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": -35.16016063745617,
+          "healthy_total": 0.6579671930248403,
+          "ordering": true
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 49663,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.1602, free -35.3428); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "turn",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.219604388999855,
+          "healthy_total": 0.3906498964684728,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": -35.038803884285485,
+          "healthy_total": 0.9037211190381587,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 108196,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.0388, free -35.2196); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "move_turn",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -36.25771066265629,
+          "healthy_total": -0.10641508983742365,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": -36.0770347302308,
+          "healthy_total": 0.42572894979842024,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 95820,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -36.0770, free -36.2577); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "side",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.3263137757706085,
+          "healthy_total": 0.3083372670766116,
+          "ordering": false
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": 0.8060902962747327,
+          "healthy_total": 0.8807738179124167,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 108768,
+        "pass": false,
+        "ratio_floor": 1.0926490766392134,
+        "ratio_free": 0.9449103592039767,
+        "ratio_held": 1.0926490766392134
+      },
+      {
+        "category": "back",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.6862226383331986,
+          "healthy_total": 0.5409920927905478,
+          "ordering": false
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": 1.1132840253325629,
+          "healthy_total": 1.1581763943635517,
+          "ordering": true
+        },
+        "n_degenerate": 54450,
+        "n_healthy": 52349,
+        "pass": false,
+        "ratio_floor": 1.040324273060128,
+        "ratio_free": 0.7883623514732643,
+        "ratio_held": 1.040324273060128
+      },
+      {
+        "category": "turn",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.2940268117847469,
+          "healthy_total": 0.3906498964684728,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": 0.6824852434378947,
+          "healthy_total": 0.9037211190381587,
+          "ordering": true
+        },
+        "n_degenerate": 102082,
+        "n_healthy": 108196,
+        "pass": true,
+        "ratio_floor": 1.1,
+        "ratio_free": 1.3286199788965587,
+        "ratio_held": 1.3241621379032733
+      },
+      {
+        "category": "move_turn",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": -0.15981363265583415,
+          "healthy_total": -0.10641508983742365,
+          "ordering": true
+        },
+        "healthy": "E1",
+        "held": {
+          "degenerate_total": 0.3211937330247949,
+          "healthy_total": 0.42572894979842024,
+          "ordering": true
+        },
+        "n_degenerate": 90049,
+        "n_healthy": 95820,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held 0.3212, free -0.1598); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "fwd",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -36.15739144142926,
+          "healthy_total": 0.1353970801066351,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": -35.97704768942844,
+          "healthy_total": 0.7160391261812342,
+          "ordering": true
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 47800,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.9770, free -36.1574); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "side",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.14865009203253,
+          "healthy_total": 0.2597718638566022,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": -34.96737588409258,
+          "healthy_total": 0.7997276768957788,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 105516,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -34.9674, free -35.1487); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "back",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.5864744754808,
+          "healthy_total": 0.11605373214161374,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": -35.40673413556225,
+          "healthy_total": 0.6944148574588187,
+          "ordering": true
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 49526,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.4067, free -35.5865); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "diag",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.34283511652795,
+          "healthy_total": 0.0850718234542387,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": -35.16016063745617,
+          "healthy_total": 0.6327752448001951,
+          "ordering": true
+        },
+        "n_degenerate": 55000,
+        "n_healthy": 44292,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.1602, free -35.3428); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "turn",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -35.219604388999855,
+          "healthy_total": 0.3375402105915535,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": -35.038803884285485,
+          "healthy_total": 0.9236638299647262,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 108783,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -35.0388, free -35.2196); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "move_turn",
+        "degenerate": "E6",
+        "free": {
+          "degenerate_total": -36.25771066265629,
+          "healthy_total": -0.16997524598599423,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": -36.0770347302308,
+          "healthy_total": 0.37963233295859045,
+          "ordering": true
+        },
+        "n_degenerate": 110000,
+        "n_healthy": 92659,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held -36.0770, free -36.2577); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": true,
+        "ratio_free": null,
+        "ratio_held": null
+      },
+      {
+        "category": "turn",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": 0.2940268117847469,
+          "healthy_total": 0.3375402105915535,
+          "ordering": true
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": 0.6824852434378947,
+          "healthy_total": 0.9236638299647262,
+          "ordering": true
+        },
+        "n_degenerate": 102082,
+        "n_healthy": 108783,
+        "pass": true,
+        "ratio_floor": 1.1,
+        "ratio_free": 1.1479912615542769,
+        "ratio_held": 1.3533828589640098
+      },
+      {
+        "category": "move_turn",
+        "degenerate": "E7",
+        "free": {
+          "degenerate_total": -0.15981363265583415,
+          "healthy_total": -0.16997524598599423,
+          "ordering": false
+        },
+        "healthy": "E3",
+        "held": {
+          "degenerate_total": 0.3211937330247949,
+          "healthy_total": 0.37963233295859045,
+          "ordering": true
+        },
+        "n_degenerate": 90049,
+        "n_healthy": 92659,
+        "note": "RG1 ratio undefined: degenerate total <= 0 (held 0.3212, free -0.1598); reported, not divided (audit item 11) -- judged on the clock-free ordering only",
+        "pass": false,
+        "ratio_free": null,
+        "ratio_held": null
+      }
+    ]
+  },
+  "RG2": {
+    "frac_free": 0.3535684530861515,
+    "frac_held": 0.23077973001156343,
+    "n": 915817,
+    "pass": false,
+    "rise": 0.12278872307458805
+  },
+  "RG3": {
+    "back": {
+      "n": 101875,
+      "pos_free": 1.8985218761366212,
+      "pos_held": 2.4968324930250145,
+      "share": 0.239627855917365
+    },
+    "diag": {
+      "n": 93955,
+      "pos_free": 1.6814517329865557,
+      "pos_held": 2.232748457320839,
+      "share": 0.2469139425566127
+    },
+    "fwd": {
+      "n": 100245,
+      "pos_free": 1.861516399087819,
+      "pos_held": 2.452384436461079,
+      "share": 0.24093613896274524
+    },
+    "move_turn": {
+      "n": 188479,
+      "pos_free": 1.5468305338400605,
+      "pos_held": 2.0875599017554936,
+      "share": 0.25902459970644054
+    },
+    "side": {
+      "n": 214284,
+      "pos_free": 1.767727894181988,
+      "pos_held": 2.3241705419296066,
+      "share": 0.23941558405849195
+    },
+    "stand": {
+      "n": 108996,
+      "pos_free": 2.011428890997326,
+      "pos_held": 2.3927381939832455,
+      "share": 0.1593610633811738
+    },
+    "turn": {
+      "n": 216979,
+      "pos_free": 1.7991726396466186,
+      "pos_held": 2.3488688760723626,
+      "share": 0.23402593564307986
+    }
+  },
+  "economy_notes": [
+    "reward_stride_length (weight 0.5) has a nonzero weight in this dump but no replayed formula -- NOT REPLAYED (see the module docstring's NOT_REPLAYED_NOTES)",
+    "penalty_tibia_deviation_in_stance (weight -0.28) has a nonzero weight in this dump but no replayed formula -- NOT REPLAYED (see the module docstring's NOT_REPLAYED_NOTES)"
+  ],
+  "economy_source": "env: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/params/env.yaml",
+  "known_simplifications": "action_rate has no action_delay (OF's formula; a regularizer, not read by RG1-RG3); air_time uses exact step timing, not the float32 contact-sensor clock drift RMT emulates (RMT's own 'airtime_exact' counterfactual, not its training-faithful 'airtime').",
+  "not_replayed": "reward_stride_length (RewardStrideLength) and penalty_tibia_deviation_in_stance (penalty_joint_deviation_when_in_contact) are the OF tool's own two gaps, inherited unchanged: the OF tool measured reward_stride_length at 0.000/s income on every walking head it checked, and penalty_tibia_deviation_in_stance needs a per-joint in-stance mask against default_joint_pos that this replay's npz does not carry. Any OTHER nonzero-weight term in the weights dump is listed by Economy.notes, generated at load time -- see economy_from_env_yaml.",
+  "phase_sources": {
+    "E1": {
+      "recorded": 1000
+    },
+    "E3": {
+      "recorded": 1000
+    },
+    "E6": {
+      "recorded": 1000
+    },
+    "E7": {
+      "recorded": 1000
+    }
+  }
+}

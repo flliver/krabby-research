@@ -1,0 +1,925 @@
+# Task 4 pipeline spec (PLAN.md Shape). Hand-maintained; every overlay is the shipped lineage's VERBATIM and
+# `TP/pipeline.py check` refuses a drift (overlay_sha256 = sha256 of the compact JSON of the overlay, key order
+# kept) and every PLACEHOLDER value (N_p, x_rule, the student manifest-shape split) for an official run.
+schema: 1
+name: task4_pipeline
+notes: 'M18 Task 4 pipeline spec (PLAN.md Shape; DESIGN.md section 2). The ONE description of the runs: TP/pipeline.py gen
+  writes each run''s candidates.yaml + env files from it (every driver stage resumes the previous stage by {reference:}
+  in the SAME file), check verifies it (overlay shas against the shipped lineage files, placeholders, the lock), run executes
+  it. PLAN wins over this file.'
+plant: A15+B
+# thresholds v1 (frozen at PLAN step 8: thresholds_v0 + the payload pilot's p3a terms + the sweep WATCH lines;
+# threshold_inputs_v1.yaml). v0 stays on disk as the record.
+# thresholds v1.1 (CHARTER 2026-10-21, R18 SN HALT -> user decisions 1 / C): v1 + the SN G1 taps/s and steps/s lines
+# (suite es1 / es2) on the WATCH list + degenerate fixed-t lines reported as rate None ('degenerate/unvalidated');
+# threshold_inputs_v1_1.yaml. v1 stays on disk as the record (R18's gates up to sn cite its sha).
+# thresholds v1.2 (CHARTER 2026-10-22, F19 p3b -> user decision "amend + switch now"): v1.1 + the paired 0-kg check reads
+# every trained translate category as track_err = |r_head - 1| - |r_p2a - 1| (an increase fails; R = 99 % guard R, SE /
+# drift on |r - 1|), move_turn still the one-sided drop, the raw translate drop WATCH; threshold_inputs_v1_2.yaml. v1.1
+# stays on disk as the record (R18's gates and F19's up to p3b cite its sha; F19 re-gates p3a / p3b with
+# `continue --amend st --retarget-tstar`).
+thresholds:
+  file: thresholds_v1_2.json
+  version: v1.2
+lock: pipeline.lock.json
+# N_p: PLAN step 8 C3.6 (preflight/stepC_read.json v1.N_p): no pilot read settled within R of the read 500 its earlier,
+# so N_p = the clamp's 3000 (not_converged, disclosed); the same N_p for p3a / p3b / p3c
+N_p: 3000
+runs:
+  R18:
+    dir: R18
+    walker_seed: 18
+    dagger_seed: 17
+    x_replay: true
+    p_live: true
+    notes: full-pipeline seed-18 replay; DAgger seed 17 (the recipe of record); X stand replay
+    replay_of:
+      notes: 'PLAN step 9 ''process reproduced'': P-config per stage against these lineage run dirs (the CHARTER 2026-10-16
+        step-2 allow-list), P-early on s1 (steps 0-19) and P-live (+200) against X43 under the STOP-0 hist_latent <= 4 ULP
+        amendment; a failure is STOP-R'
+      s1: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-04_10-01-39_seed18_X43_s1_A15pB
+      c4: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-05_17-41-16_seed18_X57_c4_A15pB
+      c5: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_00-56-48_seed18_X60_c5_A15pB
+      c6: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_01-30-49_seed18_X60_c6_A15pB
+      c6x: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB
+      p2a: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB
+  F19:
+    dir: F19
+    walker_seed: 19
+    dagger_seed: 19
+    x_replay: false
+    p_live: false
+    notes: the official fresh-seed run, seed 19 throughout
+  dry:
+    dir: dry
+    walker_seed: 18
+    dagger_seed: 17
+    x_replay: true
+    p_live: false
+    iters_override: 20
+    dry: true
+    notes: 'PLAN step 8 full-graph dry pass: 20-iteration stand-ins for every driver stage (the student / DAgger stand-ins
+      take stage_iters_override); forced FAIL / INVALID / GUARD / live-kill injections are the orchestrator''s (TP_DRY_INJECT),
+      never in an official run'
+    stage_iters_override:
+      st: 50
+      sn: 20
+      sh: 20
+      sn_ref: 20
+      sh_ref: 20
+chain_name: '{run}_{stage}'
+carry_env:
+  notes: 'Gate 0''s NAMED carry-env checks (PLAN Gates -> Gate 0), stated independently of the composition gen does (which
+    is also compared key for key): every walker / payload / student / stand row'
+  common:
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_OMNI_FACING_OBS_CLIP: '0.6'
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_STAND_OBS: '0'
+    KRABBY_PLANT: A15+B
+  clock_hide:
+    s1: '0'
+    c4: '0'
+    c5: '0'
+    c6: '0'
+    default: '1'
+  command_frame_allowed:
+  - world
+  - null
+  forbidden_prefixes:
+  - KRABBY_P2R_
+  - KRABBY_SH_
+  - KRABBY_SN_STAND_
+row_out: parkour/outputs/omni_plan/task4
+row_timeout_s: 5400
+row_timeout_note: 'gate_row.sh''s SIGTERM bound per row (TP_ROW_TIMEOUT); a family''s timeout_s overrides it (the 16-wave
+  body rows: 10800 s); PLAN step 8''s C2 measures the real durations'
+paths:
+  notes: every dated path the TP tools read (TP itself carries none; relative to the omni task dir)
+  side22_classify: experiments/2026-10-01_ppo_construction/scripts/side22_classify.py
+  sh_kin: experiments/2026-10-13_stand_height/scripts/sh_kin.py
+  p2_scripts: experiments/2026-10-07_omni_phase2/scripts
+decision_rule_source:
+  file: 2026-10-07_omni_phase2/candidates.yaml
+  key: decision_rule
+lineage:
+  s1:
+    source: 2026-10-01_ppo_construction/candidates.yaml
+    chain: FB6k__B
+    stage: s1
+    keys: 14
+    overlay_sha256: 77d3c18b31b576e0383b5978c7474341262416d2830e11b88a91c1819a6d5231
+    base: 1b
+    chain_keys: &id001 {}
+    source_iters: 6000
+    source_resume: scratch
+    source_eval:
+    - suite
+  c4:
+    source: 2026-10-01_ppo_construction/candidates.yaml
+    chain: SF__B_c4_s18
+    stage: c4
+    keys: 16
+    overlay_sha256: 4def0375a648bcdb6c2a14fc6a6238d2962ba534f6efbe4285f5b0cdba9d581a
+    base: 1a
+    chain_keys: &id002 {}
+    source_iters: 1500
+    source_resume:
+      reference: FB6k__B_s18
+    source_eval:
+    - suite
+  c5:
+    source: 2026-10-01_ppo_construction/candidates.yaml
+    chain: SF__B_rest_s18
+    stage: c5
+    keys: 16
+    overlay_sha256: 46dce435bcadf99850a5efd2dc46999a3eb577758e935e0061187bc2672c4c34
+    base: 1a
+    chain_keys: &id003 {}
+    source_iters: 1500
+    source_resume:
+      reference: SF__B_c4_s18
+    source_eval: []
+  c6:
+    source: 2026-10-01_ppo_construction/candidates.yaml
+    chain: SF__B_rest_s18
+    stage: c6
+    keys: 16
+    overlay_sha256: a872d40d97e8f3a2fc25aaa0e47b6937a64cdd8046a7a96b9efd9051227d3cc1
+    base: 1a
+    chain_keys: &id004 {}
+    source_iters: 2000
+    source_resume: previous_stage
+    source_eval:
+    - suite
+  c6x:
+    source: 2026-10-01_ppo_construction/candidates.yaml
+    chain: SF__B_rest_s18
+    stage: c6x
+    keys: 19
+    overlay_sha256: 756575e4bdb93a4db34cc8cad5d171bb033df851e063c1cadf39650ba56ff651
+    base: 1a
+    chain_keys: &id005 {}
+    source_iters: 4000
+    source_resume: previous_stage
+    source_eval:
+    - suite
+  p2a:
+    source: 2026-10-07_omni_phase2/candidates.yaml
+    chain: P2__S1_s18
+    stage: p2a
+    keys: 27
+    overlay_sha256: 6fb1eb3d8aeafa5bf5f1d34b0ab67377f627cb60b788d23d3b7cfa714756dcec
+    base: 2a
+    chain_keys: &id006
+      absolute_units: true
+    source_iters: 5000
+    source_resume:
+      checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-06_02-24-21_seed18_X60_c6x_A15pB/model_14995.pt
+    source_eval:
+    - suite
+payload:
+  training:
+    KRABBY_PAYLOAD_ZERO_FRAC: '0.25'
+    KRABBY_PAYLOAD_COM_XY: '0.10'
+    KRABBY_PAYLOAD_COM_Z: '0.309'
+  level_env:
+    KRABBY_PAYLOAD_ZERO_FRAC: '0'
+    KRABBY_PAYLOAD_COM_XY: '0'
+    KRABBY_PAYLOAD_COM_Z: '0.309'
+  levels:
+  - 0
+  - 45
+  - 90
+  - 135
+  - 180
+  - 225
+  - 270
+  level_rows:
+  - suite@1
+  - suite@2
+  - field_light@1
+  - field_light@2
+  zero_kg_rows: unarmed
+  zero_kg_rows_note: 'PLAN left-for-implementation item 7, chosen once: the 0-kg CHECK rows carry no payload (their env
+    is the p2a rows'' env exactly, so the pair is real); the curve''s level 0 is armed at 0:0 (a level row: its run_meta
+    payload must read 0 kg)'
+row_lists:
+  zero_kg:
+  - suite@1:driver
+  - suite@2
+  - side22@1
+  - field_hard@1
+  - field_hard@2
+  - field_light@1
+  - field_light@2
+  - ring_obst@1
+  - ring_obst@2
+  - field_turn@1
+  - field_turn@2
+rows:
+  suite:
+    manifest: experiments/eval/scenarios_omni.yaml
+    scenario: suite__omni
+    trained_categories: true
+    kind: suite
+  side22:
+    manifest: experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml
+    scenario: side22_25lr__omni
+    kind: lr
+  turn_band:
+    manifest: experiments/2026-10-01_ppo_construction/scenarios_turn_band.yaml
+    scenario: turn_band__omni
+    kind: turn
+  field_hard:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    scenario: field_hard__omni
+    kind: field
+  field_light:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    scenario: field_light__omni
+    kind: field
+  ring_obst:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    scenario: ring_obst__omni
+    kind: field
+  field_turn:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    scenario: field_turn__omni
+    kind: field
+  field_suite:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    scenario: field_suite__omni
+    trained_categories: true
+    kind: suite
+  walkstop:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2s.yaml
+    scenario: walkstop__omni
+    kind: stand
+  suite_body:
+    manifest: experiments/eval/scenarios_omni_body.yaml
+    scenario: suite__omni_body
+    trained_categories: true
+    kind: body
+    args:
+    - --command-adapter
+    - body_hold
+  turnlevels_body:
+    manifest: experiments/eval/scenarios_omni_body.yaml
+    scenario: turnlevels__omni_body
+    kind: body
+    args:
+    - --command-adapter
+    - body_hold
+  grid_body:
+    manifest: experiments/eval/scenarios_omni_body.yaml
+    scenario: grid__omni_body
+    kind: body
+    args:
+    - --command-adapter
+    - body_hold
+    timeout_s: 10800
+  hwalkstop:
+    manifest: experiments/2026-10-13_stand_height/scenarios_sh.yaml
+    scenario: hwalkstop__omni
+    kind: stand
+  hraise:
+    manifest: experiments/2026-10-13_stand_height/scenarios_sh.yaml
+    scenario: hraise__omni
+    kind: stand
+  dirsweep_body:
+    manifest: experiments/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml
+    scenario: dirsweep__omni_body
+    kind: body
+    args:
+    - --command-adapter
+    - body_hold
+    timeout_s: 10800
+dependency_notes: 'needs: every listed stage passed (or its HALT was accepted as chance); settled: every listed stage is
+  terminal without an open HALT (pass / accepted / ceiling / skipped); after: ordering only (the listed stage is no longer
+  pending or running -- a HALT there does not block: the student branch''s HALT never holds the stand branch); when: a condition
+  on the records'
+stages:
+- id: s1
+  kind: driver
+  lineage: s1
+  base: 1b
+  iters: 6000
+  resume: scratch
+  eval:
+  - suite
+  categories:
+  - back
+  - fwd
+  - side
+  - stand
+  floor:
+    kind: none
+  chain_keys: *id001
+  overlay:
+    KRABBY_OMNI_CMD_POOL: stand:0.2,fwd:0.2,side_l:0.2,side_r:0.2,back:0.2
+    KRABBY_OMNI_DIR_BAND: ''
+    KRABBY_OMNI_SLOTS: 0.2:0.8:0:0
+    KRABBY_OMNI_MIRROR_IMAGES: fa
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_ACTION_BOUND_LOSS: '0.001'
+    KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+    KRABBY_ACTION_BOUND: '1.1'
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_ENTROPY_COEF: '0.0025'
+    KRABBY_ACTION_RATE_W: '0'
+    KRABBY_PPO_HAND_DIAG: '1'
+  gate:
+    class: walker
+    rows:
+    - suite@1:driver
+    - side22@1
+  needs: []
+- id: c4
+  kind: driver
+  lineage: c4
+  base: 1a
+  iters: 1500
+  resume: s1
+  eval:
+  - suite
+  categories:
+  - back
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys: *id002
+  overlay:
+    KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025
+    KRABBY_OMNI_SLOTS: 0.15:0.6:0.15:0.1
+    KRABBY_OMNI_DIR_BAND: ''
+    KRABBY_OMNI_FACING: 0.2:0.6
+    KRABBY_YAW_W: '0.2'
+    KRABBY_OMNI_MIRROR_IMAGES: fa
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_ACTION_BOUND_LOSS: '0.001'
+    KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+    KRABBY_ACTION_BOUND: '1.1'
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_ENTROPY_COEF: '0.0025'
+    KRABBY_ACTION_RATE_W: '0'
+    KRABBY_PPO_HAND_DIAG: '1'
+  gate:
+    class: walker
+    rows:
+    - suite@1:driver
+    - side22@1
+  needs:
+  - s1
+- id: c5
+  kind: driver
+  lineage: c5
+  base: 1a
+  iters: 1500
+  resume: c4
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys: *id003
+  overlay:
+    KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04
+    KRABBY_OMNI_SLOTS: 0.15:0.6:0.1:0.15
+    KRABBY_OMNI_DIR_BAND: ''
+    KRABBY_OMNI_FACING: 0.2:0.6
+    KRABBY_YAW_W: '0.2'
+    KRABBY_OMNI_MIRROR_IMAGES: fa
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_ACTION_BOUND_LOSS: '0.001'
+    KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+    KRABBY_ACTION_BOUND: '1.1'
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_ENTROPY_COEF: '0.0025'
+    KRABBY_ACTION_RATE_W: '0'
+    KRABBY_PPO_HAND_DIAG: '1'
+  gate:
+    class: walker
+    rows:
+    - suite@1:driver
+    - side22@1
+  needs:
+  - c4
+- id: c6
+  kind: driver
+  lineage: c6
+  base: 1a
+  iters: 2000
+  resume: c5
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys: *id004
+  overlay:
+    KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+    KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+    KRABBY_OMNI_DIR_BAND: ''
+    KRABBY_OMNI_FACING: 0.2:0.6
+    KRABBY_YAW_W: '0.2'
+    KRABBY_OMNI_MIRROR_IMAGES: fa
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_ACTION_BOUND_LOSS: '0.001'
+    KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+    KRABBY_ACTION_BOUND: '1.1'
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_ENTROPY_COEF: '0.0025'
+    KRABBY_ACTION_RATE_W: '0'
+    KRABBY_PPO_HAND_DIAG: '1'
+  gate:
+    class: walker
+    rows:
+    - suite@1:driver
+    - side22@1
+    - turn_band@1
+  needs:
+  - c5
+- id: c6x
+  kind: driver
+  lineage: c6x
+  base: 1a
+  iters: 4000
+  resume: c6
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys: *id005
+  overlay:
+    KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+    KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+    KRABBY_OMNI_DIR_BAND: ''
+    KRABBY_OMNI_FACING: 0.2:0.6
+    KRABBY_YAW_W: '0.2'
+    KRABBY_CLOCK_W: '0.001'
+    KRABBY_APEX_W: '0.001'
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+    KRABBY_OMNI_MIRROR_IMAGES: fa
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_ACTION_BOUND_LOSS: '0.001'
+    KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+    KRABBY_ACTION_BOUND: '1.1'
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_ENTROPY_COEF: '0.0025'
+    KRABBY_ACTION_RATE_W: '0'
+    KRABBY_PPO_HAND_DIAG: '1'
+  gate:
+    class: walker
+    rows:
+    - suite@1:driver
+    - side22@1
+    - turn_band@1
+    - field_hard@1
+    - field_hard@2
+    - field_light@1
+    - field_light@2
+    - ring_obst@1
+    - ring_obst@2
+  needs:
+  - c6
+- id: p2a
+  kind: driver
+  lineage: p2a
+  base: 2a
+  iters: 5000
+  resume: c6x
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys: *id006
+  overlay:
+    KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+    KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+    KRABBY_OMNI_DIR_BAND: ''
+    KRABBY_OMNI_FACING: 0.2:1.2
+    KRABBY_YAW_W: '0.2'
+    KRABBY_CLOCK_W: '0.001'
+    KRABBY_APEX_W: '0.001'
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+    KRABBY_OMNI_MIRROR_IMAGES: fa
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_ACTION_BOUND_LOSS: '0.001'
+    KRABBY_ACTION_BOUND_RAMP: 0.0001:0.001:500
+    KRABBY_ACTION_BOUND: '1.1'
+    KRABBY_STD_PARAM: soft
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_ENTROPY_COEF: '0.0025'
+    KRABBY_ACTION_RATE_W: '-0.05'
+    KRABBY_PPO_HAND_DIAG: '1'
+    KRABBY_PHASEOUT: ''
+    KRABBY_FLAT_TERRAIN_GEOM: field
+    KRABBY_FIELD_PAD_R: '1.7'
+    KRABBY_FIELD_BLOCKS: '14:28'
+    KRABBY_FIELD_KINDS: 0.4:0.4:0.2
+    KRABBY_FIELD_EDGES: wall
+    KRABBY_FLAT_TERRAIN_DIFF: 0.20:1.0
+    KRABBY_TERRAIN_PROMOTE: 0.7:0.4
+  gate:
+    class: walker
+    rows:
+    - suite@1:driver
+    - suite@2
+    - side22@1
+    - field_hard@1
+    - field_hard@2
+    - field_hard@3
+    - field_hard@4
+    - field_light@1
+    - field_light@2
+    - ring_obst@1
+    - ring_obst@2
+    - field_turn@1
+    - field_turn@2
+    - field_suite@1
+    - suite_body@1
+    - suite_body@2
+    - turnlevels_body@1
+    - turnlevels_body@2
+    - grid_body@1
+    - grid_body@2
+    - dirsweep_body@1
+    - dirsweep_body@2
+  needs:
+  - c6x
+- id: p3a
+  kind: driver
+  lineage: p2a
+  base: 2a
+  iters: N_p
+  resume: p2a
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys:
+    absolute_units: true
+  overlay_from: p2a
+  payload_kg: 0:90
+  gate:
+    class: payload
+    top_level: 90
+    required_level: 90
+    ceiling_on_fail: false
+    rows: zero_kg
+  needs:
+  - p2a
+- id: p3b
+  kind: driver
+  lineage: p2a
+  base: 2a
+  iters: N_p
+  resume: p3a
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys:
+    absolute_units: true
+  overlay_from: p2a
+  payload_kg: 0:180
+  gate:
+    class: payload
+    top_level: 180
+    required_level: null
+    ceiling_on_fail: true
+    rows: zero_kg
+  needs:
+  - p3a
+- id: p3c
+  kind: driver
+  lineage: p2a
+  base: 2a
+  iters: N_p
+  resume: p3b
+  eval:
+  - suite
+  categories:
+  - back
+  - diag
+  - fwd
+  - move_turn
+  - side
+  - stand
+  - turn
+  floor:
+    kind: none
+  chain_keys:
+    absolute_units: true
+  overlay_from: p2a
+  payload_kg: 0:270
+  gate:
+    class: payload
+    top_level: 270
+    required_level: null
+    ceiling_on_fail: true
+    rows: zero_kg
+  needs:
+  - p3b
+  when: max_stable(p3b) >= 180
+- id: tstar
+  kind: tstar
+  candidates:
+  - p3a
+  - p3b
+  - p3c
+  needs:
+  - p3a
+  settled:
+  - p3b
+  - p3c
+  notes: 'PLAN Payload -> T*: the trained head with the highest max_stable that passes its paired 0-kg check, tried in descending
+    order (ties to the earlier stage); HALT only if none passes'
+- id: st
+  kind: distill
+  needs:
+  - tstar
+  iters: 5000
+  num_envs: 192
+  task: Isaac-Crab-Hex-Omni-Student-v0
+  experiment: crab_hex_omni_student
+  notes: distil the depth student from T* under T*'s composed env (preset 2a + T*'s overlay incl. the payload knobs) minus
+    every runner-only knob (omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED)
+- id: sel
+  kind: select
+  needs:
+  - st
+  offsets:
+  - 1000
+  - 2000
+  - 3000
+  - 4000
+  - 5000
+  play_task: Isaac-Crab-Hex-Omni-Student-Play-v0
+  student_args:
+  - --task
+  - Isaac-Crab-Hex-Omni-Student-Play-v0
+  - --policy-role
+  - student
+  teacher_args:
+  - --task
+  - Isaac-Crab-Hex-Omni-Student-Play-v0
+  - --policy-role
+  - teacher
+  prescreen_rows:
+  - suite@1
+  - field_hard@1
+  - field_hard@2
+  prescreen_level:
+    kg: 90
+    rows:
+    - suite@1
+    - field_light@1
+  full_block_rows:
+  - suite@1
+  - suite@2
+  - side22@1
+  - field_hard@1
+  - field_hard@2
+  - field_light@1
+  - field_light@2
+  - ring_obst@1
+  - ring_obst@2
+  - field_turn@1
+  - field_turn@2
+  full_block_level_rows:
+  - suite@1
+  - suite@2
+  - field_light@1
+  - field_light@2
+  max_failed_blocks: 2
+  completion_margin:
+    floor: 0.05
+    se_mult: 2.0
+    manifest_shape_split: 0.0          # PLAN step 8 C4.6 (stepC_read.json v1.manifest_shape_split)
+  rank: prescreen floor misses (incl. the 90-kg stable lines), then field_hard completion (desc), then mean |ratio - 1|
+    over the trained translate categories (asc), then the earlier checkpoint
+- id: sn
+  kind: dagger_sn
+  needs:
+  - tstar
+  after:
+  - sel
+  walker: tstar
+  iters: 4000
+  arm: mask
+  judged: model_4000.pt
+  refs_rows:
+  - suite@1
+  - suite@2
+  - walkstop@1
+  - walkstop@2
+  - field_hard@1
+  - field_hard@2
+  - field_hard@3
+  - field_hard@4
+  - field_turn@1
+  stand_rows:
+  - suite@1
+  - suite@2
+  - walkstop@1
+  - walkstop@2
+  - field_hard@1
+  - field_hard@2
+  - field_hard@3
+  - field_hard@4
+  - field_turn@1
+- id: sh
+  kind: dagger_sh
+  needs:
+  - sn
+  walker: tstar
+  iters: 5000
+  judged: model_5000.pt
+  opts:
+  - --deadband
+  - '0.25'
+  - --trim-branch
+  - --trim-min
+  - '0.0999'
+  deadband: '0.25'
+  warm_start_from: sn
+  height_rows:
+  - hwalkstop@1
+  - hwalkstop@2
+  - hraise@1
+  - hraise@2
+  k5_rows:
+  - suite@1
+  - suite@2
+  - walkstop@1
+  - walkstop@2
+  - field_turn@1
+  - field_hard@1
+  - field_hard@2
+  - field_hard@3
+  - field_hard@4
+  controls_spec: experiments/2026-10-13_stand_height/head_SH_T17_spec.json
+  notes: 'K1-K6 re-anchored on REFS(T*); controls stay at their S1-era stamps (lazy: run only on a failure)'
+- id: sn_ref
+  kind: dagger_sn
+  x_replay: true
+  after:
+  - sh
+  walker: bundled_s1
+  iters: 4000
+  arm: mask
+  judged: model_4000.pt
+  compare:
+    name: SN_Amask_s17
+    sha256: 769cf25331402afdfb23756100ec7c215dacf984a321e90a7b39d2969e4941ff
+    train_log: parkour/outputs/omni_plan/stand_network/runs/SN_Amask_s17/train_log.jsonl
+  notes: 'X (R18 only): the recipe of record beside the BUNDLED S1 (SN_WALKER_SPEC unset), DAgger seed 17'
+- id: sh_ref
+  kind: dagger_sh
+  x_replay: true
+  after:
+  - sn_ref
+  walker: bundled_s1
+  iters: 5000
+  judged: model_5000.pt
+  opts:
+  - --deadband
+  - '0.25'
+  - --trim-branch
+  - --trim-min
+  - '0.0999'
+  warm_start_from: null
+  compare:
+    name: SH_T17
+    sha256: 99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e
+    train_log: parkour/outputs/omni_plan/stand_height/runs/SH_T17/train_log.jsonl
+  notes: 'X (R18 only): the recipe of record (warm start = the pinned A-mask s17, the default) beside the bundled S1'
+- id: bundle
+  kind: bundle
+  needs:
+  - tstar
+  settled:
+  - sel
+  - sh
+  after:
+  - sh_ref
+  notes: 'CPU: the keep-set record (stage heads by sha256; T*, the selected student, the SN / SH heads). The local tag and
+    the bundle_experiment.py keep-set are PLAN step 11, the user''s push / bake'
+bundled_s1:
+  ckpt: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/6_p2a_field/model_19994.pt
+  sha256: 968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c
+  notes: 'X runs with SN_WALKER_SPEC unset: the stand tools'' own S1 constants (the X08 run dir file, byte-identical to
+    this bundled copy)'
+# x_rule: PLAN step 8 C6.2 (stepC_read.json v1.x_rule): same-seed SN / SH smokes are not bitwise -> X is report-only
+x_rule: report_only
+stand:
+  sn_scripts: experiments/2026-10-11_stand_network/scripts
+  sh_scripts: experiments/2026-10-13_stand_height/scripts
+  p2_run_arm: experiments/2026-10-07_omni_phase2/scripts/run_arm.sh
+  sn_runs: parkour/outputs/omni_plan/stand_network/runs
+  sh_runs: parkour/outputs/omni_plan/stand_height/runs
+  p2_lr: parkour/outputs/omni_plan/phase2/lr
+  sh_table_out: parkour/logs/videos/sh_table
+  sh_manifest: experiments/2026-10-13_stand_height/scenarios_sh.yaml
+live:
+  poll_s: 120
+  # non-driver stages (distill, DAgger): no new train log / tfevents / checkpoint for this long -> the stop procedure
+  # (SIGTERM the trainer pid, term_grace_s, SIGTERM, term_grace_s, SIGKILL last resort) and an INFRA HALT
+  progress_watchdog_min: 30
+  term_grace_s: 120
+  collapse:
+    after: 300
+    roll: 200
+    ep_len_frac: 0.5
+    crab_failure_max: 0.6
+  dead_walker:
+    stages:
+    - s1
+    window:
+    - 800
+    - 1000
+    track_min: 0.35
+    tag: Metrics/base_parkour/track_ratio_mean
+  resume:
+    std_tol: 0.02
+    priv_rel: 0.05
+    bound_rel: 0.02
+    min_points: 5
+  p_live:
+    at: 200
+    reference_run: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-04_10-01-39_seed18_X43_s1_A15pB
+  student:
+    loss_at: 250
+    loss_roll: 50
+    loss_frac: 0.5
+    from: 250
+    ep_len_frac: 0.8
+    crab_failure_margin: 0.1
+    roll: 50
+    # kill (default): the depth-loss rule kills; watch: computed and reported, never kills (STEPC_RULES C4.8 / V.3)
+    loss_rule: kill

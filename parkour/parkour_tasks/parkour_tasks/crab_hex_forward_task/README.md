@@ -1,8 +1,11 @@
 # Crab hexapod forward-walk task (`crab_hex_forward_task`)
 
 This package is the **Krabby hexapod FORWARD-walk task** on top of Isaac Lab’s extreme parkour stack
-(renamed 2026-09-09 from `crab_hexapod_task`; a sideways-walk sibling, `crab_hex_sideways_task`, comes
-next). Gym ids (`Isaac-Crab-Hex-Flat-Walk-v0`, `-Teacher-v0`, `-Student-v0` and their `-Play-v0`
+(renamed 2026-09-09 from `crab_hexapod_task`). Two sibling tasks subclass these cfgs and share this package's MDP,
+eval harness and tools: `crab_hex_sideways_task` ([README](../crab_hex_sideways_task/README.md), `KRABBY_SIDE_PHASE`)
+and `crab_hex_omni_task` ([README](../crab_hex_omni_task/README.md), `KRABBY_OMNI_PHASE`; its own policy of record
+in `crab_hex_omni_task/policy/`). Exactly one of `KRABBY_PHASE` / `KRABBY_SIDE_PHASE` / `KRABBY_OMNI_PHASE` per
+process. Gym ids (`Isaac-Crab-Hex-Flat-Walk-v0`, `-Teacher-v0`, `-Student-v0` and their `-Play-v0`
 variants) and the RSL-RL experiment directories (`parkour/logs/rsl_rl/crab_hex_flat_walk|crab_hex_teacher|crab_hex_student`)
 are unchanged by the rename. The plant (robot model, generator, variants, spawn) is described in
 [docs/crab-hexapod-plant.md](../../../../docs/crab-hexapod-plant.md); campaign records live under
@@ -299,6 +302,10 @@ Scene, rewards, and code pointers. Stage differences: [§2](#2-how-stages-differ
 - **Env / curriculum:** `crab_hex_env_cfg.py` — `KRABBY_HEX_TEACHER_MODE` selects the paradigm phase-2 modes `2a` / `2b` / `2c` (flat-walk MDP + elements, normally exported by `KRABBY_PHASE`) or the legacy bridge / 2b1 / 2b2 / `full1` / `full2` / `full` (default; `full1`/`full2` are ramp stages toward `full`: actions 0.245/±2.4 and 0.25/±3.6, half-strength DR on `full1`, failure 750 N / 600 N — see the `_crab_hex_teacher_mode` docstring). Every `KRABBY_*` knob (commands, terrain presets `shallow|recal2b2|recal2b2w`, DR, RSI, exposure, `KRABBY_PHASEOUT`) is read in `apply_flat_walk_knobs`, shared by Flat-Walk-v0, the phase-2 modes and the phase-3 student; terrain helpers `_apply_crab_hex_stage_2b_*`, `_apply_crab_hex_full_ramp*`, `_apply_crab_hex_recal_2b2*` (PLAN H widths in `mdp/exposure_knobs.py`).
 - **Rewards / actions:** `config/crab_hex/agents/parkour_mdp_cfg.py` — config classes per stage ([§2](#2-how-stages-differ)); shared math in `parkour_isaaclab/envs/mdp/rewards.py` (which pulls the crab stride / tripod terms from `mdp/crab_hex_stride_reward.py` / `mdp/crab_hex_tripod_reward.py`), clock terms in `mdp/crab_hex_clock_reward.py` (imported by the cfg directly).
 - **2b2 full reward weights:** [§4.2b](#42b-2b2-teacher-sweet-spot) only (not duplicated here).
+- **Default-off knobs added for the omni task that live in shared code:** `KRABBY_STD_PARAM` / `KRABBY_INIT_STD`
+  (policy std parameterisation, `parkour/scripts/rsl_rl/modules/crab_actor_critic_with_encoder.py`, read by the
+  harness too) and `KRABBY_RSI_CAM_STAGE` (RSI cam staging, `mdp/parkour_actions.py`); unset = the forward recipe
+  bitwise. Catalogue: `crab_hex_omni_task/config/crab_hex/motion_knobs.py`.
 
 ### 3.1 Teacher vs student
 
@@ -616,7 +623,7 @@ the human debug view. Trains nothing, adds no rewards — pure measurement.
 
 | Script | What it does |
 | --- | --- |
-| `[eval_crab_hex_gait.py](scripts/eval_crab_hex_gait.py)` | The harness. Supports both teacher and student checkpoints. `--scenario <id>` runs one entry from a manifest (`--manifest`, default `experiments/eval/scenarios_v1.yaml`); `--task`/`--holds`/`--checkpoint` run an ad-hoc schedule instead. `--zero-actions` runs the pipeline with no policy (smoke test). Writes `run_meta.json`, per-episode raw `.npz` + metrics `.json`, `scenario_metrics.json`, `summary.md`, and (via `plot_crab_hex_gait.py`) gait-diagram PNGs to `logs/rsl_rl/gait_eval/v1/<scenario>/seed<NNN>/<timestamp>/` (zero-padded, e.g. `seed001`; `--output-root` to override). Also appends one JSONL line per run to `logs/rsl_rl/metrics_history/gait_eval_<scenario>.jsonl`. Manifest scenarios with `checkpoint_sha256` refuse a different `--checkpoint` unless `--allow-checkpoint-sha-mismatch`. Other overrides: `--episodes` (= parallel envs), `--episode-length-s`, `--env-seed`, `--freeze-friction` (drops the friction-randomisation event), `--no-save-raw`, `--no-plot`. |
+| `[eval_crab_hex_gait.py](scripts/eval_crab_hex_gait.py)` | The harness. Supports both teacher and student checkpoints. `--scenario <id>` runs one entry from a manifest (`--manifest`, default `experiments/eval/scenarios_v1.yaml`); `--task`/`--holds`/`--checkpoint` run an ad-hoc schedule instead. `--zero-actions` runs the pipeline with no policy (smoke test). Writes `run_meta.json`, per-episode raw `.npz` + metrics `.json`, `scenario_metrics.json`, `summary.md`, and (via `plot_crab_hex_gait.py`) gait-diagram PNGs to `logs/rsl_rl/gait_eval/v1/<scenario>/seed<NNN>/<timestamp>/` (zero-padded, e.g. `seed001`; `--output-root` to override). Also appends one JSONL line per run to `logs/rsl_rl/metrics_history/gait_eval_<scenario>.jsonl`. Manifest scenarios with `checkpoint_sha256` refuse a different `--checkpoint` unless `--allow-checkpoint-sha-mismatch`. Other overrides: `--episodes` (= parallel envs), `--episode-length-s`, `--env-seed`, `--freeze-friction` (drops the friction-randomisation event), `--no-save-raw`, `--no-plot`. Category-suite / omni flags (default off): `--waves`, `--trained-categories` (category-suite rows), `--sample-actions` (diagnostic), `--canon` / `--canon-hyst`, `--command-adapter` / `--adapter-turns` (omni only) -- see `--help`; the same harness also serves the `crab_hex_sideways_task` and `crab_hex_omni_task` manifests. |
 | `[run_gait_eval_suite.py](scripts/run_gait_eval_suite.py)` | stdlib-only driver — runs every scenario in the manifest (or `--scenario` to filter), one `isaaclab.sh` process each (only one Isaac Sim process fits the GPU at a time). `--repeat N` reruns a scenario at different seeds to check the tripod-score determinism/noise floor. `--list`/`--dry-run` to inspect without running. |
 | `[plot_crab_hex_gait.py](scripts/plot_crab_hex_gait.py)` | Standalone (plain `python3`, no Isaac) — renders gait diagrams from a run's raw `.npz`. Called automatically by the harness (`--no-plot` to skip); rerun directly to restyle without touching the GPU. |
 | `[experiments/eval/scenarios_v1.yaml](experiments/eval/scenarios_v1.yaml)` | The versioned scenario manifest (AC 0b) — forward-speed holds on flat and 2b2-mixed terrain for both teacher and student, plus off-axis `vy`/`yaw` probes. Changing a scenario's meaning invalidates committed baselines; add a new versioned manifest instead of editing in place (v2 and morph already exist). |

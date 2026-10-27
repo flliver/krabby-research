@@ -1,0 +1,117 @@
+# Crab-hex gait eval scenario set for the sideways-walk task (sideways-formation campaign, 2026-09-11).
+#
+# vx here means "speed along the travel axis" (body +y, Shape B) -- eval_crab_hex_gait.py and the
+# gait_eval harness read it in the travel frame (travel_yaw = +pi/2), the same command-schedule
+# convention the forward manifests use for body +x. Teacher rows (role: teacher) run the
+# privileged actor on the Side-Walk task; phase-3 (distillation) heads need
+# `--task Isaac-Crab-Hex-Side-Student-v0` and `KRABBY_STUDENT_MDP=1` in the process env (the
+# driver's `_student_args` / `_student_env` add both automatically).
+#
+# The manifest SHAPE is frozen: adding or removing an `env:` block on an EXISTING row flips
+# same-seed student evals between two repeatable outcomes (0.79/21 falls <-> 0.75/25 falls --
+# process-state sensitivity, not noise). Do not add or remove an `env:` block on `slow__side` or
+# `flat_walk_slow_side` after they have been evaluated once; a NEW row may carry whatever `env:`
+# it needs.
+#
+# Run (from krabby-research/parkour):
+#   <python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py \
+#     --headless --manifest parkour_tasks/parkour_tasks/crab_hex_sideways_task/experiments/eval/scenarios_side.yaml \
+#     --scenario slow__side --checkpoint <model.pt>
+
+manifest_version: 2
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  # Flat canary: the sideways twin of the forward slow__A15pB / flat_walk_slow_v2 stand-first
+  # probe. No env block (frozen shape -- see the header note above).
+  - id: slow__side
+    role: teacher
+    task: Isaac-Crab-Hex-Side-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 36.0
+    schedule:
+      - {vx: 0.0, hold_s: 10.0, label: stand}
+      - {vx: 0.25, hold_s: 10.0, label: creep}
+      - {vx: 0.35, hold_s: 10.0, label: low}
+    notes: >-
+      Sideways-formation campaign flat canary (Part C of the plan): stand hold, then the
+      stand-first command band. vx is travel speed (body +y). vx 0.0 is a commanded stop by
+      construction; 0.25 is just above lin_vel_clip 0.2 and is scored as a walking hold.
+
+  # Step onset: the sideways twin of step__A15pB (light shallow terrain at difficulty 0.05-0.2).
+  - id: step__side
+    role: teacher
+    task: Isaac-Crab-Hex-Side-Walk-v0
+    terrain_label: light_obstacles
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 36.0
+    schedule:
+      - {vx: 0.0, hold_s: 10.0, label: stand}
+      - {vx: 0.25, hold_s: 10.0, label: creep}
+      - {vx: 0.35, hold_s: 10.0, label: low}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "shallow"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.05:0.2"
+    notes: Sideways-formation campaign step onset (Part C of the plan), plant A15+B.
+
+  # Obstacle eval row: same schedule as slow__side, no env block -- the driver's eval_obst injects
+  # the recal2b2w @ 0.20-0.70 obstacle env at run time (PLAN H convention, forward flat_walk_slow_v2).
+  - id: flat_walk_slow_side
+    role: teacher
+    task: Isaac-Crab-Hex-Side-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 36.0
+    schedule:
+      - {vx: 0.0, hold_s: 10.0, label: stand}
+      - {vx: 0.25, hold_s: 10.0, label: creep}
+      - {vx: 0.35, hold_s: 10.0, label: low}
+    notes: >-
+      The row the driver's eval_obst injects the obstacle env (recal2b2w @ 0.20-0.70) into; no
+      env block here (frozen shape -- see the header note above).
+
+  # Side-speed bisection campaign (side-speed-bisection.md, plan step 3): the speed-matched
+  # sideways 1a reference row, for the plan's "Left for implementation" item 3 FAST pin (each
+  # model_3000 stamp must read at least threshold + 0.017 at both 0.22 and 0.25 m/s). vx here is
+  # speed along the travel axis (body +y), the sideways task's own convention (see the header note
+  # above) -- there is no dir/face/lat_l on this task, so this is a plain schedule row, not a
+  # category_suite (that kind's holds are world rows only, schedule.py CATEGORY_HOLD_KEYS). A 2-s
+  # stand settle, then the two omni gate speeds (0.22, 0.25 m/s) held 12 s each -- matching the
+  # omni side22_25 row's settle/hold durations so feet_ss (gate_stats.py) is read the same way on
+  # both manifests. No env block (frozen-shape convention, see the header note above -- this is a
+  # NEW row so it may carry one if it ever needs one, but it doesn't).
+  - id: side22_25__side
+    role: teacher
+    task: Isaac-Crab-Hex-Side-Walk-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 27.5
+    schedule:
+      - {vx: 0.0, hold_s: 2.0, label: stand}
+      - {vx: 0.22, hold_s: 12.0, label: lat_l_022}
+      - {vx: 0.25, hold_s: 12.0, label: lat_l_025}
+    notes: >-
+      Side-speed bisection campaign speed-matched reference: 2-s stand settle then 0.22 and
+      0.25 m/s holds (12 s each), the sideways 1a FAST pin against the omni side22_25 gate row
+      (plan item 3, "Left for implementation"). Labels match the omni row's lat_l_022/lat_l_025
+      so gate_stats.py-style readers key the same way on both manifests.

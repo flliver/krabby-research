@@ -1,0 +1,103 @@
+0.124 0.124 lcmd=0.22 fwd=0.25:0.119 back=0.107 ./2026-09-23_clock_deprecation/seed3_X05_c5_A15pB/suite__omni/seed001/2026-09-25_05-59-46/summary.md
+0.123 0.124 lcmd=0.22 fwd=0.25:0.195 back=0.171 ./2026-09-26_stroke_posture/seed3_X04_c6y_A15pB/suite__omni/seed001/2026-09-26_14-01-42/summary.md
+0.123 0.122 lcmd=0.22 fwd=0.25:0.139 back=0.128 ./2026-09-23_clock_deprecation/seed3_X05_c4_A15pB/suite__omni/seed001/2026-09-25_05-16-45/summary.md
+0.121  lcmd=0.22 fwd=0.25:0.171 back=0.139 ./2026-09-23_clock_deprecation/s4_T2_A4500-c6_light/light__omni/seed001/2026-09-25_13-15-05/summary.md
+0.120 0.119 lcmd=0.22 fwd=0.25:0.193 back=0.169 ./2026-09-27_stroke_cat_W/seed2_X02_c6y_A15pB/suite__omni/seed001/2026-09-28_20-18-06/summary.md
+0.119  lcmd=0.22 fwd=0.25:0.151 back=0.135 ./2026-09-19_facing_tracking_ladder/seed3_X01_1c_A15pB/slow__omni/seed001/2026-09-19_18-12-30/summary.md
+0.119 0.116 lcmd=0.22 fwd=0.25:0.196 back=0.176 ./2026-09-26_stroke_posture/seed3_X03_c6y_A15pB/suite__omni/seed001/2026-09-26_12-10-45/summary.md
+0.118 0.119 lcmd=0.22 fwd=0.25:0.215 back=0.192 ./2026-09-26_stroke_posture/seed3_X01_c6y_A15pB/suite__omni/seed001/2026-09-26_08-39-30/summary.md
+0.118 0.119 lcmd=0.22 fwd=0.25:0.165 back=0.146 ./2026-09-27_stroke_cat_t3/seed3_X01_t3_A15pB/suite__omni/seed001/2026-09-28_21-57-04/summary.md
+0.116 0.113 lcmd=0.22 fwd=0.25:0.198 back=0.173 ./2026-09-26_stroke_posture/seed2_X02_c6y_A15pB/suite__omni/seed001/2026-09-26_10-25-08/summary.md
+0.113  lcmd=0.22 fwd=0.25:0.176 back=0.133 ./2026-09-23_clock_deprecation_w2/terrain_W-s3_end/light__omni/seed001/2026-09-25_22-56-32/summary.md
+0.113 0.117 lcmd=0.22 fwd=0.25:0.159 back=0.147 ./2026-09-19_facing_tracking_ladder/seed3_X01_1c_A15pB/suite__omni/seed001/2026-09-21_22-20-13/summary.md
+0.112 0.107 lcmd=0.22 fwd=0.25:0.165 back=0.141 ./2026-09-23_clock_deprecation/seed3_X05_t3_A15pB/suite__omni/seed001/2026-09-25_04-33-44/summary.md
+0.111 0.109 lcmd=0.22 fwd=0.25:0.157 back=0.145 ./v3_scratch_2026-09-21/v3_dryrun_X01/suite__omni/seed001/2026-09-21_22-03-23/summary.md
+0.110 0.112 lcmd=0.22 fwd=0.25:0.164 back=0.144 ./2026-09-19_facing_tracking_ladder/seed3_X06_1c_A15pB/suite__omni/seed001/2026-09-22_09-45-12/summary.md
+0.110 0.111 lcmd=0.22 fwd=0.25:0.179 back=0.159 ./2026-09-23_clock_deprecation/seed3_X04_c6_A15pB/suite__omni/seed001/2026-09-24_16-39-45/summary.md
+0.109 0.115 lcmd=0.22 fwd=0.25:0.116 back=0.105 ./2026-09-23_clock_deprecation/seed3_X05_c6_A15pB/suite__omni/seed001/2026-09-25_06-52-47/summary.md
+0.108 0.108 lcmd=0.22 fwd=0.25:0.173 back=0.160 ./2026-09-19_facing_tracking_ladder/seed3_X04_c6_A15pB/suite__omni/seed001/2026-09-22_03-21-57/summary.md
+0.108 0.107 lcmd=0.22 fwd=0.25:0.178 back=0.165 ./2026-09-27_stroke_cat_W/seed3_X01_c6y_A15pB/suite__omni/seed001/2026-09-28_13-53-35/summary.md
+0.106  lcmd=0.22 fwd=0.25:0.159 back=0.131 ./2026-09-16_1805_omni_formation/seed3_2b_006_A15pB_obst/ring__omni/seed001/2026-09-18_18-59-24/summary.md
+0.106  lcmd=0.22 fwd=0.25:0.154 back=0.126 ./2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/light__omni/seed001/2026-09-18_18-56-10/summary.md
+0.105 0.108 lcmd=0.22 fwd=0.25:0.188 back=0.167 ./2026-09-23_clock_deprecation_w2/diag_W-s3_p3000/suite__omni/seed001/2026-09-25_22-30-32/summary.md
+0.105 0.105 lcmd=0.22 fwd=0.25:0.139 back=0.115 ./2026-09-23_clock_deprecation/step0_E3_X08-t3_visible/suite__omni/seed001/2026-09-23_21-38-11/summary.md
+0.105 0.105 lcmd=0.22 fwd=0.25:0.139 back=0.115 ./2026-09-19_facing_tracking_ladder/seed3_X08_t3_A15pB/suite__omni/seed001/2026-09-22_14-24-31/summary.md
+0.105 0.104 lcmd=0.22 fwd=0.25:0.178 back=0.157 ./2026-09-23_clock_deprecation/seed3_X04_c5_A15pB/suite__omni/seed001/2026-09-24_15-44-14/summary.md
+0.105 0.104 lcmd=0.22 fwd=0.25:0.136 back=0.120 ./2026-09-26_stroke_formation/seed2_X02_t3_A15pB/suite__omni/seed001/2026-09-27_04-08-09/summary.md
+0.104 0.111 lcmd=0.22 fwd=0.25:0.170 back=0.154 ./2026-09-23_clock_deprecation/seed3_X08_c4_A15pB/suite__omni/seed001/2026-09-25_13-01-06/summary.md
+0.104 0.103 lcmd=0.22 fwd=0.25:0.175 back=0.139 ./2026-09-23_clock_deprecation/seed3_X04_c4_A15pB/suite__omni/seed001/2026-09-24_15-01-13/summary.md
+0.104 0.103 lcmd=0.22 fwd=0.25:0.175 back=0.139 ./2026-09-23_clock_deprecation/seed3_X01_c4_A15pB/suite__omni/seed001/2026-09-23_23-11-33/summary.md
+0.103  lcmd=0.22 fwd=0.25:0.151 back=0.133 ./campaign/seed3_2b_006_A15pB_floor/slow__omni/seed001/2026-09-19_06-17-18/summary.md
+0.103  lcmd=0.22 fwd=0.25:0.151 back=0.133 ./2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/slow__omni/seed001/2026-09-18_18-53-00/summary.md
+0.103 0.105 lcmd=0.22 fwd=0.25:0.149 back=0.133 ./2026-09-19_facing_tracking_ladder/seed2_X07_1c_A15pB/suite__omni/seed001/2026-09-22_13-02-58/summary.md
+0.103 0.104 lcmd=0.22 fwd=0.25:0.141 back=0.128 ./2026-09-27_stroke_cat_t3/seed2_X02_t3_A15pB/suite__omni/seed001/2026-09-28_23-32-01/summary.md
+0.103 0.098 lcmd=0.22 fwd=0.25:0.151 back=0.122 ./2026-09-26_stroke_formation/seed2_X04_t3_A15pB/suite__omni/seed001/2026-09-27_06-49-28/summary.md
+0.102  lcmd=0.22 fwd=0.25:0.157 back=0.128 ./2026-09-19_facing_tracking_ladder/seed2_X02_1c_A15pB/slow__omni/seed001/2026-09-19_21-16-08/summary.md
+0.102 0.102 lcmd=0.22 fwd=0.25:0.195 back=0.164 ./2026-09-23_clock_deprecation_w2/diag_W-s3_p2000/suite__omni/seed001/2026-09-25_22-23-02/summary.md
+0.102 0.101 lcmd=0.22 fwd=0.25:0.169 back=0.152 ./2026-09-19_facing_tracking_ladder/seed3_X05_1c_A15pB/suite__omni/seed001/2026-09-22_06-29-31/summary.md
+0.101 0.106 lcmd=0.22 fwd=0.25:0.196 back=0.173 ./2026-09-23_clock_deprecation_w2/seed3_X03_c6x_A15pB/suite__omni/seed001/2026-09-25_20-31-29/summary.md
+0.101 0.100 lcmd=0.22 fwd=0.25:0.189 back=0.158 ./2026-09-23_clock_deprecation/seed2_X07_t3_A15pB/suite__omni/seed001/2026-09-25_09-56-06/summary.md
+0.101 0.098 lcmd=0.22 fwd=0.25:0.153 back=0.138 ./2026-09-26_stroke_formation/seed3_X03_t3_A15pB/suite__omni/seed001/2026-09-27_05-27-50/summary.md
+0.100  lcmd=0.22 fwd=0.25:0.173 back=0.139 ./2026-09-23_clock_deprecation_w2/terrain_X0x-s3_end/light__omni/seed001/2026-09-25_22-53-02/summary.md
+0.100  lcmd=0.22 fwd=0.25:0.169 back=0.122 ./2026-09-23_clock_deprecation/s4_T1_X0s3-c6_light/light__omni/seed001/2026-09-25_13-11-35/summary.md
+0.100 0.103 lcmd=0.22 fwd=0.25:0.173 back=0.151 ./2026-09-23_clock_deprecation/step0_E2_X08-c4_visible/suite__omni/seed001/2026-09-23_21-31-11/summary.md
+0.100 0.103 lcmd=0.22 fwd=0.25:0.173 back=0.151 ./2026-09-22_gait_motion_quality/reeval_X08-c4/suite__omni/seed001/2026-09-23_06-31-00/summary.md
+0.100 0.103 lcmd=0.22 fwd=0.25:0.173 back=0.151 ./2026-09-19_facing_tracking_ladder/seed3_X08_c4_A15pB/suite__omni/seed001/2026-09-22_15-14-35/summary.md
+0.100 0.103 lcmd=0.22 fwd=0.25:0.166 back=0.145 ./2026-09-19_facing_tracking_ladder/seed2_X02_1c_A15pB/suite__omni/seed001/2026-09-21_22-27-43/summary.md
+0.100 0.102 lcmd=0.22 fwd=0.25:0.119 back=0.117 ./2026-09-26_stroke_formation/seed3_X01_t3_A15pB/suite__omni/seed001/2026-09-26_22-56-51/summary.md
+0.099 0.098 lcmd=0.22 fwd=0.25:0.144 back=0.132 ./2026-09-23_clock_deprecation/seed2_X07_c5_A15pB/suite__omni/seed001/2026-09-25_11-22-08/summary.md
+0.099 0.095 lcmd=0.22 fwd=0.25:0.162 back=0.132 ./2026-09-19_facing_tracking_ladder/seed3_X03_c4_A15pB/curriculum__omni/seed001/2026-09-19_23-15-10/summary.md
+0.098 0.100 lcmd=0.22 fwd=0.25:0.156 back=0.136 ./2026-09-26_stroke_formation/seed3_X05_t3_A15pB/suite__omni/seed001/2026-09-27_08-09-09/summary.md
+0.098 0.099 lcmd=0.22 fwd=0.25:0.176 back=0.156 ./2026-09-19_facing_tracking_ladder/seed3_X04_c4_A15pB/suite__omni/seed001/2026-09-22_01-49-25/summary.md
+0.098 0.098 lcmd=0.22 fwd=0.25:0.161 back=0.138 ./2026-09-23_clock_deprecation/seed2_X02_c4_A15pB/suite__omni/seed001/2026-09-24_01-36-35/summary.md
+0.098 0.094 lcmd=0.22 fwd=0.25:0.179 back=0.165 ./2026-09-19_facing_tracking_ladder/seed3_X03_c6_A15pB/suite__omni/seed001/2026-09-22_00-33-54/summary.md
+0.097 0.096 lcmd=0.22 fwd=0.25:0.162 back=0.132 ./2026-09-23_clock_deprecation/seed2_X07_c4_A15pB/suite__omni/seed001/2026-09-25_10-39-07/summary.md
+0.097 0.095 lcmd=0.22 fwd=0.25:0.163 back=0.150 ./2026-09-26_stroke_formation/seed2_X06_t3_A15pB/suite__omni/seed001/2026-09-27_09-30-47/summary.md
+0.096 0.096 lcmd=0.22 fwd=0.25:0.159 back=0.141 ./2026-09-23_clock_deprecation/seed3_X03_c4_A15pB/suite__omni/seed001/2026-09-24_12-39-41/summary.md
+0.095 0.096 lcmd=0.22 fwd=0.25:0.162 back=0.139 ./2026-09-19_facing_tracking_ladder/reeval_2b/suite__omni/seed001/2026-09-21_22-42-43/summary.md
+0.095 0.095 lcmd=0.22 fwd=0.25:0.174 back=0.150 ./2026-09-22_gait_motion_quality/seed3_X03_c6ft_A15pB/suite__omni/seed001/2026-09-23_09-11-38/summary.md
+0.095 0.094 lcmd=0.22 fwd=0.25:0.187 back=0.162 ./2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41/summary.md
+0.095 0.094 lcmd=0.22 fwd=0.25:0.187 back=0.162 ./2026-09-22_gait_motion_quality_step1/baseline_X08-c6/suite__omni/seed001/2026-09-23_05-43-42/summary.md
+0.095 0.094 lcmd=0.22 fwd=0.25:0.187 back=0.162 ./2026-09-22_gait_motion_quality/reeval_X08-c6/suite__omni/seed001/2026-09-23_06-23-30/summary.md
+0.095 0.094 lcmd=0.22 fwd=0.25:0.187 back=0.162 ./2026-09-19_facing_tracking_ladder/seed3_X08_c6_A15pB/suite__omni/seed001/2026-09-22_16-48-07/summary.md
+0.095 0.088 lcmd=0.22 fwd=0.25:0.192 back=0.159 ./2026-09-23_clock_deprecation_w2/seed2_X02_c6x_A15pB/suite__omni/seed001/2026-09-25_18-45-27/summary.md
+0.094 0.092 lcmd=0.22 fwd=0.25:0.181 back=0.162 ./2026-09-22_gait_motion_quality/seed3_X01_c6ft_A15pB/suite__omni/seed001/2026-09-23_07-24-36/summary.md
+0.094 0.090 lcmd=0.22 fwd=0.25:0.180 back=0.157 ./2026-09-23_clock_deprecation_w2/seed3_X01_c6x_A15pB/suite__omni/seed001/2026-09-25_17-01-55/summary.md
+0.093 0.099 lcmd=0.22 fwd=0.25:0.173 back=0.159 ./2026-09-23_clock_deprecation/seed3_X03_c6_A15pB/suite__omni/seed001/2026-09-24_14-18-43/summary.md
+0.092 0.091 lcmd=0.22 fwd=0.25:0.174 back=0.153 ./2026-09-23_clock_deprecation_w2/diag_X0x-s3_p2000/suite__omni/seed001/2026-09-25_22-38-02/summary.md
+0.092 0.088 lcmd=0.22 fwd=0.25:0.119 back=0.112 ./2026-09-23_clock_deprecation/step0_E5_X08-c6_hidden/suite__omni/seed001/2026-09-23_21-52-41/summary.md
+0.091  lcmd=0.22 fwd=0.25:0.152 back=0.111 ./2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/slow__omni/seed001/2026-09-18_08-27-40/summary.md
+0.091 0.088 lcmd=0.22 fwd=0.25:0.140 back=0.122 ./2026-09-23_clock_deprecation/step0_E8_X0s3-c4_hidden/suite__omni/seed001/2026-09-24_03-19-22/summary.md
+0.090 0.095 lcmd=0.22 fwd=0.25:0.126 back=0.111 ./2026-09-23_clock_deprecation/seed2_X07_c6_A15pB/suite__omni/seed001/2026-09-25_12-17-09/summary.md
+0.090 0.094 lcmd=0.22 fwd=0.25:0.163 back=0.134 ./2026-09-19_facing_tracking_ladder/seed3_X04_c2_A15pB/curriculum__omni/seed001/2026-09-20_00-11-11/summary.md
+0.090 0.090 lcmd=0.22 fwd=0.25:0.187 back=0.160 ./2026-09-22_gait_motion_quality/seed2_X02_c6ft_A15pB/suite__omni/seed001/2026-09-23_08-18-07/summary.md
+0.090 0.090 lcmd=0.22 fwd=0.25:0.154 back=0.134 ./2026-09-19_facing_tracking_ladder/reeval_2a-reeval/suite__omni/seed001/2026-09-21_22-50-13/summary.md
+0.090 0.088 lcmd=0.22 fwd=0.25:0.179 back=0.155 ./2026-09-23_clock_deprecation/seed3_X01_c5_A15pB/suite__omni/seed001/2026-09-24_00-00-34/summary.md
+0.089 0.087 lcmd=0.22 fwd=0.25:0.167 back=0.139 ./2026-09-19_facing_tracking_ladder/seed3_X09_m2_A15pB/suite__omni/seed001/2026-09-22_22-53-01/summary.md
+0.088 0.089 lcmd=0.22 fwd=0.25:0.160 back=0.134 ./2026-09-19_facing_tracking_ladder/seed3_X09_t3_A15pB/suite__omni/seed001/2026-09-22_20-45-58/summary.md
+0.088 0.084 lcmd=0.22 fwd=0.25:0.185 back=0.153 ./2026-09-23_clock_deprecation/seed2_X02_c6_A15pB/suite__omni/seed001/2026-09-24_03-11-37/summary.md
+0.087 0.091 lcmd=0.22 fwd=0.25:0.171 back=0.163 ./2026-09-19_facing_tracking_ladder/seed3_X03_c4_A15pB/suite__omni/seed001/2026-09-21_22-57-52/summary.md
+0.087 0.091 lcmd=0.22 fwd=0.25:0.168 back=0.158 ./2026-09-19_facing_tracking_ladder/seed3_X04_c2_A15pB/suite__omni/seed001/2026-09-21_23-04-52/summary.md
+0.087 0.090 lcmd=0.22 fwd=0.25:0.190 back=0.173 ./2026-09-23_clock_deprecation_w2/diag_W-s3_p1000/suite__omni/seed001/2026-09-25_22-15-32/summary.md
+0.087 0.088 lcmd=0.22 fwd=0.25:0.183 back=0.164 ./2026-09-23_clock_deprecation/seed3_X01_c6_A15pB/suite__omni/seed001/2026-09-24_00-55-05/summary.md
+0.087 0.088 lcmd=0.22 fwd=0.25:0.179 back=0.156 ./2026-09-23_clock_deprecation/seed2_X02_c5_A15pB/suite__omni/seed001/2026-09-24_02-18-06/summary.md
+0.086 0.086 lcmd=0.22 fwd=0.25:0.079 back=0.088 ./2026-09-23_clock_deprecation/step0_E4_X08-t3_hidden/suite__omni/seed001/2026-09-23_21-45-11/summary.md
+0.085 0.087 lcmd=0.22 fwd=0.25:0.176 back=0.151 ./2026-09-23_clock_deprecation_w2/diag_X0x-s2_p2000/suite__omni/seed001/2026-09-25_22-45-32/summary.md
+0.085 0.087 lcmd=0.22 fwd=0.25:0.155 back=0.134 ./2026-09-19_facing_tracking_ladder/reeval_1c-004/suite__omni/seed001/2026-09-21_22-35-13/summary.md
+0.083  lcmd=0.22 fwd=0.25:0.151 back=0.117 ./2026-09-16_1805_omni_formation/seed3_1c_004_A15pB_obst/ring__omni/seed001/2026-09-18_08-34-23/summary.md
+0.082  lcmd=0.22 fwd=0.25:0.149 back=0.119 ./2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/light__omni/seed001/2026-09-18_08-31-01/summary.md
+0.082 0.083 lcmd=0.22 fwd=0.25:0.165 back=0.146 ./2026-09-23_clock_deprecation/seed3_X03_c5_A15pB/suite__omni/seed001/2026-09-24_13-21-12/summary.md
+0.080 0.081 lcmd=0.22 fwd=0.25:0.169 back=0.117 ./2026-09-19_facing_tracking_ladder/seed3_X03_c2_A15pB/curriculum__omni/seed001/2026-09-19_22-11-39/summary.md
+0.079 0.083 lcmd=0.22 fwd=0.25:0.161 back=0.119 ./v3_scratch_2026-09-21/v3_dryrun_1c-004/suite__omni/seed001/2026-09-21_21-58-23/summary.md
+0.076 0.077 lcmd=0.22 fwd=0.25:0.114 back=0.103 ./2026-09-23_clock_deprecation/step0_E10_X0s3-c6_hidden/suite__omni/seed001/2026-09-25_15-07-17/summary.md
+0.075  lcmd=0.22 fwd=0.25:0.041 back=0.038 ./2026-09-16_1805_omni_formation/seed3_1b_002_A15pB/slow__omni/seed001/2026-09-17_04-10-00/summary.md
+0.070 0.068 lcmd=0.22 fwd=0.25:0.120 back=0.093 ./2026-09-23_clock_deprecation/step0_E9_X0s3-c5_hidden/suite__omni/seed001/2026-09-24_03-26-22/summary.md
+0.043 0.047 lcmd=0.22 fwd=0.25:0.155 back=0.131 ./2026-09-19_facing_tracking_ladder/seed3_X04_c1_A15pB/curriculum__omni/seed001/2026-09-19_23-43-10/summary.md
+0.043 0.047 lcmd=0.22 fwd=0.25:0.155 back=0.131 ./2026-09-19_facing_tracking_ladder/seed3_X03_c1_A15pB/curriculum__omni/seed001/2026-09-19_21-43-38/summary.md
+0.027  lcmd=0.22 fwd=0.25:0.189 back=0.050 ./2026-09-16_1805_omni_formation/seed3_1a_001_A15pB/slow__omni/seed001/2026-09-17_03-37-00/summary.md
+0.006  lcmd=0.22 fwd=0.25:0.040 back=0.073 ./2026-09-16_1805_omni_formation/seed3_1c_003_A15pB/slow__omni/seed001/2026-09-17_06-09-41/summary.md
+0.005  lcmd=0.22 fwd=0.25:0.030 back=0.065 ./2026-09-16_1805_omni_formation/seed3_1c_003_A15pB/light__omni/seed001/2026-09-17_06-12-53/summary.md
+0.004  lcmd=0.22 fwd=0.25:0.029 back=0.064 ./2026-09-16_1805_omni_formation/seed3_1c_003_A15pB_obst/ring__omni/seed001/2026-09-17_06-16-28/summary.md
+0.003 0.003 lcmd=0.22 fwd=0.25:0.056 back=0.026 ./2026-09-23_clock_deprecation/step0_E7_creeper-1c/suite__omni/seed001/2026-09-23_22-07-41/summary.md
+  lcmd= fwd= back=0.095 ./v6_drill/seed3_X01_1a_A15pB/suite__omni/seed001/2026-09-21_22-13-37/summary.md
+0.000 -0.000 lcmd=0.22 fwd=0.25:0.000 back=-0.000 ./2026-09-23_clock_deprecation/step0_E6_statue/suite__omni/seed001/2026-09-23_21-59-41/summary.md

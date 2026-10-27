@@ -1,0 +1,866 @@
+{
+ "stats": {
+  "knee_folded": {
+   "r": {
+    "cams_homed_end": 32,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 1.0,
+     "mean": 0.875,
+     "median": 1.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 6.0,
+     "mean": 5.125,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "4": 4,
+     "5": 20,
+     "6": 8
+    },
+    "final_gap_m": {
+     "max": 0.2815564775466919,
+     "mean": 0.2681210802495481,
+     "median": 0.268087317943573,
+     "min": 0.2582086229324341,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.076593279838562,
+     "mean": 1.068979661911726,
+     "median": 1.0695804357528687,
+     "min": 1.061513900756836,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.34,
+     "mean": 1.233125,
+     "median": 1.22,
+     "min": 1.1400000000000001,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.049525302508185966,
+     "mean": 0.022471419660909424,
+     "median": 0.01973076233519891,
+     "min": 0.004833742467879081,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 6.0,
+     "mean": 5.125,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 28,
+    "n_stood_strict": 28,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_r_knee_folded_summary.json",
+    "smoke": false,
+    "stood_share": 0.875,
+    "terminated": 0
+   },
+   "s1": {
+    "cams_homed_end": 0,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 0.16,
+     "mean": 0.09145833333333332,
+     "median": 0.08,
+     "min": 0.02,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 5.0,
+     "mean": 3.21875,
+     "median": 3.0,
+     "min": 2.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "2": 1,
+     "3": 26,
+     "4": 2,
+     "5": 3
+    },
+    "final_gap_m": {
+     "max": 0.3102472925186157,
+     "mean": 0.2647171744704248,
+     "median": 0.26678874135017394,
+     "min": 0.22868799209594726,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.1125948429107666,
+     "mean": 1.0656532682478428,
+     "median": 1.0662996768951416,
+     "min": 1.0261250734329224,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.26,
+     "mean": 1.1800000000000002,
+     "median": 1.18,
+     "min": 1.06,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.046476913710559065,
+     "mean": 0.03677093157091557,
+     "median": 0.036001707467842425,
+     "min": 0.026814069136351478,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 2.0,
+     "mean": 1.8125,
+     "median": 2.0,
+     "min": 1.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 0,
+    "n_stood_strict": 0,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_s1_knee_folded_summary.json",
+    "smoke": false,
+    "stood_share": 0.0,
+    "terminated": 0
+   },
+   "stand_net": {
+    "cams_homed_end": 32,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 1.0,
+     "mean": 0.766875,
+     "median": 0.9966666666666666,
+     "min": 0.0,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 6.0,
+     "mean": 4.71875,
+     "median": 5.0,
+     "min": 3.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "3": 2,
+     "4": 8,
+     "5": 19,
+     "6": 3
+    },
+    "final_gap_m": {
+     "max": 0.27309667110443114,
+     "mean": 0.2650796992331745,
+     "median": 0.2665078246593475,
+     "min": 0.25427435874938964,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.0709772109985352,
+     "mean": 1.065809454768896,
+     "median": 1.0664900541305542,
+     "min": 1.0571104288101196,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.42,
+     "mean": 1.2399999999999998,
+     "median": 1.24,
+     "min": 1.1,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.07550833401329814,
+     "mean": 0.04283637064078962,
+     "median": 0.040991673766202705,
+     "min": 0.0232900576623211,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 5.0,
+     "mean": 4.3125,
+     "median": 4.5,
+     "min": 2.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 22,
+    "n_stood_strict": 16,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_stand_net_knee_folded_summary.json",
+    "smoke": false,
+    "stood_share": 0.6875,
+    "terminated": 0
+   },
+   "zero": {
+    "cams_homed_end": 32,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 1.0,
+     "mean": 0.875,
+     "median": 1.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 6.0,
+     "mean": 5.15625,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "4": 4,
+     "5": 19,
+     "6": 9
+    },
+    "final_gap_m": {
+     "max": 0.2814178371429443,
+     "mean": 0.2681814299523832,
+     "median": 0.26807602286338805,
+     "min": 0.2590190076828003,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.0766057968139648,
+     "mean": 1.0691002644598484,
+     "median": 1.0705044865608215,
+     "min": 1.0617035627365112,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.34,
+     "mean": 1.2331250000000002,
+     "median": 1.22,
+     "min": 1.1400000000000001,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.04913122830720016,
+     "mean": 0.0224861350306388,
+     "median": 0.02002796483210619,
+     "min": 0.004931403892581029,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 6.0,
+     "mean": 5.15625,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 28,
+    "n_stood_strict": 28,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_zero_knee_folded_summary.json",
+    "smoke": false,
+    "stood_share": 0.875,
+    "terminated": 0
+   }
+  },
+  "rod_min": {
+   "r": {
+    "cams_homed_end": 32,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 1.0,
+     "mean": 0.6587500000000001,
+     "median": 1.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 6.0,
+     "mean": 5.0,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "4": 11,
+     "5": 10,
+     "6": 11
+    },
+    "final_gap_m": {
+     "max": 0.2902828359603882,
+     "mean": 0.2645473720133306,
+     "median": 0.27053846955299377,
+     "min": 0.1726234459877014,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.086315393447876,
+     "mean": 1.068445447832346,
+     "median": 1.072231650352478,
+     "min": 1.0088286399841309,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.86,
+     "mean": 1.841250000000001,
+     "median": 1.84,
+     "min": 1.8,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.08843266906420152,
+     "mean": 0.04216215877702673,
+     "median": 0.039044175640128576,
+     "min": 0.023120516141148316,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 6.0,
+     "mean": 4.9375,
+     "median": 5.0,
+     "min": 3.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 21,
+    "n_stood_strict": 20,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_r_rod_min_summary.json",
+    "smoke": false,
+    "stood_share": 0.65625,
+    "terminated": 0
+   },
+   "s1": {
+    "cams_homed_end": 0,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 0.17333333333333334,
+     "mean": 0.10229166666666667,
+     "median": 0.1,
+     "min": 0.03333333333333333,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 5.0,
+     "mean": 3.28125,
+     "median": 3.0,
+     "min": 3.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "3": 25,
+     "4": 5,
+     "5": 2
+    },
+    "final_gap_m": {
+     "max": 0.3148779773712158,
+     "mean": 0.26988106012344376,
+     "median": 0.2669084274768829,
+     "min": 0.2339754009246826,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.1153533458709717,
+     "mean": 1.0716466344892979,
+     "median": 1.0735723376274109,
+     "min": 1.032256007194519,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.8800000000000001,
+     "mean": 1.8487500000000003,
+     "median": 1.84,
+     "min": 1.82,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.09594709458783435,
+     "mean": 0.04774030152317239,
+     "median": 0.046356430259666084,
+     "min": 0.028071785679004348,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 3.0,
+     "mean": 1.875,
+     "median": 2.0,
+     "min": 1.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 0,
+    "n_stood_strict": 0,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_s1_rod_min_summary.json",
+    "smoke": false,
+    "stood_share": 0.0,
+    "terminated": 0
+   },
+   "stand_net": {
+    "cams_homed_end": 30,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s",
+     "FALL",
+     "FELL OFF THE TABLE",
+     "belly gap < 0.1 m in the last 3.0 s"
+    ],
+    "falls": 2,
+    "feet_share_last_window": {
+     "max": 1.0,
+     "mean": 0.6704166666666667,
+     "median": 1.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "fell_off_table": 2,
+    "final_feet_on_floor": {
+     "max": 6.0,
+     "mean": 4.5625,
+     "median": 5.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "0": 2,
+     "2": 1,
+     "4": 7,
+     "5": 16,
+     "6": 6
+    },
+    "final_gap_m": {
+     "max": 0.2740413451194763,
+     "mean": 0.2166992805525662,
+     "median": 0.26437883615493774,
+     "min": -0.5000060892105103,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.0731837749481201,
+     "mean": 1.018434832803905,
+     "median": 1.064376950263977,
+     "min": 0.3163432776927948,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.9000000000000001,
+     "mean": 1.8493750000000002,
+     "median": 1.86,
+     "min": 1.8,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 3.135652447072701,
+     "mean": 0.2672252321683161,
+     "median": 0.07423368514522537,
+     "min": 0.03159277111705814,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 6.0,
+     "mean": 4.28125,
+     "median": 5.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 18,
+    "n_stood_strict": 18,
+    "num_envs": 32,
+    "on_table_end": 2,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_stand_net_rod_min_summary.json",
+    "smoke": false,
+    "stood_share": 0.5625,
+    "terminated": 0
+   },
+   "zero": {
+    "cams_homed_end": 32,
+    "episode_s": 15.0,
+    "fail_reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s"
+    ],
+    "falls": 0,
+    "feet_share_last_window": {
+     "max": 1.0,
+     "mean": 0.7631249999999999,
+     "median": 1.0,
+     "min": 0.0,
+     "n": 32
+    },
+    "fell_off_table": 0,
+    "final_feet_on_floor": {
+     "max": 6.0,
+     "mean": 5.0625,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "final_feet_on_floor_hist": {
+     "4": 7,
+     "5": 16,
+     "6": 9
+    },
+    "final_gap_m": {
+     "max": 0.2850090765953064,
+     "mean": 0.26118682302534596,
+     "median": 0.27183117508888244,
+     "min": 0.14927141904830932,
+     "n": 32
+    },
+    "final_root_z_m": {
+     "max": 1.0863947868347168,
+     "mean": 1.0657807737588882,
+     "median": 1.0722717642784119,
+     "min": 0.9874791502952576,
+     "n": 32
+    },
+    "lift_off_s": {
+     "max": 1.86,
+     "mean": 1.8418750000000008,
+     "median": 1.84,
+     "min": 1.8,
+     "n": 32
+    },
+    "max_tilt_rad": {
+     "max": 0.07888505431384549,
+     "mean": 0.046778272957841344,
+     "median": 0.04758866143769836,
+     "min": 0.021817918689043404,
+     "n": 32
+    },
+    "min_feet_last_window": {
+     "max": 6.0,
+     "mean": 4.9375,
+     "median": 5.0,
+     "min": 4.0,
+     "n": 32
+    },
+    "n_envs": 32,
+    "n_lifted_off": 32,
+    "n_stood": 23,
+    "n_stood_strict": 23,
+    "num_envs": 32,
+    "on_table_end": 0,
+    "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/stats_zero_rod_min_summary.json",
+    "smoke": false,
+    "stood_share": 0.71875,
+    "terminated": 0
+   }
+  }
+ },
+ "stood_definition": "STOOD iff (1) last 3.0 s (150 control steps): on EVERY step the chassis box's lowest point >= 0.10 m above the table-top plane (z >= 0.735 m), AND on >= 95 % of the steps (>= 143 of 150) >= 5 of 6 footpads loaded on the floor (net contact >= 20 N, footpad centre z <= 0.15 m; the tolerance absorbs post-settle load flickers); (2) whole episode: body tilt (body z vs world z) <= 0.5 rad (else FALL); (3) whole episode: the chassis' lowest point never below the table-top plane by more than 0.05 m (else FELL OFF THE TABLE); (4) no termination (only a time-out 2 s past the episode remains). Reported, not gated: stood_strict (>= 5 feet on EVERY window step), the window share of steps with >= 5 feet and the window's min feet, lift-off (belly gap > 0.02 m held 0.5 s), final root z / gap / feet, max tilt, cams homed at the end (worst |cam| <= 0.10 rad).",
+ "videos": [
+  {
+   "controller": "r",
+   "env0": {
+    "cam_abs_max_end_rad": 6.604194641113281e-05,
+    "cams_homed_end": true,
+    "env": 0,
+    "feet_share_last_window": 1.0,
+    "fell": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 5,
+    "final_gap_m": 0.2815564775466919,
+    "final_root_z_m": 1.076593279838562,
+    "final_table_frame_xy_m": [
+     -0.005451202392578125,
+     0.02742767333984375
+    ],
+    "first_gap_above_lift_s": 1.1400000000000001,
+    "lift_off_s": 1.1400000000000001,
+    "max_gap_m": 0.2828006649017334,
+    "max_tilt_rad": 0.005869547136650593,
+    "min_feet_last_window": 5,
+    "min_gap_last_window_m": 0.2815477752685547,
+    "min_gap_m": -1.1453628540047944e-05,
+    "on_table_end": false,
+    "r_branch_share": {
+     "hold": 0.6562222222222223,
+     "home": 0.0,
+     "lift": 0.0,
+     "seat": 0.3437777777777778,
+     "wait": 0.0
+    },
+    "reasons": [],
+    "stand_slot_share": 1.0,
+    "standing_since_s": 2.44,
+    "steps": 750,
+    "stood": true,
+    "stood_strict": true,
+    "table_offset": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "terminated": false
+   },
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_r_knee_folded.mp4",
+   "pose": "knee_folded",
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_r_knee_folded_summary.json"
+  },
+  {
+   "controller": "r",
+   "env0": {
+    "cam_abs_max_end_rad": 0.00013518333435058594,
+    "cams_homed_end": true,
+    "env": 0,
+    "feet_share_last_window": 1.0,
+    "fell": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 5,
+    "final_gap_m": 0.2677324914932251,
+    "final_root_z_m": 1.069966197013855,
+    "final_table_frame_xy_m": [
+     -0.021646499633789062,
+     -0.38309478759765625
+    ],
+    "first_gap_above_lift_s": 1.84,
+    "lift_off_s": 1.84,
+    "max_gap_m": 0.28578208923339843,
+    "max_tilt_rad": 0.031814654481742366,
+    "min_feet_last_window": 5,
+    "min_gap_last_window_m": 0.2676709794998169,
+    "min_gap_m": -0.00023020267486573154,
+    "on_table_end": false,
+    "r_branch_share": {
+     "hold": 0.6862222222222222,
+     "home": 0.0,
+     "lift": 0.0,
+     "seat": 0.31377777777777777,
+     "wait": 0.0
+    },
+    "reasons": [],
+    "stand_slot_share": 1.0,
+    "standing_since_s": 2.2600000000000002,
+    "steps": 750,
+    "stood": true,
+    "stood_strict": true,
+    "table_offset": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "terminated": false
+   },
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_r_rod_min.mp4",
+   "pose": "rod_min",
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_r_rod_min_summary.json"
+  },
+  {
+   "controller": "s1",
+   "env0": {
+    "cam_abs_max_end_rad": 0.30240821838378906,
+    "cams_homed_end": false,
+    "env": 0,
+    "feet_share_last_window": 0.06666666666666667,
+    "fell": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 3,
+    "final_gap_m": 0.2605547213554382,
+    "final_root_z_m": 1.067034363746643,
+    "final_table_frame_xy_m": [
+     0.008075714111328125,
+     0.09420013427734375
+    ],
+    "first_gap_above_lift_s": 1.1400000000000001,
+    "lift_off_s": 1.1400000000000001,
+    "max_gap_m": 0.3332403802871704,
+    "max_tilt_rad": 0.028788890597930564,
+    "min_feet_last_window": 2,
+    "min_gap_last_window_m": 0.22822057247161864,
+    "min_gap_m": -0.0011674857139587491,
+    "on_table_end": false,
+    "reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s (10/150 steps with >= 5; min 2)"
+    ],
+    "stand_slot_share": 1.0,
+    "standing_since_s": null,
+    "steps": 750,
+    "stood": false,
+    "stood_strict": false,
+    "table_offset": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "terminated": false
+   },
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_s1_knee_folded.mp4",
+   "pose": "knee_folded",
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_s1_knee_folded_summary.json"
+  },
+  {
+   "controller": "s1",
+   "env0": {
+    "cam_abs_max_end_rad": 0.32602405548095703,
+    "cams_homed_end": false,
+    "env": 0,
+    "feet_share_last_window": 0.12,
+    "fell": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 3,
+    "final_gap_m": 0.27841632604599,
+    "final_root_z_m": 1.0776361227035522,
+    "final_table_frame_xy_m": [
+     0.044536590576171875,
+     0.2351531982421875
+    ],
+    "first_gap_above_lift_s": 1.86,
+    "lift_off_s": 1.86,
+    "max_gap_m": 0.31141631841659545,
+    "max_tilt_rad": 0.054958627141440744,
+    "min_feet_last_window": 2,
+    "min_gap_last_window_m": 0.23166202545166015,
+    "min_gap_m": -0.00016606807708741123,
+    "on_table_end": false,
+    "reasons": [
+     "< 5 feet on the floor on > 5 % of the last 3.0 s (18/150 steps with >= 5; min 2)"
+    ],
+    "stand_slot_share": 1.0,
+    "standing_since_s": null,
+    "steps": 750,
+    "stood": false,
+    "stood_strict": false,
+    "table_offset": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "terminated": false
+   },
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_s1_rod_min.mp4",
+   "pose": "rod_min",
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_s1_rod_min_summary.json"
+  },
+  {
+   "controller": "stand_net",
+   "env0": {
+    "cam_abs_max_end_rad": 0.02745199203491211,
+    "cams_homed_end": true,
+    "env": 0,
+    "feet_share_last_window": 1.0,
+    "fell": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 6,
+    "final_gap_m": 0.25798856258392333,
+    "final_root_z_m": 1.0616028308868408,
+    "final_table_frame_xy_m": [
+     -0.09539222717285156,
+     -0.04665374755859375
+    ],
+    "first_gap_above_lift_s": 1.28,
+    "lift_off_s": 1.28,
+    "max_gap_m": 0.2651033306121826,
+    "max_tilt_rad": 0.045700684941114955,
+    "min_feet_last_window": 6,
+    "min_gap_last_window_m": 0.2576226496696472,
+    "min_gap_m": -0.00113023281097413,
+    "on_table_end": false,
+    "reasons": [],
+    "stand_slot_share": 1.0,
+    "standing_since_s": 2.36,
+    "steps": 750,
+    "stood": true,
+    "stood_strict": true,
+    "table_offset": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "terminated": false
+   },
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_stand_net_knee_folded.mp4",
+   "pose": "knee_folded",
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_stand_net_knee_folded_summary.json"
+  },
+  {
+   "controller": "stand_net",
+   "env0": {
+    "cam_abs_max_end_rad": 0.01734137535095215,
+    "cams_homed_end": true,
+    "env": 0,
+    "feet_share_last_window": 1.0,
+    "fell": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 5,
+    "final_gap_m": 0.27234100341796874,
+    "final_root_z_m": 1.067050576210022,
+    "final_table_frame_xy_m": [
+     0.06243896484375,
+     0.05206298828125
+    ],
+    "first_gap_above_lift_s": 1.82,
+    "lift_off_s": 1.82,
+    "max_gap_m": 0.28758405685424804,
+    "max_tilt_rad": 0.05853492914655263,
+    "min_feet_last_window": 5,
+    "min_gap_last_window_m": 0.27231990337371825,
+    "min_gap_m": -4.718303680428804e-06,
+    "on_table_end": false,
+    "reasons": [],
+    "stand_slot_share": 1.0,
+    "standing_since_s": 4.96,
+    "steps": 750,
+    "stood": true,
+    "stood_strict": true,
+    "table_offset": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "terminated": false
+   },
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_stand_net_rod_min.mp4",
+   "pose": "rod_min",
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sn_table/2026-10-13_12-22-28_full/video_stand_net_rod_min_summary.json"
+  }
+ ]
+}

@@ -1,0 +1,823 @@
+{
+ "episodes_by_kind": {
+  "ground": {
+   "episodes": 0,
+   "falls": 0,
+   "hip_ends": 0
+  },
+  "random": {
+   "episodes": 2106,
+   "falls": 101,
+   "hip_ends": 0
+  },
+  "table": {
+   "episodes": 8404,
+   "falls": 408,
+   "hip_ends": 38
+  },
+  "walk": {
+   "episodes": 10493,
+   "falls": 814,
+   "hip_ends": 16
+  }
+ },
+ "n_episodes": 62939,
+ "n_records": 110596,
+ "premise": {
+  "absent_kinds": {
+   "ground": {
+    "records": 0,
+    "share": 0.0
+   }
+  },
+  "by_kind": {
+   "random": {
+    "beta_r": {
+     "abs_dh": {
+      "median": null,
+      "n": 0,
+      "p90": null
+     },
+     "fall": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     },
+     "homed": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    },
+    "control": {
+     "abs_dh": {
+      "median": 0.0017542092356310768,
+      "n": 328,
+      "p90": 0.004741255311628745
+     },
+     "fall": {
+      "k": 1,
+      "n": 336,
+      "p": 0.002976190476190476,
+      "se": 0.002971758321123438
+     },
+     "homed": {
+      "k": 313,
+      "n": 322,
+      "p": 0.9720496894409938,
+      "se": 0.009185644129312694
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    },
+    "student": {
+     "abs_dh": {
+      "median": 0.001819978713989201,
+      "n": 1468,
+      "p90": 0.004463728901316499
+     },
+     "fall": {
+      "k": 8,
+      "n": 1538,
+      "p": 0.005201560468140442,
+      "se": 0.0018342401928508134
+     },
+     "homed": {
+      "k": 1427,
+      "n": 1456,
+      "p": 0.9800824175824175,
+      "se": 0.0036615833369075465
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    }
+   },
+   "table": {
+    "beta_r": {
+     "abs_dh": {
+      "median": null,
+      "n": 0,
+      "p90": null
+     },
+     "fall": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     },
+     "homed": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    },
+    "control": {
+     "abs_dh": {
+      "median": 0.001796335538228222,
+      "n": 1327,
+      "p90": 0.004635628655101035
+     },
+     "fall": {
+      "k": 10,
+      "n": 1395,
+      "p": 0.007168458781362007,
+      "se": 0.0022587261262282414
+     },
+     "homed": {
+      "k": 1290,
+      "n": 1323,
+      "p": 0.9750566893424036,
+      "se": 0.004287578246425976
+     },
+     "stood": {
+      "k": 800,
+      "n": 860,
+      "p": 0.9302325581395349,
+      "se": 0.008687062414391029
+     }
+    },
+    "student": {
+     "abs_dh": {
+      "median": 0.0017584339318498232,
+      "n": 5836,
+      "p90": 0.004509982438377691
+     },
+     "fall": {
+      "k": 33,
+      "n": 6080,
+      "p": 0.005427631578947369,
+      "se": 0.0009422618010452177
+     },
+     "homed": {
+      "k": 5645,
+      "n": 5761,
+      "p": 0.9798646068390905,
+      "se": 0.0018506068054012393
+     },
+     "stood": {
+      "k": 3533,
+      "n": 3795,
+      "p": 0.9309617918313571,
+      "se": 0.004115331211855135
+     }
+    }
+   },
+   "walk": {
+    "beta_r": {
+     "abs_dh": {
+      "median": null,
+      "n": 0,
+      "p90": null
+     },
+     "fall": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     },
+     "homed": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    },
+    "control": {
+     "abs_dh": {
+      "median": 0.0020641820044213777,
+      "n": 1388,
+      "p90": 0.005388210965664596
+     },
+     "fall": {
+      "k": 12,
+      "n": 1535,
+      "p": 0.007817589576547232,
+      "se": 0.0022479052673653284
+     },
+     "homed": {
+      "k": 1270,
+      "n": 1330,
+      "p": 0.9548872180451128,
+      "se": 0.0056911498936650685
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    },
+    "student": {
+     "abs_dh": {
+      "median": 0.0019431058190193529,
+      "n": 6113,
+      "p90": 0.005018386108642714
+     },
+     "fall": {
+      "k": 54,
+      "n": 6742,
+      "p": 0.008009492732126965,
+      "se": 0.0010855801406679576
+     },
+     "homed": {
+      "k": 5729,
+      "n": 5919,
+      "p": 0.9678999831052543,
+      "se": 0.0022910981869393517
+     },
+     "stood": {
+      "k": 0,
+      "n": 0,
+      "p": null,
+      "se": null
+     }
+    }
+   }
+  },
+  "checks": [
+   {
+    "check": "walk homed student >= 0.5 x R_h",
+    "control": 0.9548872180451128,
+    "ratio": 1.0136275413621954,
+    "stop": false,
+    "student": 0.9678999831052543
+   },
+   {
+    "check": "random homed student >= 0.5 x R_h",
+    "control": 0.9720496894409938,
+    "ratio": 1.008263701155075,
+    "stop": false,
+    "student": 0.9800824175824175
+   },
+   {
+    "check": "table stood student >= 0.5 x R_h",
+    "control": 0.9302325581395349,
+    "ratio": 1.0007839262187088,
+    "stop": false,
+    "student": 0.9309617918313571
+   },
+   {
+    "check": "fall share student <= 2 x R_h + 0.01",
+    "control": 0.007042253521126761,
+    "stop": false,
+    "student": 0.006615598885793872
+   },
+   {
+    "check": "restore-timeout share (sigma-0 episodes) student <= 2 x R_h + 0.01",
+    "control": 0.0012894906511927789,
+    "stop": false,
+    "student": 0.001475143826523086
+   }
+  ],
+  "restore": {
+   "beta_r": {
+    "sigma0": {
+     "ground": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "random": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "table": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "walk": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     }
+    },
+    "sigma_pos": {
+     "ground": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "random": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "table": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "walk": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     }
+    }
+   },
+   "control": {
+    "sigma0": {
+     "ground": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "random": {
+      "completed": 157,
+      "engaged": 168,
+      "merged": 2,
+      "reset_cut": 9,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 157,
+       "p": 0.0,
+       "se": 0.0
+      }
+     },
+     "table": {
+      "completed": 679,
+      "engaged": 722,
+      "merged": 4,
+      "reset_cut": 36,
+      "timed_out": 2,
+      "timeout_share": {
+       "k": 2,
+       "n": 681,
+       "p": 0.002936857562408223,
+       "se": 0.0020736202107340396
+      }
+     },
+     "walk": {
+      "completed": 713,
+      "engaged": 761,
+      "merged": 4,
+      "reset_cut": 46,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 713,
+       "p": 0.0,
+       "se": 0.0
+      }
+     }
+    },
+    "sigma_pos": {
+     "ground": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "random": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "table": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "walk": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     }
+    }
+   },
+   "student": {
+    "sigma0": {
+     "ground": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "random": {
+      "completed": 739,
+      "engaged": 778,
+      "merged": 3,
+      "reset_cut": 37,
+      "timed_out": 1,
+      "timeout_share": {
+       "k": 1,
+       "n": 740,
+       "p": 0.0013513513513513514,
+       "se": 0.001350437967433985
+      }
+     },
+     "table": {
+      "completed": 2872,
+      "engaged": 3054,
+      "merged": 20,
+      "reset_cut": 156,
+      "timed_out": 8,
+      "timeout_share": {
+       "k": 8,
+       "n": 2880,
+       "p": 0.002777777777777778,
+       "se": 0.0009807277853849472
+      }
+     },
+     "walk": {
+      "completed": 3158,
+      "engaged": 3398,
+      "merged": 36,
+      "reset_cut": 201,
+      "timed_out": 1,
+      "timeout_share": {
+       "k": 1,
+       "n": 3159,
+       "p": 0.00031655587211142766,
+       "se": 0.000316505764335552
+      }
+     }
+    },
+    "sigma_pos": {
+     "ground": {
+      "completed": 0,
+      "engaged": 0,
+      "merged": 0,
+      "reset_cut": 0,
+      "timed_out": 0,
+      "timeout_share": {
+       "k": 0,
+       "n": 0,
+       "p": null,
+       "se": null
+      }
+     },
+     "random": {
+      "completed": 674,
+      "engaged": 746,
+      "merged": 9,
+      "reset_cut": 47,
+      "timed_out": 15,
+      "timeout_share": {
+       "k": 15,
+       "n": 689,
+       "p": 0.02177068214804064,
+       "se": 0.005559640947941556
+      }
+     },
+     "table": {
+      "completed": 2839,
+      "engaged": 3097,
+      "merged": 27,
+      "reset_cut": 206,
+      "timed_out": 21,
+      "timeout_share": {
+       "k": 21,
+       "n": 2860,
+       "p": 0.0073426573426573424,
+       "se": 0.001596405788823566
+      }
+     },
+     "walk": {
+      "completed": 3154,
+      "engaged": 3466,
+      "merged": 46,
+      "reset_cut": 224,
+      "timed_out": 38,
+      "timeout_share": {
+       "k": 38,
+       "n": 3192,
+       "p": 0.011904761904761904,
+       "se": 0.0019196776949834062
+      }
+     }
+    }
+   }
+  },
+  "restore_pooled": {
+   "beta_r": {
+    "completed": 0,
+    "engaged": 0,
+    "merged": 0,
+    "reset_cut": 0,
+    "timed_out": 0,
+    "timeout_share": {
+     "k": 0,
+     "n": 0,
+     "p": null,
+     "se": null
+    }
+   },
+   "control": {
+    "completed": 1549,
+    "engaged": 1651,
+    "merged": 10,
+    "reset_cut": 91,
+    "timed_out": 2,
+    "timeout_share": {
+     "k": 2,
+     "n": 1551,
+     "p": 0.0012894906511927789,
+     "se": 0.0009112195104176987
+    }
+   },
+   "student": {
+    "completed": 6769,
+    "engaged": 7230,
+    "merged": 59,
+    "reset_cut": 394,
+    "timed_out": 10,
+    "timeout_share": {
+     "k": 10,
+     "n": 6779,
+     "p": 0.001475143826523086,
+     "se": 0.00046613724622957296
+    }
+   }
+  },
+  "restore_pooled_all_sigma": {
+   "beta_r": {
+    "completed": 0,
+    "engaged": 0,
+    "merged": 0,
+    "reset_cut": 0,
+    "timed_out": 0,
+    "timeout_share": {
+     "k": 0,
+     "n": 0,
+     "p": null,
+     "se": null
+    }
+   },
+   "control": {
+    "completed": 1549,
+    "engaged": 1651,
+    "merged": 10,
+    "reset_cut": 91,
+    "timed_out": 2,
+    "timeout_share": {
+     "k": 2,
+     "n": 1551,
+     "p": 0.0012894906511927789,
+     "se": 0.0009112195104176987
+    }
+   },
+   "student": {
+    "completed": 13436,
+    "engaged": 14539,
+    "merged": 141,
+    "reset_cut": 871,
+    "timed_out": 84,
+    "timeout_share": {
+     "k": 84,
+     "n": 13520,
+     "p": 0.00621301775147929,
+     "se": 0.0006757866423208452
+    }
+   }
+  },
+  "stop": false,
+  "stop_reasons": [],
+  "trim_diag": {
+   "bin": 0.001,
+   "by_window": [
+    {
+     "exec_toward_home": {
+      "median": 0.030000000000000027,
+      "p25": 0.013000000000000123,
+      "p75": 0.062000000000000055
+     },
+     "iterations": 166,
+     "n": 55763,
+     "ratio": 0.3,
+     "rh_toward_home": {
+      "median": 0.10000000000000009
+     },
+     "window": [
+      3334,
+      3500
+     ]
+    },
+    {
+     "exec_toward_home": {
+      "median": 0.03299999999999992,
+      "p25": 0.015000000000000124,
+      "p75": 0.06400000000000006
+     },
+     "iterations": 500,
+     "n": 158918,
+     "ratio": 0.3299999999999989,
+     "rh_toward_home": {
+      "median": 0.10000000000000009
+     },
+     "window": [
+      3500,
+      4000
+     ]
+    },
+    {
+     "exec_toward_home": {
+      "median": 0.03499999999999992,
+      "p25": 0.015000000000000124,
+      "p75": 0.06699999999999995
+     },
+     "iterations": 500,
+     "n": 154831,
+     "ratio": 0.34999999999999887,
+     "rh_toward_home": {
+      "median": 0.10000000000000009
+     },
+     "window": [
+      4000,
+      4500
+     ]
+    },
+    {
+     "exec_toward_home": {
+      "median": 0.03699999999999992,
+      "p25": 0.017000000000000126,
+      "p75": 0.06899999999999995
+     },
+     "iterations": 500,
+     "n": 149065,
+     "ratio": 0.3699999999999989,
+     "rh_toward_home": {
+      "median": 0.10000000000000009
+     },
+     "window": [
+      4500,
+      5000
+     ]
+    }
+   ],
+   "definition": "student-executed sigma-0 stand rows; legs with R_h branch HOLD, |c| in TRIM_BAND (0.1, 0.3] and the foot loaded; executed cam command vs R_h's cam label, both signed toward home (-sign(c) x value); ratio = median executed / median R_h",
+   "pooled": {
+    "exec_toward_home": {
+     "median": 0.03400000000000003,
+     "p25": 0.015000000000000124,
+     "p75": 0.06600000000000006
+    },
+    "iterations": 1666,
+    "n": 518577,
+    "ratio": 0.34,
+    "rh_toward_home": {
+     "median": 0.10000000000000009
+    },
+    "window": [
+     3334,
+     5000
+    ]
+   },
+   "recorded": true,
+   "trim_band": [
+    0.1,
+    0.3
+   ],
+   "window_its": 500
+  },
+  "window": [
+   3334,
+   5000
+  ]
+ },
+ "residual_deadband": 0.25,
+ "run": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T18",
+ "trim_branch": true,
+ "trim_min": 0.0999
+}

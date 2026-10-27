@@ -1,0 +1,123 @@
+# Stand-height campaign (2026-10-13_stand_height, PLAN step 2) -- the CAMPAIGN-LOCAL schedule manifest for the
+# stand_height eval launcher (scripts/sh_eval_crab_hex_gait.py --sh-command manifest). A separate file so that the
+# shared manifests (../eval/scenarios_omni.yaml, ../2026-10-07_omni_phase2/scenarios_p2*.yaml) and eval_sha never move.
+# Run by scripts/sh_eval_rows.sh through ../2026-10-07_omni_phase2/scripts/run_arm.sh --row-eval with the REFS_S1_s18
+# suite es1 env stamp, exactly as the stand-network campaign's rows; the second env seed (es2) is the harness's
+# --env-seed, never a second row.
+#
+# The header (speed_ellipse, ang_vel_max, defaults) is scenarios_p2s.yaml's VERBATIM (itself scenarios_omni.yaml's), so
+# the harness validator's speed and facing rules are the ones every omni row passes. FLAT GROUND exactly as
+# walkstop__omni gets it: NO env block on any row (the eval env is the stamp's: KRABBY_FLAT_TERRAIN_GEOM=ring, no MODE).
+# SHAPE IS FROZEN after the first eval of a row (process-state sensitivity: never add an env block later).
+#
+# The stand_height block (bottom) is the launcher's per-hold height map (scripts/sh_eval_common.py: height_row,
+# height_table): hold_heights has ONE entry per hold in schedule order (the harness's segment_id), the height on a stand
+# hold, null on a walk hold; run_meta records the same list (p2r_mode.stand_height.hold_heights). The harness ignores
+# the block. Every stand hold is labelled "stand" ON PURPOSE (as walkstop__omni's): the predecessor's p2s_stand helpers
+# and the K-readers identify a stand by hold_labels[i] == "stand", so the height lives in the positional map, never in
+# a label. Rules (checked before Kit by the launcher and by tests/unit/test_sh_launcher.py): every speed-0 hold is a
+# "stand" with a height in the frozen [h_min 0.719, h_max 1.346] (facts.json "frozen"), no walk hold carries one or is
+# labelled "stand", one facing per row (face 0: no turn slot), rows start and end on a walk, and every hold fits its
+# gate windows -- stand: hold_s >= |dh| / 0.08 + 1 s + 2 s; walk after a stand at h: hold_s >= |h - 1.064| / 0.08 +
+# 1.5 s + 2 s.
+#
+# Rows (100 episodes each):
+#   (a) hwalkstop__omni (K1 tracking, K6 homing + stillness, K4 hand-back): walk 8 s -> stand at a height 12 s, seven
+#       times (0.719 = h_min, 1.346 = h_max, 0.820, 1.250, 1.064, 0.920, 1.150; low and high interleaved), then a final
+#       walk; walks cycle fwd 0.25 / lat_l 0.20 / back 0.20 / lat_r 0.20 (walkstop__omni's speeds, inside the ellipse).
+#       Seven heights fill five equal-width bins over [h_min, h_max] (0.719 / 0.820 | 0.920 | 1.064 | 1.150 |
+#       1.250 / 1.346). 148 s of holds + the 1.5-s prologue (which holds the first walk) inside the 150-s episode.
+#   (b) hraise__omni (K2 raise / lower, K4): stand holds whose height changes INSIDE the stand (consecutive speed-0
+#       holds at one facing keep the latched stand slot): walk -> 1.064 -> 1.250 -> 0.850 -> 1.346 -> 0.719 -> walk ->
+#       1.064 -> 0.950 -> 1.150 -> 1.300 -> 0.800 -> walk. Raises and lowers of 0.11-0.63 m, both directions, each hold
+#       >= |dh| / 0.08 + 3 s. 94 s of holds + prologue inside the 96-s episode.
+#   (c) identity_rows (bridge + K5): suite__omni / walkstop__omni / field_hard__omni run with --sh-command zero on
+#       their SHARED manifests (listed, never copied: the bridge must reproduce REFS_S1_s18 bitwise, which needs the very
+#       schedule REFS ran, and the stand-network readers key on those row ids).
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: hwalkstop__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 150.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: -1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_r}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: -1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_r}
+    notes: >-
+      stand-height K1 / K6 / K4 row (PLAN H7): seven 12-s stands at commanded heights spanning h_min..h_max, each after
+      an 8-s walk and handed back to a walk; heights from the stand_height block below (--sh-command manifest).
+
+  - id: hraise__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 96.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 4.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 6.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 9.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 10.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 11.0, label: stand}
+      - {speed: 0.20, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 4.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 5.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 6.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 5.0, label: stand}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 10.0, label: stand}
+      - {speed: 0.20, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+    notes: >-
+      stand-height K2 / K4 row (PLAN H7): consecutive stand holds at one facing (the latched slot stays stand) whose
+      height changes inside the stand, raises and lowers of 0.11-0.63 m; heights from the stand_height block below.
+
+stand_height:
+  version: 1
+  rows:
+    hwalkstop__omni:
+      gates: [K1, K4, K6]
+      #             fwd   stand  lat_l  stand  back  stand  lat_r  stand  fwd   stand  lat_l  stand  back  stand  lat_r
+      hold_heights: [null, 0.719, null, 1.346, null, 0.820, null, 1.250, null, 1.064, null, 0.920, null, 1.150, null]
+    hraise__omni:
+      gates: [K2, K4]
+      #             fwd   stand  stand  stand  stand  stand  lat_l  stand  stand  stand  stand  stand  back
+      hold_heights: [null, 1.064, 1.250, 0.850, 1.346, 0.719, null, 1.064, 0.950, 1.150, 1.300, 0.800, null]
+  identity_rows:
+    suite__omni: eval/scenarios_omni.yaml
+    walkstop__omni: 2026-10-07_omni_phase2/scenarios_p2s.yaml
+    field_hard__omni: 2026-10-07_omni_phase2/scenarios_p2.yaml

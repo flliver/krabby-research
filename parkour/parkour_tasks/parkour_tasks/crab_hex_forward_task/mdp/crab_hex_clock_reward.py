@@ -46,6 +46,75 @@ VEL_REF_M_S = 0.10
 TOUCH_REF_N = 50.0
 
 
+def clock_command_speed(
+    cmd: torch.Tensor,
+    planar: bool = False,
+    turn_radius: float = 0.0,
+    turn_floor: float = 0.0,
+) -> torch.Tensor:
+    """The commanded speed that drives the gait clock's cadence, ``[N]``.
+
+    One seam, two tasks. The forward-walk task (and the sideways sibling, whose command
+    also lives in ``cmd[:, 0]``) travels along ONE body axis, so the cadence is set by the
+    magnitude of that single channel -- ``planar=False`` returns the literal expression the
+    action term and the two clock rewards have always used, ``cmd[:, 0].abs()``, so the
+    default path is bit-identical (no arithmetic added, same tensor op).
+
+    An omnidirectional task commands a 2-D planar velocity plus a yaw rate, and a robot that
+    is turning in place is walking even though ``cmd[:, 0]`` may be 0. ``planar=True``
+    therefore takes the larger of the planar command norm and the tangential foot speed a
+    turn of radius ``turn_radius`` implies (``r * |wz|``), so the clock never stalls under an
+    active turn. ``turn_radius=0.0`` degenerates to the pure planar norm.
+
+    ``turn_floor`` (omni body-frame command mode only, 2026-10-15; default 0.0 = the world path,
+    bitwise -- no extra op is even evaluated): a turning row (``wz != 0``) reads at least this speed,
+    i.e. ``max(|v|, r |wz|, turn_floor [wz != 0])``. With ``r = 1.2`` alone a body command's slow
+    turns (``|wz|`` down to 0.05 rad/s) would read 0.06 m/s -- below the clock's stop speed and the
+    gait gates' 0.12 -- so the robot would be paid to stand through every slow turn; the body mode
+    sets the floor to the walk floor (0.21 m/s), so a turning row is "moving" like a slow walk.
+
+    Args:
+        cmd: ``[N, >=3]`` base-velocity command (vx, vy, wz) in the body frame.
+        planar: read the planar command (omni tasks) instead of ``cmd[:, 0]`` alone.
+        turn_radius: metres; the effective turning radius mapping |wz| to a foot speed.
+        turn_floor: m/s; the least clock speed of a turning row (planar branch only; 0 = off).
+    """
+    if not planar:
+        return cmd[:, 0].abs()
+    speed = torch.maximum(
+        torch.linalg.norm(cmd[:, :2], dim=-1), turn_radius * cmd[:, 2].abs()
+    )
+    if turn_floor:
+        speed = torch.maximum(speed, float(turn_floor) * (cmd[:, 2] != 0.0).to(speed.dtype))
+    return speed
+
+
+#: Tolerance (in units of pi) under which a phase counts as sitting ON a touchdown boundary.
+PARK_EPS = 1e-5
+
+
+def park_clock_phase(phase: torch.Tensor, max_step: float | torch.Tensor) -> torch.Tensor:
+    """Advance a PARKED gait clock toward its next touchdown and hold it there, ``[N]``.
+
+    The stand-park knob (``KRABBY_OMNI_STAND_PARK``, omni task only; default OFF, and nothing
+    on the forward/sideways path calls this). Under the alternating-tripod schedule above a
+    swing window is ``sin(phase + offset_i) > 0``: set A swings on ``(0, pi)`` and touches down
+    at ``pi``, set B swings on ``(pi, 2 pi)`` and touches down at ``2 pi == 0``. So the next
+    TOUCHDOWN is the next multiple of ``pi`` at or after ``phase``; there every foot is at the
+    boundary of its stance window, and the clock resumes from a touchdown -- not from the
+    middle of a swing it froze in -- when motion is commanded again.
+
+    ``phase`` advances by at most ``max_step`` rad and never past that multiple (it lands on it
+    exactly), then is wrapped to ``[0, 2 pi)``. A phase already ON a multiple of ``pi`` stays
+    where it is (a float32 phase a few ulp PAST a multiple counts as on it -- :data:`PARK_EPS`
+    -- so rounding can never send a parked clock round another half cycle). Pure torch: the
+    unit tests pin exactly the function the action term calls.
+    """
+    target = torch.ceil(phase / torch.pi - PARK_EPS) * torch.pi
+    advanced = torch.minimum(phase + max_step, target)
+    return torch.remainder(advanced, 2.0 * torch.pi)
+
+
 def clock_schedule_income(
     phase: torch.Tensor,
     foot_force_n: torch.Tensor,
@@ -94,6 +163,47 @@ def clock_schedule_income(
     # station-keeping semantics).
     product = swing_quality * stance_quality
     return torch.where(clock_running, product, stance_quality)
+
+
+def stand_stance_income(
+    foot_force_n: torch.Tensor,
+    foot_speed_xy: torch.Tensor,
+    *,
+    vel_ref: float = VEL_REF_M_S,
+) -> torch.Tensor:
+    """The STOPPED-clock branch of :func:`clock_schedule_income` on its own, ``[N]`` in [0, 1].
+
+    Omni phase-2 plan step 3 (2026-10-06), the F1 stand term (``KRABBY_STAND_STANCE_W``; omni
+    task only, default OFF; nothing on the forward / sideways path calls this). With the clock
+    stopped every swing window is zero, so both combine modes pay pure stance quality: the mean
+    over feet of ``loaded_i * exp(-(|v_i| / vel_ref)^2)`` -- a foot earns its share only when it
+    carries real load (``TOUCH_REF_N``) AND stays planted. Six still, loaded feet earn ~1; a
+    marching stand (a foot always in the air, the others re-planting) earns visibly less.
+
+    It is computed BY CALLING :func:`clock_schedule_income` with ``clock_running`` all False (the
+    phase is then irrelevant and set to 0), not re-derived, so it is the very arithmetic the
+    clock term pays a stopped clock -- with ``combine="product"`` (``sum(i_stance * ok) / 6`` with
+    ``i_stance == 1.0`` exactly); the ``"sum"`` mode's ``mean`` agrees to float rounding (unit test).
+
+    Why a separate term is needed at all: the clock term only pays this branch where its clock
+    is STOPPED, which is keyed on the commanded speed (``clock_command_speed <= cmd_stop``) --
+    so it also pays slow MOVE commands -- and since the c6x clock deprecation the whole clock
+    term carries weight 0.001, i.e. no stand income survives. The caller
+    (``parkour_isaaclab.envs.mdp.rewards.reward_stand_stance_quality``) gates this on the omni
+    command term's STAND SLOT instead, at its own weight.
+
+    Args:
+        foot_force_n: ``[N, 6]`` contact force magnitude per foot (any foot order: the stance
+            branch is a symmetric mean).
+        foot_speed_xy: ``[N, 6]`` planar foot speed (m/s), same order.
+        vel_ref: the planted-foot speed scale (the clock term's ``vel_ref`` param).
+    """
+    n = foot_force_n.shape[0]
+    stopped = torch.zeros(n, dtype=torch.bool, device=foot_force_n.device)
+    phase = torch.zeros(n, dtype=foot_force_n.dtype, device=foot_force_n.device)
+    return clock_schedule_income(
+        phase, foot_force_n, foot_speed_xy, stopped, vel_ref=vel_ref, combine="product"
+    )
 
 
 # Mid-swing apex window: pay only near the swing's center (sin(phi_i) above this), where

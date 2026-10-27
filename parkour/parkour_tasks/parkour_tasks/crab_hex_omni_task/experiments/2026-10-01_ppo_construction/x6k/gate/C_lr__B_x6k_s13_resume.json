@@ -1,0 +1,24 @@
+{
+ "reads": {
+  "source_last_step": 2999,
+  "fork_first_step": 2999,
+  "std": {
+   "source_last": 0.7485960721969604,
+   "fork_first": 0.7485225796699524,
+   "abs_diff": 7.349252700805664e-05
+  },
+  "Loss/priv_reg_coef": {
+   "source_last": 0.03830000013113022,
+   "fork_first": 0.038333334028720856
+  },
+  "Loss/action_bound_coef": {
+   "source_last": 0.0010000000474974513,
+   "fork_first": 0.0010000000474974513
+  }
+ },
+ "fails": [],
+ "rc": 0,
+ "result": "PASS",
+ "fork": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-03_07-34-52_seed13_X30_x6k_A15pB",
+ "source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-02_13-43-41_seed13_X21_s1_A15pB"
+}

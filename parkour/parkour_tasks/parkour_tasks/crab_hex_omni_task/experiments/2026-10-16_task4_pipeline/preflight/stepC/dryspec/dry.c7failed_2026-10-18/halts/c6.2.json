@@ -1,0 +1,112 @@
+{
+ "run": "dry",
+ "stage": "c6",
+ "class": "FAIL",
+ "why": "decisive line(s) failed: ['c6.floor.survival.fwd.es1', 'c6.floor.ratio.fwd.es1', 'c6.floor.ratio.side.es1', 'c6.floor.survival.back.es1', 'c6.floor.ratio.back.es1', 'c6.floor.survival.diag.es1', 'c6.floor.ratio.diag.es1', 'c6.floor.side22_notslow']",
+ "at": "2026-10-17T17:11:13",
+ "status": "accepted",
+ "lines": [
+  {
+   "id": "c6.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 0.04,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 9.576655593219855e-22,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.3304367065354355,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.008783777860017317,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.1451323510340303,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.0044354121247720075,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.22,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 3.124225248717313e-19,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.34679957703157716,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.02369482439611035,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 0.72,
+   "line": 0.8,
+   "direction": ">=",
+   "rate": 1.5176240024016331e-31,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.1335075748576266,
+   "line": 0.5,
+   "direction": ">=",
+   "rate": 0.005195962840233013,
+   "unvalidated": true,
+   "env_seed": 1
+  },
+  {
+   "id": "c6.floor.side22_notslow",
+   "why": "no side22 stamp"
+  }
+ ],
+ "chance_rate_sum": 0.04210997722113269,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/c6.json",
+ "subtree": [
+  "c6x",
+  "p2a",
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-17T17:11:52",
+  "kind": "accept-chance",
+  "why": "C7 dry pass: pre-registered action",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
+}

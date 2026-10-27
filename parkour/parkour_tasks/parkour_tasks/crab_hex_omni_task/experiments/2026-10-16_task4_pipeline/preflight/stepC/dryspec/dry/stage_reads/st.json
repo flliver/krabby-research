@@ -1,0 +1,14 @@
+{
+ "stage": "st",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-19_03-57-19_T4dry_st_a2",
+ "tstar": "p3a",
+ "candidates": [
+  {
+   "offset": 1000,
+   "target": 1133,
+   "iter": 182,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-19_03-57-19_T4dry_st_a2/model_182.pt"
+  }
+ ],
+ "recorded_at": "2026-10-19T04:04:09"
+}

@@ -1,0 +1,62 @@
+== canon:C  lat_l_022(n87) vs lat_r_022(n87)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.99 -0.99 -0.55 -0.6  -0.99 -0.99]  | static odd 0.002  dyn even 0.029  dyn odd 0.097  (ampL 0.102 ampR 0.101)
+  a_hip  dyn corr L~R [-0.17 -0.09  0.19  0.22 -0.11 -0.12]  | static odd 0.063  dyn even 0.517  dyn odd 0.512  (ampL 0.728 ampR 0.729)
+  a_knee dyn corr L~R [-0.6  -0.64  0.22  0.2  -0.64 -0.64]  | static odd 0.047  dyn even 0.381  dyn odd 0.497  (ampL 0.641 ampR 0.632)
+  a_cam  dyn corr L~R [ 0.02 -0.04  0.69 -0.11  0.02 -0.01]  | static odd 0.054  dyn even 0.392  dyn odd 0.385  (ampL 0.552 ampR 0.542)
+== canon:C_mo_s2  lat_l_022(n95) vs lat_r_022(n95)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.94 -0.91 -0.97 -0.96 -0.94 -0.93]  | static odd 0.025  dyn even 0.021  dyn odd 0.110  (ampL 0.113 ampR 0.111)
+  a_hip  dyn corr L~R [-0.33 -0.27  0.97  0.96 -0.25 -0.32]  | static odd 0.010  dyn even 0.601  dyn odd 0.452  (ampL 0.812 ampR 0.809)
+  a_knee dyn corr L~R [-0.69 -0.6  -0.81 -0.77 -0.62 -0.65]  | static odd 0.112  dyn even 0.234  dyn odd 0.561  (ampL 0.612 ampR 0.605)
+  a_cam  dyn corr L~R [-0.04 -0.38 -0.17  0.07 -0.36 -0.11]  | static odd 0.011  dyn even 0.199  dyn odd 0.212  (ampL 0.225 ampR 0.243)
+== canon:C_mo_s1  lat_l_022(n96) vs lat_r_022(n96)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.68 -0.69 -0.75 -0.71 -0.71 -0.66]  | static odd 0.103  dyn even 0.045  dyn odd 0.081  (ampL 0.087 ampR 0.085)
+  a_hip  dyn corr L~R [0.84 0.85 0.21 0.19 0.85 0.85]  | static odd 0.102  dyn even 0.649  dyn odd 0.325  (ampL 0.739 ampR 0.727)
+  a_knee dyn corr L~R [ 0.07  0.04 -0.18 -0.15  0.09  0.11]  | static odd 0.389  dyn even 0.360  dyn odd 0.381  (ampL 0.500 ampR 0.493)
+  a_cam  dyn corr L~R [ 0.53  0.5  -0.09 -0.03  0.53  0.49]  | static odd 0.025  dyn even 0.311  dyn odd 0.182  (ampL 0.363 ampR 0.357)
+== canon:C_s2  lat_l_022(n88) vs lat_r_022(n89)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.94 -0.93 -0.48 -0.51 -0.91 -0.91]  | static odd 0.082  dyn even 0.039  dyn odd 0.074  (ampL 0.083 ampR 0.077)
+  a_hip  dyn corr L~R [0.63 0.55 0.11 0.13 0.59 0.6 ]  | static odd 0.081  dyn even 0.615  dyn odd 0.395  (ampL 0.744 ampR 0.723)
+  a_knee dyn corr L~R [-0.62 -0.59  0.21  0.2  -0.59 -0.61]  | static odd 0.232  dyn even 0.352  dyn odd 0.452  (ampL 0.581 ampR 0.569)
+  a_cam  dyn corr L~R [-0.36 -0.4  -0.01 -0.19 -0.36 -0.37]  | static odd 0.045  dyn even 0.294  dyn odd 0.426  (ampL 0.518 ampR 0.512)
+== W  lat_l(n99) vs lat_r(n100)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.82 -0.88 -0.94 -0.94 -0.87 -0.78]  | static odd 0.218  dyn even 0.011  dyn odd 0.023  (ampL 0.023 ampR 0.024)
+  a_hip  dyn corr L~R [0.96 0.94 0.95 0.95 0.95 0.96]  | static odd 0.046  dyn even 0.745  dyn odd 0.118  (ampL 0.756 ampR 0.752)
+  a_knee dyn corr L~R [0.44 0.47 0.25 0.25 0.46 0.42]  | static odd 0.781  dyn even 0.212  dyn odd 0.170  (ampL 0.232 ampR 0.248)
+  a_cam  dyn corr L~R [ 0.96  0.95  0.29 -0.4   0.94  0.95]  | static odd 0.139  dyn even 0.495  dyn odd 0.125  (ampL 0.507 ampR 0.504)
+== lr:LR4  lat_l_022(n88) vs lat_r_022(n97)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.89 -0.9  -0.65 -0.61 -0.87 -0.86]  | static odd 0.044  dyn even 0.011  dyn odd 0.027  (ampL 0.029 ampR 0.028)
+  a_hip  dyn corr L~R [0.85 0.87 0.94 0.96 0.88 0.85]  | static odd 0.145  dyn even 0.648  dyn odd 0.155  (ampL 0.681 ampR 0.651)
+  a_knee dyn corr L~R [0.48 0.37 0.85 0.85 0.36 0.41]  | static odd 0.120  dyn even 0.368  dyn odd 0.173  (ampL 0.416 ampR 0.402)
+  a_cam  dyn corr L~R [0.87 0.86 0.47 0.38 0.85 0.84]  | static odd 0.166  dyn even 0.460  dyn odd 0.144  (ampL 0.504 ampR 0.456)
+== lr:LRfa  lat_l_022(n98) vs lat_r_022(n99)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.52 -0.86 -0.79 -0.63 -0.52 -0.86]  | static odd 0.192  dyn even 0.014  dyn odd 0.027  (ampL 0.021 ampR 0.036)
+  a_hip  dyn corr L~R [0.92 0.97 0.93 0.92 0.93 0.97]  | static odd 0.096  dyn even 0.675  dyn odd 0.125  (ampL 0.729 ampR 0.643)
+  a_knee dyn corr L~R [-0.87 -0.69  0.14  0.92 -0.83 -0.69]  | static odd 0.726  dyn even 0.192  dyn odd 0.125  (ampL 0.180 ampR 0.282)
+  a_cam  dyn corr L~R [ 0.5   0.48 -0.01  0.64  0.04  0.05]  | static odd 0.014  dyn even 0.113  dyn odd 0.100  (ampL 0.204 ampR 0.052)
+== lr:C_lr  lat_l_022(n97) vs lat_r_022(n98)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.9  -0.49 -0.84 -0.89 -0.9  -0.54]  | static odd 0.149  dyn even 0.009  dyn odd 0.023  (ampL 0.027 ampR 0.022)
+  a_hip  dyn corr L~R [0.91 0.94 0.89 0.89 0.94 0.92]  | static odd 0.087  dyn even 0.660  dyn odd 0.150  (ampL 0.735 ampR 0.614)
+  a_knee dyn corr L~R [-0.1  -0.56 -0.3   0.17 -0.02 -0.58]  | static odd 0.451  dyn even 0.157  dyn odd 0.179  (ampL 0.291 ampR 0.164)
+  a_cam  dyn corr L~R [ 0.67  0.4  -0.23 -0.41  0.67 -0.67]  | static odd 0.009  dyn even 0.173  dyn odd 0.105  (ampL 0.225 ampR 0.185)
+== lr:C_lr_10  lat_l_022(n79) vs lat_r_022(n92)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [ 0.64 -0.21 -0.78 -0.29  0.44 -0.22]  | static odd 0.055  dyn even 0.032  dyn odd 0.039  (ampL 0.037 ampR 0.057)
+  a_hip  dyn corr L~R [0.92 0.94 0.9  0.96 0.94 0.91]  | static odd 0.055  dyn even 0.712  dyn odd 0.137  (ampL 0.718 ampR 0.732)
+  a_knee dyn corr L~R [0.17 0.59 0.92 0.71 0.09 0.58]  | static odd 0.125  dyn even 0.435  dyn odd 0.208  (ampL 0.443 ampR 0.528)
+  a_cam  dyn corr L~R [ 0.91  0.45  0.24 -0.34  0.9   0.7 ]  | static odd 0.074  dyn even 0.374  dyn odd 0.138  (ampL 0.445 ampR 0.358)
+== lr:C_lr_rsi  lat_l_022(n92) vs lat_r_022(n100)   [per leg FL FR ML MR RL RR]
+  rho    dyn corr L~R [-0.79 -0.93 -0.99 -0.93 -0.91 -0.94]  | static odd 0.225  dyn even 0.006  dyn odd 0.022  (ampL 0.023 ampR 0.021)
+  a_hip  dyn corr L~R [0.98 0.99 0.81 0.8  0.99 0.98]  | static odd 0.139  dyn even 0.668  dyn odd 0.126  (ampL 0.685 ampR 0.684)
+  a_knee dyn corr L~R [-0.11 -0.32 -0.51 -0.45 -0.15 -0.06]  | static odd 0.929  dyn even 0.045  dyn odd 0.047  (ampL 0.091 ampR 0.009)
+  a_cam  dyn corr L~R [ 0.81 -0.47 -0.58 -0.77  0.75 -0.59]  | static odd 0.041  dyn even 0.196  dyn odd 0.205  (ampL 0.349 ampR 0.231)
+
+SUMMARY (rho and hip/knee actions): mean dyn corr L~R | static-odd | dyn-even | dyn-odd | odd share of dynamic = dyn_odd/(dyn_even+dyn_odd)
+canon:C        rho: c-0.85 so0.002 de0.029 do0.097 share0.77 || a_hip: c-0.01 so0.063 de0.517 do0.512 share0.50 || a_knee: c-0.35 so0.047 de0.381 do0.497 share0.57
+canon:C_mo_s2  rho: c-0.94 so0.025 de0.021 do0.110 share0.84 || a_hip: c+0.13 so0.010 de0.601 do0.452 share0.43 || a_knee: c-0.69 so0.112 de0.234 do0.561 share0.71
+canon:C_mo_s1  rho: c-0.70 so0.103 de0.045 do0.081 share0.64 || a_hip: c+0.63 so0.102 de0.649 do0.325 share0.33 || a_knee: c-0.00 so0.389 de0.360 do0.381 share0.51
+canon:C_s2     rho: c-0.78 so0.082 de0.039 do0.074 share0.66 || a_hip: c+0.44 so0.081 de0.615 do0.395 share0.39 || a_knee: c-0.33 so0.232 de0.352 do0.452 share0.56
+W              rho: c-0.87 so0.218 de0.011 do0.023 share0.68 || a_hip: c+0.95 so0.046 de0.745 do0.118 share0.14 || a_knee: c+0.38 so0.781 de0.212 do0.170 share0.45
+lr:LR4         rho: c-0.80 so0.044 de0.011 do0.027 share0.72 || a_hip: c+0.89 so0.145 de0.648 do0.155 share0.19 || a_knee: c+0.55 so0.120 de0.368 do0.173 share0.32
+lr:LRfa        rho: c-0.70 so0.192 de0.014 do0.027 share0.66 || a_hip: c+0.94 so0.096 de0.675 do0.125 share0.16 || a_knee: c-0.34 so0.726 de0.192 do0.125 share0.39
+lr:C_lr        rho: c-0.76 so0.149 de0.009 do0.023 share0.73 || a_hip: c+0.92 so0.087 de0.660 do0.150 share0.19 || a_knee: c-0.23 so0.451 de0.157 do0.179 share0.53
+lr:C_lr_10     rho: c-0.07 so0.055 de0.032 do0.039 share0.55 || a_hip: c+0.93 so0.055 de0.712 do0.137 share0.16 || a_knee: c+0.51 so0.125 de0.435 do0.208 share0.32
+lr:C_lr_rsi    rho: c-0.91 so0.225 de0.006 do0.022 share0.78 || a_hip: c+0.92 so0.139 de0.668 do0.126 share0.16 || a_knee: c-0.27 so0.929 de0.045 do0.047 share0.51

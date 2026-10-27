@@ -14,6 +14,7 @@ from isaaclab.managers import ObservationTermCfg
 
 from parkour_isaaclab.envs.mdp.observations import ExtremeParkourObservations
 from parkour_isaaclab.envs.mdp.parkours import ParkourEvent
+from parkour_isaaclab.envs.mdp.travel_frame import yaw_error
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
 from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
@@ -80,9 +81,15 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
     """``ExtremeParkourObservations`` with ``root_lin_vel_b[:, :2] * 2`` (dims 13-14) and the
     gait clock's sin/cos (dims 15-16) in the proprio block."""
 
+    # Steering channels (obs dims 6-7, the two delta-yaw slots) are blanked in the copy that
+    # goes into the observation HISTORY, so the policy cannot read the goal heading out of
+    # its own past. A sibling task whose whole command is "face this way" needs the facing
+    # error to persist in history instead; it flips this to False. Forward = True = today.
+    ZERO_STEERING_HISTORY = True
+
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
         super().__init__(cfg, env)
-        self._obs_buf_dim += _CRAB_EXTRA_BASE_DIM
+        self._obs_buf_dim += _CRAB_EXTRA_BASE_DIM + self._extra_head_dim()
         self._obs_history_buffer = torch.zeros(
             self.num_envs, self.history_length, self._obs_buf_dim, device=self.device
         )
@@ -130,6 +137,67 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         current_k = gate_k * (_CURRENT_SENSE_NO_LOAD + force_k).clamp(0.0, _CURRENT_SENSE_MAX)
         return torch.maximum(current_h, current_k) - 0.5
 
+    def _steering_channels(
+        self, env: ParkourManagerBasedRLEnv, on_flat: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """``(delta_yaw, delta_next_yaw)`` for obs dims 6 and 7 -- the steering channels.
+
+        Behaviour-preserving extraction of the ``KRABBY_HEADING`` branch that used to sit
+        inline in ``__call__``: same ops, same order, same dtype, so the forward path is
+        bit-identical. An omnidirectional sibling overrides this to put the absolute-heading
+        error on every tile instead.
+        """
+        # Flat-walk: velocity command is straight ahead; parkour goal yaw biases crab/drift.
+        # NOTE(PLAN F turning school, 2026-08-27): with KRABBY_HEADING set, flat tiles carry
+        # the HEADING-COMMAND error in the steering channels instead of zero — otherwise the
+        # ang-vel tracking reward pays for turning toward a target the policy cannot observe
+        # (blind turning). Same channel the turn_walk_v1 eval probe injects, so training and
+        # eval steering semantics match. Strictly env-var-gated: all pre-PLAN-F policies keep
+        # their original zeroed-on-flat semantics.
+        if os.environ.get("KRABBY_HEADING") is not None:
+            cmd_term = env.command_manager.get_term("base_velocity")
+            heading_err = wrap_to_pi(cmd_term.heading_target - self.asset.data.heading_w)
+            delta_yaw = torch.where(on_flat, heading_err, self.delta_yaw)
+            delta_next_yaw = torch.where(on_flat, heading_err, self.delta_next_yaw)
+        else:
+            delta_yaw = torch.where(on_flat, torch.zeros_like(self.delta_yaw), self.delta_yaw)
+            delta_next_yaw = torch.where(on_flat, torch.zeros_like(self.delta_next_yaw), self.delta_next_yaw)
+        return delta_yaw, delta_next_yaw
+
+    def _extra_head_dim(self) -> int:
+        """Width of the OPTIONAL channels appended to the proprio head after the clock (hook).
+
+        0 here -- the forward and sideways terms append nothing, so their width and layout are
+        exactly what every recorded run trained on. A sibling term that grows the head (the omni
+        term's default-off stand bit / filtered rod target) returns its width here, and
+        :meth:`_extra_head_channels` the ``(N, width)`` tensor.
+        """
+        return 0
+
+    def _extra_head_channels(self, env: ParkourManagerBasedRLEnv) -> torch.Tensor | None:
+        """The optional head channels (see :meth:`_extra_head_dim`); ``None`` = none."""
+        return None
+
+    def _clock_channels(
+        self, env: ParkourManagerBasedRLEnv, clock_phase: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Obs dims 15-16: the gait clock as ``(sin, cos)``, each ``(N, 1)`` (hook).
+
+        Verbatim the two expressions ``__call__``'s ``torch.cat`` held inline; a sibling term may
+        blank them (the omni stand observation zeroes them while the STAND bit is set).
+        """
+        return torch.sin(clock_phase)[:, None], torch.cos(clock_phase)[:, None]
+
+    def _command_channels(self, commands: torch.Tensor) -> torch.Tensor:
+        """Obs dims 8-10: the command block of the proprio vector, ``[N, 3]``.
+
+        Verbatim what ``__call__``'s ``torch.cat`` used to hold inline -- two zeroed slots
+        (the forward task commands one axis only) and the forward speed. ``torch.cat`` is a
+        pure copy, so hoisting the two entries into one is bitwise the same bytes in the same
+        columns. An omnidirectional sibling fills all three.
+        """
+        return torch.cat([0 * commands[:, 0:2], commands[:, 0:1]], dim=-1)
+
     def __call__(
         self,
         env: ParkourManagerBasedRLEnv,
@@ -147,41 +215,32 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         roll, pitch, yaw = euler_xyz_from_quat(self.asset.data.root_quat_w)
         imu_obs = torch.stack((wrap_to_pi(roll), wrap_to_pi(pitch)), dim=1).to(self.device)
         if env.common_step_counter % 5 == 0:
-            self.delta_yaw = (self.parkour_event.target_yaw - wrap_to_pi(yaw)).reshape(self.num_envs)
-            self.delta_next_yaw = (self.parkour_event.next_target_yaw - wrap_to_pi(yaw)).reshape(
-                self.num_envs
-            )
+            # ``travel_yaw`` is absent on the forward cfg classes -> 0.0, and ``yaw_error``
+            # is then exactly ``target_yaw - wrap_to_pi(yaw)``, unwrapped, as before.
+            travel_yaw = float(getattr(env.cfg, "travel_yaw", 0.0))
+            self.delta_yaw = yaw_error(
+                self.parkour_event.target_yaw, wrap_to_pi(yaw), travel_yaw
+            ).reshape(self.num_envs)
+            self.delta_next_yaw = yaw_error(
+                self.parkour_event.next_target_yaw, wrap_to_pi(yaw), travel_yaw
+            ).reshape(self.num_envs)
             self.measured_heights = self._get_heights()
-        # Flat-walk: velocity command is straight ahead; parkour goal yaw biases crab/drift.
-        # NOTE(PLAN F turning school, 2026-08-27): with KRABBY_HEADING set, flat tiles carry
-        # the HEADING-COMMAND error in the steering channels instead of zero — otherwise the
-        # ang-vel tracking reward pays for turning toward a target the policy cannot observe
-        # (blind turning). Same channel the turn_walk_v1 eval probe injects, so training and
-        # eval steering semantics match. Strictly env-var-gated: all pre-PLAN-F policies keep
-        # their original zeroed-on-flat semantics.
-        if os.environ.get("KRABBY_HEADING") is not None:
-            cmd_term = env.command_manager.get_term("base_velocity")
-            heading_err = wrap_to_pi(cmd_term.heading_target - self.asset.data.heading_w)
-            delta_yaw = torch.where(on_flat, heading_err, self.delta_yaw)
-            delta_next_yaw = torch.where(on_flat, heading_err, self.delta_next_yaw)
-        else:
-            delta_yaw = torch.where(on_flat, torch.zeros_like(self.delta_yaw), self.delta_yaw)
-            delta_next_yaw = torch.where(on_flat, torch.zeros_like(self.delta_next_yaw), self.delta_next_yaw)
+        delta_yaw, delta_next_yaw = self._steering_channels(env, on_flat)
         commands = env.command_manager.get_command("base_velocity")
         action_term = env.action_manager.get_term("joint_pos")
         clock_phase = getattr(action_term, "clock_phase", None)
-        if clock_phase is None:
-            gait_clock_obs = torch.zeros(self.num_envs, 2, device=self.device)
-        else:
-            gait_clock_obs = torch.cat(
-                (torch.sin(clock_phase)[:, None], torch.cos(clock_phase)[:, None]),
-                dim=-1,
-            )
         joint_pos_delta = self.asset.data.joint_pos - self.asset.data.default_joint_pos
         if self._cam_shaft_obs_ids:
             joint_pos_delta[:, self._cam_shaft_obs_ids] = wrap_to_pi(
                 joint_pos_delta[:, self._cam_shaft_obs_ids]
             )
+        if clock_phase is None:
+            # Joystick/HAL ``crab_hex_ref.usd`` uses plain joint-position actions (no clock): zero dims 15-16.
+            clock_sin = torch.zeros(self.num_envs, 1, device=self.device)
+            clock_cos = torch.zeros(self.num_envs, 1, device=self.device)
+        else:
+            clock_sin, clock_cos = self._clock_channels(env, clock_phase)
+        extra_head = self._extra_head_channels(env)
         obs_buf = torch.cat(
             (
                 self.asset.data.root_ang_vel_b * 0.25,
@@ -189,16 +248,16 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 0 * delta_yaw[:, None],
                 delta_yaw[:, None],
                 delta_next_yaw[:, None],
-                0 * commands[:, 0:2],
-                commands[:, 0:1],
+                self._command_channels(commands),
                 env_idx_tensor,
                 invert_env_idx_tensor,
                 self.asset.data.root_lin_vel_b[:, :2] * 2.0,
                 # NOTE(gait-formation-v2 Phase 1): the gait clock, as sin/cos. Under the L/R
                 # mirror a swapped-handedness gait is the same schedule advanced by pi, so
                 # both dims carry mirror sign -1 (see crab_hex_mirror._HEAD_SIGNS).
-                # Joystick/HAL ``crab_hex_ref.usd`` uses plain joint-position actions (no clock).
-                gait_clock_obs,
+                clock_sin,
+                clock_cos,
+                *(() if extra_head is None else (extra_head,)),
                 joint_pos_delta,
                 self.asset.data.joint_vel * 0.05,
                 env.action_manager.get_term("joint_pos").action_history_buf[:, -1],
@@ -222,7 +281,8 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
             ],
             dim=-1,
         )
-        obs_buf[:, 6:8] = 0
+        if self.ZERO_STEERING_HISTORY:
+            obs_buf[:, 6:8] = 0
         self._obs_history_buffer = torch.where(
             (env.episode_length_buf <= 1)[:, None, None],
             torch.stack([obs_buf] * self.history_length, dim=1),
@@ -253,5 +313,7 @@ class CrabHexObservationDeltaYawOk(ManagerTermBase):
             parkour_event: ParkourEvent = env.parkour_manager.get_term(parkour_name)
             asset: Articulation = env.scene[asset_cfg.name]
             _, _, yaw = euler_xyz_from_quat(asset.data.root_quat_w)
-            self.delta_yaw = parkour_event.target_yaw - wrap_to_pi(yaw)
+            self.delta_yaw = yaw_error(
+                parkour_event.target_yaw, wrap_to_pi(yaw), float(getattr(env.cfg, "travel_yaw", 0.0))
+            )
         return (self.delta_yaw < threshold).unsqueeze(-1)

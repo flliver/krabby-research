@@ -1,0 +1,10 @@
+3.0e-05 crab_hex_teacher/2026-08-05_09-21-20
+0.0002 crab_hex_teacher/2026-08-06_22-05-31
+0.0001 crab_hex_teacher/2026-08-16_19-59-49
+3.0e-05 crab_hex_teacher/2026-08-17_07-05-28
+0.0001 crab_hex_teacher/2026-08-17_13-47-10
+0.0001 crab_hex_teacher/2026-08-19_00-11-02
+3.0e-05 crab_hex_teacher/2026-08-26_01-47-15
+3.0e-05 crab_hex_teacher/2026-08-26_08-26-46
+3.0e-05 crab_hex_teacher/2026-08-26_14-36-14
+3.0e-05 crab_hex_teacher/2026-08-26_20-07-27

@@ -1,0 +1,166 @@
+{
+  "stage": "c6_b",
+  "head": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/body_cmd_train/seed18_X07_c6_A15pB/suite__omni_body/seed001/2026-10-16_11-41-28",
+  "anchors": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/STG_c6_s16/suite__omni_body/seed001/2026-10-16_05-12-34",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/STG_c6_s17/suite__omni_body/seed001/2026-10-16_05-19-40",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/body_cmd/lr/STG_c6_s18/suite__omni_body/seed001/2026-10-16_05-26-47"
+  ],
+  "categories": [
+    "back",
+    "diag",
+    "fwd",
+    "move_turn",
+    "side",
+    "stand",
+    "turn"
+  ],
+  "verdict": "STOP",
+  "stop": [
+    "low end: turn_l_w_min net ratio -0.019593683251697403 < 0.5 (c6_b check)",
+    "low end: turn_r_w_min net ratio 0.013098463050255423 < 0.5 (c6_b check)"
+  ],
+  "notify": [
+    "lat_l: |ratio - 1| 0.184 > worst anchor 0.036 + max(0.02, range 0.034)"
+  ],
+  "table": [
+    {
+      "label": "back",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        0.98
+      ],
+      "body_ratio": 0.8891207898341232,
+      "anchor_body_ratio": [
+        0.9839412246153432,
+        0.889139662500714,
+        0.813619185926985
+      ]
+    },
+    {
+      "label": "diag",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        0.98
+      ],
+      "body_ratio": 0.870068047400005,
+      "anchor_body_ratio": [
+        0.9473736806536253,
+        0.9578320739186839,
+        0.8935126072223458
+      ]
+    },
+    {
+      "label": "fwd",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        0.98
+      ],
+      "body_ratio": 0.9211200826166897,
+      "anchor_body_ratio": [
+        0.9852190922782756,
+        0.8995189635280985,
+        0.8746358958492055
+      ]
+    },
+    {
+      "label": "lat_l",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "body_ratio": 0.8156720965846692,
+      "anchor_body_ratio": [
+        0.9981277263088317,
+        0.9942918723152777,
+        1.0355557572858574
+      ]
+    },
+    {
+      "label": "lat_r",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "body_ratio": 0.9423449631364992,
+      "anchor_body_ratio": [
+        0.8918054922568524,
+        1.008674036415124,
+        1.0388024765574793
+      ]
+    },
+    {
+      "label": "stand",
+      "survival": 1.0,
+      "anchor_survival": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ],
+  "drift": {
+    "labels": [
+      "back",
+      "diag",
+      "fwd",
+      "lat_l",
+      "lat_r",
+      "stand"
+    ],
+    "head_median": 0.003785920438840549,
+    "head_p90": 0.01513968191791355,
+    "anchor_median": [
+      0.0026494553745123996,
+      0.00277009757232122,
+      0.0031077672642049947
+    ],
+    "anchor_p90": [
+      0.006782033183168097,
+      0.008868045906870976,
+      0.013502565031849373
+    ],
+    "limit_median": 0.01,
+    "limit_p90": 0.027005130063698746
+  },
+  "turns_descriptive": {
+    "turn_l_ceiling": {
+      "survival": 1.0,
+      "net_yaw_ratio": -0.006622984282266641,
+      "yaw_ripple": 0.007571121138141781,
+      "body_ratio": null
+    },
+    "turn_r_ceiling": {
+      "survival": 1.0,
+      "net_yaw_ratio": -0.0009082365977699082,
+      "yaw_ripple": 0.007811041955916869,
+      "body_ratio": null
+    },
+    "move_turn_l": {
+      "survival": 1.0,
+      "net_yaw_ratio": -0.02182889069190256,
+      "yaw_ripple": 0.05772773672585714,
+      "body_ratio": 0.8627998204399108
+    },
+    "move_turn_r": {
+      "survival": 1.0,
+      "net_yaw_ratio": -0.03002944922013157,
+      "yaw_ripple": 0.06106121655059203,
+      "body_ratio": 0.872468142976603
+    }
+  },
+  "low_end": {
+    "turn_l_w_min": -0.019593683251697403,
+    "turn_r_w_min": 0.013098463050255423
+  }
+}

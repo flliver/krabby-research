@@ -1,0 +1,439 @@
+{
+ "N_p": 3000,
+ "budget_bound_at_3000": {
+  "budget_bound": false,
+  "survival": {
+   "diff": -0.04400336354970924,
+   "n_half": 300,
+   "rising": false,
+   "se": 0.0035868979442602662,
+   "steps": [
+    22394,
+    22993
+   ]
+  },
+  "tracking": {
+   "diff": -0.004357240001360618,
+   "n_half": 300,
+   "rising": false,
+   "se": 0.00039992227314269535,
+   "steps": [
+    22394,
+    22993
+   ]
+  }
+ },
+ "check": "C3_np",
+ "class": "stop",
+ "pilot_run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB",
+ "reads": {
+  "500": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_20500.pt",
+   "iter": 20500,
+   "read": {
+    "back": {
+     "n": 200,
+     "ratio": 1.1522310200038033,
+     "survival": 1.0
+    },
+    "diag": {
+     "n": 200,
+     "ratio": 1.003039396082147,
+     "survival": 1.0
+    },
+    "fwd": {
+     "n": 200,
+     "ratio": 1.0624289182802344,
+     "survival": 1.0
+    },
+    "side": {
+     "n": 400,
+     "ratio": 1.0486142678297796,
+     "survival": 1.0
+    }
+   }
+  },
+  "1000": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_21000.pt",
+   "iter": 21000,
+   "read": {
+    "back": {
+     "n": 200,
+     "ratio": 1.1346736622476699,
+     "survival": 1.0
+    },
+    "diag": {
+     "n": 200,
+     "ratio": 0.9642523193415906,
+     "survival": 0.97
+    },
+    "fwd": {
+     "n": 200,
+     "ratio": 1.081542899685807,
+     "survival": 1.0
+    },
+    "side": {
+     "n": 400,
+     "ratio": 0.9982021652742787,
+     "survival": 1.0
+    }
+   }
+  },
+  "1500": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_21500.pt",
+   "iter": 21500,
+   "read": {
+    "back": {
+     "n": 200,
+     "ratio": 1.0625480121420379,
+     "survival": 1.0
+    },
+    "diag": {
+     "n": 200,
+     "ratio": 0.9929460000881623,
+     "survival": 1.0
+    },
+    "fwd": {
+     "n": 200,
+     "ratio": 1.0141381079964946,
+     "survival": 1.0
+    },
+    "side": {
+     "n": 400,
+     "ratio": 0.9748573308305317,
+     "survival": 1.0
+    }
+   }
+  },
+  "2000": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22000.pt",
+   "iter": 22000,
+   "read": {
+    "back": {
+     "n": 200,
+     "ratio": 1.0839582943117376,
+     "survival": 1.0
+    },
+    "diag": {
+     "n": 200,
+     "ratio": 0.9774329517551105,
+     "survival": 0.995
+    },
+    "fwd": {
+     "n": 200,
+     "ratio": 1.0561759221326836,
+     "survival": 0.99
+    },
+    "side": {
+     "n": 400,
+     "ratio": 0.9458654641846931,
+     "survival": 1.0
+    }
+   }
+  },
+  "2500": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22500.pt",
+   "iter": 22500,
+   "read": {
+    "back": {
+     "n": 200,
+     "ratio": 1.0718392336468607,
+     "survival": 1.0
+    },
+    "diag": {
+     "n": 200,
+     "ratio": 0.9747358254973292,
+     "survival": 0.985
+    },
+    "fwd": {
+     "n": 200,
+     "ratio": 1.006625024984182,
+     "survival": 0.995
+    },
+    "side": {
+     "n": 400,
+     "ratio": 1.038686174073971,
+     "survival": 1.0
+    }
+   }
+  },
+  "3000": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22993.pt",
+   "iter": 22993,
+   "read": {
+    "back": {
+     "n": 200,
+     "ratio": 1.1585335261424454,
+     "survival": 1.0
+    },
+    "diag": {
+     "n": 200,
+     "ratio": 1.0075634343303541,
+     "survival": 1.0
+    },
+    "fwd": {
+     "n": 200,
+     "ratio": 1.0665210927824125,
+     "survival": 0.995
+    },
+    "side": {
+     "n": 400,
+     "ratio": 1.056565420563532,
+     "survival": 1.0
+    }
+   }
+  }
+ },
+ "rule": {
+  "N_p": 3000,
+  "first_settled_read": null,
+  "not_converged": true,
+  "offsets": [
+   500,
+   1000,
+   1500,
+   2000,
+   2500,
+   3000
+  ],
+  "reads_complete": true,
+  "steps": [
+   {
+    "all_below_R": false,
+    "from": 500,
+    "moves": {
+     "back.ratio": {
+      "R": 0.05257237576823355,
+      "below": true,
+      "delta": 0.01755735775613343
+     },
+     "back.survival": {
+      "R": 0.10499999999999998,
+      "below": true,
+      "delta": 0.0
+     },
+     "diag.ratio": {
+      "R": 0.02550172235255771,
+      "below": false,
+      "delta": 0.03878707674055648
+     },
+     "diag.survival": {
+      "R": 0.14004999999999998,
+      "below": true,
+      "delta": 0.030000000000000027
+     },
+     "fwd.ratio": {
+      "R": 0.04100570989921172,
+      "below": true,
+      "delta": 0.019113981405572522
+     },
+     "fwd.survival": {
+      "R": 0.11000000000000004,
+      "below": true,
+      "delta": 0.0
+     },
+     "side.ratio": {
+      "R": 0.017928643218214097,
+      "below": false,
+      "delta": 0.05041210255550088
+     },
+     "side.survival": {
+      "R": 0.044999999999999984,
+      "below": true,
+      "delta": 0.0
+     }
+    },
+    "to": 1000
+   },
+   {
+    "all_below_R": false,
+    "from": 1000,
+    "moves": {
+     "back.ratio": {
+      "R": 0.05257237576823355,
+      "below": false,
+      "delta": 0.07212565010563199
+     },
+     "back.survival": {
+      "R": 0.10499999999999998,
+      "below": true,
+      "delta": 0.0
+     },
+     "diag.ratio": {
+      "R": 0.02550172235255771,
+      "below": false,
+      "delta": 0.028693680746571637
+     },
+     "diag.survival": {
+      "R": 0.14004999999999998,
+      "below": true,
+      "delta": 0.030000000000000027
+     },
+     "fwd.ratio": {
+      "R": 0.04100570989921172,
+      "below": false,
+      "delta": 0.06740479168931235
+     },
+     "fwd.survival": {
+      "R": 0.11000000000000004,
+      "below": true,
+      "delta": 0.0
+     },
+     "side.ratio": {
+      "R": 0.017928643218214097,
+      "below": false,
+      "delta": 0.02334483444374702
+     },
+     "side.survival": {
+      "R": 0.044999999999999984,
+      "below": true,
+      "delta": 0.0
+     }
+    },
+    "to": 1500
+   },
+   {
+    "all_below_R": false,
+    "from": 1500,
+    "moves": {
+     "back.ratio": {
+      "R": 0.05257237576823355,
+      "below": true,
+      "delta": 0.021410282169699757
+     },
+     "back.survival": {
+      "R": 0.10499999999999998,
+      "below": true,
+      "delta": 0.0
+     },
+     "diag.ratio": {
+      "R": 0.02550172235255771,
+      "below": true,
+      "delta": 0.015513048333051782
+     },
+     "diag.survival": {
+      "R": 0.14004999999999998,
+      "below": true,
+      "delta": 0.0050000000000000044
+     },
+     "fwd.ratio": {
+      "R": 0.04100570989921172,
+      "below": false,
+      "delta": 0.04203781413618901
+     },
+     "fwd.survival": {
+      "R": 0.11000000000000004,
+      "below": true,
+      "delta": 0.010000000000000009
+     },
+     "side.ratio": {
+      "R": 0.017928643218214097,
+      "below": false,
+      "delta": 0.028991866645838638
+     },
+     "side.survival": {
+      "R": 0.044999999999999984,
+      "below": true,
+      "delta": 0.0
+     }
+    },
+    "to": 2000
+   },
+   {
+    "all_below_R": false,
+    "from": 2000,
+    "moves": {
+     "back.ratio": {
+      "R": 0.05257237576823355,
+      "below": true,
+      "delta": 0.01211906066487689
+     },
+     "back.survival": {
+      "R": 0.10499999999999998,
+      "below": true,
+      "delta": 0.0
+     },
+     "diag.ratio": {
+      "R": 0.02550172235255771,
+      "below": true,
+      "delta": 0.0026971262577812904
+     },
+     "diag.survival": {
+      "R": 0.14004999999999998,
+      "below": true,
+      "delta": 0.010000000000000009
+     },
+     "fwd.ratio": {
+      "R": 0.04100570989921172,
+      "below": false,
+      "delta": 0.049550897148501694
+     },
+     "fwd.survival": {
+      "R": 0.11000000000000004,
+      "below": true,
+      "delta": 0.0050000000000000044
+     },
+     "side.ratio": {
+      "R": 0.017928643218214097,
+      "below": false,
+      "delta": 0.09282070988927793
+     },
+     "side.survival": {
+      "R": 0.044999999999999984,
+      "below": true,
+      "delta": 0.0
+     }
+    },
+    "to": 2500
+   },
+   {
+    "all_below_R": false,
+    "from": 2500,
+    "moves": {
+     "back.ratio": {
+      "R": 0.05257237576823355,
+      "below": false,
+      "delta": 0.08669429249558469
+     },
+     "back.survival": {
+      "R": 0.10499999999999998,
+      "below": true,
+      "delta": 0.0
+     },
+     "diag.ratio": {
+      "R": 0.02550172235255771,
+      "below": false,
+      "delta": 0.032827608833024935
+     },
+     "diag.survival": {
+      "R": 0.14004999999999998,
+      "below": true,
+      "delta": 0.015000000000000013
+     },
+     "fwd.ratio": {
+      "R": 0.04100570989921172,
+      "below": false,
+      "delta": 0.059896067798230535
+     },
+     "fwd.survival": {
+      "R": 0.11000000000000004,
+      "below": true,
+      "delta": 0.0
+     },
+     "side.ratio": {
+      "R": 0.017928643218214097,
+      "below": true,
+      "delta": 0.017879246489560963
+     },
+     "side.survival": {
+      "R": 0.044999999999999984,
+      "below": true,
+      "delta": 0.0
+     }
+    },
+    "to": 3000
+   }
+  ]
+ },
+ "verdict": "PASS"
+}

@@ -1,0 +1,88 @@
+{
+ "seeds": [
+  1,
+  2
+ ],
+ "k5": {
+  "amask": "SN_Amask_s17"
+ },
+ "refs": "REFS_T4R18",
+ "roles": {
+  "R_h": {
+   "name": "SH_RH",
+   "table": {
+    "1": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_r_h_s1__*.json"
+    ],
+    "2": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_r_h_s2__*.json"
+    ]
+   }
+  },
+  "R_old": {
+   "name": "SH_ROLD"
+  },
+  "Amask_old": {
+   "name": "SH_AMOLD",
+   "table": {
+    "1": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_amask_old_s1__*.json"
+    ],
+    "2": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_amask_old_s2__*.json"
+    ]
+   }
+  },
+  "posture": {
+   "name": "SH_POST",
+   "table": {
+    "1": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_posture_only_s1__*.json"
+    ],
+    "2": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_posture_only_s2__*.json"
+    ]
+   }
+  },
+  "Amask_q": {
+   "name": "SH_AMq"
+  },
+  "Amask": {
+   "name": "SH_AMq",
+   "table": {
+    "1": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_stand_net_s1__*.json"
+    ],
+    "2": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_stand_net_s2__*.json"
+    ]
+   }
+  },
+  "no_restore": {
+   "name": "SH_NR"
+  },
+  "S1": {
+   "table": {
+    "1": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_s1_s1__*.json"
+    ],
+    "2": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-13_21-59-02_full/stats_s1_s2__*.json"
+    ]
+   }
+  },
+  "SH_T4R18_sh_s17": {
+   "name": "SH_T4R18_sh_s17",
+   "head": true,
+   "k5_name": "SH_T4R18_sh_s17z",
+   "table": {
+    "1": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-21_14-10-35_full/stats_stand_net_s1__*.json"
+    ],
+    "2": [
+     "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-21_14-10-35_full/stats_stand_net_s2__*.json"
+    ]
+   }
+  }
+ }
+}

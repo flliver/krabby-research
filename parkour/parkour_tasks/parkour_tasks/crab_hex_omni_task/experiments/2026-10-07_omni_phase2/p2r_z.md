@@ -1,0 +1,147 @@
+# Omni phase 2, stage p2r -- P2__Z1_s18 (CHARTER 12 / P2R_STATUE_PLAN.md step 5)
+
+**Verdict: STILL**
+
+Why:
+- stand STILL, no COST
+
+**Attribution (vs C0R_s18): LEVER**
+
+## Fidelity to the hold controller
+
+| row | seed | Z steps/s | Z taps/s | P2R_HOLD_s18 steps/s | P2R_HOLD_s18 taps/s |
+|---|---|---|---|---|---|
+| suite | es1 | 0.0 | 0.08333 | None | None |
+| suite | es2 | 0.08333 | 0.08333 | None | None |
+| walkstop | es1 | 0.16667 | 0.33333 | None | None |
+| walkstop | es2 | 0.25 | 0.41667 | None | None |
+
+## Walking drift (p2r_early.py)
+
+```
+{
+ "run_dir": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-09_18-12-04_seed18_X16_p2r_A15pB",
+ "fork_first_iteration": 19994,
+ "checkpoints": {
+  "model_20500.pt": {
+   "checkpoint": "model_20500.pt",
+   "cosine_delta_mu_vs_st2": -0.2510535418987274,
+   "drift": {
+    "rc": 0,
+    "D_Z": 0.022749733179807663,
+    "D_C0": 1.347259521484375,
+    "line": 0.6736297607421875,
+    "why": "the walking anchor is holding"
+   },
+   "formation": {
+    "first_update_value": 1.9884616136550903,
+    "rolling20_at_200": 0.009338502050377428,
+    "line": 0.19884616136550903,
+    "rc": 0,
+    "why": "formed"
+   },
+   "residual": {
+    "baseline_min_200_500": 0.0023027075175195933,
+    "at": {
+     "500": {
+      "rolling50": 0.002394414052832872,
+      "prior_rows": 0.156673177331686,
+      "per_stand_row": 0.015282858837819836
+     },
+     "1000": {
+      "rolling50": 0.0014766222878824919,
+      "prior_rows": 0.14403971299529075,
+      "per_stand_row": 0.010251494238472752
+     }
+    },
+    "rc": 0,
+    "why": "within 2x of the +200..+500 minimum"
+   },
+   "reported": {
+    "PPO/kl_mean": null,
+    "PPO/lr_applied": null,
+    "PPO/grad_norm": null,
+    "Loss/value_function": null,
+    "Loss/grad_norm_statue": null,
+    "Loss/grad_norm_anchor": null,
+    "Loss/grad_norm_rest": null
+   },
+   "rc": 0,
+   "score": {
+    "ckpt": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-09_18-12-04_seed18_X16_p2r_A15pB/model_20500.pt",
+    "exists": true,
+    "c0_ckpt_exists": true,
+    "st2_ckpt_exists": true,
+    "D_Z": 0.022749733179807663,
+    "D_C0": 1.347259521484375,
+    "cosine_delta_mu_vs_st2": -0.2510535418987274
+   }
+  },
+  "model_21000.pt": {
+   "checkpoint": "model_21000.pt",
+   "cosine_delta_mu_vs_st2": -0.1879160851240158,
+   "drift": {
+    "rc": 0,
+    "D_Z": 0.013282928615808487,
+    "D_C0": 1.9268115758895874,
+    "line": 0.9634057879447937,
+    "why": "the walking anchor is holding"
+   },
+   "formation": {
+    "first_update_value": 1.9884616136550903,
+    "rolling20_at_200": 0.009338502050377428,
+    "line": 0.19884616136550903,
+    "rc": 0,
+    "why": "formed"
+   },
+   "residual": {
+    "baseline_min_200_500": 0.0023027075175195933,
+    "at": {
+     "500": {
+      "rolling50": 0.002394414052832872,
+      "prior_rows": 0.156673177331686,
+      "per_stand_row": 0.015282858837819836
+     },
+     "1000": {
+      "rolling50": 0.0014766222878824919,
+      "prior_rows": 0.14403971299529075,
+      "per_stand_row": 0.010251494238472752
+     }
+    },
+    "rc": 0,
+    "why": "within 2x of the +200..+500 minimum"
+   },
+   "reported": {
+    "PPO/kl_mean": null,
+    "PPO/lr_applied": null,
+    "PPO/grad_norm": null,
+    "Loss/value_function": null,
+    "Loss/grad_norm_statue": null,
+    "Loss/grad_norm_anchor": null,
+    "Loss/grad_norm_rest": null
+   },
+   "rc": 0,
+   "score": {
+    "ckpt": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-09_18-12-04_seed18_X16_p2r_A15pB/model_21000.pt",
+    "exists": true,
+    "c0_ckpt_exists": true,
+    "st2_ckpt_exists": true,
+    "D_Z": 0.013282928615808487,
+    "D_C0": 1.9268115758895874,
+    "cosine_delta_mu_vs_st2": -0.1879160851240158
+   }
+  }
+ },
+ "rc": 0
+}
+```
+
+## Raw-bit cross-check (best-effort)
+
+```
+{
+ "fails": [],
+ "n_checked": 15,
+ "note": "0 checked is expected for a plain policy eval (module docstring)"
+}
+```

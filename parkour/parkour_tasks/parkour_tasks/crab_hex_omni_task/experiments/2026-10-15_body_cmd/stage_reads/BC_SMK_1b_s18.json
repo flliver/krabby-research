@@ -1,0 +1,10 @@
+{
+  "chain": "BC_SMK_1b_s18",
+  "stage": "fb6k",
+  "seed": 18,
+  "xid": "X01",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-55-15_seed18_X01_fb6k_A15pB/model_99.pt",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-16_01-55-15_seed18_X01_fb6k_A15pB",
+  "tag": "seed18_X01_fb6k_A15pB",
+  "audit": "PASS"
+}

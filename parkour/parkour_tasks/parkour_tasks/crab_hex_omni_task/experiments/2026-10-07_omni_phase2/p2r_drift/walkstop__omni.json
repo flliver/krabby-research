@@ -1,0 +1,136 @@
+{
+ "ref": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+ "agent_yaml": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-08_03-41-54_seed18_X12_p2b_A15pB/params/agent.yaml",
+ "bank": "parkour/outputs/omni_plan/phase2/lr/P2R_PROBE_s18/walkstop__omni/seed001/2026-10-09_17-26-50/p2r_bank.npz",
+ "n": 20000,
+ "widths": {
+  "num_prop": 75,
+  "num_scan": 132,
+  "num_priv_explicit": 9,
+  "num_priv_latent": 41,
+  "tanh_encoder_output": false,
+  "noise_std_type": "soft"
+ },
+ "ckpts": {
+  "ST2_m20500": {
+   "D": 2.285417318344116,
+   "n": 20000,
+   "mean_abs_dmu": 0.27926430106163025,
+   "by_label": {
+    "back": {
+     "D": 2.3354623317718506,
+     "n": 6683
+    },
+    "fwd": {
+     "D": 2.1647555828094482,
+     "n": 6696
+    },
+    "lat_l": {
+     "D": 2.3569324016571045,
+     "n": 6621
+    }
+   },
+   "path": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-09_01-18-22_seed18_X15_p2s_A15pB/model_20500.pt"
+  },
+  "ST2_m21000": {
+   "D": 3.8081753253936768,
+   "n": 20000,
+   "mean_abs_dmu": 0.35545626282691956,
+   "by_label": {
+    "back": {
+     "D": 4.117265701293945,
+     "n": 6683
+    },
+    "fwd": {
+     "D": 3.9418251514434814,
+     "n": 6696
+    },
+    "lat_l": {
+     "D": 3.3610260486602783,
+     "n": 6621
+    }
+   },
+   "path": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-09_01-18-22_seed18_X15_p2s_A15pB/model_21000.pt"
+  },
+  "ST2_m24993": {
+   "D": 5.053232669830322,
+   "n": 20000,
+   "mean_abs_dmu": 0.438139945268631,
+   "by_label": {
+    "back": {
+     "D": 5.308385848999023,
+     "n": 6683
+    },
+    "fwd": {
+     "D": 4.51060676574707,
+     "n": 6696
+    },
+    "lat_l": {
+     "D": 5.34446382522583,
+     "n": 6621
+    }
+   },
+   "path": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-09_01-18-22_seed18_X15_p2s_A15pB/model_24993.pt"
+  },
+  "C0_m20500": {
+   "D": 1.3953214883804321,
+   "n": 20000,
+   "mean_abs_dmu": 0.23944838345050812,
+   "by_label": {
+    "back": {
+     "D": 1.2720061540603638,
+     "n": 6683
+    },
+    "fwd": {
+     "D": 1.5900837182998657,
+     "n": 6696
+    },
+    "lat_l": {
+     "D": 1.322823166847229,
+     "n": 6621
+    }
+   },
+   "path": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-08_03-41-54_seed18_X12_p2b_A15pB/model_20500.pt"
+  },
+  "C0_m21000": {
+   "D": 1.62727689743042,
+   "n": 20000,
+   "mean_abs_dmu": 0.2526196241378784,
+   "by_label": {
+    "back": {
+     "D": 1.4722542762756348,
+     "n": 6683
+    },
+    "fwd": {
+     "D": 1.7884135246276855,
+     "n": 6696
+    },
+    "lat_l": {
+     "D": 1.620789647102356,
+     "n": 6621
+    }
+   },
+   "path": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-08_03-41-54_seed18_X12_p2b_A15pB/model_21000.pt"
+  },
+  "C0R_m24993": {
+   "D": 2.9260976314544678,
+   "n": 20000,
+   "mean_abs_dmu": 0.3390968143939972,
+   "by_label": {
+    "back": {
+     "D": 2.674126625061035,
+     "n": 6683
+    },
+    "fwd": {
+     "D": 3.370901346206665,
+     "n": 6696
+    },
+    "lat_l": {
+     "D": 2.730586528778076,
+     "n": 6621
+    }
+   },
+   "path": "parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-08_03-41-54_seed18_X12_p2b_A15pB/model_24993.pt"
+  }
+ }
+}

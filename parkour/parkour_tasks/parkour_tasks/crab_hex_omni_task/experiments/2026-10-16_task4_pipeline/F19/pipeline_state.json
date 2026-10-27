@@ -1,0 +1,1321 @@
+{
+ "schema": 1,
+ "run": "F19",
+ "created": "2026-10-21T15:52:17",
+ "status": "done",
+ "pin": {
+  "lock_sha256": "d90c82e4b735d4d2ef663f4cad9c139add3ef1ac84f4105c6738ed80f4036d6c",
+  "at": "2026-10-21T15:52:17",
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+ },
+ "stages": {
+  "s1": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-21T15:52:17",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-21T18:17:19",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-21T18:20:58",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-21T18:20:59",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-F19-1792612337",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_15-52-28_seed19_X01_s1_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X01_s1_A15pB_suite__omni): 2026-10-21_15-52-28_seed19_X01_s1_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-21T15:52:18",
+     "resume": null,
+     "target_final": 5999,
+     "phase": "1b"
+    },
+    "tag": "seed19_X01_s1_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X01_s1_A15pB_train.log",
+    "at": "2026-10-21T18:08:38"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 5999,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_15-52-28_seed19_X01_s1_A15pB"
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/s1.json"
+   }
+  },
+  "c4": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-21T18:20:59",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-21T19:05:37",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-21T19:09:14",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-21T19:09:16",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-F19-1792621259",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_18-21-11_seed19_X02_c4_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X02_c4_A15pB_suite__omni): 2026-10-21_18-21-11_seed19_X02_c4_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-21T18:21:00",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_15-52-28_seed19_X01_s1_A15pB/model_5999.pt",
+     "target_final": 7498,
+     "phase": "1a"
+    },
+    "tag": "seed19_X02_c4_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X02_c4_A15pB_train.log",
+    "at": "2026-10-21T18:57:26"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 7498,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_18-21-11_seed19_X02_c4_A15pB"
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/c4.json"
+   }
+  },
+  "c5": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-21T19:09:16",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-21T19:53:48",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-21T19:57:25",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-21T19:57:27",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-F19-1792624156",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-09-27_seed19_X03_c5_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X03_c5_A15pB_suite__omni): 2026-10-21_19-09-27_seed19_X03_c5_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-21T19:09:17",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_18-21-11_seed19_X02_c4_A15pB/model_7498.pt",
+     "target_final": 8997,
+     "phase": "1a"
+    },
+    "tag": "seed19_X03_c5_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X03_c5_A15pB_train.log",
+    "at": "2026-10-21T19:45:37"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 8997,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-09-27_seed19_X03_c5_A15pB"
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/c5.json"
+   }
+  },
+  "c6": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-21T19:57:27",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-21T20:52:16",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-21T20:59:33",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-21T20:59:35",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-F19-1792627047",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-57-38_seed19_X04_c6_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X04_c6_A15pB_suite__omni): 2026-10-21_19-57-38_seed19_X04_c6_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-21T19:57:28",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-09-27_seed19_X03_c5_A15pB/model_8997.pt",
+     "target_final": 10996,
+     "phase": "1a"
+    },
+    "tag": "seed19_X04_c6_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X04_c6_A15pB_train.log",
+    "at": "2026-10-21T20:44:02"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 10996,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-57-38_seed19_X04_c6_A15pB"
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/c6.json"
+   }
+  },
+  "c6x": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-21T20:59:35",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-21T22:38:13",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-21T23:05:59",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-21T23:06:01",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-F19-1792630775",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_20-59-46_seed19_X05_c6x_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X05_c6x_A15pB_suite__omni): 2026-10-21_20-59-46_seed19_X05_c6x_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-21T20:59:36",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_19-57-38_seed19_X04_c6_A15pB/model_10996.pt",
+     "target_final": 14995,
+     "phase": "1a"
+    },
+    "tag": "seed19_X05_c6x_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X05_c6x_A15pB_train.log",
+    "at": "2026-10-21T22:29:44"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 14995,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_20-59-46_seed19_X05_c6x_A15pB"
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/c6x.json"
+   }
+  },
+  "p2a": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-21T23:06:01",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-22T01:20:30",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-22T03:27:40",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-22T03:27:41",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "unit": "cands-F19-1792638361",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-21_23-06-12_seed19_X06_p2a_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X06_p2a_A15pB_suite__omni): 2026-10-21_23-06-12_seed19_X06_p2a_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-21T23:06:02",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-21_20-59-46_seed19_X05_c6x_A15pB/model_14995.pt",
+     "target_final": 19994,
+     "phase": "2a"
+    },
+    "tag": "seed19_X06_p2a_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X06_p2a_A15pB_train.log",
+    "at": "2026-10-22T01:14:00"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 19994,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-21_23-06-12_seed19_X06_p2a_A15pB"
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p2a.json"
+   }
+  },
+  "p3a": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-22T03:27:41",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-22T04:51:34",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-22T06:50:20",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['p3a.capability.zero_kg_paired']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "accepted",
+     "to": "accepted",
+     "why": "0-kg re-gated under thresholds v1.2 (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): FAIL -> FAIL; status unchanged"
+    }
+   ],
+   "unit": "cands-F19-1792654061",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X07_p3a_A15pB_suite__omni): 2026-10-22_03-27-53_seed19_X07_p3a_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-22T03:27:42",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-21_23-06-12_seed19_X06_p2a_A15pB/model_19994.pt",
+     "target_final": 22993,
+     "phase": "2a"
+    },
+    "tag": "seed19_X07_p3a_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X07_p3a_A15pB_train.log",
+    "at": "2026-10-22T04:45:16"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 22993,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB"
+   },
+   "curve": {
+    "0": true,
+    "45": true,
+    "90": true,
+    "135": false
+   },
+   "zero_kg": {
+    "verdict": "FAIL",
+    "max_margin_used": 2.7098692720929014,
+    "fails": [
+     "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ],
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "watch_exceeds": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+    ],
+    "watch_reads": [
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es1",
+      "head": 1.0000353747805426,
+      "p2a": 1.0464079091335667,
+      "worse_by": 0.04637253435302413,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es1",
+      "head": 1.0188299925988131,
+      "p2a": 1.0645890758415073,
+      "worse_by": 0.045759083242694176,
+      "margin": 0.021192113444669265,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es1",
+      "head": 1.0291167111799806,
+      "p2a": 1.0608539524460237,
+      "worse_by": 0.03173724126604305,
+      "margin": 0.06167028713341018,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es1",
+      "head": 0.958518164248751,
+      "p2a": 0.9965317287189133,
+      "worse_by": 0.03801356447016224,
+      "margin": 0.02906521009413416,
+      "exceeds": true
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es1",
+      "head": 0.3133199841995915,
+      "p2a": 0.21394033086038944,
+      "worse_by": 0.09937965333920207,
+      "margin": 0.03667322787953111,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es2",
+      "head": 0.9987757216283486,
+      "p2a": 1.0580851244398124,
+      "worse_by": 0.059309402811463796,
+      "margin": 0.05080366659411929,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es2",
+      "head": 1.0250703385419224,
+      "p2a": 1.0636473701165796,
+      "worse_by": 0.038577031574657195,
+      "margin": 0.021192113444669265,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es2",
+      "head": 1.0279023586345144,
+      "p2a": 1.0589976729748471,
+      "worse_by": 0.031095314340332747,
+      "margin": 0.06167028713341018,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es2",
+      "head": 0.9629888203353627,
+      "p2a": 0.9985475312131666,
+      "worse_by": 0.035558710877803934,
+      "margin": 0.02906521009413416,
+      "exceeds": true
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es2",
+      "head": 0.3061547105003649,
+      "p2a": 0.20891761461691982,
+      "worse_by": 0.09723709588344509,
+      "margin": 0.037199569293217744,
+      "exceeds": true
+     }
+    ],
+    "regated": {
+     "at": "2026-10-22T23:41:06",
+     "kind": "retarget_tstar",
+     "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+     "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+     "thresholds": {
+      "file": "thresholds_v1_2.json",
+      "version": "v1.2",
+      "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+     }
+    }
+   },
+   "max_stable": 90,
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3a.json",
+    "regated": {
+     "at": "2026-10-22T23:41:06",
+     "verdict_before": "HALT",
+     "thresholds": "v1.2"
+    }
+   },
+   "zero_kg_history": [
+    {
+     "verdict": "FAIL",
+     "max_margin_used": 2.7098692720929014,
+     "fails": [
+      "ratio side suite es1: worse by 0.0458 > margin 0.0212 (R)",
+      "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+      "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+      "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R)",
+      "ratio side suite es2: worse by 0.0386 > margin 0.0212 (R)",
+      "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+      "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+     ],
+     "superseded_at": "2026-10-22T23:41:06",
+     "superseded_by_thresholds": "v1.2",
+     "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)"
+    }
+   ]
+  },
+  "p3b": {
+   "status": "ceiling",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-22T12:39:39",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-22T15:01:44",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-22T15:01:54",
+     "from": "gate",
+     "to": "ceiling",
+     "why": "measured ceiling (max_stable 135)"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "ceiling",
+     "to": "ceiling",
+     "why": "0-kg re-gated under thresholds v1.2 (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): FAIL -> PASS; status unchanged"
+    }
+   ],
+   "unit": "cands-F19-1792682028",
+   "live_resolve": {
+    "state": "ok",
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB",
+    "why": "the driver is evaluating the window it just trained (seed19_X08_p3b_A15pB_suite__omni): 2026-10-22_11-14-00_seed19_X08_p3b_A15pB as resolved during training",
+    "window": {
+     "started": "2026-10-22T11:13:49",
+     "resume": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB/model_22993.pt",
+     "target_final": 25992,
+     "phase": "2a"
+    },
+    "tag": "seed19_X08_p3b_A15pB",
+    "log": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X08_p3b_A15pB_train.log",
+    "at": "2026-10-22T12:33:21"
+   },
+   "live": {
+    "last_rc": 0,
+    "last": 25992,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB"
+   },
+   "curve": {
+    "0": true,
+    "45": true,
+    "90": true,
+    "135": true,
+    "180": false
+   },
+   "zero_kg": {
+    "verdict": "PASS",
+    "max_margin_used": 0.6619605845918585,
+    "fails": [],
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "watch_exceeds": [
+     "ratio back suite es1: worse by 0.0684 > margin 0.0617 (WATCH)",
+     "ratio back suite es2: worse by 0.0714 > margin 0.0617 (WATCH)"
+    ],
+    "watch_reads": [
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es1",
+      "head": 1.0094380978073707,
+      "p2a": 1.0464079091335667,
+      "worse_by": 0.036969811326196034,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es1",
+      "head": 1.0616556971840145,
+      "p2a": 1.0645890758415073,
+      "worse_by": 0.002933378657492769,
+      "margin": 0.03152549558647399,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es1",
+      "head": 0.9925020300903125,
+      "p2a": 1.0608539524460237,
+      "worse_by": 0.06835192235571119,
+      "margin": 0.06167028713341018,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es1",
+      "head": 1.0143931941077997,
+      "p2a": 0.9965317287189133,
+      "worse_by": -0.017861465388886444,
+      "margin": 0.02906521009413416,
+      "exceeds": false
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es1",
+      "head": 0.25936795258958356,
+      "p2a": 0.21394033086038944,
+      "worse_by": 0.04542762172919412,
+      "margin": 0.06862587106633122,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es2",
+      "head": 1.009235526984244,
+      "p2a": 1.0580851244398124,
+      "worse_by": 0.048849597455568494,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es2",
+      "head": 1.0619978619256942,
+      "p2a": 1.0636473701165796,
+      "worse_by": 0.0016495081908853848,
+      "margin": 0.023069802837461094,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es2",
+      "head": 0.9875656854447961,
+      "p2a": 1.0589976729748471,
+      "worse_by": 0.07143198753005109,
+      "margin": 0.06167028713341018,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es2",
+      "head": 1.0116977374635336,
+      "p2a": 0.9985475312131666,
+      "worse_by": -0.013150206250367003,
+      "margin": 0.02906521009413416,
+      "exceeds": false
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es2",
+      "head": 0.2578282141039445,
+      "p2a": 0.20891761461691982,
+      "worse_by": 0.0489105994870247,
+      "margin": 0.07439913858643549,
+      "exceeds": false
+     }
+    ],
+    "regated": {
+     "at": "2026-10-22T23:41:06",
+     "kind": "retarget_tstar",
+     "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+     "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+     "thresholds": {
+      "file": "thresholds_v1_2.json",
+      "version": "v1.2",
+      "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+     }
+    }
+   },
+   "max_stable": 135,
+   "gate": {
+    "verdict": "CEILING",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3b.json",
+    "regated": {
+     "at": "2026-10-22T23:41:06",
+     "verdict_before": "CEILING",
+     "thresholds": "v1.2"
+    }
+   },
+   "zero_kg_history": [
+    {
+     "verdict": "FAIL",
+     "max_margin_used": 1.1582885511060392,
+     "fails": [
+      "ratio back suite es1: worse by 0.0684 > margin 0.0617 (R)",
+      "ratio back suite es2: worse by 0.0714 > margin 0.0617 (R)"
+     ],
+     "superseded_at": "2026-10-22T23:41:06",
+     "superseded_by_thresholds": "v1.2",
+     "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)"
+    }
+   ]
+  },
+  "p3c": {
+   "status": "skipped",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T15:01:54",
+     "from": "pending",
+     "to": "skipped",
+     "why": "['p3b'] ended without a head to build on"
+    }
+   ]
+  },
+  "tstar": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T15:01:54",
+     "from": "pending",
+     "to": "pass",
+     "why": "T* = p3a (max_stable 90)"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "pass",
+     "to": "gate",
+     "why": "re-pick: payload heads' 0-kg re-gated under thresholds v1.2 (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11))"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "gate",
+     "to": "pass",
+     "why": "T* = p3b (max_stable 135)"
+    }
+   ]
+  },
+  "st": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T15:01:54",
+     "from": "pending",
+     "to": "training",
+     "why": "distill"
+    },
+    {
+     "at": "2026-10-22T22:41:11",
+     "from": "training",
+     "to": "halt",
+     "why": "DRIVER: distill.sh rc=134, run dir /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_15-02-05_T4F19_st, last checkpoint 26800 (want >= 27992)"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "halt",
+     "to": "pending",
+     "why": "T* retargeted p3a -> p3b (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): a fresh run (attempt 2)"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "pending",
+     "to": "training",
+     "why": "distill"
+    },
+    {
+     "at": "2026-10-23T09:51:11",
+     "from": "training",
+     "to": "pass",
+     "why": "student trained (5 candidates)"
+    }
+   ],
+   "superseded": [
+    {
+     "at": "2026-10-22T23:41:06",
+     "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+     "status": "halt",
+     "records": {
+      "live": {
+       "last_rc": 0,
+       "last": 26833,
+       "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_15-02-05_T4F19_st"
+      }
+     },
+     "run_name": "T4F19_st",
+     "records_moved_to": []
+    }
+   ],
+   "distill_attempt": 2,
+   "live": {
+    "last_rc": 0,
+    "last": 30991,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2"
+   },
+   "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2",
+   "trained": {
+    "rc": 0,
+    "at": "2026-10-23T09:51:11"
+   }
+  },
+  "sel": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "pending",
+     "to": "pending",
+     "why": "T* retargeted p3a -> p3b (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): reset, nothing had run"
+    },
+    {
+     "at": "2026-10-23T09:51:11",
+     "from": "pending",
+     "to": "rows",
+     "why": "prescreen"
+    },
+    {
+     "at": "2026-10-23T13:32:16",
+     "from": "rows",
+     "to": "pass",
+     "why": "selected c28000"
+    }
+   ],
+   "prescreen": {
+    "c27000": {
+     "iter": 27000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_27000.pt",
+     "misses": 0,
+     "field_hard": 0.855,
+     "mean_abs_dev": 0.019786023407383835
+    },
+    "c28000": {
+     "iter": 28000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+     "misses": 0,
+     "field_hard": 0.89,
+     "mean_abs_dev": 0.02140387020040485
+    },
+    "c29000": {
+     "iter": 29000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_29000.pt",
+     "misses": 0,
+     "field_hard": 0.885,
+     "mean_abs_dev": 0.017706808187215317
+    },
+    "c30000": {
+     "iter": 30000,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_30000.pt",
+     "misses": 1,
+     "field_hard": 0.765,
+     "mean_abs_dev": 0.0229548401230997
+    },
+    "c30991": {
+     "iter": 30991,
+     "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_30991.pt",
+     "misses": 0,
+     "field_hard": 0.88,
+     "mean_abs_dev": 0.037794791989925774
+    }
+   },
+   "ranked": [
+    "c28000",
+    "c29000",
+    "c30991",
+    "c27000",
+    "c30000"
+   ],
+   "blocks": {
+    "c28000": "PASS"
+   }
+  },
+  "sn": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "pending",
+     "to": "pending",
+     "why": "T* retargeted p3a -> p3b (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): reset, nothing had run"
+    },
+    {
+     "at": "2026-10-23T13:32:16",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SN"
+    },
+    {
+     "at": "2026-10-23T15:57:16",
+     "from": "training",
+     "to": "rows",
+     "why": "SN trained"
+    },
+    {
+     "at": "2026-10-23T16:35:13",
+     "from": "rows",
+     "to": "gate",
+     "why": "SN read"
+    },
+    {
+     "at": "2026-10-23T16:35:13",
+     "from": "gate",
+     "to": "pass",
+     "why": "gate PASS"
+    }
+   ],
+   "steps": {
+    "refs": true,
+    "rows": true
+   },
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     1333,
+     2000
+    ],
+    "stop": false,
+    "reasons": null
+   },
+   "gate": {
+    "verdict": "PASS",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/sn.json"
+   }
+  },
+  "sh": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "pending",
+     "to": "pending",
+     "why": "T* retargeted p3a -> p3b (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): reset, nothing had run"
+    },
+    {
+     "at": "2026-10-23T16:35:13",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SH"
+    },
+    {
+     "at": "2026-10-23T18:59:15",
+     "from": "training",
+     "to": "rows",
+     "why": "SH trained"
+    },
+    {
+     "at": "2026-10-23T20:08:51",
+     "from": "rows",
+     "to": "gate",
+     "why": "SH read"
+    },
+    {
+     "at": "2026-10-23T20:08:51",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: [\"stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)\"]"
+    },
+    {
+     "at": "2026-10-23T23:59:28",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "steps": {
+    "table": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-23_18-59-15_full",
+    "hrows": true,
+    "k5rows": true
+   },
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     1666,
+     2500
+    ],
+    "stop": false,
+    "reasons": []
+   },
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/sh.json"
+   }
+  },
+  "bundle": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-22T06:50:25",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-22T11:13:48",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-22T23:41:06",
+     "from": "pending",
+     "to": "pending",
+     "why": "T* retargeted p3a -> p3b (CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)): reset, nothing had run"
+    },
+    {
+     "at": "2026-10-23T20:08:51",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sh']"
+    },
+    {
+     "at": "2026-10-23T23:59:28",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: sh accepted"
+    },
+    {
+     "at": "2026-10-23T23:59:28",
+     "from": "pending",
+     "to": "pass",
+     "why": "deliverable.json written"
+    }
+   ]
+  }
+ },
+ "halts": {
+  "p3a": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/p3a.1.json"
+  },
+  "st": {
+   "class": "DRIVER",
+   "status": "amended",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/st.1.json"
+  },
+  "sh": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/sh.1.json"
+  }
+ },
+ "accepted": [
+  {
+   "stage": "p3a",
+   "class": "FAIL",
+   "at": "2026-10-22T11:13:48",
+   "why": "user 2026-10-22: accept, disclose -- paired 0-kg: move_turn 0.79->0.69, diag 1.00->0.96 (real); fwd/back/side drops = p2a overshoot 1.05-1.07 moving to 1.0 (one-sided rule artefact); survival 1.0; CHARTER 7113e84c",
+   "chance_rate_sum": null
+  },
+  {
+   "stage": "sh",
+   "class": "FAIL",
+   "at": "2026-10-23T23:59:28",
+   "why": "DESIGN 3.6 lazy control: R_h beside T*=p3b fails the same K6 bin4 line (0.89/0.845) -> walker-caused, re-anchored; head passes every K6 cell (bin4 0.935/0.95 vs R_h 0.89/0.845), K4 2/3 vs R_h 5/5; decide-record-notify (not a chance acceptance); CHARTER 2026-10-23",
+   "chance_rate_sum": 6.445482854557611e-12
+  }
+ ],
+ "amendments": [
+  {
+   "stage": "st",
+   "at": "2026-10-22T23:41:06",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "old_lock_sha256": "d92a551956f9869a5ddcd195942c57620b65b685cc068f8d66543807311633bc",
+   "new_lock_sha256": "d90c82e4b735d4d2ef663f4cad9c139add3ef1ac84f4105c6738ed80f4036d6c",
+   "kind": "retarget_tstar",
+   "tstar_from": "p3a",
+   "tstar_to": "p3b",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   }
+  }
+ ],
+ "tstar": {
+  "stage": "p3b",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt",
+  "sha256": "03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB",
+  "iteration": 25992,
+  "max_stable": 135,
+  "candidates": [
+   {
+    "stage": "p3b",
+    "max_stable": 135,
+    "zero_kg": "PASS",
+    "accepted": false,
+    "max_margin_used": 0.6619605845918585
+   },
+   {
+    "stage": "p3a",
+    "max_stable": 90,
+    "zero_kg": "FAIL",
+    "accepted": true,
+    "max_margin_used": 2.7098692720929014
+   }
+  ],
+  "considered": [
+   {
+    "stage": "p3a",
+    "status": "accepted",
+    "max_stable": 90,
+    "zero_kg": "FAIL",
+    "zero_kg_fails": [
+     "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ],
+    "max_margin_used": 2.7098692720929014,
+    "zero_kg_watch": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+    ],
+    "accepted": true,
+    "eligible": true,
+    "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3a.json",
+    "halt": {
+     "class": "FAIL",
+     "status": "accepted",
+     "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/halts/p3a.1.json"
+    },
+    "chosen": false,
+    "why": "eligible, not chosen: max_stable 90 < T*'s 135 (p3b); paired 0-kg check FAIL (max margin use 2.71; fails: track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R); ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R); track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R); ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled))"
+   },
+   {
+    "stage": "p3b",
+    "status": "ceiling",
+    "max_stable": 135,
+    "zero_kg": "PASS",
+    "zero_kg_fails": [],
+    "max_margin_used": 0.6619605845918585,
+    "zero_kg_watch": [
+     "ratio back suite es1: worse by 0.0684 > margin 0.0617 (WATCH)",
+     "ratio back suite es2: worse by 0.0714 > margin 0.0617 (WATCH)"
+    ],
+    "accepted": false,
+    "eligible": true,
+    "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/p3b.json",
+    "halt": null,
+    "chosen": true,
+    "why": "CHOSEN: the highest max_stable (135) among the eligible heads; paired 0-kg check PASS (max margin use 0.66)"
+   }
+  ],
+  "not_trained": [
+   {
+    "stage": "p3c",
+    "status": "skipped",
+    "why": "not considered: no trained head (status skipped: ['p3b'] ended without a head to build on)"
+   }
+  ],
+  "rule": "PLAN Payload -> T*: the trained payload head with the highest max_stable that passes its paired 0-kg check -- or whose 0-kg HALT the user accepted as chance -- tried in descending max_stable (ties to the earlier stage); HALT only if none passes",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02",
+  "label": "sim plant, force side not enforced",
+  "retarget": {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   },
+   "from": "p3a",
+   "previous_record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/history/tstar.1.json"
+  }
+ },
+ "tstar_history": [
+  {
+   "stage": "p3a",
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB/model_22993.pt",
+   "sha256": "1090c284aabd3ce6d77f5303c51aee87fb98954260774129dbc82854d12aed9c",
+   "iteration": 22993,
+   "max_stable": 90,
+   "superseded_at": "2026-10-22T23:41:06",
+   "previous_record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/stage_reads/history/tstar.1.json",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "superseded_by_thresholds": "v1.2"
+  }
+ ],
+ "selected_student": {
+  "cand": "c28000",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+  "sha256": "4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059",
+  "iter": 28000,
+  "tstar": "p3b"
+ }
+}

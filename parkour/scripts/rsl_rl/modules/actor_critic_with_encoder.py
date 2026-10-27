@@ -123,6 +123,17 @@ class Actor(nn.Module):
         scan = obs[:, self.num_prop:self.num_prop + self.num_scan]
         return self.scan_encoder(scan)
 
+#: Policy-cfg keys ``ActorCriticRMA`` accepts in ``**kwargs``: the three it reads (and leaves in
+#: ``self.kwargs``) plus three isaaclab_rl ``RslRlPpoActorCriticCfg`` fields every dumped
+#: ``agent.yaml`` carries and this class has no use for (accepted and ignored, as always). Any OTHER
+#: leftover key raises (PPO-construction plan fix 5c): a policy knob this class does not implement
+#: must not be swallowed silently.
+POLICY_KWARGS_ALLOWED = (
+    "priv_encoder_dims", "scan_encoder_dims", "tanh_encoder_output",
+    "state_dependent_std", "actor_obs_normalization", "critic_obs_normalization",
+)
+
+
 class ActorCriticRMA(nn.Module):
     is_recurrent = False
 
@@ -139,6 +150,12 @@ class ActorCriticRMA(nn.Module):
     ):
         super(ActorCriticRMA, self).__init__()
 
+        unknown = sorted(set(kwargs) - {"actor"} - set(POLICY_KWARGS_ALLOWED))
+        if unknown:
+            raise ValueError(
+                f"{type(self).__name__}: unknown policy config keys {unknown} "
+                f"(accepted: actor, {', '.join(POLICY_KWARGS_ALLOWED)})"
+            )
         self.kwargs = kwargs
         priv_encoder_dims = kwargs['priv_encoder_dims']
         scan_encoder_dims = kwargs['scan_encoder_dims']
@@ -169,6 +186,14 @@ class ActorCriticRMA(nn.Module):
 
 
         self.noise_std_type = noise_std_type
+        self._build_noise_std(init_noise_std, num_actions)
+
+        self.distribution = None
+        Normal.set_default_validate_args = False
+
+    def _build_noise_std(self, init_noise_std, num_actions) -> None:
+        """Register the exploration-std parameter for :attr:`noise_std_type` (a subclass hook: the
+        crab policy adds the ``soft`` type here, with the parameter in the same registration slot)."""
         if self.noise_std_type == "scalar":
             self.std = nn.Parameter(init_noise_std * torch.ones(num_actions))
         elif self.noise_std_type == "log":
@@ -176,8 +201,13 @@ class ActorCriticRMA(nn.Module):
         else:
             raise ValueError(f"Unknown standard deviation type: {self.noise_std_type}. Should be 'scalar' or 'log'")
 
-        self.distribution = None
-        Normal.set_default_validate_args = False
+    def effective_std(self) -> torch.Tensor:
+        """``(num_actions,)`` -- the std :meth:`update_distribution` actually uses."""
+        if self.noise_std_type == "scalar":
+            return self.std
+        if self.noise_std_type == "log":
+            return torch.exp(self.log_std)
+        raise ValueError(f"Unknown standard deviation type: {self.noise_std_type}. Should be 'scalar' or 'log'")
 
     @staticmethod
     # not used at the moment

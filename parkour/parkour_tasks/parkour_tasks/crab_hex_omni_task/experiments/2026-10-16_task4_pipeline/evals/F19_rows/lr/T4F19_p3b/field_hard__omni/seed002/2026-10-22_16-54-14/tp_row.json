@@ -1,0 +1,14 @@
+{
+ "by": "TP gate_row.sh",
+ "name": "T4F19_p3b",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt",
+ "env_file": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/p3b.field_hard.env",
+ "level_file": null,
+ "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+ "scenario": "field_hard__omni",
+ "env_seed": 2,
+ "stripped_keys": [],
+ "args": [],
+ "rc": 0,
+ "written_at": "2026-10-22T12:57:46"
+}

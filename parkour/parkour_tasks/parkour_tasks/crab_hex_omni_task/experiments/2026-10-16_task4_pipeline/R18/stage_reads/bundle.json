@@ -1,0 +1,133 @@
+{
+ "run": "R18",
+ "tstar": {
+  "stage": "p3a",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB/model_22993.pt",
+  "sha256": "b5a237cc98d5e0ffa24e69f6d5b9d5e3dc4e7b53615ae82b026bb04185afc3a3",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB",
+  "iteration": 22993,
+  "max_stable": 90,
+  "candidates": [
+   {
+    "stage": "p3a",
+    "max_stable": 90,
+    "zero_kg": "FAIL",
+    "accepted": true,
+    "max_margin_used": 1.6567394089763856
+   }
+  ],
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/R18/seed18_X07_p3a_A15pB/suite__omni/seed001/2026-10-20_04-05-14",
+  "label": "sim plant, force side not enforced"
+ },
+ "student": {
+  "cand": "c27000",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_27000.pt",
+  "sha256": "07c9e316777e920d1f1708e9e39e934864dcdb6d4efcc5b815b1a2a6c4e9aaf3",
+  "iter": 27000,
+  "tstar": "p3a"
+ },
+ "stand": {
+  "sn": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4R18_sn_s17/model_4000.pt",
+   "sha256": "dcb460d1d13b3a7c8e1dec73d79f136c50079fb65e6bedcefe14b3140204e77f"
+  },
+  "sh": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_s17/model_5000.pt",
+   "sha256": "e629abd5cef31e2483bf4746055969a103be99e8ccdc1edc9070e42712661f71"
+  }
+ },
+ "stage_heads_by_sha256": {
+  "s1": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_05-12-46_seed18_X01_s1_A15pB/model_5999.pt",
+   "sha256": "1701300cbe34f94e85872c3a1e9549c9d1eac6be186e90250268bb17912f8ba0"
+  },
+  "c4": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_07-40-58_seed18_X02_c4_A15pB/model_7498.pt",
+   "sha256": "1f5f22be9b0323ff5ace5a1ee87b1fdc1ae78e47fb73222182b879192675a3a7"
+  },
+  "c5": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_08-28-47_seed18_X03_c5_A15pB/model_8997.pt",
+   "sha256": "33a140af762fa871a515aaaa4594787862221b7df85a528089bde19fa681ef57"
+  },
+  "c6": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_09-16-28_seed18_X04_c6_A15pB/model_10996.pt",
+   "sha256": "eefbd363dc73144072340e9762b3911505e2b499760f71226fee26696f6f98c9"
+  },
+  "c6x": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_10-17-50_seed18_X05_c6x_A15pB/model_14995.pt",
+   "sha256": "59653190f09ece4266d2516827dd0d7eb879ef5dd3b3690c346b4784d6ff4916"
+  },
+  "p2a": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_12-25-59_seed18_X06_p2a_A15pB/model_19994.pt",
+   "sha256": "12f69eded251c8ad6686aaed48e707e6fb3c29ec485561d002ea4d311106c1be"
+  },
+  "p3a": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB/model_22993.pt",
+   "sha256": "b5a237cc98d5e0ffa24e69f6d5b9d5e3dc4e7b53615ae82b026bb04185afc3a3"
+  },
+  "p3b": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-20_10-12-25_seed18_X08_p3b_A15pB/model_25992.pt",
+   "sha256": "59363e448294fcf8b0fee0793c42d56f33a9f4abf0c6afbaa82ec0eb70703f6c"
+  },
+  "tstar": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_22-49-12_seed18_X07_p3a_A15pB/model_22993.pt",
+   "sha256": "b5a237cc98d5e0ffa24e69f6d5b9d5e3dc4e7b53615ae82b026bb04185afc3a3"
+  },
+  "sel": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-20_13-58-55_T4R18_st/model_27000.pt",
+   "sha256": "07c9e316777e920d1f1708e9e39e934864dcdb6d4efcc5b815b1a2a6c4e9aaf3"
+  },
+  "sn": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4R18_sn_s17/model_4000.pt",
+   "sha256": "dcb460d1d13b3a7c8e1dec73d79f136c50079fb65e6bedcefe14b3140204e77f"
+  },
+  "sh": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_s17/model_5000.pt",
+   "sha256": "e629abd5cef31e2483bf4746055969a103be99e8ccdc1edc9070e42712661f71"
+  },
+  "sn_ref": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4R18_sn_ref_s17/model_4000.pt",
+   "sha256": "4c070edc619822467e8c12b8b4b8088e170c74f4aa771553f5658f195d1ca6cb"
+  },
+  "sh_ref": {
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_ref_s17/model_5000.pt",
+   "sha256": "ead5e7936145baa4c72b380ed33c62a2a7920332e28eb8bd9ee209c31966dca5"
+  }
+ },
+ "status": {
+  "s1": "pass",
+  "c4": "pass",
+  "c5": "pass",
+  "c6": "pass",
+  "c6x": "pass",
+  "p2a": "pass",
+  "p3a": "accepted",
+  "p3b": "ceiling",
+  "p3c": "skipped",
+  "tstar": "pass",
+  "st": "pass",
+  "sel": "pass",
+  "sn": "pass",
+  "sh": "accepted",
+  "bundle": "pending",
+  "sn_ref": "pass",
+  "sh_ref": "pass"
+ },
+ "accepted_halts": [
+  {
+   "stage": "p3a",
+   "class": "FAIL",
+   "at": "2026-10-20T10:12:13",
+   "why": "user 2026-10-20: accept as chance -- move_turn ratio continuation drift (margin use 1.66/1.52), every other statistic held or improved; disclosed (CHARTER)",
+   "chance_rate_sum": null
+  },
+  {
+   "stage": "sh",
+   "class": "FAIL",
+   "at": "2026-10-21T15:51:25",
+   "why": "user 2026-10-21: accept, disclose -- lazy R_h control beside T*: K6 bins 1/4 walker-caused (control fails the same lines); residual K4 miss 13/10 vs control 7/3 (0 exit falls) + K6 bin0 es2 homed 0.925 vs 0.94; CHARTER e44064cb",
+   "chance_rate_sum": 0.14773477453990433
+  }
+ ],
+ "notes": "keep-set record (DESIGN 2.4); bundle_experiment.py keep-set + local tag are PLAN step 11"
+}

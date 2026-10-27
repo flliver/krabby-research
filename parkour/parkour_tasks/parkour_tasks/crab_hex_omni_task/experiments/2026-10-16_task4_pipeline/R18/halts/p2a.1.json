@@ -1,0 +1,32 @@
+{
+ "run": "R18",
+ "stage": "p2a",
+ "class": "GUARD",
+ "why": "locked file drifted: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/pipeline.py (5d2121021b45 -> 912e18e55ffb)",
+ "at": "2026-10-19T16:47:43",
+ "status": "retried",
+ "lines": [],
+ "chance_rate_sum": null,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": null,
+ "subtree": [
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "retry"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-19T16:48:17",
+  "kind": "retry",
+  "why": "re-pin 2026-10-19b: live-watch fix installed by user decision; GUARD was the planned drift halt"
+ }
+}

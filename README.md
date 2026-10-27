@@ -13,7 +13,7 @@ Locomotion stack for the Krabby hexapod robot — firmware, HAL, policy inferenc
 | Stand up fleet AWS (one-time account) | [fleet/SETUP-FLEET.md](fleet/SETUP-FLEET.md) → [fleet/FIELD-TELEOP.md](fleet/FIELD-TELEOP.md) |
 | Enroll one Orin into the fleet | [fleet/ENROLL.md](fleet/ENROLL.md) |
 | Run the continuous bench watchdog | [bench/README.md](bench/README.md) |
-| Train or evaluate policies in sim | [crab-hex forward task](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) → [docs/crab-hexapod-plant.md](docs/crab-hexapod-plant.md) |
+| Train or evaluate policies in sim | [crab-hex forward task](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) → [docs/crab-hexapod-plant.md](docs/crab-hexapod-plant.md); then the [omni task](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/README.md) (policy of record: [crab_hex_omni_task/policy/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md)) / [sideways task](parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/README.md) |
 
 ## Kit
 
@@ -141,3 +141,6 @@ Host setup for kit bring-up is **this quick-start** (`krabby install` above), no
 | [docs/crab-hex-forward-policy-config.md](docs/crab-hex-forward-policy-config.md) | Forward-walk policy/MDP configuration, KRABBY_* env vars, phase presets |
 | [docs/FOLDER_LAYOUT.md](docs/FOLDER_LAYOUT.md) | Repository map (task package, experiments/ keep-set, policy of record) |
 | [parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) | Crab-hex forward-walk RL task: phases, training, evaluation |
+| [parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/README.md) | Crab-hex omnidirectional-walk RL task: presets, drivers, Task 4 pipeline, evaluation |
+| [parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md) | Omni policy of record (walker T*, depth student, stand network) and how to play / evaluate it |
+| [parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/README.md) | Crab-hex sideways-walk RL task |

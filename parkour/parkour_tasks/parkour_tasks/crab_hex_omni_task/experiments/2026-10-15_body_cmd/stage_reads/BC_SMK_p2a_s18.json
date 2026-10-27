@@ -1,0 +1,10 @@
+{
+  "chain": "BC_SMK_p2a_s18",
+  "stage": "p2a",
+  "seed": 18,
+  "xid": "X03",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_02-03-55_seed18_X03_p2a_A15pB/model_99.pt",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-16_02-03-55_seed18_X03_p2a_A15pB",
+  "tag": "seed18_X03_p2a_A15pB",
+  "audit": "PASS"
+}

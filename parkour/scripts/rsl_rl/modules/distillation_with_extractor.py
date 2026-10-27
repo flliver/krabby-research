@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from .feature_extractors import DepthOnlyFCBackbone58x87, RecurrentDepthBackbone
+from .feature_extractors import RecurrentMultiDepthBackbone  # noqa: F401  (omni student, Task 4 M1b; resolved by eval below)
 from .actor_critic_with_encoder import ActorCriticRMA
 from copy import deepcopy  
 
@@ -57,9 +58,15 @@ class DistillationWithExtractor():
 
     def update_depth_actor(self, actions_buffer, yaws_buffer):
         depth_actor_loss = (actions_buffer).norm(p=2, dim=1).mean()
-        yaw_loss = (yaws_buffer).norm(p=2, dim=1).mean()
+        if yaws_buffer is None:
+            # The omni depth student (Task 4 M1b): no yaw head (it never writes the facing command, obs
+            # cols 6-7), so the yaw loss has zero weight -- logged as 0, the loss is the action loss alone.
+            yaw_loss = torch.zeros((), device=depth_actor_loss.device)
+            loss = depth_actor_loss
+        else:
+            yaw_loss = (yaws_buffer).norm(p=2, dim=1).mean()
 
-        loss = depth_actor_loss + yaw_loss
+            loss = depth_actor_loss + yaw_loss
         self.depth_actor_optimizer.zero_grad()
         loss.backward()
         nn.utils.clip_grad_norm_(self.depth_actor.parameters(), self.max_grad_norm)
@@ -70,6 +77,15 @@ class DistillationWithExtractor():
             "total_loss": loss.item(),
         }
         return loss_dict
+
+    def resume_state(self):
+        """Training state a resumed distillation run needs besides the networks."""
+        return {"depth_actor_optimizer": self.depth_actor_optimizer.state_dict()}
+
+    def load_resume_state(self, state):
+        # A teacher checkpoint carries PPO state (no depth optimizer): the student starts fresh.
+        if "depth_actor_optimizer" in state:
+            self.depth_actor_optimizer.load_state_dict(state["depth_actor_optimizer"])
 
     def broadcast_parameters(self):
         # obtain the model parameters on current GPU

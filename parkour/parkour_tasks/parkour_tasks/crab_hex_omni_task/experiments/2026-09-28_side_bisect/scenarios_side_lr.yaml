@@ -1,0 +1,47 @@
+# Side-speed bisection, two-direction step (2026-09-29, user "run the next steps"): the side22_25 gate row with BOTH
+# hands. A separate manifest so the shared scenarios_omni.yaml (and every omni campaign's eval_sha) does not move.
+# Run by hand after each two-direction arm with the env_vars of that arm's own driver eval (run_meta.env_vars of its
+# side22_25__omni stamp), exactly as the driver builds it. Scored with scripts/side22_classify.py (both hands).
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: side22_25lr__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 5
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l_022, speed: 0.22, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r_022, speed: 0.22, dir: -1.5707963, face: 0.0000000, hand: r}
+          - {label: lat_l_025, speed: 0.25, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r_025, speed: 0.25, dir: -1.5707963, face: 0.0000000, hand: r}
+    notes: >-
+      side22_25 with both hands: lat_l and lat_r at 0.22 and 0.25 m/s, 2-s settle, 12-s holds, 100 episodes per hold.

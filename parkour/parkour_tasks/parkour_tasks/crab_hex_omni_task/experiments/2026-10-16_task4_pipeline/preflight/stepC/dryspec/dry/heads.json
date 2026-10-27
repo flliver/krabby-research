@@ -1,0 +1,12 @@
+{
+  "seed18": {
+    "X01:s1": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-18_23-09-13_seed18_X01_s1_A15pB/model_19.pt",
+    "X02:c4": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_00-55-24_seed18_X02_c4_A15pB/model_38.pt",
+    "X03:c5": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_01-04-35_seed18_X03_c5_A15pB/model_57.pt",
+    "X04:c6": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_01-14-57_seed18_X04_c6_A15pB/model_76.pt",
+    "X05:c6x": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_01-25-07_seed18_X05_c6x_A15pB/model_95.pt",
+    "X06:p2a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-35-18_seed18_X06_p2a_A15pB/model_114.pt",
+    "X07:p3a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_01-59-28_seed18_X07_p3a_A15pB/model_133.pt",
+    "X08:p3b": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-19_02-20-38_seed18_X08_p3b_A15pB/model_152.pt"
+  }
+}

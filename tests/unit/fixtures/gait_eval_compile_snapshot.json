@@ -1,0 +1,2065 @@
+{
+ "scenarios_morph.yaml::creep20__A10": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__A10pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__A15": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__A15pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__A20": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__A20pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__B": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::creep20__base": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "e2d71336d55633753a97006c98482c4fd4d9e35effd12aaca8f5444c39e245ba",
+    "shape": [
+     975,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "7abf5f7e5ce774cf5bcee9d72c16116a33995c31e91cc865dd75a8f7888a274d",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "23a21429cd7855ccd09aa6c1903c783249c9c91f105e4f7bd43b073052aee26b",
+    "shape": [
+     975,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "creep_a",
+   "creep_b"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_morph.yaml::fwd__A10": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__A10pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__A15": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__A15pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__A20": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__A20pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__B": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::fwd__base": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__A10": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__A10pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__A15": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__A15pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__A20": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__A20pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__B": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::slow__base": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__A10": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__A10pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__A15": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__A15pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__A20": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__A20pB": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__B": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_morph.yaml::step__base": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_omni.yaml::curriculum__omni": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "0de52c8c174e535ade455edb5e1795a2d259e23f7395e6f2d93ecb824f4135d3",
+    "shape": [
+     4475,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "1e76705694d4eff3b64484aa55116b6e7a5ca952abf027e5dd1d71d55b02467c",
+    "shape": [
+     4475,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "c84955c6ba71ce2c63b0f033b06d48fed111ea84d11d4370526fc08aff3903f5",
+    "shape": [
+     4475,
+     100
+    ]
+   },
+   "world_dir": {
+    "dtype": "float64",
+    "sha256": "4b375932a561cd6a48bedce1737cc02c8dce90fb5e402afb4f5381fb8ce97ece",
+    "shape": [
+     4475,
+     100
+    ]
+   },
+   "world_face": {
+    "dtype": "float64",
+    "sha256": "6f25324d0fa7780229fae1a552be86b173da1adcf1063408ce0d03431f10eb82",
+    "shape": [
+     4475,
+     100
+    ]
+   },
+   "world_speed": {
+    "dtype": "float64",
+    "sha256": "456861a79aafe1608241b840475599ed9606a8cf1f9be887740f2656d0835990",
+    "shape": [
+     4475,
+     100
+    ]
+   }
+  },
+  "hold_labels": [
+   "stand",
+   "fwd",
+   "lat_l",
+   "lat_r",
+   "back",
+   "turn_l90",
+   "turn_r90",
+   "move_turn",
+   "move_turn_r",
+   "diag"
+  ],
+  "n_steps": 4475
+ },
+ "scenarios_omni.yaml::light__omni": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "7b78f42285cbaa26bcb23718855f93eb4d879e9842689afa11afbf3db70a033c",
+    "shape": [
+     3675,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "e73b53a157274c56072f40d8700ef14a759730879c2d2da7065c6967804ef139",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "58e837a75e659589f6b52c7c18c512113dcc3744fe040b09cc3cc1e8ac2bf1b2",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_dir": {
+    "dtype": "float64",
+    "sha256": "ce6da59a27f588a4338a69cccd99063c58372cda9ef63948cb4adf9ca088e483",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_face": {
+    "dtype": "float64",
+    "sha256": "7e2b66f2562200fed6e2d84cae672d2f50916834cc0843741f2d7524046b8701",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_speed": {
+    "dtype": "float64",
+    "sha256": "2ca7507181152ee6b90e314e8a24b99979e1e9432930a91a3f89472c7eec6e8d",
+    "shape": [
+     3675,
+     100
+    ]
+   }
+  },
+  "hold_labels": [
+   "stand",
+   "fwd",
+   "lat_l",
+   "diag",
+   "back",
+   "turn_l90",
+   "turn_r90",
+   "move_turn"
+  ],
+  "n_steps": 3675
+ },
+ "scenarios_omni.yaml::ring__omni": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "7b78f42285cbaa26bcb23718855f93eb4d879e9842689afa11afbf3db70a033c",
+    "shape": [
+     3675,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "e73b53a157274c56072f40d8700ef14a759730879c2d2da7065c6967804ef139",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "58e837a75e659589f6b52c7c18c512113dcc3744fe040b09cc3cc1e8ac2bf1b2",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_dir": {
+    "dtype": "float64",
+    "sha256": "ce6da59a27f588a4338a69cccd99063c58372cda9ef63948cb4adf9ca088e483",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_face": {
+    "dtype": "float64",
+    "sha256": "7e2b66f2562200fed6e2d84cae672d2f50916834cc0843741f2d7524046b8701",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_speed": {
+    "dtype": "float64",
+    "sha256": "2ca7507181152ee6b90e314e8a24b99979e1e9432930a91a3f89472c7eec6e8d",
+    "shape": [
+     3675,
+     100
+    ]
+   }
+  },
+  "hold_labels": [
+   "stand",
+   "fwd",
+   "lat_l",
+   "diag",
+   "back",
+   "turn_l90",
+   "turn_r90",
+   "move_turn"
+  ],
+  "n_steps": 3675
+ },
+ "scenarios_omni.yaml::slow__omni": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "7b78f42285cbaa26bcb23718855f93eb4d879e9842689afa11afbf3db70a033c",
+    "shape": [
+     3675,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "e73b53a157274c56072f40d8700ef14a759730879c2d2da7065c6967804ef139",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "58e837a75e659589f6b52c7c18c512113dcc3744fe040b09cc3cc1e8ac2bf1b2",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_dir": {
+    "dtype": "float64",
+    "sha256": "ce6da59a27f588a4338a69cccd99063c58372cda9ef63948cb4adf9ca088e483",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_face": {
+    "dtype": "float64",
+    "sha256": "7e2b66f2562200fed6e2d84cae672d2f50916834cc0843741f2d7524046b8701",
+    "shape": [
+     3675,
+     100
+    ]
+   },
+   "world_speed": {
+    "dtype": "float64",
+    "sha256": "2ca7507181152ee6b90e314e8a24b99979e1e9432930a91a3f89472c7eec6e8d",
+    "shape": [
+     3675,
+     100
+    ]
+   }
+  },
+  "hold_labels": [
+   "stand",
+   "fwd",
+   "lat_l",
+   "diag",
+   "back",
+   "turn_l90",
+   "turn_r90",
+   "move_turn"
+  ],
+  "n_steps": 3675
+ },
+ "scenarios_side.yaml::flat_walk_slow_side": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_side.yaml::side22_25__side": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "2a6c56bcbcb8d4f4bdde19e35dc6769eb264817094b9805d7f7a125657fbd3a8",
+    "shape": [
+     1375,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "0c9cbd72b17c561edc6c0cb8e3b696ce509a0c9655968a2e1fa0feccad83363d",
+    "shape": [
+     1375,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "19da398b4dbd153a043dda947541b73bf19f54bcacf01638b6d0dc0138bd3fa1",
+    "shape": [
+     1375,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "lat_l_022",
+   "lat_l_025"
+  ],
+  "n_steps": 1375
+ },
+ "scenarios_side.yaml::slow__side": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_side.yaml::step__side": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_v1.yaml::flat_walk_forward": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "62d5c6ca2c492fe4d45e868ba83768b1d3bdeb6410add13aa5d7b68067bb0a73",
+    "shape": [
+     975,
+     10,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bb0e0826d19834e9c62f033dea5c921cd3f537625fd5c2d253eb49574a0a36e5",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "bb810b75eb0094c0290f0e18328deba671622b4ef33f9fdcea10c38eaced02f4",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_v1.yaml::student_2b2_forward": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "564ec468e792c0be737ab78e1b33810aa3a7fa0172996a428dc752afa56d003e",
+    "shape": [
+     975,
+     10,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "55c505e2793bc86d44b1509e5157121d9b508b8e5659e77b5e9ae32f5b7599f9",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "bb810b75eb0094c0290f0e18328deba671622b4ef33f9fdcea10c38eaced02f4",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_v1.yaml::student_flat_forward": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "a4ced526e617c45488ee015a31ca159bded12984a69d0872bbfe690954f0c5b7",
+    "shape": [
+     975,
+     10,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bb0e0826d19834e9c62f033dea5c921cd3f537625fd5c2d253eb49574a0a36e5",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "bb810b75eb0094c0290f0e18328deba671622b4ef33f9fdcea10c38eaced02f4",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_v1.yaml::student_flat_probe_vy": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "75fb51f5199133c719dc8e00c6fda15fec44588d46af996c11ea6b179761225a",
+    "shape": [
+     675,
+     5,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "53ac6bdbf493385909ee94ec72714a887cd7e17a66aa14a5bf5e9701a164d21e",
+    "shape": [
+     675,
+     5
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "960a1343c86e8c773bec4c84dd60f1ce0f00d64a34e44f839b7650aa57cd014b",
+    "shape": [
+     675,
+     5
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "baseline",
+   "vy_pos",
+   "vy_neg"
+  ],
+  "n_steps": 675
+ },
+ "scenarios_v1.yaml::student_flat_probe_yaw": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "d071eb41a348e58d4e44a7900bf2c4fffa542a72cc78d120192c35d6a7aab4aa",
+    "shape": [
+     675,
+     5,
+     3
+    ]
+   },
+   "delta_yaw": {
+    "dtype": "float32",
+    "sha256": "857986272911241b8b416feb4808241a534a5bf56713dde9d1867cca88cbfe66",
+    "shape": [
+     675,
+     5
+    ]
+   },
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "53ac6bdbf493385909ee94ec72714a887cd7e17a66aa14a5bf5e9701a164d21e",
+    "shape": [
+     675,
+     5
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "960a1343c86e8c773bec4c84dd60f1ce0f00d64a34e44f839b7650aa57cd014b",
+    "shape": [
+     675,
+     5
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "straight",
+   "yaw_pos",
+   "yaw_neg"
+  ],
+  "n_steps": 675
+ },
+ "scenarios_v1.yaml::teacher_2b2_forward": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "564ec468e792c0be737ab78e1b33810aa3a7fa0172996a428dc752afa56d003e",
+    "shape": [
+     975,
+     10,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "55c505e2793bc86d44b1509e5157121d9b508b8e5659e77b5e9ae32f5b7599f9",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "bb810b75eb0094c0290f0e18328deba671622b4ef33f9fdcea10c38eaced02f4",
+    "shape": [
+     975,
+     10
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 975
+ },
+ "scenarios_v2.yaml::flat_walk_forward_v2": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "11600964bd5925b8261fc3840d930ad88b68881c48b5261f254c86242fd9c65a",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "low",
+   "mid",
+   "high"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_v2.yaml::flat_walk_slow_v2": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "f117f9782ef576dfb3c13cc39b0ec73bf45c00b42622a6d960e84367a6021d16",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "stand",
+   "creep",
+   "low"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_v2.yaml::flat_walk_speed_v1": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "5e528f403634aaa2138af55c80e79c975606d53dc664b36f5e67edb5bdcda749",
+    "shape": [
+     1575,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": null,
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "bbe3f73e372e14b028b0f8312fee44d94a7ffafa40572c521128151e6e1a2d83",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "a41d85c0c70c68825b95b2f1b91e6ba10a696bf8aa308e48f9ff281980283c72",
+    "shape": [
+     1575,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "band_top",
+   "widened",
+   "ceiling"
+  ],
+  "n_steps": 1575
+ },
+ "scenarios_v2.yaml::turn_walk_v1": {
+  "arrays": {
+   "cmd": {
+    "dtype": "float32",
+    "sha256": "294f8eed7eb27bece6923c4a5ad2f5b99c3386bec62f42e7fe7e67976a6663f1",
+    "shape": [
+     2075,
+     100,
+     3
+    ]
+   },
+   "delta_yaw": {
+    "dtype": "float32",
+    "sha256": "954586edee6e1c9afac38b7e4849c6bf6b50e4992e0990ce143431ab8eb0dac8",
+    "shape": [
+     2075,
+     100
+    ]
+   },
+   "segment_id": {
+    "dtype": "int16",
+    "sha256": "a80ed4a3bcc468de2e13d956fe03933b7447e8437ffe9e035bda1b14149b9a43",
+    "shape": [
+     2075,
+     100
+    ]
+   },
+   "steady_mask": {
+    "dtype": "bool",
+    "sha256": "6a07732e5310e02ee2df57f6c051517b4ef273a3c4c6152eae33db80972ba377",
+    "shape": [
+     2075,
+     100
+    ]
+   },
+   "world_dir": null,
+   "world_face": null,
+   "world_speed": null
+  },
+  "hold_labels": [
+   "straight",
+   "turn_l",
+   "turn_r",
+   "turn_hard"
+  ],
+  "n_steps": 2075
+ }
+}

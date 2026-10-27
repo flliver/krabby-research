@@ -1,0 +1,313 @@
+# Crab-hex gait eval scenario set for the omnidirectional task (omni-formation campaign, 2026-09-16).
+#
+# WORLD-FRAME rows (`manifest_version: 2`, plan D10). A hold here is not a body-frame velocity:
+# it is `speed` (m/s), `dir` (the travel direction in the WORLD frame, rad) and `face` (the
+# ABSOLUTE world heading to face, rad). The harness never writes `vel_command_b` on these rows --
+# it hands each step's row to the omni command term's `schedule_hook`, which does the world -> body
+# conversion and runs the facing P-control, so the eval drives exactly the loop training drives.
+# Scoring follows: the travel frame turns per step (`raw/travel_yaw`), `vx` in `tracking_by_hold` is
+# speed along the commanded direction, and `facing_by_hold` scores the heading over the WHOLE hold.
+#
+# `spawn_yaw: first_face` pins the reset event's yaw to the first hold's `face` (0.0 here); without
+# it the omni reset samples a uniform spawn heading and every episode's facing error starts
+# somewhere else.
+#
+# Two validator rules shape the numbers below, both from the plan:
+#   * speed <= the direction-scaled cap `speed_ellipse` at `wrap(dir - face)` -- the band the
+#     sampler itself draws from (fore-aft 0.35, lateral 0.25, backward 0.25);
+#   * a facing change must fit inside its hold: `hold_s >= settle_s + |wrap(dface)| / ang_vel_max`,
+#     i.e. 1.0 + 1.5708/0.3 = 6.24 s for a 90 deg turn -- satisfied at 8 s already, since
+#     `ang_vel_max` is the P-control's commanded cap, not what the plant actually achieves; no hold
+#     asks for a 180 deg swing (that would need 11.5 s).
+#
+# Step-16 review decision (2026-09-17): `turn_l90`/`turn_r90` are 12 s, not 8 s like every other
+# hold. Closing a 90 deg turn to <= 0.30 rad inside 8 s needs >= 0.16 rad/s sustained, above the
+# plant's measured ~0.15-0.2 rad/s kinematic turn rate -- the validator's formula above is
+# satisfied at 8 s (it only checks against `ang_vel_max` 0.3, the command cap), but the plant can't
+# actually turn that fast, so an 8 s hold would fail the 2a/2b facing-precision gate
+# (`heading_error_final_abs` <= 0.30 rad) even at the kinematic limit -- a goal inversion. 12 s
+# makes the gate feasible. `episode_length_s` is 80 (not 70) to cover the resulting schedule
+# (6 holds x 8 s + 2 turn holds x 12 s = 72 s) plus the 1.5 s prologue (73.5 s) with margin. Both
+# numbers are frozen from the first eval (see the manifest-shape note below).
+# `turn_r90` therefore faces 0.0 -- a right 90 deg turn FROM `turn_l90`'s +pi/2, not an absolute
+# -pi/2 (which would be a 180 deg swing off `turn_l90` and is rejected). `move_turn` faces +pi/2
+# while travelling along world +x: a real simultaneous move+turn (slot 3), and travelling sideways
+# in the body frame once the turn lands, so its 0.22 is capped by the lateral 0.25, not the 0.35.
+#
+# The manifest SHAPE is frozen: adding or removing an `env:` block on an EXISTING row flips
+# same-seed evals between two repeatable outcomes (0.79/21 falls <-> 0.75/25 falls -- process-state
+# sensitivity, not noise). Do not add or remove an `env:` block on `slow__omni`, `light__omni` or
+# `ring__omni` after they have been evaluated once; a NEW row may carry whatever `env:` it needs.
+#
+# Run (from krabby-research/parkour):
+#   <python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py \
+#     --headless --manifest parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml \
+#     --scenario slow__omni --checkpoint <model.pt>
+# Every row's `task:` is a Walk-Play task (`role: teacher` is metadata about the checkpoint's
+# training phase, not a task override -- the driver never rewrites a row's `task:` the way the
+# sideways driver swaps in the student task/`KRABBY_STUDENT_MDP` for its phase-3 rows). A phase-2
+# (2a/2b/2c) head evaluates fine on Walk-Play: `Isaac-Crab-Hex-Omni-Teacher-Play-v0` also exists,
+# but its env cfg requires `KRABBY_HEX_TEACHER_MODE` to resolve
+# (`CrabHexOmniTeacherEnvCfg._require_phase_teacher_mode`), which no eval row or driver here ever
+# sets, so a Teacher-Play row could never build in this harness.
+
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  # Flat canary: the omni twin of slow__A15pB / slow__side. Every direction and both turns in one
+  # 72 s schedule (6 holds x 8 s + 2 turn holds x 12 s). No env block (frozen shape -- see the
+  # header note above).
+  - id: slow__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    notes: >-
+      Omni-formation campaign flat canary: stand, the four travel directions at the
+      direction-scaled band, a left then a right 90 deg turn in place, and a simultaneous
+      move+turn. speed 0.0 is a commanded stop by construction; 0.22/0.25 are above lin_vel_clip
+      0.2 and are scored as walking holds.
+
+  # Step onset: the omni twin of step__A15pB / step__side -- the ring geometry at light difficulty.
+  - id: light__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: light_obstacles
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "ring"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.05:0.2"
+    notes: Omni-formation campaign step onset on the ring at 0.05-0.2, plant A15+B.
+
+  # Obstacle eval row: the same schedule, no env block -- the driver's eval_obst injects the ring
+  # mode/fraction/geom/difficulty at run time (PLAN H convention, forward flat_walk_slow_v2 / side
+  # flat_walk_slow_side). Walk-Play, not Teacher-Play: a phase-2 head is run in the walk env here,
+  # the same way scenarios_side.yaml's flat_walk_slow_side row runs a phase-2 head on the
+  # Side-Walk task -- see the header note above.
+  - id: ring__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: ring
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 80.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+    notes: >-
+      The row the driver's eval_obst injects the ring obstacle env (mode light, flat_frac 0.0,
+      geom ring, diff 0.20-0.70) into; no env block here (frozen shape -- see the header note
+      above).
+
+  # Curriculum-chain telemetry canary (plan Part A6, 2026-09-18): every hold the c1-c6 curriculum
+  # chain's slots add, in the PREFIX order each hold's slot is enabled (c1 stand/fwd, c2
+  # lat_l/lat_r/back, c3 turn_l90/turn_r90, c4 move_turn/move_turn_r, c5 diag). `stand`, `fwd`,
+  # `lat_l`, `back`, `turn_l90`, `turn_r90`, `move_turn` and `diag` are copied VERBATIM from
+  # `slow__omni`; `lat_r` and `move_turn_r` are new holds, the RIGHT-HANDED COUNTERPARTS of
+  # `lat_l` and `move_turn` -- not reflections. `lat_r` really is `lat_l` mirrored (dir -pi/2
+  # instead of +pi/2, everything else equal). `move_turn_r` is not: `move_turn` travels along
+  # world +x while turning LEFT to face +pi/2, and `move_turn_r` travels the same way while
+  # turning RIGHT back to face 0 (the c4 slot's other sign). Do NOT "fix" its face to -pi/2:
+  # that would be a 180-degree swing off `move_turn` and the validator rejects it at 8 s
+  # (needs settle_s + pi/ang_vel_max = 11.47 s) -- the same reason recorded for `turn_r90` in
+  # the header note above.
+  # 8 holds x 8 s + 2 turn holds x 12 s = 88 s + the 1.5 s prologue = 89.5 s, inside the 92 s
+  # episode. SCOPE of the header's own duration arithmetic (the step-16 paragraph: "6 holds x 8 s
+  # + 2 turn holds x 12 s = 72 s" plus the prologue, and `episode_length_s` 80 "frozen"): that
+  # paragraph describes the THREE LEGACY rows, which share one frozen 8-hold shape; it predates
+  # this row and does not constrain it. A new row may carry its own schedule and its own
+  # `episode_length_s` (only the legacy rows' shape is frozen), which is what the two lines above
+  # state for this one. CAVEAT (step-16 review, header lines 23-28): `move_turn_r`, like the inherited
+  # `move_turn`, commands a 90-degree facing change inside 8 s while the plant turns at
+  # ~0.15-0.2 rad/s, so its facing can only just close and `facing_by_hold[move_turn_r]` will
+  # read "never closed" by construction. That is expected, not a regression: A6 fixes every
+  # non-turn hold at 8 s, and right-handed holds are WATCH-only and never scored (decision 5).
+  # WATCH telemetry only at the curriculum-stage evals (decision 5); scoring always
+  # stays on `slow__omni`. No env block (flat terrain, same convention as `slow__omni`).
+  - id: curriculum__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 92.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+      - {speed: 0.22, dir: -1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_r}
+      - {speed: 0.22, dir: 3.1415927, face: 0.0000000, hold_s: 8.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 1.5707963, hold_s: 12.0, label: turn_l90}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: turn_r90}
+      - {speed: 0.22, dir: 0.0000000, face: 1.5707963, hold_s: 8.0, label: move_turn}
+      - {speed: 0.22, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: move_turn_r}
+      - {speed: 0.25, dir: 0.7853982, face: 0.0000000, hold_s: 8.0, label: diag}
+    notes: >-
+      Curriculum-chain telemetry canary (Part A6): every stage's holds in prefix-enabling order
+      (c1 stand/fwd, c2 lat_l/lat_r/back, c3 turn_l90/turn_r90, c4 move_turn/move_turn_r, c5
+      diag). WATCH only at the curriculum stage evals; scoring stays on slow__omni (decision 5).
+
+  # Per-category suite (per-category eval plan D1, 2026-09-21) -- `kind: category_suite`.
+  # NOT one timeline: ten WAVES run back to back in one launch, wave k = every env on
+  # [settle 2 s, hold_k 12 s], so each episode carries exactly ONE category hold and a fall in one
+  # hold never contaminates another hold's numbers (the prefix-survival contamination of the
+  # 2026-09-19 floors). Semantics that differ from every row above:
+  #   * `episodes` is the number of envs PER WAVE; the run has waves x episodes = 1000 episodes,
+  #     `env_index = wave * episodes + env`, and the same 100 envs (the same startup-randomised
+  #     robots) run every wave. The harness re-seeds before every wave (env_seed * 1_000_003 + wave)
+  #     and resets all envs between waves -- on this row only; every other row runs the
+  #     single-pass loop unchanged.
+  #   * the schedule is DERIVED -- [settle] + one hold per category hold, in wave order -- a label
+  #     union (11 labels, settle = segment 0), not a sequence; `episode_length_s` 18 covers one
+  #     wave (1.5 s prologue + 2 s settle + 12 s hold = 15.5 s). An explicit `schedule:` is refused.
+  #   * `settle` is a commanded stop at face 0, never an episode's own hold.
+  #   * `waves` must equal the number of category holds (one hold per wave).
+  # Label vocabulary: wherever the command is the one a legacy row uses, the label is the legacy
+  # label, so per-hold consumers read these unchanged. Two labels change MEANING here:
+  #   * `turn_r90` faces -pi/2: a 90 deg RIGHT turn from face 0 (on the rows above it is the
+  #     +pi/2 -> 0 turn back from `turn_l90`, because those holds are nested in one episode);
+  #   * `move_turn_r` faces -pi/2 while travelling along world +x: the MIRROR of `move_turn`
+  #     (on curriculum__omni it is the turn back from +pi/2 to 0).
+  # Mirror pairs share a category (`hand` l/r): side = lat_l/lat_r, turn = turn_l90/turn_r90,
+  # move_turn = move_turn/move_turn_r. Every speed clears the ellipse cap at the hold's start body
+  # angle (the body faces 0) and at its end angle (wrap(dir - face)). No env block (flat terrain).
+  - id: suite__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 10
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: fwd
+        kind: translate
+        holds:
+          - {label: fwd, speed: 0.25, dir: 0.0000000, face: 0.0000000}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l, speed: 0.22, dir: 1.5707963, face: 0.0000000, hand: l}
+          - {label: lat_r, speed: 0.22, dir: -1.5707963, face: 0.0000000, hand: r}
+      - name: back
+        kind: translate
+        holds:
+          - {label: back, speed: 0.22, dir: 3.1415927, face: 0.0000000}
+      - name: diag
+        kind: translate
+        holds:
+          - {label: diag, speed: 0.25, dir: 0.7853982, face: 0.0000000}
+      - name: turn
+        kind: turn
+        holds:
+          - {label: turn_l90, speed: 0.00, dir: 0.0000000, face: 1.5707963, hand: l}
+          - {label: turn_r90, speed: 0.00, dir: 0.0000000, face: -1.5707963, hand: r}
+      - name: move_turn
+        kind: move_turn
+        holds:
+          - {label: move_turn, speed: 0.22, dir: 0.0000000, face: 1.5707963, hand: l}
+          - {label: move_turn_r, speed: 0.22, dir: 0.0000000, face: -1.5707963, hand: r}
+    notes: >-
+      Per-category suite (plan D1): seven categories, ten holds, one hold per wave, 100 envs per
+      wave. turn_r90 is a right 90 deg turn from face 0 and move_turn_r the mirror of move_turn
+      (face -pi/2) -- both differ from the same labels on the rows above.
+
+  # Side-speed bisection campaign (side-speed-bisection.md, plan step 3): the pre-registered gate
+  # row, read on lat_l ONLY (the trained hand -- every arm's base preset 1b is side_l-only,
+  # DIR_BAND pi/2:pi/2). The stand wave is there because the driver passes every stage's trained
+  # categories (1b: stand,side) as --trained-categories, and suite_cli_args refuses a name the row
+  # lacks; the gate never reads it. Two gate waves, both lat_l, at 0.22 and 0.25 m/s; a 2-s
+  # settle then a 12-s hold, category_suite protocol matching suite__omni. feet_ss (the
+  # feet-centroid speed over hold-relative [4, 10) s, gate_stats.py) is read from each hold's raw
+  # episode npz; the class rule (plan "Gate") needs BOTH speeds to agree. No env block (flat
+  # terrain, same convention as suite__omni). lat_l_022 and lat_l_025 are a SINGLETON category (no
+  # `hand:` on either hold): both travel dir +pi/2, only the speed differs, so this is not an l/r
+  # mirror pair -- the validator refuses an unbalanced hand count on a paired category
+  # (schedule._validate_suite), so `hand` is left unset here.
+  - id: side22_25__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 3
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: side
+        kind: translate
+        holds:
+          - {label: lat_l_022, speed: 0.22, dir: 1.5707963, face: 0.0000000}
+          - {label: lat_l_025, speed: 0.25, dir: 1.5707963, face: 0.0000000}
+    notes: >-
+      Side-speed bisection campaign gate row: lat_l at 0.22 and 0.25 m/s (the trained hand only),
+      2-s settle, 12-s holds, matching suite__omni's category_suite protocol. Scored by feet_ss
+      over hold-relative [4, 10) s (gate_stats.py), not by the suite's own decision-rule blocks.

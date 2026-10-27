@@ -232,6 +232,11 @@ vertical-plate + CAD-mesh robot. Run: latest `crab_hex_flat_walk` dir; log
   femur pivot), actuator retracted pin-to-pin length (450 mm assumed from label).
 - Current-sense proxy: retune `_CURRENT_SENSE_*` thresholds (precision ~0.72 vs 0.95 with
   the soft drives) and rerun the stance study on a real trained gait, not the scripted sine.
+  **CLOSED 2026-09-21** by [2026-09-21_0920_stance_sensing](../2026-09-21_0920_stance_sensing/RESULTS.md):
+  rerun on two trained heads (A15+B plant) — the proxy separates stance from swing per leg (AUC
+  0.92–0.97), the precision collapse is a per-leg current OFFSET (middle legs swing at ~0.75 where
+  the corner legs stance at ~1.05), and per-leg thresholds lift agreement 0.76 → 0.92. No
+  `_CURRENT_SENSE_*` retune indicated for sim; per-actuator calibration is a hardware requirement.
 - Multi-settle statics statistics (20+ jittered settles) before reading anything into a
   single settle's A/B split, per the 2026-08-12 campaign method.
 - Retrain fork: fresh Phase-A-style flat run as smoke test; all pre-2026-08-20 checkpoints

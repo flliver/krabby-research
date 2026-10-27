@@ -1,0 +1,41 @@
+{
+ "P1B6__C0_t3_s16_m4500": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/P1B6__C0_t3_s16_m4500/side22_25lr__omni/seed001/2026-10-04_22-59-10",
+  "labels": {
+   "lat_l_022": {
+    "n_s0": 93,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 7,
+    "along_med_s0": 0.10200927232951103,
+    "along_med_moving": 0.10200927232951103
+   },
+   "lat_r_022": {
+    "n_s0": 96,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 4,
+    "along_med_s0": 0.09742538142825145,
+    "along_med_moving": 0.09742538142825145
+   },
+   "lat_l_025": {
+    "n_s0": 100,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 0,
+    "along_med_s0": 0.12121554551402106,
+    "along_med_moving": 0.12121554551402106
+   },
+   "lat_r_025": {
+    "n_s0": 99,
+    "static": 0,
+    "wrong_way": 0,
+    "short": 1,
+    "along_med_s0": 0.1026534783765642,
+    "along_med_moving": 0.1026534783765642
+   }
+  },
+  "class_along": "SLOW",
+  "class_along_r": "SLOW"
+ }
+}

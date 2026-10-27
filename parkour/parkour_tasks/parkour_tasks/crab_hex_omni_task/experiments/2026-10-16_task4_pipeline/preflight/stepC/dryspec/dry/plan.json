@@ -1,0 +1,476 @@
+{
+ "dagger_seed": 17,
+ "levels": {
+  "0": "envs/levels/L000.env",
+  "135": "envs/levels/L135.env",
+  "180": "envs/levels/L180.env",
+  "225": "envs/levels/L225.env",
+  "270": "envs/levels/L270.env",
+  "45": "envs/levels/L045.env",
+  "90": "envs/levels/L090.env"
+ },
+ "order": [
+  "s1",
+  "c4",
+  "c5",
+  "c6",
+  "c6x",
+  "p2a",
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "sn_ref",
+  "sh_ref",
+  "bundle"
+ ],
+ "run": "dry",
+ "spec": "pipeline.yaml",
+ "spec_sha256": "f7ccd4a0e28df2aec16d78c8aeeb5f6069cfc196c4e94d57b0573357e9a3b988",
+ "stages": {
+  "bundle": {
+   "after": [
+    "sh_ref"
+   ],
+   "iters": null,
+   "kind": "bundle",
+   "needs": [
+    "tstar"
+   ],
+   "seed": 18,
+   "settled": [
+    "sel",
+    "sh"
+   ],
+   "when": null
+  },
+  "c4": {
+   "after": [],
+   "base": "1a",
+   "chain": "dry_c4",
+   "distill_env": "envs/c4.distill.env",
+   "env": "envs/c4.env",
+   "gate_rows": [
+    "suite@1:driver"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "s1"
+   ],
+   "overlay_sha256": "4def0375a648bcdb6c2a14fc6a6238d2962ba534f6efbe4285f5b0cdba9d581a",
+   "row_env": {
+    "field_hard": "envs/c4.field_hard.env",
+    "field_light": "envs/c4.field_light.env",
+    "field_suite": "envs/c4.field_suite.env",
+    "field_turn": "envs/c4.field_turn.env",
+    "ring_obst": "envs/c4.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/c4.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,turn,move_turn",
+   "when": null
+  },
+  "c5": {
+   "after": [],
+   "base": "1a",
+   "chain": "dry_c5",
+   "distill_env": "envs/c5.distill.env",
+   "env": "envs/c5.env",
+   "gate_rows": [
+    "suite@1:driver"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "c4"
+   ],
+   "overlay_sha256": "46dce435bcadf99850a5efd2dc46999a3eb577758e935e0061187bc2672c4c34",
+   "row_env": {
+    "field_hard": "envs/c5.field_hard.env",
+    "field_light": "envs/c5.field_light.env",
+    "field_suite": "envs/c5.field_suite.env",
+    "field_turn": "envs/c5.field_turn.env",
+    "ring_obst": "envs/c5.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/c5.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": null
+  },
+  "c6": {
+   "after": [],
+   "base": "1a",
+   "chain": "dry_c6",
+   "distill_env": "envs/c6.distill.env",
+   "env": "envs/c6.env",
+   "gate_rows": [
+    "suite@1:driver"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "c5"
+   ],
+   "overlay_sha256": "a872d40d97e8f3a2fc25aaa0e47b6937a64cdd8046a7a96b9efd9051227d3cc1",
+   "row_env": {
+    "field_hard": "envs/c6.field_hard.env",
+    "field_light": "envs/c6.field_light.env",
+    "field_suite": "envs/c6.field_suite.env",
+    "field_turn": "envs/c6.field_turn.env",
+    "ring_obst": "envs/c6.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/c6.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": null
+  },
+  "c6x": {
+   "after": [],
+   "base": "1a",
+   "chain": "dry_c6x",
+   "distill_env": "envs/c6x.distill.env",
+   "env": "envs/c6x.env",
+   "gate_rows": [
+    "suite@1:driver"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "c6"
+   ],
+   "overlay_sha256": "756575e4bdb93a4db34cc8cad5d171bb033df851e063c1cadf39650ba56ff651",
+   "row_env": {
+    "field_hard": "envs/c6x.field_hard.env",
+    "field_light": "envs/c6x.field_light.env",
+    "field_suite": "envs/c6x.field_suite.env",
+    "field_turn": "envs/c6x.field_turn.env",
+    "ring_obst": "envs/c6x.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/c6x.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": null
+  },
+  "p2a": {
+   "after": [],
+   "base": "2a",
+   "chain": "dry_p2a",
+   "distill_env": "envs/p2a.distill.env",
+   "env": "envs/p2a.env",
+   "gate_rows": [
+    "suite@1:driver",
+    "side22@1",
+    "field_hard@1",
+    "suite_body@1"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "c6x"
+   ],
+   "overlay_sha256": "6fb1eb3d8aeafa5bf5f1d34b0ab67377f627cb60b788d23d3b7cfa714756dcec",
+   "row_env": {
+    "field_hard": "envs/p2a.field_hard.env",
+    "field_light": "envs/p2a.field_light.env",
+    "field_suite": "envs/p2a.field_suite.env",
+    "field_turn": "envs/p2a.field_turn.env",
+    "ring_obst": "envs/p2a.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/p2a.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": null
+  },
+  "p3a": {
+   "after": [],
+   "base": "2a",
+   "chain": "dry_p3a",
+   "distill_env": "envs/p3a.distill.env",
+   "env": "envs/p3a.env",
+   "gate_rows": [
+    "suite@1:driver",
+    "side22@1",
+    "field_hard@1"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "p2a"
+   ],
+   "overlay_sha256": "e5e4ebeb68a96749ea8abf95818e939c4b77f4a9d86d8cbbf2487e3e1edb8d2e",
+   "row_env": {
+    "field_hard": "envs/p3a.field_hard.env",
+    "field_light": "envs/p3a.field_light.env",
+    "field_suite": "envs/p3a.field_suite.env",
+    "field_turn": "envs/p3a.field_turn.env",
+    "ring_obst": "envs/p3a.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/p3a.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": null
+  },
+  "p3b": {
+   "after": [],
+   "base": "2a",
+   "chain": "dry_p3b",
+   "distill_env": "envs/p3b.distill.env",
+   "env": "envs/p3b.env",
+   "gate_rows": [
+    "suite@1:driver",
+    "side22@1",
+    "field_hard@1"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "p3a"
+   ],
+   "overlay_sha256": "e39418549148b157f3a567655dd0ef7914949dcfbda15530d06701db12b8da2e",
+   "row_env": {
+    "field_hard": "envs/p3b.field_hard.env",
+    "field_light": "envs/p3b.field_light.env",
+    "field_suite": "envs/p3b.field_suite.env",
+    "field_turn": "envs/p3b.field_turn.env",
+    "ring_obst": "envs/p3b.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/p3b.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": null
+  },
+  "p3c": {
+   "after": [],
+   "base": "2a",
+   "chain": "dry_p3c",
+   "distill_env": "envs/p3c.distill.env",
+   "env": "envs/p3c.env",
+   "gate_rows": [
+    "suite@1:driver",
+    "side22@1",
+    "field_hard@1"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [
+    "p3b"
+   ],
+   "overlay_sha256": "56d53ccb87b2ccd71800ef4976b23fc60902c36dab8e99f875baa747a4eb5fd7",
+   "row_env": {
+    "field_hard": "envs/p3c.field_hard.env",
+    "field_light": "envs/p3c.field_light.env",
+    "field_suite": "envs/p3c.field_suite.env",
+    "field_turn": "envs/p3c.field_turn.env",
+    "ring_obst": "envs/p3c.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/p3c.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back",
+    "diag",
+    "turn",
+    "move_turn"
+   ],
+   "trained_csv": "stand,fwd,side,back,diag,turn,move_turn",
+   "when": "max_stable(p3b) >= 180"
+  },
+  "s1": {
+   "after": [],
+   "base": "1b",
+   "chain": "dry_s1",
+   "distill_env": "envs/s1.distill.env",
+   "env": "envs/s1.env",
+   "gate_rows": [
+    "suite@1:driver",
+    "side22@1"
+   ],
+   "iters": 20,
+   "kind": "driver",
+   "needs": [],
+   "overlay_sha256": "77d3c18b31b576e0383b5978c7474341262416d2830e11b88a91c1819a6d5231",
+   "row_env": {
+    "field_hard": "envs/s1.field_hard.env",
+    "field_light": "envs/s1.field_light.env",
+    "field_suite": "envs/s1.field_suite.env",
+    "field_turn": "envs/s1.field_turn.env",
+    "ring_obst": "envs/s1.ring_obst.env"
+   },
+   "seed": 18,
+   "settled": [],
+   "train_env": "envs/s1.train.env",
+   "trained": [
+    "stand",
+    "fwd",
+    "side",
+    "back"
+   ],
+   "trained_csv": "stand,fwd,side,back",
+   "when": null
+  },
+  "sel": {
+   "after": [],
+   "iters": null,
+   "kind": "select",
+   "needs": [
+    "st"
+   ],
+   "seed": 18,
+   "settled": [],
+   "when": null
+  },
+  "sh": {
+   "after": [],
+   "iters": 20,
+   "kind": "dagger_sh",
+   "needs": [
+    "sn"
+   ],
+   "seed": 17,
+   "settled": [],
+   "when": null
+  },
+  "sh_ref": {
+   "after": [
+    "sn_ref"
+   ],
+   "iters": 20,
+   "kind": "dagger_sh",
+   "needs": [],
+   "seed": 17,
+   "settled": [],
+   "when": null
+  },
+  "sn": {
+   "after": [
+    "sel"
+   ],
+   "iters": 20,
+   "kind": "dagger_sn",
+   "needs": [
+    "tstar"
+   ],
+   "seed": 17,
+   "settled": [],
+   "when": null
+  },
+  "sn_ref": {
+   "after": [
+    "sh"
+   ],
+   "iters": 20,
+   "kind": "dagger_sn",
+   "needs": [],
+   "seed": 17,
+   "settled": [],
+   "when": null
+  },
+  "st": {
+   "after": [],
+   "iters": 50,
+   "kind": "distill",
+   "needs": [
+    "tstar"
+   ],
+   "seed": 18,
+   "settled": [],
+   "when": null
+  },
+  "tstar": {
+   "after": [],
+   "iters": null,
+   "kind": "tstar",
+   "needs": [
+    "p3a"
+   ],
+   "seed": 18,
+   "settled": [
+    "p3b",
+    "p3c"
+   ],
+   "when": null
+  }
+ },
+ "thresholds": {
+  "file": "thresholds_v0.json",
+  "version": "v0"
+ },
+ "walker_seed": 18
+}

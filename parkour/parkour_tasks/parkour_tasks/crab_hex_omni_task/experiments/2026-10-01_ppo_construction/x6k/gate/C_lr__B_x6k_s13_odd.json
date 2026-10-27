@@ -1,0 +1,47 @@
+{
+ "C_lr__B_x6k_s13": {
+  "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/ppo_construction/lr/C_lr__B_x6k_s13/side22_25lr__omni/seed001/2026-10-03_12-43-15",
+  "labels": {
+   "lat_l_022": {
+    "n": 100,
+    "phase": "clock",
+    "feet_ss": 0.2342148518047068,
+    "rod_odd_rms": 2.078194992297948,
+    "rod_odd_frac": 0.6421082086168516,
+    "joint_odd_rms": 0.2729840196831369,
+    "joint_odd_frac": 0.5329237719722805
+   },
+   "lat_l_025": {
+    "n": 98,
+    "phase": "clock",
+    "feet_ss": 0.24584275760160634,
+    "rod_odd_rms": 2.110329430798395,
+    "rod_odd_frac": 0.6590836351533835,
+    "joint_odd_rms": 0.25149178775386444,
+    "joint_odd_frac": 0.5502742412267698
+   },
+   "lat_r_022": {
+    "n": 100,
+    "phase": "clock",
+    "feet_ss": 0.2278204824799367,
+    "rod_odd_rms": 1.9518245961766674,
+    "rod_odd_frac": 0.5940628267358815,
+    "joint_odd_rms": 0.26894761862895156,
+    "joint_odd_frac": 0.5159026596369255
+   },
+   "lat_r_025": {
+    "n": 100,
+    "phase": "clock",
+    "feet_ss": 0.24983718505761862,
+    "rod_odd_rms": 2.0388067742833527,
+    "rod_odd_frac": 0.6167226542530726,
+    "joint_odd_rms": 0.2521072815254502,
+    "joint_odd_frac": 0.5313188875090237
+   }
+  },
+  "rod_odd_rms_l": 2.0942622115481715,
+  "joint_odd_rms_l": 0.26223790371850064,
+  "rod_odd_rms_r": 1.99531568523001,
+  "joint_odd_rms_r": 0.2605274500772009
+ }
+}

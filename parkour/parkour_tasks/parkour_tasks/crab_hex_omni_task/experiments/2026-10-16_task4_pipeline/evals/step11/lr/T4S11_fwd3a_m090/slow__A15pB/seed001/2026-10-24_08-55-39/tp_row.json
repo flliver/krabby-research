@@ -1,0 +1,17 @@
+{
+ "by": "TP gate_row.sh",
+ "name": "T4S11_fwd3a_m090",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01/model_24995.pt",
+ "env_file": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/step11/envs/fwd3a_m090.env",
+ "level_file": null,
+ "manifest": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/experiments/eval/scenarios_morph.yaml",
+ "scenario": "slow__A15pB",
+ "env_seed": 1,
+ "stripped_keys": [],
+ "args": [
+  "--task",
+  "Isaac-Crab-Hex-Student-v0"
+ ],
+ "rc": 0,
+ "written_at": "2026-10-24T04:57:05"
+}

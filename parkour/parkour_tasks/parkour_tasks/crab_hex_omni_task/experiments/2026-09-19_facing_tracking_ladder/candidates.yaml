@@ -1,0 +1,561 @@
+# The facing/tracking candidate ladder -- the campaign's only machine-readable specification.
+#
+# Read by `experiments/tools/run_candidates.py` (the driver) and by `resolution.py` (step 0). The
+# sha256 of this file is pinned in `state.json` at the first launch; a changed hash is refused
+# without `--accept-candidates-change <why>`, because every recorded decision names the recipe this
+# file composes and a silent edit would re-interpret the whole ledger.
+#
+# Vocabulary (one word, one meaning) and the decision rule are the plans'; the `decision_rule`
+# block below is frozen verbatim into the resolution entry that measures it (`D00` for the v1 rule,
+# `D00s` for this v2 rule), so a later edit of it is visible in the ledger rather than only here.
+#
+# REVISION 2 (2026-09-21, PLAN_2026-09-21_per_category_eval.md, B6; relaunched with
+# `--accept-candidates-change`): the screen, the promotions and every chain stage evaluate the
+# per-category suite `suite__omni` (one launch, ten waves, one single-category episode per env); the
+# decision rule is `rule_version: 2` (per category, only the candidate's trained categories
+# decisive); stage floors are per-category survival band tests; the resolution inputs are the
+# suite re-evaluations of the D00 heads and the B0 rescreens (checkpoint + preset + eval_dir). The
+# ranked candidates and the milestones are unchanged. The pre-change file is frozen byte-for-byte
+# as `tests/unit/fixtures/candidates_v1_2026-09-19.yaml` (git show 464be672).
+#
+# REVISION 3 (2026-09-22, the user: "narrow the scope of this plan just to resolving the C1
+# question we are currently testing"; relaunched with `--accept-candidates-change`): the ladder ENDS
+# at C1d. C3b, C4-C12 and the milestones M1-M3 are REMOVED -- nothing after C1d is dispatched, no
+# promotion runs, and the queue is empty (phase `done`) once C1d is TERMINAL (its screen decision,
+# or its seed-2 pair + pooled decision when the screen is speculative). The ranked rows C1..C1d,
+# every chain and the non-candidate blocks are byte-identical to revision 2 (b910d44a), so every
+# recorded recipe_id / base_recipe_id is unchanged; `promotion` and `milestone_reference` are inert
+# with no milestone. The removed rows are git show b910d44a:<this file> (lines 498-632); C2r
+# (18948abe) was never loaded by a driver and is not carried.
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: The screen every candidate is judged by: 8000 iterations of the effective recipe's chain at
+#: seed 3, scored on the per-category suite `suite__omni` alone (`eval` names ROW SHORT NAMES, which
+#: `eval_morph` expands to `<name>__omni` -- the manifest ids are `suite__omni` / `slow__omni` /
+#: `light__omni` / `ring__omni` / `curriculum__omni`; `slow` and `curriculum` are records now,
+#: nothing runs them).
+screen: {chain: scratch_1c, eval: [suite], iters: 8000}
+
+#: The rows BOTH promotion stages (2a, 2b) evaluate at a milestone (D7): the suite in place of
+#: `slow`; light/ring stay legacy rows scored by the frozen v1 per-row rule. Read by
+#: `promotion_stage_list` (default PROMOTION_EVAL); `ph.EVAL_FULL` (inside code_sha) is never edited.
+promotion: {eval: [suite, light, ring]}
+
+baseline: {id: B0, chain: scratch_1c}
+
+replay:
+  script: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-16_1805_omni_formation/replay_reward_economy.py
+  mode: advisory
+
+# ---------------------------------------------------------------------------- resolution (D00s)
+# What `resolution.py` measures D00s on (D9 items 1-3, D10). Two shapes: a SUITE entry carries
+# `checkpoint + preset + eval_dir` and no `run_dir` (its stamp is the one the migration records --
+# `lad.reevals` at the D00s eval_sha for a `role: pair` entry, the newest COMPLETE stamp under
+# `<eval_dir>/suite__omni/seed001` whose checkpoint matches for a `role: seed_pair` entry); a LEGACY
+# entry carries `run_dir` (the validator refuses neither/both).
+# `role`: pair = a half of a cross-head suite pair the per-category half-widths come from (every
+# pair is measured against `decision_rule.control_head`); seed_pair = the B0 s3 / s2 rescreens
+# (X01 / X02; filled by the rescreen items, never re-evaluated, excluded from cross-head pairing:
+# D00bs' seed terms read them); informational = reported, never pooled -- the legacy
+# slow/light/ring rows D00 was measured on (D00's light/ring `by_row` tables are COPIED into D00s,
+# D7) and the three corrected re-evals (`provenance_ok: true` waives the EVAL_CARRY provenance rule
+# for a row recorded before a key existed). The 2b process-floor row is dropped: the harness is
+# bitwise deterministic at a fixed env_seed, so its floor is 0.0 by construction (amendment 19).
+resolution_inputs:
+  - {head: 1c-004, row: suite__omni, role: pair, preset: "1c",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-18_02-35-35/model_4999.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_1c-004}
+  - {head: 2b, row: suite__omni, role: pair, preset: "2b",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_12-58-58/model_14997.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2b}
+  - {head: 2a-reeval, row: suite__omni, role: pair, preset: "2a",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_09-41-10/model_9998.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2a-reeval}
+  - {head: B0-s3, row: suite__omni, role: seed_pair, preset: "1c",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-19_11-12-21_seed3_X01_1c_A15pB/model_7999.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/seed3_X01_1c_A15pB}
+  - {head: B0-s2, row: suite__omni, role: seed_pair, preset: "1c",
+     checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-19_14-16-00_seed2_X02_1c_A15pB/model_7999.pt,
+     eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/seed2_X02_1c_A15pB}
+  - {head: 1c-004, row: slow__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/slow__omni/seed001/2026-09-18_08-27-40}
+  - {head: 1c-004, row: light__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB/light__omni/seed001/2026-09-18_08-31-01}
+  - {head: 1c-004, row: ring__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_1c_004_A15pB_obst/ring__omni/seed001/2026-09-18_08-34-23}
+  - {head: 2b, row: slow__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/slow__omni/seed001/2026-09-18_18-53-00}
+  - {head: 2b, row: light__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/light__omni/seed001/2026-09-18_18-56-10}
+  - {head: 2b, row: ring__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB_obst/ring__omni/seed001/2026-09-18_18-59-24}
+  - {head: 2a-reeval, row: slow__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/outputs/omni_plan/reeval_2a/slow__omni/slow__omni/seed001/2026-09-18_16-42-00}
+  - {head: 2a-reeval, row: light__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/outputs/omni_plan/reeval_2a/light__omni/light__omni/seed001/2026-09-18_16-45-24}
+  - {head: 2a-reeval, row: ring__omni, role: informational, provenance_ok: false,
+     run_dir: parkour/outputs/omni_plan/reeval_2a/ring__omni/ring__omni/seed001/2026-09-18_16-48-58}
+  - {head: 1a-corrected, row: slow__omni, role: informational, provenance_ok: true,
+     run_dir: parkour/outputs/omni_plan/reeval_corrected/1a/slow__omni/seed001/2026-09-18_05-12-15}
+  - {head: 1b-corrected, row: slow__omni, role: informational, provenance_ok: true,
+     run_dir: parkour/outputs/omni_plan/reeval_corrected/1b/slow__omni/seed001/2026-09-18_05-15-35}
+  - {head: 1c-corrected, row: slow__omni, role: informational, provenance_ok: true,
+     run_dir: parkour/outputs/omni_plan/reeval_corrected/1c/slow__omni/seed001/2026-09-18_05-18-59}
+
+# --------------------------------------------------------------------- the M1 WATCH references
+# M1 has no previous milestone, so its promotion is WATCH-only against the recorded seed-3 2b head
+# and the 2a re-eval head (plan, Part C (ii)). Per stage: the SUITE row is the migration's reeval of
+# that head (`eval_dir` = the reeval ROOT, resolved to its newest COMPLETE stamp whose checkpoint
+# matches `checkpoint` -- `resolve_eval_dir`, the helper `load_row` uses, D10); light/ring keep their
+# recorded run dirs. The driver re-scores both sides through `resolution.summarize_run_dir`. WATCH
+# only: no milestone verdict ever reads these.
+milestone_reference:
+  "2b":
+    suite: {eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2b,
+            checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_12-58-58/model_14997.pt}
+    light: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB/light__omni/seed001/2026-09-18_18-56-10
+    ring: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-16_1805_omni_formation/seed3_2b_006_A15pB_obst/ring__omni/seed001/2026-09-18_18-59-24
+  "2a":
+    suite: {eval_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-19_facing_tracking_ladder/reeval_2a-reeval,
+            checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-09-18_09-41-10/model_9998.pt}
+    light: parkour/outputs/omni_plan/reeval_2a/light__omni/light__omni/seed001/2026-09-18_16-45-24
+    ring: parkour/outputs/omni_plan/reeval_2a/ring__omni/ring__omni/seed001/2026-09-18_16-48-58
+
+# ---------------------------------------------------------------------------- the decision rule
+# Rule v2 (D5), frozen verbatim into D00s. `text` restates it per category; `per_category` is the
+# same rule in the form both tools read -- `eval_categories.expand_rule` turns it into the flat
+# blocks/guards/watch shape at a comparison's decisive/present categories, with metric ids
+# `cat.<category>.<key>` (dotted paths into `run_phases.summarize()['cat']`) and the composite
+# `cat_tripod_min`. It equals `eval_categories.RULE_V2_PER_CATEGORY` (pinned by a test).
+decision_rule:
+  rule_version: 2
+  text: >-
+    Every metric is a per-category number of the suite__omni row (summarize()['cat'][c]: the median
+    pooled over both hands of a paired category; survival = the category's own-hold survival), and
+    only the categories the CANDIDATE trained at the suite's demand are decisive -- every category
+    is still run and printed. Blocks (95 %): F = turn: facing_closed, yaw_progress; F_mt =
+    move_turn: facing_closed, yaw_progress, a block of its own (the hold's demand is infeasible by
+    construction, so it is scored RELATIVELY: both heads face the same impossible demand, and the
+    noisiest facing member neither dilutes nor is diluted by F); T = fwd, side, back, diag: ratio.
+    Absolute-units candidates (C3a, C3b) score F_abs = turn: facing_closed, net_yaw; F_mt_abs =
+    move_turn: facing_closed, net_yaw; T_abs = fwd, side, back, diag: achieved_speed. Guards
+    (one-sided 99 %): the survival of every PRESENT category (a category trained at reduced demand
+    keeps it), move_turn.ratio (achieved_speed under absolute_units) -- the anti-sacrifice guard, so
+    F_mt cannot be won by walking less -- and cat_tripod_min (the min of the tripod medians over the
+    decisive translation categories); R_i = max(R_eval,i, R_seed,i, R_binom,i) with R_binom =
+    z_0.99 sqrt(2 p(1-p)/n_c), p clipped to [0.05, 0.95], for the survival guards only, so a survival
+    saturated on both heads is scored, never MISSING. Block statistic z_b = mean_i(delta_i / R_i);
+    block resolution R_b = max(R_b^eval, R_b^seed). Per block: BETTER if z > R, WORSE if z < -R,
+    else TIE; a block with no decisive member is N/A, never TIE. Clear ADOPT = >= 1 block BETTER, no
+    WORSE block or guard, and anchored drift OK; clear REJECT = any WORSE, or a stage floor (a
+    category_survival band test); a MISSING guard value -> a decided REJECT, confidence uncertain,
+    no pair; all scored blocks N/A -> a terminal SKIP (confidence none, no pair); all-TIE ->
+    speculative pick = the candidate's speculative_default when declared, else sign(sum_b z_b / R_b)
+    over the non-N/A blocks (each block in units of its own resolution; exact tie -> incumbent),
+    pair queued. WATCH, never scored: direction_error, cross_track_ratio, heading_final, settle_s,
+    stand.drift_speed, move_turn.tripod, move_turn.achieved_speed (ratio units), both hands of every
+    paired category, every other member and guard of a watch or untrained category (with its note),
+    the legacy completion, tripod_walking_dir, track_ratio_tail, track_ratio_move_tail;
+    turn_survival_l90/r90 print N/A (suite). Null candidate all-TIE ~= 0.95^3 x 0.99^9 ~= 0.78 at
+    B0's decisive set in ratio units (asserted against the measured null in D00s). At milestones
+    the suite row is WORSE on >= 2 decisive units; light__omni / ring__omni keep the frozen v1
+    per-row rule (D00's decision_rule, copied into D00s as by_row_rule).
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      F_abs: {level: 0.95, units: absolute, members: {turn: [facing_closed, net_yaw]}}
+      F_mt_abs: {level: 0.95, units: absolute, members: {move_turn: [facing_closed, net_yaw]}}
+      T_abs: {level: 0.95, units: absolute,
+              members: {fwd: [achieved_speed], side: [achieved_speed], back: [achieved_speed],
+                        diag: [achieved_speed]}}
+    guards:
+      level: 0.99
+      members: {stand: [survival], fwd: [survival], side: [survival], back: [survival],
+                diag: [survival], turn: [survival], move_turn: [survival, ratio]}
+      composite: [cat_tripod_min]
+    #: REPLACES a category's non-survival guard keys for an `absolute_units` candidate.
+    guards_abs: {members: {move_turn: [achieved_speed]}}
+    watch:
+      members:
+        stand: [drift_speed]
+        fwd: [direction_error, cross_track_ratio, heading_final]
+        side: [direction_error, cross_track_ratio, heading_final]
+        back: [direction_error, cross_track_ratio, heading_final]
+        diag: [direction_error, cross_track_ratio, heading_final]
+        turn: [settle_s, heading_final]
+        move_turn: [tripod, direction_error, cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+  #: The sideways CHARTER's measured floors (2026-09-11_0414_sideways_formation/CHARTER.md:227),
+  #: carried over verbatim from the v1 rule (resolution.py reads them from the rule).
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260919}
+  #: The head every cross-head pair is measured AGAINST (D00s: "1c-004 vs 2b, 1c-004 vs
+  #: 2a-reeval"). Pinned rather than inferred from the order of `resolution_inputs`: the per-metric
+  #: R is the MAX over the pairs a control forms, and without the pin the control would default to
+  #: the first accepted input -- possibly a seed_pair row.
+  control_head: 1c-004
+
+# ---------------------------------------------------------------------------- chains
+# A chain is a list of stages. `base` names the PRESET the stage runs on (KRABBY_OMNI_PHASE), never
+# a new preset: every difference from that preset is an env OVERLAY, recorded in params/env.yaml
+# and audited per run by `overlay_checks`. `categories` is sorted(decisive | watch) of
+# `eval_categories.trained_categories` of the stage's COMPOSED env (the preset's env with the overlay
+# on top; the validator recomputes it); RETENTION compares every category decisive at an EARLIER
+# stage. `floor` is the stage gate (D6): `category_survival` = for each decisive category, FAIL only
+# when the one-sided 99 % upper binomial bound on its own-hold survival (n = its distinct-env count)
+# is below `min_prev` (decisive at an earlier stage) or `min_new` (new at this stage); `none` on a
+# stage the screen's guards cover or that evaluates nothing; `scratch_*` keep the training-log
+# `dead_walker` abort.
+chains:
+  scratch_1c:
+    notes: the incumbent recipe at equal compute -- the 1c preset from scratch for 8000 iterations
+    stages:
+      - stage: "1c"
+        base: "1c"
+        iters: 8000
+        from_scratch: true
+        resume_from: scratch
+        overlay: {}
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: dead_walker}
+
+  scratch_c6:
+    notes: >-
+      C1c's attribution arm: the curriculum's FINAL pool for the whole 8000 iterations, from
+      scratch, so "the pool" and "the staging" are separable. Economy identical to every
+      curriculum stage.
+    stages:
+      - stage: c6
+        base: "1a"
+        iters: 8000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: dead_walker}
+
+  curriculum:
+    notes: >-
+      The user's additive capability curriculum: one command type enabled at a time, every enabled
+      type keeping at least POOL_FLOOR_SHARE (0.025) of the windows, backward from c2 (user
+      amendment 2026-09-19), move+turn share ramping 0.10 -> 0.15 -> 0.20 and never above the
+      incumbent's 0.20. The economy is UNIFORM along the chain (FACING 0.2:0.6, YAW_W 0.2, no
+      DIR_BAND, RSI from the merged bank): the 1c failure was a drift under a fixed economy and a
+      stage whose economy differs from its neighbour's is the handoff that lost forward travel at
+      1a->1b. Consecutive stages differ only in the pool (+ the RSI source at c1->c2).
+      Total 8000 iterations = B0. c4-c6 command world-held move+turn at the 0.3 rad/s cap, which is
+      infeasible on this plant (caveat 1) -- the confound C1b and C1c are for.
+    stages:
+      - stage: c1
+        base: "1a"
+        iters: 1000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.2,fwd:0.8
+          KRABBY_OMNI_SLOTS: 0.2:0.8:0:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: "0"
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [fwd, stand]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c2
+        base: "1a"
+        iters: 1000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.2,fwd:0.3,side_l:0.2,side_r:0.2,back:0.1
+          KRABBY_OMNI_SLOTS: 0.2:0.8:0:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, side, stand]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c3
+        base: "1a"
+        iters: 1000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: []
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: none}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.15:0.1
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.1:0.15
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  curriculum_turnfirst:
+    notes: >-
+      C1d's chain (user 2026-09-22): the curriculum with its THIRD stage moved to the front -- c3's
+      pool (stand, fwd, side, back, turn) and c3's economy from scratch for 3000 iterations, so
+      in-place turning is trained from the first iteration, then c4, c5 and c6 verbatim. The
+      "curriculum" chain is untouched (C1/C1b's records name it). Total 8000 iterations = B0.
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.15:0.1
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.1:0.15
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: []
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+  curriculum_twostage:
+    notes: >-
+      C1e's chain (user 2026-09-22): a simpler two-stage curriculum. Stage 1 is C1d's t3 verbatim
+      (c3's pool and economy from scratch for 3000 iterations); stage 2 (m2) introduces every
+      combined form of movement at once -- c6's overlay (the curriculum's final pool: fwd_turn,
+      side_l_turn, side_r_turn, omni and omni_turn added together) for 5000 iterations. Total 8000
+      iterations = B0.
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: m2
+        base: "1a"
+        iters: 5000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: none}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Rank order IS this list's order. Each is screened on the EFFECTIVE recipe (the adopted choices of
+# every candidate ranked before it) at seed 3 for 8000 iterations; its control is that recipe's own
+# ok s3 screen.
+candidates:
+  - id: C1
+    kind: curriculum
+    chain: curriculum
+    teacher_overlay: {}
+    question: >-
+      Does the user's additive capability curriculum (one command type at a time, floor shares
+      kept, move+turn ramped 0.10 -> 0.15 -> 0.20) buy facing AND translation over the
+      single-stage incumbent at the same 8000 iterations? CONFOUND: c4-c6 draw world-held
+      move+turn at the 0.3 rad/s cap, which the plant cannot deliver at any commandable speed
+      (caveat 1) -- C1b re-screens with a 70 % smaller turn demand and C1c separates the pool from
+      the staging.
+
+  - id: C1b
+    kind: curriculum
+    chain: curriculum
+    teacher_overlay: {}
+    depends_on: [C1]
+    pool_edit: {ang_scale: {"*_turn": 0.3}}
+    conditional: >-
+      decision(C1).chosen == REJECT and (decision(C1).floor_stage is None or
+      decision(C1).floor_stage >= c4)
+    question: >-
+      Was the curriculum rejected because of the infeasible move+turn demand? Same chain with a
+      0.09 rad/s cap on every *_turn type (0.3 x the recipe's ang_vel_max, still above the walking
+      turn bound the ellipse leaves) -- a 70 % smaller demand on the rows that cannot be
+      delivered, training distribution only.
+
+  - id: C1c
+    kind: curriculum
+    chain: scratch_c6
+    teacher_overlay: {}
+    depends_on: [C1]
+    conditional: decision(C1).chosen == ADOPT
+    speculative_default: candidate
+    question: >-
+      Attribution of an adopted curriculum: was it the POOL (all types at c6's mix for the whole
+      window) or the STAGING (one type at a time)? On all-TIE the simpler recipe is the
+      speculative pick (Occam) and the confirming pair still runs. Its chain's own seed resolution
+      is D00c-scratch_c6.
+
+  - id: C2
+    kind: reward
+    stages: all
+    overlay: {KRABBY_YAW_PROGRESS_W: "3.0"}
+    replay_args: ["--yaw-progress-w", "3"]
+    question: >-
+      Price (mechanism 1): the reachable gain from turning at the plant's 0.08 rad/s is 0.206/s
+      against a 1.638/s translation stake. reward_yaw_progress at 3.0 raises the reachable prize
+      to 0.366/s without paying a robot that never turns (the even track_ang_vel_z_exp kernel
+      does that and is not touched here).
+
+  - id: C3a
+    kind: kinematics
+    stages: all
+    absolute_units: true
+    eval_carry: [KRABBY_OMNI_ANG_VEL_MAX, KRABBY_OMNI_CLOCK_TURN_R]
+    overlay: {KRABBY_OMNI_ANG_VEL_MAX: "0.21", KRABBY_OMNI_CLOCK_TURN_R: "1.72"}
+    question: >-
+      Kinematics (mechanism 2): ang_vel_max 0.3 is ~2x the plant's estimated 0.15-0.18 rad/s turn
+      ceiling. 0.21 with a CADENCE-PRESERVING radius (1.72 x 0.21 = 0.361 m/s, the shipped 1.2 x
+      0.3 = 0.36) also cuts the angular kernel's marginal turn incentive by ~36 %, so C2 belongs
+      first. ABSOLUTE UNITS: the cap is the denominator of every ratio, so this candidate is
+      scored in m/s and rad/s. The clip stays 0.2, leaving the P-control's linear region
+      0.133-0.14 rad (near bang-bang) -- C3b is the paired variant that also moves the clip.
+
+  - id: C1d
+    kind: curriculum
+    chain: curriculum_turnfirst
+    teacher_overlay: {}
+    question: >-
+      Does the curriculum's ORDER, not its content, cost turning? C1 and C1b lost in-place turning
+      (facing_closed 0.42 -> 0.19 / 0.17) after 2000 iterations of turn-free walking (c1, c2).
+      Same pools and economy with turning present from the first iteration: c3's pool from
+      scratch for 3000 iterations, then c4-c6 unchanged -- 8000 iterations, equal compute (user
+      2026-09-22). Screened on the effective recipe like every other candidate.
+
+  - id: C1e
+    kind: curriculum
+    chain: curriculum_twostage
+    teacher_overlay: {}
+    question: >-
+      Is the turn-first curriculum's middle staging (c4 then c5 then c6) needed, or does a simpler
+      two-stage curriculum do as well? Stage 1 = C1d's t3 verbatim (stand, fwd, side, back, turn
+      from scratch, 3000 iterations); stage 2 = every combined form of movement at once (c6's pool:
+      fwd_turn, side_l/r_turn, omni, omni_turn added together) for 5000 iterations -- 8000
+      iterations, equal compute (user 2026-09-22). Screened on the effective recipe (C1d adopted).
+
+# ---------------------------------------------------------------------------- milestones
+# None (revision 3): the campaign ends when C1e is terminal (C1d before it). M1 (after C3b), M2 (after C7) and M3
+# (after C12, final) were removed with their `after` candidates.
+milestones: []

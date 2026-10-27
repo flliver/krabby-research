@@ -1,0 +1,29 @@
+{
+ "check": "C6_new",
+ "class": "stop",
+ "emit_sh": {
+  "n_exports": 31,
+  "payload_exports": []
+ },
+ "emit_sn": {
+  "n_exports": 31,
+  "payload_exports": []
+ },
+ "sh": {
+  "failed": [],
+  "final": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/stand_height/runs/T4C6_SH_new_r2/model_100.pt",
+  "payload_keys": [],
+  "payload_term": false,
+  "run": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/stand_height/runs/T4C6_SH_new_r2",
+  "verdict": "PASS"
+ },
+ "sn": {
+  "failed": [],
+  "final": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/stand_network/runs/T4C6_SN_new/model_100.pt",
+  "payload_keys": [],
+  "payload_term": false,
+  "run": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/task4/stepC/stand_network/runs/T4C6_SN_new",
+  "verdict": "PASS"
+ },
+ "verdict": "PASS"
+}

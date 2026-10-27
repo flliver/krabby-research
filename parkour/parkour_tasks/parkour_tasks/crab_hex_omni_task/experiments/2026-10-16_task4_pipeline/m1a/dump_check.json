@@ -1,0 +1,296 @@
+{
+ "armed": [
+  {
+   "armed": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/armed_d5/ovl_p2a.json",
+   "checks": {
+    "_environ differs only in KRABBY_PAYLOAD_*": true,
+    "func": true,
+    "mode reset": true,
+    "only events.payload_reset differs": true,
+    "params keys": true,
+    "params.asset_cfg robot/body": true,
+    "params.box_size == [0.7112, 1.2192, 0.3]": true,
+    "params.com_xy == 0.1": true,
+    "params.com_z == 0.309": true,
+    "params.kg_range == [0.0, 90.0]": true,
+    "params.zero_frac == 0.25": true,
+    "term present": true
+   },
+   "environ_diffs": [
+    "/KRABBY_PAYLOAD_COM_XY",
+    "/KRABBY_PAYLOAD_COM_Z",
+    "/KRABBY_PAYLOAD_KG",
+    "/KRABBY_PAYLOAD_ZERO_FRAC"
+   ],
+   "name": "d5_train_p2a",
+   "non_payload_diffs": [],
+   "off": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/after/ovl_p2a.json",
+   "ok": true,
+   "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+   "term": {
+    "func": "parkour_tasks.crab_hex_omni_task.mdp.omni_events:payload_reset",
+    "interval_range_s": null,
+    "is_global_time": false,
+    "min_step_count_between_reset": 0,
+    "mode": "reset",
+    "params": {
+     "asset_cfg": {
+      "body_ids": "slice(None, None, None)",
+      "body_names": "body",
+      "fixed_tendon_ids": "slice(None, None, None)",
+      "fixed_tendon_names": null,
+      "joint_ids": "slice(None, None, None)",
+      "joint_names": null,
+      "name": "robot",
+      "object_collection_ids": "slice(None, None, None)",
+      "object_collection_names": null,
+      "preserve_order": false
+     },
+     "box_size": [
+      0.7112,
+      1.2192,
+      0.3
+     ],
+     "com_xy": 0.1,
+     "com_z": 0.309,
+     "kg_range": [
+      0.0,
+      90.0
+     ],
+     "zero_frac": 0.25
+    }
+   }
+  },
+  {
+   "armed": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/play_l90/ovl_p2a.json",
+   "checks": {
+    "_environ differs only in KRABBY_PAYLOAD_*": true,
+    "func": true,
+    "mode reset": true,
+    "only events.payload_reset differs": true,
+    "params keys": true,
+    "params.asset_cfg robot/body": true,
+    "params.box_size == [0.7112, 1.2192, 0.3]": true,
+    "params.com_xy == 0.0": true,
+    "params.com_z == 0.309": true,
+    "params.kg_range == [90.0, 90.0]": true,
+    "params.zero_frac == 0.0": true,
+    "term present": true
+   },
+   "environ_diffs": [
+    "/KRABBY_PAYLOAD_COM_XY",
+    "/KRABBY_PAYLOAD_COM_Z",
+    "/KRABBY_PAYLOAD_KG",
+    "/KRABBY_PAYLOAD_ZERO_FRAC"
+   ],
+   "name": "level90_play_p2a",
+   "non_payload_diffs": [],
+   "off": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/play_off/ovl_p2a.json",
+   "ok": true,
+   "task": "Isaac-Crab-Hex-Omni-Teacher-Play-v0",
+   "term": {
+    "func": "parkour_tasks.crab_hex_omni_task.mdp.omni_events:payload_reset",
+    "interval_range_s": null,
+    "is_global_time": false,
+    "min_step_count_between_reset": 0,
+    "mode": "reset",
+    "params": {
+     "asset_cfg": {
+      "body_ids": "slice(None, None, None)",
+      "body_names": "body",
+      "fixed_tendon_ids": "slice(None, None, None)",
+      "fixed_tendon_names": null,
+      "joint_ids": "slice(None, None, None)",
+      "joint_names": null,
+      "name": "robot",
+      "object_collection_ids": "slice(None, None, None)",
+      "object_collection_names": null,
+      "preserve_order": false
+     },
+     "box_size": [
+      0.7112,
+      1.2192,
+      0.3
+     ],
+     "com_xy": 0.0,
+     "com_z": 0.309,
+     "kg_range": [
+      90.0,
+      90.0
+     ],
+     "zero_frac": 0.0
+    }
+   }
+  },
+  {
+   "armed": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/walk_00/ovl_c6x.json",
+   "checks": {
+    "_environ differs only in KRABBY_PAYLOAD_*": true,
+    "func": true,
+    "mode reset": true,
+    "only events.payload_reset differs": true,
+    "params keys": true,
+    "params.asset_cfg robot/body": true,
+    "params.box_size == [0.7112, 1.2192, 0.3]": true,
+    "params.com_xy == 0.0": true,
+    "params.com_z == 0.309": true,
+    "params.kg_range == [0.0, 0.0]": true,
+    "params.zero_frac == 0.0": true,
+    "term present": true
+   },
+   "environ_diffs": [
+    "/KRABBY_PAYLOAD_COM_XY",
+    "/KRABBY_PAYLOAD_COM_Z",
+    "/KRABBY_PAYLOAD_KG",
+    "/KRABBY_PAYLOAD_ZERO_FRAC"
+   ],
+   "name": "zero_walk_c6x",
+   "non_payload_diffs": [],
+   "off": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/after/ovl_c6x.json",
+   "ok": true,
+   "task": "Isaac-Crab-Hex-Omni-Walk-v0",
+   "term": {
+    "func": "parkour_tasks.crab_hex_omni_task.mdp.omni_events:payload_reset",
+    "interval_range_s": null,
+    "is_global_time": false,
+    "min_step_count_between_reset": 0,
+    "mode": "reset",
+    "params": {
+     "asset_cfg": {
+      "body_ids": "slice(None, None, None)",
+      "body_names": "body",
+      "fixed_tendon_ids": "slice(None, None, None)",
+      "fixed_tendon_names": null,
+      "joint_ids": "slice(None, None, None)",
+      "joint_names": null,
+      "name": "robot",
+      "object_collection_ids": "slice(None, None, None)",
+      "object_collection_names": null,
+      "preserve_order": false
+     },
+     "box_size": [
+      0.7112,
+      1.2192,
+      0.3
+     ],
+     "com_xy": 0.0,
+     "com_z": 0.309,
+     "kg_range": [
+      0.0,
+      0.0
+     ],
+     "zero_frac": 0.0
+    }
+   }
+  }
+ ],
+ "knob_off": {
+  "all_byte_identical": true,
+  "per_target": {
+   "ovl_c4": {
+    "after_sha256": "34bf5299bbc62f4e3463ac760a756759633354bc970d0d30fe390f08121915ce",
+    "before_sha256": "34bf5299bbc62f4e3463ac760a756759633354bc970d0d30fe390f08121915ce",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "ovl_c5": {
+    "after_sha256": "5aacd785ae369fcb4f070f8af78fd733bbd9e0d7b6909b563a0fd3da6c35d5e6",
+    "before_sha256": "5aacd785ae369fcb4f070f8af78fd733bbd9e0d7b6909b563a0fd3da6c35d5e6",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "ovl_c6": {
+    "after_sha256": "50f44fe7a2da9b66ec43e7fae7c7c5fd54d4422d7a49f22f30fd88292e5c04da",
+    "before_sha256": "50f44fe7a2da9b66ec43e7fae7c7c5fd54d4422d7a49f22f30fd88292e5c04da",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "ovl_c6x": {
+    "after_sha256": "b4d5aad72eee65458441e808a7249f05f016deb4d58b8c01af69b1585866f0fa",
+    "before_sha256": "b4d5aad72eee65458441e808a7249f05f016deb4d58b8c01af69b1585866f0fa",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "ovl_fb6k": {
+    "after_sha256": "917aa376b4787a854ec25ee0caabb72e793e67051dad7552c02c458f61a9973a",
+    "before_sha256": "917aa376b4787a854ec25ee0caabb72e793e67051dad7552c02c458f61a9973a",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "ovl_p2a": {
+    "after_sha256": "d6c0b361b9872a41f96bd3c0035986bd7c0cd06004ebf512ca45f5fa2630e09b",
+    "before_sha256": "d6c0b361b9872a41f96bd3c0035986bd7c0cd06004ebf512ca45f5fa2630e09b",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_1a": {
+    "after_sha256": "48a6371c815450a5240e9ed2225c30782ff37e78f522304cc1fabb98911f9fef",
+    "before_sha256": "48a6371c815450a5240e9ed2225c30782ff37e78f522304cc1fabb98911f9fef",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_1b": {
+    "after_sha256": "4fb0e4c52de2686aeefafaa9ca79bdc794576a041b0ccad72c1ed5e3b5a521c7",
+    "before_sha256": "4fb0e4c52de2686aeefafaa9ca79bdc794576a041b0ccad72c1ed5e3b5a521c7",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_1c": {
+    "after_sha256": "3757cf9f685cd1d0911ca290580fb2bdbc34d649d9ac4fa61f634f52ca33665a",
+    "before_sha256": "3757cf9f685cd1d0911ca290580fb2bdbc34d649d9ac4fa61f634f52ca33665a",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_2a": {
+    "after_sha256": "6f9dd565bba7ccb45adfd5d2620767bd2db9a4f121ded62d5fdccfd263b8ab58",
+    "before_sha256": "6f9dd565bba7ccb45adfd5d2620767bd2db9a4f121ded62d5fdccfd263b8ab58",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_2b": {
+    "after_sha256": "4922d57540ba74faf1bcde2896cc1d9b1a25cb9578b311183c41106ca22b0f0f",
+    "before_sha256": "4922d57540ba74faf1bcde2896cc1d9b1a25cb9578b311183c41106ca22b0f0f",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_2c": {
+    "after_sha256": "46df363aad270010ce76a0f99c5c917fca8d2a5d32a9e2fbef2c8ce53a25d5e6",
+    "before_sha256": "46df363aad270010ce76a0f99c5c917fca8d2a5d32a9e2fbef2c8ce53a25d5e6",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   },
+   "preset_2c_clockheld": {
+    "after_sha256": "d55b57a67a9e08f1e713fd8d81a57385e7d34c039ccac2435f80311d1d197f6d",
+    "before_sha256": "d55b57a67a9e08f1e713fd8d81a57385e7d34c039ccac2435f80311d1d197f6d",
+    "byte_identical": true,
+    "ok": true,
+    "payload_term_present": false
+   }
+  },
+  "targets": 13
+ },
+ "ok": true,
+ "refused": [
+  {
+   "checks": {
+    "log names the refusal": true,
+    "no dump written": true
+   },
+   "log": "/tmp/claude-1000/-home-nickmagus-krabby-krabby-research/b8e96414-701e-4216-9940-452abfe18030/scratchpad/m1a_dumps/refuse_kg_only/ovl_p2a.log",
+   "name": "kg_only_refused",
+   "ok": true
+  }
+ ]
+}

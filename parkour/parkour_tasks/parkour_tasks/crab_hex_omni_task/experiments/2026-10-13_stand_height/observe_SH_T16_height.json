@@ -1,0 +1,2370 @@
+{
+ "head": "SH_T16",
+ "lr": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr",
+ "rows_requested": [
+  "hwalkstop@1",
+  "hwalkstop@2",
+  "hraise@1",
+  "hraise@2"
+ ],
+ "r_knob": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+ "r_params": {
+  "lift": -0.5,
+  "rho": 1.0,
+  "up_frac": 0.5,
+  "down_frac": 0.4,
+  "k_c": 2.0,
+  "k_h": 1.0,
+  "trim": 0.1,
+  "eps_c": 0.1,
+  "eps_air": 0.05,
+  "tilt_max": 0.1,
+  "eps_step": 0.3
+ },
+ "frame": "residual: applied = clip(sh_a_net, +-1); R = sh_rh_target - sh_q18; applied = deadband(clip(sh_a_net, +-1), [0.25]) (the recorded residual deadband)",
+ "rows": {
+  "hwalkstop@1": {
+   "status": "READ",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SH_T16/hwalkstop__omni/seed001/2026-10-14_20-45-26",
+   "in_progress": [],
+   "residual_deadband": 0.25,
+   "counts": {
+    "episodes": 100,
+    "episodes_with_stand": 100,
+    "stands": 700,
+    "stand_rows": 506200,
+    "leg_rows_by_branch": {
+     "hold": 2698617,
+     "wait": 98669,
+     "lift": 35282,
+     "home": 93510,
+     "seat": 111122
+    },
+    "lift_onsets": 2148,
+    "entry_lifts": 110,
+    "preclip_out_of_range_share": {
+     "cam": 0.0,
+     "hip": 0.0,
+     "knee": 0.0
+    }
+   },
+   "by_branch": {
+    "hold": {
+     "leg_rows": 2698617,
+     "cam": {
+      "mean_abs": 0.00823,
+      "p90_abs": 0.0195,
+      "mean_signed": 0.00065
+     },
+     "hip": {
+      "mean_abs": 0.00024,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00018
+     },
+     "knee": {
+      "mean_abs": 0.00024,
+      "p90_abs": 0.0,
+      "mean_signed": -2e-05
+     }
+    },
+    "wait": {
+     "leg_rows": 98669,
+     "cam": {
+      "mean_abs": 0.01224,
+      "p90_abs": 0.02773,
+      "mean_signed": -0.00191
+     },
+     "hip": {
+      "mean_abs": 0.01106,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01104
+     },
+     "knee": {
+      "mean_abs": 0.01106,
+      "p90_abs": 0.0,
+      "mean_signed": -0.0005
+     }
+    },
+    "lift": {
+     "leg_rows": 35282,
+     "cam": {
+      "mean_abs": 0.00998,
+      "p90_abs": 0.0236,
+      "mean_signed": -0.0018
+     },
+     "hip": {
+      "mean_abs": 0.04288,
+      "p90_abs": 0.0947,
+      "mean_signed": 0.01348
+     },
+     "knee": {
+      "mean_abs": 0.04288,
+      "p90_abs": 0.09471,
+      "mean_signed": -0.00104
+     }
+    },
+    "home": {
+     "leg_rows": 93510,
+     "cam": {
+      "mean_abs": 0.0422,
+      "p90_abs": 0.08413,
+      "mean_signed": -0.00103
+     },
+     "hip": {
+      "mean_abs": 0.03248,
+      "p90_abs": 0.06577,
+      "mean_signed": 0.01136
+     },
+     "knee": {
+      "mean_abs": 0.03248,
+      "p90_abs": 0.06577,
+      "mean_signed": -0.00102
+     }
+    },
+    "seat": {
+     "leg_rows": 111122,
+     "cam": {
+      "mean_abs": 0.03672,
+      "p90_abs": 0.07651,
+      "mean_signed": -0.0009
+     },
+     "hip": {
+      "mean_abs": 0.01676,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01587
+     },
+     "knee": {
+      "mean_abs": 0.01676,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00218
+     }
+    }
+   },
+   "lift_hip": {
+    "r_hip_target": -0.5,
+    "thr": -0.25,
+    "lift": {
+     "leg_rows": 35282,
+     "mu_hip": -0.48652,
+     "mu_hip_preclip": -0.48652,
+     "median_hip": -0.49907,
+     "share_below_thr": 0.98688,
+     "cam_abs_median": 0.85344
+    },
+    "home": {
+     "leg_rows": 93510,
+     "mu_hip": -0.48864,
+     "mu_hip_preclip": -0.48864,
+     "median_hip": -0.49947,
+     "share_below_thr": 0.99252,
+     "cam_abs_median": 0.34059
+    }
+   },
+   "launch": {
+    "thr": -0.25,
+    "window_s": 0.3,
+    "onset": {
+     "per_leg": {
+      "FL": {
+       "events": 365,
+       "launched": 351,
+       "censored": 0,
+       "launch_share": 0.96164,
+       "already_low_at_event": 331,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 363,
+       "launched": 355,
+       "censored": 0,
+       "launch_share": 0.97796,
+       "already_low_at_event": 338,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 433,
+       "launched": 422,
+       "censored": 0,
+       "launch_share": 0.9746,
+       "already_low_at_event": 401,
+       "latency_median_s": 0.0
+      },
+      "MR": {
+       "events": 322,
+       "launched": 311,
+       "censored": 0,
+       "launch_share": 0.96584,
+       "already_low_at_event": 300,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 404,
+       "launched": 393,
+       "censored": 0,
+       "launch_share": 0.97277,
+       "already_low_at_event": 374,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 261,
+       "launched": 261,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 258,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 2148,
+      "launched": 2093,
+      "censored": 0,
+      "launch_share": 0.97439,
+      "already_low_at_event": 2002,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 1540,
+      "launched": 1505,
+      "censored": 0,
+      "launch_share": 0.97727,
+      "already_low_at_event": 1454,
+      "latency_median_s": 0.0
+     }
+    },
+    "entry": {
+     "per_leg": {
+      "FL": {
+       "events": 41,
+       "launched": 41,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 41,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 19,
+       "launched": 18,
+       "censored": 0,
+       "launch_share": 0.94737,
+       "already_low_at_event": 17,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 0,
+       "launched": 0,
+       "censored": 0,
+       "launch_share": null,
+       "already_low_at_event": 0,
+       "latency_median_s": null
+      },
+      "MR": {
+       "events": 1,
+       "launched": 1,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 1,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 34,
+       "launched": 34,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 34,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 15,
+       "launched": 15,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 14,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 110,
+      "launched": 109,
+      "censored": 0,
+      "launch_share": 0.99091,
+      "already_low_at_event": 107,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 110,
+      "launched": 109,
+      "censored": 0,
+      "launch_share": 0.99091,
+      "already_low_at_event": 107,
+      "latency_median_s": 0.0
+     }
+    }
+   },
+   "hold_slope": {
+    "band": [
+     0.03,
+     0.3
+    ],
+    "unsat_band": [
+     0.03,
+     0.1
+    ],
+    "r_slope": -1.0,
+    "r_clip": 0.1,
+    "pooled_rule": "within-leg (fixed-effects) OLS: each leg demeaned, one common slope",
+    "per_leg": {
+     "FL": {
+      "n": 16581,
+      "slope": -0.30501,
+      "intercept": 0.00647,
+      "r2": 0.53873,
+      "fixed_point": 0.0212,
+      "r_slope_same_rows": -0.47163,
+      "n_unsat": 8204,
+      "slope_unsat": -0.81636,
+      "hold_leg_rows": 447280,
+      "band_share_of_hold": 0.03707
+     },
+     "FR": {
+      "n": 48780,
+      "slope": -0.29113,
+      "intercept": -0.01,
+      "r2": 0.5929,
+      "fixed_point": -0.03435,
+      "r_slope_same_rows": -0.57398,
+      "n_unsat": 39597,
+      "slope_unsat": -0.34607,
+      "hold_leg_rows": 455180,
+      "band_share_of_hold": 0.10717
+     },
+     "ML": {
+      "n": 26942,
+      "slope": -0.14966,
+      "intercept": 0.00296,
+      "r2": 0.29558,
+      "fixed_point": 0.0198,
+      "r_slope_same_rows": -0.54674,
+      "n_unsat": 13937,
+      "slope_unsat": -0.4027,
+      "hold_leg_rows": 449115,
+      "band_share_of_hold": 0.05999
+     },
+     "MR": {
+      "n": 19948,
+      "slope": -0.32852,
+      "intercept": 0.01067,
+      "r2": 0.51246,
+      "fixed_point": 0.03248,
+      "r_slope_same_rows": -0.50912,
+      "n_unsat": 12642,
+      "slope_unsat": -0.77824,
+      "hold_leg_rows": 445475,
+      "band_share_of_hold": 0.04478
+     },
+     "RL": {
+      "n": 11554,
+      "slope": -0.29151,
+      "intercept": 0.00836,
+      "r2": 0.58304,
+      "fixed_point": 0.02869,
+      "r_slope_same_rows": -0.5266,
+      "n_unsat": 6805,
+      "slope_unsat": -0.74717,
+      "hold_leg_rows": 439314,
+      "band_share_of_hold": 0.0263
+     },
+     "RR": {
+      "n": 19016,
+      "slope": -0.34139,
+      "intercept": 0.01415,
+      "r2": 0.70478,
+      "fixed_point": 0.04146,
+      "r_slope_same_rows": -0.52202,
+      "n_unsat": 8809,
+      "slope_unsat": -0.74292,
+      "hold_leg_rows": 462253,
+      "band_share_of_hold": 0.04114
+     }
+    },
+    "pooled": {
+     "n": 142821,
+     "slope": -0.27125,
+     "r2": 0.52104,
+     "r_slope_same_rows": -0.53189,
+     "n_unsat": 89994,
+     "slope_unsat": -0.54029,
+     "hold_leg_rows": 2698617,
+     "band_share_of_hold": 0.05292,
+     "per_leg_slope_min": -0.34139,
+     "per_leg_slope_max": -0.14966,
+     "intercept": null,
+     "fixed_point": null
+    }
+   },
+   "checks": {
+    "routing_max_abs": 0.0,
+    "branch_rows_ok": true,
+    "c_align_max_abs": 1.2e-07,
+    "c_align_rows": 2698617,
+    "lift_target_max_abs": 1.2e-07
+   }
+  },
+  "hwalkstop@2": {
+   "status": "READ",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SH_T16/hwalkstop__omni/seed002/2026-10-14_20-52-18",
+   "in_progress": [],
+   "residual_deadband": 0.25,
+   "counts": {
+    "episodes": 100,
+    "episodes_with_stand": 100,
+    "stands": 700,
+    "stand_rows": 506445,
+    "leg_rows_by_branch": {
+     "hold": 2689266,
+     "wait": 106072,
+     "lift": 37925,
+     "home": 93284,
+     "seat": 112123
+    },
+    "lift_onsets": 2346,
+    "entry_lifts": 123,
+    "preclip_out_of_range_share": {
+     "cam": 0.0,
+     "hip": 0.0,
+     "knee": 0.0
+    }
+   },
+   "by_branch": {
+    "hold": {
+     "leg_rows": 2689266,
+     "cam": {
+      "mean_abs": 0.00808,
+      "p90_abs": 0.0189,
+      "mean_signed": 0.00075
+     },
+     "hip": {
+      "mean_abs": 0.00027,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00019
+     },
+     "knee": {
+      "mean_abs": 0.00027,
+      "p90_abs": 0.0,
+      "mean_signed": 0.0
+     }
+    },
+    "wait": {
+     "leg_rows": 106072,
+     "cam": {
+      "mean_abs": 0.01248,
+      "p90_abs": 0.02818,
+      "mean_signed": -0.00234
+     },
+     "hip": {
+      "mean_abs": 0.012,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01196
+     },
+     "knee": {
+      "mean_abs": 0.012,
+      "p90_abs": 0.0,
+      "mean_signed": 6e-05
+     }
+    },
+    "lift": {
+     "leg_rows": 37925,
+     "cam": {
+      "mean_abs": 0.0099,
+      "p90_abs": 0.02318,
+      "mean_signed": -0.00217
+     },
+     "hip": {
+      "mean_abs": 0.05304,
+      "p90_abs": 0.12094,
+      "mean_signed": 0.0209
+     },
+     "knee": {
+      "mean_abs": 0.05304,
+      "p90_abs": 0.12094,
+      "mean_signed": -0.00329
+     }
+    },
+    "home": {
+     "leg_rows": 93284,
+     "cam": {
+      "mean_abs": 0.04253,
+      "p90_abs": 0.08491,
+      "mean_signed": -0.00197
+     },
+     "hip": {
+      "mean_abs": 0.03036,
+      "p90_abs": 0.06447,
+      "mean_signed": 0.0086
+     },
+     "knee": {
+      "mean_abs": 0.03036,
+      "p90_abs": 0.06447,
+      "mean_signed": -0.00333
+     }
+    },
+    "seat": {
+     "leg_rows": 112123,
+     "cam": {
+      "mean_abs": 0.03752,
+      "p90_abs": 0.08024,
+      "mean_signed": -0.00045
+     },
+     "hip": {
+      "mean_abs": 0.01822,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01718
+     },
+     "knee": {
+      "mean_abs": 0.01823,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00353
+     }
+    }
+   },
+   "lift_hip": {
+    "r_hip_target": -0.5,
+    "thr": -0.25,
+    "lift": {
+     "leg_rows": 37925,
+     "mu_hip": -0.4791,
+     "mu_hip_preclip": -0.4791,
+     "median_hip": -0.49935,
+     "share_below_thr": 0.97587,
+     "cam_abs_median": 0.80945
+    },
+    "home": {
+     "leg_rows": 93284,
+     "mu_hip": -0.4914,
+     "mu_hip_preclip": -0.4914,
+     "median_hip": -0.50086,
+     "share_below_thr": 0.99568,
+     "cam_abs_median": 0.33573
+    }
+   },
+   "launch": {
+    "thr": -0.25,
+    "window_s": 0.3,
+    "onset": {
+     "per_leg": {
+      "FL": {
+       "events": 438,
+       "launched": 428,
+       "censored": 0,
+       "launch_share": 0.97717,
+       "already_low_at_event": 396,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 406,
+       "launched": 403,
+       "censored": 0,
+       "launch_share": 0.99261,
+       "already_low_at_event": 389,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 442,
+       "launched": 435,
+       "censored": 0,
+       "launch_share": 0.98416,
+       "already_low_at_event": 421,
+       "latency_median_s": 0.0
+      },
+      "MR": {
+       "events": 319,
+       "launched": 310,
+       "censored": 0,
+       "launch_share": 0.97179,
+       "already_low_at_event": 288,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 428,
+       "launched": 417,
+       "censored": 0,
+       "launch_share": 0.9743,
+       "already_low_at_event": 387,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 313,
+       "launched": 312,
+       "censored": 0,
+       "launch_share": 0.99681,
+       "already_low_at_event": 309,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 2346,
+      "launched": 2305,
+      "censored": 0,
+      "launch_share": 0.98252,
+      "already_low_at_event": 2190,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 1597,
+      "launched": 1571,
+      "censored": 0,
+      "launch_share": 0.98372,
+      "already_low_at_event": 1506,
+      "latency_median_s": 0.0
+     }
+    },
+    "entry": {
+     "per_leg": {
+      "FL": {
+       "events": 34,
+       "launched": 34,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 34,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 24,
+       "launched": 21,
+       "censored": 0,
+       "launch_share": 0.875,
+       "already_low_at_event": 20,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 0,
+       "launched": 0,
+       "censored": 0,
+       "launch_share": null,
+       "already_low_at_event": 0,
+       "latency_median_s": null
+      },
+      "MR": {
+       "events": 7,
+       "launched": 7,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 7,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 39,
+       "launched": 38,
+       "censored": 0,
+       "launch_share": 0.97436,
+       "already_low_at_event": 38,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 19,
+       "launched": 19,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 19,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 123,
+      "launched": 119,
+      "censored": 0,
+      "launch_share": 0.96748,
+      "already_low_at_event": 118,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 123,
+      "launched": 119,
+      "censored": 0,
+      "launch_share": 0.96748,
+      "already_low_at_event": 118,
+      "latency_median_s": 0.0
+     }
+    }
+   },
+   "hold_slope": {
+    "band": [
+     0.03,
+     0.3
+    ],
+    "unsat_band": [
+     0.03,
+     0.1
+    ],
+    "r_slope": -1.0,
+    "r_clip": 0.1,
+    "pooled_rule": "within-leg (fixed-effects) OLS: each leg demeaned, one common slope",
+    "per_leg": {
+     "FL": {
+      "n": 15278,
+      "slope": -0.30666,
+      "intercept": 0.00563,
+      "r2": 0.55088,
+      "fixed_point": 0.01835,
+      "r_slope_same_rows": -0.46702,
+      "n_unsat": 8044,
+      "slope_unsat": -0.78492,
+      "hold_leg_rows": 443351,
+      "band_share_of_hold": 0.03446
+     },
+     "FR": {
+      "n": 43099,
+      "slope": -0.29917,
+      "intercept": -0.00974,
+      "r2": 0.59853,
+      "fixed_point": -0.03256,
+      "r_slope_same_rows": -0.57156,
+      "n_unsat": 33709,
+      "slope_unsat": -0.35002,
+      "hold_leg_rows": 450896,
+      "band_share_of_hold": 0.09559
+     },
+     "ML": {
+      "n": 23848,
+      "slope": -0.15703,
+      "intercept": 0.00252,
+      "r2": 0.30243,
+      "fixed_point": 0.01605,
+      "r_slope_same_rows": -0.55212,
+      "n_unsat": 12538,
+      "slope_unsat": -0.41406,
+      "hold_leg_rows": 446991,
+      "band_share_of_hold": 0.05335
+     },
+     "MR": {
+      "n": 20222,
+      "slope": -0.32262,
+      "intercept": 0.0121,
+      "r2": 0.51799,
+      "fixed_point": 0.03751,
+      "r_slope_same_rows": -0.49026,
+      "n_unsat": 12627,
+      "slope_unsat": -0.82161,
+      "hold_leg_rows": 445007,
+      "band_share_of_hold": 0.04544
+     },
+     "RL": {
+      "n": 14678,
+      "slope": -0.28117,
+      "intercept": 0.00823,
+      "r2": 0.55892,
+      "fixed_point": 0.02926,
+      "r_slope_same_rows": -0.52178,
+      "n_unsat": 8741,
+      "slope_unsat": -0.71784,
+      "hold_leg_rows": 444531,
+      "band_share_of_hold": 0.03302
+     },
+     "RR": {
+      "n": 18112,
+      "slope": -0.33791,
+      "intercept": 0.01531,
+      "r2": 0.70438,
+      "fixed_point": 0.04532,
+      "r_slope_same_rows": -0.51761,
+      "n_unsat": 7942,
+      "slope_unsat": -0.76939,
+      "hold_leg_rows": 458490,
+      "band_share_of_hold": 0.0395
+     }
+    },
+    "pooled": {
+     "n": 135237,
+     "slope": -0.27788,
+     "r2": 0.53449,
+     "r_slope_same_rows": -0.52838,
+     "n_unsat": 83601,
+     "slope_unsat": -0.55478,
+     "hold_leg_rows": 2689266,
+     "band_share_of_hold": 0.05029,
+     "per_leg_slope_min": -0.33791,
+     "per_leg_slope_max": -0.15703,
+     "intercept": null,
+     "fixed_point": null
+    }
+   },
+   "checks": {
+    "routing_max_abs": 0.0,
+    "branch_rows_ok": true,
+    "c_align_max_abs": 1.2e-07,
+    "c_align_rows": 2689266,
+    "lift_target_max_abs": 1.2e-07
+   }
+  },
+  "hraise@1": {
+   "status": "READ",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SH_T16/hraise__omni/seed001/2026-10-14_20-59-08",
+   "in_progress": [],
+   "residual_deadband": 0.25,
+   "counts": {
+    "episodes": 100,
+    "episodes_with_stand": 100,
+    "stands": 200,
+    "stand_rows": 389992,
+    "leg_rows_by_branch": {
+     "hold": 2242513,
+     "wait": 29227,
+     "lift": 4894,
+     "home": 26661,
+     "seat": 36657
+    },
+    "lift_onsets": 753,
+    "entry_lifts": 28,
+    "preclip_out_of_range_share": {
+     "cam": 0.0,
+     "hip": 0.0,
+     "knee": 0.0
+    }
+   },
+   "by_branch": {
+    "hold": {
+     "leg_rows": 2242513,
+     "cam": {
+      "mean_abs": 0.00679,
+      "p90_abs": 0.01496,
+      "mean_signed": 4e-05
+     },
+     "hip": {
+      "mean_abs": 9e-05,
+      "p90_abs": 0.0,
+      "mean_signed": -5e-05
+     },
+     "knee": {
+      "mean_abs": 9e-05,
+      "p90_abs": 0.0,
+      "mean_signed": 0.0
+     }
+    },
+    "wait": {
+     "leg_rows": 29227,
+     "cam": {
+      "mean_abs": 0.01068,
+      "p90_abs": 0.02608,
+      "mean_signed": -0.00373
+     },
+     "hip": {
+      "mean_abs": 0.0138,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01375
+     },
+     "knee": {
+      "mean_abs": 0.0138,
+      "p90_abs": 0.0,
+      "mean_signed": 0.00569
+     }
+    },
+    "lift": {
+     "leg_rows": 4894,
+     "cam": {
+      "mean_abs": 0.00768,
+      "p90_abs": 0.017,
+      "mean_signed": -0.00204
+     },
+     "hip": {
+      "mean_abs": 0.04963,
+      "p90_abs": 0.11225,
+      "mean_signed": 0.01803
+     },
+     "knee": {
+      "mean_abs": 0.04963,
+      "p90_abs": 0.11225,
+      "mean_signed": 0.00025
+     }
+    },
+    "home": {
+     "leg_rows": 26661,
+     "cam": {
+      "mean_abs": 0.02852,
+      "p90_abs": 0.05528,
+      "mean_signed": 0.00499
+     },
+     "hip": {
+      "mean_abs": 0.03171,
+      "p90_abs": 0.06576,
+      "mean_signed": 0.00738
+     },
+     "knee": {
+      "mean_abs": 0.03171,
+      "p90_abs": 0.06575,
+      "mean_signed": -0.00174
+     }
+    },
+    "seat": {
+     "leg_rows": 36657,
+     "cam": {
+      "mean_abs": 0.03363,
+      "p90_abs": 0.06541,
+      "mean_signed": 0.00394
+     },
+     "hip": {
+      "mean_abs": 0.01296,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01243
+     },
+     "knee": {
+      "mean_abs": 0.01296,
+      "p90_abs": 0.0,
+      "mean_signed": 0.00127
+     }
+    }
+   },
+   "lift_hip": {
+    "r_hip_target": -0.5,
+    "thr": -0.25,
+    "lift": {
+     "leg_rows": 4894,
+     "mu_hip": -0.48197,
+     "mu_hip_preclip": -0.48197,
+     "median_hip": -0.50152,
+     "share_below_thr": 0.98611,
+     "cam_abs_median": 0.70846
+    },
+    "home": {
+     "leg_rows": 26661,
+     "mu_hip": -0.49262,
+     "mu_hip_preclip": -0.49262,
+     "median_hip": -0.50481,
+     "share_below_thr": 0.99302,
+     "cam_abs_median": 0.3538
+    }
+   },
+   "launch": {
+    "thr": -0.25,
+    "window_s": 0.3,
+    "onset": {
+     "per_leg": {
+      "FL": {
+       "events": 239,
+       "launched": 238,
+       "censored": 0,
+       "launch_share": 0.99582,
+       "already_low_at_event": 235,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 143,
+       "launched": 142,
+       "censored": 0,
+       "launch_share": 0.99301,
+       "already_low_at_event": 137,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 67,
+       "launched": 65,
+       "censored": 0,
+       "launch_share": 0.97015,
+       "already_low_at_event": 62,
+       "latency_median_s": 0.0
+      },
+      "MR": {
+       "events": 117,
+       "launched": 117,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 117,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 167,
+       "launched": 167,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 164,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 20,
+       "launched": 20,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 18,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 753,
+      "launched": 749,
+      "censored": 0,
+      "launch_share": 0.99469,
+      "already_low_at_event": 733,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 405,
+      "launched": 404,
+      "censored": 0,
+      "launch_share": 0.99753,
+      "already_low_at_event": 395,
+      "latency_median_s": 0.0
+     }
+    },
+    "entry": {
+     "per_leg": {
+      "FL": {
+       "events": 10,
+       "launched": 10,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 10,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 1,
+       "launched": 1,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 1,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 0,
+       "launched": 0,
+       "censored": 0,
+       "launch_share": null,
+       "already_low_at_event": 0,
+       "latency_median_s": null
+      },
+      "MR": {
+       "events": 2,
+       "launched": 2,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 2,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 14,
+       "launched": 14,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 14,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 1,
+       "launched": 1,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 0,
+       "latency_median_s": 0.04
+      }
+     },
+     "pooled": {
+      "events": 28,
+      "launched": 28,
+      "censored": 0,
+      "launch_share": 1.0,
+      "already_low_at_event": 27,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 28,
+      "launched": 28,
+      "censored": 0,
+      "launch_share": 1.0,
+      "already_low_at_event": 27,
+      "latency_median_s": 0.0
+     }
+    }
+   },
+   "hold_slope": {
+    "band": [
+     0.03,
+     0.3
+    ],
+    "unsat_band": [
+     0.03,
+     0.1
+    ],
+    "r_slope": -1.0,
+    "r_clip": 0.1,
+    "pooled_rule": "within-leg (fixed-effects) OLS: each leg demeaned, one common slope",
+    "per_leg": {
+     "FL": {
+      "n": 1224,
+      "slope": -0.56769,
+      "intercept": -0.00497,
+      "r2": 0.82939,
+      "fixed_point": -0.00876,
+      "r_slope_same_rows": -0.64538,
+      "n_unsat": 876,
+      "slope_unsat": -0.85124,
+      "hold_leg_rows": 364748,
+      "band_share_of_hold": 0.00336
+     },
+     "FR": {
+      "n": 34595,
+      "slope": -0.2903,
+      "intercept": -0.01032,
+      "r2": 0.60495,
+      "fixed_point": -0.03556,
+      "r_slope_same_rows": -0.63716,
+      "n_unsat": 31323,
+      "slope_unsat": -0.28536,
+      "hold_leg_rows": 375946,
+      "band_share_of_hold": 0.09202
+     },
+     "ML": {
+      "n": 11151,
+      "slope": -0.12971,
+      "intercept": 0.00847,
+      "r2": 0.27765,
+      "fixed_point": 0.06533,
+      "r_slope_same_rows": -0.5307,
+      "n_unsat": 5375,
+      "slope_unsat": -0.43098,
+      "hold_leg_rows": 374993,
+      "band_share_of_hold": 0.02974
+     },
+     "MR": {
+      "n": 6185,
+      "slope": -0.39216,
+      "intercept": 0.01271,
+      "r2": 0.62146,
+      "fixed_point": 0.0324,
+      "r_slope_same_rows": -0.57835,
+      "n_unsat": 4653,
+      "slope_unsat": -0.72037,
+      "hold_leg_rows": 375346,
+      "band_share_of_hold": 0.01648
+     },
+     "RL": {
+      "n": 2204,
+      "slope": -0.31155,
+      "intercept": 0.00153,
+      "r2": 0.63879,
+      "fixed_point": 0.00492,
+      "r_slope_same_rows": -0.52282,
+      "n_unsat": 937,
+      "slope_unsat": -0.84956,
+      "hold_leg_rows": 372304,
+      "band_share_of_hold": 0.00592
+     },
+     "RR": {
+      "n": 8401,
+      "slope": -0.29629,
+      "intercept": 0.00416,
+      "r2": 0.60854,
+      "fixed_point": 0.01404,
+      "r_slope_same_rows": -0.47204,
+      "n_unsat": 2902,
+      "slope_unsat": -0.77708,
+      "hold_leg_rows": 379176,
+      "band_share_of_hold": 0.02216
+     }
+    },
+    "pooled": {
+     "n": 63760,
+     "slope": -0.25244,
+     "r2": 0.49783,
+     "r_slope_same_rows": -0.55012,
+     "n_unsat": 46066,
+     "slope_unsat": -0.45944,
+     "hold_leg_rows": 2242513,
+     "band_share_of_hold": 0.02843,
+     "per_leg_slope_min": -0.56769,
+     "per_leg_slope_max": -0.12971,
+     "intercept": null,
+     "fixed_point": null
+    }
+   },
+   "checks": {
+    "routing_max_abs": 0.0,
+    "branch_rows_ok": true,
+    "c_align_max_abs": 1.2e-07,
+    "c_align_rows": 2242513,
+    "lift_target_max_abs": 6e-08
+   }
+  },
+  "hraise@2": {
+   "status": "READ",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SH_T16/hraise__omni/seed002/2026-10-14_21-03-35",
+   "in_progress": [],
+   "residual_deadband": 0.25,
+   "counts": {
+    "episodes": 100,
+    "episodes_with_stand": 100,
+    "stands": 200,
+    "stand_rows": 389900,
+    "leg_rows_by_branch": {
+     "hold": 2248356,
+     "wait": 27233,
+     "lift": 5021,
+     "home": 26478,
+     "seat": 32312
+    },
+    "lift_onsets": 636,
+    "entry_lifts": 34,
+    "preclip_out_of_range_share": {
+     "cam": 0.0,
+     "hip": 0.0,
+     "knee": 0.0
+    }
+   },
+   "by_branch": {
+    "hold": {
+     "leg_rows": 2248356,
+     "cam": {
+      "mean_abs": 0.00689,
+      "p90_abs": 0.01498,
+      "mean_signed": 0.0
+     },
+     "hip": {
+      "mean_abs": 8e-05,
+      "p90_abs": 0.0,
+      "mean_signed": -3e-05
+     },
+     "knee": {
+      "mean_abs": 8e-05,
+      "p90_abs": 0.0,
+      "mean_signed": -1e-05
+     }
+    },
+    "wait": {
+     "leg_rows": 27233,
+     "cam": {
+      "mean_abs": 0.01141,
+      "p90_abs": 0.02618,
+      "mean_signed": -0.00284
+     },
+     "hip": {
+      "mean_abs": 0.01095,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01087
+     },
+     "knee": {
+      "mean_abs": 0.01095,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00121
+     }
+    },
+    "lift": {
+     "leg_rows": 5021,
+     "cam": {
+      "mean_abs": 0.00785,
+      "p90_abs": 0.01677,
+      "mean_signed": -0.00198
+     },
+     "hip": {
+      "mean_abs": 0.04735,
+      "p90_abs": 0.10392,
+      "mean_signed": 0.00657
+     },
+     "knee": {
+      "mean_abs": 0.04735,
+      "p90_abs": 0.10392,
+      "mean_signed": 0.00532
+     }
+    },
+    "home": {
+     "leg_rows": 26478,
+     "cam": {
+      "mean_abs": 0.03066,
+      "p90_abs": 0.05835,
+      "mean_signed": 0.00511
+     },
+     "hip": {
+      "mean_abs": 0.02895,
+      "p90_abs": 0.05906,
+      "mean_signed": 0.00459
+     },
+     "knee": {
+      "mean_abs": 0.02895,
+      "p90_abs": 0.05906,
+      "mean_signed": -0.00286
+     }
+    },
+    "seat": {
+     "leg_rows": 32312,
+     "cam": {
+      "mean_abs": 0.03716,
+      "p90_abs": 0.07364,
+      "mean_signed": 0.00374
+     },
+     "hip": {
+      "mean_abs": 0.01587,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01561
+     },
+     "knee": {
+      "mean_abs": 0.01587,
+      "p90_abs": 0.0,
+      "mean_signed": -0.001
+     }
+    }
+   },
+   "lift_hip": {
+    "r_hip_target": -0.5,
+    "thr": -0.25,
+    "lift": {
+     "leg_rows": 5021,
+     "mu_hip": -0.49343,
+     "mu_hip_preclip": -0.49343,
+     "median_hip": -0.50889,
+     "share_below_thr": 0.98705,
+     "cam_abs_median": 0.66527
+    },
+    "home": {
+     "leg_rows": 26478,
+     "mu_hip": -0.49541,
+     "mu_hip_preclip": -0.49541,
+     "median_hip": -0.50566,
+     "share_below_thr": 0.99539,
+     "cam_abs_median": 0.351
+    }
+   },
+   "launch": {
+    "thr": -0.25,
+    "window_s": 0.3,
+    "onset": {
+     "per_leg": {
+      "FL": {
+       "events": 129,
+       "launched": 128,
+       "censored": 0,
+       "launch_share": 0.99225,
+       "already_low_at_event": 127,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 166,
+       "launched": 161,
+       "censored": 0,
+       "launch_share": 0.96988,
+       "already_low_at_event": 154,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 88,
+       "launched": 86,
+       "censored": 0,
+       "launch_share": 0.97727,
+       "already_low_at_event": 80,
+       "latency_median_s": 0.0
+      },
+      "MR": {
+       "events": 112,
+       "launched": 112,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 112,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 113,
+       "launched": 112,
+       "censored": 0,
+       "launch_share": 0.99115,
+       "already_low_at_event": 111,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 28,
+       "launched": 28,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 27,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 636,
+      "launched": 627,
+      "censored": 0,
+      "launch_share": 0.98585,
+      "already_low_at_event": 611,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 435,
+      "launched": 433,
+      "censored": 0,
+      "launch_share": 0.9954,
+      "already_low_at_event": 425,
+      "latency_median_s": 0.0
+     }
+    },
+    "entry": {
+     "per_leg": {
+      "FL": {
+       "events": 13,
+       "launched": 13,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 13,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 1,
+       "launched": 1,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 1,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 0,
+       "launched": 0,
+       "censored": 0,
+       "launch_share": null,
+       "already_low_at_event": 0,
+       "latency_median_s": null
+      },
+      "MR": {
+       "events": 3,
+       "launched": 3,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 3,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 16,
+       "launched": 16,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 16,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 1,
+       "launched": 1,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 1,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 34,
+      "launched": 34,
+      "censored": 0,
+      "launch_share": 1.0,
+      "already_low_at_event": 34,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 34,
+      "launched": 34,
+      "censored": 0,
+      "launch_share": 1.0,
+      "already_low_at_event": 34,
+      "latency_median_s": 0.0
+     }
+    }
+   },
+   "hold_slope": {
+    "band": [
+     0.03,
+     0.3
+    ],
+    "unsat_band": [
+     0.03,
+     0.1
+    ],
+    "r_slope": -1.0,
+    "r_clip": 0.1,
+    "pooled_rule": "within-leg (fixed-effects) OLS: each leg demeaned, one common slope",
+    "per_leg": {
+     "FL": {
+      "n": 1298,
+      "slope": -0.57563,
+      "intercept": -0.00175,
+      "r2": 0.78234,
+      "fixed_point": -0.00304,
+      "r_slope_same_rows": -0.65269,
+      "n_unsat": 874,
+      "slope_unsat": -0.92379,
+      "hold_leg_rows": 367705,
+      "band_share_of_hold": 0.00353
+     },
+     "FR": {
+      "n": 37436,
+      "slope": -0.28001,
+      "intercept": -0.01022,
+      "r2": 0.59557,
+      "fixed_point": -0.03648,
+      "r_slope_same_rows": -0.63428,
+      "n_unsat": 34484,
+      "slope_unsat": -0.2605,
+      "hold_leg_rows": 374952,
+      "band_share_of_hold": 0.09984
+     },
+     "ML": {
+      "n": 10424,
+      "slope": -0.1223,
+      "intercept": 0.00715,
+      "r2": 0.2618,
+      "fixed_point": 0.05849,
+      "r_slope_same_rows": -0.50802,
+      "n_unsat": 4683,
+      "slope_unsat": -0.46945,
+      "hold_leg_rows": 375467,
+      "band_share_of_hold": 0.02776
+     },
+     "MR": {
+      "n": 4646,
+      "slope": -0.3736,
+      "intercept": 0.01345,
+      "r2": 0.60242,
+      "fixed_point": 0.03601,
+      "r_slope_same_rows": -0.5447,
+      "n_unsat": 3089,
+      "slope_unsat": -0.8259,
+      "hold_leg_rows": 375486,
+      "band_share_of_hold": 0.01237
+     },
+     "RL": {
+      "n": 2400,
+      "slope": -0.34908,
+      "intercept": -0.00233,
+      "r2": 0.67181,
+      "fixed_point": -0.00667,
+      "r_slope_same_rows": -0.56252,
+      "n_unsat": 1189,
+      "slope_unsat": -0.80757,
+      "hold_leg_rows": 376036,
+      "band_share_of_hold": 0.00638
+     },
+     "RR": {
+      "n": 8803,
+      "slope": -0.29296,
+      "intercept": 0.00694,
+      "r2": 0.6068,
+      "fixed_point": 0.0237,
+      "r_slope_same_rows": -0.47001,
+      "n_unsat": 3034,
+      "slope_unsat": -0.75657,
+      "hold_leg_rows": 378710,
+      "band_share_of_hold": 0.02324
+     }
+    },
+    "pooled": {
+     "n": 65007,
+     "slope": -0.24593,
+     "r2": 0.48344,
+     "r_slope_same_rows": -0.53975,
+     "n_unsat": 47353,
+     "slope_unsat": -0.47329,
+     "hold_leg_rows": 2248356,
+     "band_share_of_hold": 0.02891,
+     "per_leg_slope_min": -0.57563,
+     "per_leg_slope_max": -0.1223,
+     "intercept": null,
+     "fixed_point": null
+    }
+   },
+   "checks": {
+    "routing_max_abs": 0.0,
+    "branch_rows_ok": true,
+    "c_align_max_abs": 1.2e-07,
+    "c_align_rows": 2248356,
+    "lift_target_max_abs": 0.0
+   }
+  }
+ },
+ "pending": [],
+ "invalid": {},
+ "pooled": {
+  "height": {
+   "counts": {
+    "episodes": 400,
+    "episodes_with_stand": 400,
+    "stands": 1800,
+    "stand_rows": 1792537,
+    "leg_rows_by_branch": {
+     "hold": 9878752,
+     "wait": 261201,
+     "lift": 83122,
+     "home": 239933,
+     "seat": 292214
+    },
+    "lift_onsets": 5883,
+    "entry_lifts": 295,
+    "preclip_out_of_range_share": {
+     "cam": 0.0,
+     "hip": 0.0,
+     "knee": 0.0
+    }
+   },
+   "by_branch": {
+    "hold": {
+     "leg_rows": 9878752,
+     "cam": {
+      "mean_abs": 0.00756,
+      "p90_abs": 0.01721,
+      "mean_signed": 0.00039
+     },
+     "hip": {
+      "mean_abs": 0.00018,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00012
+     },
+     "knee": {
+      "mean_abs": 0.00018,
+      "p90_abs": 0.0,
+      "mean_signed": -1e-05
+     }
+    },
+    "wait": {
+     "leg_rows": 261201,
+     "cam": {
+      "mean_abs": 0.01207,
+      "p90_abs": 0.02764,
+      "mean_signed": -0.00238
+     },
+     "hip": {
+      "mean_abs": 0.01174,
+      "p90_abs": 0.0,
+      "mean_signed": -0.0117
+     },
+     "knee": {
+      "mean_abs": 0.01174,
+      "p90_abs": 0.0,
+      "mean_signed": 0.00035
+     }
+    },
+    "lift": {
+     "leg_rows": 83122,
+     "cam": {
+      "mean_abs": 0.00968,
+      "p90_abs": 0.02258,
+      "mean_signed": -0.00199
+     },
+     "hip": {
+      "mean_abs": 0.04818,
+      "p90_abs": 0.10755,
+      "mean_signed": 0.01671
+     },
+     "knee": {
+      "mean_abs": 0.04818,
+      "p90_abs": 0.10755,
+      "mean_signed": -0.00161
+     }
+    },
+    "home": {
+     "leg_rows": 239933,
+     "cam": {
+      "mean_abs": 0.03953,
+      "p90_abs": 0.07706,
+      "mean_signed": -5e-05
+     },
+     "hip": {
+      "mean_abs": 0.03118,
+      "p90_abs": 0.06456,
+      "mean_signed": 0.0091
+     },
+     "knee": {
+      "mean_abs": 0.03118,
+      "p90_abs": 0.06455,
+      "mean_signed": -0.0022
+     }
+    },
+    "seat": {
+     "leg_rows": 292214,
+     "cam": {
+      "mean_abs": 0.03669,
+      "p90_abs": 0.07645,
+      "mean_signed": 0.0004
+     },
+     "hip": {
+      "mean_abs": 0.01674,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01591
+     },
+     "knee": {
+      "mean_abs": 0.01675,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00213
+     }
+    }
+   },
+   "lift_hip": {
+    "r_hip_target": -0.5,
+    "thr": -0.25,
+    "lift": {
+     "leg_rows": 83122,
+     "mu_hip": -0.48329,
+     "mu_hip_preclip": -0.48329,
+     "median_hip": -0.49982,
+     "share_below_thr": 0.98182,
+     "cam_abs_median": 0.8171
+    },
+    "home": {
+     "leg_rows": 239933,
+     "mu_hip": -0.4909,
+     "mu_hip_preclip": -0.4909,
+     "median_hip": -0.50144,
+     "share_below_thr": 0.99412,
+     "cam_abs_median": 0.34135
+    }
+   },
+   "launch": {
+    "thr": -0.25,
+    "window_s": 0.3,
+    "onset": {
+     "per_leg": {
+      "FL": {
+       "events": 1171,
+       "launched": 1145,
+       "censored": 0,
+       "launch_share": 0.9778,
+       "already_low_at_event": 1089,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 1078,
+       "launched": 1061,
+       "censored": 0,
+       "launch_share": 0.98423,
+       "already_low_at_event": 1018,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 1030,
+       "launched": 1008,
+       "censored": 0,
+       "launch_share": 0.97864,
+       "already_low_at_event": 964,
+       "latency_median_s": 0.0
+      },
+      "MR": {
+       "events": 870,
+       "launched": 850,
+       "censored": 0,
+       "launch_share": 0.97701,
+       "already_low_at_event": 817,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 1112,
+       "launched": 1089,
+       "censored": 0,
+       "launch_share": 0.97932,
+       "already_low_at_event": 1036,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 622,
+       "launched": 621,
+       "censored": 0,
+       "launch_share": 0.99839,
+       "already_low_at_event": 612,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 5883,
+      "launched": 5774,
+      "censored": 0,
+      "launch_share": 0.98147,
+      "already_low_at_event": 5536,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 3977,
+      "launched": 3913,
+      "censored": 0,
+      "launch_share": 0.98391,
+      "already_low_at_event": 3780,
+      "latency_median_s": 0.0
+     }
+    },
+    "entry": {
+     "per_leg": {
+      "FL": {
+       "events": 98,
+       "launched": 98,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 98,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 45,
+       "launched": 41,
+       "censored": 0,
+       "launch_share": 0.91111,
+       "already_low_at_event": 39,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 0,
+       "launched": 0,
+       "censored": 0,
+       "launch_share": null,
+       "already_low_at_event": 0,
+       "latency_median_s": null
+      },
+      "MR": {
+       "events": 13,
+       "launched": 13,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 13,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 103,
+       "launched": 102,
+       "censored": 0,
+       "launch_share": 0.99029,
+       "already_low_at_event": 102,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 36,
+       "launched": 36,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 34,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 295,
+      "launched": 290,
+      "censored": 0,
+      "launch_share": 0.98305,
+      "already_low_at_event": 286,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 295,
+      "launched": 290,
+      "censored": 0,
+      "launch_share": 0.98305,
+      "already_low_at_event": 286,
+      "latency_median_s": 0.0
+     }
+    }
+   },
+   "hold_slope": {
+    "band": [
+     0.03,
+     0.3
+    ],
+    "unsat_band": [
+     0.03,
+     0.1
+    ],
+    "r_slope": -1.0,
+    "r_clip": 0.1,
+    "pooled_rule": "within-leg (fixed-effects) OLS: each leg demeaned, one common slope",
+    "per_leg": {
+     "FL": {
+      "n": 34381,
+      "slope": -0.31701,
+      "intercept": 0.00624,
+      "r2": 0.55611,
+      "fixed_point": 0.01967,
+      "r_slope_same_rows": -0.47837,
+      "n_unsat": 17998,
+      "slope_unsat": -0.81156,
+      "hold_leg_rows": 1623084,
+      "band_share_of_hold": 0.02118
+     },
+     "FR": {
+      "n": 163910,
+      "slope": -0.29218,
+      "intercept": -0.01008,
+      "r2": 0.59698,
+      "fixed_point": -0.0345,
+      "r_slope_same_rows": -0.59173,
+      "n_unsat": 139113,
+      "slope_unsat": -0.31787,
+      "hold_leg_rows": 1656974,
+      "band_share_of_hold": 0.09892
+     },
+     "ML": {
+      "n": 72365,
+      "slope": -0.14264,
+      "intercept": 0.00446,
+      "r2": 0.2856,
+      "fixed_point": 0.03126,
+      "r_slope_same_rows": -0.53905,
+      "n_unsat": 36533,
+      "slope_unsat": -0.41672,
+      "hold_leg_rows": 1646566,
+      "band_share_of_hold": 0.04395
+     },
+     "MR": {
+      "n": 51001,
+      "slope": -0.33659,
+      "intercept": 0.01197,
+      "r2": 0.53829,
+      "fixed_point": 0.03556,
+      "r_slope_same_rows": -0.51239,
+      "n_unsat": 33011,
+      "slope_unsat": -0.79107,
+      "hold_leg_rows": 1641314,
+      "band_share_of_hold": 0.03107
+     },
+     "RL": {
+      "n": 30836,
+      "slope": -0.29501,
+      "intercept": 0.00676,
+      "r2": 0.58637,
+      "fixed_point": 0.02293,
+      "r_slope_same_rows": -0.52612,
+      "n_unsat": 17672,
+      "slope_unsat": -0.74314,
+      "hold_leg_rows": 1632185,
+      "band_share_of_hold": 0.01889
+     },
+     "RR": {
+      "n": 54332,
+      "slope": -0.3314,
+      "intercept": 0.01293,
+      "r2": 0.69701,
+      "fixed_point": 0.03903,
+      "r_slope_same_rows": -0.51027,
+      "n_unsat": 22687,
+      "slope_unsat": -0.76155,
+      "hold_leg_rows": 1678629,
+      "band_share_of_hold": 0.03237
+     }
+    },
+    "pooled": {
+     "n": 406825,
+     "slope": -0.26942,
+     "r2": 0.52459,
+     "r_slope_same_rows": -0.53425,
+     "n_unsat": 267014,
+     "slope_unsat": -0.52427,
+     "hold_leg_rows": 9878752,
+     "band_share_of_hold": 0.04118,
+     "per_leg_slope_min": -0.33659,
+     "per_leg_slope_max": -0.14264,
+     "intercept": null,
+     "fixed_point": null
+    }
+   },
+   "checks": {
+    "routing_max_abs": 0.0,
+    "branch_rows_ok": true,
+    "c_align_max_abs": 1.2e-07,
+    "c_align_rows": 9878752,
+    "lift_target_max_abs": 1.2e-07
+   },
+   "rows_included": [
+    "hwalkstop@1",
+    "hwalkstop@2",
+    "hraise@1",
+    "hraise@2"
+   ]
+  },
+  "all": {
+   "counts": {
+    "episodes": 400,
+    "episodes_with_stand": 400,
+    "stands": 1800,
+    "stand_rows": 1792537,
+    "leg_rows_by_branch": {
+     "hold": 9878752,
+     "wait": 261201,
+     "lift": 83122,
+     "home": 239933,
+     "seat": 292214
+    },
+    "lift_onsets": 5883,
+    "entry_lifts": 295,
+    "preclip_out_of_range_share": {
+     "cam": 0.0,
+     "hip": 0.0,
+     "knee": 0.0
+    }
+   },
+   "by_branch": {
+    "hold": {
+     "leg_rows": 9878752,
+     "cam": {
+      "mean_abs": 0.00756,
+      "p90_abs": 0.01721,
+      "mean_signed": 0.00039
+     },
+     "hip": {
+      "mean_abs": 0.00018,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00012
+     },
+     "knee": {
+      "mean_abs": 0.00018,
+      "p90_abs": 0.0,
+      "mean_signed": -1e-05
+     }
+    },
+    "wait": {
+     "leg_rows": 261201,
+     "cam": {
+      "mean_abs": 0.01207,
+      "p90_abs": 0.02764,
+      "mean_signed": -0.00238
+     },
+     "hip": {
+      "mean_abs": 0.01174,
+      "p90_abs": 0.0,
+      "mean_signed": -0.0117
+     },
+     "knee": {
+      "mean_abs": 0.01174,
+      "p90_abs": 0.0,
+      "mean_signed": 0.00035
+     }
+    },
+    "lift": {
+     "leg_rows": 83122,
+     "cam": {
+      "mean_abs": 0.00968,
+      "p90_abs": 0.02258,
+      "mean_signed": -0.00199
+     },
+     "hip": {
+      "mean_abs": 0.04818,
+      "p90_abs": 0.10755,
+      "mean_signed": 0.01671
+     },
+     "knee": {
+      "mean_abs": 0.04818,
+      "p90_abs": 0.10755,
+      "mean_signed": -0.00161
+     }
+    },
+    "home": {
+     "leg_rows": 239933,
+     "cam": {
+      "mean_abs": 0.03953,
+      "p90_abs": 0.07706,
+      "mean_signed": -5e-05
+     },
+     "hip": {
+      "mean_abs": 0.03118,
+      "p90_abs": 0.06456,
+      "mean_signed": 0.0091
+     },
+     "knee": {
+      "mean_abs": 0.03118,
+      "p90_abs": 0.06455,
+      "mean_signed": -0.0022
+     }
+    },
+    "seat": {
+     "leg_rows": 292214,
+     "cam": {
+      "mean_abs": 0.03669,
+      "p90_abs": 0.07645,
+      "mean_signed": 0.0004
+     },
+     "hip": {
+      "mean_abs": 0.01674,
+      "p90_abs": 0.0,
+      "mean_signed": -0.01591
+     },
+     "knee": {
+      "mean_abs": 0.01675,
+      "p90_abs": 0.0,
+      "mean_signed": -0.00213
+     }
+    }
+   },
+   "lift_hip": {
+    "r_hip_target": -0.5,
+    "thr": -0.25,
+    "lift": {
+     "leg_rows": 83122,
+     "mu_hip": -0.48329,
+     "mu_hip_preclip": -0.48329,
+     "median_hip": -0.49982,
+     "share_below_thr": 0.98182,
+     "cam_abs_median": 0.8171
+    },
+    "home": {
+     "leg_rows": 239933,
+     "mu_hip": -0.4909,
+     "mu_hip_preclip": -0.4909,
+     "median_hip": -0.50144,
+     "share_below_thr": 0.99412,
+     "cam_abs_median": 0.34135
+    }
+   },
+   "launch": {
+    "thr": -0.25,
+    "window_s": 0.3,
+    "onset": {
+     "per_leg": {
+      "FL": {
+       "events": 1171,
+       "launched": 1145,
+       "censored": 0,
+       "launch_share": 0.9778,
+       "already_low_at_event": 1089,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 1078,
+       "launched": 1061,
+       "censored": 0,
+       "launch_share": 0.98423,
+       "already_low_at_event": 1018,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 1030,
+       "launched": 1008,
+       "censored": 0,
+       "launch_share": 0.97864,
+       "already_low_at_event": 964,
+       "latency_median_s": 0.0
+      },
+      "MR": {
+       "events": 870,
+       "launched": 850,
+       "censored": 0,
+       "launch_share": 0.97701,
+       "already_low_at_event": 817,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 1112,
+       "launched": 1089,
+       "censored": 0,
+       "launch_share": 0.97932,
+       "already_low_at_event": 1036,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 622,
+       "launched": 621,
+       "censored": 0,
+       "launch_share": 0.99839,
+       "already_low_at_event": 612,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 5883,
+      "launched": 5774,
+      "censored": 0,
+      "launch_share": 0.98147,
+      "already_low_at_event": 5536,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 3977,
+      "launched": 3913,
+      "censored": 0,
+      "launch_share": 0.98391,
+      "already_low_at_event": 3780,
+      "latency_median_s": 0.0
+     }
+    },
+    "entry": {
+     "per_leg": {
+      "FL": {
+       "events": 98,
+       "launched": 98,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 98,
+       "latency_median_s": 0.0
+      },
+      "FR": {
+       "events": 45,
+       "launched": 41,
+       "censored": 0,
+       "launch_share": 0.91111,
+       "already_low_at_event": 39,
+       "latency_median_s": 0.0
+      },
+      "ML": {
+       "events": 0,
+       "launched": 0,
+       "censored": 0,
+       "launch_share": null,
+       "already_low_at_event": 0,
+       "latency_median_s": null
+      },
+      "MR": {
+       "events": 13,
+       "launched": 13,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 13,
+       "latency_median_s": 0.0
+      },
+      "RL": {
+       "events": 103,
+       "launched": 102,
+       "censored": 0,
+       "launch_share": 0.99029,
+       "already_low_at_event": 102,
+       "latency_median_s": 0.0
+      },
+      "RR": {
+       "events": 36,
+       "launched": 36,
+       "censored": 0,
+       "launch_share": 1.0,
+       "already_low_at_event": 34,
+       "latency_median_s": 0.0
+      }
+     },
+     "pooled": {
+      "events": 295,
+      "launched": 290,
+      "censored": 0,
+      "launch_share": 0.98305,
+      "already_low_at_event": 286,
+      "latency_median_s": 0.0
+     },
+     "pooled_first_per_stand_leg": {
+      "events": 295,
+      "launched": 290,
+      "censored": 0,
+      "launch_share": 0.98305,
+      "already_low_at_event": 286,
+      "latency_median_s": 0.0
+     }
+    }
+   },
+   "hold_slope": {
+    "band": [
+     0.03,
+     0.3
+    ],
+    "unsat_band": [
+     0.03,
+     0.1
+    ],
+    "r_slope": -1.0,
+    "r_clip": 0.1,
+    "pooled_rule": "within-leg (fixed-effects) OLS: each leg demeaned, one common slope",
+    "per_leg": {
+     "FL": {
+      "n": 34381,
+      "slope": -0.31701,
+      "intercept": 0.00624,
+      "r2": 0.55611,
+      "fixed_point": 0.01967,
+      "r_slope_same_rows": -0.47837,
+      "n_unsat": 17998,
+      "slope_unsat": -0.81156,
+      "hold_leg_rows": 1623084,
+      "band_share_of_hold": 0.02118
+     },
+     "FR": {
+      "n": 163910,
+      "slope": -0.29218,
+      "intercept": -0.01008,
+      "r2": 0.59698,
+      "fixed_point": -0.0345,
+      "r_slope_same_rows": -0.59173,
+      "n_unsat": 139113,
+      "slope_unsat": -0.31787,
+      "hold_leg_rows": 1656974,
+      "band_share_of_hold": 0.09892
+     },
+     "ML": {
+      "n": 72365,
+      "slope": -0.14264,
+      "intercept": 0.00446,
+      "r2": 0.2856,
+      "fixed_point": 0.03126,
+      "r_slope_same_rows": -0.53905,
+      "n_unsat": 36533,
+      "slope_unsat": -0.41672,
+      "hold_leg_rows": 1646566,
+      "band_share_of_hold": 0.04395
+     },
+     "MR": {
+      "n": 51001,
+      "slope": -0.33659,
+      "intercept": 0.01197,
+      "r2": 0.53829,
+      "fixed_point": 0.03556,
+      "r_slope_same_rows": -0.51239,
+      "n_unsat": 33011,
+      "slope_unsat": -0.79107,
+      "hold_leg_rows": 1641314,
+      "band_share_of_hold": 0.03107
+     },
+     "RL": {
+      "n": 30836,
+      "slope": -0.29501,
+      "intercept": 0.00676,
+      "r2": 0.58637,
+      "fixed_point": 0.02293,
+      "r_slope_same_rows": -0.52612,
+      "n_unsat": 17672,
+      "slope_unsat": -0.74314,
+      "hold_leg_rows": 1632185,
+      "band_share_of_hold": 0.01889
+     },
+     "RR": {
+      "n": 54332,
+      "slope": -0.3314,
+      "intercept": 0.01293,
+      "r2": 0.69701,
+      "fixed_point": 0.03903,
+      "r_slope_same_rows": -0.51027,
+      "n_unsat": 22687,
+      "slope_unsat": -0.76155,
+      "hold_leg_rows": 1678629,
+      "band_share_of_hold": 0.03237
+     }
+    },
+    "pooled": {
+     "n": 406825,
+     "slope": -0.26942,
+     "r2": 0.52459,
+     "r_slope_same_rows": -0.53425,
+     "n_unsat": 267014,
+     "slope_unsat": -0.52427,
+     "hold_leg_rows": 9878752,
+     "band_share_of_hold": 0.04118,
+     "per_leg_slope_min": -0.33659,
+     "per_leg_slope_max": -0.14264,
+     "intercept": null,
+     "fixed_point": null
+    }
+   },
+   "checks": {
+    "routing_max_abs": 0.0,
+    "branch_rows_ok": true,
+    "c_align_max_abs": 1.2e-07,
+    "c_align_rows": 9878752,
+    "lift_target_max_abs": 1.2e-07
+   },
+   "rows_included": [
+    "hwalkstop@1",
+    "hwalkstop@2",
+    "hraise@1",
+    "hraise@2"
+   ]
+  }
+ },
+ "arm": {
+  "specialist_sha256": "230cc4973bea9d15e84614b597088855e85ca4e63c51e5a7d2f8a523f72976a4",
+  "specialist_path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T16/model_5000.pt",
+  "stand_mask": 1,
+  "s1_checkpoint_sha256": "968cc550989919cdc3fa36ae047379febabee5659cde0ed4d099195acb13c23c",
+  "stand_ckpt_kind": "sh_dagger",
+  "trained_stand_mask": 1,
+  "control": "stand_net",
+  "residual_deadband": 0.25
+ },
+ "residual_deadband": 0.25,
+ "status": "complete",
+ "generated": "2026-10-14T21:21:39-04:00",
+ "tool": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scripts/sh_observe_read.py",
+ "tool_sha256": "7f1419535d40a7db3289cfd1de29a49aa23f35a1e9a076a8f6ee099be5d1b4e4",
+ "sn_observe_read_sha256": "5c2f79e70b6db42792e059644e127bd18f579ded510efe8cd301ab78d417b7a8",
+ "sh_eval_common_sha256": "d7f058b097c35b2b2e8211c3105f282f9b36bf5d2fbf44bd9bfccb0919afaccd",
+ "common_sha256": "3cdbd64575be1624e402aa746d7e76072b72a51a97c8fae3879a5aea462b5f93",
+ "restance_module_sha256": "7a16b8d100241b6a3bdc52385c446cbf839781dfb1cc1dfe85ee54ed8b058aa4"
+}

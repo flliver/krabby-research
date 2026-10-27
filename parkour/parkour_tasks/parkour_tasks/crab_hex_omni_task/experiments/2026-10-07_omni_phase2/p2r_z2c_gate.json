@@ -1,0 +1,103 @@
+{
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB/model_20500.pt",
+ "ckpt_state": null,
+ "bank": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/walkstop__omni/seed002/2026-10-10_22-21-17/p2r_stand_bank.npz",
+ "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB",
+ "lines": {
+  "hip": 0.05,
+  "cam": 0.05
+ },
+ "path": "eval (own-estimator priv_explicit, hist_encoding=True)",
+ "agent_yaml": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB/params/agent.yaml",
+ "restance_scored": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+ "restance_source": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-10_19-01-45_seed18_X18_p2r_A15pB/params/agent.yaml: algorithm.restance",
+ "bc_banks_of_run": [
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/field_hard__omni/seed001/2026-10-10_22-41-00/p2r_stand_bank.npz",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/field_turn__omni/seed001/2026-10-10_22-38-42/p2r_stand_bank.npz",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/suite__omni/seed001/2026-10-10_22-24-03/p2r_stand_bank.npz",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/walkstop__omni/seed001/2026-10-10_22-18-27/p2r_stand_bank.npz",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTresg_s18/suite__omni/seed001/2026-10-10_22-47-41/p2r_stand_bank.npz",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2R_RSTresg_s18/walkstop__omni/seed001/2026-10-10_22-44-47/p2r_stand_bank.npz"
+ ],
+ "rows": 100000,
+ "obs_width": 1149,
+ "stand_bit_share": 1.0,
+ "bank_restance": "lift=-0.5,rho=1,up_frac=0.5,down_frac=0.4,k_c=2,k_h=1,trim=0.1,eps_c=0.1,eps_air=0.05,tilt_max=0.1,eps_step=0.3",
+ "bank_has_residual": false,
+ "target_vs_stored_max_abs": 0.0,
+ "eval": {
+  "rows": 100000,
+  "allhold_rows": 71707,
+  "allhold_share": 0.71707,
+  "cam_by_leg": {
+   "FL": -0.007376446046236162,
+   "FR": 0.006714955132867272,
+   "ML": 0.0008316303237988804,
+   "MR": -0.013913070662465478,
+   "RL": 0.0015532136941064341,
+   "RR": -0.01637118821577278
+  },
+  "cam_max_abs": 0.01637118821577278,
+  "hip_by_leg": {
+   "FL": -0.018656410451843162,
+   "FR": -0.005700272268559802,
+   "ML": 0.009369525301864915,
+   "MR": -0.02036953979533467,
+   "RL": -0.015487261858866444,
+   "RR": 0.0021196659069923876
+  },
+  "hip_max_abs": 0.02036953979533467,
+  "knee_by_leg": {
+   "FL": 0.01640235666216113,
+   "FR": -0.0008733340883983532,
+   "ML": 0.007566076278003256,
+   "MR": -0.01878159812076198,
+   "RL": 0.006593531824494916,
+   "RR": -0.0004774071862720975
+  },
+  "knee_max_abs": 0.01878159812076198,
+  "hist_encoding": true,
+  "priv": "estimator",
+  "prior_per_row_mean": 0.10290420055389404
+ },
+ "train_reported": {
+  "rows": 100000,
+  "allhold_rows": 71707,
+  "allhold_share": 0.71707,
+  "cam_by_leg": {
+   "FL": -0.007398333273180609,
+   "FR": 0.006528739743989126,
+   "ML": 0.0007485926405786312,
+   "MR": -0.01379066563436994,
+   "RL": 0.0014217779103613605,
+   "RR": -0.016327735687460664
+  },
+  "cam_max_abs": 0.016327735687460664,
+  "hip_by_leg": {
+   "FL": -0.01873946853349809,
+   "FR": -0.005766840772931747,
+   "ML": 0.009304279882180761,
+   "MR": -0.02042214562947199,
+   "RL": -0.015434971169963703,
+   "RR": 0.001990732131000514
+  },
+  "hip_max_abs": 0.02042214562947199,
+  "knee_by_leg": {
+   "FL": 0.016475211297638494,
+   "FR": -0.0009341303364518026,
+   "ML": 0.007780178323455013,
+   "MR": -0.018827289080213177,
+   "RL": 0.006530826705238396,
+   "RR": -0.0006513709161704745
+  },
+  "knee_max_abs": 0.018827289080213177,
+  "hist_encoding": false,
+  "priv": "true",
+  "prior_per_row_mean": 0.10289926081895828
+ },
+ "rc": 0,
+ "fails": [],
+ "why": "hip 0.02037 <= 0.05 and cam 0.01637 <= 0.05 on 71707 all-HOLD rows",
+ "verdict": "PASS",
+ "exit": 0
+}

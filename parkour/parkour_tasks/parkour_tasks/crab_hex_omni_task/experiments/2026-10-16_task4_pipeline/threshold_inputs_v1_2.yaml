@@ -1,0 +1,1120 @@
+# thresholds v1.2 inputs (CHARTER 2026-10-22, "F19 p3b (15:02) and T*, then a user amendment (22:36)" -> USER
+# DECISION 2026-10-22: amend + switch now). = threshold_inputs_v1_1.yaml byte for byte below except: version v1.2,
+# v1_2_created / v1_2_note, and zero_kg_translate_statistic: track_err -- the paired 0-kg check reads every TRAINED
+# TRANSLATE category as the change in tracking error |r_head - 1| - |r_p2a - 1| (an increase fails), with the 99 %
+# guard R of cat.<c>.ratio and SE_diff / the X12 - X08 drift on |r - 1|; move_turn stays a one-sided ratio drop; the
+# raw translate drop is a WATCH read. No stamp, anchor, floor, override, watch id or other line changes.
+version: v1.2
+created: '2026-10-16'
+v1_created: '2026-10-19'
+v1_note: 'thresholds v1 (PLAN step 8 -> STEPC_RULES V.2): v0 (threshold_inputs.yaml, D19 applied) byte-for-byte below,
+  plus (b) p3a_pilot: the payload pilot PP_p3a_s18 model_22993 at N_p 3000 (its_past_p2a 2999): its L090 suite / field_light
+  es1-2 rows (the C3 curve read) and its 0-kg row list, paired with S1''s same rows (T4C2_S1, the C2 es1 + es2 rows) -- the
+  stamps t4_stepC_read.gate_values / curve_read read; (c) sweep_anchors: the six C5 dirsweep__omni_body stamps (S1 s16 / s17
+  / s18 x es1-2, WATCH lines only); (a) no C2 re-anchor (C2 PASS: c2_reanchor []). Every stamp: the newest complete one in
+  its slot, eval_sha from its code_state.json (8c8d22f0 = the lock''s).'
+v1_1_created: '2026-10-21'
+v1_1_note: 'thresholds v1.1 (CHARTER 2026-10-21, R18 SN HALT -> user decisions 1 and C; workflow wf_fdf94607-da9):
+  v1 (threshold_inputs_v1.yaml) byte-for-byte below except (A) recommended.watch gains the four SN G1 stillness ids
+  (stand.D1.G1.taps_per_s / steps_per_s suite es1 / es2) -> WATCH, like the STOP-0 G2 post-settle stillness lines (SH''s
+  K5 / K6 re-gate stillness on the shipping stand net), and (C) degenerate_fixed_t: unvalidated (a fixed-t line with
+  sigma_hat 0 reports rate None + ''degenerate/unvalidated'', excluded from the sums explicitly). No stamp, anchor,
+  floor, override or line value changes.'
+degenerate_fixed_t: unvalidated
+v1_2_created: '2026-10-22'
+v1_2_note: 'thresholds v1.2 (CHARTER 2026-10-22, F19 p3b -> USER DECISION 2026-10-22: amend + switch now): v1.1
+  (threshold_inputs_v1_1.yaml) byte-for-byte below except zero_kg_translate_statistic: track_err. The paired 0-kg
+  check''s decisive statistic for every trained translate category becomes track_err <c> = |r_head - 1| - |r_p2a
+  - 1| on the same per-category median ratio, failing on an INCREASE in tracking error only (F19 p3b failed only on
+  back 1.061 -> 0.993 / 1.059 -> 0.988, p2a''s overshoot moving to 1.0, while |r - 1| improved 0.061 -> 0.007 /
+  0.059 -> 0.012). Margin = max(R, 3 SE_diff, drift x its_past_p2a / 5000) as PLAN: R = the 99 % guard R of
+  cat.<c>.ratio, SE_diff = the paired env-clustered bootstrap SE on |r - 1|, drift = X12 - X08 recomputed on |r -
+  1| from the same stamps. move_turn stays the one-sided ratio drop (same R / SE / drift); the old raw translate
+  drop (ratio <c>) is kept as a WATCH read; survival, facing, yaw_progress, field completion and side22 are
+  unchanged.'
+zero_kg_translate_statistic: track_err
+note: 'Stamp/anchor map for TP/thresholds.py (thresholds v0). Paths are relative to the repo root. Each stamp is the newest complete one (scenario_metrics.json + run_meta.json + summary.md + raw/; the completion
+  marker, complete.json / p2_complete.json, is recorded where present -- bc_eval_row stamps carry none) for its arm/row/env seed at the time of writing; eval_sha "none" = a PPO-era stamp without code_state.json,
+  inferred 1d021625 (probe: EVAL_PATHSPECS unchanged 60532fb9..79dec009). 567d1704 is preferred where a bitwise-equal 567d1704 stamp exists (G0f_S1_s18 suite / field_hard es1).'
+resolution_files:
+- parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-23_clock_deprecation/resolution.36e5a8af7000.json
+resolution_file_status:
+  ? parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-19_facing_tracking_ladder/resolution.74f93b91dc8b.json
+  : DROPPED from the inputs (D19, user decision 2026-10-16 at STOP-0) -- untracked, another session's file
+side22_classifier: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts/side22_classify.py
+stages:
+  s1:
+    trained_translate: &id001
+    - fwd
+    - side
+    - back
+    suite_row: suite__omni
+    floor_read_env_seeds:
+    - 1
+    suite:
+      16:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X40_s1_A15pB/suite__omni/seed001/2026-10-04_08-38-58
+          eval_sha: none
+      17:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed17_X42_s1_A15pB/suite__omni/seed001/2026-10-04_13-43-33
+          eval_sha: none
+      18:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X43_s1_A15pB/suite__omni/seed001/2026-10-04_16-15-43
+          eval_sha: none
+    side22:
+      16:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/FB6k__B_s16/side22_25lr__omni/seed001/2026-10-04_08-46-13
+        eval_sha: none
+      17:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/FB6k__B_s17/side22_25lr__omni/seed001/2026-10-04_13-50-48
+        eval_sha: none
+      18:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/FB6k__B_s18/side22_25lr__omni/seed001/2026-10-04_16-23-08
+        eval_sha: none
+    known_bad:
+      C0_X39_s16:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X39_s1_A15pB/suite__omni/seed001/2026-10-04_06-04-36
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/FB6k__C0_s16/side22_25lr__omni/seed001/2026-10-04_06-13-54
+          eval_sha: none
+      C0_X41_s17:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed17_X41_s1_A15pB/suite__omni/seed001/2026-10-04_11-11-03
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/FB6k__C0_s17/side22_25lr__omni/seed001/2026-10-04_11-18-28
+          eval_sha: none
+      C0_X44_s18:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X44_s1_A15pB/suite__omni/seed001/2026-10-04_18-47-59
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/FB6k__C0_s18/side22_25lr__omni/seed001/2026-10-04_18-57-15
+          eval_sha: none
+  c4:
+    trained_translate: *id001
+    suite_row: suite__omni
+    floor_read_env_seeds:
+    - 1
+    suite:
+      16:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X55_c4_A15pB/suite__omni/seed001/2026-10-05_20-40-59
+          eval_sha: none
+      17:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed17_X56_c4_A15pB/suite__omni/seed001/2026-10-05_21-29-07
+          eval_sha: none
+      18:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X57_c4_A15pB/suite__omni/seed001/2026-10-05_22-15-16
+          eval_sha: none
+    side22:
+      16:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__B_c4_s16/side22_25lr__omni/seed001/2026-10-05_20-49-24
+        eval_sha: none
+      17:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__B_c4_s17/side22_25lr__omni/seed001/2026-10-05_21-37-32
+        eval_sha: none
+      18:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__B_c4_s18/side22_25lr__omni/seed001/2026-10-05_22-23-41
+        eval_sha: none
+    known_bad:
+      C0_X61_s16:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X61_c4_A15pB/suite__omni/seed001/2026-10-06_09-21-24
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_c4_s16/side22_25lr__omni/seed001/2026-10-06_09-29-48
+          eval_sha: none
+      C0_X62_s17:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed17_X62_c4_A15pB/suite__omni/seed001/2026-10-06_10-09-40
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_c4_s17/side22_25lr__omni/seed001/2026-10-06_10-18-05
+          eval_sha: none
+      C0_X63_s18:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X63_c4_A15pB/suite__omni/seed001/2026-10-06_10-57-57
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_c4_s18/side22_25lr__omni/seed001/2026-10-06_11-06-22
+          eval_sha: none
+  c5:
+    trained_translate: &id002
+    - fwd
+    - side
+    - back
+    - diag
+    suite_row: suite__omni_body
+    floor_read_env_seeds:
+    - 1
+    suite:
+      16:
+        1:
+          stamp: parkour/outputs/omni_plan/body_cmd/lr/STG_c5_s16/suite__omni_body/seed001/2026-10-16_04-51-20
+          eval_sha: 567d1704
+      17:
+        1:
+          stamp: parkour/outputs/omni_plan/body_cmd/lr/STG_c5_s17/suite__omni_body/seed001/2026-10-16_04-58-22
+          eval_sha: 567d1704
+      18:
+        1:
+          stamp: parkour/outputs/omni_plan/body_cmd/lr/STG_c5_s18/suite__omni_body/seed001/2026-10-16_05-05-28
+          eval_sha: 567d1704
+    side22: null
+    known_bad: {}
+    note: no world-mode stamp exists at c5; anchors are the body-mode STG_c5 reads (suite__omni_body, body_hold adapter) -- a different row and adapter (body vs world ratio differ by up to ~0.02 at the
+      other stages); no c5 side22 and no c5 known-bad stamp
+  c6:
+    trained_translate: *id002
+    suite_row: suite__omni
+    floor_read_env_seeds:
+    - 1
+    suite:
+      16:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X58_c6_A15pB/suite__omni/seed001/2026-10-05_23-47-27
+          eval_sha: none
+      17:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed17_X59_c6_A15pB/suite__omni/seed001/2026-10-06_03-03-08
+          eval_sha: none
+      18:
+        1:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X60_c6_A15pB/suite__omni/seed001/2026-10-06_06-16-50
+          eval_sha: none
+    side22:
+      16:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__B_rest_s16_c6/side22_25lr__omni/seed001/2026-10-06_08-12-28
+        eval_sha: none
+      17:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__B_rest_s17_c6/side22_25lr__omni/seed001/2026-10-06_08-23-26
+        eval_sha: none
+      18:
+        stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__B_rest_s18_c6/side22_25lr__omni/seed001/2026-10-06_08-34-22
+        eval_sha: none
+    known_bad:
+      C0_X64_s16:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X64_c6_A15pB/suite__omni/seed001/2026-10-06_12-34-18
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_rest_s16_c6/side22_25lr__omni/seed001/2026-10-06_14-28-30
+          eval_sha: none
+  c6x:
+    trained_translate: *id002
+    suite_row: suite__omni
+    floor_read_env_seeds:
+    - 1
+    suite:
+      16:
+        1:
+          stamp: parkour/outputs/omni_plan/phase2/lr/ANC_s16/suite__omni/seed001/2026-10-06_23-40-02
+          eval_sha: 1d021625
+      17:
+        1:
+          stamp: parkour/outputs/omni_plan/phase2/lr/ANC_s17/suite__omni/seed001/2026-10-07_00-24-26
+          eval_sha: 1d021625
+      18:
+        1:
+          stamp: parkour/outputs/omni_plan/phase2/lr/ANC_s18/suite__omni/seed001/2026-10-06_22-48-11
+          eval_sha: 1d021625
+    side22:
+      16:
+        stamp: parkour/outputs/omni_plan/phase2/lr/ANC_s16/side22_25lr__omni/seed001/2026-10-06_23-46-59
+        eval_sha: 1d021625
+      17:
+        stamp: parkour/outputs/omni_plan/phase2/lr/ANC_s17/side22_25lr__omni/seed001/2026-10-07_00-31-22
+        eval_sha: 1d021625
+      18:
+        stamp: parkour/outputs/omni_plan/phase2/lr/ANC_s18/side22_25lr__omni/seed001/2026-10-06_23-02-07
+        eval_sha: 1d021625
+    known_bad:
+      C0_X64_s16:
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X64_c6x_A15pB/suite__omni/seed001/2026-10-06_14-11-51
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_rest_s16/side22_25lr__omni/seed001/2026-10-06_14-20-36
+          eval_sha: none
+    note: ANC_s16/17/18 are the phase-2 same-checkpoint re-reads (eval_sha 1d021625 recorded) of the PPO-era X58/X59/X60 c6x stamps; equal in every aggregate key except trained_categories (probe c)
+  p2a:
+    trained_translate: *id002
+    suite_row: suite__omni
+    floor_read_env_seeds:
+    - 1
+    - 2
+    suite:
+      16:
+        1:
+          stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s16/suite__omni/seed001/2026-10-11_17-56-16
+          eval_sha: 1d021625
+        2:
+          stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s16/suite__omni/seed002/2026-10-11_18-02-58
+          eval_sha: 1d021625
+      17:
+        1:
+          stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s17/suite__omni/seed001/2026-10-11_19-32-21
+          eval_sha: 1d021625
+        2:
+          stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s17/suite__omni/seed002/2026-10-11_19-39-06
+          eval_sha: 1d021625
+      18:
+        1:
+          stamp: parkour/outputs/omni_plan/body_cmd/lr/G0f_S1_s18/suite__omni/seed001/2026-10-15_23-32-02
+          eval_sha: 567d1704
+        2:
+          stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed002/2026-10-09_03-27-23
+          eval_sha: 1d021625
+    side22:
+      16:
+        stamp: parkour/outputs/omni_plan/phase2/lr/P2__S1_s16/side22_25lr__omni/seed001/2026-10-07_21-48-36
+        eval_sha: 1d021625
+      17:
+        stamp: parkour/outputs/omni_plan/phase2/lr/P2__S1_s17/side22_25lr__omni/seed001/2026-10-08_01-19-40
+        eval_sha: 1d021625
+      18:
+        stamp: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/side22_25lr__omni/seed001/2026-10-07_14-02-00
+        eval_sha: 1d021625
+    equality_checks:
+    - a:
+        stamp: parkour/outputs/omni_plan/body_cmd/lr/G0f_S1_s18/suite__omni/seed001/2026-10-15_23-32-02
+        eval_sha: 567d1704
+      b:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24
+        eval_sha: 1d021625
+    - a:
+        stamp: parkour/outputs/omni_plan/body_cmd/lr/G0f_S1_s18/field_hard__omni/seed001/2026-10-15_23-39-10
+        eval_sha: 567d1704
+      b:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed001/2026-10-08_05-39-53
+        eval_sha: 1d021625
+    field:
+      field_hard:
+        16:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_hard__omni/seed001/2026-10-08_06-28-28
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_hard__omni/seed002/2026-10-08_06-32-06
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_hard__omni/seed003/2026-10-08_06-35-42
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_hard__omni/seed004/2026-10-08_06-39-20
+          eval_sha: 1d021625
+        17:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_hard__omni/seed001/2026-10-08_07-16-43
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_hard__omni/seed002/2026-10-08_07-20-20
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_hard__omni/seed003/2026-10-08_07-23-57
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_hard__omni/seed004/2026-10-08_07-27-33
+          eval_sha: 1d021625
+        18:
+        - stamp: parkour/outputs/omni_plan/body_cmd/lr/G0f_S1_s18/field_hard__omni/seed001/2026-10-15_23-39-10
+          eval_sha: 567d1704
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed002/2026-10-08_05-43-30
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed003/2026-10-08_05-47-08
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed004/2026-10-08_05-50-57
+          eval_sha: 1d021625
+      field_light:
+        16:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_light__omni/seed001/2026-10-08_06-14-48
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_light__omni/seed002/2026-10-08_06-18-14
+          eval_sha: 1d021625
+        17:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_light__omni/seed001/2026-10-08_07-02-59
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_light__omni/seed002/2026-10-08_07-06-26
+          eval_sha: 1d021625
+        18:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed001/2026-10-08_05-26-01
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed002/2026-10-08_05-29-33
+          eval_sha: 1d021625
+      ring_obst:
+        16:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/ring_obst__omni/seed001/2026-10-08_06-21-38
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/ring_obst__omni/seed002/2026-10-08_06-25-03
+          eval_sha: 1d021625
+        17:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/ring_obst__omni/seed001/2026-10-08_07-09-52
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/ring_obst__omni/seed002/2026-10-08_07-13-17
+          eval_sha: 1d021625
+        18:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/ring_obst__omni/seed001/2026-10-08_05-33-02
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/ring_obst__omni/seed002/2026-10-08_05-36-28
+          eval_sha: 1d021625
+      field_turn:
+        16:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_turn__omni/seed001/2026-10-08_06-42-57
+          eval_sha: 1d021625
+        17:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_turn__omni/seed001/2026-10-08_07-31-09
+          eval_sha: 1d021625
+        18:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_turn__omni/seed001/2026-10-08_05-54-46
+          eval_sha: 1d021625
+    known_bad:
+      C0_X64_c6x_s16 (cross-stage):
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed16_X64_c6x_A15pB/suite__omni/seed001/2026-10-06_14-11-51
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_rest_s16/side22_25lr__omni/seed001/2026-10-06_14-20-36
+          eval_sha: none
+      C0_X63_c4_s18 (cross-stage):
+        suite:
+          stamp: parkour/logs/rsl_rl/gait_eval/omni_phases/2026-10-01_ppo_construction/seed18_X63_c4_A15pB/suite__omni/seed001/2026-10-06_10-57-57
+          eval_sha: none
+        side22:
+          stamp: parkour/outputs/omni_plan/ppo_construction/lr/SF__C0_c4_s18/side22_25lr__omni/seed001/2026-10-06_11-06-22
+          eval_sha: none
+    known_bad_field:
+      ANCW_s16:
+        field_hard:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/field_hard__omni/seed001/2026-10-07_03-51-17
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/field_hard__omni/seed002/2026-10-07_03-54-53
+          eval_sha: 1d021625
+        field_light:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/field_light__omni/seed001/2026-10-07_03-44-23
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/field_light__omni/seed002/2026-10-07_03-47-49
+          eval_sha: 1d021625
+        ring_obst:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/ring_obst__omni/seed001/2026-10-07_03-58-29
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/ring_obst__omni/seed002/2026-10-07_04-01-55
+          eval_sha: 1d021625
+        field_turn:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s16/field_turn__omni/seed001/2026-10-07_04-05-21
+          eval_sha: 1d021625
+      ANCW_s17:
+        field_hard:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/field_hard__omni/seed001/2026-10-07_04-35-42
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/field_hard__omni/seed002/2026-10-07_04-39-15
+          eval_sha: 1d021625
+        field_light:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/field_light__omni/seed001/2026-10-07_04-28-50
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/field_light__omni/seed002/2026-10-07_04-32-15
+          eval_sha: 1d021625
+        ring_obst:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/ring_obst__omni/seed001/2026-10-07_04-42-48
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/ring_obst__omni/seed002/2026-10-07_04-46-14
+          eval_sha: 1d021625
+        field_turn:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s17/field_turn__omni/seed001/2026-10-07_04-49-39
+          eval_sha: 1d021625
+      ANCW_s18:
+        field_hard:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/field_hard__omni/seed001/2026-10-07_03-06-39
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/field_hard__omni/seed002/2026-10-07_03-10-15
+          eval_sha: 1d021625
+        field_light:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/field_light__omni/seed001/2026-10-07_02-59-36
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/field_light__omni/seed002/2026-10-07_03-03-03
+          eval_sha: 1d021625
+        ring_obst:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/ring_obst__omni/seed001/2026-10-07_03-13-59
+          eval_sha: 1d021625
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/ring_obst__omni/seed002/2026-10-07_03-17-25
+          eval_sha: 1d021625
+        field_turn:
+        - stamp: parkour/outputs/omni_plan/phase2/lr/ANCW_s18/field_turn__omni/seed001/2026-10-07_03-20-51
+          eval_sha: 1d021625
+    note: p2a floors have no same-stage known-bad (the C0 lineage stopped at c6x); the C0 stamps are cross-stage known-bads for the same 0.90 / 0.70 lines
+drift_pair:
+  x12:
+    name: P2__C0_s18 (X12, 5000 more its of the unchanged S1 recipe)
+    suite:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/C0R_s18/suite__omni/seed001/2026-10-09_04-20-05
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/C0R_s18/suite__omni/seed002/2026-10-09_04-27-05
+        eval_sha: 1d021625
+    side22:
+      stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/side22_25lr__omni/seed001/2026-10-08_09-55-18
+      eval_sha: 1d021625
+    field_hard:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed001/2026-10-08_10-12-44
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed002/2026-10-08_10-16-26
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed003/2026-10-08_10-20-04
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_hard__omni/seed004/2026-10-08_10-23-47
+      eval_sha: 1d021625
+    field_light:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_light__omni/seed001/2026-10-08_09-58-57
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_light__omni/seed002/2026-10-08_10-02-23
+      eval_sha: 1d021625
+    ring_obst:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/ring_obst__omni/seed001/2026-10-08_10-05-50
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/ring_obst__omni/seed002/2026-10-08_10-09-17
+      eval_sha: 1d021625
+    field_turn:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/P2__C0_s18/field_turn__omni/seed001/2026-10-08_10-27-26
+      eval_sha: 1d021625
+  x08:
+    name: S1 s18 (X08, p2a head of record)
+    suite:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed002/2026-10-09_03-27-23
+        eval_sha: 1d021625
+    side22:
+      stamp: parkour/outputs/omni_plan/phase2/lr/P2__S1_s18/side22_25lr__omni/seed001/2026-10-07_14-02-00
+      eval_sha: 1d021625
+    field_hard:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed001/2026-10-08_05-39-53
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed002/2026-10-08_05-43-30
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed003/2026-10-08_05-47-08
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_hard__omni/seed004/2026-10-08_05-50-57
+      eval_sha: 1d021625
+    field_light:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed001/2026-10-08_05-26-01
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed002/2026-10-08_05-29-33
+      eval_sha: 1d021625
+    ring_obst:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/ring_obst__omni/seed001/2026-10-08_05-33-02
+      eval_sha: 1d021625
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/ring_obst__omni/seed002/2026-10-08_05-36-28
+      eval_sha: 1d021625
+    field_turn:
+    - stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_turn__omni/seed001/2026-10-08_05-54-46
+      eval_sha: 1d021625
+  its_between: 5000
+  note: X12 suite es1 = the C0R_s18 re-read (same checkpoint model_24993, walker-alone REFS env, STAND_OBS=0); identical to the driver stamp seed18_X12_p2b suite es1
+p3a_apriori_s1:
+  16:
+    suite:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s16/suite__omni/seed001/2026-10-11_17-56-16
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s16/suite__omni/seed002/2026-10-11_18-02-58
+        eval_sha: 1d021625
+    field_light:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_light__omni/seed001/2026-10-08_06-14-48
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s16/field_light__omni/seed002/2026-10-08_06-18-14
+        eval_sha: 1d021625
+  17:
+    suite:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s17/suite__omni/seed001/2026-10-11_19-32-21
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s17/suite__omni/seed002/2026-10-11_19-39-06
+        eval_sha: 1d021625
+    field_light:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_light__omni/seed001/2026-10-08_07-02-59
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s17/field_light__omni/seed002/2026-10-08_07-06-26
+        eval_sha: 1d021625
+  18:
+    suite:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed001/2026-10-09_03-20-24
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/suite__omni/seed002/2026-10-09_03-27-23
+        eval_sha: 1d021625
+    field_light:
+      1:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed001/2026-10-08_05-26-01
+        eval_sha: 1d021625
+      2:
+        stamp: parkour/outputs/omni_plan/phase2/lr/REF_S1_s18/field_light__omni/seed002/2026-10-08_05-29-33
+        eval_sha: 1d021625
+stand:
+  sn_heads:
+    16: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/head_SN_Amask_s16.json
+    17: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/head_SN_Amask_s17.json
+    18: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/head_SN_Amask_s18.json
+  sn_extra_known_bad:
+    A-full s18: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/head_SN_Afull_s18.json
+  sh_heads:
+    16: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/head_SH_T16.json
+    17: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/head_SH_T17.json
+    18: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/head_SH_T18.json
+  k5_sn_calib:
+    source: sn_calib.py --head SH_T{16,17,18}z (CPU re-read 2026-10-16 of the recorded zero-command stamps under parkour/outputs/omni_plan/phase2/lr/SH_T1xz; clause values and lines unchanged; the INVALID
+      verdicts there are sn_calib D5 variant checks, which sh_read replaces with its own K5 validity)
+    gates:
+      G1:
+        steps_per_s suite es1:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+        clearance_m suite es1:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.05
+            17: 0.05
+            18: 0.05
+        off_ground_share suite es1:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.1
+            17: 0.1
+            18: 0.1
+        hover_episodes_per_100 suite es1:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 5.0
+            17: 5.0
+            18: 5.0
+        taps_per_s suite es1:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 1.0
+            17: 1.0
+            18: 1.0
+        ks_m_s suite es1:
+          values:
+            16: 0.09862
+            17: 0.09899
+            18: 0.09803
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+        steps_per_s suite es2:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+        clearance_m suite es2:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.05
+            17: 0.05
+            18: 0.05
+        off_ground_share suite es2:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.1
+            17: 0.1
+            18: 0.1
+        hover_episodes_per_100 suite es2:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 5.0
+            17: 5.0
+            18: 5.0
+        taps_per_s suite es2:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 1.0
+            17: 1.0
+            18: 1.0
+        ks_m_s suite es2:
+          values:
+            16: 0.10418
+            17: 0.10429
+            18: 0.10582
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+      G2:
+        homed walkstop es1:
+          values:
+            16: 0.97667
+            17: 1.0
+            18: 0.98333
+          lines:
+            16: 0.9
+            17: 0.9
+            18: 0.9
+        settled walkstop es1:
+          values:
+            16: 0.98333
+            17: 1.0
+            18: 0.98333
+          lines:
+            16: 0.9
+            17: 0.9
+            18: 0.9
+        median settle walkstop es1 <= probe + 1.0 s:
+          values:
+            16: 2.48
+            17: 2.45
+            18: 2.6
+          lines:
+            16: 3.92
+            17: 3.92
+            18: 3.92
+        post_settle_steps_per_s walkstop es1:
+          values:
+            16: 0.11261
+            17: 0.10204
+            18: 0.11457
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+        post_settle_taps_per_s walkstop es1:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 1.0
+            17: 1.0
+            18: 1.0
+        post_settle_ks_m_s walkstop es1:
+          values:
+            16: 0.1506
+            17: 0.14325
+            18: 0.15171
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+        homed walkstop es2:
+          values:
+            16: 0.98
+            17: 0.99
+            18: 0.99333
+          lines:
+            16: 0.9
+            17: 0.9
+            18: 0.9
+        settled walkstop es2:
+          values:
+            16: 0.98
+            17: 0.99
+            18: 0.99333
+          lines:
+            16: 0.9
+            17: 0.9
+            18: 0.9
+        median settle walkstop es2 <= probe + 1.0 s:
+          values:
+            16: 2.5
+            17: 2.52
+            18: 2.5
+          lines:
+            16: 3.96
+            17: 3.96
+            18: 3.96
+        post_settle_steps_per_s walkstop es2:
+          values:
+            16: 0.10811
+            17: 0.0999
+            18: 0.10894
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+        post_settle_taps_per_s walkstop es2:
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 1.0
+            17: 1.0
+            18: 1.0
+        post_settle_ks_m_s walkstop es2:
+          values:
+            16: 0.14953
+            17: 0.14892
+            18: 0.14474
+          lines:
+            16: 0.5
+            17: 0.5
+            18: 0.5
+      G3:
+        walkstop stand falls (count) es1 <= max(1, Z1's count):
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 1
+            17: 1
+            18: 1
+        suite stand falls es1 == 0:
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 0
+            17: 0
+            18: 0
+        walkstop exit-handover falls within 2 s es1 <= max(1, R's):
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 1
+            17: 1
+            18: 1
+        walkstop stand falls (count) es2 <= max(1, Z1's count):
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 1
+            17: 1
+            18: 1
+        suite stand falls es2 == 0:
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 0
+            17: 0
+            18: 0
+        walkstop exit-handover falls within 2 s es2 <= max(1, R's):
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 1
+            17: 1
+            18: 1
+      G4:
+        field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE):
+          values:
+            16: 0.825
+            17: 0.825
+            18: 0.7875
+          lines:
+            16: 0.7580281035762477
+            17: 0.7580281035762477
+            18: 0.7559590856105068
+        field_turn es1 completion >= REFS - max(0.05, band):
+          values:
+            16: 0.98
+            17: 1.0
+            18: 1.0
+          lines:
+            16: 0.94
+            17: 0.94
+            18: 0.94
+        field_turn__omni@1 stand-fall rate <= HOLD + 2 SE(diff):
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+        field_hard__omni@1-4 stand-fall rate <= HOLD + 2 SE(diff):
+          values:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+          lines:
+            16: 0.0
+            17: 0.0
+            18: 0.0
+      G5:
+        walkstop onset median es1 <= REFS + max(0.3, band):
+          values:
+            16: 0.12
+            17: 0.12
+            18: 0.12
+          lines:
+            16: 0.44
+            17: 0.44
+            18: 0.44
+        walkstop onset stalls es1 <= REFS + 1:
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 1
+            17: 1
+            18: 1
+        walkstop onset median es2 <= REFS + max(0.3, band):
+          values:
+            16: 0.12
+            17: 0.12
+            18: 0.12
+          lines:
+            16: 0.44
+            17: 0.44
+            18: 0.44
+        walkstop onset stalls es2 <= REFS + 1:
+          values:
+            16: 0
+            17: 0
+            18: 0
+          lines:
+            16: 1
+            17: 1
+            18: 1
+        walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost):
+          values:
+            16: 0.12
+            17: 0.12
+            18: 0.12
+          lines:
+            16: 0.44
+            17: 0.44
+            18: 0.44
+        suite es1 |body height - REFS| <= 0.03:
+          values:
+            16: 0.0032200000000000006
+            17: 0.0032000000000000917
+            18: 0.003230000000000066
+          lines:
+            16: 0.03
+            17: 0.03
+            18: 0.03
+        walkstop es1 |body height - REFS| <= 0.03:
+          values:
+            16: 0.00607000000000002
+            17: 0.006240000000000023
+            18: 0.006129999999999969
+          lines:
+            16: 0.03
+            17: 0.03
+            18: 0.03
+        suite es2 |body height - REFS| <= 0.03:
+          values:
+            16: 0.0016899999999999693
+            17: 0.0016899999999999693
+            18: 0.0017000000000000348
+          lines:
+            16: 0.03
+            17: 0.03
+            18: 0.03
+        walkstop es2 |body height - REFS| <= 0.03:
+          values:
+            16: 0.005610000000000115
+            17: 0.005750000000000144
+            18: 0.005560000000000009
+          lines:
+            16: 0.03
+            17: 0.03
+            18: 0.03
+recommended:
+  floors:
+    s1:
+      survival: 0.8
+      ratio: 0.5
+      side22: notslow
+    c4:
+      survival: 0.8
+      ratio: 0.5
+      side22: notslow
+    c5:
+      survival: 0.8
+      ratio: 0.5
+      side22: notslow
+    c6:
+      survival: 0.8
+      ratio: 0.5
+      side22: notslow
+    c6x:
+      survival: 0.8
+      ratio: 0.5
+      side22: notslow
+  stand_standard_overrides:
+    SH.K4.miss es1 <= max(1, R_h's): 3
+    SH.K4.miss es2 <= max(1, R_h's): 3
+  stand_overrides:
+    SH.K4.miss es1 <= max(1, R_h's): 3
+    SH.K4.miss es2 <= max(1, R_h's): 3
+    SN.G4.field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE): 0.7125
+    SN.G4.field_turn es1 completion >= REFS - max(0.05, band): 0.89
+  watch:
+  - stand.D1.G2.post_settle_steps_per_s walkstop es1
+  - stand.D1.G2.post_settle_steps_per_s walkstop es2
+  - stand.D1.G2.post_settle_taps_per_s walkstop es1
+  - stand.D1.G2.post_settle_taps_per_s walkstop es2
+  - stand.D1.G1.taps_per_s suite es1
+  - stand.D1.G1.taps_per_s suite es2
+  - stand.D1.G1.steps_per_s suite es1
+  - stand.D1.G1.steps_per_s suite es2
+  note: 'PROPOSED at STOP-0 (step 1); the user fixes the values. floors: s1-c6x lowered (survival / ratio / side22 FAST->not-SLOW); p2a, p3a and the student keep 0.90 / 0.70 / FAST-FAST (PLAN). stand_overrides:
+    K4 <= 3/800 per env seed (D9) and G4 relaxed to REFS(T*) - max(0.10, 2 SE) expressed at the S1-era REFS values (field_hard 0.8125 - 0.10, field_turn 0.99 - 0.10). watch: SN (D1) G2 post-settle steps
+    / taps -> WATCH (re-gated on SH through K5 at the coded lines).'
+  watch_note_v1_1: 'v1.1 (CHARTER 2026-10-21, R18 SN HALT and T* review -> user decision 1: amend): SN G1 taps/s and
+    steps/s on suite es1 / es2 become WATCH, like the STOP-0 G2 post-settle stillness lines above; SH''s K5 / K6 stays the
+    decisive stillness test on the shipping stand net. Disclosed: R18 SN G1 taps/s 1.042 / 1.125 (line <= 1), share
+    of episodes with >= 13 taps 50 % / 53 %.'
+p3a_pilot:
+  name: PP_p3a_s18 model_22993 (N_p 3000; STEPC_RULES C3.5-C3.8)
+  checkpoint: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_02-52-20_seed18_X09_p3a_A15pB/model_22993.pt
+  checkpoint_sha256: 95f768025cd26611d5852eab962019f08341abce5309f2c0f0926ab745ba2f61
+  its_past_p2a: 2999
+  level90:
+    suite@1:
+      stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993_L090/suite__omni/seed001/2026-10-17_09-20-54
+      eval_sha: 8c8d22f0
+    suite@2:
+      stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993_L090/suite__omni/seed002/2026-10-17_09-27-55
+      eval_sha: 8c8d22f0
+    field_light@1:
+      stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993_L090/field_light__omni/seed001/2026-10-17_11-02-22
+      eval_sha: 8c8d22f0
+    field_light@2:
+      stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993_L090/field_light__omni/seed002/2026-10-17_11-06-02
+      eval_sha: 8c8d22f0
+  zero_kg:
+    head:
+      suite@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/suite__omni/seed001/2026-10-17_09-35-11
+        eval_sha: 8c8d22f0
+      suite@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/suite__omni/seed002/2026-10-17_09-42-14
+        eval_sha: 8c8d22f0
+      side22@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/side22_25lr__omni/seed001/2026-10-17_09-49-18
+        eval_sha: 8c8d22f0
+      field_hard@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/field_hard__omni/seed001/2026-10-17_09-52-59
+        eval_sha: 8c8d22f0
+      field_hard@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/field_hard__omni/seed002/2026-10-17_09-56-46
+        eval_sha: 8c8d22f0
+      field_light@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/field_light__omni/seed001/2026-10-17_10-00-33
+        eval_sha: 8c8d22f0
+      field_light@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/field_light__omni/seed002/2026-10-17_10-04-08
+        eval_sha: 8c8d22f0
+      ring_obst@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/ring_obst__omni/seed001/2026-10-17_10-07-43
+        eval_sha: 8c8d22f0
+      ring_obst@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/ring_obst__omni/seed002/2026-10-17_10-11-19
+        eval_sha: 8c8d22f0
+      field_turn@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/field_turn__omni/seed001/2026-10-17_10-14-54
+        eval_sha: 8c8d22f0
+      field_turn@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C3_pilot_c22993/field_turn__omni/seed002/2026-10-17_10-17-16
+        eval_sha: 8c8d22f0
+    p2a:
+      suite@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed001/2026-10-17_03-28-36
+        eval_sha: 8c8d22f0
+      suite@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/suite__omni/seed002/2026-10-17_04-55-29
+        eval_sha: 8c8d22f0
+      side22@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/side22_25lr__omni/seed001/2026-10-17_03-35-41
+        eval_sha: 8c8d22f0
+      field_hard@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_hard__omni/seed001/2026-10-17_03-39-20
+        eval_sha: 8c8d22f0
+      field_hard@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_hard__omni/seed002/2026-10-17_05-02-32
+        eval_sha: 8c8d22f0
+      field_light@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_light__omni/seed001/2026-10-17_03-43-00
+        eval_sha: 8c8d22f0
+      field_light@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_light__omni/seed002/2026-10-17_05-06-12
+        eval_sha: 8c8d22f0
+      ring_obst@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/ring_obst__omni/seed001/2026-10-17_03-46-30
+        eval_sha: 8c8d22f0
+      ring_obst@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/ring_obst__omni/seed002/2026-10-17_05-09-40
+        eval_sha: 8c8d22f0
+      field_turn@1:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_turn__omni/seed001/2026-10-17_03-49-59
+        eval_sha: 8c8d22f0
+      field_turn@2:
+        stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C2_S1/field_turn__omni/seed002/2026-10-17_05-13-08
+        eval_sha: 8c8d22f0
+sweep_anchors:
+  s16_es1:
+    stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s16/dirsweep__omni_body/seed001/2026-10-17_18-48-40
+    eval_sha: 8c8d22f0
+  s16_es2:
+    stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s16/dirsweep__omni_body/seed002/2026-10-17_18-59-56
+    eval_sha: 8c8d22f0
+  s17_es1:
+    stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s17/dirsweep__omni_body/seed001/2026-10-17_19-11-14
+    eval_sha: 8c8d22f0
+  s17_es2:
+    stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s17/dirsweep__omni_body/seed002/2026-10-17_19-22-26
+    eval_sha: 8c8d22f0
+  s18_es1:
+    stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed001/2026-10-17_19-33-39
+    eval_sha: 8c8d22f0
+  s18_es2:
+    stamp: parkour/outputs/omni_plan/task4/stepC/lr/T4C5_s18/dirsweep__omni_body/seed002/2026-10-17_19-44-57
+    eval_sha: 8c8d22f0
+c2_reanchor: []

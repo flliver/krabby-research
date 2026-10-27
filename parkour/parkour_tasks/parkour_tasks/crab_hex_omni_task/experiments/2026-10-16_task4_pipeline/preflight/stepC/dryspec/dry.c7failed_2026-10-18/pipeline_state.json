@@ -1,0 +1,1679 @@
+{
+ "schema": 1,
+ "run": "dry",
+ "created": "2026-10-17T16:26:59",
+ "status": "running",
+ "pin": {
+  "lock_sha256": "213eb9f4d353ecf7cc5a6f91508f8c7b6ad22c1281aec59a4793d09811e56a57",
+  "at": "2026-10-17T16:26:59",
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd"
+ },
+ "stages": {
+  "s1": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:26:59",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T16:36:29",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T16:40:05",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['s1.floor.ratio.fwd.es1', 's1.floor.survival.side.es1', 's1.floor.ratio.side.es1', 's1.floor.survival.back.es1', 's1.floor.ratio.back.es1', 's1.floor.side22_notslow']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792268819",
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/s1.json"
+   }
+  },
+  "c4": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['s1']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['c4.injected']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792269729",
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/c4.json"
+   }
+  },
+  "c5": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c4']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c4']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "gate",
+     "to": "rows",
+     "why": "Gate 0 INVALID once (['dry-pass injected INVALID']): the rows rerun"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['c5.floor.survival.fwd.es1', 'c5.floor.ratio.fwd.es1', 'c5.floor.survival.side.es1', 'c5.floor.ratio.side.es1', 'c5.floor.survival.back.es1', 'c5.floor.ratio.back.es1', 'c5.floor.survival.diag.es1', 'c5.floor.ratio.diag.es1', 'c5.floor.side22_notslow']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792270279",
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/c5.json"
+   },
+   "attempts": {
+    "invalid": 1
+   }
+  },
+  "c6": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c5']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c5']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c5']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "training",
+     "to": "halt",
+     "why": "GUARD: dry-pass injected GUARD"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "halt",
+     "to": "training",
+     "why": "retry after GUARD"
+    },
+    {
+     "at": "2026-10-17T17:11:12",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T17:11:12",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['c6.floor.survival.fwd.es1', 'c6.floor.ratio.fwd.es1', 'c6.floor.ratio.side.es1', 'c6.floor.survival.back.es1', 'c6.floor.ratio.back.es1', 'c6.floor.survival.diag.es1', 'c6.floor.ratio.diag.es1', 'c6.floor.side22_notslow']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792270902",
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/c6.json"
+   }
+  },
+  "c6x": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['c6x.floor.survival.fwd.es1', 'c6x.floor.ratio.fwd.es1', 'c6x.floor.ratio.side.es1', 'c6x.floor.survival.back.es1', 'c6x.floor.ratio.back.es1', 'c6x.floor.survival.diag.es1', 'c6x.floor.ratio.diag.es1', 'c6x.floor.side22_notslow']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792271512",
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/c6x.json"
+   }
+  },
+  "p2a": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6x']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6x']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6x']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6x']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6x']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['c6x']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T17:31:33",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T17:42:58",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['p2a.floor.ratio.fwd.es1', 'p2a.floor.survival.side.es1', 'p2a.floor.ratio.side.es1', 'p2a.floor.survival.back.es1', 'p2a.floor.ratio.back.es1', 'p2a.floor.survival.diag.es1', 'p2a.floor.ratio.diag.es1', 'p2a.floor.es2', 'p2a.floor.side22_fastfast', 'p2a.capability.field_hard']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792272123",
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/p2a.json"
+   }
+  },
+  "p3a": {
+   "status": "accepted",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p2a']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T17:53:13",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T18:07:00",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "gate",
+     "to": "halt",
+     "why": "FAIL: decisive line(s) failed: ['p3a.floor.survival.fwd.es1', 'p3a.floor.ratio.fwd.es1', 'p3a.floor.survival.side.es1', 'p3a.floor.ratio.side.es1', 'p3a.floor.ratio.back.es1', 'p3a.floor.ratio.diag.es1', 'p3a.floor.es2', 'p3a.floor.side22_fastfast', 'p3a.capability.stable_at_90', 'p3a.capability.zero_kg_paired']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "halt",
+     "to": "accepted",
+     "why": "FAIL accepted as chance"
+    }
+   ],
+   "unit": "cands-dry-1792273393",
+   "curve": {
+    "0": false
+   },
+   "zero_kg": {
+    "verdict": "FAIL",
+    "max_margin_used": 8.427780818877132,
+    "fails": [
+     "ratio back suite es1: worse by 0.0811 > margin 0.0632 (3SE)",
+     "ratio diag suite es1: worse by 0.2973 > margin 0.0353 (3SE)",
+     "survival fwd suite es1: worse by 0.3100 > margin 0.1386 (3SE)",
+     "survival side suite es1: worse by 0.2700 > margin 0.1098 (R)",
+     "field_light completion field_light: field_light: head 0 vs p2a 0 stamps",
+     "ring_obst completion ring_obst: ring_obst: head 0 vs p2a 0 stamps",
+     "field_turn completion field_turn: field_turn: head 0 vs p2a 0 stamps"
+    ]
+   },
+   "max_stable": null,
+   "gate": {
+    "verdict": "HALT",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/p3a.json"
+   }
+  },
+  "p3b": {
+   "status": "ceiling",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "pending",
+     "to": "training",
+     "why": "launch"
+    },
+    {
+     "at": "2026-10-17T18:16:53",
+     "from": "training",
+     "to": "rows",
+     "why": "head recorded"
+    },
+    {
+     "at": "2026-10-17T18:30:17",
+     "from": "rows",
+     "to": "gate",
+     "why": "rows done"
+    },
+    {
+     "at": "2026-10-17T18:30:20",
+     "from": "gate",
+     "to": "ceiling",
+     "why": "measured ceiling (max_stable None)"
+    }
+   ],
+   "unit": "cands-dry-1792274843",
+   "curve": {
+    "0": false
+   },
+   "zero_kg": {
+    "verdict": "FAIL",
+    "max_margin_used": 2.3205813123606434,
+    "fails": [
+     "ratio back suite es1: worse by 0.1459 > margin 0.0629 (3SE)",
+     "survival side suite es1: worse by 0.2000 > margin 0.1066 (R)",
+     "field_light completion field_light: field_light: head 0 vs p2a 0 stamps",
+     "ring_obst completion ring_obst: ring_obst: head 0 vs p2a 0 stamps",
+     "field_turn completion field_turn: field_turn: head 0 vs p2a 0 stamps"
+    ]
+   },
+   "max_stable": null,
+   "gate": {
+    "verdict": "CEILING",
+    "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/p3b.json"
+   }
+  },
+  "p3c": {
+   "status": "skipped",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3b']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-17T18:30:20",
+     "from": "pending",
+     "to": "skipped",
+     "why": "['p3b'] ended without a head to build on"
+    }
+   ]
+  },
+  "tstar": {
+   "status": "pass",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['p3a', 'p3b', 'p3c']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-17T18:30:20",
+     "from": "pending",
+     "to": "pass",
+     "why": "T* = p3a (max_stable None)"
+    }
+   ]
+  },
+  "st": {
+   "status": "training",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    },
+    {
+     "at": "2026-10-17T18:30:20",
+     "from": "pending",
+     "to": "training",
+     "why": "distill"
+    }
+   ],
+   "live": {
+    "last_rc": 0,
+    "last": 133,
+    "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_18-30-31_T4dry_st"
+   }
+  },
+  "sel": {
+   "status": "pending",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['st']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    }
+   ]
+  },
+  "sn": {
+   "status": "pending",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    }
+   ]
+  },
+  "sh": {
+   "status": "pending",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['sn']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    }
+   ]
+  },
+  "bundle": {
+   "status": "pending",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T16:42:09",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: s1 accepted"
+    },
+    {
+     "at": "2026-10-17T16:51:10",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T16:51:19",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c4 accepted"
+    },
+    {
+     "at": "2026-10-17T17:00:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c5 accepted"
+    },
+    {
+     "at": "2026-10-17T17:01:32",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T17:01:42",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 retried"
+    },
+    {
+     "at": "2026-10-17T17:11:13",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T17:11:52",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6 accepted"
+    },
+    {
+     "at": "2026-10-17T17:21:23",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T17:22:02",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: c6x accepted"
+    },
+    {
+     "at": "2026-10-17T17:43:00",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T17:43:13",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p2a accepted"
+    },
+    {
+     "at": "2026-10-17T18:07:03",
+     "from": "pending",
+     "to": "blocked",
+     "why": "needs ['tstar', 'sel', 'sh']"
+    },
+    {
+     "at": "2026-10-17T18:07:23",
+     "from": "blocked",
+     "to": "pending",
+     "why": "unblocked: p3a accepted"
+    }
+   ]
+  },
+  "sn_ref": {
+   "status": "halt",
+   "history": [
+    {
+     "at": "2026-10-17T16:40:06",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SN"
+    },
+    {
+     "at": "2026-10-17T16:41:06",
+     "from": "training",
+     "to": "halt",
+     "why": "DRIVER: sn_dagger.sh rc=0; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_T4dry_sn_ref_s17/model_4000.pt missing"
+    }
+   ],
+   "steps": {},
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     6,
+     10
+    ],
+    "stop": null,
+    "reasons": null
+   }
+  },
+  "sh_ref": {
+   "status": "halt",
+   "history": [
+    {
+     "at": "2026-10-17T16:41:06",
+     "from": "pending",
+     "to": "training",
+     "why": "stand SH"
+    },
+    {
+     "at": "2026-10-17T16:42:06",
+     "from": "training",
+     "to": "halt",
+     "why": "DRIVER: sh_dagger.sh rc=0; /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4dry_sh_ref_s17/model_5000.pt missing"
+    }
+   ],
+   "steps": {},
+   "premise_read_done": true,
+   "premise": {
+    "window": [
+     6,
+     10
+    ],
+    "stop": null,
+    "reasons": []
+   }
+  }
+ },
+ "halts": {
+  "s1": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/s1.1.json"
+  },
+  "sn_ref": {
+   "class": "DRIVER",
+   "status": "open",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/sn_ref.1.json"
+  },
+  "sh_ref": {
+   "class": "DRIVER",
+   "status": "open",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/sh_ref.1.json"
+  },
+  "c4": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/c4.1.json"
+  },
+  "c5": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/c5.1.json"
+  },
+  "c6": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/c6.2.json"
+  },
+  "c6x": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/c6x.1.json"
+  },
+  "p2a": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/p2a.1.json"
+  },
+  "p3a": {
+   "class": "FAIL",
+   "status": "accepted",
+   "record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/halts/p3a.1.json"
+  }
+ },
+ "accepted": [
+  {
+   "stage": "s1",
+   "class": "FAIL",
+   "at": "2026-10-17T16:42:09",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": 0.04709398151101459
+  },
+  {
+   "stage": "c4",
+   "class": "FAIL",
+   "at": "2026-10-17T16:51:19",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": null
+  },
+  {
+   "stage": "c5",
+   "class": "FAIL",
+   "at": "2026-10-17T17:01:32",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": 0.02237528156199122
+  },
+  {
+   "stage": "c6",
+   "class": "FAIL",
+   "at": "2026-10-17T17:11:52",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": 0.04210997722113269
+  },
+  {
+   "stage": "c6x",
+   "class": "FAIL",
+   "at": "2026-10-17T17:22:02",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": 0.013700501894544335
+  },
+  {
+   "stage": "p2a",
+   "class": "FAIL",
+   "at": "2026-10-17T17:43:13",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": 0.08172703465409611
+  },
+  {
+   "stage": "p3a",
+   "class": "FAIL",
+   "at": "2026-10-17T18:07:23",
+   "why": "C7 dry pass: pre-registered action",
+   "chance_rate_sum": 0.08172703465409611
+  }
+ ],
+ "amendments": [],
+ "injected": [
+  "c4:FAIL",
+  "c5:INVALID",
+  "c6:GUARD",
+  "st:LIVE"
+ ],
+ "tstar": {
+  "stage": "p3a",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_17-43-24_seed18_X07_p3a_A15pB/model_133.pt",
+  "sha256": "a53a2ee84610c90287180987dc740ab4d3be569f89144f3b46ca49535acd9da9",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-17_17-43-24_seed18_X07_p3a_A15pB",
+  "iteration": 133,
+  "max_stable": null,
+  "candidates": [
+   {
+    "stage": "p3a",
+    "max_stable": null,
+    "zero_kg": "FAIL",
+    "accepted": true,
+    "max_margin_used": 8.427780818877132
+   }
+  ],
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/dry/seed18_X07_p3a_A15pB/suite__omni/seed001/2026-10-17_21-45-24",
+  "label": "sim plant, force side not enforced"
+ }
+}

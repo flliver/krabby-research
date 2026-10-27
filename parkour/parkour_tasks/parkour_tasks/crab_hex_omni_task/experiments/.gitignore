@@ -1,0 +1,33 @@
+# experiments/.gitignore -- the campaign trees live here WHOLE (most omni raw artifacts live under
+# parkour/logs / parkour/outputs, outside this tree).
+# Git tracks only the keep-set: human records (md/json/csv/py/sh), eval summaries (run_meta.json,
+# scenario_metrics.json, summary.md, gait_diagram_*.png), reference RSI banks / statics at the
+# campaign top level, and the checkpoint(s) of record (head + extra_heads) under <campaign>/head/
+# (tools/bundle_experiment.py). Patterns are relative to this directory.
+
+# RSL-RL run dirs (checkpoints, params, tfevents). A DIRECTORY rule: nothing below it can be
+# re-included, which is why the head of record is a sha-verified COPY at <campaign>/head/.
+# <campaign>/logs/rsl_rl/curriculum_state.json sits one level above and stays tracked.
+**/logs/rsl_rl/*/
+**/outputs/
+**/videos/
+# per-episode dumps inside any gait_eval*/ run dir
+**/raw/
+**/metrics/
+# file classes
+*.pt
+*.log
+*.mp4
+*.pid
+events.out.tfevents.*
+__pycache__/
+# raw probe arrays below a campaign's top level; reference banks at <campaign>/*.npz stay
+*/*/**/*.npz
+!*/statics/statics_*.npz
+# raw per-source RSI harvests (merge intermediates, ~24 MB each); the merged bank stays tracked
+*/rsi_bank_*_raw.npz
+# the bundled checkpoint of record (re-inclusion works because head/ itself is not excluded)
+!*/head/model_*.pt
+# Inherited from the forward task's copy; INERT here (the omni tree has no old-runs/): the forward
+# task's May-2026 stage-baseline bundles live under crab_hex_forward_task/experiments/old-runs/.
+!old-runs/**/*.pt

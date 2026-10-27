@@ -1,0 +1,125 @@
+{
+ "run": "dry",
+ "stage": "p2a",
+ "class": "FAIL",
+ "why": "decisive line(s) failed: ['p2a.floor.survival.fwd.es1', 'p2a.floor.ratio.fwd.es1', 'p2a.floor.ratio.side.es1', 'p2a.floor.survival.back.es1', 'p2a.floor.ratio.back.es1', 'p2a.floor.survival.diag.es1', 'p2a.floor.ratio.diag.es1', 'p2a.floor.es2', 'p2a.floor.side22_fastfast', 'p2a.capability.field_hard']",
+ "at": "2026-10-19T01:58:20",
+ "status": "accepted",
+ "lines": [
+  {
+   "id": "p2a.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 0.0,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 0.17922923073634023,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.009319592588325683,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.1290858434900678,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.0013607710937450816,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 0.5,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 0.13134261596168256,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.012870970837051268,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 0.04,
+   "line": 0.9,
+   "direction": ">=",
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.23421385711617226,
+   "line": 0.7,
+   "direction": ">=",
+   "rate": 0.013629913445113767,
+   "unvalidated": false,
+   "env_seed": 1
+  },
+  {
+   "id": "p2a.floor.es2",
+   "why": "no suite stamp at env seed 2"
+  },
+  {
+   "id": "p2a.floor.side22_fastfast",
+   "statistic": "side22_25lr feet_ss class, both hands FAST/FAST",
+   "value": [
+    "DEAD",
+    "DEAD"
+   ],
+   "line": "fastfast",
+   "rate": 0.04454578668986031,
+   "unvalidated": false
+  },
+  {
+   "id": "p2a.capability.field_hard",
+   "why": "field_hard needs env seeds [1, 2, 3, 4], got 1 stamps"
+  }
+ ],
+ "chance_rate_sum": 0.08172703465409611,
+ "chance_rate_note": "each failed decisive line's chance-HALT rate from thresholds.json (PLAN Rule; reported, not capped); live-kill and drift lines are unvalidated (no rate)",
+ "gate": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/preflight/stepC/dryspec/dry/gates/p2a.json",
+ "subtree": [
+  "p3a",
+  "p3b",
+  "p3c",
+  "tstar",
+  "st",
+  "sel",
+  "sn",
+  "sh",
+  "bundle"
+ ],
+ "options": [
+  "accept-chance",
+  "amend",
+  "abort"
+ ],
+ "resolution": {
+  "by": "user",
+  "at": "2026-10-19T01:59:16",
+  "kind": "accept-chance",
+  "why": "C7 dry pass: pre-registered action",
+  "disclosure": "accepted as chance: the run continues and stays eligible as the deliverable, disclosed in the CHARTER and the report (PLAN On FAIL)"
+ }
+}

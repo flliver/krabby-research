@@ -1,0 +1,473 @@
+{
+ "check": "C4_det",
+ "class": "report",
+ "deterministic": false,
+ "final_sha_equal": false,
+ "meaning": "bitwise -> a same-seed student rerun is a replay (the no-retry rationale holds for the student too); else a rerun is a fresh draw (report-only)",
+ "tags": {
+  "a": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_08-44-48_T4C4_det_a",
+  "b": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_08-50-53_T4C4_det_b",
+  "bitwise": false,
+  "differ": [
+   {
+    "first_step": 19997,
+    "max_abs": 0.008026670198887587,
+    "tag": "Episode_Reward/penalty_excess_feet_contact_forward"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 3.7109666764736176,
+    "tag": "Episode_Reward/penalty_foot_idle_when_forward"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.011195625527761877,
+    "tag": "Episode_Reward/penalty_lin_vel_y"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.01020009396597743,
+    "tag": "Episode_Reward/penalty_tibia_deviation_in_stance"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.1531456746160984,
+    "tag": "Episode_Reward/penalty_tracking_error_l1"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.030203954316675663,
+    "tag": "Episode_Reward/reward_action_rate"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.00023796379718987737,
+    "tag": "Episode_Reward/reward_clock_schedule"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 8.018537027965067e-05,
+    "tag": "Episode_Reward/reward_clock_swing_apex"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 0.009958332404494286,
+    "tag": "Episode_Reward/reward_collision"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.08125337306410074,
+    "tag": "Episode_Reward/reward_delta_torques"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.0008472483605146408,
+    "tag": "Episode_Reward/reward_feet_air_time_positive"
+   },
+   {
+    "first_step": 20020,
+    "max_abs": 0.07358787953853607,
+    "tag": "Episode_Reward/reward_feet_edge"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.09786658734083176,
+    "tag": "Episode_Reward/reward_feet_stumble"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.08009640499949455,
+    "tag": "Episode_Reward/reward_forward_progress_along_command"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.0014437828212976456,
+    "tag": "Episode_Reward/reward_lin_vel_z"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.009650647640228271,
+    "tag": "Episode_Reward/reward_orientation"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.0020593698536686134,
+    "tag": "Episode_Reward/reward_stride_length"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.16274687089025974,
+    "tag": "Episode_Reward/reward_tracking_yaw"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.02300980966538191,
+    "tag": "Episode_Reward/reward_yaw_progress"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.8056463748216629,
+    "tag": "Episode_Reward/track_ang_vel_z_exp"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.8421770557761192,
+    "tag": "Episode_Reward/track_lin_vel_xy_exp"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.05221354216337204,
+    "tag": "Episode_Termination/crab_failure"
+   },
+   {
+    "first_step": 20010,
+    "max_abs": 0.05208331346511841,
+    "tag": "Episode_Termination/total_terminates"
+   },
+   {
+    "first_step": 19995,
+    "max_abs": 0.12052083015441895,
+    "tag": "Loss_depth/depth_actor_loss"
+   },
+   {
+    "first_step": 19995,
+    "max_abs": 0.12052083015441895,
+    "tag": "Loss_depth/total_loss"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 303.99151611328125,
+    "tag": "Metrics/base_parkour/block_steps_mean"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 1.0,
+    "tag": "Metrics/base_parkour/crab_failure_flat"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 2.295332908630371,
+    "tag": "Metrics/base_parkour/crab_failure_hazard_flat"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 2.1637604236602783,
+    "tag": "Metrics/base_parkour/crab_failure_hazard_obst"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 1.0,
+    "tag": "Metrics/base_parkour/crab_failure_obst"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 1101.3558349609375,
+    "tag": "Metrics/base_parkour/ep_steps_flat"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 683.5987548828125,
+    "tag": "Metrics/base_parkour/ep_steps_obst"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.8050897121429443,
+    "tag": "Metrics/base_parkour/far_from_current_goal"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 0.335687518119812,
+    "tag": "Metrics/base_parkour/field_frac_mean"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 531.34228515625,
+    "tag": "Metrics/base_parkour/field_steps_mean"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 1.2097222805023193,
+    "tag": "Metrics/base_parkour/goals_passed_mean"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.23999664187431335,
+    "tag": "Metrics/base_parkour/heading_err_rms_mean"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 2.4072811007499695,
+    "tag": "Metrics/base_parkour/how_far_from_start_point"
+   },
+   {
+    "first_step": 20004,
+    "max_abs": 0.125,
+    "tag": "Metrics/base_parkour/obst_coverage_1"
+   },
+   {
+    "first_step": 20002,
+    "max_abs": 0.4416666515171528,
+    "tag": "Metrics/base_parkour/obst_coverage_2"
+   },
+   {
+    "first_step": 20001,
+    "max_abs": 0.4363425672054291,
+    "tag": "Metrics/base_parkour/obst_coverage_3"
+   },
+   {
+    "first_step": 20007,
+    "max_abs": 0.20065787434577942,
+    "tag": "Metrics/base_parkour/obst_coverage_4"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 0.9041666388511658,
+    "tag": "Metrics/base_parkour/obst_coverage_5"
+   },
+   {
+    "first_step": 20000,
+    "max_abs": 0.27472221851348877,
+    "tag": "Metrics/base_parkour/obst_coverage_6"
+   },
+   {
+    "first_step": 19999,
+    "max_abs": 0.5494444370269775,
+    "tag": "Metrics/base_parkour/obst_coverage_7"
+   },
+   {
+    "first_step": 20005,
+    "max_abs": 0.25,
+    "tag": "Metrics/base_parkour/obst_coverage_8"
+   },
+   {
+    "first_step": 20012,
+    "max_abs": 4.510686874389648,
+    "tag": "Metrics/base_parkour/off_tile_block_steps_mean"
+   },
+   {
+    "first_step": 20012,
+    "max_abs": 0.05150914192199707,
+    "tag": "Metrics/base_parkour/off_tile_frac_mean"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 73.0,
+    "tag": "Metrics/base_parkour/promote_count"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 2.1013636589050293,
+    "tag": "Metrics/base_parkour/r_max_mean"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 1.0,
+    "tag": "Metrics/base_parkour/reach_edge_frac"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 1.0,
+    "tag": "Metrics/base_parkour/reach_obst_frac"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.8407118320465088,
+    "tag": "Metrics/base_parkour/terrain_levels"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 0.7578946352005005,
+    "tag": "Metrics/base_parkour/terrain_levels_obst"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.7346418499946594,
+    "tag": "Metrics/base_parkour/track_ratio_mean"
+   },
+   {
+    "first_step": 20000,
+    "max_abs": 0.08007484674453735,
+    "tag": "Metrics/base_parkour/track_ratio_mean_norsi"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.7967433370649815,
+    "tag": "Metrics/base_parkour/track_ratio_move_mean"
+   },
+   {
+    "first_step": 20000,
+    "max_abs": 0.12035691738128662,
+    "tag": "Metrics/base_parkour/track_ratio_move_mean_norsi"
+   },
+   {
+    "first_step": 20003,
+    "max_abs": 0.041513919830322266,
+    "tag": "Metrics/base_parkour/track_ratio_obst_p50"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.305750772356987,
+    "tag": "Metrics/base_velocity/error_vel_xy"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.3640238344669342,
+    "tag": "Metrics/base_velocity/error_vel_yaw"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.14841382578015327,
+    "tag": "Metrics/base_velocity/facing_err_abs"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.5692400336265564,
+    "tag": "Metrics/base_velocity/move_frac_actual"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.31249868869781494,
+    "tag": "Metrics/base_velocity/move_turn_frac_actual"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 0.40416666865348816,
+    "tag": "Metrics/base_velocity/pool_back_draws"
+   },
+   {
+    "first_step": 19998,
+    "max_abs": 0.30416805297136307,
+    "tag": "Metrics/base_velocity/pool_back_frac"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.8333333134651184,
+    "tag": "Metrics/base_velocity/pool_fwd_draws"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.28045993065461516,
+    "tag": "Metrics/base_velocity/pool_fwd_frac"
+   },
+   {
+    "first_step": 20005,
+    "max_abs": 0.17064692825078964,
+    "tag": "Metrics/base_velocity/pool_fwd_turn_draws"
+   },
+   {
+    "first_step": 20005,
+    "max_abs": 0.2220485843718052,
+    "tag": "Metrics/base_velocity/pool_fwd_turn_frac"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.5611111223697662,
+    "tag": "Metrics/base_velocity/pool_omni_draws"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.474345326423645,
+    "tag": "Metrics/base_velocity/pool_omni_frac"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.2944444715976715,
+    "tag": "Metrics/base_velocity/pool_omni_turn_draws"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.29529140144586563,
+    "tag": "Metrics/base_velocity/pool_omni_turn_frac"
+   },
+   {
+    "first_step": 19999,
+    "max_abs": 0.375,
+    "tag": "Metrics/base_velocity/pool_side_l_draws"
+   },
+   {
+    "first_step": 19999,
+    "max_abs": 0.2499985545873642,
+    "tag": "Metrics/base_velocity/pool_side_l_frac"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 1.0,
+    "tag": "Metrics/base_velocity/pool_side_l_turn_draws"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.22249890863895416,
+    "tag": "Metrics/base_velocity/pool_side_l_turn_frac"
+   },
+   {
+    "first_step": 20001,
+    "max_abs": 0.375,
+    "tag": "Metrics/base_velocity/pool_side_r_draws"
+   },
+   {
+    "first_step": 20001,
+    "max_abs": 0.4729954767972231,
+    "tag": "Metrics/base_velocity/pool_side_r_frac"
+   },
+   {
+    "first_step": 20002,
+    "max_abs": 0.3333333432674408,
+    "tag": "Metrics/base_velocity/pool_side_r_turn_draws"
+   },
+   {
+    "first_step": 20002,
+    "max_abs": 0.2499985545873642,
+    "tag": "Metrics/base_velocity/pool_side_r_turn_frac"
+   },
+   {
+    "first_step": 20002,
+    "max_abs": 0.4265068508684635,
+    "tag": "Metrics/base_velocity/pool_stand_draws"
+   },
+   {
+    "first_step": 20002,
+    "max_abs": 0.42651212215423584,
+    "tag": "Metrics/base_velocity/pool_stand_frac"
+   },
+   {
+    "first_step": 20001,
+    "max_abs": 0.22777777910232544,
+    "tag": "Metrics/base_velocity/pool_turn_draws"
+   },
+   {
+    "first_step": 20001,
+    "max_abs": 0.29166387021541595,
+    "tag": "Metrics/base_velocity/pool_turn_frac"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.10850013047456741,
+    "tag": "Metrics/base_velocity/recap_frac"
+   },
+   {
+    "first_step": 20002,
+    "max_abs": 0.42651212215423584,
+    "tag": "Metrics/base_velocity/stand_frac_actual"
+   },
+   {
+    "first_step": 20001,
+    "max_abs": 0.29166387021541595,
+    "tag": "Metrics/base_velocity/turn_frac_actual"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 0.04669519979506731,
+    "tag": "Metrics/base_velocity/yaw_progress"
+   },
+   {
+    "first_step": 19997,
+    "max_abs": 152.4000244140625,
+    "tag": "Train/mean_episode_length"
+   }
+  ],
+  "only_a": [],
+  "only_b": [],
+  "shared": 130
+ },
+ "verdict": "REPORT"
+}

@@ -1,0 +1,116 @@
+campaign: 2026-10-16_task4_pipeline
+era: B
+dates: 2026-10-16..2026-10-24
+question: M18 Task 4 -- can one committed pipeline (pipeline.yaml + TP/pipeline.py)
+  train the omni teacher from scratch through every stage (walker s1-p2a, payload
+  p3a-p3c, the 4-camera depth student, the stand nets SN -> SH), every transition
+  gated on harness metrics against committed thresholds, reproduce the head of record's
+  process (R18) and run a fresh seed (F19) end to end?
+verdict: 'F19 ran end to end on thresholds v1.2: T* = p3b model_25992 (max_stable
+  135 kg, sim plant, force side not enforced; budget_bound at N_p 3000), student c28000
+  (paired completion vs T* PASS on every world row), SN PASS, SH HALT re-anchored
+  on the lazy R_h control (DESIGN 3.6); every HALT resolved by the user and disclosed.
+  R18 = the statistical second sample (P-live FAIL at it 20, cuDNN). STOP-END 2026-10-24
+  (user): F19 = deliverable, no clip veto, baked as the omni policy of record (de81f98a;
+  policy/manifest.yaml current = f19_8_p3b_payload180); tag omni-sim2real-baseline-2026-10-24
+  local, the push is the user''s. Records: REPORT_baseline_vs_final.md, CHARTER.md.'
+plant: A15+B
+aliases: []
+records:
+- CHARTER.md
+- PLAN.md
+- DESIGN.md
+- STOP0.md
+- README.md
+- REPORT_baseline_vs_final.md
+- REPORT_baseline_vs_final.json
+- pipeline.yaml
+- pipeline.lock.json
+- thresholds_v1_2.json
+- threshold_inputs_v1_2.yaml
+- F19/deliverable.json
+- F19/pipeline_state.json
+- R18/deliverable.json
+head:
+  role: teacher_2a
+  task: Isaac-Crab-Hex-Omni-Teacher-v0
+  source: parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/model_25992.pt
+  sha256: 03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7
+  dest: head/model_25992.pt
+  why: F19 T* = p3b (the trained payload head with the highest max_stable that passes
+    its paired 0-kg check under thresholds v1.2); max_stable 135 kg at N_p 3000 iterations
+    per stage (sim plant, force side not enforced); the depth student, SN and SH were
+    trained beside it. F19 = deliverable (user STOP-END 2026-10-24); baked as the omni
+    policy of record (de81f98a; policy/manifest.yaml current = f19_8_p3b_payload180); tag
+    omni-sim2real-baseline-2026-10-24 local, the push is the user's.
+  metrics:
+    max_stable_kg: 135 (first unstable 180; limiting factor budget_bound; sim plant,
+      force side not enforced)
+    zero_kg_paired_check: PASS, max margin use 0.66 (v1.2 track_err; raw back drop
+      0.068 / 0.071 WATCH)
+    field_hard_completion_es1_es2: 0.91 / 0.90
+    side22: FAST / FAST
+    report: REPORT_baseline_vs_final.md
+  env:
+    KRABBY_ACTION_LPF_HZ: '0'
+    KRABBY_ACTION_LPF_OBS: '0'
+    KRABBY_APEX_W: '1.0'
+    KRABBY_CLOCK_W: '1.0'
+    KRABBY_FLAT_TERRAIN_GEOM: ring
+    KRABBY_INIT_STD: '0.8'
+    KRABBY_LIN_VEL_X: 0.0:0.35
+    KRABBY_OMNI_ANG_VEL_CLIP: '0.2'
+    KRABBY_OMNI_ANG_VEL_MAX: '0.3'
+    KRABBY_OMNI_CLOCK_HIDE: '1'
+    KRABBY_OMNI_CLOCK_TURN_R: '1.2'
+    KRABBY_OMNI_CMD_OBS: '0'
+    KRABBY_OMNI_COMMAND_FRAME: world
+    KRABBY_OMNI_FACING_OBS_CLIP: '0.6'
+    KRABBY_OMNI_FACING_OBS_ENCODING: raw
+    KRABBY_OMNI_RELAY_HYST: '0'
+    KRABBY_OMNI_SPEED_ELLIPSE: 0.35:0.35:0.25
+    KRABBY_OMNI_STAND_HOLD: '0'
+    KRABBY_OMNI_STAND_OBS: '0'
+    KRABBY_OMNI_STAND_PARK: '0'
+    KRABBY_OMNI_YAW_RANGE: -3.14159:3.14159
+    KRABBY_PLANT: A15+B
+    KRABBY_PLAY_DEBUG_VIS: '0'
+    KRABBY_RSI_FRAC: '0'
+    KRABBY_STD_PARAM: soft
+    KRABBY_TRACK_L1_W: '-1.0'
+    KRABBY_TRACK_SIGMA2: '0.1'
+  extra_heads:
+  - role: stand_network (SN_T4F19_sn_s19, beside T*)
+    source: parkour/outputs/omni_plan/stand_network/runs/SN_T4F19_sn_s19/model_4000.pt
+    sha256: 96832099e58b75d1cc86f6f9d98327c56b827c2fac1b6c61c96b07f0a8e97b73
+    dest: head/model_4000.pt
+  - role: stand_height (SH_T4F19_sh_s19, beside T*; warm-started from SN_T4F19_sn_s19)
+    source: parkour/outputs/omni_plan/stand_height/runs/SH_T4F19_sh_s19/model_5000.pt
+    sha256: c12692343fcc31d114ee69b56f59c4879c4969f03414832d4a6a3edbbfe55927
+    dest: head/model_5000.pt
+  - role: student c28000 ONNX deploy export -- policy (GRU state explicit; checkpoint
+      sha256 4fa81f0f...)
+    source: parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/exported_deploy/policy.onnx
+    sha256: 4fb3efe11ace47647e20826fc5fca58e5a350ab2a3c05ff8ca5b3e042629d148
+    dest: head/student_c28000_policy.onnx
+  - role: student c28000 ONNX deploy export -- depth encoder (4 cameras)
+    source: parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/exported_deploy/depth_latest.onnx
+    sha256: 2dd76ac94a6cd1ca71209113ece6e6431720cbb26f31953346136239314941bd
+    dest: head/student_c28000_depth_latest.onnx
+  - role: student c28000 ONNX deploy export -- I/O contract (obs / depth / GRU shapes)
+    source: parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/exported_deploy/omni_student_io.json
+    sha256: 4ee03d02cbf1f6736d4fa392d18bc36af0e893e008543e2f744cac65439bff1a
+    dest: head/student_c28000_omni_student_io.json
+evals:
+- source: parkour/outputs/omni_plan/task4/F19
+  dest: evals/F19_rows
+- source: parkour/outputs/omni_plan/task4/step11
+  dest: evals/step11
+- source: parkour/logs/rsl_rl/gait_eval/omni_phases/F19
+  dest: evals/F19_driver
+keep_globs:
+- summary.md
+- complete.json
+- tp_row.json
+- code_state.json
+paths_note: false

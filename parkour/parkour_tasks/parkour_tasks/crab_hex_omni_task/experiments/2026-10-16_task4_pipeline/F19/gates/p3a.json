@@ -1,0 +1,731 @@
+{
+ "run": "F19",
+ "stage": "p3a",
+ "read_at": "2026-10-22T06:50:25",
+ "thresholds": {
+  "file": "thresholds_v1_1.json",
+  "version": "v1.1",
+  "sha256": "9b9b729eaf51f4b31ab9239adcaa8bec3681028f913a6a233f284f9fddab8fc4"
+ },
+ "verdict": "HALT",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "p3a.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.fwd.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 1.0000353747805426,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.009319592588325683,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "p3a.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.side.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 1.0188299925988131,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0013607710937450816,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.side.es1"
+  },
+  {
+   "id": "p3a.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.back.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 1.0291167111799806,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.012870970837051268,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.back.es1"
+  },
+  {
+   "id": "p3a.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.survival.diag.es1"
+  },
+  {
+   "id": "p3a.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.958518164248751,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.013629913445113767,
+   "unvalidated": false,
+   "env_seed": 1,
+   "thresholds_id": "p3a.floor.ratio.diag.es1"
+  },
+  {
+   "id": "p3a.floor.survival.fwd.es2",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.survival.fwd.es2"
+  },
+  {
+   "id": "p3a.floor.ratio.fwd.es2",
+   "statistic": "translate ratio, fwd",
+   "value": 0.9987757216283486,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0095953910178814,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.ratio.fwd.es2"
+  },
+  {
+   "id": "p3a.floor.survival.side.es2",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.survival.side.es2"
+  },
+  {
+   "id": "p3a.floor.ratio.side.es2",
+   "statistic": "translate ratio, side",
+   "value": 1.0250703385419224,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.002009614485109632,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.ratio.side.es2"
+  },
+  {
+   "id": "p3a.floor.survival.back.es2",
+   "statistic": "translate survival, back",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.survival.back.es2"
+  },
+  {
+   "id": "p3a.floor.ratio.back.es2",
+   "statistic": "translate ratio, back",
+   "value": 1.0279023586345144,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.013733721824122226,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.ratio.back.es2"
+  },
+  {
+   "id": "p3a.floor.survival.diag.es2",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.9,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.survival.diag.es2"
+  },
+  {
+   "id": "p3a.floor.ratio.diag.es2",
+   "statistic": "translate ratio, diag",
+   "value": 0.9629888203353627,
+   "line": 0.7,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.012787063637716947,
+   "unvalidated": false,
+   "env_seed": 2,
+   "thresholds_id": "p3a.floor.ratio.diag.es2"
+  },
+  {
+   "id": "p3a.floor.side22_fastfast",
+   "thresholds_id": "p3a.floor.side22_fastfast",
+   "statistic": "side22_25lr feet_ss class, both hands FAST/FAST",
+   "value": [
+    "FAST",
+    "FAST"
+   ],
+   "medians": {
+    "lat_l_022": 0.21135256221952536,
+    "lat_r_022": 0.25200419101279015,
+    "lat_l_025": 0.227672185514555,
+    "lat_r_025": 0.2745806810395164
+   },
+   "line": "fastfast",
+   "pass": true,
+   "missing": false,
+   "rate": 0.04454578668986031,
+   "unvalidated": false
+  },
+  {
+   "id": "p3a.capability.stable_at_90",
+   "statistic": "stable at 90 kg (every level <= 90)",
+   "value": 90,
+   "line": 90,
+   "direction": ">=",
+   "pass": true,
+   "rate": null,
+   "unvalidated": true,
+   "rate_note": "pending step 8 (payload a-priori: the pilot value as the mean)"
+  },
+  {
+   "id": "p3a.capability.zero_kg_paired",
+   "statistic": "paired 0-kg check vs the run's own p2a",
+   "value": 2.7098692720929014,
+   "line": 1.0,
+   "direction": "<=",
+   "pass": false,
+   "fails": [
+    "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+    "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+    "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+    "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+   ],
+   "rate": null,
+   "unvalidated": true,
+   "rate_note": "paired: <= Phi(-3) per statistic (thresholds.json); drift margin unvalidated",
+   "regated_under": "v1.2"
+  }
+ ],
+ "halt_lines": [
+  "p3a.capability.zero_kg_paired"
+ ],
+ "watch_flags": [],
+ "max_stable": 90,
+ "curve": {
+  "0": true,
+  "45": true,
+  "90": true,
+  "135": false
+ },
+ "label": "sim plant, force side not enforced",
+ "zero_kg": {
+  "verdict": "FAIL",
+  "max_margin_used": 2.7098692720929014,
+  "fails": [
+   "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+   "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+   "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+   "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+  ],
+  "translate_statistic": "track_err",
+  "thresholds_version": "v1.2",
+  "watch_exceeds": [
+   "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+   "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+   "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+   "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+   "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+   "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+   "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+  ],
+  "watch_reads": [
+   {
+    "statistic": "ratio fwd",
+    "row": "suite es1",
+    "head": 1.0000353747805426,
+    "p2a": 1.0464079091335667,
+    "worse_by": 0.04637253435302413,
+    "margin": 0.05080366659411929,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio side",
+    "row": "suite es1",
+    "head": 1.0188299925988131,
+    "p2a": 1.0645890758415073,
+    "worse_by": 0.045759083242694176,
+    "margin": 0.021192113444669265,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio back",
+    "row": "suite es1",
+    "head": 1.0291167111799806,
+    "p2a": 1.0608539524460237,
+    "worse_by": 0.03173724126604305,
+    "margin": 0.06167028713341018,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio diag",
+    "row": "suite es1",
+    "head": 0.958518164248751,
+    "p2a": 0.9965317287189133,
+    "worse_by": 0.03801356447016224,
+    "margin": 0.02906521009413416,
+    "exceeds": true
+   },
+   {
+    "statistic": "|ratio-1| move_turn",
+    "row": "suite es1",
+    "head": 0.3133199841995915,
+    "p2a": 0.21394033086038944,
+    "worse_by": 0.09937965333920207,
+    "margin": 0.03667322787953111,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio fwd",
+    "row": "suite es2",
+    "head": 0.9987757216283486,
+    "p2a": 1.0580851244398124,
+    "worse_by": 0.059309402811463796,
+    "margin": 0.05080366659411929,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio side",
+    "row": "suite es2",
+    "head": 1.0250703385419224,
+    "p2a": 1.0636473701165796,
+    "worse_by": 0.038577031574657195,
+    "margin": 0.021192113444669265,
+    "exceeds": true
+   },
+   {
+    "statistic": "ratio back",
+    "row": "suite es2",
+    "head": 1.0279023586345144,
+    "p2a": 1.0589976729748471,
+    "worse_by": 0.031095314340332747,
+    "margin": 0.06167028713341018,
+    "exceeds": false
+   },
+   {
+    "statistic": "ratio diag",
+    "row": "suite es2",
+    "head": 0.9629888203353627,
+    "p2a": 0.9985475312131666,
+    "worse_by": 0.035558710877803934,
+    "margin": 0.02906521009413416,
+    "exceeds": true
+   },
+   {
+    "statistic": "|ratio-1| move_turn",
+    "row": "suite es2",
+    "head": 0.3061547105003649,
+    "p2a": 0.20891761461691982,
+    "worse_by": 0.09723709588344509,
+    "margin": 0.037199569293217744,
+    "exceeds": true
+   }
+  ],
+  "regated": {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   }
+  }
+ },
+ "watch": {
+  "field_hard@1": {
+   "completion": 0.83,
+   "n": 100
+  },
+  "field_hard@2": {
+   "completion": 0.88,
+   "n": 100
+  },
+  "field_light@1": {
+   "completion": 1.0,
+   "n": 100
+  },
+  "field_light@2": {
+   "completion": 0.99,
+   "n": 100
+  },
+  "field_turn@1": {
+   "completion": 1.0,
+   "n": 100
+  },
+  "field_turn@2": {
+   "completion": 1.0,
+   "n": 100
+  },
+  "ring_obst@1": {
+   "completion": 1.0,
+   "n": 100
+  },
+  "ring_obst@2": {
+   "completion": 1.0,
+   "n": 100
+  },
+  "side22@1": {
+   "class": [
+    "FAST",
+    "FAST"
+   ],
+   "median": {
+    "lat_l_022": 0.21135256221952536,
+    "lat_r_022": 0.25200419101279015,
+    "lat_l_025": 0.227672185514555,
+    "lat_r_025": 0.2745806810395164
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0291167111799806,
+    "facing_closed": null,
+    "yaw_progress": -0.0017963901215063576,
+    "tripod": 0.768549146585277
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.958518164248751,
+    "facing_closed": null,
+    "yaw_progress": 0.0007232789371517443,
+    "tripod": 0.7041080733165412
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0000353747805426,
+    "facing_closed": null,
+    "yaw_progress": -0.007755856284626958,
+    "tripod": 0.7430156962312456
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.6866800158004085,
+    "facing_closed": 0.59136247136572,
+    "yaw_progress": 0.07714606933261772,
+    "tripod": 0.6942470137927079
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0188299925988131,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.7450615618573824
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.8064698650348501
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.9277478485060098,
+    "yaw_progress": 0.14263124040643133,
+    "tripod": 0.8089105193557525
+   }
+  },
+  "suite@2": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0279023586345144,
+    "facing_closed": null,
+    "yaw_progress": -0.0023240453594974026,
+    "tripod": 0.7717321123643257
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9629888203353627,
+    "facing_closed": null,
+    "yaw_progress": 0.0031967701183425058,
+    "tripod": 0.7058351431758246
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9987757216283486,
+    "facing_closed": null,
+    "yaw_progress": -0.007187226726230057,
+    "tripod": 0.7445021511206396
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.6938452894996351,
+    "facing_closed": 0.6111563354083326,
+    "yaw_progress": 0.08032843140223121,
+    "tripod": 0.6887505202837576
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 1.0250703385419224,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.746740557078155
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.8084673810584997
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": 0.9292858191666922,
+    "yaw_progress": 0.14513303903521038,
+    "tripod": 0.810264105026528
+   }
+  }
+ },
+ "head": {
+  "stage": "p3a",
+  "chain": "F19_p3a",
+  "xid": "X07",
+  "seed": "19",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB/model_22993.pt",
+  "sha256": "1090c284aabd3ce6d77f5303c51aee87fb98954260774129dbc82854d12aed9c",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB",
+  "iteration": 22993,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X07_p3a_A15pB/suite__omni/seed001/2026-10-22_08-43-55",
+  "recorded_at": "2026-10-22T04:51:34"
+ },
+ "zero_kg_thresholds": {
+  "file": "thresholds_v1_2.json",
+  "version": "v1.2",
+  "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+ },
+ "regates": [
+  {
+   "at": "2026-10-22T23:41:06",
+   "kind": "retarget_tstar",
+   "charter": "CHARTER 2026-10-22/23 F19 p3b: amend + switch now (thresholds v1.2, pin 0e996b11)",
+   "why": "v1.2 track_err 0-kg rule: p3b PASS -> T*=p3b (135 kg); fresh distill T4F19_st_a2",
+   "thresholds": {
+    "file": "thresholds_v1_2.json",
+    "version": "v1.2",
+    "sha256": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2"
+   },
+   "previous_record": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/gates/history/p3a.1.json",
+   "verdict_before": "HALT",
+   "verdict_after": "HALT",
+   "zero_kg_before": {
+    "verdict": "FAIL",
+    "max_margin_used": 2.7098692720929014,
+    "fails": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (R)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (R)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (R)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ]
+   },
+   "zero_kg_after": {
+    "verdict": "FAIL",
+    "max_margin_used": 2.7098692720929014,
+    "fails": [
+     "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+     "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+     "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+     "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+    ],
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "watch_exceeds": [
+     "ratio side suite es1: worse by 0.0458 > margin 0.0212 (WATCH)",
+     "ratio diag suite es1: worse by 0.0380 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es1: worse by 0.0994 > margin 0.0367 (WATCH)",
+     "ratio fwd suite es2: worse by 0.0593 > margin 0.0508 (WATCH)",
+     "ratio side suite es2: worse by 0.0386 > margin 0.0212 (WATCH)",
+     "ratio diag suite es2: worse by 0.0356 > margin 0.0291 (WATCH)",
+     "|ratio-1| move_turn suite es2: worse by 0.0972 > margin 0.0372 (WATCH)"
+    ],
+    "watch_reads": [
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es1",
+      "head": 1.0000353747805426,
+      "p2a": 1.0464079091335667,
+      "worse_by": 0.04637253435302413,
+      "margin": 0.05080366659411929,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es1",
+      "head": 1.0188299925988131,
+      "p2a": 1.0645890758415073,
+      "worse_by": 0.045759083242694176,
+      "margin": 0.021192113444669265,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es1",
+      "head": 1.0291167111799806,
+      "p2a": 1.0608539524460237,
+      "worse_by": 0.03173724126604305,
+      "margin": 0.06167028713341018,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es1",
+      "head": 0.958518164248751,
+      "p2a": 0.9965317287189133,
+      "worse_by": 0.03801356447016224,
+      "margin": 0.02906521009413416,
+      "exceeds": true
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es1",
+      "head": 0.3133199841995915,
+      "p2a": 0.21394033086038944,
+      "worse_by": 0.09937965333920207,
+      "margin": 0.03667322787953111,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio fwd",
+      "row": "suite es2",
+      "head": 0.9987757216283486,
+      "p2a": 1.0580851244398124,
+      "worse_by": 0.059309402811463796,
+      "margin": 0.05080366659411929,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio side",
+      "row": "suite es2",
+      "head": 1.0250703385419224,
+      "p2a": 1.0636473701165796,
+      "worse_by": 0.038577031574657195,
+      "margin": 0.021192113444669265,
+      "exceeds": true
+     },
+     {
+      "statistic": "ratio back",
+      "row": "suite es2",
+      "head": 1.0279023586345144,
+      "p2a": 1.0589976729748471,
+      "worse_by": 0.031095314340332747,
+      "margin": 0.06167028713341018,
+      "exceeds": false
+     },
+     {
+      "statistic": "ratio diag",
+      "row": "suite es2",
+      "head": 0.9629888203353627,
+      "p2a": 0.9985475312131666,
+      "worse_by": 0.035558710877803934,
+      "margin": 0.02906521009413416,
+      "exceeds": true
+     },
+     {
+      "statistic": "|ratio-1| move_turn",
+      "row": "suite es2",
+      "head": 0.3061547105003649,
+      "p2a": 0.20891761461691982,
+      "worse_by": 0.09723709588344509,
+      "margin": 0.037199569293217744,
+      "exceeds": true
+     }
+    ]
+   },
+   "note": "only the paired 0-kg check was re-read; every other line is the original gate read (thresholds above)"
+  }
+ ]
+}

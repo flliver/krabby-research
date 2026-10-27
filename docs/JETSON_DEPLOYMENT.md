@@ -349,6 +349,17 @@ sudo docker run --rm --runtime=nvidia  -v /path/to/checkpoints:/workspace/checkp
 - Ensure the checkpoint file exists at the specified path (e.g., `/path/to/checkpoints/unitree_go2_parkour_teacher.pt` must exist on the host).
 - Optional: set process logging verbosity with `--log-level` (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`), for example `--log-level DEBUG`.
 
+### Crab-hex sim policies
+
+The examples above deploy a Go2 `.pt` through `compute/parkour` (`OnPolicyRunnerWithExtractor`). The crab-hex
+policies of record are documented with their tasks: the forward policy in
+`parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/policy/README.md`, and the omni policy of record (walker
+T*, depth student, stand network) in `parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md`.
+The omni student's deploy export (`policy/f19_9_student/`: `policy.onnx` + `depth_latest.onnx` +
+`omni_student_io.json` -- a 1149-d observation, 4 x 58 x 87 depth images and a host-side GRU state) has no
+consumer in `compute/parkour` or the locomotion image yet, and the walker + stand-network pair has no export
+path (followups `two_network_export`, `camera_use_unverified` in that README).
+
 ## Troubleshooting
 
 ### Permission Denied Errors

@@ -219,3 +219,15 @@ class _ParkourDeployOnnxDepthEncoderExporter(torch.nn.Module):
             dynamic_axes={},
         )
 
+
+
+def export_omni_student_deploy(runner, path: str, onnx: bool = True) -> dict:
+    """The omni depth student's deploy files (Task 4 M1b, DESIGN B5): ``policy`` + ``depth_latest``, each as
+    TorchScript and ONNX, with the GRU state an explicit input/output, plus ``omni_student_io.json``.
+
+    Implemented in ``modules/omni_student_export.py`` (pure torch, CPU-tested): the policy graph wraps the
+    same ``OmniStudentObsPrep`` the sim step runs. The forward exporters above are untouched.
+    """
+    from .modules.omni_student_export import export_omni_student_from_runner
+
+    return export_omni_student_from_runner(runner, path, onnx=onnx)

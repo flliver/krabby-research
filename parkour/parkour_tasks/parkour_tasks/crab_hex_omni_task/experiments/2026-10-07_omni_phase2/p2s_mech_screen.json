@@ -1,0 +1,191 @@
+{
+ "REFS_S1_s18": {
+  "head": "REFS_S1_s18",
+  "row": "field_hard__omni",
+  "seeds": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "stamps": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed001/2026-10-09_03-47-57",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed002/2026-10-09_03-51-29",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed003/2026-10-09_03-55-03",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/field_hard__omni/seed004/2026-10-09_03-58-35"
+  ],
+  "n_episodes": 400,
+  "n_falls": 75,
+  "falls_by_hold": {
+   "diag": 40,
+   "move_turn": 5,
+   "lat_l": 8,
+   "turn_r90": 6,
+   "back": 13,
+   "turn_l90": 3
+  },
+  "falls_by_category": {
+   "tip-side foot on/at block": 6,
+   "leg strike (femur/tibia>200N)": 23,
+   "pit (tip-side foot)": 29,
+   "feature under trailing feet": 12,
+   "no feature (all feet flat 1.5s)": 5
+  },
+  "falls_by_category_share": {
+   "tip-side foot on/at block": 0.08,
+   "leg strike (femur/tibia>200N)": 0.3067,
+   "pit (tip-side foot)": 0.3867,
+   "feature under trailing feet": 0.16,
+   "no feature (all feet flat 1.5s)": 0.0667
+  },
+  "onset_median_s": 1.6,
+  "axis_split": {
+   "pitch_fwd": 47,
+   "roll": 21,
+   "pitch_back": 7
+  },
+  "n_swings": 146424,
+  "n_pit_swings": 11344,
+  "n_ordinary_swings": 135080,
+  "swing_apex_median_by_hold_m": {
+   "lat_l": 0.06762,
+   "move_turn": 0.0449,
+   "diag": 0.05751,
+   "turn_r90": 0.09549,
+   "fwd": 0.04185,
+   "stand": 0.09855,
+   "turn_l90": 0.09611,
+   "back": 0.04432
+  },
+  "swing_apex_median_pit_m": 0.07075,
+  "swing_apex_median_ordinary_m": 0.05144,
+  "root_height_above_terrain_median_m": 1.08906,
+  "n_root_height_samples": 644315
+ },
+ "C0R_s18": {
+  "head": "C0R_s18",
+  "row": "field_hard__omni",
+  "seeds": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "stamps": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/C0R_s18/field_hard__omni/seed001/2026-10-09_04-47-54",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/C0R_s18/field_hard__omni/seed002/2026-10-09_04-51-37",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/C0R_s18/field_hard__omni/seed003/2026-10-09_04-55-14",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/C0R_s18/field_hard__omni/seed004/2026-10-09_04-58-55"
+  ],
+  "n_episodes": 400,
+  "n_falls": 86,
+  "falls_by_hold": {
+   "move_turn": 28,
+   "diag": 23,
+   "back": 20,
+   "turn_l90": 9,
+   "turn_r90": 3,
+   "lat_l": 3
+  },
+  "falls_by_category": {
+   "pit (tip-side foot)": 43,
+   "leg strike (femur/tibia>200N)": 33,
+   "tip-side foot on/at block": 3,
+   "feature under trailing feet": 6,
+   "no feature (all feet flat 1.5s)": 1
+  },
+  "falls_by_category_share": {
+   "pit (tip-side foot)": 0.5,
+   "leg strike (femur/tibia>200N)": 0.3837,
+   "tip-side foot on/at block": 0.0349,
+   "feature under trailing feet": 0.0698,
+   "no feature (all feet flat 1.5s)": 0.0116
+  },
+  "onset_median_s": 1.46,
+  "axis_split": {
+   "pitch_fwd": 64,
+   "pitch_back": 14,
+   "roll": 8
+  },
+  "n_swings": 138906,
+  "n_pit_swings": 12095,
+  "n_ordinary_swings": 126811,
+  "swing_apex_median_by_hold_m": {
+   "lat_l": 0.09282,
+   "move_turn": 0.04808,
+   "diag": 0.08619,
+   "turn_r90": 0.11519,
+   "fwd": 0.04421,
+   "stand": 0.12797,
+   "turn_l90": 0.10126,
+   "back": 0.0467
+  },
+  "swing_apex_median_pit_m": 0.08395,
+  "swing_apex_median_ordinary_m": 0.07698,
+  "root_height_above_terrain_median_m": 1.09755,
+  "n_root_height_samples": 659059
+ },
+ "P2__ST2_s18": {
+  "head": "P2__ST2_s18",
+  "row": "field_hard__omni",
+  "seeds": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "stamps": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__ST2_s18/field_hard__omni/seed001/2026-10-09_08-05-31",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__ST2_s18/field_hard__omni/seed002/2026-10-09_08-09-16",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__ST2_s18/field_hard__omni/seed003/2026-10-09_08-12-58",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/P2__ST2_s18/field_hard__omni/seed004/2026-10-09_08-16-42"
+  ],
+  "n_episodes": 400,
+  "n_falls": 153,
+  "falls_by_hold": {
+   "move_turn": 45,
+   "back": 29,
+   "diag": 53,
+   "turn_l90": 18,
+   "lat_l": 6,
+   "turn_r90": 2
+  },
+  "falls_by_category": {
+   "pit (tip-side foot)": 61,
+   "leg strike (femur/tibia>200N)": 53,
+   "tip-side foot on/at block": 19,
+   "no feature (all feet flat 1.5s)": 7,
+   "feature under trailing feet": 13
+  },
+  "falls_by_category_share": {
+   "pit (tip-side foot)": 0.3987,
+   "leg strike (femur/tibia>200N)": 0.3464,
+   "tip-side foot on/at block": 0.1242,
+   "no feature (all feet flat 1.5s)": 0.0458,
+   "feature under trailing feet": 0.085
+  },
+  "onset_median_s": 2.0,
+  "axis_split": {
+   "pitch_fwd": 112,
+   "roll": 16,
+   "pitch_back": 25
+  },
+  "n_swings": 208019,
+  "n_pit_swings": 13403,
+  "n_ordinary_swings": 194616,
+  "swing_apex_median_by_hold_m": {
+   "lat_l": 0.04842,
+   "move_turn": 0.03877,
+   "diag": 0.047,
+   "turn_r90": 0.03888,
+   "fwd": 0.04316,
+   "stand": 0.03639,
+   "turn_l90": 0.03919,
+   "back": 0.04518
+  },
+  "swing_apex_median_pit_m": 0.04377,
+  "swing_apex_median_ordinary_m": 0.0389,
+  "root_height_above_terrain_median_m": 1.09388,
+  "n_root_height_samples": 617158
+ }
+}

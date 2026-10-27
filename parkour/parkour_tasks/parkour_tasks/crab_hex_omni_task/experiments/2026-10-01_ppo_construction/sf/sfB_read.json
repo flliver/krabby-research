@@ -1,0 +1,1262 @@
+{
+ "reads": {
+  "band": {
+   "P1B6__B_t3_s16": {
+    "turn": {
+     "facing_closed": 0.5473285897435409,
+     "yaw_progress": 0.02126681298870646,
+     "heading_final": 0.22484494000673294
+    },
+    "turn_mid": {
+     "facing_closed": 0.057459409554532326,
+     "yaw_progress": 0.003144932387216007,
+     "heading_final": 0.949274092912674
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__B_t3_s17": {
+    "turn": {
+     "facing_closed": 0.6380434114444682,
+     "yaw_progress": 0.02627426396383574,
+     "heading_final": 0.1814294457435608
+    },
+    "turn_mid": {
+     "facing_closed": 0.15371803125083505,
+     "yaw_progress": 0.012703771205851807,
+     "heading_final": 0.8522608578205109
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__B_t3_s18": {
+    "turn": {
+     "facing_closed": 0.677799963930294,
+     "yaw_progress": 0.027754394886469528,
+     "heading_final": 0.1614290103316307
+    },
+    "turn_mid": {
+     "facing_closed": 0.2593312947249902,
+     "yaw_progress": 0.020976161243170283,
+     "heading_final": 0.7392460405826569
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__C0_t3_s16": {
+    "turn": {
+     "facing_closed": 0.801299580126809,
+     "yaw_progress": 0.04038650479010287,
+     "heading_final": 0.1020100861787796
+    },
+    "turn_mid": {
+     "facing_closed": 0.6127034813113494,
+     "yaw_progress": 0.0504154437461572,
+     "heading_final": 0.4012872576713562
+    },
+    "survival": {
+     "stand": 0.99,
+     "turn_l05": 0.99,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__C0_t3_s17": {
+    "turn": {
+     "facing_closed": 0.8276072362010831,
+     "yaw_progress": 0.046300697986403024,
+     "heading_final": 0.0816260389983654
+    },
+    "turn_mid": {
+     "facing_closed": 0.8125157879338087,
+     "yaw_progress": 0.0686489284091328,
+     "heading_final": 0.18610667437314987
+    },
+    "survival": {
+     "stand": 0.98,
+     "turn_l05": 1.0,
+     "turn_l10": 0.98,
+     "turn_r05": 0.99,
+     "turn_r10": 0.98
+    }
+   },
+   "P1B6__C0_t3_s18": {
+    "turn": {
+     "facing_closed": 0.7788562589636874,
+     "yaw_progress": 0.039991472483390404,
+     "heading_final": 0.11146273463964462
+    },
+    "turn_mid": {
+     "facing_closed": 0.7035028400113812,
+     "yaw_progress": 0.05926818915491215,
+     "heading_final": 0.2985910624265671
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 0.99
+    }
+   },
+   "FB6k__B_s16": {
+    "turn": {
+     "facing_closed": 0.3780374723788578,
+     "yaw_progress": 0.01610659218223494,
+     "heading_final": 0.3104671984910965
+    },
+    "turn_mid": {
+     "facing_closed": 0.5399681390288906,
+     "yaw_progress": 0.04499404055930427,
+     "heading_final": 0.4610596001148224
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "FB6k__B_s17": {
+    "turn": {
+     "facing_closed": 0.31618968371132566,
+     "yaw_progress": 0.01312899707610389,
+     "heading_final": 0.34512367844581604
+    },
+    "turn_mid": {
+     "facing_closed": 0.15549117827795755,
+     "yaw_progress": 0.012907571337066959,
+     "heading_final": 0.8415822982788086
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "FB6k__B_s18": {
+    "turn": {
+     "facing_closed": 0.5623059156447541,
+     "yaw_progress": 0.023480127878507725,
+     "heading_final": 0.2170373499393463
+    },
+    "turn_mid": {
+     "facing_closed": 0.2984085304426992,
+     "yaw_progress": 0.025131633813804607,
+     "heading_final": 0.7108182609081268
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 0.95,
+     "turn_r05": 1.0,
+     "turn_r10": 0.96
+    }
+   },
+   "W_p1b6": {
+    "turn": {
+     "facing_closed": 0.8547473758480408,
+     "yaw_progress": 0.06419791182118204,
+     "heading_final": 0.0706983171403408
+    },
+    "turn_mid": {
+     "facing_closed": 0.9202737950418385,
+     "yaw_progress": 0.09224629642840196,
+     "heading_final": 0.07851287722587585
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 0.99,
+     "turn_l10": 0.99,
+     "turn_r05": 1.0,
+     "turn_r10": 0.98
+    }
+   },
+   "P1B6__B_t3x_s16": {
+    "turn": {
+     "facing_closed": 0.7525833704029693,
+     "yaw_progress": 0.03801391811155596,
+     "heading_final": 0.12383566796779633
+    },
+    "turn_mid": {
+     "facing_closed": 0.14833765256186582,
+     "yaw_progress": 0.011238907162442047,
+     "heading_final": 0.8552477061748505
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__B_t3x_s17": {
+    "turn": {
+     "facing_closed": 0.7314868046046237,
+     "yaw_progress": 0.031717455590087956,
+     "heading_final": 0.13377365469932556
+    },
+    "turn_mid": {
+     "facing_closed": 0.47325940162541263,
+     "yaw_progress": 0.03935443294052675,
+     "heading_final": 0.5229701697826385
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 0.97
+    }
+   },
+   "P1B6__B_t3x_s18": {
+    "turn": {
+     "facing_closed": 0.7373923254951771,
+     "yaw_progress": 0.031622656331170035,
+     "heading_final": 0.131194569170475
+    },
+    "turn_mid": {
+     "facing_closed": 0.20102468791363426,
+     "yaw_progress": 0.016360091807655408,
+     "heading_final": 0.8006419241428375
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "P1B6__C0_t3x_s16": {
+    "turn": {
+     "facing_closed": 0.7559459230259645,
+     "yaw_progress": 0.03856635323534226,
+     "heading_final": 0.12511322274804115
+    },
+    "turn_mid": {
+     "facing_closed": 0.409909333464748,
+     "yaw_progress": 0.03320355563805,
+     "heading_final": 0.5976111888885498
+    },
+    "survival": {
+     "stand": 0.99,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 0.96
+    }
+   },
+   "SF__B_rest_s16": {
+    "turn": {
+     "facing_closed": 0.9278015918869815,
+     "yaw_progress": 0.1169823708308589,
+     "heading_final": 0.036142436787486076
+    },
+    "turn_mid": {
+     "facing_closed": 0.9417643837174213,
+     "yaw_progress": 0.1015414922745877,
+     "heading_final": 0.058639971539378166
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "SF__B_rest_s16_c6": {
+    "turn": {
+     "facing_closed": 0.8027785311466299,
+     "yaw_progress": 0.09228792006542719,
+     "heading_final": 0.09772990643978119
+    },
+    "turn_mid": {
+     "facing_closed": 0.5097850720770631,
+     "yaw_progress": 0.04272086153770337,
+     "heading_final": 0.4929138720035553
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "SF__B_rest_s17": {
+    "turn": {
+     "facing_closed": 0.8489334383785577,
+     "yaw_progress": 0.09478677194568585,
+     "heading_final": 0.07573042809963226
+    },
+    "turn_mid": {
+     "facing_closed": 0.9115531650620212,
+     "yaw_progress": 0.09619888856342271,
+     "heading_final": 0.08773809671401978
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "SF__B_rest_s17_c6": {
+    "turn": {
+     "facing_closed": 0.7694864321844199,
+     "yaw_progress": 0.0849905127441493,
+     "heading_final": 0.11560952663421631
+    },
+    "turn_mid": {
+     "facing_closed": 0.07680345993147164,
+     "yaw_progress": 0.006280968060503558,
+     "heading_final": 0.9223966598510742
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "SF__B_rest_s18": {
+    "turn": {
+     "facing_closed": 0.9100895152257632,
+     "yaw_progress": 0.09216081960265723,
+     "heading_final": 0.044896796345710754
+    },
+    "turn_mid": {
+     "facing_closed": 0.9153255507431042,
+     "yaw_progress": 0.09952292737949958,
+     "heading_final": 0.08445081487298012
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "SF__B_rest_s18_c6": {
+    "turn": {
+     "facing_closed": 0.7629556427151751,
+     "yaw_progress": 0.08557863531241734,
+     "heading_final": 0.11975652351975441
+    },
+    "turn_mid": {
+     "facing_closed": 0.8800957249446546,
+     "yaw_progress": 0.08690721756920185,
+     "heading_final": 0.12006885185837746
+    },
+    "survival": {
+     "stand": 1.0,
+     "turn_l05": 1.0,
+     "turn_l10": 1.0,
+     "turn_r05": 1.0,
+     "turn_r10": 1.0
+    }
+   },
+   "SF__C0_rest_s16": null,
+   "SF__C0_rest_s16_c6": null,
+   "SF__C0_rest_s17": null,
+   "SF__C0_rest_s17_c6": null,
+   "SF__C0_rest_s18": null,
+   "SF__C0_rest_s18_c6": null
+  },
+  "sampled": {
+   "P1B6__B_t3_s16": {
+    "fwd_ratio": 0.9036801980525083,
+    "side_ratio": 0.5895089209812454,
+    "turn_facing_closed": 0.10681480198391746,
+    "turn_yaw_progress": 0.013541404912696939
+   },
+   "P1B6__B_t3_s17": {
+    "fwd_ratio": 0.8930698091355567,
+    "side_ratio": 0.5634280997869624,
+    "turn_facing_closed": 0.1649904476802192,
+    "turn_yaw_progress": 0.02128881183233413
+   },
+   "P1B6__B_t3_s18": {
+    "fwd_ratio": 0.8380853582460941,
+    "side_ratio": 0.7082454554192146,
+    "turn_facing_closed": 0.2031334362692217,
+    "turn_yaw_progress": 0.026248796515428694
+   },
+   "P1B6__C0_t3_s16": {
+    "fwd_ratio": 0.698640154644136,
+    "side_ratio": 0.5042342640730965,
+    "turn_facing_closed": 0.3773772259208932,
+    "turn_yaw_progress": 0.04910098077976727
+   }
+  },
+  "t3x": {
+   "P1B6__B_t3x_s16": {
+    "seed": 16,
+    "arm": "B",
+    "head": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.19042964032404708,
+      "r": 0.2126252758948604
+     },
+     "fall": 0.0
+    },
+    "m6100": {
+     "hands": {
+      "l": "INTERMEDIATE",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.1459135016983067,
+      "r": 0.13856678954585372
+     },
+     "fall": 0.0
+    },
+    "m7500": {
+     "hands": {
+      "l": "FAST",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.18149164857425998,
+      "r": 0.15545248966245007
+     },
+     "fall": 0.0
+    },
+    "base": {
+     "hands": {
+      "l": "INTERMEDIATE",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.14715336082251268,
+      "r": 0.12651120262707255
+     },
+     "fall": 0.0
+    },
+    "fall": 0.0,
+    "suite": {
+     "fwd_ratio": 0.9529025413932879,
+     "back_ratio": 0.9233369061542636,
+     "diag_ratio": 0.8437318761237507,
+     "side_ratio": 0.864424153787227,
+     "turn_facing_closed": 0.0942005169749634,
+     "turn_yaw_progress": 0.011267169436929786,
+     "move_turn_ratio": 0.6122257309465875,
+     "move_turn_survival": 0.12,
+     "jitter": {
+      "fwd": 0.1870505550279864,
+      "back": 0.17840453698898556,
+      "side": 0.1401138464290862,
+      "diag": 0.18072453526395332,
+      "turn": 0.18372864410591278,
+      "move_turn": 0.1426157295748491
+     },
+     "fft": {
+      "fwd": 1.4678963547844914,
+      "back": 1.4787808336609456,
+      "side": 1.2456488910852115,
+      "diag": 1.424927444950976,
+      "turn": 1.6276934734322428,
+      "move_turn": 1.408568796238094
+     },
+     "survival": {
+      "back": 1.0,
+      "diag": 0.99,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.24,
+      "move_turn_r": 0.0,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    },
+    "dose_ok": true
+   },
+   "P1B6__B_t3x_s17": {
+    "seed": 17,
+    "arm": "B",
+    "head": {
+     "hands": {
+      "l": "INTERMEDIATE",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.14519778896463437,
+      "r": 0.2020813528723731
+     },
+     "fall": 0.0
+    },
+    "m6100": {
+     "hands": {
+      "l": "SLOW",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.13233779051728067,
+      "r": 0.1347060579774488
+     },
+     "fall": 0.0
+    },
+    "m7500": {
+     "hands": {
+      "l": "INTERMEDIATE",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.1584727857037531,
+      "r": 0.19155931748717217
+     },
+     "fall": 0.0
+    },
+    "base": {
+     "hands": {
+      "l": "SLOW",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.12821570934498322,
+      "r": 0.14974500371674715
+     },
+     "fall": 0.0
+    },
+    "fall": 0.0,
+    "suite": {
+     "fwd_ratio": 0.8961109069195998,
+     "back_ratio": 0.8692681891253629,
+     "diag_ratio": 0.72061674934419,
+     "side_ratio": 0.7508990102969453,
+     "turn_facing_closed": 0.2937112088817363,
+     "turn_yaw_progress": 0.038287091116556746,
+     "move_turn_ratio": 0.5886434800295726,
+     "move_turn_survival": 0.025,
+     "jitter": {
+      "fwd": 0.19256418053527685,
+      "back": 0.2081776119860214,
+      "side": 0.1470847860410983,
+      "diag": 0.16168792345211538,
+      "turn": 0.20045184898171786,
+      "move_turn": 0.16367046820010453
+     },
+     "fft": {
+      "fwd": 1.55003553660875,
+      "back": 1.772908972656594,
+      "side": 1.3440554193424399,
+      "diag": 1.3548510872421644,
+      "turn": 1.883619041858083,
+      "move_turn": 1.6590678327185846
+     },
+     "survival": {
+      "back": 0.98,
+      "diag": 0.9,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.05,
+      "move_turn_r": 0.0,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 0.93
+     }
+    },
+    "dose_ok": true
+   },
+   "P1B6__B_t3x_s18": {
+    "seed": 18,
+    "arm": "B",
+    "head": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.16663484474921147,
+      "r": 0.19083859950953935
+     },
+     "fall": 0.0
+    },
+    "m6100": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.18103246579727789,
+      "r": 0.19219614046716868
+     },
+     "fall": 0.0
+    },
+    "m7500": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.1736329177524923,
+      "r": 0.2036026450414
+     },
+     "fall": 0.0
+    },
+    "base": {
+     "hands": {
+      "l": "FAST",
+      "r": "INTERMEDIATE"
+     },
+     "feet": {
+      "l": 0.18796206428416645,
+      "r": 0.17061360440493678
+     },
+     "fall": 0.0
+    },
+    "fall": 0.0,
+    "suite": {
+     "fwd_ratio": 0.9716566172648038,
+     "back_ratio": 0.971514980843522,
+     "diag_ratio": 0.8661017553760876,
+     "side_ratio": 0.7613886106833143,
+     "turn_facing_closed": 0.12357149323360589,
+     "turn_yaw_progress": 0.01569812359739899,
+     "move_turn_ratio": 0.7551045029321632,
+     "move_turn_survival": 0.0,
+     "jitter": {
+      "fwd": 0.19896181604459146,
+      "back": 0.1948937582972181,
+      "side": 0.15010530527243515,
+      "diag": 0.19454095612662023,
+      "turn": 0.19370881653695946,
+      "move_turn": 0.16177346682122756
+     },
+     "fft": {
+      "fwd": 1.4978527243582969,
+      "back": 1.5750166945382678,
+      "side": 1.262867890350643,
+      "diag": 1.478804648710177,
+      "turn": 1.7475628721284746,
+      "move_turn": 1.658429584719355
+     },
+     "survival": {
+      "back": 1.0,
+      "diag": 1.0,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.0,
+      "move_turn_r": 0.0,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    },
+    "dose_ok": true
+   },
+   "P1B6__C0_t3x_s16": {
+    "seed": 16,
+    "arm": "C0",
+    "head": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.12260733753152676,
+      "r": 0.09943772797863072
+     },
+     "fall": 0.0075
+    },
+    "m6100": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.11873980265338971,
+      "r": 0.10359791121380357
+     },
+     "fall": 0.025
+    },
+    "m7500": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.12271694506524311,
+      "r": 0.10383350377116686
+     },
+     "fall": 0.03
+    },
+    "base": {
+     "hands": {
+      "l": "SLOW",
+      "r": "SLOW"
+     },
+     "feet": {
+      "l": 0.1194420881103539,
+      "r": 0.100086737258988
+     },
+     "fall": 0.0325
+    },
+    "fall": 0.0075,
+    "suite": {
+     "fwd_ratio": 0.725851867911286,
+     "back_ratio": 0.7316212001293759,
+     "diag_ratio": 0.6480889720531443,
+     "side_ratio": 0.5257035846282647,
+     "turn_facing_closed": 0.2626972094447357,
+     "turn_yaw_progress": 0.03415962147718497,
+     "move_turn_ratio": 0.5053673086594502,
+     "move_turn_survival": 0.22999999999999998,
+     "jitter": {
+      "fwd": 0.1384889839142831,
+      "back": 0.14231546890836408,
+      "side": 0.13500896494196046,
+      "diag": 0.14520725530607884,
+      "turn": 0.1599611073132952,
+      "move_turn": 0.14956676472966196
+     },
+     "fft": {
+      "fwd": 1.7153327506508997,
+      "back": 1.717296938407972,
+      "side": 1.690352284056055,
+      "diag": 1.7670804862154763,
+      "turn": 1.918209218409453,
+      "move_turn": 1.8900079855515046
+     },
+     "survival": {
+      "back": 0.85,
+      "diag": 0.72,
+      "fwd": 0.79,
+      "lat_l": 0.96,
+      "lat_r": 0.99,
+      "move_turn": 0.1,
+      "move_turn_r": 0.36,
+      "stand": 0.99,
+      "turn_l90": 0.99,
+      "turn_r90": 0.98
+     }
+    }
+   }
+  },
+  "c4": {
+   "SF__B_c4_s16": {
+    "head": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.22780003661130102,
+      "r": 0.22956526904913688
+     },
+     "fall": 0.0
+    },
+    "suite": {
+     "fwd_ratio": 0.9306619551775122,
+     "back_ratio": 0.8780835079203857,
+     "diag_ratio": 0.8415927570769229,
+     "side_ratio": 0.956935849531491,
+     "turn_facing_closed": 0.22870909716945326,
+     "turn_yaw_progress": 0.030172065371104208,
+     "move_turn_ratio": 0.8445343110646103,
+     "move_turn_survival": 0.005,
+     "jitter": {
+      "fwd": 0.16238108073674082,
+      "back": 0.17285060857987466,
+      "side": 0.15112096770844863,
+      "diag": 0.14769120037600514,
+      "turn": 0.21679635930056512,
+      "move_turn": 0.15912601893026107
+     },
+     "fft": {
+      "fwd": 1.4067437514136447,
+      "back": 1.5566695753451056,
+      "side": 1.3519881593334167,
+      "diag": 1.2844728090265372,
+      "turn": 2.1519461805881495,
+      "move_turn": 1.618033403051553
+     },
+     "survival": {
+      "back": 0.97,
+      "diag": 1.0,
+      "fwd": 0.95,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.0,
+      "move_turn_r": 0.01,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    }
+   },
+   "SF__B_c4_s17": {
+    "head": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.19296934586229253,
+      "r": 0.22414594140907268
+     },
+     "fall": 0.0
+    },
+    "suite": {
+     "fwd_ratio": 0.8655776895770839,
+     "back_ratio": 0.797869586285403,
+     "diag_ratio": 0.8528177204445364,
+     "side_ratio": 0.8934996155261027,
+     "turn_facing_closed": -0.05176038873783728,
+     "turn_yaw_progress": -0.006907499484465613,
+     "move_turn_ratio": 0.6690180524018503,
+     "move_turn_survival": 0.0,
+     "jitter": {
+      "fwd": 0.15768597501660853,
+      "back": 0.1541851980352159,
+      "side": 0.146776810794983,
+      "diag": 0.17632646363405757,
+      "turn": 0.21580962619404598,
+      "move_turn": 0.14134585240963346
+     },
+     "fft": {
+      "fwd": 1.3445155277598797,
+      "back": 1.3695334384327205,
+      "side": 1.3688032876691594,
+      "diag": 1.4421809559690209,
+      "turn": 2.09471689514858,
+      "move_turn": 1.5092056081917935
+     },
+     "survival": {
+      "back": 0.97,
+      "diag": 1.0,
+      "fwd": 0.99,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.0,
+      "move_turn_r": 0.0,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    }
+   },
+   "SF__B_c4_s18": {
+    "head": {
+     "hands": {
+      "l": "FAST",
+      "r": "FAST"
+     },
+     "feet": {
+      "l": 0.2282683588477265,
+      "r": 0.1964123419915288
+     },
+     "fall": 0.0
+    },
+    "suite": {
+     "fwd_ratio": 0.8721512816401328,
+     "back_ratio": 0.8674727171951664,
+     "diag_ratio": 0.9020681247883149,
+     "side_ratio": 0.9058209913264407,
+     "turn_facing_closed": -0.07760408393722784,
+     "turn_yaw_progress": -0.010422336869790647,
+     "move_turn_ratio": 0.5913433227639067,
+     "move_turn_survival": 0.055,
+     "jitter": {
+      "fwd": 0.1733165613365611,
+      "back": 0.17786931779783782,
+      "side": 0.16727229136161526,
+      "diag": 0.18114795893616645,
+      "turn": 0.1929577788771778,
+      "move_turn": 0.14812189670515905
+     },
+     "fft": {
+      "fwd": 1.4497059375098245,
+      "back": 1.5450455274056474,
+      "side": 1.5357292141314276,
+      "diag": 1.5184152766960208,
+      "turn": 1.9920640500959181,
+      "move_turn": 1.5336316958386744
+     },
+     "survival": {
+      "back": 0.99,
+      "diag": 1.0,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.0,
+      "move_turn_r": 0.11,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    }
+   },
+   "SF__C0_c4_s16": null,
+   "SF__C0_c4_s17": null,
+   "SF__C0_c4_s18": null
+  },
+  "sf": {
+   "SF__B_rest_s16": {
+    "ref": "SF__B_rest_s16",
+    "kind": "tail",
+    "arm": "B",
+    "seed": 16,
+    "killed": null,
+    "killed_kind": null,
+    "points": {
+     "13000": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.21437743465347397,
+       "r": 0.22495025637770452
+      },
+      "fall": 0.0
+     },
+     "head": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.22921249134132132,
+       "r": 0.2233793775763293
+      },
+      "fall": 0.0
+     },
+     "c6": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.2355348577419309,
+       "r": 0.20711539540220228
+      },
+      "fall": 0.0
+     }
+    },
+    "suite": {
+     "fwd_ratio": 1.0105680537972823,
+     "back_ratio": 1.0249656210423574,
+     "diag_ratio": 0.9655035480278018,
+     "side_ratio": 0.9758299452498134,
+     "turn_facing_closed": 0.7633902747825104,
+     "turn_yaw_progress": 0.09994710649909999,
+     "move_turn_ratio": 0.6501026753475585,
+     "move_turn_survival": 0.74,
+     "jitter": {
+      "fwd": 0.2091114826831189,
+      "back": 0.23388588055297738,
+      "side": 0.15750480607293535,
+      "diag": 0.19922568712919772,
+      "turn": 0.19768296723166723,
+      "move_turn": 0.17400492041154852
+     },
+     "fft": {
+      "fwd": 1.591206694255698,
+      "back": 1.7404562160481976,
+      "side": 1.3787457828511602,
+      "diag": 1.6075285281822667,
+      "turn": 1.4951043394294419,
+      "move_turn": 1.4404814800507721
+     },
+     "survival": {
+      "back": 1.0,
+      "diag": 1.0,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.48,
+      "move_turn_r": 1.0,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    },
+    "tail": {
+     "mu_med_cam": 0.6539973127841949,
+     "mu_med_rod": 1.0335843855142592,
+     "priv_reg_head": 0.10000000149011612,
+     "last_step": 14995,
+     "dose_ok": true
+    },
+    "clock_hidden": {
+     "suite": true,
+     "lr": true
+    }
+   },
+   "SF__B_rest_s17": {
+    "ref": "SF__B_rest_s17",
+    "kind": "tail",
+    "arm": "B",
+    "seed": 17,
+    "killed": null,
+    "killed_kind": null,
+    "points": {
+     "13000": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.226219409036318,
+       "r": 0.23380686785858298
+      },
+      "fall": 0.0
+     },
+     "head": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.23596554436859862,
+       "r": 0.2366834569525944
+      },
+      "fall": 0.0
+     },
+     "c6": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.23190400069755732,
+       "r": 0.23460016698206337
+      },
+      "fall": 0.0
+     }
+    },
+    "suite": {
+     "fwd_ratio": 1.0294566633819278,
+     "back_ratio": 0.9686452346748737,
+     "diag_ratio": 0.9986024952972179,
+     "side_ratio": 1.0334223214100433,
+     "turn_facing_closed": 0.7136422848018081,
+     "turn_yaw_progress": 0.09517027147148231,
+     "move_turn_ratio": 0.5969699499361103,
+     "move_turn_survival": 0.985,
+     "jitter": {
+      "fwd": 0.21569666011063074,
+      "back": 0.21604007745425718,
+      "side": 0.18632939154240702,
+      "diag": 0.21043251707289945,
+      "turn": 0.18302187438320025,
+      "move_turn": 0.17975639327665732
+     },
+     "fft": {
+      "fwd": 1.6590179857924543,
+      "back": 1.7322295974919355,
+      "side": 1.8398582672429677,
+      "diag": 1.7893896982298063,
+      "turn": 1.4731844851368052,
+      "move_turn": 1.5038716669518863
+     },
+     "survival": {
+      "back": 1.0,
+      "diag": 1.0,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 1.0,
+      "move_turn_r": 0.97,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    },
+    "tail": {
+     "mu_med_cam": 0.6106434953212738,
+     "mu_med_rod": 0.9707173657417297,
+     "priv_reg_head": 0.10000000149011612,
+     "last_step": 14995,
+     "dose_ok": true
+    },
+    "clock_hidden": {
+     "suite": true,
+     "lr": true
+    }
+   },
+   "SF__B_rest_s18": {
+    "ref": "SF__B_rest_s18",
+    "kind": "tail",
+    "arm": "B",
+    "seed": 18,
+    "killed": null,
+    "killed_kind": null,
+    "points": {
+     "13000": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.23444895060784432,
+       "r": 0.23282440750054684
+      },
+      "fall": 0.0
+     },
+     "head": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.23982493773519017,
+       "r": 0.2446141195011275
+      },
+      "fall": 0.0
+     },
+     "c6": {
+      "hands": {
+       "l": "FAST",
+       "r": "FAST"
+      },
+      "feet": {
+       "l": 0.2425078647261492,
+       "r": 0.24210096023297636
+      },
+      "fall": 0.0
+     }
+    },
+    "suite": {
+     "fwd_ratio": 1.0412028004134974,
+     "back_ratio": 1.0300209237577187,
+     "diag_ratio": 0.9558431466104105,
+     "side_ratio": 1.0451524624018902,
+     "turn_facing_closed": 0.7969518412132037,
+     "turn_yaw_progress": 0.10404013976964052,
+     "move_turn_ratio": 0.6094775444552003,
+     "move_turn_survival": 0.9450000000000001,
+     "jitter": {
+      "fwd": 0.22407056988234325,
+      "back": 0.23540091372996347,
+      "side": 0.16006497583417656,
+      "diag": 0.18317474178638565,
+      "turn": 0.20213150090545925,
+      "move_turn": 0.183055698217978
+     },
+     "fft": {
+      "fwd": 1.634852572071899,
+      "back": 1.7662481388468354,
+      "side": 1.4149900985799744,
+      "diag": 1.4972312556672922,
+      "turn": 1.55731384962882,
+      "move_turn": 1.4621323779997508
+     },
+     "survival": {
+      "back": 1.0,
+      "diag": 1.0,
+      "fwd": 1.0,
+      "lat_l": 1.0,
+      "lat_r": 1.0,
+      "move_turn": 0.9,
+      "move_turn_r": 0.99,
+      "stand": 1.0,
+      "turn_l90": 1.0,
+      "turn_r90": 1.0
+     }
+    },
+    "tail": {
+     "mu_med_cam": 0.597916846871376,
+     "mu_med_rod": 0.9807037562131882,
+     "priv_reg_head": 0.10000000149011612,
+     "last_step": 14995,
+     "dose_ok": true
+    },
+    "clock_hidden": {
+     "suite": true,
+     "lr": true
+    }
+   },
+   "SF__C0_rest_s16": null,
+   "SF__C0_rest_s17": null,
+   "SF__C0_rest_s18": null
+  }
+ },
+ "rules": {
+  "t3x": {
+   "n": 3,
+   "artifacts": [],
+   "counted": [
+    16,
+    18
+   ],
+   "in_band_heading_final_B": [
+    0.12383566796779633,
+    0.13377365469932556,
+    0.131194569170475
+   ],
+   "in_band_heading_final_C0": [
+    0.1020100861787796,
+    0.0816260389983654,
+    0.11146273463964462
+   ],
+   "in_band_settles": true,
+   "reading": "TAILS CANDIDATE",
+   "why": "B FAST/FAST 2/3 at 8998 and the in-band turn settles: running the P1 tails from these heads is the user's call (stop and ask)"
+  },
+  "c4": {
+   "lost": [],
+   "per_seed": {
+    "16": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "17": {
+     "l": "FAST",
+     "r": "FAST"
+    },
+    "18": {
+     "l": "FAST",
+     "r": "FAST"
+    }
+   },
+   "stop": false,
+   "reading": "CONTINUE",
+   "why": "stroke lost in 0/3 seeds at c4"
+  },
+  "c0_trigger": {
+   "run_c0": true,
+   "B_fast_fast_hands_c6x": 3,
+   "checks": null
+  },
+  "final": {
+   "gate": "PENDING",
+   "why": "the C0 side-first tails are triggered and not read yet"
+  }
+ }
+}

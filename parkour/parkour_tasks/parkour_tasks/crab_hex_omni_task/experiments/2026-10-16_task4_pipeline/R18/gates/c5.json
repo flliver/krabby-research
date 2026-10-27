@@ -1,0 +1,243 @@
+{
+ "run": "R18",
+ "stage": "c5",
+ "read_at": "2026-10-19T09:16:17",
+ "thresholds": {
+  "file": "thresholds_v1.json",
+  "version": "v1",
+  "sha256": "2c89f953bc1686f032cf75b22dcbf496f7b55e16000b408cddf103ad551f297d"
+ },
+ "verdict": "PASS",
+ "gate0": [],
+ "decisive": [
+  {
+   "id": "c5.floor.survival.fwd.es1",
+   "statistic": "translate survival, fwd",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 1.5176240024016331e-31,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.fwd.es1"
+  },
+  {
+   "id": "c5.floor.ratio.fwd.es1",
+   "statistic": "translate ratio, fwd",
+   "value": 1.033182438962807,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.005773276636080611,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.fwd.es1"
+  },
+  {
+   "id": "c5.floor.survival.side.es1",
+   "statistic": "translate survival, side",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.side.es1"
+  },
+  {
+   "id": "c5.floor.ratio.side.es1",
+   "statistic": "translate ratio, side",
+   "value": 0.8795708077988096,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0018168607604551077,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.side.es1"
+  },
+  {
+   "id": "c5.floor.survival.back.es1",
+   "statistic": "translate survival, back",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 2.472813500379137e-25,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.back.es1"
+  },
+  {
+   "id": "c5.floor.ratio.back.es1",
+   "statistic": "translate ratio, back",
+   "value": 1.0044765495471988,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.00649420531567031,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.back.es1"
+  },
+  {
+   "id": "c5.floor.survival.diag.es1",
+   "statistic": "translate survival, diag",
+   "value": 1.0,
+   "line": 0.8,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.survival.diag.es1"
+  },
+  {
+   "id": "c5.floor.ratio.diag.es1",
+   "statistic": "translate ratio, diag",
+   "value": 0.9291745819186533,
+   "line": 0.5,
+   "direction": ">=",
+   "pass": true,
+   "missing": false,
+   "rate": 0.008290938849785195,
+   "unvalidated": true,
+   "env_seed": 1,
+   "thresholds_id": "c5.floor.ratio.diag.es1"
+  },
+  {
+   "id": "c5.floor.side22_notslow",
+   "thresholds_id": "c5.floor.side22_notslow",
+   "statistic": "side22_25lr feet_ss class, both hands not SLOW / DEAD",
+   "value": [
+    "FAST",
+    "FAST"
+   ],
+   "medians": {
+    "lat_l_022": 0.20797183011328468,
+    "lat_r_022": 0.17608849146432443,
+    "lat_l_025": 0.22912506259270032,
+    "lat_r_025": 0.21064558599653005
+   },
+   "line": "notslow",
+   "pass": true,
+   "missing": false,
+   "rate": 0.0724599038767888,
+   "unvalidated": true
+  },
+  {
+   "id": "c5.live_collapse",
+   "statistic": "live rules (unvalidated)",
+   "value": null,
+   "pass": true,
+   "unvalidated": true,
+   "rate": null
+  }
+ ],
+ "halt_lines": [],
+ "watch_flags": [],
+ "watch": {
+  "side22@1": {
+   "class": [
+    "FAST",
+    "FAST"
+   ],
+   "median": {
+    "lat_l_022": 0.20797183011328468,
+    "lat_r_022": 0.17608849146432443,
+    "lat_l_025": 0.22912506259270032,
+    "lat_r_025": 0.21064558599653005
+   }
+  },
+  "suite@1": {
+   "back": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.0044765495471988,
+    "facing_closed": null,
+    "yaw_progress": -0.0009577419376000762,
+    "tripod": 0.6329205141879446
+   },
+   "diag": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 0.9291745819186533,
+    "facing_closed": null,
+    "yaw_progress": 0.0004782341420650482,
+    "tripod": 0.7008881698438238
+   },
+   "fwd": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": 1.033182438962807,
+    "facing_closed": null,
+    "yaw_progress": -0.003529089114939173,
+    "tripod": 0.6603951238668078
+   },
+   "move_turn": {
+    "n": 200,
+    "survival": 0.11,
+    "ratio": 0.7003894401397608,
+    "facing_closed": 0.1457700179566757,
+    "yaw_progress": 0.039913231675285155,
+    "tripod": 0.3726419317115376
+   },
+   "side": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": 0.8795708077988096,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.8220897785601564
+   },
+   "stand": {
+    "n": 100,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": null,
+    "yaw_progress": null,
+    "tripod": 0.036650889253263465
+   },
+   "turn": {
+    "n": 200,
+    "survival": 1.0,
+    "ratio": null,
+    "facing_closed": -0.0047685183123322705,
+    "yaw_progress": -0.0007919784767970366,
+    "tripod": 0.7609395895371918
+   }
+  }
+ },
+ "trained_categories": [
+  "stand",
+  "fwd",
+  "side",
+  "back",
+  "diag",
+  "turn",
+  "move_turn"
+ ],
+ "head": {
+  "stage": "c5",
+  "chain": "R18_c5",
+  "xid": "X03",
+  "seed": "18",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_08-28-47_seed18_X03_c5_A15pB/model_8997.pt",
+  "sha256": "33a140af762fa871a515aaaa4594787862221b7df85a528089bde19fa681ef57",
+  "run_dir": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-10-19_08-28-47_seed18_X03_c5_A15pB",
+  "iteration": 8997,
+  "code_sha": "cbaf67974a7ebfb644dd65584f3294e31bcaffb7ac8a04750dc55709f928e8b3",
+  "eval_sha": "8c8d22f078cb40c68791b96f1ee40c9d3e901593034e46ad34e537faad2129fd",
+  "driver_stamp": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/gait_eval/omni_phases/R18/seed18_X03_c5_A15pB/suite__omni/seed001/2026-10-19_13-04-48",
+  "recorded_at": "2026-10-19T09:12:38"
+ }
+}

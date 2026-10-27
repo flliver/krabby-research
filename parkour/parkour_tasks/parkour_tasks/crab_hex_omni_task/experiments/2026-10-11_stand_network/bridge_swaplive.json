@@ -1,0 +1,20 @@
+{
+ "walkstop__omni@1": {
+  "identity": false,
+  "meta_fails": [],
+  "refs_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_S1_s18/walkstop__omni/seed001/2026-10-09_04-11-22",
+  "sn_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SN_IDM_s18/walkstop__omni/seed001/2026-10-12_07-38-21",
+  "swap_live": {
+   "episodes": 100,
+   "fails": [],
+   "off_stand_series_clean": true,
+   "pre_entry_episodes_checked": 100,
+   "pre_entry_matches_refs": true,
+   "stand_actions_equal_stand_net": true,
+   "stand_mode_share": 0.6486486486486487,
+   "stand_steps": 180000,
+   "stand_steps_differ_from_s1": 180000
+  },
+  "verdict": "PASS"
+ }
+}

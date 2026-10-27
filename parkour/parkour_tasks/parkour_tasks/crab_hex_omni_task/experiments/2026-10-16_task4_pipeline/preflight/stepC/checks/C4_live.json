@@ -1,0 +1,74 @@
+{
+ "check": "C4_live",
+ "class": "stop",
+ "depth_pilot": {
+  "all_rules": {
+   "killed_at": null,
+   "polls": 19,
+   "watch_first": null
+  },
+  "ep_len_crab_rules": {
+   "killed_at": null,
+   "polls": 19,
+   "watch_first": null
+  },
+  "loss_rule": {
+   "killed_at": null,
+   "polls": 19,
+   "watch_first": null
+  },
+  "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_08-57-17_T4C4_pilot_depth",
+  "tstar_tail": {
+   "crab_failure": 0.13341796886175872,
+   "ep_len": 1876.7796960449218
+  }
+ },
+ "forward_3a": {
+  "all_rules": {
+   "killed_at": null,
+   "polls": 99,
+   "watch_first": null
+  },
+  "ep_len_crab_rules": {
+   "killed_at": null,
+   "polls": 99,
+   "watch_first": null
+  },
+  "loss_rule": {
+   "killed_at": null,
+   "polls": 99,
+   "watch_first": null
+  },
+  "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_student/2026-09-08_05-54-01",
+  "tstar_tail": {
+   "crab_failure": 0.46307617068290713,
+   "ep_len": 1409.1174975585936
+  }
+ },
+ "loss_rule_failed_on": [],
+ "v1_student_loss_rule": "kill",
+ "verdict": "PASS",
+ "zero_pilot": {
+  "all_rules": {
+   "killed_at": null,
+   "polls": 19,
+   "watch_first": null
+  },
+  "ep_len_crab_rules": {
+   "killed_at": null,
+   "polls": 19,
+   "watch_first": null
+  },
+  "loss_rule": {
+   "killed_at": null,
+   "polls": 19,
+   "watch_first": null
+  },
+  "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-17_10-54-37_T4C4_pilot_zero",
+  "tstar_tail": {
+   "crab_failure": 0.13341796886175872,
+   "ep_len": 1876.7796960449218
+  }
+ },
+ "zero_pilot_as_known_bad": null
+}

@@ -1,0 +1,95 @@
+# Omni depth-student camera geometry: SPEC ONLY (step 1). The implementation is step 4 (M1b, B3).
+# ALL MOUNT POSES ARE PLACEHOLDERS for M15 pose matching against the built robot.
+# Frames: body = the articulation root `chassis/body` (x forward, y left, z up; ROS camera convention as in
+# parkour_tasks/default_cfg.py CAMERA_CFG). Heights use S1's measured walking stance.
+version: v0
+created: 2026-10-16
+
+sources:
+  zed2i: "Stereolabs ZED 2 / 2i product page, https://www.stereolabs.com/products/zed-2 (read 2026-10-16): '110°(H) x 70°(V) x 120°(D) max. (for 2.1mm)'; depth range '0.3m to 20m ... with 2.1 mm lens' (4 mm lens: 1.5-35 m); depth up to 100 Hz; baseline 120 mm. The page is internally inconsistent about the second lens (4 vs 4.6 mm); the 2.1 mm figures are used."
+  sen0583: "DFRobot wiki, https://wiki.dfrobot.com/sen0583/ (MS-A075V RGB-D TOF Camera Module, SKU SEN0583, read 2026-10-16): 'Depth: 320 x 240@30fps', 'TOF 55°(H) x 72°(V)', detection range '0.2~2m'. The M7 TASK-2 doc gives 320x240 and 0.2-2 m but no FOV."
+  sen0583_flag: "FLAG: 55°(H) x 72°(V) on a 320 x 240 (4:3 landscape) depth image is inconsistent unless the module is portrait or the H/V labels are swapped. This spec uses the wiki's H/V as written; the 55°-vertical variant is shown in the band table. Resolve at M15 (mount orientation)."
+  forward_reference: "crab_hex_forward_task/config/crab_hex/crab_hex_scene_cfg.py CrabHexStudentSceneCfg.depth_camera = default_cfg.CAMERA_CFG with pos (0.37, 0, 0.10) on chassis/body; rot euler xyz (180, 70, -90) deg ROS -> optical axis body (0.94, 0, -0.342), i.e. 20° below horizontal; pinhole f 11.041, apertures 20.955 x 12.240 -> 87.0° x 58.0° (D435-like); 106 x 60 rays; max_distance 2 m; mesh_prim_paths ['/World/ground']; update_period = sim.dt * decimation = 0.02 s. Depth term (parkour_isaaclab envs/mdp/observations.py image_features): every 5th env step, crop [:-2, 4:-4] -> 58 x 98, resize to (58, 87), normalise d / clip - 0.5, buffer_len 2, returns buffer[-2] (one 0.1-s sample old)."
+  chassis: "crab_hex_forward_task/mdp/crab_hex_dimensions.py BODY_SIZE_M = (0.7112, 1.2192, 0.3175) -> faces at x = +-0.356 m, y = +-0.610 m; legs mount on the +-y faces (3 per side). Side-face camera convention (0, +-0.625, 0.10) from crab_hex_sideways_task/config/crab_hex/crab_hex_side_scene_cfg.py (DEPTH_CAMERA_POS, a placeholder there too)."
+  stance_height: "S1 s16/17/18 suite es1-2: median h_meas (root z - mean terrain z under the feet) 1.077-1.110 m; a REFS_S1_s18 suite episode reads root z 1.086 m. Camera height H = h_meas + 0.10 ~= 1.19 m (1.18-1.21 m over the seeds)."
+
+encoder_input:            # every camera feeds the K = 4 image backbone at the forward depth-encoder input size
+  height: 58
+  width: 87
+  note: "PROPOSAL: cast the ray grid directly at 58 x 87 over the sensor FOV (no crop / resize step in the batched omni term), instead of the forward 60 x 106 grid + crop + resize. The forward crop narrows its effective HFOV from 87.0° to 82.5°; a direct 58 x 87 grid keeps each camera's full datasheet FOV. Non-square angular pixels (fx != fy) are allowed by the pinhole pattern. Alternative kept open for step 4: 60 x 95 cast + the forward crop (bit-for-bit forward preprocessing)."
+  max_distance_m: 2.0
+  max_distance_note: "2 m on all four, matching the forward normalisation clip and the SEN0583 range; the ZED's 20 m is not used in sim (crab speeds <= 0.35 m/s; 2 m = 5.7 s of travel). Near-range invalidity (ZED 0.3 m, SEN0583 0.2 m) is NOT simulated by the ray caster (depth_clipping_behavior 'max' handles far only): an M15 parity item. All bottom rows are >= H = 1.19 m slant, so the near limit never binds on flat ground; it binds only on obstacles within 0.2-0.3 m of a lens."
+
+update:
+  proposal_period_s: 0.02
+  proposal_note: "Keep the forward semantics: update every policy step (0.02 s), consume every 5th step (10 Hz) through the shared image term. A 0.1-s update_period would cut ray cost 5x but the sensor update phase is not tied to common_step_counter % 5, adding up to 0.1 s of extra staleness; use it only if the step-8 4-camera timing STOP (> 4 h / 1k its) fires, with an alignment check."
+
+raycast_targets:
+  mesh_prim_paths: ["/World/ground"]
+  field_blocks_in_set: true
+  evidence: "The omni FIELD terrain (KRABBY_FLAT_TERRAIN_GEOM=field; omni_terrain_knobs.install_omni_terrain_generator -> OMNI_FIELD_TERRAINS_CFG) stamps field blocks into each sub-terrain's height field (parkour_isaaclab/terrains/omni/omni_terrains.py field_layout / omni_field_terrain); the TerrainImporter meshes the generated terrain under /World/ground, the same single static mesh the forward camera and the teacher height scanner ray-cast. So field blocks are seen with no extra target. Confirmed by code reading only; the step-8 camera check (axis error <= 1°, ground band) must also assert rays hit a field block."
+  not_in_set: "Robot links (no self-occlusion in sim: on hardware the side cameras sit over the middle-leg hips and will see legs), the SH table cuboids (kinematic, separate prims; the stand nets are teacher-side so no student reads them), any dynamic prim. The ray caster supports one static mesh."
+
+cameras:
+  front:
+    sensor: ZED 2i (2.1 mm lens), depth from stereo
+    fov_deg: {h: 110, v: 70}
+    range_m: {min: 0.3, max: 20.0, sim_clip: 2.0}
+    mount_pos_body_m: [0.37, 0.0, 0.10]     # PLACEHOLDER (forward student's front-face convention)
+    pitch_down_deg: 55                       # PLACEHOLDER; bottom row at nadir (55 + 35 = 90)
+    optical_axis_body: [0.574, 0.0, -0.819]  # (cos 55, 0, -sin 55)
+    rotation_rule: "the forward ROS rotation built for this pitch (euler xyz (180, 90 - pitch, -90) deg through quat_from_euler_xyz_tuple, as default_cfg does for 70), with a tripwire on the resulting optical axis (step-8 check: <= 1° axis error)"
+    ray_grid: {rows: 58, cols: 87, deg_per_px: {h: 1.26, v: 1.21}}
+    ground_band_m: {look_axis: "+x", from: 0.37, to: 1.98, rows_hitting_ground_within_2m: 0.77}
+    target_4b: {look_axis: "+x", from: 0.5, to: 1.2, met: true}
+  left:
+    sensor: DFRobot SEN0583 ToF
+    fov_deg: {h: 55, v: 72}
+    range_m: {min: 0.2, max: 2.0, sim_clip: 2.0}
+    mount_pos_body_m: [0.0, 0.625, 0.10]     # PLACEHOLDER (sideways side-face convention; over the middle-leg hip)
+    yaw_deg: 90
+    pitch_down_deg: 54                       # PLACEHOLDER; bottom row at nadir (54 + 36 = 90)
+    optical_axis_body: [0.0, 0.588, -0.809]
+    rotation_rule: "q_z(+90°) ⊗ q_front(pitch) composed as crab_hex_side_scene_cfg.DEPTH_CAMERA_ROT does (do NOT edit the Euler yaw term: quat_from_euler_xyz_tuple negates qz), plus a tripwire"
+    ray_grid: {rows: 58, cols: 87, deg_per_px: {h: 0.63, v: 1.24}}
+    ground_band_m: {look_axis: "+y", from: 0.62, to: 2.24, rows_hitting_ground_within_2m: 0.74, if_v_is_55deg: {from: 0.80, to: 2.24}}
+    target_4b: {look_axis: "+y", from: 0.75, to: 1.45, met: true, note: "front target re-based on the side face (0.610 + 0.14 .. 0.610 + 0.84 m); covers the toe envelope (~1.55 m lateral) only partly -- the band continues to 2.24 m"}
+  right:
+    sensor: DFRobot SEN0583 ToF
+    fov_deg: {h: 55, v: 72}
+    range_m: {min: 0.2, max: 2.0, sim_clip: 2.0}
+    mount_pos_body_m: [0.0, -0.625, 0.10]    # PLACEHOLDER
+    yaw_deg: -90
+    pitch_down_deg: 54                       # PLACEHOLDER
+    optical_axis_body: [0.0, -0.588, -0.809]
+    rotation_rule: "q_z(-90°) ⊗ q_front(pitch), tripwire"
+    ray_grid: {rows: 58, cols: 87, deg_per_px: {h: 0.63, v: 1.24}}
+    ground_band_m: {look_axis: "-y", from: 0.62, to: 2.24, rows_hitting_ground_within_2m: 0.74, if_v_is_55deg: {from: 0.80, to: 2.24}}
+    target_4b: {look_axis: "-y", from: 0.75, to: 1.45, met: true}
+  rear:
+    sensor: DFRobot SEN0583 ToF
+    fov_deg: {h: 55, v: 72}
+    range_m: {min: 0.2, max: 2.0, sim_clip: 2.0}
+    mount_pos_body_m: [-0.37, 0.0, 0.10]     # PLACEHOLDER (mirror of the front)
+    yaw_deg: 180
+    pitch_down_deg: 54                       # PLACEHOLDER
+    optical_axis_body: [-0.588, 0.0, -0.809]
+    rotation_rule: "q_z(180°) ⊗ q_front(pitch), tripwire"
+    ray_grid: {rows: 58, cols: 87, deg_per_px: {h: 0.63, v: 1.24}}
+    ground_band_m: {look_axis: "-x", from: 0.37, to: 1.98, rows_hitting_ground_within_2m: 0.74}
+    target_4b: {look_axis: "-x", from: 0.5, to: 1.2, met: true}
+
+reference_forward_camera_today:
+  pitch_down_deg: 20
+  ground_band_m: {look_axis: "+x", from: 1.40, to: 1.98}
+  target_4b_met: false
+  note: "At the crab's stance (H ~1.19 m) the forward student's camera sees ground only beyond 1.40 m and only 22 % of its rows reach the ground inside 2 m: it does NOT cover body-x 0.5-1.2 m. Its Go2-derived 20° pitch was never re-fit to the crab's height."
+
+target_4b_origin: "The 'check 4b' is the sideways campaign's pre-student camera check (crab_hex_sideways_task/experiments/2026-09-11_0414_sideways_formation/CHARTER.md:183-195: optical axis in the body frame); the ground-band target 'covers body-x 0.5-1.2 m' is DESIGN.md §5 C4. The grant's TASK-4 criterion 4b is the stage-gate criterion and has no camera or ground-band requirement."
+
+ray_cost:            # rays cast per env per policy step, relative to the forward single camera (106 x 60 at 0.02 s)
+  forward_K1: {rays_per_update: 6360, period_s: 0.02, rays_per_s_per_env: 318000, relative: 1.0}
+  omni_K4_58x87_every_step: {rays_per_update: 20184, period_s: 0.02, rays_per_s_per_env: 1009200, relative: 3.17}
+  omni_K4_60x95_crop_every_step: {rays_per_update: 22800, period_s: 0.02, rays_per_s_per_env: 1140000, relative: 3.58}
+  omni_K4_58x87_every_5th: {rays_per_update: 20184, period_s: 0.10, rays_per_s_per_env: 201840, relative: 0.63}
+  note: "Per env; the omni student runs 192 envs like the forward student (num_envs=192). Ray casting is likely not the dominant cost: the forward image term runs a per-env Python loop (crop/resize per env) every 5th step, which K = 4 multiplies by 4 -- hence DESIGN B3's batched term. Measured at step 8 (STOP if > 4 h per 1k its)."

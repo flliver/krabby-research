@@ -1,0 +1,301 @@
+# Per-category stroke weights (S_cat): the W fine-tune (clock-free) leg of the plan.
+#
+# Plan: /home/nickmagus/.claude/plans/per-category-stroke-weights.md, Phase B steps 5-8 (approved by
+# the user 2026-09-27, "run every step without asking"; the user added decision 7, move_turn held at
+# m = 1, after the audit). Design and decisions 1-7 are CHARTER.md beside this file.
+#
+# THE SHAPE. This campaign runs NO baseline and NO candidates of its own. `screen`, `baseline` and
+# `require_env` are carried only so `chain: c6y` (the validator's own baseline recipe, kept VERBATIM
+# from ../2026-09-26_stroke_posture/candidates.yaml) type-checks and so `decision_rule` -- also
+# verbatim -- has a resolvable control chain. `chain: c6y` is NEVER RUN here: it is the SAME chain
+# that campaign's B s3/s2 already ran under the SAME eval_sha/code_sha, and decision 4 reuses those
+# two screens as the controls rather than re-running B:
+#   B s3 (X01): parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_posture/seed3_X01_c6y_A15pB/suite__omni/seed001/2026-09-26_08-39-30
+#   B s2 (X02): parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-26_stroke_posture/seed2_X02_c6y_A15pB/suite__omni/seed001/2026-09-26_10-25-08
+#
+# THE ONE THING THIS CAMPAIGN DOES RUN is chain `c6y_scat`, a SECOND copy of c6y's one stage whose
+# overlay adds the per-category knob (KRABBY_OMNI_STROKE_W + KRABBY_OMNI_STROKE_CAT_W) over c6y's own
+# eps values -- forked from the SAME baked W checkpoint c6y forks. It is reached ONLY through
+# `references: {S_cat: {chain: c6y_scat}}` and is run with:
+#     launch_candidates.sh --campaign-dir <this dir> --reference-chain S_cat --seed 3   # then --seed 2
+# never through the ordinary queue (there is nothing in that queue to run). No seed is pinned on the
+# reference: the plan launches seed 3 first, then seed 2, both by hand at Phase B step 7.
+#
+# DOSES ON c6y_scat ARE FINAL (training scale, WINDOW0.md 2026-09-28). The smoke ran at the replay-scale table from
+# replay_gate/REPLAY_GATE_CAT.md's W-economy table (the offline replay gate, step 4, STOP-and-ask
+# resolved "proceed" by the user 2026-09-28):
+#   KRABBY_OMNI_STROKE_W     = 0.08646779396708197
+#   KRABBY_OMNI_STROKE_CAT_W = fwd:1.0,back:1.0,side:7.109225977086123,diag:1.8426117426622708,
+#                              turn:1.7727771075114038,move_turn:1.0
+# Step 6's dose smoke (stroke_cat_dose_smoke.py) reads them straight from this chain's overlay (via
+# `reference_recipe` + `stage_env`, never a candidate), measures each category's r_c = delivered /
+# replay-predicted, and rescales fwd/back/side/diag by 1/r_c (turn and move_turn are replay-set /
+# held at m = 1 per decision 7) -- see CHARTER.md's dose rule. The rescaled, TRAINING-scale table is
+# edited into this overlay in place before the first `--reference-chain S_cat` launch; this file's
+# own candidates_sha256 is recorded then, not before (as stroke_posture's S/P doses were).
+#
+# EVERY path is written relative to the repository root. No driver may contain a dated path.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+#: Carried only so chain c6y (never run here) type-checks against the verbatim decision_rule below.
+screen: {chain: c6y, eval: [suite], iters: 4000}
+
+promotion: {enabled: false}
+
+#: Carried for the same reason as `screen` -- B is NEVER LAUNCHED by this campaign. The reused
+#: controls are the stroke_posture screen's own B s3/s2 (X01/X02, header comment above; decision 4).
+baseline: {id: B, chain: c6y}
+
+#: Verbatim from ../2026-09-26_stroke_posture/candidates.yaml (K + the split flag), pinned onto every
+#: composed stage env this file's chains define -- c6y (never run) and c6y_scat (the one that runs).
+require_env:
+  KRABBY_CLOCK_W: "0.001"
+  KRABBY_APEX_W: "0.001"
+  KRABBY_OMNI_CLOCK_HIDE: "1"
+  KRABBY_OMNI_REWARD_SPLIT: "1"
+
+# ---------------------------------------------------------------------------- resolution (D00s)
+# Verbatim from ../2026-09-26_stroke_posture/candidates.yaml: carried only so `decision_rule` (also
+# verbatim) type-checks. Its `run_dir`s exist only under the MAIN CHECKOUT's `parkour/logs` -- a
+# worktree dry run reports them as NOTES ("not on this machine"), never refusals. D00s is never
+# computed by this campaign (chain c6y never runs here); `score_reference.py` reads D00s from the OLD
+# campaign's own `resolution.36e5a8af7000.json` instead (CHARTER.md).
+#   E1 = X08-c6: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/model_7996.pt
+#   E2 = X08-c4: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_10-32-02_seed3_X08_c4_A15pB/model_4498.pt
+resolution_inputs:
+  - {head: X08-c6, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E1_X08-c6_visible/suite__omni/seed001/2026-09-23_21-23-41"}
+  - {head: X08-c4, row: suite__omni, role: pair, run_dir: "parkour/logs/rsl_rl/gait_eval/omni_phases/2026-09-23_clock_deprecation/step0_E2_X08-c4_visible/suite__omni/seed001/2026-09-23_21-31-11"}
+
+# ---------------------------------------------------------------------------- the decision rule
+# VERBATIM from ../2026-09-26_stroke_posture/candidates.yaml (rule_version 2, per decision 4: "Both
+# pairs ran at eval_sha 36e5a8af7000 and code_sha 709161927627"; the same rule scores S_cat against
+# the reused B). Carried so this file validates on its own; the ACTUAL step-8 gate is run offline by
+# score_reference.py against the old campaign's rule, resolution and seed terms (CHARTER.md), never
+# by this file's own (never-run) chain c6y.
+decision_rule:
+  rule_version: 2
+  pair_on: [adopt]
+  steps_guard_flag: false
+  text: >-
+    STROKE/POSTURE SCREEN: the baseline is B (W + 4000 its of c6y, both stroke/posture knobs at eps,
+    clock-free K in the chain) and every arm (S = the per-foot stroke income at w_S, P = the
+    body-centring bonus at w_P) is judged against B's own screens (control: baseline), never
+    another arm. Every metric is a per-category number of the suite__omni row
+    (summarize()['cat'][c]: the median pooled over both hands of a paired category; survival = the
+    category's own-hold survival), computed over each category's 12-s command window. Blocks (95 %,
+    two-sided), wave 2's verbatim: F = turn: facing_closed, yaw_progress; F_mt = move_turn:
+    facing_closed, yaw_progress; T = fwd, side, back, diag: ratio; RIG (10 members) = steps_per_m on
+    fwd, side, back, diag and steps_per_rad on turn (LOWER is better) plus support_feet on fwd,
+    side, back, diag, turn (HIGHER is better); and LEN (new) = side and diag steps_per_m (LOWER is
+    better: a longer step), the mechanism block neither lever pays directly. Each delta is sign x
+    (candidate - control), so z > R is BETTER in every block; z_b = mean_i(delta_i / R_i); BETTER if
+    z > R, WORSE if z < -R, else TIE. Guards (99 %, one-sided; 23, wave 2's): survival on all seven
+    categories (floored at R_binom); move_turn.ratio; ratio@guard on fwd, side, back, diag;
+    foot_slip on fwd, side, back, diag, turn; steps_per_m@guard on fwd, side, back, diag and
+    steps_per_rad@guard on turn; stand.steps_per_s. R_i = max(R_eval,i, R_seed,i) (+ R_binom for
+    the survival guards), R_eval from D00s (X08-c6 vs X08-c4), R_seed from D00bs (B s3 vs s2). NO
+    adopt_requires: the driver's ADOPT = some block BETTER, nothing WORSE, anchored drift OK;
+    REJECT = any block or guard WORSE, or a stage floor on a non-park category. pair_on [adopt]: an
+    s3 ADOPT queues a seed-2 pair; an all-TIE s3 line is paired by the driver itself; the pooled
+    decision is final. FLOORS: W's suite survival (survival_by_hold) - 0.20 per category; a floor
+    on move_turn or diag PARKS AND FLAGS (floor.park_categories, user decision at audit pass 3):
+    the run continues to its screen and the survival guard against B decides. The driver's
+    ADOPT/REJECT is mechanical: the ADOPTION of S is plan decision 5 (pooled s3 + s2: the S
+    manipulation check of decision 9 passed, side stroke_share not lower beyond its MDE, no block or
+    guard WORSE; LEN BETTER reported as mechanism evidence, not required), read by the orchestrator
+    at SA4 from this line plus `replay_stroke_posture.py readout`. FLAGS (stop and ask, never a
+    verdict; every flagged DECISION parks the driver until `ledger_cli ack-flag`): the clock
+    campaign's set, read against B -- turn facing_closed down >= 0.05, move_turn facing_closed down
+    >= 0.10, any category's survival down >= 0.05, any walking speed ratio down >= 0.05; taps up >
+    25 %; swing_apex down >= 30 %; support_feet down > 10 %; speed-driven; removal verification
+    failed (every arm is clock-free: every HIDE eval shows clock_obs == 0, every stage ends with
+    both clock weights <= 0.001); a park-category floor (floor_park, immediate). At the orchestrator
+    (SA4, offline readout, not driver flags): term income > 25 % of tracking in any category; side
+    knee_cap_frac up > 20 %; the unison/phase flag on S (and C): tripod coherence below its seed
+    band, or roll_rms collapsing, relative to B (SA0 decision 7). WATCH, never scored: as wave 2
+    (the cadence set, taps, swing_apex, tripod, slip_per_m, six_down_frac, direction_error,
+    cross_track_ratio, heading_final, settle_s, stand.drift_speed, both hands), plus move_turn
+    survival and pitch (W's known forward nose-dive).
+  flags:
+    margin:
+      turn.facing_closed: -0.05
+      move_turn.facing_closed: -0.10
+      any_category.survival: -0.05
+      any_walking_category.ratio: -0.05   # fwd, side, back, diag, move_turn
+    taps_up_frac: 0.25
+    swing_apex_down_frac: 0.30
+    support_feet_down_frac: 0.10
+    steps_up_frac: 0.15             # only with steps_guard_flag: true
+    speed_driven: steps members' mean delta/R BETTER, mean dlog step_rate_hz >= 0, T z > 0
+    removal_verification: every clock-free stage verified (clock_obs, weights, clock_hidden_frac)
+    floor_park: a stage floor on a floor.park_categories category (move_turn, diag)
+    immediate: [removal, pilot, floor_park]   # park at the seed-3 line, never deferred to the pooled line
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      RIG:
+        level: 0.95
+        units: ratio
+        members:
+          fwd: [steps_per_m, support_feet]
+          side: [steps_per_m, support_feet]
+          back: [steps_per_m, support_feet]
+          diag: [steps_per_m, support_feet]
+          turn: [steps_per_rad, support_feet]
+      LEN: {level: 0.95, units: ratio, members: {side: [steps_per_m], diag: [steps_per_m]}}
+    guards:
+      level: 0.99
+      members:
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, clock_hz, cadence_ratio, six_down_frac,
+                settle_six_down_s, action_jitter, action_fft_freq, joint_speed_mean, rod_speed_mean,
+                contact_switch_hz, foot_slip, wz_active_frac, clock_restarts, foot_disp_end,
+                work_per_s]
+        fwd: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+              taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+              cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        side: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        back: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        diag: [tripod, gait_hz, clock_hz, cadence_ratio, hz_speed_slope, offset_R, step_rate_hz,
+               taps_per_m, swing_apex, slip_per_m, action_jitter, swings_per_m, work_per_m,
+               cam_work_per_m, direction_error, cross_track_ratio, heading_final]
+        turn: [steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, gait_hz, clock_hz,
+               cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad, slip_per_rad,
+               work_per_rad, cam_work_per_rad, settle_s, heading_final]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex, foot_slip, gait_hz,
+                    clock_hz, cadence_ratio, offset_R, step_rate_hz, action_jitter, swings_per_rad,
+                    slip_per_rad, work_per_rad, cam_work_per_rad, direction_error,
+                    cross_track_ratio, settle_s]
+      hands: true
+      legacy: {completion: legacy, tripod_walking_dir: legacy, track_ratio_tail: legacy,
+               track_ratio_move_tail: legacy, turn_survival_l90: N/A (suite),
+               turn_survival_r90: N/A (suite)}
+    demoted: {}
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260923}
+  control_head: X08-c6
+
+# ---------------------------------------------------------------------------- chains
+chains:
+  #: VERBATIM from ../2026-09-26_stroke_posture/candidates.yaml. NEVER RUN by this campaign (header
+  #: comment): `screen`/`baseline` name it only so the validator and the verbatim `decision_rule`
+  #: above resolve against a real chain. Decision 4 reuses that campaign's own B s3/s2 screens.
+  c6y:
+    notes: >-
+      W (C1d then c6x, the clock-free omni head of record) extended by 4000 iterations of C1d's c6
+      overlay with K held in the chain -- B is this chain with both stroke/posture knobs at eps, S
+      doses the per-foot stroke income, P the body-centring bonus.
+    stages:
+      - stage: c6y
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/5_c6x_clockfree/model_11995.pt}
+        overlay:
+          # C1d's c6 overlay, verbatim (the clock campaign's c6x)
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          # K: W's recipe of record is clock-free (pinned by require_env)
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          # both stroke/posture knobs ARMED at eps (every arm differs from B in one weight) + telemetry
+          KRABBY_OMNI_STROKE_W: "0.001"
+          KRABBY_OMNI_CENTRING_W: "0.001"
+          KRABBY_OMNI_REWARD_SPLIT: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.80, fwd: 0.75, side: 0.795, back: 0.78, diag: 0.67, turn: 0.79,
+                            move_turn: 0.165}
+          park_categories: [move_turn, diag]
+
+  #: THE ONE CHAIN THIS CAMPAIGN RUNS -- only through `references: {S_cat: ...}` below, never through
+  #: the queue (there are no candidates). Same base/iters/resume_from/eval/categories/floor as c6y
+  #: (it forks the SAME baked W checkpoint); the overlay is c6y's overlay (K + the eps posture knob +
+  #: the split flag, all unchanged) PLUS the per-category stroke knobs at their SMOKE (replay-scale)
+  #: doses -- see the header comment and CHARTER.md's dose rule. `KRABBY_OMNI_CENTRING_W` stays at eps
+  #: (P is out of scope for this campaign; the plan's Design never doses it here).
+  c6y_scat:
+    notes: >-
+      c6y (W extended by 4000 its of C1d's c6 overlay with K held) plus the per-category stroke term
+      KRABBY_OMNI_STROKE_W / KRABBY_OMNI_STROKE_CAT_W, at FINAL training-scale doses (WINDOW0.md) rescaled from the
+      offline replay gate (replay_gate/REPLAY_GATE_CAT.md, W economy). Step 6's dose smoke rescales
+      fwd/back/side/diag by 1/r_c (turn and move_turn are replay-set / held at m = 1, decision 7)
+      before the first `--reference-chain S_cat` launch, editing this overlay in place.
+    stages:
+      - stage: c6y
+        base: "1a"
+        iters: 4000
+        from_scratch: false
+        resume_from: {checkpoint: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/5_c6x_clockfree/model_11995.pt}
+        overlay:
+          # C1d's c6 overlay, verbatim -- identical to c6y's above
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          # K: W's recipe of record is clock-free (pinned by require_env) -- identical to c6y's above
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+          # posture knob held at eps (P is out of scope here) -- identical to c6y's above
+          KRABBY_OMNI_CENTRING_W: "0.001"
+          KRABBY_OMNI_REWARD_SPLIT: "1"
+          # FINAL training-scale doses (WINDOW0.md, 2026-09-28): the replay table rescaled by the W dose smoke's
+          # r_c (fwd 0.685, side 1.663, diag 0.960); back tied to fwd; turn replay-set; move_turn m = 1.
+          # Effective: fwd = back = move_turn 0.1262, side 0.3697, diag 0.1660, turn 0.1533.
+          KRABBY_OMNI_STROKE_W: "0.126240"
+          KRABBY_OMNI_STROKE_CAT_W: "fwd:1.000000,back:1.000000,side:2.928327,diag:1.314741,turn:1.214263,move_turn:1.000000"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.80, fwd: 0.75, side: 0.795, back: 0.78, diag: 0.67, turn: 0.79,
+                            move_turn: 0.165}
+          park_categories: [move_turn, diag]
+
+# ---------------------------------------------------------------------------- references
+# Run OUTSIDE the queue: `launch_candidates.sh --campaign-dir <this dir> --reference-chain S_cat
+# --seed 3` (then `--seed 2`, plan step 7). No seed pinned: the plan launches s3 first, reads the
+# decision-5 pilot, then launches s2 only if it passes. Stage evals carry HIDE (EVAL_CARRY); the run
+# records its head and parks (no DECISION, no baseline queue) in `heads.json` / `lad.references`.
+references:
+  S_cat: {chain: c6y_scat}
+
+# ---------------------------------------------------------------------------- ranked candidates
+# Empty by design (header comment): this campaign scores its one arm entirely through
+# `--reference-chain S_cat` plus the offline `score_reference.py` gate (CHARTER.md), never through
+# the ordinary candidate queue. `validate_candidates` accepts an empty list (the candidate loop is
+# simply a no-op over it); nothing here composes onto, conflicts with, or is judged against anything.
+candidates: []
+
+# ---------------------------------------------------------------------------- milestones
+milestones: []

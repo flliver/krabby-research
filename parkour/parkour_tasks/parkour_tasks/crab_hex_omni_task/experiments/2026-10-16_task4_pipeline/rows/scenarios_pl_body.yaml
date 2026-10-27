@@ -1,0 +1,91 @@
+# Task 4 pipeline (M18 Task 4, campaign 2026-10-16_task4_pipeline) -- the DIRECTION SWEEP row (PLAN step 5 "E1";
+# DESIGN row B8, D16). Report-only (WATCH): no gate HALTs on it (PLAN Gates: the sweep is WATCH everywhere).
+#
+# 16 body-frame translation bins d000 ... d338, 22.5 deg apart (the name is round(heading in deg), banker's
+# rounding: 22.5 -> d022, 337.5 -> d338), each a held robot-frame command (vx, vy, wz) = (0.22 cos h, 0.22 sin h,
+# 0) with |v| = 0.22 m/s (to 2e-8 at 7 decimals) -- inside every bearing of the trained ellipse 0.35:0.35:0.25
+# and above the walk floor 0.21. The category-suite protocol of suite__omni_body: 16 waves, wave k = every env on
+# [settle 2 s, bin_k 12 s], one bin per episode, 100 episodes per wave, env_seed 1, spawn pinned (first_face).
+#
+# metric_class: translate (opt-in, gait_eval/schedule.py METRIC_CLASSES; E1). The motion-quality / rigidity
+# metrics are looked up by category NAME, so without it a bin named d022 would read None for steps_per_m,
+# taps_per_m, swing_apex, support_feet and step_rate_hz; with it every bin is scored with the translation
+# categories' metric set (the 50 N gait set: steps_per_m, swing_apex, support_feet, taps_per_m, step_rate_hz,
+# plus the per-metre motion-quality keys).
+#
+# ROUTE (DESIGN B9 yaw-rate interface): a WORLD-trained (facing) head runs these rows through the NAMED adapter
+# `--command-adapter body_hold` (wz = 0 here, so the facing target stays at the spawn yaw and travel dir =
+# yaw + atan2(vy, vx)); a BODY head would run them on the term route (no adapter). The depth student runs
+# them with `--task Isaac-Crab-Hex-Omni-Student-Play-v0` (its row runner strips the student runner's refused
+# knobs, see eval_crab_hex_gait._student_runner_knob_check).
+#
+# THE TOP BLOCK BELOW (manifest_version .. defaults) IS COPIED VERBATIM from
+# crab_hex_omni_task/experiments/eval/scenarios_omni_body.yaml (the frozen envelope, the trained ellipse and the
+# defaults), so the bins are validated against the same envelope the body rows are.
+#
+# No `env:` block (the manifest shape is frozen from the first eval: process-state sensitivity); payload levels
+# come only from the row's env file, never from this manifest.
+#
+# Run (from krabby-research/parkour):
+#   <python> parkour_tasks/parkour_tasks/crab_hex_forward_task/scripts/eval_crab_hex_gait.py --headless \
+#     --manifest parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/rows/scenarios_pl_body.yaml \
+#     --scenario dirsweep__omni_body --checkpoint <model.pt> --command-adapter body_hold
+
+manifest_version: 3
+command_route: term
+
+envelope:
+  w_min: 0.05
+  ceiling: 0.168
+  w_max: 0.21
+  cap: [[0.0, 0.21], [0.22, 0.105], [0.30, 0.065]]
+
+speed_ellipse: {fwd: 0.35, lat: 0.35, back: 0.25}
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  # The direction sweep: 16 translate bins at 0.22 m/s, 22.5 deg apart (header). Heading h is the body-frame
+  # travel direction, counter-clockwise from body +x (d090 = body +y = the robot's left, d180 = backward).
+  - id: dirsweep__omni_body
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    waves: 16
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - {name: d000, kind: translate, metric_class: translate, holds: [{label: d000, vx: 0.22, vy: 0.0, wz: 0.0}]}
+      - {name: d022, kind: translate, metric_class: translate, holds: [{label: d022, vx: 0.2032535, vy: 0.0841904, wz: 0.0}]}
+      - {name: d045, kind: translate, metric_class: translate, holds: [{label: d045, vx: 0.1555635, vy: 0.1555635, wz: 0.0}]}
+      - {name: d068, kind: translate, metric_class: translate, holds: [{label: d068, vx: 0.0841904, vy: 0.2032535, wz: 0.0}]}
+      - {name: d090, kind: translate, metric_class: translate, holds: [{label: d090, vx: 0.0, vy: 0.22, wz: 0.0}]}
+      - {name: d112, kind: translate, metric_class: translate, holds: [{label: d112, vx: -0.0841904, vy: 0.2032535, wz: 0.0}]}
+      - {name: d135, kind: translate, metric_class: translate, holds: [{label: d135, vx: -0.1555635, vy: 0.1555635, wz: 0.0}]}
+      - {name: d158, kind: translate, metric_class: translate, holds: [{label: d158, vx: -0.2032535, vy: 0.0841904, wz: 0.0}]}
+      - {name: d180, kind: translate, metric_class: translate, holds: [{label: d180, vx: -0.22, vy: 0.0, wz: 0.0}]}
+      - {name: d202, kind: translate, metric_class: translate, holds: [{label: d202, vx: -0.2032535, vy: -0.0841904, wz: 0.0}]}
+      - {name: d225, kind: translate, metric_class: translate, holds: [{label: d225, vx: -0.1555635, vy: -0.1555635, wz: 0.0}]}
+      - {name: d248, kind: translate, metric_class: translate, holds: [{label: d248, vx: -0.0841904, vy: -0.2032535, wz: 0.0}]}
+      - {name: d270, kind: translate, metric_class: translate, holds: [{label: d270, vx: 0.0, vy: -0.22, wz: 0.0}]}
+      - {name: d292, kind: translate, metric_class: translate, holds: [{label: d292, vx: 0.0841904, vy: -0.2032535, wz: 0.0}]}
+      - {name: d315, kind: translate, metric_class: translate, holds: [{label: d315, vx: 0.1555635, vy: -0.1555635, wz: 0.0}]}
+      - {name: d338, kind: translate, metric_class: translate, holds: [{label: d338, vx: 0.2032535, vy: -0.0841904, wz: 0.0}]}
+    notes: >-
+      Direction sweep (Task 4 E1, DESIGN B8): 16 body-frame translate bins d000..d338 at 22.5 deg, |v| 0.22 m/s,
+      wz 0, metric_class translate (the 50 N gait set per bin), 12-s holds, one bin per wave, 100 envs per wave;
+      a world head runs it through --command-adapter body_hold. Report-only.

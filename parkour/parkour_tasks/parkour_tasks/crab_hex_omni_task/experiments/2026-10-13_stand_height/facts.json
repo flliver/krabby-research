@@ -1,0 +1,2410 @@
+{
+ "campaign": "2026-10-13_stand_height",
+ "step": "1 (facts and premises)",
+ "generated": "2026-10-13T14:54:40-04:00",
+ "generator": {
+  "script": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scripts/sh_facts.py",
+  "sha256": "699118c5b893718ebd4f6759a4716de4c12b07d8f35008f7719fd6ce24902e20",
+  "sh_kin_sha256": "f12f271ff6d3eb4dd0e72518bb38813c1c3a8fd29252343499277fc8f80fe85f",
+  "sources_sha256": {
+   "crab_hex_linkage.py": "4fee0d0eb05bd48af2d2ab44aba210da9d4aba8d150a11fa6ae54a84c786f68d",
+   "crab_hex_dimensions.py": "cdcceaa0ffa35d2484268ed8983a0f52331138405bd69cebb5bd7093c1ab219c",
+   "crab_hex_foot_fk.py": "634c243b3b69eb39f35b1fab181382735149b0588fd5f318f2165f172394c6e5",
+   "parkour_actions.py": "d909efb6d706c4d1c38480ffa7a2b576e587cb3d7bd98980bcc7c6516e5e4d1b",
+   "sn_table_core.py": "2a2413b5294f2d9f6816e17e27ae126276a87d87c2cac175191642a5981e0c84"
+  },
+  "run": "CUDA_VISIBLE_DEVICES='' isaac_venv python scripts/sh_facts.py (CPU, no Kit)"
+ },
+ "stop": {
+  "stop_model_error": true,
+  "stop_h_max_low": true,
+  "stop_coupling_sign_ambiguous": false
+ },
+ "stop_evidence": {
+  "stop_model_error": {
+   "value": true,
+   "evidence": "pooled four walkstop stamps, settled stands at h_meas 1.0625 m: six-leg mean measured tau_hip 172.4 N*m, tau_knee -74.4 N*m; exploration static model (no leg weight) at the measured posture 116.3 / -103.4 N*m -> errors -32.5 % hip / -39.0 % knee; with leg weight 100.3 / -101.5 -> -41.8 % / -36.4 %. Tolerance 10 % on the joint torques: exceeded on BOTH joints by both models. The split between hip and knee is controller-dependent (internal horizontal stance forces), but the weight-fixed sum tau_hip - tau_knee is 12-22 % above statics on every stamp, which no foot force can produce (per unit foot load: measured hip + |knee| slope sum 0.714 m vs the geometric 0.584 m) -- an unexplained term in the sim torque reading that lands entirely on F_hip.",
+   "worst_abs_error_pct_exploration_model": 38.95528653643537,
+   "worst_abs_error_pct_leg_weight_model": 41.83557459827296
+  },
+  "stop_h_max_low": {
+   "value": true,
+   "evidence": "measured six-leg mean |F_hip| 2064 N (pooled) already exceeds the 2000 N cap at the walking height; model scaled to the measurement (x1.162) -> h_max 1.020 m (< 1.10). Unscaled exploration model h_max 1.22 m; leg-weight model unscaled 1.342 m; foot-load-based model 1.346 m."
+  },
+  "stop_coupling_sign_ambiguous": {
+   "value": false,
+   "evidence": "dLh/dth, dLk/dtk and dLk/dth (signed) match central finite differences of the rod-length functions to 1.0e-10 / 1.4e-10 / 1.6e-10 m/rad and the torch linkage module (knee_hip_coupling) to 2.8e-17; dLh/dth in [0.0501, 0.1204] and dLk/dtk in [0.0062, 0.0762] m/rad over the whole ROM grid (both > 0, the action term's own feedforward relies on it); coupling dLk/dth in [0.0081, 0.0869] m/rad over the stance range h_min..1.552 m (> 0; it crosses zero only at 0.685 m, below h_min, near the kinematic floor); the six-leg mean measured tau_hip > 0 and tau_knee (left conv.) < 0 on >= 1.0000 / 0.9453 of settled rows per stamp (loaded legs only: >= 0.958 / 0.887) -> F_hip pushes, F_knee pulls; with the coupling > 0 the knee pull ADDS to the hip rod force (44 % of it at 1.064).",
+   "coupling_zero_crossing_h_m": 0.6854659019708618
+  }
+ },
+ "frozen": {
+  "h_min_m": 0.719,
+  "h_max_m": 1.346,
+  "h_max_rule": "USER DECISION 2026-10-13 at the step-1 stop: cap from the measured-foot-load statics (b_forces.curves F_hip_foot_load_model_N): highest h on a 1 mm grid whose six-leg mean |F_hip| <= 2000 N. The sim's PD-torque reading (2064 N at 1.064, an unexplained ~14 % excess) is reported alongside, not used for the cap.",
+  "status": "FROZEN 2026-10-13 (CHARTER log); table range and K3 cells re-scoped 2026-10-13 at the step-4 stop (CHARTER section 3, USER DECISION: narrow stand-up to tall tables)",
+  "top_min_m": 0.635,
+  "top_min_rule": "USER DECISION 2026-10-13 at the step-4 stop (CHARTER section 3, 'narrow stand-up to tall tables'): lowest table top = 0.635 m (25 in), where R_h's loaded knees unfold in the air before the toes touch; the step-1 derived value (0.412 m, knee_folded toes clear the floor at spawn) is kept under previous_frozen_step4, not re-derived",
+  "top_max_train_m": 0.805,
+  "top_max_rule": "min(restore clearance 0.805, h_max - 0.264 = 1.082)",
+  "k3_eval_tops_m": [
+   0.635,
+   0.6985,
+   0.762
+  ],
+  "k3_gated_poses": [
+   "knee_folded",
+   "random"
+  ],
+  "k3_reported_tops_m": [
+   0.4572
+  ],
+  "k3_eval_rule": "GATED cells = k3_eval_tops_m x k3_gated_poses (6 cells): the R_h floor (per top, pooled over the gated poses) and the student's K3 line (tables pooled over the 6 cells per env seed) read these only; REPORTED only (run, read, never gated): k3_reported_tops_m (the 18-in table), every rod_min cell, every ground cell; every table cell commands h_cmd >= top + 0.31 <= h_max",
+  "previous_frozen_step4": {
+   "reason": "superseded 2026-10-13 by the USER DECISION at the step-4 stop (CHARTER section 3, 'narrow stand-up to tall tables'): R_h's stand-up floor missed on the 18-in table and the ground (loaded folded knees cannot extend)",
+   "top_min_m": 0.4123901406139288,
+   "k3_eval_tops_m": [
+    0.4572,
+    0.635,
+    0.762
+   ],
+   "k3_eval_rule": "tops within [top_min, 0.805 - margin], h_cmd >= top + 0.31 <= h_max"
+  },
+  "previous_provisional": {
+   "h_max_m": 1.02,
+   "top_max_train_m": 0.756,
+   "k3_eval_tops_m": [
+    0.4572,
+    0.635,
+    0.6858
+   ]
+  }
+ },
+ "verification": {
+  "defaults_vs_linkage": {
+   "hip": [
+    0.027169998105984527,
+    0.027169998105984527
+   ],
+   "knee_left": [
+    0.31020612922871676,
+    0.31020612922871676
+   ]
+  },
+  "max_abs_diff_vs_torch_linkage": {
+   "hip_len": 1.1102230246251565e-16,
+   "hip_angle": 4.440892098500626e-16,
+   "knee_len": 1.1102230246251565e-16,
+   "abs_dLh_dth_vs_hip_moment_arm": 1.3877787807814457e-17,
+   "abs_dLk_dtk_vs_knee_moment_arm": 4.163336342344337e-17,
+   "dLk_dth_vs_knee_hip_coupling": 2.7755575615628914e-17
+  },
+  "knee_angle_roundtrip_and_vs_torch_max_abs": 5.329070518200751e-15,
+  "finite_difference_max_abs_err": {
+   "dLh_dth": 9.988017357631662e-11,
+   "dLk_dtk": 1.4453549468385063e-10,
+   "dLk_dth": 1.6075418773908723e-10
+  },
+  "sign_over_full_rom_grid": {
+   "dLh_dth_min": 0.05013201511438307,
+   "dLh_dth_max": 0.12039596306429254,
+   "dLk_dtk_min": 0.0061589340859866636,
+   "dLk_dtk_max": 0.07619999999343299,
+   "dLk_dth_min": -0.009813137674191534,
+   "dLk_dth_max": 0.08685496108854276
+  },
+  "virtual_work_rel_err_max": 1.4414974048226568e-06,
+  "action_layer_max_abs_diff_rad": 4.8627768478581856e-14,
+  "method": "sh_kin (numpy) vs crab_hex_linkage (torch, float64) on a 211 x 136 hip x knee grid over the USD ROM; central finite differences (eps 1e-6 rad) of the rod-length functions; the coupled conversion checked by virtual work (tau.dtheta = F.dL) on 2000 random states; the action layer (parkour_actions.py:345-376 arithmetic through the torch linkage) on a 97 x 97 grid of raw actions in +-4.8"
+ },
+ "a_posture": {
+  "anchor": {
+   "H_SETTLED_m": 1.064,
+   "rigid_tilted_pad_h_at_a0_m": 1.0649372892844173,
+   "rigid_flat_pad_h_at_a0_m": 1.0561343919824218,
+   "H_OFFSET_m": -0.0009372892844172753,
+   "mapping": "h_model = h - H_OFFSET, H_OFFSET = 1.064 - h_geom(defaults) = -0.00094 m (tilted-pad rigid model: toe centre + the footpad box's lowest corner, the pad tilting with the tibia; 1.0649 m at a = 0). The flat-pad reading (pad bottom a constant 0.02 m below the toe centre) gives 1.0561 m at a = 0, i.e. offset +0.0079 m; it drifts with the tibia tilt (pad drop 0.0236 m at 0.69 m to 0.0288 m at 1.064), the tilted-pad offset is the one held constant.",
+   "q_at_1p064": [
+    0.0,
+    0.0
+   ],
+   "solver_residual_subtracted": [
+    6.522560269672795e-16,
+    0.0
+   ],
+   "U0_toe_reach_m": 0.37423374632376305,
+   "defaults_rad": {
+    "hip": 0.027169998105984527,
+    "knee_left": 0.31020612922871676
+   }
+  },
+  "method": "q(h): fixed-point / closed-form two-link IK of the leg-plane chain (pivot (0.0635, -0.2413), femur 0.5842, tibia 0.8255) for toe centre (U0, -(h - H_OFFSET - pad_drop)), the knee-outboard branch; a_hip = (theta_h - default)/0.25; a_knee_left = (knee angle that gives the solved knee ROD at the DEFAULT hip - knee default)/0.25 (parkour_actions.py:364-376: the knee action is a rod length read at the default hip and re-solved at the hip target); right legs' policy knee = -a_knee_left. Feet on a flat floor, body level, cams 0, rigid joints (the PD sag is inside the constant anchor).",
+  "h_kinematic_floor_m": 0.6699659019708635,
+  "h_kinematic_floor_rule": "stance hip at the -45 deg USD stop at constant reach U0",
+  "floor_rods": {
+   "hip_rod_m": 0.4562795792877792,
+   "knee_rod_m": 0.5592602589540632,
+   "knee_left_rad": 0.9097133205594433
+  },
+  "h_top_constant_reach_m": 1.552,
+  "h_top_binding": [
+   "knee_stop_lo"
+  ],
+  "h_min": {
+   "term1_floor_plus_0p02_m": 0.6899659019708635,
+   "term2_hip_room_0p125_rad_m": 0.7187742419680458,
+   "binding": "hip_room",
+   "exact_m": 0.7187742419680458,
+   "frozen_m": 0.719,
+   "rule": "h_min = max(kinematic floor at constant reach + 0.02 m, lowest h whose stance hip keeps >= 0.125 rad (|R lift| 0.5 x 0.25) above the -45 deg stop); frozen = ceil to 1 mm",
+   "q_at_h_min": [
+    -2.748050207140142,
+    0.3713606265624596
+   ]
+  },
+  "action_limits": {
+   "hip_stop_lo_action": -3.2502726460137312,
+   "hip_stop_hi_action": 4.080110212362452,
+   "hip_rod_min_action": -3.5095041794377626,
+   "hip_rod_max_action": 5.06046753295854,
+   "hip_rod_min_angle_rad": -0.8502060467534561,
+   "hip_rod_max_angle_rad": 1.2922868813456194,
+   "knee_rod_min_action_left": -7.032196793520877,
+   "knee_rod_max_action_left": 5.534173820838295,
+   "knee_stop_lo_action_left_at_default_hip": -4.731483020903526,
+   "knee_stop_hi_action_left_at_default_hip": 4.693294939865853,
+   "raw_clip": 4.8,
+   "note": "hip: target = default + 0.25 a -> stop / rod-window angles map 1:1; knee: the action is a rod length read at the DEFAULT hip, so the knee rod window maps to fixed knee actions, while a knee joint stop is a different action at every hip (the 'at_default_hip' values only)"
+  },
+  "q_range_reachable": {
+   "grid_m": [
+    0.67,
+    1.552
+   ],
+   "step_m": 0.001,
+   "q_hip_range": [
+    -3.2499092323499807,
+    3.581681407624806
+   ],
+   "q_knee_left_range": [
+    -0.48599877743122866,
+    0.5249628805212125
+   ],
+   "hip_monotone_increasing": true,
+   "knee_monotone_decreasing": false,
+   "knee_turning_point_m": 1.499,
+   "dq_hip_dh_per_m": [
+    6.56865391923489,
+    11.07758885210064
+   ],
+   "dq_knee_dh_per_m": [
+    -3.8006180282050828,
+    2.055751557292318
+   ],
+   "max_abs_second_diff_hip": 6.13079292559604e-05,
+   "max_abs_second_diff_knee": 6.123393129686683e-05,
+   "within_raw_clip": true
+  },
+  "table": [
+   {
+    "h": 0.67,
+    "hip_deg": -45.0,
+    "knee_left_deg": 52.12,
+    "q_hip": -3.2503,
+    "q_knee_left": 0.5251,
+    "hip_rod_mm": 456.3,
+    "knee_rod_mm": 559.3,
+    "hip_room_to_stop_rad": -0.0,
+    "toe_rise_hip_only_m": 0.0226,
+    "toe_rise_R_lift_m": 0.0491,
+    "belly_m": 0.5112
+   },
+   {
+    "h": 0.7,
+    "hip_deg": -40.53,
+    "knee_left_deg": 49.82,
+    "q_hip": -2.9379,
+    "q_knee_left": 0.4236,
+    "hip_rod_mm": 464.3,
+    "knee_rod_mm": 557.5,
+    "hip_room_to_stop_rad": 0.0781,
+    "toe_rise_hip_only_m": 0.0456,
+    "toe_rise_R_lift_m": 0.0656,
+    "belly_m": 0.5413
+   },
+   {
+    "h": 0.719,
+    "hip_deg": -37.81,
+    "knee_left_deg": 48.33,
+    "q_hip": -2.7481,
+    "q_knee_left": 0.3714,
+    "hip_rod_mm": 469.3,
+    "knee_rod_mm": 556.6,
+    "hip_room_to_stop_rad": 0.1256,
+    "toe_rise_hip_only_m": 0.0458,
+    "toe_rise_R_lift_m": 0.0707,
+    "belly_m": 0.5602
+   },
+   {
+    "h": 0.75,
+    "hip_deg": -33.54,
+    "knee_left_deg": 45.86,
+    "q_hip": -2.4502,
+    "q_knee_left": 0.3021,
+    "hip_rod_mm": 477.5,
+    "knee_rod_mm": 555.4,
+    "hip_room_to_stop_rad": 0.2,
+    "toe_rise_hip_only_m": 0.0471,
+    "toe_rise_R_lift_m": 0.0783,
+    "belly_m": 0.5913
+   },
+   {
+    "h": 0.8,
+    "hip_deg": -27.06,
+    "knee_left_deg": 41.76,
+    "q_hip": -1.998,
+    "q_knee_left": 0.2216,
+    "hip_rod_mm": 490.5,
+    "knee_rod_mm": 554.0,
+    "hip_room_to_stop_rad": 0.3131,
+    "toe_rise_hip_only_m": 0.0508,
+    "toe_rise_R_lift_m": 0.0881,
+    "belly_m": 0.6413
+   },
+   {
+    "h": 0.85,
+    "hip_deg": -21.02,
+    "knee_left_deg": 37.53,
+    "q_hip": -1.576,
+    "q_knee_left": 0.1662,
+    "hip_rod_mm": 502.9,
+    "knee_rod_mm": 553.0,
+    "hip_room_to_stop_rad": 0.4186,
+    "toe_rise_hip_only_m": 0.0551,
+    "toe_rise_R_lift_m": 0.0953,
+    "belly_m": 0.6912
+   },
+   {
+    "h": 0.9,
+    "hip_deg": -15.33,
+    "knee_left_deg": 33.16,
+    "q_hip": -1.179,
+    "q_knee_left": 0.1245,
+    "hip_rod_mm": 514.8,
+    "knee_rod_mm": 552.2,
+    "hip_room_to_stop_rad": 0.5178,
+    "toe_rise_hip_only_m": 0.0592,
+    "toe_rise_R_lift_m": 0.1004,
+    "belly_m": 0.7412
+   },
+   {
+    "h": 0.95,
+    "hip_deg": -9.94,
+    "knee_left_deg": 28.64,
+    "q_hip": -0.8026,
+    "q_knee_left": 0.0882,
+    "hip_rod_mm": 526.2,
+    "knee_rod_mm": 551.6,
+    "hip_room_to_stop_rad": 0.6119,
+    "toe_rise_hip_only_m": 0.0628,
+    "toe_rise_R_lift_m": 0.1037,
+    "belly_m": 0.7913
+   },
+   {
+    "h": 1.0,
+    "hip_deg": -4.78,
+    "knee_left_deg": 23.98,
+    "q_hip": -0.4426,
+    "q_knee_left": 0.052,
+    "hip_rod_mm": 536.9,
+    "knee_rod_mm": 550.9,
+    "hip_room_to_stop_rad": 0.7019,
+    "toe_rise_hip_only_m": 0.0657,
+    "toe_rise_R_lift_m": 0.1057,
+    "belly_m": 0.8413
+   },
+   {
+    "h": 1.03,
+    "hip_deg": -1.78,
+    "knee_left_deg": 21.11,
+    "q_hip": -0.233,
+    "q_knee_left": 0.0287,
+    "hip_rod_mm": 543.2,
+    "knee_rod_mm": 550.5,
+    "hip_room_to_stop_rad": 0.7543,
+    "toe_rise_hip_only_m": 0.0671,
+    "toe_rise_R_lift_m": 0.1063,
+    "belly_m": 0.8713
+   },
+   {
+    "h": 1.064,
+    "hip_deg": 1.56,
+    "knee_left_deg": 17.77,
+    "q_hip": 0.0,
+    "q_knee_left": 0.0,
+    "hip_rod_mm": 550.0,
+    "knee_rod_mm": 550.0,
+    "hip_room_to_stop_rad": 0.8126,
+    "toe_rise_hip_only_m": 0.0684,
+    "toe_rise_R_lift_m": 0.1067,
+    "belly_m": 0.9053
+   },
+   {
+    "h": 1.1,
+    "hip_deg": 5.03,
+    "knee_left_deg": 14.15,
+    "q_hip": 0.2425,
+    "q_knee_left": -0.0335,
+    "hip_rod_mm": 557.0,
+    "knee_rod_mm": 549.4,
+    "hip_room_to_stop_rad": 0.8732,
+    "toe_rise_hip_only_m": 0.0695,
+    "toe_rise_R_lift_m": 0.1066,
+    "belly_m": 0.9413
+   },
+   {
+    "h": 1.15,
+    "hip_deg": 9.78,
+    "knee_left_deg": 8.94,
+    "q_hip": 0.5742,
+    "q_knee_left": -0.0861,
+    "hip_rod_mm": 566.4,
+    "knee_rod_mm": 548.4,
+    "hip_room_to_stop_rad": 0.9561,
+    "toe_rise_hip_only_m": 0.0704,
+    "toe_rise_R_lift_m": 0.1059,
+    "belly_m": 0.9912
+   },
+   {
+    "h": 1.2,
+    "hip_deg": 14.49,
+    "knee_left_deg": 3.49,
+    "q_hip": 0.903,
+    "q_knee_left": -0.1454,
+    "hip_rod_mm": 575.5,
+    "knee_rod_mm": 547.4,
+    "hip_room_to_stop_rad": 1.0383,
+    "toe_rise_hip_only_m": 0.0708,
+    "toe_rise_R_lift_m": 0.1045,
+    "belly_m": 1.0413
+   },
+   {
+    "h": 1.25,
+    "hip_deg": 19.21,
+    "knee_left_deg": -2.24,
+    "q_hip": 1.2323,
+    "q_knee_left": -0.2105,
+    "hip_rod_mm": 584.2,
+    "knee_rod_mm": 546.2,
+    "hip_room_to_stop_rad": 1.1206,
+    "toe_rise_hip_only_m": 0.0706,
+    "toe_rise_R_lift_m": 0.1026,
+    "belly_m": 1.0913
+   },
+   {
+    "h": 1.3,
+    "hip_deg": 23.98,
+    "knee_left_deg": -8.31,
+    "q_hip": 1.5658,
+    "q_knee_left": -0.2796,
+    "hip_rod_mm": 592.6,
+    "knee_rod_mm": 544.9,
+    "hip_room_to_stop_rad": 1.204,
+    "toe_rise_hip_only_m": 0.0699,
+    "toe_rise_R_lift_m": 0.1001,
+    "belly_m": 1.1413
+   },
+   {
+    "h": 1.35,
+    "hip_deg": 28.89,
+    "knee_left_deg": -14.81,
+    "q_hip": 1.9081,
+    "q_knee_left": -0.3491,
+    "hip_rod_mm": 600.9,
+    "knee_rod_mm": 543.6,
+    "hip_room_to_stop_rad": 1.2896,
+    "toe_rise_hip_only_m": 0.0686,
+    "toe_rise_R_lift_m": 0.097,
+    "belly_m": 1.1913
+   },
+   {
+    "h": 1.4,
+    "hip_deg": 34.01,
+    "knee_left_deg": -21.87,
+    "q_hip": 2.2654,
+    "q_knee_left": -0.4137,
+    "hip_rod_mm": 609.0,
+    "knee_rod_mm": 542.4,
+    "hip_room_to_stop_rad": 1.3789,
+    "toe_rise_hip_only_m": 0.0665,
+    "toe_rise_R_lift_m": 0.0931,
+    "belly_m": 1.2412
+   }
+  ],
+  "q_table_5mm": {
+   "columns": [
+    "h_m",
+    "q_hip",
+    "q_knee_left"
+   ],
+   "rows": [
+    [
+     0.719,
+     -2.74805,
+     0.371361
+    ],
+    [
+     0.724,
+     -2.699034,
+     0.35894
+    ],
+    [
+     0.729,
+     -2.650402,
+     0.34703
+    ],
+    [
+     0.734,
+     -2.602148,
+     0.335607
+    ],
+    [
+     0.739,
+     -2.554268,
+     0.324652
+    ],
+    [
+     0.744,
+     -2.506755,
+     0.314145
+    ],
+    [
+     0.749,
+     -2.459604,
+     0.304065
+    ],
+    [
+     0.754,
+     -2.412809,
+     0.294394
+    ],
+    [
+     0.759,
+     -2.366365,
+     0.285115
+    ],
+    [
+     0.764,
+     -2.320266,
+     0.276208
+    ],
+    [
+     0.769,
+     -2.274507,
+     0.267657
+    ],
+    [
+     0.774,
+     -2.229082,
+     0.259446
+    ],
+    [
+     0.779,
+     -2.183985,
+     0.251557
+    ],
+    [
+     0.784,
+     -2.139212,
+     0.243977
+    ],
+    [
+     0.789,
+     -2.094757,
+     0.236688
+    ],
+    [
+     0.794,
+     -2.050614,
+     0.229678
+    ],
+    [
+     0.799,
+     -2.006778,
+     0.222931
+    ],
+    [
+     0.804,
+     -1.963244,
+     0.216434
+    ],
+    [
+     0.809,
+     -1.920006,
+     0.210174
+    ],
+    [
+     0.814,
+     -1.87706,
+     0.204137
+    ],
+    [
+     0.819,
+     -1.8344,
+     0.198313
+    ],
+    [
+     0.824,
+     -1.792022,
+     0.192687
+    ],
+    [
+     0.829,
+     -1.749919,
+     0.18725
+    ],
+    [
+     0.834,
+     -1.708087,
+     0.181989
+    ],
+    [
+     0.839,
+     -1.666521,
+     0.176894
+    ],
+    [
+     0.844,
+     -1.625217,
+     0.171955
+    ],
+    [
+     0.849,
+     -1.584168,
+     0.16716
+    ],
+    [
+     0.854,
+     -1.543371,
+     0.162501
+    ],
+    [
+     0.859,
+     -1.502821,
+     0.157969
+    ],
+    [
+     0.864,
+     -1.462513,
+     0.153553
+    ],
+    [
+     0.869,
+     -1.422442,
+     0.149245
+    ],
+    [
+     0.874,
+     -1.382603,
+     0.145037
+    ],
+    [
+     0.879,
+     -1.342993,
+     0.140921
+    ],
+    [
+     0.884,
+     -1.303606,
+     0.136888
+    ],
+    [
+     0.889,
+     -1.264438,
+     0.132931
+    ],
+    [
+     0.894,
+     -1.225484,
+     0.129042
+    ],
+    [
+     0.899,
+     -1.186741,
+     0.125215
+    ],
+    [
+     0.904,
+     -1.148204,
+     0.121443
+    ],
+    [
+     0.909,
+     -1.109868,
+     0.117719
+    ],
+    [
+     0.914,
+     -1.07173,
+     0.114037
+    ],
+    [
+     0.919,
+     -1.033785,
+     0.110391
+    ],
+    [
+     0.924,
+     -0.996029,
+     0.106774
+    ],
+    [
+     0.929,
+     -0.958458,
+     0.103182
+    ],
+    [
+     0.934,
+     -0.921067,
+     0.099608
+    ],
+    [
+     0.939,
+     -0.883854,
+     0.096049
+    ],
+    [
+     0.944,
+     -0.846813,
+     0.092498
+    ],
+    [
+     0.949,
+     -0.809941,
+     0.08895
+    ],
+    [
+     0.954,
+     -0.773234,
+     0.085402
+    ],
+    [
+     0.959,
+     -0.736689,
+     0.081849
+    ],
+    [
+     0.964,
+     -0.700301,
+     0.078287
+    ],
+    [
+     0.969,
+     -0.664066,
+     0.074711
+    ],
+    [
+     0.974,
+     -0.627981,
+     0.071118
+    ],
+    [
+     0.979,
+     -0.592042,
+     0.067503
+    ],
+    [
+     0.984,
+     -0.556246,
+     0.063864
+    ],
+    [
+     0.989,
+     -0.520588,
+     0.060198
+    ],
+    [
+     0.994,
+     -0.485066,
+     0.0565
+    ],
+    [
+     0.999,
+     -0.449675,
+     0.052768
+    ],
+    [
+     1.004,
+     -0.414413,
+     0.048999
+    ],
+    [
+     1.009,
+     -0.379275,
+     0.04519
+    ],
+    [
+     1.014,
+     -0.344258,
+     0.041338
+    ],
+    [
+     1.019,
+     -0.309358,
+     0.037442
+    ],
+    [
+     1.024,
+     -0.274573,
+     0.033498
+    ],
+    [
+     1.029,
+     -0.239899,
+     0.029504
+    ],
+    [
+     1.034,
+     -0.205332,
+     0.025459
+    ],
+    [
+     1.039,
+     -0.170869,
+     0.02136
+    ],
+    [
+     1.044,
+     -0.136507,
+     0.017206
+    ],
+    [
+     1.049,
+     -0.102243,
+     0.012994
+    ],
+    [
+     1.054,
+     -0.068072,
+     0.008723
+    ],
+    [
+     1.059,
+     -0.033992,
+     0.004393
+    ],
+    [
+     1.064,
+     0.0,
+     0.0
+    ],
+    [
+     1.069,
+     0.033908,
+     -0.004456
+    ],
+    [
+     1.074,
+     0.067735,
+     -0.008975
+    ],
+    [
+     1.079,
+     0.101484,
+     -0.01356
+    ],
+    [
+     1.084,
+     0.135158,
+     -0.018211
+    ],
+    [
+     1.089,
+     0.168761,
+     -0.022929
+    ],
+    [
+     1.094,
+     0.202296,
+     -0.027715
+    ],
+    [
+     1.099,
+     0.235766,
+     -0.032569
+    ],
+    [
+     1.104,
+     0.269174,
+     -0.037492
+    ],
+    [
+     1.109,
+     0.302523,
+     -0.042484
+    ],
+    [
+     1.114,
+     0.335816,
+     -0.047546
+    ],
+    [
+     1.119,
+     0.369058,
+     -0.052678
+    ],
+    [
+     1.124,
+     0.40225,
+     -0.05788
+    ],
+    [
+     1.129,
+     0.435397,
+     -0.063152
+    ],
+    [
+     1.134,
+     0.4685,
+     -0.068494
+    ],
+    [
+     1.139,
+     0.501564,
+     -0.073906
+    ],
+    [
+     1.144,
+     0.534592,
+     -0.079387
+    ],
+    [
+     1.149,
+     0.567587,
+     -0.084938
+    ],
+    [
+     1.154,
+     0.600551,
+     -0.090558
+    ],
+    [
+     1.159,
+     0.633489,
+     -0.096247
+    ],
+    [
+     1.164,
+     0.666404,
+     -0.102003
+    ],
+    [
+     1.169,
+     0.699299,
+     -0.107827
+    ],
+    [
+     1.174,
+     0.732176,
+     -0.113716
+    ],
+    [
+     1.179,
+     0.76504,
+     -0.119672
+    ],
+    [
+     1.184,
+     0.797894,
+     -0.125691
+    ],
+    [
+     1.189,
+     0.830742,
+     -0.131775
+    ],
+    [
+     1.194,
+     0.863585,
+     -0.13792
+    ],
+    [
+     1.199,
+     0.896429,
+     -0.144127
+    ],
+    [
+     1.204,
+     0.929277,
+     -0.150393
+    ],
+    [
+     1.209,
+     0.962131,
+     -0.156717
+    ],
+    [
+     1.214,
+     0.994996,
+     -0.163098
+    ],
+    [
+     1.219,
+     1.027875,
+     -0.169533
+    ],
+    [
+     1.224,
+     1.060772,
+     -0.176022
+    ],
+    [
+     1.229,
+     1.09369,
+     -0.182562
+    ],
+    [
+     1.234,
+     1.126634,
+     -0.189151
+    ],
+    [
+     1.239,
+     1.159607,
+     -0.195788
+    ],
+    [
+     1.244,
+     1.192613,
+     -0.202469
+    ],
+    [
+     1.249,
+     1.225655,
+     -0.209192
+    ],
+    [
+     1.254,
+     1.258739,
+     -0.215956
+    ],
+    [
+     1.259,
+     1.291867,
+     -0.222757
+    ],
+    [
+     1.264,
+     1.325044,
+     -0.229593
+    ],
+    [
+     1.269,
+     1.358275,
+     -0.23646
+    ],
+    [
+     1.274,
+     1.391564,
+     -0.243357
+    ],
+    [
+     1.279,
+     1.424915,
+     -0.250279
+    ],
+    [
+     1.284,
+     1.458332,
+     -0.257223
+    ],
+    [
+     1.289,
+     1.491821,
+     -0.264186
+    ],
+    [
+     1.294,
+     1.525386,
+     -0.271165
+    ],
+    [
+     1.299,
+     1.559032,
+     -0.278155
+    ],
+    [
+     1.304,
+     1.592764,
+     -0.285152
+    ],
+    [
+     1.309,
+     1.626587,
+     -0.292152
+    ],
+    [
+     1.314,
+     1.660507,
+     -0.299151
+    ],
+    [
+     1.319,
+     1.694528,
+     -0.306145
+    ],
+    [
+     1.324,
+     1.728658,
+     -0.313128
+    ],
+    [
+     1.329,
+     1.762901,
+     -0.320096
+    ],
+    [
+     1.334,
+     1.797263,
+     -0.327042
+    ],
+    [
+     1.339,
+     1.831751,
+     -0.333963
+    ],
+    [
+     1.344,
+     1.866371,
+     -0.340851
+    ],
+    [
+     1.349,
+     1.901129,
+     -0.347702
+    ],
+    [
+     1.354,
+     1.936034,
+     -0.354507
+    ],
+    [
+     1.359,
+     1.971091,
+     -0.361262
+    ],
+    [
+     1.364,
+     2.006309,
+     -0.367958
+    ],
+    [
+     1.369,
+     2.041695,
+     -0.374589
+    ],
+    [
+     1.374,
+     2.077256,
+     -0.381147
+    ],
+    [
+     1.379,
+     2.113003,
+     -0.387623
+    ],
+    [
+     1.384,
+     2.148943,
+     -0.394009
+    ],
+    [
+     1.389,
+     2.185085,
+     -0.400295
+    ],
+    [
+     1.394,
+     2.22144,
+     -0.406473
+    ],
+    [
+     1.399,
+     2.258018,
+     -0.412533
+    ],
+    [
+     1.404,
+     2.294828,
+     -0.418463
+    ],
+    [
+     1.409,
+     2.331882,
+     -0.424252
+    ],
+    [
+     1.414,
+     2.369193,
+     -0.429888
+    ],
+    [
+     1.419,
+     2.406772,
+     -0.435359
+    ],
+    [
+     1.424,
+     2.444632,
+     -0.440652
+    ],
+    [
+     1.429,
+     2.482787,
+     -0.445751
+    ],
+    [
+     1.434,
+     2.521253,
+     -0.450641
+    ],
+    [
+     1.439,
+     2.560044,
+     -0.455308
+    ],
+    [
+     1.444,
+     2.599177,
+     -0.459732
+    ],
+    [
+     1.449,
+     2.63867,
+     -0.463896
+    ],
+    [
+     1.454,
+     2.678541,
+     -0.46778
+    ],
+    [
+     1.459,
+     2.718811,
+     -0.471362
+    ],
+    [
+     1.464,
+     2.759502,
+     -0.474619
+    ],
+    [
+     1.469,
+     2.800635,
+     -0.477528
+    ],
+    [
+     1.474,
+     2.842238,
+     -0.480061
+    ],
+    [
+     1.479,
+     2.884335,
+     -0.482189
+    ],
+    [
+     1.484,
+     2.926958,
+     -0.483881
+    ],
+    [
+     1.489,
+     2.970136,
+     -0.485103
+    ],
+    [
+     1.494,
+     3.013906,
+     -0.485819
+    ],
+    [
+     1.499,
+     3.058304,
+     -0.485986
+    ]
+   ],
+   "note": "linear interpolation in this table reproduces sh_kin.q to < 1e-4 action units; 1.064 is a node (q exactly 0); the build may call sh_kin.q directly"
+  },
+  "restep_clearance_method": "body held, stance leg at q(h) (target angles) commanded q + (-0.5, 0) (hip-only lift, knee rod command held) and q + (-0.5, +0.5) (R's D3 LIFT: knee = -rho*side*hip, rho 1, = +0.5 left-convention); rise of the footpad's lowest corner"
+ },
+ "b_forces": {
+  "rows_rule": "settled stand rows: p2r_stand_mode (latched stand slot) held > 2.0 s, all 12 rods still (|rod_speed| < 1e-06), all hip-pitch / knee |joint_vel| < 0.05 rad/s, >= 5 feet with net contact > 50.0 N, not done; joints picked by run_meta.joint_names (*_Hip_Femur_RevoluteJoint, *_Femur_Tibia_RevoluteJoint); right-leg knee angle and torque multiplied by -1 into the left convention; applied_torque = the implicit PD's k (q_target - q) + d (qd_target - qd) (Isaac Lab ImplicitActuator estimate; static rows)",
+  "conversion": "COUPLED: [tau_h, tau_k] = J^T [F_h, F_k], J = [[dLh/dth, 0], [dLk/dth, dLk/dtk]] at the measured joint angles, i.e. F_k = tau_k / (dLk/dtk), F_h = (tau_h - (dLk/dth) F_k) / (dLh/dth); + = rod pushes (extends), - = rod pulls. Sign conventions: dLh/dth > 0 and dLk/dtk > 0 over the whole ROM (the linkage module's moment arms are their absolute values; the action term's velocity feedforward omega_k = (dL_k/dt - coupling omega_h)/ma_k uses the same signs), dLk/dth = knee_hip_coupling, signed, > 0 over the stance range; all three equal central finite differences of the rod-length functions (verification block).",
+  "statistic": "six-leg mean of |F_hip| per row, averaged over rows (the user's cap statistic); worst leg = the leg with the largest per-leg mean |F|; knee reported, hold-only (non-backdrivable), not capped",
+  "per_stamp": {
+   "SN_Amask_s17/es1": {
+    "n_rows": 66168,
+    "n_episodes_with_rows": 98,
+    "n_episodes": 100,
+    "n_stand_rows": 180000,
+    "share_6_loaded": 0.38050114859146417,
+    "h_meas_mean_m": 1.0621957709874745,
+    "h_meas_p5_p95_m": [
+     1.0587094644705455,
+     1.0660432398319244
+    ],
+    "mean_hip_deg": 0.9715070724487305,
+    "mean_knee_left_deg": 18.673440915312433,
+    "foot_load_sum_mean_N": 2208.91162109375,
+    "per_leg_foot_load_mean_N": [
+     454.0641174316406,
+     325.2314453125,
+     224.58522033691406,
+     426.12847900390625,
+     427.4172668457031,
+     351.4879150390625
+    ],
+    "tau_hip_per_leg_mean_Nm": [
+     194.21961975097656,
+     137.41505432128906,
+     90.33995056152344,
+     191.09825134277344,
+     190.33657836914062,
+     147.83895874023438
+    ],
+    "tau_knee_left_per_leg_mean_Nm": [
+     -114.33258758577199,
+     -81.99511003617674,
+     -48.37379661613751,
+     -97.8471560505318,
+     -99.15154801783856,
+     -87.6976725899364
+    ],
+    "six_leg_mean_tau_hip_Nm": 158.54141235351562,
+    "six_leg_mean_tau_knee_left_Nm": -88.23297848273216,
+    "sign_share_tau_hip_pos_loaded_legs": 0.9822957892460191,
+    "sign_share_tau_knee_neg_loaded_legs": 0.9836384217607587,
+    "sign_share_row_six_leg_mean_tau_hip_pos": 1.0,
+    "sign_share_row_six_leg_mean_tau_knee_neg": 1.0,
+    "F_hip_signed_mean_N": 2021.9366552997355,
+    "F_knee_signed_mean_N": -1231.0322729815653,
+    "sign_share_F_hip_pos_loaded_legs": 0.9995477744040313,
+    "sign_share_F_knee_neg_loaded_legs": 0.9836384217607587,
+    "six_leg_mean_abs_F_hip_N": {
+     "mean": 2051.3891590223984,
+     "p50": 2051.6045235577144,
+     "p90": 2103.755455231115,
+     "max": 2281.1308652588086,
+     "by_loaded_feet": {
+      "5": 2067.942406792927,
+      "6": 2024.4386017931129
+     }
+    },
+    "six_leg_mean_abs_F_knee_N": {
+     "mean": 1241.9619973615156,
+     "p90": 1570.8273382704594
+    },
+    "per_leg_mean_abs_F_hip_N": {
+     "FL": 2533.744193364281,
+     "FR": 1816.8930841697775,
+     "ML": 1215.8608797750635,
+     "MR": 2394.0460859990667,
+     "RL": 2390.5573881447317,
+     "RR": 1957.2333226814733
+    },
+    "worst_leg_hip": {
+     "leg": "FL",
+     "mean_abs_F_N": 2533.744193364281,
+     "row_max_p95_N": 5297.635685968289
+    },
+    "per_leg_mean_abs_F_knee_N": {
+     "FL": 1593.7744446772979,
+     "FR": 1162.8930557164374,
+     "ML": 703.2607376578632,
+     "MR": 1370.3838921515876,
+     "RL": 1387.8051958880656,
+     "RR": 1233.6546580778438
+    },
+    "worst_leg_knee": {
+     "leg": "FL",
+     "mean_abs_F_N": 1593.7744446772979,
+     "row_max_p95_N": 3714.5104784931605
+    },
+    "uncoupled_six_leg_mean_abs_F_hip_N": 1387.143152058741,
+    "model_at_measured_posture": {
+     "no_leg_weight": {
+      "tau_hip_Nm": 115.32465049386911,
+      "tau_knee_left_Nm": -104.39116736440815,
+      "F_hip_N": 1776.533378506553,
+      "F_knee_N": -1453.1216087031687
+     },
+     "with_leg_weight": {
+      "tau_hip_Nm": 99.28822885664607,
+      "tau_knee_left_Nm": -102.44798088771371,
+      "F_hip_N": 1624.7478500231452,
+      "F_knee_N": -1426.0725170001554
+     },
+     "measured_foot_loads_vertical_with_leg_weight": {
+      "tau_hip_Nm": 96.8408263225757,
+      "tau_knee_left_Nm": -100.23028510479746,
+      "six_leg_mean_abs_F_hip_N": 1611.310734705592,
+      "six_leg_mean_abs_F_knee_N": 1401.7895547657342
+     }
+    },
+    "lever_regression_per_leg": {
+     "FL": {
+      "hip_slope_m": 0.4775,
+      "hip_icpt_Nm": -22.58,
+      "knee_slope_m": -0.2215,
+      "knee_icpt_Nm": -13.78,
+      "geom_hip_lever_m": 0.3077,
+      "geom_knee_lever_m": -0.2764,
+      "slope_sum_hip_plus_abs_knee_m": 0.6989,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "FR": {
+      "hip_slope_m": 0.4764,
+      "hip_icpt_Nm": -17.51,
+      "knee_slope_m": -0.2403,
+      "knee_icpt_Nm": -3.83,
+      "geom_hip_lever_m": 0.3049,
+      "geom_knee_lever_m": -0.2792,
+      "slope_sum_hip_plus_abs_knee_m": 0.7167,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "ML": {
+      "hip_slope_m": 0.4888,
+      "hip_icpt_Nm": -19.43,
+      "knee_slope_m": -0.22,
+      "knee_icpt_Nm": 1.04,
+      "geom_hip_lever_m": 0.3051,
+      "geom_knee_lever_m": -0.279,
+      "slope_sum_hip_plus_abs_knee_m": 0.7088,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "MR": {
+      "hip_slope_m": 0.53,
+      "hip_icpt_Nm": -34.74,
+      "knee_slope_m": -0.1966,
+      "knee_icpt_Nm": -14.09,
+      "geom_hip_lever_m": 0.3088,
+      "geom_knee_lever_m": -0.2752,
+      "slope_sum_hip_plus_abs_knee_m": 0.7265,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RL": {
+      "hip_slope_m": 0.4861,
+      "hip_icpt_Nm": -17.42,
+      "knee_slope_m": -0.23,
+      "knee_icpt_Nm": -0.86,
+      "geom_hip_lever_m": 0.3091,
+      "geom_knee_lever_m": -0.275,
+      "slope_sum_hip_plus_abs_knee_m": 0.7161,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RR": {
+      "hip_slope_m": 0.4788,
+      "hip_icpt_Nm": -20.46,
+      "knee_slope_m": -0.2444,
+      "knee_icpt_Nm": -1.78,
+      "geom_hip_lever_m": 0.3039,
+      "geom_knee_lever_m": -0.2802,
+      "slope_sum_hip_plus_abs_knee_m": 0.7233,
+      "geom_sum_femur_horizontal_m": 0.5841
+     }
+    },
+    "run_dir": "parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/walkstop__omni/seed001/2026-10-12_23-50-25",
+    "meta": {
+     "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+     "num_envs": 100,
+     "dt": 0.02,
+     "total_mass_kg": 230.0620433613658
+    }
+   },
+   "SN_Amask_s17/es2": {
+    "n_rows": 65397,
+    "n_episodes_with_rows": 100,
+    "n_episodes": 100,
+    "n_stand_rows": 180000,
+    "share_6_loaded": 0.37460433964860773,
+    "h_meas_mean_m": 1.0623287219379896,
+    "h_meas_p5_p95_m": [
+     1.0588523864746093,
+     1.065960971514384
+    ],
+    "mean_hip_deg": 0.9675676226615906,
+    "mean_knee_left_deg": 18.682098897795278,
+    "foot_load_sum_mean_N": 2212.5126953125,
+    "per_leg_foot_load_mean_N": [
+     459.879150390625,
+     311.51715087890625,
+     225.0784454345703,
+     460.38812255859375,
+     422.2106018066406,
+     333.4383850097656
+    ],
+    "tau_hip_per_leg_mean_Nm": [
+     195.87440490722656,
+     124.3817138671875,
+     88.35578155517578,
+     213.5858154296875,
+     190.8392791748047,
+     136.99636840820312
+    ],
+    "tau_knee_left_per_leg_mean_Nm": [
+     -115.88915617435404,
+     -83.48711554281257,
+     -50.8865516493078,
+     -98.04426640829547,
+     -97.21187604057455,
+     -84.96652001905709
+    ],
+    "six_leg_mean_tau_hip_Nm": 158.33888244628906,
+    "six_leg_mean_tau_knee_left_Nm": -88.41424763906691,
+    "sign_share_tau_hip_pos_loaded_legs": 0.9855697146092414,
+    "sign_share_tau_knee_neg_loaded_legs": 0.987788883103877,
+    "sign_share_row_six_leg_mean_tau_hip_pos": 1.0,
+    "sign_share_row_six_leg_mean_tau_knee_neg": 1.0,
+    "F_hip_signed_mean_N": 2021.362115301126,
+    "F_knee_signed_mean_N": -1233.718121361665,
+    "sign_share_F_hip_pos_loaded_legs": 0.9994082217347638,
+    "sign_share_F_knee_neg_loaded_legs": 0.987788883103877,
+    "six_leg_mean_abs_F_hip_N": {
+     "mean": 2052.8048155861143,
+     "p50": 2054.345302928256,
+     "p90": 2107.1437426919256,
+     "max": 2379.5431080714,
+     "by_loaded_feet": {
+      "5": 2069.9755847619535,
+      "6": 2024.1385045189804
+     }
+    },
+    "six_leg_mean_abs_F_knee_N": {
+     "mean": 1244.8447174314404,
+     "p90": 1542.556327684049
+    },
+    "per_leg_mean_abs_F_hip_N": {
+     "FL": 2561.099852744634,
+     "FR": 1717.2290758795189,
+     "ML": 1227.8153284858292,
+     "MR": 2580.003405140322,
+     "RL": 2377.844374774164,
+     "RR": 1852.836856492218
+    },
+    "worst_leg_hip": {
+     "leg": "MR",
+     "mean_abs_F_N": 2580.003405140322,
+     "row_max_p95_N": 5343.804561446068
+    },
+    "per_leg_mean_abs_F_knee_N": {
+     "FL": 1616.204897300521,
+     "FR": 1182.884701578456,
+     "ML": 732.3919985938943,
+     "MR": 1374.8898908391582,
+     "RL": 1360.1222616004159,
+     "RR": 1202.5745546761977
+    },
+    "worst_leg_knee": {
+     "leg": "FL",
+     "mean_abs_F_N": 1616.204897300521,
+     "row_max_p95_N": 3865.910393042856
+    },
+    "uncoupled_six_leg_mean_abs_F_hip_N": 1385.3536978679888,
+    "model_at_measured_posture": {
+     "no_leg_weight": {
+      "tau_hip_Nm": 115.30108044603743,
+      "tau_knee_left_Nm": -104.41506566385597,
+      "F_hip_N": 1776.4814015688155,
+      "F_knee_N": -1453.5344533478285
+     },
+     "with_leg_weight": {
+      "tau_hip_Nm": 99.26507680182141,
+      "tau_knee_left_Nm": -102.47143433293222,
+      "F_hip_N": 1624.6985789081948,
+      "F_knee_N": -1426.4776767596788
+     },
+     "measured_foot_loads_vertical_with_leg_weight": {
+      "tau_hip_Nm": 96.98911824156231,
+      "tau_knee_left_Nm": -100.43315166381059,
+      "six_leg_mean_abs_F_hip_N": 1614.2270187064285,
+      "six_leg_mean_abs_F_knee_N": 1404.88844988475
+     }
+    },
+    "lever_regression_per_leg": {
+     "FL": {
+      "hip_slope_m": 0.4668,
+      "hip_icpt_Nm": -18.81,
+      "knee_slope_m": -0.2363,
+      "knee_icpt_Nm": -7.23,
+      "geom_hip_lever_m": 0.3074,
+      "geom_knee_lever_m": -0.2766,
+      "slope_sum_hip_plus_abs_knee_m": 0.7031,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "FR": {
+      "hip_slope_m": 0.446,
+      "hip_icpt_Nm": -14.55,
+      "knee_slope_m": -0.2578,
+      "knee_icpt_Nm": -3.19,
+      "geom_hip_lever_m": 0.3041,
+      "geom_knee_lever_m": -0.28,
+      "slope_sum_hip_plus_abs_knee_m": 0.7038,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "ML": {
+      "hip_slope_m": 0.4951,
+      "hip_icpt_Nm": -23.09,
+      "knee_slope_m": -0.217,
+      "knee_icpt_Nm": -2.04,
+      "geom_hip_lever_m": 0.3048,
+      "geom_knee_lever_m": -0.2793,
+      "slope_sum_hip_plus_abs_knee_m": 0.7121,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "MR": {
+      "hip_slope_m": 0.5214,
+      "hip_icpt_Nm": -26.46,
+      "knee_slope_m": -0.195,
+      "knee_icpt_Nm": -8.26,
+      "geom_hip_lever_m": 0.3099,
+      "geom_knee_lever_m": -0.2742,
+      "slope_sum_hip_plus_abs_knee_m": 0.7164,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RL": {
+      "hip_slope_m": 0.4956,
+      "hip_icpt_Nm": -18.41,
+      "knee_slope_m": -0.2429,
+      "knee_icpt_Nm": 5.35,
+      "geom_hip_lever_m": 0.3093,
+      "geom_knee_lever_m": -0.2747,
+      "slope_sum_hip_plus_abs_knee_m": 0.7385,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RR": {
+      "hip_slope_m": 0.4708,
+      "hip_icpt_Nm": -19.99,
+      "knee_slope_m": -0.2554,
+      "knee_icpt_Nm": 0.19,
+      "geom_hip_lever_m": 0.3036,
+      "geom_knee_lever_m": -0.2805,
+      "slope_sum_hip_plus_abs_knee_m": 0.7262,
+      "geom_sum_femur_horizontal_m": 0.5841
+     }
+    },
+    "run_dir": "parkour/outputs/omni_plan/phase2/lr/SN_Amask_s17/walkstop__omni/seed002/2026-10-12_23-53-04",
+    "meta": {
+     "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+     "num_envs": 100,
+     "dt": 0.02,
+     "total_mass_kg": 230.0620433613658
+    }
+   },
+   "R_P2R_RSTg_s18/es1": {
+    "n_rows": 69055,
+    "n_episodes_with_rows": 100,
+    "n_episodes": 100,
+    "n_stand_rows": 180000,
+    "share_6_loaded": 0.46306567229020346,
+    "h_meas_mean_m": 1.0624864836500778,
+    "h_meas_p5_p95_m": [
+     1.0588768323262532,
+     1.0659201264381408
+    ],
+    "mean_hip_deg": 0.900990903377533,
+    "mean_knee_left_deg": 18.368889344632038,
+    "foot_load_sum_mean_N": 2233.736572265625,
+    "per_leg_foot_load_mean_N": [
+     374.753173828125,
+     387.3689880371094,
+     383.4300842285156,
+     332.5038757324219,
+     361.0030212402344,
+     394.668212890625
+    ],
+    "tau_hip_per_leg_mean_Nm": [
+     185.39430236816406,
+     186.37799072265625,
+     199.31797790527344,
+     175.0697479248047,
+     167.96783447265625,
+     197.51560974121094
+    ],
+    "tau_knee_left_per_leg_mean_Nm": [
+     -64.37102254470176,
+     -75.3838185928455,
+     -47.85816113014055,
+     -44.04123471984519,
+     -70.40426513959079,
+     -66.50876788258009
+    ],
+    "six_leg_mean_tau_hip_Nm": 185.27389526367188,
+    "six_leg_mean_tau_knee_left_Nm": -61.42787833495065,
+    "sign_share_tau_hip_pos_loaded_legs": 0.9584018109910617,
+    "sign_share_tau_knee_neg_loaded_legs": 0.8868104078971085,
+    "sign_share_row_six_leg_mean_tau_hip_pos": 1.0,
+    "sign_share_row_six_leg_mean_tau_knee_neg": 0.9512852074433422,
+    "F_hip_signed_mean_N": 2048.499874261448,
+    "F_knee_signed_mean_N": -859.0781088756015,
+    "sign_share_F_hip_pos_loaded_legs": 0.9999231283068082,
+    "sign_share_F_knee_neg_loaded_legs": 0.8868104078971085,
+    "six_leg_mean_abs_F_hip_N": {
+     "mean": 2072.729457298363,
+     "p50": 2076.7414507687727,
+     "p90": 2138.3339675393795,
+     "max": 2302.712320533301,
+     "by_loaded_feet": {
+      "5": 2094.507207001715,
+      "6": 2047.4777012392924
+     }
+    },
+    "six_leg_mean_abs_F_knee_N": {
+     "mean": 1102.3577175786031,
+     "p90": 1628.547974611545
+    },
+    "per_leg_mean_abs_F_hip_N": {
+     "FL": 2080.3632967514277,
+     "FR": 2184.3442631081957,
+     "ML": 2098.7489105511354,
+     "MR": 1874.360748398803,
+     "RL": 1991.0197198975018,
+     "RR": 2207.539805083112
+    },
+    "worst_leg_hip": {
+     "leg": "RR",
+     "mean_abs_F_N": 2207.539805083112,
+     "row_max_p95_N": 5441.258550923497
+    },
+    "per_leg_mean_abs_F_knee_N": {
+     "FL": 1056.6686853975193,
+     "FR": 1200.824493045162,
+     "ML": 1190.7821251075682,
+     "MR": 946.2034229432734,
+     "RL": 1143.415056391504,
+     "RR": 1076.2525225865927
+    },
+    "worst_leg_knee": {
+     "leg": "FR",
+     "mean_abs_F_N": 1200.824493045162,
+     "row_max_p95_N": 4910.689007454705
+    },
+    "uncoupled_six_leg_mean_abs_F_hip_N": 1637.8380327603747,
+    "model_at_measured_posture": {
+     "no_leg_weight": {
+      "tau_hip_Nm": 117.2457506252697,
+      "tau_knee_left_Nm": -102.47470334869321,
+      "F_hip_N": 1775.430409952126,
+      "F_knee_N": -1423.9537122080749
+     },
+     "with_leg_weight": {
+      "tau_hip_Nm": 101.17327564312599,
+      "tau_knee_left_Nm": -100.56719083802894,
+      "F_hip_N": 1623.696560012165,
+      "F_knee_N": -1397.4475655017875
+     },
+     "measured_foot_loads_vertical_with_leg_weight": {
+      "tau_hip_Nm": 100.68712531680245,
+      "tau_knee_left_Nm": -98.80225783542319,
+      "six_leg_mean_abs_F_hip_N": 1624.5652525370808,
+      "six_leg_mean_abs_F_knee_N": 1378.9596476262293
+     }
+    },
+    "lever_regression_per_leg": {
+     "FL": {
+      "hip_slope_m": 0.5789,
+      "hip_icpt_Nm": -31.54,
+      "knee_slope_m": -0.1195,
+      "knee_icpt_Nm": -19.57,
+      "geom_hip_lever_m": 0.3113,
+      "geom_knee_lever_m": -0.2729,
+      "slope_sum_hip_plus_abs_knee_m": 0.6984,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "FR": {
+      "hip_slope_m": 0.5344,
+      "hip_icpt_Nm": -20.64,
+      "knee_slope_m": -0.1754,
+      "knee_icpt_Nm": -7.43,
+      "geom_hip_lever_m": 0.3099,
+      "geom_knee_lever_m": -0.2742,
+      "slope_sum_hip_plus_abs_knee_m": 0.7098,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "ML": {
+      "hip_slope_m": 0.662,
+      "hip_icpt_Nm": -54.51,
+      "knee_slope_m": -0.046,
+      "knee_icpt_Nm": -30.21,
+      "geom_hip_lever_m": 0.3143,
+      "geom_knee_lever_m": -0.2698,
+      "slope_sum_hip_plus_abs_knee_m": 0.708,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "MR": {
+      "hip_slope_m": 0.6085,
+      "hip_icpt_Nm": -27.25,
+      "knee_slope_m": -0.1025,
+      "knee_icpt_Nm": -9.97,
+      "geom_hip_lever_m": 0.3135,
+      "geom_knee_lever_m": -0.2706,
+      "slope_sum_hip_plus_abs_knee_m": 0.7109,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RL": {
+      "hip_slope_m": 0.5819,
+      "hip_icpt_Nm": -42.1,
+      "knee_slope_m": -0.1453,
+      "knee_icpt_Nm": -17.95,
+      "geom_hip_lever_m": 0.3097,
+      "geom_knee_lever_m": -0.2744,
+      "slope_sum_hip_plus_abs_knee_m": 0.7272,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RR": {
+      "hip_slope_m": 0.5391,
+      "hip_icpt_Nm": -15.25,
+      "knee_slope_m": -0.1814,
+      "knee_icpt_Nm": 5.07,
+      "geom_hip_lever_m": 0.3117,
+      "geom_knee_lever_m": -0.2724,
+      "slope_sum_hip_plus_abs_knee_m": 0.7205,
+      "geom_sum_femur_horizontal_m": 0.5841
+     }
+    },
+    "run_dir": "parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/walkstop__omni/seed001/2026-10-10_22-18-27",
+    "meta": {
+     "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+     "num_envs": 100,
+     "dt": 0.02,
+     "total_mass_kg": 230.0620433613658
+    }
+   },
+   "R_P2R_RSTg_s18/es2": {
+    "n_rows": 63274,
+    "n_episodes_with_rows": 99,
+    "n_episodes": 100,
+    "n_stand_rows": 180000,
+    "share_6_loaded": 0.41190694440054365,
+    "h_meas_mean_m": 1.0630738132815951,
+    "h_meas_p5_p95_m": [
+     1.0590256055196126,
+     1.06724800268809
+    ],
+    "mean_hip_deg": 0.8931641578674316,
+    "mean_knee_left_deg": 18.351892086363904,
+    "foot_load_sum_mean_N": 2233.430419921875,
+    "per_leg_foot_load_mean_N": [
+     405.9382629394531,
+     341.8951416015625,
+     376.50811767578125,
+     376.8144836425781,
+     334.5749816894531,
+     397.7059631347656
+    ],
+    "tau_hip_per_leg_mean_Nm": [
+     197.7481689453125,
+     176.24935913085938,
+     208.55313110351562,
+     196.9166259765625,
+     152.1108856201172,
+     192.30386352539062
+    ],
+    "tau_knee_left_per_leg_mean_Nm": [
+     -75.82709736983489,
+     -49.63916963640542,
+     -36.29585849936121,
+     -53.54743911928352,
+     -66.13973173203564,
+     -76.1212713925416
+    ],
+    "six_leg_mean_tau_hip_Nm": 187.3136444091797,
+    "six_leg_mean_tau_knee_left_Nm": -59.59509462491038,
+    "sign_share_tau_hip_pos_loaded_legs": 0.964293745053777,
+    "sign_share_tau_knee_neg_loaded_legs": 0.9017326017060272,
+    "sign_share_row_six_leg_mean_tau_hip_pos": 1.0,
+    "sign_share_row_six_leg_mean_tau_knee_neg": 0.9453013876157663,
+    "F_hip_signed_mean_N": 2051.2169489411885,
+    "F_knee_signed_mean_N": -833.0241541980248,
+    "sign_share_F_hip_pos_loaded_legs": 0.9964956648453858,
+    "sign_share_F_knee_neg_loaded_legs": 0.9017326017060272,
+    "six_leg_mean_abs_F_hip_N": {
+     "mean": 2080.7033586825905,
+     "p50": 2080.5818859263504,
+     "p90": 2144.0558558596235,
+     "max": 2424.309166817741,
+     "by_loaded_feet": {
+      "5": 2099.2581968394475,
+      "6": 2054.2120076234337
+     }
+    },
+    "six_leg_mean_abs_F_knee_N": {
+     "mean": 1055.4767707633337,
+     "p90": 1457.5980951260212
+    },
+    "per_leg_mean_abs_F_hip_N": {
+     "FL": 2272.3132539152134,
+     "FR": 1904.911628326244,
+     "ML": 2090.488968303513,
+     "MR": 2132.4959156716523,
+     "RL": 1844.1070419057262,
+     "RR": 2239.9033439731934
+    },
+    "worst_leg_hip": {
+     "leg": "FL",
+     "mean_abs_F_N": 2272.3132539152134,
+     "row_max_p95_N": 5217.0330553479625
+    },
+    "per_leg_mean_abs_F_knee_N": {
+     "FL": 1126.4325868906524,
+     "FR": 969.3682457155357,
+     "ML": 1054.4787144425964,
+     "MR": 1010.8841838276193,
+     "RL": 1042.6170445938096,
+     "RR": 1129.0798491097898
+    },
+    "worst_leg_knee": {
+     "leg": "RR",
+     "mean_abs_F_N": 1129.0798491097898,
+     "row_max_p95_N": 3997.196235545744
+    },
+    "uncoupled_six_leg_mean_abs_F_hip_N": 1655.513987065823,
+    "model_at_measured_posture": {
+     "no_leg_weight": {
+      "tau_hip_Nm": 117.3732964121582,
+      "tau_knee_left_Nm": -102.34754169054109,
+      "F_hip_N": 1775.3192751391118,
+      "F_knee_N": -1422.057513400078
+     },
+     "with_leg_weight": {
+      "tau_hip_Nm": 101.29842294915757,
+      "tau_knee_left_Nm": -100.44239622701993,
+      "F_hip_N": 1623.5909545317515,
+      "F_knee_N": -1395.5866634336762
+     },
+     "measured_foot_loads_vertical_with_leg_weight": {
+      "tau_hip_Nm": 100.75807991554943,
+      "tau_knee_left_Nm": -98.70302474765327,
+      "six_leg_mean_abs_F_hip_N": 1626.5960062285785,
+      "six_leg_mean_abs_F_knee_N": 1377.5877475200325
+     }
+    },
+    "lever_regression_per_leg": {
+     "FL": {
+      "hip_slope_m": 0.5293,
+      "hip_icpt_Nm": -17.11,
+      "knee_slope_m": -0.1802,
+      "knee_icpt_Nm": -2.7,
+      "geom_hip_lever_m": 0.3103,
+      "geom_knee_lever_m": -0.2738,
+      "slope_sum_hip_plus_abs_knee_m": 0.7095,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "FR": {
+      "hip_slope_m": 0.584,
+      "hip_icpt_Nm": -23.42,
+      "knee_slope_m": -0.1034,
+      "knee_icpt_Nm": -14.27,
+      "geom_hip_lever_m": 0.3129,
+      "geom_knee_lever_m": -0.2712,
+      "slope_sum_hip_plus_abs_knee_m": 0.6874,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "ML": {
+      "hip_slope_m": 0.6586,
+      "hip_icpt_Nm": -39.4,
+      "knee_slope_m": -0.06,
+      "knee_icpt_Nm": -13.72,
+      "geom_hip_lever_m": 0.316,
+      "geom_knee_lever_m": -0.2681,
+      "slope_sum_hip_plus_abs_knee_m": 0.7185,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "MR": {
+      "hip_slope_m": 0.5856,
+      "hip_icpt_Nm": -23.73,
+      "knee_slope_m": -0.1288,
+      "knee_icpt_Nm": -5.03,
+      "geom_hip_lever_m": 0.3131,
+      "geom_knee_lever_m": -0.271,
+      "slope_sum_hip_plus_abs_knee_m": 0.7143,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RL": {
+      "hip_slope_m": 0.5591,
+      "hip_icpt_Nm": -34.97,
+      "knee_slope_m": -0.1619,
+      "knee_icpt_Nm": -11.97,
+      "geom_hip_lever_m": 0.3098,
+      "geom_knee_lever_m": -0.2743,
+      "slope_sum_hip_plus_abs_knee_m": 0.721,
+      "geom_sum_femur_horizontal_m": 0.5841
+     },
+     "RR": {
+      "hip_slope_m": 0.5488,
+      "hip_icpt_Nm": -25.94,
+      "knee_slope_m": -0.1715,
+      "knee_icpt_Nm": -7.91,
+      "geom_hip_lever_m": 0.3102,
+      "geom_knee_lever_m": -0.2739,
+      "slope_sum_hip_plus_abs_knee_m": 0.7203,
+      "geom_sum_femur_horizontal_m": 0.5841
+     }
+    },
+    "run_dir": "parkour/outputs/omni_plan/phase2/lr/P2R_RSTg_s18/walkstop__omni/seed002/2026-10-10_22-21-17",
+    "meta": {
+     "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-07_07-50-10_seed18_X08_p2a_A15pB/model_19994.pt",
+     "num_envs": 100,
+     "dt": 0.02,
+     "total_mass_kg": 230.0620433613658
+    }
+   }
+  },
+  "pooled_four_stamps_equal_weight": {
+   "six_leg_mean_tau_hip_Nm": 172.36695861816406,
+   "six_leg_mean_tau_knee_left_Nm": -74.41754977041502,
+   "six_leg_mean_abs_F_hip_N": 2064.4066976473664,
+   "six_leg_mean_abs_F_knee_N": 1161.1603007837232,
+   "h_meas_mean_m": 1.0625211974642843,
+   "model_at_measured_posture_no_leg_weight": {
+    "tau_hip_Nm": 116.3111944943336,
+    "tau_knee_left_Nm": -103.4071195168746,
+    "F_hip_N": 1775.9411162916515,
+    "F_knee_N": -1438.1668219147875
+   },
+   "model_at_measured_posture_with_leg_weight": {
+    "tau_hip_Nm": 100.25625106268775,
+    "tau_knee_left_Nm": -101.48225057142369,
+    "F_hip_N": 1624.1834858688142,
+    "F_knee_N": -1411.3961056738244
+   },
+   "model_measured_foot_loads": {
+    "tau_hip_Nm": 98.81878744912247,
+    "tau_knee_left_Nm": -99.54217983792113,
+    "six_leg_mean_abs_F_hip_N": 1619.17475304442,
+    "six_leg_mean_abs_F_knee_N": 1390.8063499491864
+   }
+  },
+  "model_vs_measured_error_pct": {
+   "exploration_model_no_leg_weight": {
+    "tau_hip_pct": -32.52117724488485,
+    "tau_knee_pct": -38.95528653643537,
+    "F_hip_pct": -13.973292262830538,
+    "F_knee_pct": 23.856010315207925
+   },
+   "model_with_leg_weight": {
+    "tau_hip_pct": -41.83557459827296,
+    "tau_knee_pct": -36.36870722632734,
+    "F_hip_pct": -21.32444214021579,
+    "F_knee_pct": 21.550496061672536
+   },
+   "measured_foot_loads_model": {
+    "tau_hip_pct": -42.66953002980647,
+    "tau_knee_pct": -33.76170022396316,
+    "F_hip_pct": -21.56706549684907
+   }
+  },
+  "model_vs_measured_error_pct_per_stamp_exploration_model": {
+   "SN_Amask_s17/es1": {
+    "tau_hip_pct": -27.25897367640562,
+    "tau_knee_pct": -18.31309467223557
+   },
+   "SN_Amask_s17/es2": {
+    "tau_hip_pct": -27.18081707747982,
+    "tau_knee_pct": -18.09755605240133
+   },
+   "R_P2R_RSTg_s18/es1": {
+    "tau_hip_pct": -36.717609106014734,
+    "tau_knee_pct": -66.82116675090849
+   },
+   "R_P2R_RSTg_s18/es2": {
+    "tau_hip_pct": -37.33862966449972,
+    "tau_knee_pct": -71.73819814317478
+   }
+  },
+  "exploration_reference_at_1p064": {
+   "F_hip_N": 1785.2028404339726,
+   "F_knee_N": -1422.805242694861,
+   "tau_hip_Nm": 116.88294981991488,
+   "tau_knee_left_Nm": -102.78362350852645,
+   "with_leg_weight_F_hip_N": 1632.997729011094,
+   "with_leg_weight_F_knee_N": -1396.3204741423324,
+   "method": "even 6-way share of the whole robot weight (230.06 kg x 9.81 / 6 = 376.1 N per toe, vertical, at the toe centre), q(1.064) = default angles, virtual work + the coupled conversion; reproduces the exploration's 1784 N / 1424 N"
+  },
+  "scale_factors": {
+   "exploration_model_hip": 1.1624296992222698,
+   "exploration_model_knee": 0.8073891589556659,
+   "leg_weight_model_hip": 1.2710427827943753,
+   "rule": "scale = pooled measured six-leg mean |F| / the model's |F| at the measured mean posture (per stamp, pooled), applied as a constant factor to the model curve"
+  },
+  "h_max_by_curve_m": {
+   "exploration_model_unscaled": 1.22,
+   "exploration_model_scaled": 1.02,
+   "leg_weight_model_unscaled": 1.342,
+   "leg_weight_model_scaled": 1.021,
+   "foot_load_model": 1.346
+  },
+  "h_max_rule": "highest h on a 1 mm grid whose modelled six-leg mean |F_hip| <= 2000.0 N",
+  "curves": [
+   {
+    "h": 0.7,
+    "F_hip_expl_N": 1150.0,
+    "F_hip_expl_scaled_N": 1337.0,
+    "F_hip_lw_N": 1028.0,
+    "F_hip_lw_scaled_N": 1307.0,
+    "F_hip_foot_load_model_N": 1025.0,
+    "F_knee_expl_N": 1116.0,
+    "F_knee_expl_scaled_N": 901.0,
+    "F_knee_lw_N": 1096.0
+   },
+   {
+    "h": 0.72,
+    "F_hip_expl_N": 1174.0,
+    "F_hip_expl_scaled_N": 1365.0,
+    "F_hip_lw_N": 1051.0,
+    "F_hip_lw_scaled_N": 1335.0,
+    "F_hip_foot_load_model_N": 1047.0,
+    "F_knee_expl_N": 1217.0,
+    "F_knee_expl_scaled_N": 983.0,
+    "F_knee_lw_N": 1195.0
+   },
+   {
+    "h": 0.75,
+    "F_hip_expl_N": 1223.0,
+    "F_hip_expl_scaled_N": 1422.0,
+    "F_hip_lw_N": 1097.0,
+    "F_hip_lw_scaled_N": 1394.0,
+    "F_hip_foot_load_model_N": 1093.0,
+    "F_knee_expl_N": 1333.0,
+    "F_knee_expl_scaled_N": 1076.0,
+    "F_knee_lw_N": 1308.0
+   },
+   {
+    "h": 0.8,
+    "F_hip_expl_N": 1320.0,
+    "F_hip_expl_scaled_N": 1535.0,
+    "F_hip_lw_N": 1190.0,
+    "F_hip_lw_scaled_N": 1512.0,
+    "F_hip_foot_load_model_N": 1186.0,
+    "F_knee_expl_N": 1452.0,
+    "F_knee_expl_scaled_N": 1172.0,
+    "F_knee_lw_N": 1425.0
+   },
+   {
+    "h": 0.85,
+    "F_hip_expl_N": 1421.0,
+    "F_hip_expl_scaled_N": 1652.0,
+    "F_hip_lw_N": 1286.0,
+    "F_hip_lw_scaled_N": 1635.0,
+    "F_hip_foot_load_model_N": 1282.0,
+    "F_knee_expl_N": 1508.0,
+    "F_knee_expl_scaled_N": 1218.0,
+    "F_knee_lw_N": 1480.0
+   },
+   {
+    "h": 0.9,
+    "F_hip_expl_N": 1518.0,
+    "F_hip_expl_scaled_N": 1764.0,
+    "F_hip_lw_N": 1378.0,
+    "F_hip_lw_scaled_N": 1751.0,
+    "F_hip_foot_load_model_N": 1374.0,
+    "F_knee_expl_N": 1524.0,
+    "F_knee_expl_scaled_N": 1230.0,
+    "F_knee_lw_N": 1495.0
+   },
+   {
+    "h": 0.95,
+    "F_hip_expl_N": 1607.0,
+    "F_hip_expl_scaled_N": 1868.0,
+    "F_hip_lw_N": 1463.0,
+    "F_hip_lw_scaled_N": 1859.0,
+    "F_hip_foot_load_model_N": 1458.0,
+    "F_knee_expl_N": 1511.0,
+    "F_knee_expl_scaled_N": 1220.0,
+    "F_knee_lw_N": 1483.0
+   },
+   {
+    "h": 1.0,
+    "F_hip_expl_N": 1689.0,
+    "F_hip_expl_scaled_N": 1963.0,
+    "F_hip_lw_N": 1541.0,
+    "F_hip_lw_scaled_N": 1959.0,
+    "F_hip_foot_load_model_N": 1536.0,
+    "F_knee_expl_N": 1480.0,
+    "F_knee_expl_scaled_N": 1195.0,
+    "F_knee_lw_N": 1453.0
+   },
+   {
+    "h": 1.03,
+    "F_hip_expl_N": 1735.0,
+    "F_hip_expl_scaled_N": 2017.0,
+    "F_hip_lw_N": 1585.0,
+    "F_hip_lw_scaled_N": 2015.0,
+    "F_hip_foot_load_model_N": 1580.0,
+    "F_knee_expl_N": 1455.0,
+    "F_knee_expl_scaled_N": 1175.0,
+    "F_knee_lw_N": 1428.0
+   },
+   {
+    "h": 1.064,
+    "F_hip_expl_N": 1785.0,
+    "F_hip_expl_scaled_N": 2075.0,
+    "F_hip_lw_N": 1633.0,
+    "F_hip_lw_scaled_N": 2076.0,
+    "F_hip_foot_load_model_N": 1628.0,
+    "F_knee_expl_N": 1423.0,
+    "F_knee_expl_scaled_N": 1149.0,
+    "F_knee_lw_N": 1396.0
+   },
+   {
+    "h": 1.1,
+    "F_hip_expl_N": 1836.0,
+    "F_hip_expl_scaled_N": 2135.0,
+    "F_hip_lw_N": 1682.0,
+    "F_hip_lw_scaled_N": 2137.0,
+    "F_hip_foot_load_model_N": 1676.0,
+    "F_knee_expl_N": 1384.0,
+    "F_knee_expl_scaled_N": 1118.0,
+    "F_knee_lw_N": 1358.0
+   },
+   {
+    "h": 1.15,
+    "F_hip_expl_N": 1905.0,
+    "F_hip_expl_scaled_N": 2214.0,
+    "F_hip_lw_N": 1747.0,
+    "F_hip_lw_scaled_N": 2220.0,
+    "F_hip_foot_load_model_N": 1742.0,
+    "F_knee_expl_N": 1325.0,
+    "F_knee_expl_scaled_N": 1070.0,
+    "F_knee_lw_N": 1300.0
+   },
+   {
+    "h": 1.2,
+    "F_hip_expl_N": 1972.0,
+    "F_hip_expl_scaled_N": 2293.0,
+    "F_hip_lw_N": 1811.0,
+    "F_hip_lw_scaled_N": 2302.0,
+    "F_hip_foot_load_model_N": 1805.0,
+    "F_knee_expl_N": 1260.0,
+    "F_knee_expl_scaled_N": 1018.0,
+    "F_knee_lw_N": 1237.0
+   },
+   {
+    "h": 1.25,
+    "F_hip_expl_N": 2040.0,
+    "F_hip_expl_scaled_N": 2371.0,
+    "F_hip_lw_N": 1875.0,
+    "F_hip_lw_scaled_N": 2384.0,
+    "F_hip_foot_load_model_N": 1870.0,
+    "F_knee_expl_N": 1191.0,
+    "F_knee_expl_scaled_N": 961.0,
+    "F_knee_lw_N": 1168.0
+   },
+   {
+    "h": 1.3,
+    "F_hip_expl_N": 2109.0,
+    "F_hip_expl_scaled_N": 2451.0,
+    "F_hip_lw_N": 1941.0,
+    "F_hip_lw_scaled_N": 2468.0,
+    "F_hip_foot_load_model_N": 1935.0,
+    "F_knee_expl_N": 1115.0,
+    "F_knee_expl_scaled_N": 900.0,
+    "F_knee_lw_N": 1094.0
+   },
+   {
+    "h": 1.35,
+    "F_hip_expl_N": 2181.0,
+    "F_hip_expl_scaled_N": 2535.0,
+    "F_hip_lw_N": 2011.0,
+    "F_hip_lw_scaled_N": 2555.0,
+    "F_hip_foot_load_model_N": 2004.0,
+    "F_knee_expl_N": 1031.0,
+    "F_knee_expl_scaled_N": 832.0,
+    "F_knee_lw_N": 1011.0
+   },
+   {
+    "h": 1.4,
+    "F_hip_expl_N": 2257.0,
+    "F_hip_expl_scaled_N": 2624.0,
+    "F_hip_lw_N": 2083.0,
+    "F_hip_lw_scaled_N": 2648.0,
+    "F_hip_foot_load_model_N": 2077.0,
+    "F_knee_expl_N": 934.0,
+    "F_knee_expl_scaled_N": 754.0,
+    "F_knee_lw_N": 917.0
+   }
+  ],
+  "excess_hip_torque_diagnostic": {
+   "mean_measured_slope_sum_m": 0.7140083333333335,
+   "mean_geometric_sum_m": 0.5841,
+   "mean_hip_slope_m": 0.5334791666666666,
+   "mean_geom_hip_lever_m": 0.30922083333333333,
+   "mean_knee_slope_m": -0.18054583333333332,
+   "mean_geom_knee_lever_m": -0.27487083333333334,
+   "tau_hip_minus_tau_knee_by_controller_Nm": {
+    "SN_Amask_s17": [
+     246.7743908362478,
+     246.75313008535596
+    ],
+    "R_P2R_RSTg_s18": [
+     246.70177359862254,
+     246.90873903409008
+    ]
+   },
+   "tau_hip_minus_tau_knee_model_Nm": {
+    "no_leg_weight": 219.7183140112082,
+    "with_leg_weight": 201.73850163411146
+   },
+   "hip_rod_force_structure": "F_hip = (tau_h - c F_k)/a = (tau_h - (c/b) tau_k)/a with c/b = 0.890 at the default pose: F_hip tracks the (near-)invariant tau_h - tau_k, so it does NOT depend on how the stance's internal horizontal forces split the load between hip and knee (A-mask and R differ in that split by ~27 N*m but agree on F_hip within 1.5 %); the knee rod force does depend on it",
+   "reading": "Per leg, the measured torques regressed on the measured foot load: hip slope 0.533 m vs a geometric lever 0.309 m, knee slope -0.181 vs -0.275 m. The hip/knee SPLIT differs by controller (R: more hip, less knee) as an in-plane horizontal stance force would make it, but tau_hip - tau_knee is the same for both controllers ({'SN_Amask_s17': [246.8, 246.8], 'R_P2R_RSTg_s18': [246.7, 246.9]} N*m) and is 12 % / 22 % above the model (no / with leg weight: 219.7 / 201.7 N*m); per unit foot load the slope sum is 0.714 m vs the 0.584 m that ANY foot force must give. The four stamps agree on tau_hip - tau_knee to 0.2 N*m (it is fixed by the total weight: the six-leg mean knee-point load x Lf cos th), so the excess (~45 N*m per leg, ~ +12 % of the weight-only value, +22 % with leg weight) is not a foot force the static model omits and not noise: either the sim's implicit-PD torque reading (Isaac Lab's k (q_target - q) estimate) differs from the joints' true loads, or a load path outside the leg-plane statics exists. Which joint carries it cannot be separated from the split; the hip ROD force tracks the sum (see hip_rod_force_structure), so the whole excess lands on F_hip. Unexplained on CPU; needs a Kit-side check (e.g. the articulation's measured joint reaction forces vs applied_torque on a settled stand) before the measured hip number is trusted as a force."
+  }
+ },
+ "c_table_ground": {
+  "poses": {
+   "rod_min": {
+    "hip_deg": -44.5,
+    "knee_left_deg": -41.59450033238155,
+    "lowest_part_z_body_m": {
+     "tibia_or_pad": 0.08065296251144384,
+     "femur": -0.306,
+     "hip_plate": -0.306,
+     "belly": -0.15875
+    },
+    "lowest_leg_part": "femur+hip_plate",
+    "table_top_min_m_legs_0p02_above_floor": 0.16225,
+    "table_lateral_clearance_m": 0.15348860462280645,
+    "any_toe_inside_table_footprint": false,
+    "ground": {
+     "first_contact": "femur+hip_plate",
+     "spawn_root_z_m": 0.311,
+     "h_meas_at_spawn_m": 0.311,
+     "belly_height_at_spawn_m": 0.15225,
+     "below_h_min": true
+    },
+    "link_clearances": {
+     "tibia_plate_m": 0.19996776728027987,
+     "tibia_body_m": 0.328718043061449,
+     "femur_body_m": 0.03868656286071823,
+     "min_m": 0.03868656286071823
+    },
+    "hold_actions": {
+     "hip": -3.2153660609738446,
+     "knee_left": -7.032196793520877
+    }
+   },
+   "knee_folded": {
+    "hip_deg": -44.5,
+    "knee_left_deg": 77.64759157506408,
+    "lowest_part_z_body_m": {
+     "tibia_or_pad": -0.5561401406139288,
+     "femur": -0.306,
+     "hip_plate": -0.306,
+     "belly": -0.15875
+    },
+    "lowest_leg_part": "tibia_or_pad",
+    "table_top_min_m_legs_0p02_above_floor": 0.4123901406139288,
+    "table_lateral_clearance_m": 0.15348860462280645,
+    "any_toe_inside_table_footprint": false,
+    "ground": {
+     "first_contact": "tibia_or_pad",
+     "spawn_root_z_m": 0.5611401406139288,
+     "h_meas_at_spawn_m": 0.5611401406139288,
+     "belly_height_at_spawn_m": 0.4023901406139288,
+     "below_h_min": true
+    },
+    "link_clearances": {
+     "tibia_plate_m": 0.02010236128534526,
+     "tibia_body_m": 0.18177530774967235,
+     "femur_body_m": 0.03868656286071823,
+     "min_m": 0.02010236128534526
+    },
+    "hold_actions": {
+     "hip": -3.2153660609738446,
+     "knee_left": 1.305588659392339
+    }
+   }
+  },
+  "random_fold_family": {
+   "share_resting_on_hip_plates": 0.1728395061728395,
+   "share_spawn_below_h_min": 0.8148148148148148,
+   "definition": "hip uniform in [-44.5 deg, -30 deg] (femur raised: a retracted family), knee uniform in [max(knee at the knee-rod minimum, knee stop + 0.5 deg), the largest fold keeping 0.02 m tibia/pad clearance to the hip plate and body (sn_table_core.max_clear_knee_fold)] at that hip; Body_Hip / cams 0; same pose on all six legs. Evaluated on a 9 x 9 grid.",
+   "n_grid": 81,
+   "ground_first_contact_counts": {
+    "femur+hip_plate": 14,
+    "tibia_or_pad": 67
+   },
+   "ground_spawn_root_z_m": [
+    0.311,
+    0.6068688872535551,
+    0.8002227775079306
+   ],
+   "table_top_min_for_legs_clear_m": [
+    0.16225,
+    0.45811888725355515,
+    0.6514727775079306
+   ],
+   "rule_for_tables": "on a table of top t, draw a random fold only if its table_top_min <= t (legs >= 0.02 m above the floor); otherwise it is a floor-touching start"
+  },
+  "table_range": {
+   "rule": "spawn root z = top + 0.15875 (belly) + 0.005; top_min = every leg part of the retracted pose >= 0.02 m above the floor at spawn (knee_folded binds: its toes); legs clear the table laterally by the sn_table_core lateral clearance (the 0.90 x 0.70 m table, +-3 cm / +-10 deg jitter, is inside the leg yaw axes at |y| 0.6096; independent of the top height); top_max (training) = min(restore: belly at 1.064 - 0.15875 clears the top by >= 0.10 m, h_max - 0.264 so h_cmd >= top + 0.264 is reachable); K3 eval tops: >= 3 incl. 0.635 with top + 0.31 <= h_max",
+   "primary": {
+    "h_max_m": 1.02,
+    "top_min_m": 0.4123901406139288,
+    "top_max_train_m": 0.756,
+    "top_max_train_terms_m": {
+     "restore_belly_gap": 0.8052500000000001,
+     "h_max_minus_0p264": 0.756
+    },
+    "top_max_eval_m": 0.71,
+    "feasible": true
+   },
+   "k3_eval_tops_m": [
+    0.4572,
+    0.635,
+    0.6858
+   ],
+   "k3_rows": [
+    {
+     "top_m": 0.4572,
+     "top_in": 18.0,
+     "spawn_root_z_m": 0.62095,
+     "h_cmd_min_m": 0.7672,
+     "h_cmd_max_m": 1.02,
+     "belly_gap_at_1p064_m": 0.4480500000000001
+    },
+    {
+     "top_m": 0.635,
+     "top_in": 25.0,
+     "spawn_root_z_m": 0.79875,
+     "h_cmd_min_m": 0.9450000000000001,
+     "h_cmd_max_m": 1.02,
+     "belly_gap_at_1p064_m": 0.2702500000000001
+    },
+    {
+     "top_m": 0.6858,
+     "top_in": 27.0,
+     "spawn_root_z_m": 0.8495499999999999,
+     "h_cmd_min_m": 0.9958,
+     "h_cmd_max_m": 1.02,
+     "belly_gap_at_1p064_m": 0.21945000000000014
+    }
+   ],
+   "alternative_if_h_max_from_foot_load_model": {
+    "h_max_m": 1.346,
+    "top_min_m": 0.4123901406139288,
+    "top_max_train_m": 0.8052500000000001,
+    "top_max_train_terms_m": {
+     "restore_belly_gap": 0.8052500000000001,
+     "h_max_minus_0p264": 1.082
+    },
+    "top_max_eval_m": 0.8052500000000001,
+    "feasible": true
+   },
+   "k3_eval_tops_alternative_m": [
+    0.4572,
+    0.635,
+    0.762
+   ]
+  },
+  "ground_note": "ground starts: h_meas at spawn (root z - floor) is below h_min for rod_min, knee_folded and most random folds (the rest spawn above it but below 1.064), so the limiter state starts at the measured height and both q(h) and the limiter CLAMP to [h_min, h_max] (q is evaluated at max(h, h_min)). rod_min rests on the hip plates' bottoms (the femur pivot hull sits at the same z): the hip-contact > 500 N clause fires at spawn -> the PLAN H5 wrapper; knee_folded rests on its toes (pads). Random folds: 17 % of the grid rest on the plates, the rest on the toes; spawn root z must be computed per draw (lowest leg-plane hull point, sn_table_core.tibia_hull / plate / femur stadia, + 0.005 m)"
+ }
+}

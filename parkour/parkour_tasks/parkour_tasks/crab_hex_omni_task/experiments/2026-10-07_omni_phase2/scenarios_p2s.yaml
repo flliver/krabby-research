@@ -1,0 +1,74 @@
+# Omni phase 2, stage p2s (CHARTER 11 / P2S_PLAN.md) -- the campaign-local eval rows NEW in p2s. A separate manifest
+# (CHARTER 11.1, 2026-10-08 implementation note) so that scenarios_p2.yaml stays BYTE-IDENTICAL for the REFS_S1_s18 /
+# C0R_s18 inertness check (P2S_PLAN step 5) and ../eval/scenarios_omni.yaml (every omni campaign's eval_sha) does not
+# move (CHARTER 1a). Run by scripts/run_arm.sh --row-eval with the env_vars of the evaluated head's own suite stamp,
+# exactly as scenarios_p2.yaml's rows are; the second env_seed is the harness's --env-seed, never a second row.
+#
+# The header (speed_ellipse, ang_vel_max, defaults) is scenarios_omni.yaml's VERBATIM (via scenarios_p2.yaml), so the
+# validator's speed and facing rules are the ones the omni rows pass.
+#
+# FLAT GROUND, exactly as suite__omni gets it: NO env block. Every evaluated head's stamp env carries
+# KRABBY_FLAT_TERRAIN_GEOM=ring (run_phases.TERRAIN_GEOM_REQUIRED: require_omni_geom raises without a geometry) and no
+# KRABBY_FLAT_TERRAIN_MODE -- the field-trained heads' driver suite stamps included (their training overlay's
+# GEOM=field / DIFF / KRABBY_FIELD_* never reach an eval env: run_phases.eval_env_for builds it from its keep /
+# EVAL_CARRY keys and then sets TERRAIN_GEOM_REQUIRED; e.g. P2__S1_s18's and P2__C0_s18's driver suite stamps carry
+# KRABBY_FLAT_TERRAIN_GEOM ring and no MODE / DIFF / FIELD key).
+# Without MODE=light, apply_flat_walk_knobs's unconditional block forces every sub-terrain except parkour_flat to
+# proportion 0.0, so the row builds pure flat ground -- the run_phases.py OBST_EVAL note, read the other way round.
+# (Adding MODE light + FLAT_FRAC 0.0, as the field / ring rows of scenarios_p2.yaml do, is what puts obstacles back.)
+# scripts/p2_read.py's p2s reads refuse a walkstop stamp whose env carries KRABBY_FLAT_TERRAIN_MODE or whose row env
+# block is not empty (INVALID EVAL: not the flat row this file defines).
+#
+# SHAPE IS FROZEN after the first eval (process-state sensitivity, scenarios_omni.yaml header): do not add or remove an
+# env block on this row once a REFS / C0R stamp exists; a change re-runs the references (P2S_PLAN step 5).
+#
+# Rows (100 episodes each):
+#   walkstop__omni  flat: fwd 6 s -> stand 12 s -> lat_l 6 s -> stand 12 s -> back 6 s -> stand 12 s (54 s of holds +
+#                   the 1.5 s prologue, which holds the first command, inside the 60 s episode). Every stand faces 0 (no
+#                   facing change anywhere, so no turn-feasibility rule binds) and every speed sits inside the ellipse
+#                   (fwd 0.25 <= 0.35, lat 0.20 <= 0.25, back 0.20 <= 0.25). P2S_PLAN "Pre-registered verdicts" rung 5:
+#                   a COST guard only (stand-hold falls, MEDIAN onset latency), never part of STILL (the user's decision,
+#                   CHARTER 11).
+#   The three stand holds share the label "stand" ON PURPOSE: scripts/p2s_stand.py identifies a stand by
+#   hold_labels[i] == "stand" (never by a zero speed, which turn holds share) and its stand_onset_pairs pairs every
+#   "stand" with the moving hold right after it (here stand -> lat_l and stand -> back; the last stand ends the
+#   episode, so it has no onset pair). The raws key every hold by its segment_id (the hold's index), so the three
+#   stands stay separate there; the harness's own per-label metrics/episode_XX.json "holds" block keeps only the LAST
+#   stand of each episode under that label -- the p2s reads never use it (they read the raws through p2s_stand.py).
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: walkstop__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 100
+    env_seed: 1
+    episode_length_s: 60.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 6.0, label: fwd}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: 1.5707963, face: 0.0000000, hold_s: 6.0, label: lat_l}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+      - {speed: 0.20, dir: 3.1415927, face: 0.0000000, hold_s: 6.0, label: back}
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 12.0, label: stand}
+    notes: >-
+      p2s walk-then-stop guard (P2S_PLAN step 3 / rung 5 COST): flat ground (no env block, the suite__omni convention),
+      three 12-s stands each after a 6-s walk (fwd 0.25, lat_l 0.20, back 0.20), all facing 0. Read by
+      scripts/p2_read.py --p2s-* through scripts/p2s_stand.py (stand-hold falls, onset latency stand -> lat_l /
+      stand -> back, and the stands' stillness, reported).

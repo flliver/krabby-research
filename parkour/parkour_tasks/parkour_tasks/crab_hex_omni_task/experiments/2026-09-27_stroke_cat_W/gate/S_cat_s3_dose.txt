@@ -1,0 +1,53 @@
+[income] economy parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-25_14-53-27_seed3_X03_c6x_A15pB/params/env.yaml clock [0.001, 0.001] (dump [0.001, 0.001])
+[income] economy note: reward_stride_length (weight 0.5) has a nonzero weight in this dump but no replayed formula -- NOT REPLAYED (see the module docstring's NOT_REPLAYED_NOTES)
+[income] economy note: penalty_tibia_deviation_in_stance priced here from joint_pos and the dump's knee defaults
+== income 2026-09-26_08-39-30 (w_stroke 0.12624, w_centring 0.001; per second over gated moving own-hold steps; S = stroke, P = centring)
+== per-category stroke weights (KRABBY_OMNI_STROKE_CAT_W fwd:1.0,back:1.0,side:2.928327,diag:1.314741,turn:1.214263,move_turn:1.0): effective w_S x m_c = fwd 0.1262 (x1), back 0.1262 (x1), side 0.3697 (x2.92833), diag 0.166 (x1.31474), turn 0.1533 (x1.21426), move_turn 0.1262 (x1)
+        row  n_ep   w_S*m   S/s@1  P/s@1  trk/s  S_del/s  S_dose  S_abs%  P_del/s  P_dose  P_abs%  clip0%  clip1%   dpp
+-----------  ----  ------  ------  -----  -----  -------  ------  ------  -------  ------  ------  ------  ------  ----
+      stand   100  0.1262  0.0000  0.000  0.000   0.0000      --      --   0.0000      --      --     1.5     1.5  +0.0
+        fwd   100  0.1262  1.1621  0.000  0.926   0.1457   0.157     0.7   0.0000   0.000      --     2.9     2.8  -0.1
+       side   200  0.3697  0.1536  0.391  0.733   0.0559   0.076     1.5   0.0004   0.000     7.5     9.8     9.7  -0.2
+     side/l   100  0.3697  0.1557  0.392  0.731   0.0566   0.077     1.7   0.0004   0.000     7.7    10.2    10.0  -0.2
+     side/r   100  0.3697  0.1514  0.389  0.736   0.0553   0.075     1.3   0.0004   0.000     7.3     9.5     9.4  -0.1
+       back   100  0.1262  0.9925  0.000  0.957   0.1239   0.129     1.1   0.0000   0.000      --     2.7     2.6  -0.1
+       diag   100   0.166  0.6038  0.417  0.756   0.0974   0.129     2.8   0.0004   0.001     8.9    12.4    12.1  -0.4
+       turn   200  0.1533  0.5368  0.000  0.881   0.0818   0.093     0.6   0.0000   0.000      --     2.8     2.7  -0.1
+     turn/l   100  0.1533  0.5328  0.000  0.881   0.0812   0.092     0.5   0.0000   0.000      --     2.6     2.5  -0.1
+     turn/r   100  0.1533  0.5408  0.000  0.881   0.0823   0.093     0.7   0.0000   0.000      --     2.9     2.8  -0.1
+  move_turn   200  0.1262  0.3211  0.000  1.575   0.0386   0.025     4.8   0.0000   0.000      --    13.7    13.5  -0.3
+move_turn/l   100  0.1262  0.3345  0.000  1.587   0.0403   0.025     4.5   0.0000   0.000      --    12.7    12.4  -0.2
+move_turn/r   100  0.1262  0.3070  0.000  1.562   0.0367   0.024     5.2   0.0000   0.000      --    14.8    14.5  -0.3
+== stances per gate (closed in the window; binds = the gate trimmed a scored stance; lost % of ungated credit)
+        row  closed  scored  rej_n  rej_taint  anchor  slip  prog  prog0  lost_anc%  lost_slip%  lost_prog%   kept
+-----------  ------  ------  -----  ---------  ------  ----  ----  -----  ---------  ----------  ----------  -----
+      stand    3569       0   3569          0       0     0     0      0         --          --          --     --
+        fwd    3987    3486    501          0    1089   909     1      0        5.4         4.3        -0.0  0.902
+       side    9387    8039   1348          0    1411  6392     0      0        7.0        49.9        -0.0  0.430
+     side/l    4708    4021    687          0     703  3186     0      0        7.0        49.6        -0.0  0.432
+     side/r    4679    4018    661          0     708  3206     0      0        6.9        50.2        -0.0  0.427
+       back    3874    3438    436          0    1133   891     1      0        7.1         4.4        -0.0  0.884
+       diag    4098    3426    672          0     934  1752     1      0        8.4        17.5        -0.0  0.740
+       turn    7962    7084    878          0    3093  2733  3388     78       15.8         5.1         4.6  0.744
+     turn/l    3910    3490    420          0    1520  1376  1652     12       16.8         5.7         3.9  0.734
+     turn/r    4052    3594    458          0    1573  1357  1736     66       14.9         4.4         5.3  0.753
+  move_turn    7310    6250   1060          0    2176  3689  3168   1224       11.3        14.4         8.6  0.654
+move_turn/l    3746    3227    519          0    1114  1866  1608    608       10.8        14.5         8.8  0.657
+move_turn/r    3564    3023    541          0    1062  1823  1560    616       11.8        14.2         8.4  0.652
+== training telemetry vs replay (Episode_RewardCat, last 200 iterations; r = log / replay)
+      cat  S_log/s  S_rep/s   r_S  P_log/s  P_rep/s        r_P  abs_log  abs_rep  clip_log  clip_rep
+---------  -------  -------  ----  -------  -------  ---------  -------  -------  --------  --------
+    stand   0.0000   0.0000    --   0.0000   0.0000         --    0.000       --     0.018     0.015
+      fwd   0.0989   0.1467  0.67   0.0000   0.0000         --    0.035    0.007     0.145     0.028
+     side   0.0763   0.0568  1.34   0.0004   0.0004       0.92    0.021    0.015     0.156     0.097
+     back   0.0925   0.1253  0.74   0.0000   0.0000  439208.03    0.029    0.011     0.136     0.026
+     diag   0.0690   0.1002  0.69   0.0003   0.0004       0.79    0.024    0.028     0.147     0.121
+     turn   0.0139   0.0823  0.17   0.0000   0.0000         --    0.017    0.006     0.061     0.027
+move_turn   0.0296   0.0405  0.73   0.0000   0.0000         --    0.072    0.048     0.222     0.135
+[income] stock track_lin_vel_xy_exp: log 0.841/s replay 0.875/s
+[income] stock track_ang_vel_z_exp: log 0.884/s replay 0.834/s
+[income] stock reward_tracking_yaw: log 0.182/s replay 0.142/s
+[income] stock reward_yaw_progress: log 0.005/s replay 0.029/s
+[income] stock reward_action_rate: log -0.332/s replay --/s
+[income] stock reward_feet_air_time_positive: log 0.001/s replay --/s
+[income] stock penalty_foot_idle_when_forward: log -0.082/s replay --/s

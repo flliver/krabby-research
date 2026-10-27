@@ -1,0 +1,4861 @@
+{
+ "cells": {
+  "1": {
+   "SH_T17": {
+    "ground__knee_folded": {
+     "cams_homed_end": 48,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 35,
+     "falls_hip_contact": 35,
+     "falls_per100": 35.0,
+     "falls_tilt": 35,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.6515333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.6492,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5626666666666666,
+      "median": 0.9199999999999999,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3428650000000002,
+      "mean": 1.0325000000000002,
+      "median": 1.0325000000000002,
+      "min": 0.722135,
+      "n": 100,
+      "p90": 1.2801650000000002
+     },
+     "h_err_window_median_m": {
+      "max": 1.0306613208564124,
+      "mean": 0.3625417692462603,
+      "median": 0.13120718189239505,
+      "min": 0.05057550037066144,
+      "n": 100,
+      "p90": 0.8853788507366183
+     },
+     "h_err_window_p90_m": {
+      "max": 1.031340699564616,
+      "mean": 0.3660056082208952,
+      "median": 0.13126426526069643,
+      "min": 0.050934610408147216,
+      "n": 100,
+      "p90": 0.8942774702978135
+     },
+     "hip_contact_pre_arm_envs": 1,
+     "homed": 47,
+     "homed_share": 0.47,
+     "lift_off_s": {
+      "max": 0.48,
+      "mean": 0.35399999999999965,
+      "median": 0.36,
+      "min": 0.32,
+      "n": 100,
+      "p90": 0.38
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 3.1399732077144122,
+      "mean": 0.977710644169882,
+      "median": 0.18338379623148,
+      "min": 0.00890363416007235,
+      "n": 100,
+      "p90": 3.136934743122099
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 0,
+     "n_stood_5down": 0,
+     "n_stood_6down": 0,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.6185202598571777,
+      "mean": 0.008949521631002426,
+      "median": 0.0599115788936615,
+      "min": -0.4248812198638916,
+      "n": 100,
+      "p90": 0.3890107274055481
+     },
+     "rise_min_window_m": {
+      "max": 0.6683064103126526,
+      "mean": 0.08651322782039643,
+      "median": 0.11210131645202637,
+      "min": -0.26841551065444946,
+      "n": 100,
+      "p90": 0.45590895414352417
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.5136666666666667,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__ground__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": null,
+      "mean": null,
+      "median": null,
+      "min": null,
+      "n": 0,
+      "p90": null
+     }
+    },
+    "ground__random": {
+     "cams_homed_end": 78,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 2,
+     "falls_hip_contact": 2,
+     "falls_per100": 2.0,
+     "falls_tilt": 1,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.98,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.909,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.6153333333333333,
+      "median": 0.99,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3434866211693404,
+      "mean": 1.0703039239524037,
+      "median": 1.06701214917855,
+      "min": 0.722135,
+      "n": 100,
+      "p90": 1.2801650000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.8233797762567486,
+      "mean": 0.0529923396361216,
+      "median": 0.011210392589566909,
+      "min": 4.493877109834621e-05,
+      "n": 100,
+      "p90": 0.1413803143310547
+     },
+     "h_err_window_p90_m": {
+      "max": 0.8520622873082445,
+      "mean": 0.05437941292448282,
+      "median": 0.011241930400528271,
+      "min": 0.00010552093204805325,
+      "n": 100,
+      "p90": 0.14404635610262548
+     },
+     "hip_contact_pre_arm_envs": 1,
+     "homed": 75,
+     "homed_share": 0.75,
+     "lift_off_s": {
+      "max": 1.04,
+      "mean": 0.5152000000000002,
+      "median": 0.45,
+      "min": 0.24,
+      "n": 100,
+      "p90": 0.8200000000000001
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 2.161689432303624,
+      "mean": 0.09689370494954559,
+      "median": 0.04215353611557919,
+      "min": 0.0052702778633257185,
+      "n": 100,
+      "p90": 0.17970449751129966
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 63,
+     "n_stood_5down": 55,
+     "n_stood_6down": 31,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.9547141194343567,
+      "mean": 0.38243870198726654,
+      "median": 0.37816348671913147,
+      "min": -0.4754869341850281,
+      "n": 100,
+      "p90": 0.6437450051307678
+     },
+     "rise_min_window_m": {
+      "max": 0.9614255428314209,
+      "mean": 0.4143329718708992,
+      "median": 0.41438186168670654,
+      "min": -0.2653796374797821,
+      "n": 100,
+      "p90": 0.6668311953544617
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.9406,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__ground__random.json",
+     "settled": 94,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.63,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 11.56,
+      "mean": 4.971071428571428,
+      "median": 4.73,
+      "min": 1.54,
+      "n": 56,
+      "p90": 7.7
+     }
+    },
+    "ground__rod_min": {
+     "cams_homed_end": 45,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 3,
+     "falls_hip_contact": 3,
+     "falls_per100": 3.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9992666666666666,
+      "median": 1.0,
+      "min": 0.9466666666666667,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.9549333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.7117333333333333,
+      "median": 0.9866666666666667,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3428650000000002,
+      "mean": 1.0325000000000002,
+      "median": 1.0325000000000002,
+      "min": 0.722135,
+      "n": 100,
+      "p90": 1.2801650000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.2784339856052399,
+      "mean": 0.11857348211917879,
+      "median": 0.10353989316304535,
+      "min": 0.0005954789288838969,
+      "n": 100,
+      "p90": 0.23687769619623816
+     },
+     "h_err_window_p90_m": {
+      "max": 0.29516018146197,
+      "mean": 0.12196611059436799,
+      "median": 0.10485128913402558,
+      "min": 0.0007615564791360718,
+      "n": 100,
+      "p90": 0.24836991149584445
+     },
+     "hip_contact_pre_arm_envs": 7,
+     "homed": 39,
+     "homed_share": 0.39,
+     "lift_off_s": {
+      "max": 1.46,
+      "mean": 0.8626262626262633,
+      "median": 0.84,
+      "min": 0.8200000000000001,
+      "n": 99,
+      "p90": 0.86
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.2521832799061943,
+      "mean": 0.1494183598821618,
+      "median": 0.13096068412187847,
+      "min": 0.09592904972707517,
+      "n": 100,
+      "p90": 0.22538872934021867
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 22,
+     "n_stood_5down": 19,
+     "n_stood_6down": 7,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 1.0142491459846497,
+      "mean": 0.5117137360572815,
+      "median": 0.5516888499259949,
+      "min": -0.02699679136276245,
+      "n": 100,
+      "p90": 0.9489771723747253
+     },
+     "rise_min_window_m": {
+      "max": 1.0161305665969849,
+      "mean": 0.5797826200723648,
+      "median": 0.6154922246932983,
+      "min": 0.11744284629821777,
+      "n": 100,
+      "p90": 0.9501526355743408
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__ground__rod_min.json",
+     "settled": 99,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.22,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 11.94,
+      "mean": 8.404545454545454,
+      "median": 8.16,
+      "min": 6.86,
+      "n": 22,
+      "p90": 10.84
+     }
+    },
+    "table_0p4572__knee_folded": {
+     "cams_homed_end": 99,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "FELL OFF THE TABLE",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 1,
+     "falls_hip_contact": 1,
+     "falls_per100": 1.0,
+     "falls_tilt": 1,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.99,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.99,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.9659333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 1,
+     "h_cmd_m": {
+      "max": 1.3431060000000001,
+      "mean": 1.0566000000000002,
+      "median": 1.0566,
+      "min": 0.770094,
+      "n": 100,
+      "p90": 1.2852260000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.7716686306117375,
+      "mean": 0.07055277077953023,
+      "median": 0.06303294981320712,
+      "min": 0.02635739766438816,
+      "n": 100,
+      "p90": 0.08398359620539358
+     },
+     "h_err_window_p90_m": {
+      "max": 0.7904410071887971,
+      "mean": 0.0709882128596306,
+      "median": 0.06306305611928317,
+      "min": 0.026817589232126914,
+      "n": 100,
+      "p90": 0.08526532267316189
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 98,
+     "homed_share": 0.98,
+     "lift_off_s": {
+      "max": 0.52,
+      "mean": 0.44420000000000015,
+      "median": 0.44,
+      "min": 0.42,
+      "n": 100,
+      "p90": 0.48
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 2.2379095069449457,
+      "mean": 0.09745769197286468,
+      "median": 0.07778443942828943,
+      "min": 0.010294561396773805,
+      "n": 100,
+      "p90": 0.129169770891445
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 5,
+     "n_stood_5down": 5,
+     "n_stood_6down": 5,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.6334850192070007,
+      "mean": 0.3085089647769928,
+      "median": 0.28602784872055054,
+      "min": -0.4738289713859558,
+      "n": 100,
+      "p90": 0.5655073523521423
+     },
+     "rise_min_window_m": {
+      "max": 0.6628062725067139,
+      "mean": 0.3471554943919182,
+      "median": 0.3428484797477722,
+      "min": -0.26018086075782776,
+      "n": 100,
+      "p90": 0.6073516607284546
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.9212666666666667,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p4572__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.05,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": null,
+      "mean": null,
+      "median": null,
+      "min": null,
+      "n": 0,
+      "p90": null
+     }
+    },
+    "table_0p4572__random": {
+     "cams_homed_end": 87,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "FELL OFF THE TABLE",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 9,
+     "falls_hip_contact": 9,
+     "falls_per100": 9.0,
+     "falls_tilt": 1,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9880666666666668,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8916,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5262666666666667,
+      "median": 0.8566666666666667,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 1,
+     "h_cmd_m": {
+      "max": 1.3431060000000001,
+      "mean": 1.0566000000000002,
+      "median": 1.0566,
+      "min": 0.770094,
+      "n": 100,
+      "p90": 1.2852260000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.9013497058216732,
+      "mean": 0.034958620191176744,
+      "median": 0.006688119042714491,
+      "min": 7.010286966924184e-06,
+      "n": 100,
+      "p90": 0.0796915197747548
+     },
+     "h_err_window_p90_m": {
+      "max": 0.9211533778572084,
+      "mean": 0.03573091196076075,
+      "median": 0.0067795781056086135,
+      "min": 7.905069986868795e-06,
+      "n": 100,
+      "p90": 0.07974518581008906
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 81,
+     "homed_share": 0.81,
+     "lift_off_s": {
+      "max": 12.9,
+      "mean": 1.0990000000000004,
+      "median": 0.97,
+      "min": 0.36,
+      "n": 100,
+      "p90": 1.4000000000000001
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 2.245608431027929,
+      "mean": 0.08499039053887543,
+      "median": 0.06210103544251395,
+      "min": 0.006686078829627219,
+      "n": 100,
+      "p90": 0.10989361104619091
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 63,
+     "n_stood_5down": 54,
+     "n_stood_6down": 20,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.7024046778678894,
+      "mean": 0.3665007221698761,
+      "median": 0.39435386657714844,
+      "min": -0.464741051197052,
+      "n": 100,
+      "p90": 0.6396673321723938
+     },
+     "rise_min_window_m": {
+      "max": 0.7047730684280396,
+      "mean": 0.3863987898826599,
+      "median": 0.4023292064666748,
+      "min": -0.25531190633773804,
+      "n": 100,
+      "p90": 0.6434283256530762
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.9351999999999999,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p4572__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.63,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 15.02,
+      "mean": 5.435072463768116,
+      "median": 5.18,
+      "min": 1.48,
+      "n": 69,
+      "p90": 7.54
+     }
+    },
+    "table_0p4572__rod_min": {
+     "cams_homed_end": 82,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 7,
+     "falls_hip_contact": 7,
+     "falls_per100": 7.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.9488,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5234666666666666,
+      "median": 0.62,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3431060000000001,
+      "mean": 1.0566000000000002,
+      "median": 1.0566,
+      "min": 0.770094,
+      "n": 100,
+      "p90": 1.2852260000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.1275535517012279,
+      "mean": 0.03530387173379898,
+      "median": 0.016327015256245886,
+      "min": 0.00014493018722516737,
+      "n": 100,
+      "p90": 0.08532334054565427
+     },
+     "h_err_window_p90_m": {
+      "max": 0.12761770219357818,
+      "mean": 0.03689085976566313,
+      "median": 0.01671966111691784,
+      "min": 0.00015322715377790174,
+      "n": 100,
+      "p90": 0.09054309870783485
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 72,
+     "homed_share": 0.72,
+     "lift_off_s": {
+      "max": 14.44,
+      "mean": 2.010303030303032,
+      "median": 1.48,
+      "min": 1.44,
+      "n": 99,
+      "p90": 1.5
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.1480788319764287,
+      "mean": 0.08396654531557644,
+      "median": 0.0857308809405675,
+      "min": 0.03480871076807873,
+      "n": 100,
+      "p90": 0.11416528408204159
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 1,
+     "n_stood": 57,
+     "n_stood_5down": 49,
+     "n_stood_6down": 21,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.6998490691184998,
+      "mean": 0.3565997341275215,
+      "median": 0.40739941596984863,
+      "min": 0.0007034540176391602,
+      "n": 100,
+      "p90": 0.6428925395011902
+     },
+     "rise_min_window_m": {
+      "max": 0.7032867670059204,
+      "mean": 0.38353326320648196,
+      "median": 0.42051613330841064,
+      "min": 0.06249058246612549,
+      "n": 100,
+      "p90": 0.6484529972076416
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.9094666666666665,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p4572__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.57,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 13.4,
+      "mean": 6.197735849056604,
+      "median": 5.84,
+      "min": 2.86,
+      "n": 53,
+      "p90": 8.86
+     }
+    },
+    "table_0p635__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.98,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.6218,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.3196,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.343995,
+      "mean": 1.1455000000000002,
+      "median": 1.1455000000000002,
+      "min": 0.9470050000000001,
+      "n": 100,
+      "p90": 1.303895
+     },
+     "h_err_window_median_m": {
+      "max": 0.00519255292892451,
+      "mean": 0.0018717466272035932,
+      "median": 0.0015370860767364714,
+      "min": 3.3490498858590456e-06,
+      "n": 100,
+      "p90": 0.003824936281840108
+     },
+     "h_err_window_p90_m": {
+      "max": 0.005195406789779533,
+      "mean": 0.0018736746189117115,
+      "median": 0.001539366947809795,
+      "min": 4.346434275181998e-06,
+      "n": 100,
+      "p90": 0.0038252144368489116
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 1.6600000000000001,
+      "mean": 1.5240000000000007,
+      "median": 1.52,
+      "min": 1.4000000000000001,
+      "n": 100,
+      "p90": 1.58
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.03645998946797067,
+      "mean": 0.014444728217770288,
+      "median": 0.014116002436774931,
+      "min": 0.0034353647946413486,
+      "n": 100,
+      "p90": 0.025100879970028547
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 98,
+     "n_stood_5down": 61,
+     "n_stood_6down": 32,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5268319845199585,
+      "mean": 0.3239068740606308,
+      "median": 0.3211468756198883,
+      "min": 0.1241844892501831,
+      "n": 100,
+      "p90": 0.4847794771194458
+     },
+     "rise_min_window_m": {
+      "max": 0.5300989747047424,
+      "mean": 0.3286570775508881,
+      "median": 0.32607728242874146,
+      "min": 0.12594372034072876,
+      "n": 100,
+      "p90": 0.4865705370903015
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p635__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.98,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 6.36,
+      "mean": 4.0778,
+      "median": 3.87,
+      "min": 2.22,
+      "n": 100,
+      "p90": 5.86
+     }
+    },
+    "table_0p635__random": {
+     "cams_homed_end": 97,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL"
+     ],
+     "falls": 1,
+     "falls_hip_contact": 1,
+     "falls_per100": 1.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9922,
+      "median": 1.0,
+      "min": 0.22,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.7038,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.2988,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.343995,
+      "mean": 1.1455000000000002,
+      "median": 1.1455000000000002,
+      "min": 0.9470050000000001,
+      "n": 100,
+      "p90": 1.303895
+     },
+     "h_err_window_median_m": {
+      "max": 0.016618388404846085,
+      "mean": 0.003651445916271193,
+      "median": 0.002448942975997903,
+      "min": 2.2965825398735262e-05,
+      "n": 100,
+      "p90": 0.009090607465108147
+     },
+     "h_err_window_p90_m": {
+      "max": 0.016733067741393937,
+      "mean": 0.0036888114294369783,
+      "median": 0.002450814561843839,
+      "min": 2.3522135416786938e-05,
+      "n": 100,
+      "p90": 0.009127816658019894
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 97,
+     "homed_share": 0.97,
+     "lift_off_s": {
+      "max": 1.8,
+      "mean": 1.1596000000000002,
+      "median": 1.17,
+      "min": 0.58,
+      "n": 100,
+      "p90": 1.56
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.06308573976784786,
+      "mean": 0.022319570093843995,
+      "median": 0.019519348068492197,
+      "min": 0.0013372133747892698,
+      "n": 100,
+      "p90": 0.04191853762215194
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 98,
+     "n_stood_5down": 69,
+     "n_stood_6down": 29,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5222774744033813,
+      "mean": 0.3271110326051712,
+      "median": 0.32697901129722595,
+      "min": 0.13318079710006714,
+      "n": 100,
+      "p90": 0.4820435047149658
+     },
+     "rise_min_window_m": {
+      "max": 0.526149570941925,
+      "mean": 0.33254662811756136,
+      "median": 0.3317909836769104,
+      "min": 0.13705658912658691,
+      "n": 100,
+      "p90": 0.48461467027664185
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p635__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.98,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 7.98,
+      "mean": 4.0116000000000005,
+      "median": 3.92,
+      "min": 1.46,
+      "n": 100,
+      "p90": 5.92
+     }
+    },
+    "table_0p635__rod_min": {
+     "cams_homed_end": 96,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "FALL",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 13,
+     "falls_hip_contact": 13,
+     "falls_per100": 13.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8053333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.39553333333333335,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.343995,
+      "mean": 1.1455000000000002,
+      "median": 1.1455000000000002,
+      "min": 0.9470050000000001,
+      "n": 100,
+      "p90": 1.303895
+     },
+     "h_err_window_median_m": {
+      "max": 0.06478020658493056,
+      "mean": 0.009276395736916835,
+      "median": 0.00503248321215316,
+      "min": 0.0001024455579122785,
+      "n": 100,
+      "p90": 0.02055135084470122
+     },
+     "h_err_window_p90_m": {
+      "max": 0.06479289840062478,
+      "mean": 0.009430741328779833,
+      "median": 0.005072434218724586,
+      "min": 0.00018050777435301145,
+      "n": 100,
+      "p90": 0.02062415195782987
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 96,
+     "homed_share": 0.96,
+     "lift_off_s": {
+      "max": 1.98,
+      "mean": 1.9285999999999996,
+      "median": 1.92,
+      "min": 1.9000000000000001,
+      "n": 100,
+      "p90": 1.96
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.0941984414558393,
+      "mean": 0.04313754355844148,
+      "median": 0.03938640821191046,
+      "min": 0.015810979980378736,
+      "n": 100,
+      "p90": 0.0688673244730102
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 83,
+     "n_stood_5down": 60,
+     "n_stood_6down": 27,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5273663997650146,
+      "mean": 0.3179870945215225,
+      "median": 0.31761354207992554,
+      "min": 0.08688080310821533,
+      "n": 100,
+      "p90": 0.48041844367980957
+     },
+     "rise_min_window_m": {
+      "max": 0.5305992960929871,
+      "mean": 0.3282178050279617,
+      "median": 0.32633286714553833,
+      "min": 0.11474454402923584,
+      "n": 100,
+      "p90": 0.48520249128341675
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p635__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.83,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 7.24,
+      "mean": 4.181098901098902,
+      "median": 3.86,
+      "min": 2.32,
+      "n": 91,
+      "p90": 6.04
+     }
+    },
+    "table_0p6985__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.81,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5111333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3443125,
+      "mean": 1.1772500000000001,
+      "median": 1.17725,
+      "min": 1.0101875,
+      "n": 100,
+      "p90": 1.3105625
+     },
+     "h_err_window_median_m": {
+      "max": 0.007683164119720365,
+      "mean": 0.0016949658759435027,
+      "median": 0.001505999803543101,
+      "min": 2.40926742551828e-05,
+      "n": 100,
+      "p90": 0.00320223108927431
+     },
+     "h_err_window_p90_m": {
+      "max": 0.007689347108205058,
+      "mean": 0.001696173863410947,
+      "median": 0.0015077044963837326,
+      "min": 2.4569511413385925e-05,
+      "n": 100,
+      "p90": 0.0032024695078534116
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.14,
+      "mean": 2.0630000000000006,
+      "median": 2.0700000000000003,
+      "min": 1.96,
+      "n": 100,
+      "p90": 2.12
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.033002953320562786,
+      "mean": 0.013806151575535086,
+      "median": 0.011938002070023657,
+      "min": 0.00409982113884819,
+      "n": 100,
+      "p90": 0.023698549479883004
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 100,
+     "n_stood_5down": 81,
+     "n_stood_6down": 51,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.45591622591018677,
+      "mean": 0.2921379554271698,
+      "median": 0.2950976490974426,
+      "min": 0.12166887521743774,
+      "n": 100,
+      "p90": 0.4217504858970642
+     },
+     "rise_min_window_m": {
+      "max": 0.46498584747314453,
+      "mean": 0.29775954365730284,
+      "median": 0.3001410961151123,
+      "min": 0.1276332139968872,
+      "n": 100,
+      "p90": 0.43126821517944336
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p6985__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 1.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.5600000000000005,
+      "mean": 4.013200000000001,
+      "median": 3.95,
+      "min": 2.7600000000000002,
+      "n": 100,
+      "p90": 5.18
+     }
+    },
+    "table_0p6985__random": {
+     "cams_homed_end": 99,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.99,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8184,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.33,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3443125,
+      "mean": 1.1772500000000001,
+      "median": 1.17725,
+      "min": 1.0101875,
+      "n": 100,
+      "p90": 1.3105625
+     },
+     "h_err_window_median_m": {
+      "max": 0.015898158868154044,
+      "mean": 0.002446940892537435,
+      "median": 0.0018437318801880487,
+      "min": 2.1668593088830512e-05,
+      "n": 100,
+      "p90": 0.004306838512420752
+     },
+     "h_err_window_p90_m": {
+      "max": 0.01590268484751396,
+      "mean": 0.0024580016072591206,
+      "median": 0.0018457485040030085,
+      "min": 2.3401101430398086e-05,
+      "n": 100,
+      "p90": 0.004461484750112055
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 99,
+     "homed_share": 0.99,
+     "lift_off_s": {
+      "max": 2.2,
+      "mean": 1.5922,
+      "median": 1.58,
+      "min": 0.96,
+      "n": 100,
+      "p90": 1.94
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.06426968952973493,
+      "mean": 0.023777660944718067,
+      "median": 0.020107507870278665,
+      "min": 0.003400487057604733,
+      "n": 100,
+      "p90": 0.05141103415155668
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 99,
+     "n_stood_5down": 81,
+     "n_stood_6down": 33,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.470472514629364,
+      "mean": 0.29297922253608705,
+      "median": 0.28812456130981445,
+      "min": 0.12499111890792847,
+      "n": 100,
+      "p90": 0.42551666498184204
+     },
+     "rise_min_window_m": {
+      "max": 0.47191810607910156,
+      "mean": 0.2994420802593231,
+      "median": 0.29281264543533325,
+      "min": 0.13084828853607178,
+      "n": 100,
+      "p90": 0.42724084854125977
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p6985__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.99,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.62,
+      "mean": 3.6992000000000003,
+      "median": 3.66,
+      "min": 1.96,
+      "n": 100,
+      "p90": 5.1000000000000005
+     }
+    },
+    "table_0p6985__rod_min": {
+     "cams_homed_end": 98,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL"
+     ],
+     "falls": 1,
+     "falls_hip_contact": 1,
+     "falls_per100": 1.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9715333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8536,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.4444666666666667,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3443125,
+      "mean": 1.1772500000000001,
+      "median": 1.17725,
+      "min": 1.0101875,
+      "n": 100,
+      "p90": 1.3105625
+     },
+     "h_err_window_median_m": {
+      "max": 0.0354270976384482,
+      "mean": 0.0049778303702672265,
+      "median": 0.0038095010916391336,
+      "min": 0.00016533470153823338,
+      "n": 100,
+      "p90": 0.0092290212313334
+     },
+     "h_err_window_p90_m": {
+      "max": 0.03544132328033449,
+      "mean": 0.005045732220013933,
+      "median": 0.0043223583698272176,
+      "min": 0.0002047532399496843,
+      "n": 100,
+      "p90": 0.009233098189036082
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 98,
+     "homed_share": 0.98,
+     "lift_off_s": {
+      "max": 2.24,
+      "mean": 2.1755999999999984,
+      "median": 2.17,
+      "min": 2.14,
+      "n": 100,
+      "p90": 2.22
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.09661980698676731,
+      "mean": 0.03508622938596223,
+      "median": 0.03426058588955734,
+      "min": 0.01225583881126531,
+      "n": 100,
+      "p90": 0.05402844279163285
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 97,
+     "n_stood_5down": 83,
+     "n_stood_6down": 43,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.46049851179122925,
+      "mean": 0.2928537076711655,
+      "median": 0.3004305958747864,
+      "min": 0.12723952531814575,
+      "n": 100,
+      "p90": 0.4267449975013733
+     },
+     "rise_min_window_m": {
+      "max": 0.46488046646118164,
+      "mean": 0.2997752332687378,
+      "median": 0.3038005232810974,
+      "min": 0.13059818744659424,
+      "n": 100,
+      "p90": 0.4313018321990967
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p6985__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.97,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.64,
+      "mean": 3.9547474747474736,
+      "median": 3.96,
+      "min": 2.64,
+      "n": 99,
+      "p90": 5.16
+     }
+    },
+    "table_0p762__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8365333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.2992,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.34463,
+      "mean": 1.2090000000000005,
+      "median": 1.209,
+      "min": 1.0733700000000002,
+      "n": 100,
+      "p90": 1.3172300000000001
+     },
+     "h_err_window_median_m": {
+      "max": 0.006146694463093905,
+      "mean": 0.0019336621050516723,
+      "median": 0.0016340359878539434,
+      "min": 1.1309229533074117e-05,
+      "n": 100,
+      "p90": 0.004045017731984513
+     },
+     "h_err_window_p90_m": {
+      "max": 0.006147211036682032,
+      "mean": 0.0019349261606216403,
+      "median": 0.0016346737575530068,
+      "min": 1.1746330261352966e-05,
+      "n": 100,
+      "p90": 0.004045438938140822
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.62,
+      "mean": 2.537800000000003,
+      "median": 2.56,
+      "min": 2.42,
+      "n": 100,
+      "p90": 2.58
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.03419355812319853,
+      "mean": 0.014698136395483764,
+      "median": 0.015176190821897164,
+      "min": 0.0032018756471797302,
+      "n": 100,
+      "p90": 0.0295410809078481
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 100,
+     "n_stood_5down": 83,
+     "n_stood_6down": 29,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.40142959356307983,
+      "mean": 0.2625046569108963,
+      "median": 0.25894391536712646,
+      "min": 0.1220826506614685,
+      "n": 100,
+      "p90": 0.3707658648490906
+     },
+     "rise_min_window_m": {
+      "max": 0.40298378467559814,
+      "mean": 0.2675377237796783,
+      "median": 0.2654608488082886,
+      "min": 0.1297473907470703,
+      "n": 100,
+      "p90": 0.37504374980926514
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p762__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 1.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 4.98,
+      "mean": 4.1306,
+      "median": 4.15,
+      "min": 3.24,
+      "n": 100,
+      "p90": 4.82
+     }
+    },
+    "table_0p762__random": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.3004,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.34463,
+      "mean": 1.2090000000000005,
+      "median": 1.209,
+      "min": 1.0733700000000002,
+      "n": 100,
+      "p90": 1.3172300000000001
+     },
+     "h_err_window_median_m": {
+      "max": 0.012372943929036317,
+      "mean": 0.0020336761320749763,
+      "median": 0.001453478876749681,
+      "min": 6.187002817781284e-05,
+      "n": 100,
+      "p90": 0.004128395932515572
+     },
+     "h_err_window_p90_m": {
+      "max": 0.012381662101745605,
+      "mean": 0.0020399840518951226,
+      "median": 0.001469286149342941,
+      "min": 6.254952112818568e-05,
+      "n": 100,
+      "p90": 0.004128872769673775
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.62,
+      "mean": 2.065200000000001,
+      "median": 2.0700000000000003,
+      "min": 1.56,
+      "n": 100,
+      "p90": 2.48
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.055538263070796644,
+      "mean": 0.018530450432660914,
+      "median": 0.016352068651807238,
+      "min": 0.0013372133747892698,
+      "n": 100,
+      "p90": 0.03528669741975713
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 100,
+     "n_stood_5down": 80,
+     "n_stood_6down": 30,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.40323489904403687,
+      "mean": 0.26256195724010467,
+      "median": 0.2633012533187866,
+      "min": 0.12491601705551147,
+      "n": 100,
+      "p90": 0.368685781955719
+     },
+     "rise_min_window_m": {
+      "max": 0.40741145610809326,
+      "mean": 0.2686295747756958,
+      "median": 0.27090585231781006,
+      "min": 0.13458800315856934,
+      "n": 100,
+      "p90": 0.37737882137298584
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p762__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 1.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 4.86,
+      "mean": 3.7108000000000008,
+      "median": 3.66,
+      "min": 2.2800000000000002,
+      "n": 100,
+      "p90": 4.62
+     }
+    },
+    "table_0p762__rod_min": {
+     "cams_homed_end": 99,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9999333333333333,
+      "median": 1.0,
+      "min": 0.9933333333333333,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8679333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5160666666666667,
+      "median": 0.8733333333333333,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.34463,
+      "mean": 1.2090000000000005,
+      "median": 1.209,
+      "min": 1.0733700000000002,
+      "n": 100,
+      "p90": 1.3172300000000001
+     },
+     "h_err_window_median_m": {
+      "max": 0.013598413372039708,
+      "mean": 0.0031567734518050993,
+      "median": 0.0021806802686054616,
+      "min": 3.091124216725305e-05,
+      "n": 100,
+      "p90": 0.007126346295674546
+     },
+     "h_err_window_p90_m": {
+      "max": 0.013604556624094566,
+      "mean": 0.0032426113677215523,
+      "median": 0.0022168861166635746,
+      "min": 4.565345764169226e-05,
+      "n": 100,
+      "p90": 0.00738563479105625
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 99,
+     "homed_share": 0.99,
+     "lift_off_s": {
+      "max": 2.5,
+      "mean": 2.4593999999999965,
+      "median": 2.46,
+      "min": 2.42,
+      "n": 100,
+      "p90": 2.5
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.05779154301720846,
+      "mean": 0.024407925775067008,
+      "median": 0.021315253036629254,
+      "min": 0.0088161760540833,
+      "n": 100,
+      "p90": 0.04474079406006245
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 100,
+     "n_stood_5down": 85,
+     "n_stood_6down": 49,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.4122304320335388,
+      "mean": 0.26494541883468625,
+      "median": 0.26686519384384155,
+      "min": 0.1260661482810974,
+      "n": 100,
+      "p90": 0.37154513597488403
+     },
+     "rise_min_window_m": {
+      "max": 0.41456615924835205,
+      "mean": 0.26994980216026304,
+      "median": 0.27025455236434937,
+      "min": 0.1323784589767456,
+      "n": 100,
+      "p90": 0.37617480754852295
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s1__table_0p762__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 1.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.0,
+      "mean": 4.1053999999999995,
+      "median": 4.13,
+      "min": 3.14,
+      "n": 100,
+      "p90": 4.84
+     }
+    }
+   }
+  },
+  "2": {
+   "SH_T17": {
+    "ground__knee_folded": {
+     "cams_homed_end": 48,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 28,
+     "falls_hip_contact": 28,
+     "falls_per100": 28.0,
+     "falls_tilt": 26,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.7107333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.6615333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5806,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3428650000000002,
+      "mean": 1.0325000000000002,
+      "median": 1.0325000000000002,
+      "min": 0.722135,
+      "n": 100,
+      "p90": 1.2801650000000002
+     },
+     "h_err_window_median_m": {
+      "max": 1.0198780932553608,
+      "mean": 0.32869813824693367,
+      "median": 0.13443856707096097,
+      "min": 0.05747025117238369,
+      "n": 100,
+      "p90": 0.8449264271116257
+     },
+     "h_err_window_p90_m": {
+      "max": 1.021314082396825,
+      "mean": 0.33173996891578045,
+      "median": 0.13776436069488526,
+      "min": 0.05804447834650678,
+      "n": 100,
+      "p90": 0.8478280018313726
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 46,
+     "homed_share": 0.46,
+     "lift_off_s": {
+      "max": 0.42,
+      "mean": 0.36459999999999937,
+      "median": 0.36,
+      "min": 0.3,
+      "n": 100,
+      "p90": 0.4
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 3.140616091050988,
+      "mean": 0.7888248186255702,
+      "median": 0.1907423428669192,
+      "min": 0.008590169031525126,
+      "n": 100,
+      "p90": 3.128390891865529
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 0,
+     "n_stood_5down": 0,
+     "n_stood_6down": 0,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5941461324691772,
+      "mean": 0.02610933005809784,
+      "median": 0.0679815411567688,
+      "min": -0.4221284091472626,
+      "n": 100,
+      "p90": 0.37973493337631226
+     },
+     "rise_min_window_m": {
+      "max": 0.6669257283210754,
+      "mean": 0.12032433658838272,
+      "median": 0.12247049808502197,
+      "min": -0.28205978870391846,
+      "n": 100,
+      "p90": 0.4598230719566345
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.5366,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__ground__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": null,
+      "mean": null,
+      "median": null,
+      "min": null,
+      "n": 0,
+      "p90": null
+     }
+    },
+    "ground__random": {
+     "cams_homed_end": 80,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 2,
+     "falls_hip_contact": 2,
+     "falls_per100": 2.0,
+     "falls_tilt": 2,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9664666666666668,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8403999999999999,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5488,
+      "median": 0.9933333333333334,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3432919025581396,
+      "mean": 1.0743751171438576,
+      "median": 1.0945412409957445,
+      "min": 0.722135,
+      "n": 100,
+      "p90": 1.2881549155713277
+     },
+     "h_err_window_median_m": {
+      "max": 0.954007516952332,
+      "mean": 0.05641528066150043,
+      "median": 0.005152623294650799,
+      "min": 9.880162459940944e-05,
+      "n": 100,
+      "p90": 0.16675573842684427
+     },
+     "h_err_window_p90_m": {
+      "max": 0.9557329522092901,
+      "mean": 0.05710928296200132,
+      "median": 0.005158547996341417,
+      "min": 0.00010547734481436422,
+      "n": 100,
+      "p90": 0.16736432370503737
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 79,
+     "homed_share": 0.79,
+     "lift_off_s": {
+      "max": 1.04,
+      "mean": 0.445858585858586,
+      "median": 0.42,
+      "min": 0.24,
+      "n": 99,
+      "p90": 0.62
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 2.0602132836536398,
+      "mean": 0.10633947419233301,
+      "median": 0.03437648363133278,
+      "min": 0.00509781143256466,
+      "n": 100,
+      "p90": 0.19600323388872887
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 70,
+     "n_stood_5down": 61,
+     "n_stood_6down": 37,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.9907533526420593,
+      "mean": 0.3617976415157318,
+      "median": 0.3644021153450012,
+      "min": -0.4473303258419037,
+      "n": 100,
+      "p90": 0.6326702237129211
+     },
+     "rise_min_window_m": {
+      "max": 0.9979298114776611,
+      "mean": 0.3929823115468025,
+      "median": 0.3795652389526367,
+      "min": -0.23785218596458435,
+      "n": 100,
+      "p90": 0.6545603275299072
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.95,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__ground__random.json",
+     "settled": 97,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.7,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 9.72,
+      "mean": 4.672222222222223,
+      "median": 4.61,
+      "min": 1.16,
+      "n": 72,
+      "p90": 7.18
+     }
+    },
+    "ground__rod_min": {
+     "cams_homed_end": 37,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 3,
+     "falls_hip_contact": 3,
+     "falls_per100": 3.0,
+     "falls_tilt": 1,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9893333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.9564,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.7108666666666665,
+      "median": 0.9833333333333334,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3428650000000002,
+      "mean": 1.0325000000000002,
+      "median": 1.0325000000000002,
+      "min": 0.722135,
+      "n": 100,
+      "p90": 1.2801650000000002
+     },
+     "h_err_window_median_m": {
+      "max": 1.0174741372585299,
+      "mean": 0.12448061913795475,
+      "median": 0.10572765353997554,
+      "min": 0.0002613889567056882,
+      "n": 100,
+      "p90": 0.24142532658259064
+     },
+     "h_err_window_p90_m": {
+      "max": 1.0181339219331742,
+      "mean": 0.12776656094999317,
+      "median": 0.11327384926637024,
+      "min": 0.00029146148681633564,
+      "n": 100,
+      "p90": 0.24333360902150467
+     },
+     "hip_contact_pre_arm_envs": 13,
+     "homed": 30,
+     "homed_share": 0.3,
+     "lift_off_s": {
+      "max": 7.62,
+      "mean": 0.9420000000000017,
+      "median": 0.84,
+      "min": 0.8200000000000001,
+      "n": 100,
+      "p90": 0.84
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 3.141592653589793,
+      "mean": 0.18723089127521386,
+      "median": 0.1446867330701939,
+      "min": 0.07121124063902098,
+      "n": 100,
+      "p90": 0.2272266957436431
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 20,
+     "n_stood_5down": 16,
+     "n_stood_6down": 7,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.9891564249992371,
+      "mean": 0.502027318328619,
+      "median": 0.5373607277870178,
+      "min": -0.03208182752132416,
+      "n": 100,
+      "p90": 0.9293321967124939
+     },
+     "rise_min_window_m": {
+      "max": 0.9967864751815796,
+      "mean": 0.5726045629382134,
+      "median": 0.5961894094944,
+      "min": -0.015490919351577759,
+      "n": 100,
+      "p90": 0.9371211528778076
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.9856666666666666,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__ground__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.2,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 15.38,
+      "mean": 9.826315789473682,
+      "median": 8.52,
+      "min": 7.3,
+      "n": 19,
+      "p90": 14.26
+     }
+    },
+    "table_0p4572__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.9786666666666668,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3431060000000001,
+      "mean": 1.0566000000000002,
+      "median": 1.0566,
+      "min": 0.770094,
+      "n": 100,
+      "p90": 1.2852260000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.09181324940681457,
+      "mean": 0.05935534590085353,
+      "median": 0.05827579742654174,
+      "min": 0.017101423741658683,
+      "n": 100,
+      "p90": 0.0775204309622447
+     },
+     "h_err_window_p90_m": {
+      "max": 0.09199663303057351,
+      "mean": 0.05961679819822315,
+      "median": 0.058551897068659556,
+      "min": 0.017106668950398918,
+      "n": 100,
+      "p90": 0.07765030452346812
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 0.5,
+      "mean": 0.45579999999999954,
+      "median": 0.46,
+      "min": 0.42,
+      "n": 100,
+      "p90": 0.48
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.13776439964986098,
+      "mean": 0.06625380066814036,
+      "median": 0.06180177747886868,
+      "min": 0.011435646714750985,
+      "n": 100,
+      "p90": 0.11540490953927991
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 11,
+     "n_stood_5down": 11,
+     "n_stood_6down": 10,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.655757486820221,
+      "mean": 0.3218302994966507,
+      "median": 0.3100713789463043,
+      "min": 0.03315877914428711,
+      "n": 100,
+      "p90": 0.5786257386207581
+     },
+     "rise_min_window_m": {
+      "max": 0.673607349395752,
+      "mean": 0.3551619106531143,
+      "median": 0.3456961214542389,
+      "min": 0.068367600440979,
+      "n": 100,
+      "p90": 0.6051485538482666
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.9329333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p4572__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.11,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 7.76,
+      "mean": 7.76,
+      "median": 7.76,
+      "min": 7.76,
+      "n": 1,
+      "p90": 7.76
+     }
+    },
+    "table_0p4572__random": {
+     "cams_homed_end": 86,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "FELL OFF THE TABLE",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 8,
+     "falls_hip_contact": 8,
+     "falls_per100": 8.0,
+     "falls_tilt": 2,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9699333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8372666666666666,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.4917333333333333,
+      "median": 0.26,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 2,
+     "h_cmd_m": {
+      "max": 1.3431060000000001,
+      "mean": 1.0566000000000002,
+      "median": 1.0566,
+      "min": 0.770094,
+      "n": 100,
+      "p90": 1.2852260000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.7719584072450003,
+      "mean": 0.0358948212738514,
+      "median": 0.006232181310653617,
+      "min": 0.00017399776713056259,
+      "n": 100,
+      "p90": 0.07379249338277194
+     },
+     "h_err_window_p90_m": {
+      "max": 0.7731659854272208,
+      "mean": 0.03687966660416921,
+      "median": 0.006497290561675927,
+      "min": 0.000196186589558911,
+      "n": 100,
+      "p90": 0.07811881486892698
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 84,
+     "homed_share": 0.84,
+     "lift_off_s": {
+      "max": 13.76,
+      "mean": 1.1757999999999997,
+      "median": 0.95,
+      "min": 0.38,
+      "n": 100,
+      "p90": 1.3800000000000001
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 2.0991564065476265,
+      "mean": 0.10369399863912834,
+      "median": 0.061099790057957154,
+      "min": 0.01146167855304736,
+      "n": 100,
+      "p90": 0.10490301096599543
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 68,
+     "n_stood_5down": 53,
+     "n_stood_6down": 25,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.699438750743866,
+      "mean": 0.36322289079427716,
+      "median": 0.37391337752342224,
+      "min": -0.4600937068462372,
+      "n": 100,
+      "p90": 0.6415671706199646
+     },
+     "rise_min_window_m": {
+      "max": 0.7059437036514282,
+      "mean": 0.38460380464792254,
+      "median": 0.3898729085922241,
+      "min": -0.25531846284866333,
+      "n": 100,
+      "p90": 0.646580696105957
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.92,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p4572__random.json",
+     "settled": 99,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.68,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 15.0,
+      "mean": 5.524788732394365,
+      "median": 5.54,
+      "min": 1.1,
+      "n": 71,
+      "p90": 7.92
+     }
+    },
+    "table_0p4572__rod_min": {
+     "cams_homed_end": 74,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "root rise < 0.1 m on > 5 % of the window",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 8,
+     "falls_hip_contact": 8,
+     "falls_per100": 8.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9978,
+      "median": 1.0,
+      "min": 0.84,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.9379333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.5514666666666667,
+      "median": 0.96,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3431060000000001,
+      "mean": 1.0566000000000002,
+      "median": 1.0566,
+      "min": 0.770094,
+      "n": 100,
+      "p90": 1.2852260000000002
+     },
+     "h_err_window_median_m": {
+      "max": 0.1465542885589599,
+      "mean": 0.033871063430601756,
+      "median": 0.01527565954907728,
+      "min": 0.0001515453751882445,
+      "n": 100,
+      "p90": 0.08033537083180747
+     },
+     "h_err_window_p90_m": {
+      "max": 0.14742243418375645,
+      "mean": 0.03518927252422333,
+      "median": 0.01673511186122891,
+      "min": 0.00025881167093921853,
+      "n": 100,
+      "p90": 0.08125638776334135
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 67,
+     "homed_share": 0.67,
+     "lift_off_s": {
+      "max": 11.36,
+      "mean": 1.7915151515151522,
+      "median": 1.48,
+      "min": 1.44,
+      "n": 99,
+      "p90": 1.5
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.14475241419782311,
+      "mean": 0.07987710415579116,
+      "median": 0.08027302327594062,
+      "min": 0.029409619774333786,
+      "n": 100,
+      "p90": 0.11066374944697965
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 53,
+     "n_stood_5down": 45,
+     "n_stood_6down": 16,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.7054814696311951,
+      "mean": 0.3595259588956833,
+      "median": 0.3591463267803192,
+      "min": -0.005267083644866943,
+      "n": 100,
+      "p90": 0.6485605835914612
+     },
+     "rise_min_window_m": {
+      "max": 0.706100583076477,
+      "mean": 0.38551849246025083,
+      "median": 0.372921884059906,
+      "min": 0.05071055889129639,
+      "n": 100,
+      "p90": 0.6530146598815918
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 0.91,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p4572__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.53,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 13.36,
+      "mean": 6.396785714285717,
+      "median": 6.34,
+      "min": 2.66,
+      "n": 56,
+      "p90": 10.6
+     }
+    },
+    "table_0p635__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.95,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.7541333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.15,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.343995,
+      "mean": 1.1455000000000002,
+      "median": 1.1455000000000002,
+      "min": 0.9470050000000001,
+      "n": 100,
+      "p90": 1.303895
+     },
+     "h_err_window_median_m": {
+      "max": 0.0055672952206928805,
+      "mean": 0.001684808118883751,
+      "median": 0.0012499200566610247,
+      "min": 1.7704143524088778e-05,
+      "n": 100,
+      "p90": 0.0038894413693745244
+     },
+     "h_err_window_p90_m": {
+      "max": 0.005569804576237925,
+      "mean": 0.0016890279489198987,
+      "median": 0.0012681986427307667,
+      "min": 2.1479104359856113e-05,
+      "n": 100,
+      "p90": 0.003893367328643693
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 1.6,
+      "mean": 1.516599999999999,
+      "median": 1.52,
+      "min": 1.36,
+      "n": 100,
+      "p90": 1.6
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.03366999005933933,
+      "mean": 0.015349943042157903,
+      "median": 0.01454688190200179,
+      "min": 0.0010358009953076478,
+      "n": 100,
+      "p90": 0.02867893408091142
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 95,
+     "n_stood_5down": 73,
+     "n_stood_6down": 15,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5250993967056274,
+      "mean": 0.32507998645305636,
+      "median": 0.3206956088542938,
+      "min": 0.12524229288101196,
+      "n": 100,
+      "p90": 0.481120228767395
+     },
+     "rise_min_window_m": {
+      "max": 0.5324047207832336,
+      "mean": 0.33064003944396975,
+      "median": 0.3287619948387146,
+      "min": 0.1339840292930603,
+      "n": 100,
+      "p90": 0.4883952736854553
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p635__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.95,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 6.4,
+      "mean": 4.078800000000001,
+      "median": 3.84,
+      "min": 2.24,
+      "n": 100,
+      "p90": 5.86
+     }
+    },
+    "table_0p635__random": {
+     "cams_homed_end": 98,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "FALL",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 2,
+     "falls_hip_contact": 2,
+     "falls_per100": 2.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8294666666666666,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.2952666666666667,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.343995,
+      "mean": 1.1455000000000002,
+      "median": 1.1455000000000002,
+      "min": 0.9470050000000001,
+      "n": 100,
+      "p90": 1.303895
+     },
+     "h_err_window_median_m": {
+      "max": 0.05630826820373547,
+      "mean": 0.003993442209688815,
+      "median": 0.002363861436843917,
+      "min": 7.885369618731985e-05,
+      "n": 100,
+      "p90": 0.007526959482828888
+     },
+     "h_err_window_p90_m": {
+      "max": 0.05711452632586176,
+      "mean": 0.00401106893234252,
+      "median": 0.00236591978391022,
+      "min": 8.060209910087934e-05,
+      "n": 100,
+      "p90": 0.007530102634429903
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 97,
+     "homed_share": 0.97,
+     "lift_off_s": {
+      "max": 1.84,
+      "mean": 1.1707999999999994,
+      "median": 1.22,
+      "min": 0.48,
+      "n": 100,
+      "p90": 1.5
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.06942806494803765,
+      "mean": 0.02436176909728759,
+      "median": 0.021619321822647086,
+      "min": 0.004580488144727927,
+      "n": 100,
+      "p90": 0.04578541154997506
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 98,
+     "n_stood_5down": 81,
+     "n_stood_6down": 28,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5265125036239624,
+      "mean": 0.3256100708246231,
+      "median": 0.327826589345932,
+      "min": 0.12214380502700806,
+      "n": 100,
+      "p90": 0.483001708984375
+     },
+     "rise_min_window_m": {
+      "max": 0.530871570110321,
+      "mean": 0.3320403814315796,
+      "median": 0.33264029026031494,
+      "min": 0.14390546083450317,
+      "n": 100,
+      "p90": 0.4874069094657898
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p635__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.98,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 7.0,
+      "mean": 4.009795918367345,
+      "median": 3.98,
+      "min": 1.52,
+      "n": 98,
+      "p90": 6.0
+     }
+    },
+    "table_0p635__rod_min": {
+     "cams_homed_end": 98,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window",
+      "FALL",
+      "|h - h_cmd| > 0.04 m on > 5 % of the window"
+     ],
+     "falls": 5,
+     "falls_hip_contact": 5,
+     "falls_per100": 5.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9981333333333333,
+      "median": 1.0,
+      "min": 0.8133333333333334,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8925333333333333,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.3722666666666667,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.343995,
+      "mean": 1.1455000000000002,
+      "median": 1.1455000000000002,
+      "min": 0.9470050000000001,
+      "n": 100,
+      "p90": 1.303895
+     },
+     "h_err_window_median_m": {
+      "max": 0.06464594628016163,
+      "mean": 0.006919235087108581,
+      "median": 0.003319020640055348,
+      "min": 0.00025095150629683705,
+      "n": 100,
+      "p90": 0.01221548030853259
+     },
+     "h_err_window_p90_m": {
+      "max": 0.06480656092961637,
+      "mean": 0.007086436407438886,
+      "median": 0.003350741481780939,
+      "min": 0.00025221512476618634,
+      "n": 100,
+      "p90": 0.012231664956410527
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 96,
+     "homed_share": 0.96,
+     "lift_off_s": {
+      "max": 1.98,
+      "mean": 1.9277999999999995,
+      "median": 1.92,
+      "min": 1.9000000000000001,
+      "n": 100,
+      "p90": 1.96
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.09122264374391116,
+      "mean": 0.044946469385726634,
+      "median": 0.0444995116540282,
+      "min": 0.016311990502431335,
+      "n": 100,
+      "p90": 0.06253497973309474
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 91,
+     "n_stood_5down": 79,
+     "n_stood_6down": 31,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.5233573913574219,
+      "mean": 0.3224220943450928,
+      "median": 0.3242008090019226,
+      "min": 0.10060739517211914,
+      "n": 100,
+      "p90": 0.4892599582672119
+     },
+     "rise_min_window_m": {
+      "max": 0.5306350588798523,
+      "mean": 0.3311559611558914,
+      "median": 0.3328460454940796,
+      "min": 0.12241703271865845,
+      "n": 100,
+      "p90": 0.49511927366256714
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p635__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.91,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 15.18,
+      "mean": 4.371875,
+      "median": 4.09,
+      "min": 2.38,
+      "n": 96,
+      "p90": 6.22
+     }
+    },
+    "table_0p6985__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8606,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.16,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3443125,
+      "mean": 1.1772500000000001,
+      "median": 1.17725,
+      "min": 1.0101875,
+      "n": 100,
+      "p90": 1.3105625
+     },
+     "h_err_window_median_m": {
+      "max": 0.00749705537160239,
+      "mean": 0.0015545837418238318,
+      "median": 0.0010570607980091573,
+      "min": 4.106521606539459e-06,
+      "n": 100,
+      "p90": 0.0048488464355467276
+     },
+     "h_err_window_p90_m": {
+      "max": 0.00749930047988896,
+      "mean": 0.0015566505130131948,
+      "median": 0.0010585429668425017,
+      "min": 4.543622334818309e-06,
+      "n": 100,
+      "p90": 0.004854572455088158
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.12,
+      "mean": 2.0449999999999995,
+      "median": 2.04,
+      "min": 1.96,
+      "n": 100,
+      "p90": 2.1
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.02808027868482578,
+      "mean": 0.01398180788687013,
+      "median": 0.015316716039587222,
+      "min": 0.0011451210976798061,
+      "n": 100,
+      "p90": 0.01977721992484563
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 100,
+     "n_stood_5down": 85,
+     "n_stood_6down": 16,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.46325868368148804,
+      "mean": 0.29379917919635773,
+      "median": 0.2936556339263916,
+      "min": 0.13459151983261108,
+      "n": 100,
+      "p90": 0.42892295122146606
+     },
+     "rise_min_window_m": {
+      "max": 0.47029733657836914,
+      "mean": 0.2983496367931366,
+      "median": 0.29805392026901245,
+      "min": 0.13807415962219238,
+      "n": 100,
+      "p90": 0.43475496768951416
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p6985__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 1.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.58,
+      "mean": 4.000800000000001,
+      "median": 3.9299999999999997,
+      "min": 2.7600000000000002,
+      "n": 100,
+      "p90": 5.18
+     }
+    },
+    "table_0p6985__random": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.95,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.6988,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.23,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3443125,
+      "mean": 1.1772500000000001,
+      "median": 1.17725,
+      "min": 1.0101875,
+      "n": 100,
+      "p90": 1.3105625
+     },
+     "h_err_window_median_m": {
+      "max": 0.009359203815460182,
+      "mean": 0.003294216720263149,
+      "median": 0.0027932015260060394,
+      "min": 0.00012482627232868193,
+      "n": 100,
+      "p90": 0.007161252339681012
+     },
+     "h_err_window_p90_m": {
+      "max": 0.00947664610544845,
+      "mean": 0.003311742671330768,
+      "median": 0.0027971135775248014,
+      "min": 0.0001254819234211002,
+      "n": 100,
+      "p90": 0.007162647088368779
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.14,
+      "mean": 1.5661999999999994,
+      "median": 1.59,
+      "min": 0.96,
+      "n": 100,
+      "p90": 1.94
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.08127462696409118,
+      "mean": 0.023538347022222524,
+      "median": 0.019774146882301346,
+      "min": 0.0036864446827767003,
+      "n": 100,
+      "p90": 0.04204777079892945
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 95,
+     "n_stood_5down": 69,
+     "n_stood_6down": 23,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.455899178981781,
+      "mean": 0.29294287323951723,
+      "median": 0.2934918999671936,
+      "min": 0.1084820032119751,
+      "n": 100,
+      "p90": 0.42339593172073364
+     },
+     "rise_min_window_m": {
+      "max": 0.4596717357635498,
+      "mean": 0.2991641068458557,
+      "median": 0.296714186668396,
+      "min": 0.12033939361572266,
+      "n": 100,
+      "p90": 0.4307481050491333
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p6985__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.95,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.5600000000000005,
+      "mean": 3.7110000000000003,
+      "median": 3.6100000000000003,
+      "min": 2.14,
+      "n": 100,
+      "p90": 5.12
+     }
+    },
+    "table_0p6985__rod_min": {
+     "cams_homed_end": 95,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.9964,
+      "median": 1.0,
+      "min": 0.64,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8644,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.4209333333333333,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.3443125,
+      "mean": 1.1772500000000001,
+      "median": 1.17725,
+      "min": 1.0101875,
+      "n": 100,
+      "p90": 1.3105625
+     },
+     "h_err_window_median_m": {
+      "max": 0.035250613371531125,
+      "mean": 0.004042500885327665,
+      "median": 0.002932299534479821,
+      "min": 3.2469908396337566e-05,
+      "n": 100,
+      "p90": 0.008387374083201227
+     },
+     "h_err_window_p90_m": {
+      "max": 0.0353176487286885,
+      "mean": 0.004096645704905203,
+      "median": 0.002935440699259584,
+      "min": 3.4118970235086366e-05,
+      "n": 100,
+      "p90": 0.008500383536020806
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 95,
+     "homed_share": 0.95,
+     "lift_off_s": {
+      "max": 2.2,
+      "mean": 2.1627999999999985,
+      "median": 2.16,
+      "min": 2.12,
+      "n": 100,
+      "p90": 2.2
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.08071989944146306,
+      "mean": 0.03651321394234686,
+      "median": 0.03485748536513315,
+      "min": 0.0129694512348488,
+      "n": 100,
+      "p90": 0.054514117542168256
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 99,
+     "n_stood_5down": 84,
+     "n_stood_6down": 41,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.4585872292518616,
+      "mean": 0.29361165821552276,
+      "median": 0.29888206720352173,
+      "min": 0.1334182620048523,
+      "n": 100,
+      "p90": 0.42866450548171997
+     },
+     "rise_min_window_m": {
+      "max": 0.4619680643081665,
+      "mean": 0.30025270819664,
+      "median": 0.3027970790863037,
+      "min": 0.13845312595367432,
+      "n": 100,
+      "p90": 0.4316474199295044
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p6985__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.99,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 5.62,
+      "mean": 3.9822000000000015,
+      "median": 3.94,
+      "min": 2.66,
+      "n": 100,
+      "p90": 5.2
+     }
+    },
+    "table_0p762__knee_folded": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8501333333333334,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.3,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.34463,
+      "mean": 1.2090000000000005,
+      "median": 1.209,
+      "min": 1.0733700000000002,
+      "n": 100,
+      "p90": 1.3172300000000001
+     },
+     "h_err_window_median_m": {
+      "max": 0.006680675004323233,
+      "mean": 0.0017330288017272943,
+      "median": 0.0012259073130290177,
+      "min": 9.372933705731334e-06,
+      "n": 100,
+      "p90": 0.0034615914026898675
+     },
+     "h_err_window_p90_m": {
+      "max": 0.006685502980549929,
+      "mean": 0.001735308480707803,
+      "median": 0.0012271590105692454,
+      "min": 9.992822011417601e-06,
+      "n": 100,
+      "p90": 0.0034644206364951246
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.64,
+      "mean": 2.5446000000000013,
+      "median": 2.54,
+      "min": 2.48,
+      "n": 100,
+      "p90": 2.6
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.03266706668627054,
+      "mean": 0.014420810363063726,
+      "median": 0.012304262203563992,
+      "min": 0.002629475761007364,
+      "n": 100,
+      "p90": 0.025877324944135305
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 100,
+     "n_stood_5down": 85,
+     "n_stood_6down": 30,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.39852064847946167,
+      "mean": 0.26127003371715546,
+      "median": 0.25956159830093384,
+      "min": 0.12404054403305054,
+      "n": 100,
+      "p90": 0.37216252088546753
+     },
+     "rise_min_window_m": {
+      "max": 0.4045518636703491,
+      "mean": 0.2667613196372986,
+      "median": 0.2647029757499695,
+      "min": 0.12794530391693115,
+      "n": 100,
+      "p90": 0.37935972213745117
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p762__knee_folded.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 1.0,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 4.98,
+      "mean": 4.134200000000001,
+      "median": 4.15,
+      "min": 3.24,
+      "n": 100,
+      "p90": 4.82
+     }
+    },
+    "table_0p762__random": {
+     "cams_homed_end": 100,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "< 4 feet on the floor on > 5 % of the window"
+     ],
+     "falls": 0,
+     "falls_hip_contact": 0,
+     "falls_per100": 0.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 0.98,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8512000000000001,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.20073333333333335,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.34463,
+      "mean": 1.2090000000000005,
+      "median": 1.209,
+      "min": 1.0733700000000002,
+      "n": 100,
+      "p90": 1.3172300000000001
+     },
+     "h_err_window_median_m": {
+      "max": 0.011224754308064577,
+      "mean": 0.002198922738647451,
+      "median": 0.0015402480792998663,
+      "min": 0.00015847871144591963,
+      "n": 100,
+      "p90": 0.0036630563036600394
+     },
+     "h_err_window_p90_m": {
+      "max": 0.011302188688913927,
+      "mean": 0.002213614608065287,
+      "median": 0.0015427057774860752,
+      "min": 0.0001604257965086564,
+      "n": 100,
+      "p90": 0.0036654643313090095
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 100,
+     "homed_share": 1.0,
+     "lift_off_s": {
+      "max": 2.56,
+      "mean": 2.0705999999999993,
+      "median": 2.02,
+      "min": 1.48,
+      "n": 100,
+      "p90": 2.48
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.05523679019687189,
+      "mean": 0.02309918802259571,
+      "median": 0.02276528043098796,
+      "min": 0.006827225883399051,
+      "n": 100,
+      "p90": 0.03656122878506702
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 98,
+     "n_stood_5down": 84,
+     "n_stood_6down": 20,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.396717369556427,
+      "mean": 0.2595305675268173,
+      "median": 0.25399792194366455,
+      "min": 0.1219136118888855,
+      "n": 100,
+      "p90": 0.36795228719711304
+     },
+     "rise_min_window_m": {
+      "max": 0.4042574167251587,
+      "mean": 0.26679235100746157,
+      "median": 0.26304328441619873,
+      "min": 0.1299980878829956,
+      "n": 100,
+      "p90": 0.3748713731765747
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p762__random.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.98,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 4.9,
+      "mean": 3.6771999999999996,
+      "median": 3.7,
+      "min": 2.32,
+      "n": 100,
+      "p90": 4.54
+     }
+    },
+    "table_0p762__rod_min": {
+     "cams_homed_end": 98,
+     "controller": "stand_net",
+     "episode_s": 16.0,
+     "fail_reasons": [
+      "FALL"
+     ],
+     "falls": 1,
+     "falls_hip_contact": 1,
+     "falls_per100": 1.0,
+     "falls_tilt": 0,
+     "feet4_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet5_share": {
+      "max": 1.0,
+      "mean": 0.8734000000000001,
+      "median": 1.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "feet6_share": {
+      "max": 1.0,
+      "mean": 0.40333333333333327,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "fell_off_table": 0,
+     "h_cmd_m": {
+      "max": 1.34463,
+      "mean": 1.2090000000000005,
+      "median": 1.209,
+      "min": 1.0733700000000002,
+      "n": 100,
+      "p90": 1.3172300000000001
+     },
+     "h_err_window_median_m": {
+      "max": 0.014499944928487052,
+      "mean": 0.0035881939838409015,
+      "median": 0.0023261294778186836,
+      "min": 2.5173950195300776e-05,
+      "n": 100,
+      "p90": 0.007799346968332843
+     },
+     "h_err_window_p90_m": {
+      "max": 0.01450255958557134,
+      "mean": 0.003625921254018115,
+      "median": 0.002363671375910403,
+      "min": 2.5849469502681188e-05,
+      "n": 100,
+      "p90": 0.00782463748931872
+     },
+     "hip_contact_pre_arm_envs": 0,
+     "homed": 98,
+     "homed_share": 0.98,
+     "lift_off_s": {
+      "max": 2.52,
+      "mean": 2.4742000000000006,
+      "median": 2.48,
+      "min": 2.4,
+      "n": 100,
+      "p90": 2.52
+     },
+     "limiter_arrived_before_window": 100,
+     "max_tilt_rad": {
+      "max": 0.05474880603588381,
+      "mean": 0.02367373924088629,
+      "median": 0.022751885211515353,
+      "min": 0.007509078432662094,
+      "n": 100,
+      "p90": 0.035913015864986415
+     },
+     "n_envs": 100,
+     "n_fail_rise_only": 0,
+     "n_stood": 99,
+     "n_stood_5down": 82,
+     "n_stood_6down": 38,
+     "residual_deadband": 0.25,
+     "rise_corner_min_window_m": {
+      "max": 0.4028741717338562,
+      "mean": 0.2648467218875885,
+      "median": 0.2612919807434082,
+      "min": 0.11447292566299438,
+      "n": 100,
+      "p90": 0.3670575022697449
+     },
+     "rise_min_window_m": {
+      "max": 0.4050551652908325,
+      "mean": 0.2700059175491333,
+      "median": 0.27010416984558105,
+      "min": 0.1270442008972168,
+      "n": 100,
+      "p90": 0.37093257904052734
+     },
+     "rise_share": {
+      "max": 1.0,
+      "mean": 1.0,
+      "median": 1.0,
+      "min": 1.0,
+      "n": 100,
+      "p90": 1.0
+     },
+     "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/stats_stand_net_s2__table_0p762__rod_min.json",
+     "settled": 100,
+     "smoke": false,
+     "stand_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+     "stood_share": 0.99,
+     "terminated": 0,
+     "within_2cm_first_s": {
+      "max": 4.98,
+      "mean": 4.098,
+      "median": 4.14,
+      "min": 3.1,
+      "n": 100,
+      "p90": 4.82
+     }
+    }
+   }
+  }
+ },
+ "deadbands": {
+  "SH_T17": 0.25
+ },
+ "gating": {
+  "gated_cells": [
+   "table_0p635__knee_folded",
+   "table_0p635__random",
+   "table_0p6985__knee_folded",
+   "table_0p6985__random",
+   "table_0p762__knee_folded",
+   "table_0p762__random"
+  ],
+  "gated_poses": [
+   "knee_folded",
+   "random"
+  ],
+  "gated_start_types": [
+   "tables"
+  ],
+  "gated_tops_m": [
+   0.635,
+   0.6985,
+   0.762
+  ],
+  "reported_cells": [
+   "table_0p4572__knee_folded",
+   "table_0p4572__rod_min",
+   "table_0p4572__random",
+   "table_0p635__rod_min",
+   "table_0p6985__rod_min",
+   "table_0p762__rod_min",
+   "ground__knee_folded",
+   "ground__rod_min",
+   "ground__random"
+  ],
+  "reported_start_types": [
+   "ground"
+  ],
+  "reported_tops_m": [
+   0.4572
+  ],
+  "rule": "CHARTER section 3, USER DECISION at the step-4 stop (narrow stand-up to tall tables): the K3 line (tables pooled over the 6 gated cells per env seed) and the R_h floor (per gated top pooled over the gated poses) read the gated cells only; the reported cells (the 18-in table, every rod_min cell, every ground cell) are run and read, never gated"
+ },
+ "k3": {
+  "1": {
+   "SH_T17": {
+    "ground": {
+     "gated": false,
+     "pass": null,
+     "why": "missing reference cells"
+    },
+    "tables": {
+     "gated": true,
+     "pass": null,
+     "why": "missing reference cells"
+    }
+   }
+  },
+  "2": {
+   "SH_T17": {
+    "ground": {
+     "gated": false,
+     "pass": null,
+     "why": "missing reference cells"
+    },
+    "tables": {
+     "gated": true,
+     "pass": null,
+     "why": "missing reference cells"
+    }
+   }
+  }
+ },
+ "k3_episode_s": 16.0,
+ "pooled": {
+  "1": {
+   "SH_T17": {
+    "cells": {
+     "ground__knee_folded": {
+      "cells": 1,
+      "falls": 35,
+      "falls_per100": 35.0,
+      "gated": false,
+      "homed": 47,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 0,
+      "n_stood_5down": 0,
+      "n_stood_6down": 0,
+      "stood_share": 0.0
+     },
+     "ground__random": {
+      "cells": 1,
+      "falls": 2,
+      "falls_per100": 2.0,
+      "gated": false,
+      "homed": 75,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 63,
+      "n_stood_5down": 55,
+      "n_stood_6down": 31,
+      "stood_share": 0.63
+     },
+     "ground__rod_min": {
+      "cells": 1,
+      "falls": 3,
+      "falls_per100": 3.0,
+      "gated": false,
+      "homed": 39,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 22,
+      "n_stood_5down": 19,
+      "n_stood_6down": 7,
+      "stood_share": 0.22
+     },
+     "table_0p4572__knee_folded": {
+      "cells": 1,
+      "falls": 1,
+      "falls_per100": 1.0,
+      "gated": false,
+      "homed": 98,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 5,
+      "n_stood_5down": 5,
+      "n_stood_6down": 5,
+      "stood_share": 0.05
+     },
+     "table_0p4572__random": {
+      "cells": 1,
+      "falls": 9,
+      "falls_per100": 9.0,
+      "gated": false,
+      "homed": 81,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 63,
+      "n_stood_5down": 54,
+      "n_stood_6down": 20,
+      "stood_share": 0.63
+     },
+     "table_0p4572__rod_min": {
+      "cells": 1,
+      "falls": 7,
+      "falls_per100": 7.0,
+      "gated": false,
+      "homed": 72,
+      "n_envs": 100,
+      "n_fail_rise_only": 1,
+      "n_stood": 57,
+      "n_stood_5down": 49,
+      "n_stood_6down": 21,
+      "stood_share": 0.57
+     },
+     "table_0p635__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 98,
+      "n_stood_5down": 61,
+      "n_stood_6down": 32,
+      "stood_share": 0.98
+     },
+     "table_0p635__random": {
+      "cells": 1,
+      "falls": 1,
+      "falls_per100": 1.0,
+      "gated": true,
+      "homed": 97,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 98,
+      "n_stood_5down": 69,
+      "n_stood_6down": 29,
+      "stood_share": 0.98
+     },
+     "table_0p635__rod_min": {
+      "cells": 1,
+      "falls": 13,
+      "falls_per100": 13.0,
+      "gated": false,
+      "homed": 96,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 83,
+      "n_stood_5down": 60,
+      "n_stood_6down": 27,
+      "stood_share": 0.83
+     },
+     "table_0p6985__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 100,
+      "n_stood_5down": 81,
+      "n_stood_6down": 51,
+      "stood_share": 1.0
+     },
+     "table_0p6985__random": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 99,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 99,
+      "n_stood_5down": 81,
+      "n_stood_6down": 33,
+      "stood_share": 0.99
+     },
+     "table_0p6985__rod_min": {
+      "cells": 1,
+      "falls": 1,
+      "falls_per100": 1.0,
+      "gated": false,
+      "homed": 98,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 97,
+      "n_stood_5down": 83,
+      "n_stood_6down": 43,
+      "stood_share": 0.97
+     },
+     "table_0p762__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 100,
+      "n_stood_5down": 83,
+      "n_stood_6down": 29,
+      "stood_share": 1.0
+     },
+     "table_0p762__random": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 100,
+      "n_stood_5down": 80,
+      "n_stood_6down": 30,
+      "stood_share": 1.0
+     },
+     "table_0p762__rod_min": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": false,
+      "homed": 99,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 100,
+      "n_stood_5down": 85,
+      "n_stood_6down": 49,
+      "stood_share": 1.0
+     }
+    },
+    "gated_cells": [
+     "table_0p635__knee_folded",
+     "table_0p635__random",
+     "table_0p6985__knee_folded",
+     "table_0p6985__random",
+     "table_0p762__knee_folded",
+     "table_0p762__random"
+    ],
+    "ground": {
+     "cell_ids": [
+      "ground__knee_folded",
+      "ground__rod_min",
+      "ground__random"
+     ],
+     "cells": 3,
+     "falls": 40,
+     "falls_per100": 13.333333333333334,
+     "homed": 161,
+     "n_envs": 300,
+     "n_fail_rise_only": 0,
+     "n_stood": 85,
+     "n_stood_5down": 74,
+     "n_stood_6down": 38,
+     "stood_share": 0.2833333333333333
+    },
+    "ground_per_pose": {
+     "knee_folded": {
+      "cells": 1,
+      "falls": 35,
+      "falls_per100": 35.0,
+      "homed": 47,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 0,
+      "n_stood_5down": 0,
+      "n_stood_6down": 0,
+      "stood_share": 0.0
+     },
+     "random": {
+      "cells": 1,
+      "falls": 2,
+      "falls_per100": 2.0,
+      "homed": 75,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 63,
+      "n_stood_5down": 55,
+      "n_stood_6down": 31,
+      "stood_share": 0.63
+     },
+     "rod_min": {
+      "cells": 1,
+      "falls": 3,
+      "falls_per100": 3.0,
+      "homed": 39,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 22,
+      "n_stood_5down": 19,
+      "n_stood_6down": 7,
+      "stood_share": 0.22
+     }
+    },
+    "missing_gated_cells": [],
+    "per_top": {
+     "table_0p635": {
+      "cells": 2,
+      "falls": 1,
+      "falls_per100": 0.5,
+      "homed": 197,
+      "n_envs": 200,
+      "n_fail_rise_only": 0,
+      "n_stood": 196,
+      "n_stood_5down": 130,
+      "n_stood_6down": 61,
+      "stood_share": 0.98
+     },
+     "table_0p6985": {
+      "cells": 2,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "homed": 199,
+      "n_envs": 200,
+      "n_fail_rise_only": 0,
+      "n_stood": 199,
+      "n_stood_5down": 162,
+      "n_stood_6down": 84,
+      "stood_share": 0.995
+     },
+     "table_0p762": {
+      "cells": 2,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "homed": 200,
+      "n_envs": 200,
+      "n_fail_rise_only": 0,
+      "n_stood": 200,
+      "n_stood_5down": 163,
+      "n_stood_6down": 59,
+      "stood_share": 1.0
+     }
+    },
+    "per_top_all_poses": {
+     "table_0p4572": {
+      "cells": 3,
+      "falls": 17,
+      "falls_per100": 5.666666666666667,
+      "homed": 251,
+      "n_envs": 300,
+      "n_fail_rise_only": 1,
+      "n_stood": 125,
+      "n_stood_5down": 108,
+      "n_stood_6down": 46,
+      "stood_share": 0.4166666666666667
+     },
+     "table_0p635": {
+      "cells": 3,
+      "falls": 14,
+      "falls_per100": 4.666666666666667,
+      "homed": 293,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 279,
+      "n_stood_5down": 190,
+      "n_stood_6down": 88,
+      "stood_share": 0.93
+     },
+     "table_0p6985": {
+      "cells": 3,
+      "falls": 1,
+      "falls_per100": 0.3333333333333333,
+      "homed": 297,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 296,
+      "n_stood_5down": 245,
+      "n_stood_6down": 127,
+      "stood_share": 0.9866666666666667
+     },
+     "table_0p762": {
+      "cells": 3,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "homed": 299,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 300,
+      "n_stood_5down": 248,
+      "n_stood_6down": 108,
+      "stood_share": 1.0
+     }
+    },
+    "reported_cells": [
+     "table_0p4572__knee_folded",
+     "table_0p4572__rod_min",
+     "table_0p4572__random",
+     "table_0p635__rod_min",
+     "table_0p6985__rod_min",
+     "table_0p762__rod_min",
+     "ground__knee_folded",
+     "ground__rod_min",
+     "ground__random"
+    ],
+    "tables": {
+     "cell_ids": [
+      "table_0p635__knee_folded",
+      "table_0p635__random",
+      "table_0p6985__knee_folded",
+      "table_0p6985__random",
+      "table_0p762__knee_folded",
+      "table_0p762__random"
+     ],
+     "cells": 6,
+     "falls": 1,
+     "falls_per100": 0.16666666666666666,
+     "homed": 596,
+     "n_envs": 600,
+     "n_fail_rise_only": 0,
+     "n_stood": 595,
+     "n_stood_5down": 455,
+     "n_stood_6down": 204,
+     "stood_share": 0.9916666666666667
+    }
+   }
+  },
+  "2": {
+   "SH_T17": {
+    "cells": {
+     "ground__knee_folded": {
+      "cells": 1,
+      "falls": 28,
+      "falls_per100": 28.0,
+      "gated": false,
+      "homed": 46,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 0,
+      "n_stood_5down": 0,
+      "n_stood_6down": 0,
+      "stood_share": 0.0
+     },
+     "ground__random": {
+      "cells": 1,
+      "falls": 2,
+      "falls_per100": 2.0,
+      "gated": false,
+      "homed": 79,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 70,
+      "n_stood_5down": 61,
+      "n_stood_6down": 37,
+      "stood_share": 0.7
+     },
+     "ground__rod_min": {
+      "cells": 1,
+      "falls": 3,
+      "falls_per100": 3.0,
+      "gated": false,
+      "homed": 30,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 20,
+      "n_stood_5down": 16,
+      "n_stood_6down": 7,
+      "stood_share": 0.2
+     },
+     "table_0p4572__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": false,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 11,
+      "n_stood_5down": 11,
+      "n_stood_6down": 10,
+      "stood_share": 0.11
+     },
+     "table_0p4572__random": {
+      "cells": 1,
+      "falls": 8,
+      "falls_per100": 8.0,
+      "gated": false,
+      "homed": 84,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 68,
+      "n_stood_5down": 53,
+      "n_stood_6down": 25,
+      "stood_share": 0.68
+     },
+     "table_0p4572__rod_min": {
+      "cells": 1,
+      "falls": 8,
+      "falls_per100": 8.0,
+      "gated": false,
+      "homed": 67,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 53,
+      "n_stood_5down": 45,
+      "n_stood_6down": 16,
+      "stood_share": 0.53
+     },
+     "table_0p635__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 95,
+      "n_stood_5down": 73,
+      "n_stood_6down": 15,
+      "stood_share": 0.95
+     },
+     "table_0p635__random": {
+      "cells": 1,
+      "falls": 2,
+      "falls_per100": 2.0,
+      "gated": true,
+      "homed": 97,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 98,
+      "n_stood_5down": 81,
+      "n_stood_6down": 28,
+      "stood_share": 0.98
+     },
+     "table_0p635__rod_min": {
+      "cells": 1,
+      "falls": 5,
+      "falls_per100": 5.0,
+      "gated": false,
+      "homed": 96,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 91,
+      "n_stood_5down": 79,
+      "n_stood_6down": 31,
+      "stood_share": 0.91
+     },
+     "table_0p6985__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 100,
+      "n_stood_5down": 85,
+      "n_stood_6down": 16,
+      "stood_share": 1.0
+     },
+     "table_0p6985__random": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 95,
+      "n_stood_5down": 69,
+      "n_stood_6down": 23,
+      "stood_share": 0.95
+     },
+     "table_0p6985__rod_min": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": false,
+      "homed": 95,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 99,
+      "n_stood_5down": 84,
+      "n_stood_6down": 41,
+      "stood_share": 0.99
+     },
+     "table_0p762__knee_folded": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 100,
+      "n_stood_5down": 85,
+      "n_stood_6down": 30,
+      "stood_share": 1.0
+     },
+     "table_0p762__random": {
+      "cells": 1,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "gated": true,
+      "homed": 100,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 98,
+      "n_stood_5down": 84,
+      "n_stood_6down": 20,
+      "stood_share": 0.98
+     },
+     "table_0p762__rod_min": {
+      "cells": 1,
+      "falls": 1,
+      "falls_per100": 1.0,
+      "gated": false,
+      "homed": 98,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 99,
+      "n_stood_5down": 82,
+      "n_stood_6down": 38,
+      "stood_share": 0.99
+     }
+    },
+    "gated_cells": [
+     "table_0p635__knee_folded",
+     "table_0p635__random",
+     "table_0p6985__knee_folded",
+     "table_0p6985__random",
+     "table_0p762__knee_folded",
+     "table_0p762__random"
+    ],
+    "ground": {
+     "cell_ids": [
+      "ground__knee_folded",
+      "ground__rod_min",
+      "ground__random"
+     ],
+     "cells": 3,
+     "falls": 33,
+     "falls_per100": 11.0,
+     "homed": 155,
+     "n_envs": 300,
+     "n_fail_rise_only": 0,
+     "n_stood": 90,
+     "n_stood_5down": 77,
+     "n_stood_6down": 44,
+     "stood_share": 0.3
+    },
+    "ground_per_pose": {
+     "knee_folded": {
+      "cells": 1,
+      "falls": 28,
+      "falls_per100": 28.0,
+      "homed": 46,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 0,
+      "n_stood_5down": 0,
+      "n_stood_6down": 0,
+      "stood_share": 0.0
+     },
+     "random": {
+      "cells": 1,
+      "falls": 2,
+      "falls_per100": 2.0,
+      "homed": 79,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 70,
+      "n_stood_5down": 61,
+      "n_stood_6down": 37,
+      "stood_share": 0.7
+     },
+     "rod_min": {
+      "cells": 1,
+      "falls": 3,
+      "falls_per100": 3.0,
+      "homed": 30,
+      "n_envs": 100,
+      "n_fail_rise_only": 0,
+      "n_stood": 20,
+      "n_stood_5down": 16,
+      "n_stood_6down": 7,
+      "stood_share": 0.2
+     }
+    },
+    "missing_gated_cells": [],
+    "per_top": {
+     "table_0p635": {
+      "cells": 2,
+      "falls": 2,
+      "falls_per100": 1.0,
+      "homed": 197,
+      "n_envs": 200,
+      "n_fail_rise_only": 0,
+      "n_stood": 193,
+      "n_stood_5down": 154,
+      "n_stood_6down": 43,
+      "stood_share": 0.965
+     },
+     "table_0p6985": {
+      "cells": 2,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "homed": 200,
+      "n_envs": 200,
+      "n_fail_rise_only": 0,
+      "n_stood": 195,
+      "n_stood_5down": 154,
+      "n_stood_6down": 39,
+      "stood_share": 0.975
+     },
+     "table_0p762": {
+      "cells": 2,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "homed": 200,
+      "n_envs": 200,
+      "n_fail_rise_only": 0,
+      "n_stood": 198,
+      "n_stood_5down": 169,
+      "n_stood_6down": 50,
+      "stood_share": 0.99
+     }
+    },
+    "per_top_all_poses": {
+     "table_0p4572": {
+      "cells": 3,
+      "falls": 16,
+      "falls_per100": 5.333333333333333,
+      "homed": 251,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 132,
+      "n_stood_5down": 109,
+      "n_stood_6down": 51,
+      "stood_share": 0.44
+     },
+     "table_0p635": {
+      "cells": 3,
+      "falls": 7,
+      "falls_per100": 2.3333333333333335,
+      "homed": 293,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 284,
+      "n_stood_5down": 233,
+      "n_stood_6down": 74,
+      "stood_share": 0.9466666666666667
+     },
+     "table_0p6985": {
+      "cells": 3,
+      "falls": 0,
+      "falls_per100": 0.0,
+      "homed": 295,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 294,
+      "n_stood_5down": 238,
+      "n_stood_6down": 80,
+      "stood_share": 0.98
+     },
+     "table_0p762": {
+      "cells": 3,
+      "falls": 1,
+      "falls_per100": 0.3333333333333333,
+      "homed": 298,
+      "n_envs": 300,
+      "n_fail_rise_only": 0,
+      "n_stood": 297,
+      "n_stood_5down": 251,
+      "n_stood_6down": 88,
+      "stood_share": 0.99
+     }
+    },
+    "reported_cells": [
+     "table_0p4572__knee_folded",
+     "table_0p4572__rod_min",
+     "table_0p4572__random",
+     "table_0p635__rod_min",
+     "table_0p6985__rod_min",
+     "table_0p762__rod_min",
+     "ground__knee_folded",
+     "ground__rod_min",
+     "ground__random"
+    ],
+    "tables": {
+     "cell_ids": [
+      "table_0p635__knee_folded",
+      "table_0p635__random",
+      "table_0p6985__knee_folded",
+      "table_0p6985__random",
+      "table_0p762__knee_folded",
+      "table_0p762__random"
+     ],
+     "cells": 6,
+     "falls": 2,
+     "falls_per100": 0.3333333333333333,
+     "homed": 597,
+     "n_envs": 600,
+     "n_fail_rise_only": 0,
+     "n_stood": 586,
+     "n_stood_5down": 477,
+     "n_stood_6down": 132,
+     "stood_share": 0.9766666666666667
+    }
+   }
+  }
+ },
+ "rh_floor": {},
+ "stood_definition": "K3 STOOD iff, over the last 3.0 s (150 control steps): (1) the ROOT risen >= 0.10 m above its realised spawn root z on >= 95 % of the steps (>= 143 of 150; the belly centre's rise -- a tilted chassis' lowest corner is not used, it drops ~1 cm per degree of tilt); (2) >= 4 of 6 footpads loaded on the floor (net contact >= 20 N, footpad centre z <= 0.15 m) on >= 95 % of the steps (>= 143 of 150); (3) |h_meas - h_cmd| <= 0.04 m on >= 95 % of the steps (h_meas = root z - mean terrain z under the six feet; h_cmd = the env's command); and over the whole episode (4) no fall: tilt <= 0.5 rad, no ARMED hip contact (any hip link > 500 N; armed from step 0 on a table, on the ground from the first step the belly has risen >= 0.10 m above its spawn height -- PLAN H5), on a table never more than 0.05 m below the table-top plane; (5) no termination (time-out only, 2 s past the episode). Reported: 5-down / 6-down STOOD, window shares, the envs that fail ONLY the rise clause (``rise_only_fail``), the lowest-corner rise, |h - h_cmd| median / p90 / max, limiter arrival, first time within 2 cm, lift-off, standing-since, falls by cause, pre-arm hip contacts, HOMED (every cam <= 0.10 rad over the last 5 s), settled, cams homed on the final step. The hip-contact ARMING (4) keeps the lowest-corner rise (the trainer's re-arm rule, sh_starts.post_physics).",
+ "videos": [
+  {
+   "cell": "table_0p635__knee_folded",
+   "env0": {
+    "cam_max_last5_rad": 0.010590076446533203,
+    "cams_homed_end": true,
+    "cell": "table_0p635__knee_folded",
+    "clauses": {
+     "feet4": true,
+     "h_tol": true,
+     "no_fall": true,
+     "not_terminated": true,
+     "rise": true
+    },
+    "env": 0,
+    "fall": false,
+    "fall_hip_contact": false,
+    "fall_tilt": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 5,
+    "final_root_z_m": 1.1547000408172607,
+    "final_table_frame_xy_m": [
+     -0.011280059814453125,
+     0.01042938232421875
+    ],
+    "floor_reference_z": 0.0187225341796875,
+    "h_cmd_m": 1.1455000000000002,
+    "h_err_window_max_m": 0.0017108761469522005,
+    "h_err_window_median_m": 0.0017047567367551864,
+    "h_err_window_p90_m": 0.0017081462542214876,
+    "h_init": 0.8189558784166971,
+    "h_meas_end_m": 1.1472034454345703,
+    "hip_contact_armed_s": 0.02,
+    "hip_contact_pre_arm_steps": 0,
+    "hip_force_armed_max_n": 0.0,
+    "hip_force_pre_arm_max_n": null,
+    "homed": true,
+    "k": 0,
+    "lift_off_s": 1.44,
+    "limiter_arrived_before_window": true,
+    "limiter_arrived_s": 4.1,
+    "max_tilt_rad": 0.015402310737511964,
+    "reasons": [],
+    "rise_corner_end_m": 0.3321361541748047,
+    "rise_corner_min_window_m": 0.3321291208267212,
+    "rise_end_m": 0.3372275233268738,
+    "rise_min_window_m": 0.3372250199317932,
+    "rise_only_fail": false,
+    "settled": true,
+    "settled_s": 0.0,
+    "spawn_h_meas": 0.8189558784166971,
+    "spawn_lowest_z": 0.6587225198745728,
+    "spawn_root_z": 0.817472517490387,
+    "stand_slot_share": 1.0,
+    "standing_since_s": 3.6,
+    "steps": 800,
+    "stood": true,
+    "stood_5down": true,
+    "stood_6down": false,
+    "terminated": false,
+    "window_shares": {
+     "feet4": 1.0,
+     "feet5": 1.0,
+     "feet6": 0.0,
+     "h_tol": 1.0,
+     "rise": 1.0
+    },
+    "within_2cm_first_s": 3.84
+   },
+   "label": "SH_T17",
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/video_stand_net_table_0p635__knee_folded.mp4",
+   "residual_deadband": 0.25,
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/video_stand_net_table_0p635__knee_folded__table_0p635__knee_folded.json",
+   "seed": 1
+  },
+  {
+   "cell": "table_0p6985__random",
+   "env0": {
+    "cam_max_last5_rad": 0.0073816776275634766,
+    "cams_homed_end": true,
+    "cell": "table_0p6985__random",
+    "clauses": {
+     "feet4": true,
+     "h_tol": true,
+     "no_fall": true,
+     "not_terminated": true,
+     "rise": true
+    },
+    "env": 0,
+    "fall": false,
+    "fall_hip_contact": false,
+    "fall_tilt": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 5,
+    "final_root_z_m": 1.185473918914795,
+    "final_table_frame_xy_m": [
+     -0.015087127685546875,
+     0.00388336181640625
+    ],
+    "floor_reference_z": 0.018301010131835938,
+    "h_cmd_m": 1.17725,
+    "h_err_window_max_m": 0.0014974552790325557,
+    "h_err_window_median_m": 0.0014918921788534822,
+    "h_err_window_p90_m": 0.0014947969118755066,
+    "h_init": 0.8764690160751343,
+    "h_meas_end_m": 1.178741455078125,
+    "hip_contact_armed_s": 0.02,
+    "hip_contact_pre_arm_steps": 0,
+    "hip_force_armed_max_n": 0.0,
+    "hip_force_pre_arm_max_n": null,
+    "homed": true,
+    "k": 0,
+    "lift_off_s": 1.5,
+    "limiter_arrived_before_window": true,
+    "limiter_arrived_s": 3.7600000000000002,
+    "max_tilt_rad": 0.018073249418429704,
+    "reasons": [],
+    "rise_corner_end_m": 0.2981340289115906,
+    "rise_corner_min_window_m": 0.2981272339820862,
+    "rise_end_m": 0.3049229383468628,
+    "rise_min_window_m": 0.30491793155670166,
+    "rise_only_fail": false,
+    "settled": true,
+    "settled_s": 0.0,
+    "spawn_h_meas": 0.8764690160751343,
+    "spawn_lowest_z": 0.7218009829521179,
+    "spawn_root_z": 0.8805509805679321,
+    "stand_slot_share": 1.0,
+    "standing_since_s": 3.2800000000000002,
+    "steps": 800,
+    "stood": true,
+    "stood_5down": true,
+    "stood_6down": false,
+    "terminated": false,
+    "window_shares": {
+     "feet4": 1.0,
+     "feet5": 1.0,
+     "feet6": 0.0,
+     "h_tol": 1.0,
+     "rise": 1.0
+    },
+    "within_2cm_first_s": 3.52
+   },
+   "label": "SH_T17",
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/video_stand_net_table_0p6985__random.mp4",
+   "residual_deadband": 0.25,
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/video_stand_net_table_0p6985__random__table_0p6985__random.json",
+   "seed": 1
+  },
+  {
+   "cell": "table_0p762__knee_folded",
+   "env0": {
+    "cam_max_last5_rad": 0.015267133712768555,
+    "cams_homed_end": true,
+    "cell": "table_0p762__knee_folded",
+    "clauses": {
+     "feet4": true,
+     "h_tol": true,
+     "no_fall": true,
+     "not_terminated": true,
+     "rise": true
+    },
+    "env": 0,
+    "fall": false,
+    "fall_hip_contact": false,
+    "fall_tilt": false,
+    "fell_off_table": false,
+    "final_feet_on_floor": 5,
+    "final_root_z_m": 1.2175832986831665,
+    "final_table_frame_xy_m": [
+     -0.012331008911132812,
+     0.0106964111328125
+    ],
+    "floor_reference_z": 0.0187225341796875,
+    "h_cmd_m": 1.209,
+    "h_err_window_max_m": 0.0016100320816039293,
+    "h_err_window_median_m": 0.0016076081593829894,
+    "h_err_window_p90_m": 0.0016086929639179016,
+    "h_init": 0.9459558327992758,
+    "h_meas_end_m": 1.2106074094772339,
+    "hip_contact_armed_s": 0.02,
+    "hip_contact_pre_arm_steps": 0,
+    "hip_force_armed_max_n": 0.0,
+    "hip_force_pre_arm_max_n": null,
+    "homed": true,
+    "k": 0,
+    "lift_off_s": 2.48,
+    "limiter_arrived_before_window": true,
+    "limiter_arrived_s": 3.3000000000000003,
+    "max_tilt_rad": 0.012728221073395166,
+    "reasons": [],
+    "rise_corner_end_m": 0.2681637406349182,
+    "rise_corner_min_window_m": 0.2681604027748108,
+    "rise_end_m": 0.2731107473373413,
+    "rise_min_window_m": 0.27310919761657715,
+    "rise_only_fail": false,
+    "settled": true,
+    "settled_s": 0.0,
+    "spawn_h_meas": 0.9459558327992758,
+    "spawn_lowest_z": 0.785722553730011,
+    "spawn_root_z": 0.9444725513458252,
+    "stand_slot_share": 1.0,
+    "standing_since_s": 4.0,
+    "steps": 800,
+    "stood": true,
+    "stood_5down": true,
+    "stood_6down": false,
+    "terminated": false,
+    "window_shares": {
+     "feet4": 1.0,
+     "feet5": 1.0,
+     "feet6": 0.0,
+     "h_tol": 1.0,
+     "rise": 1.0
+    },
+    "within_2cm_first_s": 4.14
+   },
+   "label": "SH_T17",
+   "mp4": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/video_stand_net_table_0p762__knee_folded.mp4",
+   "residual_deadband": 0.25,
+   "run": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-14_20-06-28_full/video_stand_net_table_0p762__knee_folded__table_0p762__knee_folded.json",
+   "seed": 1
+  }
+ ]
+}

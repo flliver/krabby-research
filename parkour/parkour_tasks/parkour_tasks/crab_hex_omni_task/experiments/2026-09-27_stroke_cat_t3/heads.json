@@ -1,0 +1,8 @@
+{
+  "seed3": {
+    "X01:t3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-28_16-40-58_seed3_X01_t3_A15pB/model_2999.pt"
+  },
+  "seed2": {
+    "X02:t3": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-28_18-05-55_seed2_X02_t3_A15pB/model_2999.pt"
+  }
+}

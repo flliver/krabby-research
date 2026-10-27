@@ -1,0 +1,299 @@
+# A clock-deprecation candidate ladder -- the TEST fixture of plan step 4 (2026-09-23).
+#
+# Plan: /home/nickmagus/.claude/plans/lets-explore-options-for-groovy-spindle.md. This file is the
+# shape step 10 writes into `OMNI/experiments/2026-09-2x_clock_deprecation/candidates.yaml`: chain
+# `tail` (C1d's c4 -> c5 -> c6 forked from X08:t3), baseline X0, the three wave-1 arms (`kind:
+# clock`, `control: baseline`), the RIG rule with `pair_on` and the pilot stop, and the two
+# `references:` (Z's never-clocked chain, the t3_s2 confirm prefix) plus one confirm tail that forks
+# `t3_s2` by `resume_from: {reference: ...}`. It is a FIXTURE: its E1/E2 run dirs do not exist
+# (the validator only notes that), and the tests edit copies of it.
+#
+# EVERY path is written relative to the repository root.
+schema: 1
+
+plant: A15+B
+seeds: {screen: 3, confirm: 2}
+
+screen: {chain: tail, eval: [suite], iters: 5000}
+
+promotion: {enabled: false}
+
+baseline: {id: X0, chain: tail}
+
+resolution_inputs:
+  - {head: X08-c6, row: suite__omni, role: pair,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/clock_deprecation_step0/E1_X08-c6/suite__omni/seed001/2026-09-23_00-00-00}
+  - {head: X08-c4, row: suite__omni, role: pair,
+     run_dir: parkour/logs/rsl_rl/gait_eval/omni_phases/clock_deprecation_step0/E2_X08-c4/suite__omni/seed001/2026-09-23_00-00-01}
+
+decision_rule:
+  rule_version: 2
+  adopt_requires: RIG
+  pair_on: [adopt, neutral, lone_guard]
+  pilot: A6000
+  steps_guard_flag: false
+  text: >-
+    Rule v2 per category with block RIG (10 members: steps_per_m on fwd, side, back, diag and
+    steps_per_rad on turn, lower is better; support_feet on fwd, side, back, diag, turn, higher is
+    better) and adopt_requires RIG; F, F_mt, T as in MQ; 23 guards (survival x7, move_turn.ratio,
+    ratio@guard x4, foot_slip on the T categories and turn, steps_per_m@guard x4, steps_per_rad@guard
+    on turn, stand.steps_per_s). pair_on [adopt, neutral, lone_guard]; the pilot stop on A6000's
+    seed-3 RIG TIE; every flagged DECISION parks the driver.
+  per_category:
+    blocks:
+      F: {level: 0.95, units: ratio, members: {turn: [facing_closed, yaw_progress]}}
+      F_mt: {level: 0.95, units: ratio, members: {move_turn: [facing_closed, yaw_progress]}}
+      T: {level: 0.95, units: ratio,
+          members: {fwd: [ratio], side: [ratio], back: [ratio], diag: [ratio]}}
+      RIG:
+        level: 0.95
+        units: ratio
+        members:
+          fwd: [steps_per_m, support_feet]
+          side: [steps_per_m, support_feet]
+          back: [steps_per_m, support_feet]
+          diag: [steps_per_m, support_feet]
+          turn: [steps_per_rad, support_feet]
+    guards:
+      level: 0.99
+      members:
+        stand: [survival, steps_per_s]
+        fwd: [survival, ratio, foot_slip, steps_per_m]
+        side: [survival, ratio, foot_slip, steps_per_m]
+        back: [survival, ratio, foot_slip, steps_per_m]
+        diag: [survival, ratio, foot_slip, steps_per_m]
+        turn: [survival, foot_slip, steps_per_rad]
+        move_turn: [survival, ratio]
+    watch:
+      members:
+        stand: [drift_speed, support_feet, gait_hz, cadence_ratio]
+        fwd: [tripod, gait_hz, cadence_ratio, hz_speed_slope, offset_R, taps_per_m, swing_apex]
+        side: [tripod, gait_hz, cadence_ratio, hz_speed_slope, offset_R, taps_per_m, swing_apex]
+        back: [tripod, gait_hz, cadence_ratio, hz_speed_slope, offset_R, taps_per_m, swing_apex]
+        diag: [tripod, gait_hz, cadence_ratio, hz_speed_slope, offset_R, taps_per_m, swing_apex]
+        turn: [steps_per_rad_pre, steps_per_rad_post, taps_per_rad, swing_apex, offset_R]
+        move_turn: [tripod, steps_per_rad, support_feet, taps_per_rad, swing_apex]
+      hands: true
+  charter_floors: {completion: 0.10, tripod_walking_dir: 0.056}
+  bootstrap: {B: 2000, paired_on: env_index, rng_seed: 20260923}
+  control_head: X08-c6
+
+chains:
+  tail:
+    notes: C1d's c4 -> c5 -> c6 tail forked from X08:t3 (overlays verbatim from the facing ladder).
+    stages:
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: {checkpoint: parkour/logs/rsl_rl/crab_hex_omni_flat_walk/2026-09-22_09-10-29_seed3_X08_t3_A15pB/model_2999.pt}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.15:0.1
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.69, fwd: 0.52, side: 0.65, back: 0.55, turn: 0.62, move_turn: 0.315}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.1:0.15
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.79, fwd: 0.72, side: 0.77, back: 0.72, diag: 0.59, turn: 0.75, move_turn: 0.55}
+
+  # Z: C1d from scratch with K from iteration 0 (a reference: judged by hand, 8000 its).
+  scratch_free:
+    notes: the never-clocked C1d chain (K on every stage).
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.15:0.1
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c5
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.15,side_l:0.1,side_r:0.1,back:0.1,omni:0.15,turn:0.1,fwd_turn:0.07,side_l_turn:0.04,side_r_turn:0.04
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.1:0.15
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+      - stage: c6
+        base: "1a"
+        iters: 2000
+        from_scratch: false
+        resume_from: previous_stage
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07
+          KRABBY_OMNI_SLOTS: 0.15:0.55:0.1:0.2
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+          KRABBY_CLOCK_W: "0.001"
+          KRABBY_APEX_W: "0.001"
+          KRABBY_OMNI_CLOCK_HIDE: "1"
+        eval: [suite]
+        categories: [back, diag, fwd, move_turn, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+
+  # The confirm prefix: C1d t3 from scratch, clock held (3000 its).
+  t3_clock:
+    notes: C1d's t3 from scratch, clock held -- the formation-seed-2 confirm prefix.
+    stages:
+      - stage: t3
+        base: "1a"
+        iters: 3000
+        from_scratch: true
+        resume_from: scratch
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.25,side_l:0.16,side_r:0.16,back:0.08,turn:0.2
+          KRABBY_OMNI_SLOTS: 0.15:0.65:0.2:0
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, side, stand, turn]
+        floor: {kind: category_survival, row: suite, min_new: 0.10, min_prev: 0.30}
+
+  # A confirm tail (step 15 adds these): the clock-held tail forked from t3_s2's recorded head.
+  tail_s2_held:
+    notes: the clock-held confirm tail at seed 2, forked from the t3_s2 reference.
+    stages:
+      - stage: c4
+        base: "1a"
+        iters: 1500
+        from_scratch: false
+        resume_from: {reference: t3_s2}
+        overlay:
+          KRABBY_OMNI_CMD_POOL: stand:0.15,fwd:0.22,side_l:0.14,side_r:0.14,back:0.1,turn:0.15,fwd_turn:0.05,side_l_turn:0.025,side_r_turn:0.025
+          KRABBY_OMNI_SLOTS: 0.15:0.6:0.15:0.1
+          KRABBY_OMNI_DIR_BAND: ""
+          KRABBY_OMNI_RSI_SOURCE: all
+          KRABBY_OMNI_FACING: 0.2:0.6
+          KRABBY_YAW_W: "0.2"
+        eval: [suite]
+        categories: [back, fwd, move_turn, side, stand, turn]
+        floor:
+          kind: category_survival
+          row: suite
+          min_by_category: {stand: 0.69, fwd: 0.52, side: 0.65, back: 0.55, turn: 0.62, move_turn: 0.315}
+
+references:
+  scratch_free: {chain: scratch_free, seed: 3}
+  t3_s2: {chain: t3_clock, seed: 2}
+  confirm_held: {chain: tail_s2_held, seed: 2}
+
+candidates:
+  - id: A6000
+    kind: clock
+    control: baseline
+    eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
+    user_decision: >-
+      S2: the user clears A6000 after the X0 pair (ledger_cli decide A6000 --choose run)
+    overlay:
+      c6: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+    question: >-
+      Does removing both clock rewards (to eps) and the clock observation (to zero) at the c5 -> c6
+      boundary make the gait less rigid without losing turning, speed or survival?
+
+  - id: A4500
+    kind: clock
+    control: baseline
+    eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
+    overlay:
+      c5: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+      c6: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+    question: >-
+      The same removal at the c4 -> c5 boundary.
+
+  - id: A3000
+    kind: clock
+    control: baseline
+    eval_carry: [KRABBY_OMNI_CLOCK_HIDE]
+    depends_on: [A6000, A4500]
+    await_if: decision(A6000).arm_class == BREAK and decision(A4500).arm_class == BREAK
+    await_why: both later boundaries BROKE -- the user decides whether the earliest runs
+    overlay:
+      c4: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+      c5: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+      c6: {KRABBY_CLOCK_W: "0.001", KRABBY_APEX_W: "0.001", KRABBY_OMNI_CLOCK_HIDE: "1"}
+    question: >-
+      The same removal at the t3 -> c4 boundary.
+
+milestones: []

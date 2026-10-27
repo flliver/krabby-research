@@ -7,6 +7,7 @@ from isaaclab.sensors import ContactSensor
 from isaaclab.assets import Articulation
 from isaaclab.utils.math  import euler_xyz_from_quat, wrap_to_pi, quat_apply
 from parkour_isaaclab.envs.mdp.parkours import ParkourEvent
+from . import travel_frame as _travel_frame  # underscore-prefixed: not re-exported by ``mdp/__init__``'s ``import *``
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_stride_reward import stride_length_reward_step
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     APEX_SIGMA_M as CLOCK_APEX_SIGMA_M,
@@ -14,8 +15,10 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     FOOT_ORDER as CLOCK_FOOT_ORDER,
     FORCE_REF_N as CLOCK_FORCE_REF_N,
     VEL_REF_M_S as CLOCK_VEL_REF_M_S,
+    clock_command_speed,
     clock_schedule_income,
     clock_swing_apex_income,
+    stand_stance_income,
 )
 from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_tripod_reward import (
     RESET_T_SINCE,
@@ -33,6 +36,97 @@ if TYPE_CHECKING:
 
 import cv2
 import numpy as np 
+
+
+def _travel_yaw(env: ParkourManagerBasedRLEnv) -> float:
+    """Constant yaw of the travel frame relative to the body frame, from the env cfg.
+
+    The forward-walk task's cfg classes have no ``travel_yaw`` attribute, so this
+    returns ``0.0`` there and every travel-frame helper below degenerates to the
+    identity (see ``parkour_isaaclab/envs/mdp/travel_frame.py``). ``env.cfg`` is
+    stable after ``__post_init__``, so reading it per call is free of surprises.
+    """
+    return float(getattr(env.cfg, "travel_yaw", 0.0))
+
+
+def _vel_travel_xy(asset: Articulation, env: ParkourManagerBasedRLEnv) -> torch.Tensor:
+    """The asset's planar root velocity expressed in the travel frame.
+
+    At ``travel_yaw == 0.0`` (the forward task) this is ``root_lin_vel_b[:, :2]``
+    itself -- the same tensor, no arithmetic.
+    """
+    return _travel_frame.vel_travel_xy(asset.data.root_lin_vel_b[:, :2], _travel_yaw(env))
+
+
+def _cmd_gate(
+    env: ParkourManagerBasedRLEnv,
+    cmd: torch.Tensor,
+    thresh: float,
+    *,
+    signed: bool,
+) -> torch.Tensor:
+    """Is a travel command active? -- the gate the ``*_when_forward`` terms switch on.
+
+    The forward-walk task (and the sideways sibling, whose travel speed also lives in
+    ``cmd[:, 0]``) has no ``omni_command`` attribute on its cfg classes, so this returns the
+    call site's ORIGINAL literal, unchanged and bitwise: ``cmd[:, 0] > thresh`` where the
+    site gated on the signed forward command (``signed=True``: a backward command is not
+    "forward", and these two clearance terms have always said so) and
+    ``torch.abs(cmd[:, 0]) > thresh`` where the site gated on the magnitude
+    (``signed=False``).
+
+    For an omnidirectional task the single channel is meaningless -- a pure +y or backward
+    command has ``cmd[:, 0] <= 0`` -- so BOTH variants become the speed the gait clock runs on,
+    ``max(||cmd[:, :2]||, r_turn * |cmd[:, 2]|)`` (``_clock_cmd_speed``). That merges the
+    signed and unsigned sites: under omni, a backward command does gate the two clearance terms
+    on (it is travel, and the feet must clear the ground for it), and so does a pure TURN
+    command (Revision 2, 2026-09-17: with the planar norm alone, a turn-only command left every
+    gait-shaping term off and two yaw-capability smokes learned to step in place without
+    rotating -- turning is locomotion, so it switches the same terms on as translation).
+    """
+    if bool(getattr(env.cfg, "omni_command", False)):
+        return _clock_cmd_speed(env, cmd) > thresh
+    if signed:
+        return cmd[:, 0] > thresh
+    return torch.abs(cmd[:, 0]) > thresh
+
+
+def _clock_cmd_speed(env: ParkourManagerBasedRLEnv, cmd: torch.Tensor) -> torch.Tensor:
+    """The commanded speed the gait clock runs on -- the same seam the action term uses.
+
+    Forward/sideways: ``cmd[:, 0].abs()``, bitwise (``omni_command`` is absent -> ``False``).
+    Omni: ``max(||cmd[:, :2]||, r_turn * |cmd[:, 2]|)`` so turning in place keeps the clock
+    running. Kept in step with ``CrabHexDelayedJointPositionAction.process_actions``: the
+    reward must price the schedule the clock is actually advancing. The omni BODY-frame command
+    mode (2026-10-15) adds ``omni_clock_turn_floor`` (an env-cfg instance attribute only that mode
+    writes; absent -> 0.0 -> the expression above, bitwise): ``max(.., floor [wz != 0])``, so every
+    gate that reads this speed (``_cmd_gate``, ``_clock_running``) keeps a slow turn "moving".
+    """
+    return clock_command_speed(
+        cmd,
+        bool(getattr(env.cfg, "omni_command", False)),
+        float(getattr(env.cfg, "omni_clock_turn_radius", 0.0)),
+        float(getattr(env.cfg, "omni_clock_turn_floor", 0.0)),
+    )
+
+
+def _clock_running(
+    env: ParkourManagerBasedRLEnv, cmd: torch.Tensor, cmd_stop: float, stand_park: bool
+) -> torch.Tensor:
+    """Is the gait clock's schedule live (swing windows exist) for each env?
+
+    ``_clock_cmd_speed(env, cmd) > cmd_stop`` -- the literal both clock rewards always used.
+    ``stand_park`` (``KRABBY_OMNI_STAND_PARK``, an omni env-cfg attribute that no shipped cfg
+    carries, so it is ``False`` on every recorded path) additionally forces the ALL-STANCE
+    schedule on the envs whose clock the action term has parked (the omni STAND slot): swing and
+    apex income are then zero there even when the facing relay's yaw-rate command would have
+    kept the clock running.
+    """
+    running = _clock_cmd_speed(env, cmd) > cmd_stop
+    if stand_park:
+        running = running & ~env.action_manager.get_term("joint_pos").clock_parked
+    return running
+
 
 class reward_feet_edge(ManagerTermBase):
     def __init__(self, cfg: RewardTermCfg, env: ParkourManagerBasedRLEnv):
@@ -127,10 +221,10 @@ def penalty_lin_vel_y_l2(
     cmd_threshold: float = 0.05,
     min_forward_speed_cmd: float = 0.12,
 ) -> torch.Tensor:
-    """Penalize lateral body velocity when only forward motion is commanded."""
+    """Penalize the cross-travel body velocity when only travel-axis motion is commanded."""
     asset: Articulation = env.scene[asset_cfg.name]
     cmd = env.command_manager.get_command(command_name)
-    vy = asset.data.root_lin_vel_b[:, 1]
+    vy = _vel_travel_xy(asset, env)[:, 1]
     no_lateral_cmd = torch.abs(cmd[:, 1]) < cmd_threshold
     forward_cmd = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
     return torch.square(vy) * (no_lateral_cmd & forward_cmd).float()
@@ -241,9 +335,16 @@ class reward_action_rate(ManagerTermBase):
         self,
         env: ParkourManagerBasedRLEnv,        
         asset_cfg: SceneEntityCfg,
+        squared: bool = False,
         ) -> torch.Tensor:
         self.previous_actions[:, 0, :] = self.previous_actions[:, 1, :]
         self.previous_actions[:, 1, :] = env.action_manager.get_term('joint_pos').raw_actions
+        if squared:
+            # ``KRABBY_ACTION_RATE_SQ=1`` (omni motion-quality campaign; default off -- no
+            # shipped cfg carries the param, so the line below is the untouched path): the
+            # squared L2 ``||a_t - a_{t-1}||^2`` of legged-gym's action-rate term, which prices
+            # large jumps quadratically instead of every jump linearly.
+            return torch.sum(torch.square(self.previous_actions[:, 1, :] - self.previous_actions[:, 0, :]), dim=1)
         return torch.norm(self.previous_actions[:, 1, :] - self.previous_actions[:,0,:], dim=1)
     
 class reward_dof_acc(ManagerTermBase):
@@ -423,7 +524,7 @@ def reward_obstacle_clearance(
     )
     cmd = env.command_manager.get_command(command_name)
     forward_cmd = cmd[:, 0] > min_forward_speed_cmd
-    vx = asset.data.root_lin_vel_b[:, 0]
+    vx = _vel_travel_xy(asset, env)[:, 0]
     tilt_sq = torch.sum(torch.square(asset.data.projected_gravity_b[:, :2]), dim=1)
     progressing = (goal_prog >= min_goal_progress).float()
     moving = ((vx >= min_forward_speed) & forward_cmd).float()
@@ -469,7 +570,9 @@ def reward_foot_clearance(
     rew = torch.mean(per_foot, dim=1)
 
     cmd = env.command_manager.get_command(command_name)
-    forward_cmd = cmd[:, 0] > min_forward_speed_cmd
+    # signed: forward-only today (a backward command earns no clearance credit). Under
+    # ``omni_command`` the gate becomes ``||cmd[:, :2]||``, so any travel direction counts.
+    forward_cmd = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=True)
     rew = rew * forward_cmd.float()
 
     if parkour_name is not None:
@@ -520,7 +623,8 @@ def penalty_swing_min_clearance(
     penalty = torch.mean(micro_swing, dim=1)
 
     cmd = env.command_manager.get_command(command_name)
-    forward_cmd = cmd[:, 0] > min_forward_speed_cmd
+    # signed, as above: forward-only today; ``||cmd[:, :2]||`` under ``omni_command``.
+    forward_cmd = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=True)
     penalty = penalty * forward_cmd.float()
     if parkour_name is not None:
         penalty = penalty * (1.0 - _parkour_flat_mask(env, parkour_name))
@@ -699,6 +803,12 @@ def reward_tracking_yaw(
     q = asset.data.root_quat_w
     yaw = torch.atan2(2*(q[:,0]*q[:,3] + q[:,1]*q[:,2]),
                     1 - 2*(q[:,2]**2 + q[:,3]**2))
+    # Travel-frame tasks hold a constant yaw offset from the waypoint direction, so the
+    # error is taken against ``target_yaw - travel_yaw`` and wrapped (the offset can push
+    # the raw difference past +-pi). At travel_yaw 0 the original expression runs unchanged.
+    travel_yaw = _travel_yaw(env)
+    if travel_yaw != 0.0:
+        return torch.exp(-torch.abs(wrap_to_pi(parkour_event.target_yaw - yaw - travel_yaw)))
     return torch.exp(-torch.abs((parkour_event.target_yaw - yaw)))
 
 
@@ -790,7 +900,7 @@ def penalty_excess_feet_in_contact_forward(
     num_feet = torch.sum(in_contact.float(), dim=1)
     excess = torch.relu(num_feet - float(max_feet_on_ground))
     cmd = env.command_manager.get_command(command_name)
-    moving = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
+    moving = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=False)
     return excess * moving.float()
 
 
@@ -801,9 +911,10 @@ def reward_forward_progress_along_command(
     min_cmd_norm: float = 0.12,
     max_speed_scale: float = 2.0,
 ) -> torch.Tensor:
-    """Dense nonnegative progress: base linear velocity (body frame) along commanded planar direction.
+    """Dense nonnegative progress: base linear velocity (travel frame) along commanded planar direction.
 
-    Matches body-frame velocity commands. Only applies when planar command norm exceeds ``min_cmd_norm``.
+    Matches travel-frame velocity commands (the body frame itself when ``travel_yaw`` is 0).
+    Only applies when planar command norm exceeds ``min_cmd_norm``.
     Clips at ``max_speed_scale`` [m/s] along the projection.
     """
     asset = env.scene[asset_cfg.name]
@@ -812,7 +923,7 @@ def reward_forward_progress_along_command(
     norm = torch.norm(cmd_xy, dim=1)
     active = norm > min_cmd_norm
     dir_xy = cmd_xy / (norm.unsqueeze(-1) + 1e-8)
-    vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+    vel_b_xy = _vel_travel_xy(asset, env)
     progress = torch.sum(vel_b_xy * dir_xy, dim=1)
     progress = torch.clamp(progress, min=0.0, max=max_speed_scale)
     return progress * active.float()
@@ -837,7 +948,7 @@ def reward_stance_support_feet_when_forward(
     in_contact = torch.norm(net_contact_forces, dim=-1) > contact_force_threshold
     num_feet = torch.sum(in_contact.float(), dim=1)
     cmd = env.command_manager.get_command(command_name)
-    moving = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
+    moving = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=False)
     has_support = num_feet.float() >= float(min_feet_loaded)
     return has_support.float() * moving.float()
 
@@ -877,7 +988,7 @@ class PenaltyFootIdleWhenForward(ManagerTermBase):
         self.idle_steps = torch.where(in_contact, torch.zeros_like(self.idle_steps), self.idle_steps + 1.0)
         excess = torch.relu(self.idle_steps - float(max_idle_steps))
         cmd = env.command_manager.get_command(command_name)
-        moving = torch.abs(cmd[:, 0]) > min_forward_speed_cmd
+        moving = _cmd_gate(env, cmd, min_forward_speed_cmd, signed=False)
         return torch.sum(excess, dim=1) * moving.float()
 
 
@@ -998,7 +1109,29 @@ def penalty_tracking_error_l1(
     deficit; as a pure penalty its optimum is exact tracking."""
     asset: Articulation = env.scene[asset_cfg.name]
     cmd = env.command_manager.get_command(command_name)
-    return torch.norm(cmd[:, :2] - asset.data.root_lin_vel_b[:, :2], dim=1)
+    return torch.norm(cmd[:, :2] - _vel_travel_xy(asset, env), dim=1)
+
+
+def track_lin_vel_travel_exp(
+    env: ParkourManagerBasedRLEnv,
+    std: float,
+    command_name: str,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Travel-frame twin of IsaacLab's ``track_lin_vel_xy_exp``.
+
+    Same term name, weight and params as the stock term; the only difference is that
+    the commanded planar velocity is compared against the *travel-frame* body velocity.
+    At ``travel_yaw == 0.0`` the rotation is the identity and this reproduces the stock
+    formula bitwise. ``asset_cfg`` must have a default: the reward term's params carry
+    only ``command_name`` and ``std``.
+    """
+    asset: Articulation = env.scene[asset_cfg.name]
+    cmd = env.command_manager.get_command(command_name)
+    # ``_vel_travel_xy`` already applies the travel-frame rotation, hence ``travel_yaw=0.0``
+    # at this call site -- ``track_lin_vel_exp`` would otherwise rotate a second time. What
+    # remains from ``track_lin_vel_exp`` is the IsaacLab kernel with its original op order.
+    return _travel_frame.track_lin_vel_exp(cmd[:, :2], _vel_travel_xy(asset, env), std, 0.0)
 
 
 def penalty_mechanical_power(
@@ -1009,10 +1142,32 @@ def penalty_mechanical_power(
     continuous one-direction spin costs ~738 W vs ~1260-1420 W for shaft-oscillation
     gaits — the saving is in the LEG chain (fewer reversal transients), so this prices
     the oscillation basin ~1.7x harder than spin on physics grounds. Weight scale:
-    ~1e-3 puts the differential at a few percent of locomotion income."""
+    ~1e-3 puts the differential at a few percent of locomotion income.
+
+    NOTE(omni phase-2 plan step 3, 2026-10-06): optional JOINT SUBSET via ``asset_cfg``'s
+    ``joint_names``. Default (``SceneEntityCfg("robot")``, resolved ``joint_ids`` =
+    ``slice(None)``) prices every joint with the original expression, bitwise unchanged. The
+    omni knob ``KRABBY_POWER_JOINTS=actuated`` (``motion_knobs.apply_motion_knobs``) repoints
+    ``asset_cfg`` at the 18 actuated joints (cam shafts + Hip_Femur + Femur_Tibia rods),
+    dropping the six passive ``*_Body_Hip_RevoluteJoint`` that the cam linkage emulator drives:
+    their tau*qdot is the emulator's torque, a sim artefact, and was 24-31 % of the all-joint
+    sum on the X08:c6 replay (2026-09-22_gait_motion_quality/REPLAY_GATE.md, power split). The
+    cam shafts themselves carry ~0 of the sum there, so in practice the subset prices the rods.
+    """
     asset: Articulation = env.scene[asset_cfg.name]
+    # getattr: offline replays (experiments/tools/replay_motion_terms.py and its tests) call this
+    # with a duck-typed ``asset_cfg`` that carries only ``name`` -- that means every joint
+    ids = getattr(asset_cfg, "joint_ids", slice(None))
+    if isinstance(ids, slice) and ids == slice(None):
+        # every joint: the original expression (no indexing), so the default term is bitwise
+        # what it always was. Only the FULL slice takes this branch (review 2026-10-06): a
+        # hand-written partial slice (e.g. ``slice(0, 18)``) falls through to the indexing
+        # branch below and prices just those columns, never silently all 24.
+        return torch.sum(
+            torch.abs(asset.data.applied_torque * asset.data.joint_vel), dim=1
+        )
     return torch.sum(
-        torch.abs(asset.data.applied_torque * asset.data.joint_vel), dim=1
+        torch.abs(asset.data.applied_torque[:, ids] * asset.data.joint_vel[:, ids]), dim=1
     )
 
 
@@ -1082,6 +1237,7 @@ class RewardClockContactSchedule(ManagerTermBase):
         from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims
 
         self._cmd_stop = _dims.CLOCK_CMD_STOP_M_S
+        self._stand_park = bool(getattr(env.cfg, "omni_stand_park", False))
 
     def __call__(
         self,
@@ -1100,13 +1256,47 @@ class RewardClockContactSchedule(ManagerTermBase):
         force = sensor.data.net_forces_w[:, self._foot_sensor_ids].norm(dim=-1)
         speed_xy = asset.data.body_lin_vel_w[:, self._foot_body_ids, :2].norm(dim=-1)
         cmd = env.command_manager.get_command(command_name)
-        clock_running = cmd[:, 0].abs() > self._cmd_stop
+        clock_running = _clock_running(env, cmd, self._cmd_stop, self._stand_park)
         income = clock_schedule_income(
             phase, force, speed_xy, clock_running, force_ref=force_ref, vel_ref=vel_ref,
             combine=combine,
         )
         upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
         return income * upright
+
+
+def reward_stand_stance_quality(
+    env: ParkourManagerBasedRLEnv,
+    asset_cfg: SceneEntityCfg,
+    sensor_cfg: SceneEntityCfg,
+    command_name: str = "base_velocity",
+    vel_ref: float = CLOCK_VEL_REF_M_S,
+    min_upright_gz: float = 0.9,
+) -> torch.Tensor:
+    """F1 stand term (omni phase-2 plan step 3, 2026-10-06; ``KRABBY_STAND_STANCE_W``, DEFAULT OFF).
+
+    A STAND-SLOT-gated copy of :class:`RewardClockContactSchedule`'s stopped-clock branch:
+    ``crab_hex_clock_reward.stand_stance_income`` (mean over feet of load x planted-still) times
+    the same upright gate, paid only on the rows whose omni command slot is STAND
+    (``command_term.stand_mask()``, ``slot_id == SLOT_STAND`` -- the predicate the stand hold /
+    park / obs / pose knobs key on). Deliberately NOT gated on "clock stopped": the clock also
+    stops for slow MOVE commands (``clock_command_speed <= CLOCK_CMD_STOP_M_S``), and paying
+    stillness there would fight the walk. Independent of the clock term's weight (0.001 since
+    c6x), so stand stillness gets income again at this term's own weight.
+
+    Forces and foot speeds are read exactly as the clock term reads them (current
+    ``net_forces_w`` norm; planar ``body_lin_vel_w`` norm), through ``sensor_cfg`` /
+    ``asset_cfg`` ``body_ids`` (the six footpads). Not in any shipped rewards cfg:
+    ``motion_knobs.apply_motion_knobs`` adds it only when the knob's weight is non-zero.
+    """
+    asset: Articulation = env.scene[asset_cfg.name]
+    sensor = env.scene.sensors[sensor_cfg.name]
+    force = sensor.data.net_forces_w[:, sensor_cfg.body_ids].norm(dim=-1)
+    speed_xy = asset.data.body_lin_vel_w[:, asset_cfg.body_ids, :2].norm(dim=-1)
+    income = stand_stance_income(force, speed_xy, vel_ref=vel_ref)
+    upright = (-asset.data.projected_gravity_b[:, 2] > min_upright_gz).float()
+    stand = env.command_manager.get_term(command_name).stand_mask().to(income.dtype)
+    return income * upright * stand
 
 
 class RewardClockSwingApex(ManagerTermBase):
@@ -1123,6 +1313,7 @@ class RewardClockSwingApex(ManagerTermBase):
         from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_dimensions as _dims
 
         self._cmd_stop = _dims.CLOCK_CMD_STOP_M_S
+        self._stand_park = bool(getattr(env.cfg, "omni_stand_park", False))
 
     def __call__(
         self,
@@ -1140,7 +1331,7 @@ class RewardClockSwingApex(ManagerTermBase):
         ground_z = asset.data.root_pos_w[:, 2].unsqueeze(1) + ground_offset_from_root_m
         height = foot_z - ground_z
         cmd = env.command_manager.get_command(command_name)
-        clock_running = cmd[:, 0].abs() > self._cmd_stop
+        clock_running = _clock_running(env, cmd, self._cmd_stop, self._stand_park)
         income = clock_swing_apex_income(
             phase, height, clock_running, apex_m=apex_m, sigma_m=sigma_m
         )
@@ -1254,7 +1445,7 @@ class RewardStrideLength(ManagerTermBase):
     ) -> torch.Tensor:
         asset: Articulation = env.scene[asset_cfg.name]
         contact_sensor: ContactSensor = env.scene.sensors[sensor_cfg.name]
-        root_lin_vel_b_xy = asset.data.root_lin_vel_b[:, :2]
+        root_lin_vel_b_xy = _vel_travel_xy(asset, env)
         command_xy = env.command_manager.get_command(command_name)[:, :2]
         in_contact = contact_sensor.data.current_contact_time[:, self.body_ids] > 0.0
         first_contact = contact_sensor.compute_first_contact(env.step_dt)[:, self.body_ids]

@@ -1,0 +1,1060 @@
+{
+ "run": "R18",
+ "stage": "sh_ref",
+ "read_at": "2026-10-19T22:49:00",
+ "thresholds": {
+  "file": "thresholds_v1.json",
+  "version": "v1",
+  "sha256": "2c89f953bc1686f032cf75b22dcbf496f7b55e16000b408cddf103ad551f297d"
+ },
+ "verdict": "PASS",
+ "decisive": [
+  {
+   "id": "stand.D2.K1.median bin0 es1 <= 0.02",
+   "statistic": "median bin0 es1 <= 0.02",
+   "rate": 1.6096208607782405e-05,
+   "unvalidated": null,
+   "value": 0.0025150903065999652,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin0 es1 <= 0.04",
+   "statistic": "p90 bin0 es1 <= 0.04",
+   "rate": 4.794026988864007e-06,
+   "unvalidated": null,
+   "value": 0.005808736642201693,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin1 es1 <= 0.02",
+   "statistic": "median bin1 es1 <= 0.02",
+   "rate": 2.7146486493818538e-05,
+   "unvalidated": null,
+   "value": 0.0016244717439015122,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin1 es1 <= 0.04",
+   "statistic": "p90 bin1 es1 <= 0.04",
+   "rate": 9.474156484185942e-05,
+   "unvalidated": null,
+   "value": 0.004089201927185037,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin2 es1 <= 0.02",
+   "statistic": "median bin2 es1 <= 0.02",
+   "rate": 0.00014342204083861942,
+   "unvalidated": true,
+   "value": 0.0012481411298116418,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin2 es1 <= 0.04",
+   "statistic": "p90 bin2 es1 <= 0.04",
+   "rate": 2.580040444517358e-05,
+   "unvalidated": true,
+   "value": 0.0036410147349041177,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin3 es1 <= 0.02",
+   "statistic": "median bin3 es1 <= 0.02",
+   "rate": 7.992586163219222e-05,
+   "unvalidated": null,
+   "value": 0.0017285704612732822,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin3 es1 <= 0.04",
+   "statistic": "p90 bin3 es1 <= 0.04",
+   "rate": 3.8096734438430844e-05,
+   "unvalidated": null,
+   "value": 0.0037254412968954066,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin4 es1 <= 0.02",
+   "statistic": "median bin4 es1 <= 0.02",
+   "rate": 4.6833248435389736e-05,
+   "unvalidated": null,
+   "value": 0.0016672213872274133,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin4 es1 <= 0.04",
+   "statistic": "p90 bin4 es1 <= 0.04",
+   "rate": 4.7722111148439385e-05,
+   "unvalidated": null,
+   "value": 0.0037236567179361026,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin0 es2 <= 0.02",
+   "statistic": "median bin0 es2 <= 0.02",
+   "rate": 3.9446017759186044e-05,
+   "unvalidated": null,
+   "value": 0.002597940762837758,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin0 es2 <= 0.04",
+   "statistic": "p90 bin0 es2 <= 0.04",
+   "rate": 0.00011992844682492336,
+   "unvalidated": null,
+   "value": 0.006438052415847602,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin1 es2 <= 0.02",
+   "statistic": "median bin1 es2 <= 0.02",
+   "rate": 3.9254752170971065e-06,
+   "unvalidated": null,
+   "value": 0.0016808013121287213,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin1 es2 <= 0.04",
+   "statistic": "p90 bin1 es2 <= 0.04",
+   "rate": 0.00010396110839522769,
+   "unvalidated": null,
+   "value": 0.003515014251073289,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin2 es2 <= 0.02",
+   "statistic": "median bin2 es2 <= 0.02",
+   "rate": 8.376380286755735e-06,
+   "unvalidated": true,
+   "value": 0.0013888384501138384,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin2 es2 <= 0.04",
+   "statistic": "p90 bin2 es2 <= 0.04",
+   "rate": 7.505145433334944e-05,
+   "unvalidated": true,
+   "value": 0.0031795884768167737,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin3 es2 <= 0.02",
+   "statistic": "median bin3 es2 <= 0.02",
+   "rate": 0.0002435283919926794,
+   "unvalidated": null,
+   "value": 0.001418117682139064,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin3 es2 <= 0.04",
+   "statistic": "p90 bin3 es2 <= 0.04",
+   "rate": 1.125154787224081e-05,
+   "unvalidated": null,
+   "value": 0.004039208094278824,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.median bin4 es2 <= 0.02",
+   "statistic": "median bin4 es2 <= 0.02",
+   "rate": 0.0001437229612540888,
+   "unvalidated": null,
+   "value": 0.001845993518829303,
+   "line": 0.02,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K1.p90 bin4 es2 <= 0.04",
+   "statistic": "p90 bin4 es2 <= 0.04",
+   "rate": 7.742829809171245e-05,
+   "unvalidated": null,
+   "value": 0.003916882801055753,
+   "line": 0.04,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K2.time-to-2cm excess p90 es1 <= 0 s",
+   "statistic": "time-to-2cm excess p90 es1 <= 0 s",
+   "rate": 4.259864137490093e-06,
+   "unvalidated": null,
+   "value": -1.1650000000000011,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K2.stand falls es1 <= max(1, R_h's)",
+   "statistic": "stand falls es1 <= max(1, R_h's)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K2.time-to-2cm excess p90 es2 <= 0 s",
+   "statistic": "time-to-2cm excess p90 es2 <= 0 s",
+   "rate": 1.7136441660119515e-05,
+   "unvalidated": null,
+   "value": -1.17,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K2.stand falls es2 <= max(1, R_h's)",
+   "statistic": "stand falls es2 <= max(1, R_h's)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K3.STOOD rate tables es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "STOOD rate tables es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 3.233147691476588e-22,
+   "unvalidated": null,
+   "value": 0.9916666666666667,
+   "line": 0.9333333333333332,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K3.falls/100 tables es1 <= max(1, R_h's)",
+   "statistic": "falls/100 tables es1 <= max(1, R_h's)",
+   "rate": 0.010067666760222286,
+   "unvalidated": null,
+   "value": 0.16666666666666666,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K3.STOOD rate tables es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "STOOD rate tables es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 5.434205655843865e-12,
+   "unvalidated": null,
+   "value": 0.9766666666666667,
+   "line": 0.9283333333333333,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K3.falls/100 tables es2 <= max(1, R_h's)",
+   "statistic": "falls/100 tables es2 <= max(1, R_h's)",
+   "rate": 0.004533805526248865,
+   "unvalidated": null,
+   "value": 0.3333333333333333,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K4.miss es1 <= max(1, R_h's)",
+   "statistic": "miss es1 <= max(1, R_h's)",
+   "rate": 0.004858176689914221,
+   "unvalidated": null,
+   "value": 0,
+   "line": 3,
+   "direction": "<=",
+   "pass": true
+  },
+  {
+   "id": "stand.D2.K4.exit falls es1 <= max(1, R_h's)",
+   "statistic": "exit falls es1 <= max(1, R_h's)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K4.onset excess p90 es1 <= 0 s",
+   "statistic": "onset excess p90 es1 <= 0 s",
+   "rate": 4.30957284786926e-31,
+   "unvalidated": true,
+   "value": -1.3049999999999993,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K4.miss es2 <= max(1, R_h's)",
+   "statistic": "miss es2 <= max(1, R_h's)",
+   "rate": 0.14287653950145296,
+   "unvalidated": null,
+   "value": 1,
+   "line": 3,
+   "direction": "<=",
+   "pass": true
+  },
+  {
+   "id": "stand.D2.K4.exit falls es2 <= max(1, R_h's)",
+   "statistic": "exit falls es2 <= max(1, R_h's)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K4.onset excess p90 es2 <= 0 s",
+   "statistic": "onset excess p90 es2 <= 0 s",
+   "rate": 4.309572847869257e-31,
+   "unvalidated": true,
+   "value": -1.305000000000001,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin0 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin0 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.95,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin0 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin0 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 0.0,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.95,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 1.0156736671936908e-09,
+   "unvalidated": null,
+   "value": 0.98,
+   "line": 0.871793471156579,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 3.163521144464601e-11,
+   "unvalidated": null,
+   "value": 0.99,
+   "line": 0.8752277442494835,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin2 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin2 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 6.256369777105928e-05,
+   "unvalidated": null,
+   "value": 0.98,
+   "line": 0.9299999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin2 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin2 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 8.220204738566518e-06,
+   "unvalidated": null,
+   "value": 0.98,
+   "line": 0.9299999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin3 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin3 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 0.0005345344639930342,
+   "unvalidated": null,
+   "value": 0.99,
+   "line": 0.95,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin3 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin3 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 0.0005345344639930342,
+   "unvalidated": null,
+   "value": 0.99,
+   "line": 0.95,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 6.445482854557611e-12,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.945,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "rate": 6.445482854557611e-12,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.945,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.stillness steps/s pooled es1 <= 0.5",
+   "statistic": "stillness steps/s pooled es1 <= 0.5",
+   "rate": 0.0008700328337383372,
+   "unvalidated": null,
+   "value": 0.1620291287575997,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.stillness taps/s pooled es1 <= 1",
+   "statistic": "stillness taps/s pooled es1 <= 1",
+   "rate": 0.0003240051684464532,
+   "unvalidated": null,
+   "value": 0.17098467937470346,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin0 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin0 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 8.008707242238763e-14,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.95,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin0 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin0 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 8.008707242238763e-14,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.95,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 2.8659946217683807e-08,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.9199999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 2.8659946217683807e-08,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.9199999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin2 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin2 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 5.5815921077516623e-08,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.94,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin2 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin2 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 5.5815921077516623e-08,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.94,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin3 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin3 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 4.210598660326728e-07,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.9299999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin3 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin3 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 4.210598660326728e-07,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.9299999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.homed share bin4 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "homed share bin4 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 2.611970739030475e-23,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.9049999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.settled share bin4 es2 >= R_h's - max(0.05, 2 SE)",
+   "statistic": "settled share bin4 es2 >= R_h's - max(0.05, 2 SE)",
+   "rate": 3.316082872888013e-29,
+   "unvalidated": null,
+   "value": 1.0,
+   "line": 0.9049999999999999,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.stillness steps/s pooled es2 <= 0.5",
+   "statistic": "stillness steps/s pooled es2 <= 0.5",
+   "rate": 0.0038045885553947847,
+   "unvalidated": null,
+   "value": 0.17988095629583364,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K6.stillness taps/s pooled es2 <= 1",
+   "statistic": "stillness taps/s pooled es2 <= 1",
+   "rate": 5.492879311860131e-05,
+   "unvalidated": null,
+   "value": 0.16343845572034613,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.steps_per_s suite es1",
+   "statistic": "steps_per_s suite es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.clearance_m suite es1",
+   "statistic": "clearance_m suite es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.05,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.off_ground_share suite es1",
+   "statistic": "off_ground_share suite es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.hover_episodes_per_100 suite es1",
+   "statistic": "hover_episodes_per_100 suite es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 5.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.taps_per_s suite es1",
+   "statistic": "taps_per_s suite es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.ks_m_s suite es1",
+   "statistic": "ks_m_s suite es1",
+   "rate": 1.330042202216532e-06,
+   "unvalidated": true,
+   "value": 0.09899,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.steps_per_s suite es2",
+   "statistic": "steps_per_s suite es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.clearance_m suite es2",
+   "statistic": "clearance_m suite es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.05,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.off_ground_share suite es2",
+   "statistic": "off_ground_share suite es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.hover_episodes_per_100 suite es2",
+   "statistic": "hover_episodes_per_100 suite es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 5.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.taps_per_s suite es2",
+   "statistic": "taps_per_s suite es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G1.ks_m_s suite es2",
+   "statistic": "ks_m_s suite es2",
+   "rate": 4.00463415817232e-06,
+   "unvalidated": true,
+   "value": 0.10429,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.homed walkstop es1",
+   "statistic": "homed walkstop es1",
+   "rate": 3.4325591883287576e-18,
+   "unvalidated": true,
+   "value": 1.0,
+   "line": 0.9,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.settled walkstop es1",
+   "statistic": "settled walkstop es1",
+   "rate": 2.1608396384304264e-20,
+   "unvalidated": true,
+   "value": 1.0,
+   "line": 0.9,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.median settle walkstop es1 <= probe + 1.0 s",
+   "statistic": "median settle walkstop es1 <= probe + 1.0 s",
+   "rate": 0.002611715995629846,
+   "unvalidated": true,
+   "value": 2.45,
+   "line": 3.92,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.post_settle_steps_per_s walkstop es1",
+   "statistic": "post_settle_steps_per_s walkstop es1",
+   "rate": 0.00023959438471705472,
+   "unvalidated": true,
+   "value": 0.10204,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.post_settle_taps_per_s walkstop es1",
+   "statistic": "post_settle_taps_per_s walkstop es1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.post_settle_ks_m_s walkstop es1",
+   "statistic": "post_settle_ks_m_s walkstop es1",
+   "rate": 0.00013469726976582632,
+   "unvalidated": true,
+   "value": 0.14325,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.homed walkstop es2",
+   "statistic": "homed walkstop es2",
+   "rate": 3.0976373973155067e-19,
+   "unvalidated": true,
+   "value": 0.99,
+   "line": 0.9,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.settled walkstop es2",
+   "statistic": "settled walkstop es2",
+   "rate": 3.0976373973155067e-19,
+   "unvalidated": true,
+   "value": 0.99,
+   "line": 0.9,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.median settle walkstop es2 <= probe + 1.0 s",
+   "statistic": "median settle walkstop es2 <= probe + 1.0 s",
+   "rate": 4.4041992885461715e-05,
+   "unvalidated": true,
+   "value": 2.52,
+   "line": 3.96,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.post_settle_steps_per_s walkstop es2",
+   "statistic": "post_settle_steps_per_s walkstop es2",
+   "rate": 0.00012218243701223833,
+   "unvalidated": true,
+   "value": 0.0999,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.post_settle_taps_per_s walkstop es2",
+   "statistic": "post_settle_taps_per_s walkstop es2",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 1.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G2.post_settle_ks_m_s walkstop es2",
+   "statistic": "post_settle_ks_m_s walkstop es2",
+   "rate": 4.299901501640018e-05,
+   "unvalidated": true,
+   "value": 0.14892,
+   "line": 0.5,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G3.walkstop stand falls (count) es1 <= max(1, Z1's count)",
+   "statistic": "walkstop stand falls (count) es1 <= max(1, Z1's count)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G3.suite stand falls es1 == 0",
+   "statistic": "suite stand falls es1 == 0",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G3.walkstop exit-handover falls within 2 s es1 <= max(1, R's)",
+   "statistic": "walkstop exit-handover falls within 2 s es1 <= max(1, R's)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G3.walkstop stand falls (count) es2 <= max(1, Z1's count)",
+   "statistic": "walkstop stand falls (count) es2 <= max(1, Z1's count)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G3.suite stand falls es2 == 0",
+   "statistic": "suite stand falls es2 == 0",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G3.walkstop exit-handover falls within 2 s es2 <= max(1, R's)",
+   "statistic": "walkstop exit-handover falls within 2 s es2 <= max(1, R's)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G4.field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE)",
+   "statistic": "field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE)",
+   "rate": 0.05036684346922408,
+   "unvalidated": true,
+   "value": 0.825,
+   "line": 0.7125,
+   "direction": ">=",
+   "pass": true,
+   "line_rule": "REFS(T*) - max(0.10, 2 SE) (CHARTER STOP-0 relaxed G4)"
+  },
+  {
+   "id": "stand.D2.K5.G4.field_turn es1 completion >= REFS - max(0.05, band)",
+   "statistic": "field_turn es1 completion >= REFS - max(0.05, band)",
+   "rate": 0.012530869829919402,
+   "unvalidated": true,
+   "value": 1.0,
+   "line": 0.89,
+   "direction": ">=",
+   "pass": true,
+   "line_rule": "REFS(T*) - max(0.10, 2 SE) (CHARTER STOP-0 relaxed G4)"
+  },
+  {
+   "id": "stand.D2.K5.G4.field_turn__omni@1 stand-fall rate <= HOLD + 2 SE(diff)",
+   "statistic": "field_turn__omni@1 stand-fall rate <= HOLD + 2 SE(diff)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G4.field_hard__omni@1-4 stand-fall rate <= HOLD + 2 SE(diff)",
+   "statistic": "field_hard__omni@1-4 stand-fall rate <= HOLD + 2 SE(diff)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.0,
+   "line": 0.0,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop onset median es1 <= REFS + max(0.3, band)",
+   "statistic": "walkstop onset median es1 <= REFS + max(0.3, band)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.12,
+   "line": 0.44,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop onset stalls es1 <= REFS + 1",
+   "statistic": "walkstop onset stalls es1 <= REFS + 1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop onset median es2 <= REFS + max(0.3, band)",
+   "statistic": "walkstop onset median es2 <= REFS + max(0.3, band)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.12,
+   "line": 0.44,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop onset stalls es2 <= REFS + 1",
+   "statistic": "walkstop onset stalls es2 <= REFS + 1",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0,
+   "line": 1,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)",
+   "statistic": "walkstop onset median pooled es1+es2 <= REFS + max(0.3, band) (p2s_cost)",
+   "rate": 0.0,
+   "unvalidated": true,
+   "value": 0.12,
+   "line": 0.44,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.suite es1 |body height - REFS| <= 0.03",
+   "statistic": "suite es1 |body height - REFS| <= 0.03",
+   "rate": 2.9181505999099287e-07,
+   "unvalidated": true,
+   "value": 0.0032000000000000917,
+   "line": 0.03,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop es1 |body height - REFS| <= 0.03",
+   "statistic": "walkstop es1 |body height - REFS| <= 0.03",
+   "rate": 1.1813514570685568e-05,
+   "unvalidated": true,
+   "value": 0.006240000000000023,
+   "line": 0.03,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.suite es2 |body height - REFS| <= 0.03",
+   "statistic": "suite es2 |body height - REFS| <= 0.03",
+   "rate": 2.9028014100045048e-08,
+   "unvalidated": true,
+   "value": 0.0016899999999999693,
+   "line": 0.03,
+   "pass": true,
+   "state": "eval"
+  },
+  {
+   "id": "stand.D2.K5.G5.walkstop es2 |body height - REFS| <= 0.03",
+   "statistic": "walkstop es2 |body height - REFS| <= 0.03",
+   "rate": 1.4149106768672177e-05,
+   "unvalidated": true,
+   "value": 0.005750000000000144,
+   "line": 0.03,
+   "pass": true,
+   "state": "eval"
+  }
+ ],
+ "halt_lines": [],
+ "head": {
+  "stage": "sh_ref",
+  "name": "SH_T4R18_sh_ref_s17",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_ref_s17/model_5000.pt",
+  "sha256": "ead5e7936145baa4c72b380ed33c62a2a7920332e28eb8bd9ee209c31966dca5",
+  "refs": "REFS_S1_s18",
+  "read": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sh_ref_read.json",
+  "k5_calib": "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/R18/stand/sh_ref_k5_calib.json",
+  "table": "/home/nickmagus/krabby/krabby-research/parkour/logs/videos/sh_table/2026-10-19_21-38-10_full",
+  "train_log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_T4R18_sh_ref_s17/train_log.jsonl"
+ },
+ "notes": [
+  {
+   "sh_read_K5_verdicts": {
+    "G1 STILL": "INVALID",
+    "G2 HOMED": "INVALID",
+    "G3 FALLS": "INVALID",
+    "G4 WALLS": "INVALID",
+    "G5 HANDOVER": "INVALID"
+   }
+  }
+ ],
+ "x": {
+  "rule": "report_only",
+  "sha256": "ead5e7936145baa4c72b380ed33c62a2a7920332e28eb8bd9ee209c31966dca5",
+  "ref_sha256": "99c377a17b1bf04774afb17871db11c9a9909c14b84951832fb6a0087484154e",
+  "sha_equal": false,
+  "loss_curve_equal": true,
+  "curves_compared": true,
+  "bitwise": false,
+  "verdict": "REPORT-ONLY",
+  "decisive": false,
+  "feeds_stop_r": false
+ }
+}
