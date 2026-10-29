@@ -9,6 +9,6 @@ Render and validate the documentation with:
 make -C assets/wiring render
 ```
 
-Open the HTML output under `generated/sheets/` for the interactive schematic.
+Open the SVG under `generated/sheets/` for a scalable diagram, or the PNG for a preview.
 Each diagram module's filename is its canonical name and the basename of every
 generated format.

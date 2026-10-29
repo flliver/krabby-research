@@ -18,6 +18,7 @@ def build() -> str:
         "pitch": state.pitch,
         "imu_valid": state.imu_valid,
         "battery_volts": list(state.battery_volts),
+        "battery_valid": state.battery_valid,
         "front": state.front,
         "left": state.left,
         "right": state.right,
@@ -68,6 +69,7 @@ _PAGE = r"""
 
     <fieldset>
       <legend>Power</legend>
+      <label class="check"><input id="battery_valid" type="checkbox"> Monitors valid</label>
       <label>Battery A <output id="battery_a_value"></output>
         <input id="battery_a" type="range" min="10" max="14.6" step="0.1">
       </label>
@@ -122,7 +124,7 @@ function jointControls() {
 }
 
 function applyState(state) {
-  for (const key of ["role", "roll", "pitch", "front", "left", "right", "imu_valid"])
+  for (const key of ["role", "roll", "pitch", "front", "left", "right", "imu_valid", "battery_valid"])
     document.getElementById(key)[document.getElementById(key).type === "checkbox" ? "checked" : "value"] = state[key];
   document.getElementById("battery_a").value = state.battery_volts[0];
   document.getElementById("battery_b").value = state.battery_volts[1];
@@ -142,6 +144,7 @@ function readState() {
     roll: Number(document.getElementById("roll").value),
     pitch: Number(document.getElementById("pitch").value),
     imu_valid: document.getElementById("imu_valid").checked,
+    battery_valid: document.getElementById("battery_valid").checked,
     battery_volts: [Number(document.getElementById("battery_a").value), Number(document.getElementById("battery_b").value)],
     front: document.getElementById("front").checked,
     left: document.getElementById("left").checked,

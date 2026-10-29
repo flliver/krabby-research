@@ -32,6 +32,7 @@ class KrabState:
     pitch: int = 0
     imu_valid: bool = True
     battery_volts: tuple = (13.3, 13.3)
+    battery_valid: bool = True
     front: bool = True
     left: bool = True
     right: bool = True
@@ -48,6 +49,7 @@ class KrabState:
             pitch=int(payload.get("pitch", 0)),
             imu_valid=bool(payload.get("imu_valid", True)),
             battery_volts=tuple(payload.get("battery_volts", (13.3, 13.3))),
+            battery_valid=bool(payload.get("battery_valid", True)),
             front=bool(payload.get("front", True)),
             left=bool(payload.get("left", True)),
             right=bool(payload.get("right", True)),
@@ -74,6 +76,7 @@ class KrabState:
             f"pitch={int(self.pitch)}",
             f"imu={int(self.imu_valid)}",
             f"battery={float(self.battery_volts[0])},{float(self.battery_volts[1])}",
+            f"battery_valid={int(self.battery_valid)}",
             f"front={int(self.front)}",
             f"left={int(self.left)}",
             f"right={int(self.right)}",

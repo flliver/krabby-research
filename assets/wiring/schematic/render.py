@@ -5,14 +5,14 @@ import subprocess
 import sys
 
 from catalog import DIAGRAMS
-from theme import configure, write_inline_html
+from theme import configure
 
 
 def run(*args: str) -> None:
     subprocess.run(args, check=True)
 
 
-def convert(svg: Path, png: Path, pdf: Path) -> None:
+def convert(svg: Path, png: Path) -> None:
     run(
         "rsvg-convert",
         "--background-color",
@@ -20,16 +20,6 @@ def convert(svg: Path, png: Path, pdf: Path) -> None:
         str(svg),
         "-o",
         str(png),
-    )
-    run(
-        "rsvg-convert",
-        "--background-color",
-        "white",
-        "-f",
-        "pdf",
-        str(svg),
-        "-o",
-        str(pdf),
     )
 
 
@@ -41,12 +31,9 @@ def build(output_dir: Path) -> None:
     for diagram in DIAGRAMS:
         svg = sheets_dir / f"{diagram.name}.svg"
         png = sheets_dir / f"{diagram.name}.png"
-        pdf = sheets_dir / f"{diagram.name}.pdf"
-        html = sheets_dir / f"{diagram.name}.html"
 
         diagram.build(svg)
-        write_inline_html(svg, html, diagram.title, diagram.hint)
-        convert(svg, png, pdf)
+        convert(svg, png)
 
 
 if __name__ == "__main__":

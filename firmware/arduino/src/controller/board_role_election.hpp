@@ -1,6 +1,7 @@
 #pragma once
 
 #include "board_role.h"
+#include "../../eeprom_layout.h"
 
 #include <Arduino.h>
 
@@ -12,7 +13,7 @@
 
 // Mirrors role boot in firmware/arduino/arduino.ino (determineRole, loadRole, saveRole).
 
-constexpr int BOARD_ROLE_EEPROM_ADDR = 32;
+constexpr int BOARD_ROLE_EEPROM_ADDR = EEPROM_ROLE_ADDR;
 constexpr uint8_t BOARD_ROLE_EEPROM_MAGIC = 0xAB;
 constexpr unsigned long BOARD_ROLE_ELECTION_MS = 3000;
 constexpr unsigned long BOARD_ROLE_SYNC_INTERVAL_MS = 10;

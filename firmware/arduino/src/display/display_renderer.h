@@ -75,13 +75,14 @@ private:
             frame.pitch.value() != previousFrame_.pitch.value())
             drawTilt(frame);
         if (isFullRedraw ||
-            frame.packVoltage.value() != previousFrame_.packVoltage.value())
+            displayPackDecivolts(frame.packVoltage) !=
+                displayPackDecivolts(previousFrame_.packVoltage))
             drawVolts(frame);
 
         for (int battery = 0; battery < 2; ++battery)
             if (isFullRedraw ||
-                frame.batteryLevel[battery] !=
-                    previousFrame_.batteryLevel[battery] ||
+                batteryFillPixels(frame.batteryLevel[battery]) !=
+                    batteryFillPixels(previousFrame_.batteryLevel[battery]) ||
                 frame.batteryDecivolts[battery] !=
                     previousFrame_.batteryDecivolts[battery])
                 drawBattery(frame, battery);
@@ -132,22 +133,19 @@ private:
     {
         char text[12];
         snprintf(text, sizeof(text), "%+03d/%+03d",
-                 clampTilt(static_cast<int>(frame.roll.value())),
-                 clampTilt(static_cast<int>(frame.pitch.value())));
+                 static_cast<int>(frame.roll.value()),
+                 static_cast<int>(frame.pitch.value()));
         drawTextField(SSD1306_HEADER_TILT_X, SSD1306_HEADER_TILT_CHARS, text);
     }
 
     void drawVolts(const DisplayFrame &frame)
     {
         char text[16];
-        const float volts = frame.packVoltage.value();
-        if (!isfinite(volts) || volts < 0.0f || volts > 999.9f)
+        const int decivolts = displayPackDecivolts(frame.packVoltage);
+        if (decivolts == BATTERY_DECIVOLTS_NO_SIGNAL)
             snprintf(text, sizeof(text), "--.-V");
         else
-        {
-            const int decivolts = static_cast<int>(lround(volts * 10.0f));
-            snprintf(text, sizeof(text), "%d.%dV", decivolts / 10, abs(decivolts % 10));
-        }
+            snprintf(text, sizeof(text), "%2d.%dV", decivolts / 10, abs(decivolts % 10));
         drawTextField(SSD1306_HEADER_VOLTS_X, SSD1306_HEADER_VOLTS_CHARS, text);
     }
 
@@ -170,10 +168,7 @@ private:
                               SSD1306_BATTERY_NUB_WIDTH, SSD1306_BATTERY_NUB_HEIGHT,
                               SSD1306_COLOR_WHITE);
 
-        const float raw = frame.batteryLevel[battery];
-        const float level = raw < 0.0f ? 0.0f : (raw > 1.0f ? 1.0f : raw);
-        const int fillWidth =
-            static_cast<int>(lround(SSD1306_BATTERY_FILL_WIDTH * level));
+        const int fillWidth = batteryFillPixels(frame.batteryLevel[battery]);
         if (fillWidth > 0)
             canvas_.rectangleFill(barX + 1, SSD1306_BATTERY_Y + 1, fillWidth,
                                   SSD1306_BATTERY_HEIGHT - 2, SSD1306_COLOR_WHITE);
@@ -300,11 +295,6 @@ private:
                      centerX + triangleRadius, centerY + triangleRadius);
         canvas_.line(centerX - triangleRadius, centerY + triangleRadius,
                      centerX + triangleRadius, centerY - triangleRadius);
-    }
-
-    static int clampTilt(int value)
-    {
-        return value < -99 ? -99 : (value > 99 ? 99 : value);
     }
 
     Canvas &canvas_;

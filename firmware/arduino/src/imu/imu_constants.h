@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "../../eeprom_layout.h"
 #include "../units/angular_units.h"
 #include "../units/inertial_units.h"
 
@@ -22,11 +23,6 @@ static constexpr float IMU_CAL_MAX_BIAS_DPS = 10.0f;
 // Delay and rate-limit reconfiguration after a failed transfer.
 static constexpr uint8_t IMU_BAD_TICKS_BEFORE_RECOVERY = 3;
 static constexpr uint32_t IMU_RECOVERY_RETRY_INTERVAL_MS = 1000UL;
-
-// Joint calibration occupies 0-25, role data 32-33
-static constexpr uint16_t EEPROM_IMU_CAL_ADDR = 40;
-static constexpr uint16_t EEPROM_IMU_CAL_SIZE = 26;
-static constexpr uint16_t EEPROM_SENSOR_CAL_NEXT_ADDR = EEPROM_IMU_CAL_ADDR + EEPROM_IMU_CAL_SIZE;
 
 // 0xC7 is distinct from the role magic (0xAB) and from erased EEPROM (0xFF).
 static constexpr uint8_t EEPROM_IMU_CAL_INVALID_MAGIC = 0x00;

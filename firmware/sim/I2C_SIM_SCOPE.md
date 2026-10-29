@@ -47,7 +47,7 @@ There is **no** central `sensors_config.h` in the tree; constants live in `imu_c
 |---------|----------------------|----------|---------------|
 | Joints | `FRONT;` + 6 nine-token segments | `actuator_manager.h` | `joint_telemetry.py` |
 | IMU | `;IMU ax ay az gx gy gz temp valid` | `appendImuMeasurement()` in `telemetry.h` | `imu_telemetry.py`, `TelemetryFrame` |
-| BATT | `;BATT ...` (documented pack schema) | Leader **`appendBatteryMeasurement`** when INA228 online | Host append when sim devices present |
+| BATT | `;BATT ...` (documented pack schema) | Leader **`appendBatteryTelemetry`**, including per-monitor validity | Host emits the legacy eight-field segment when sim devices are present |
 
 IMU units on the wire: accel **m/s^2**, gyro **rad/s**, temp **deg C**, `valid` **0|1**.
 When init fails, firmware still appends IMU with zeros and `valid=0` (does not stall the loop).

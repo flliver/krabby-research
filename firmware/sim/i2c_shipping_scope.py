@@ -68,11 +68,11 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         leader_only=True,
         status=I2cSimStatus.SHIPPING,
         firmware_sources=(
-            "firmware/arduino/src/power/ina228_adapter.h",
-            "firmware/arduino/arduino.ino (batterySetup, appendBatteryMeasurement)",
+            "firmware/arduino/src/power_monitor/ina228_adapter.h",
+            "firmware/arduino/arduino.ino (powerMonitorSetup, appendBatteryTelemetry)",
         ),
-        notes="Pack shunt monitor; setShunt(0.000375 ohm, 200 A) on leader bring-up.",
-        telemetry_segment=";BATT <pack_v> <pack_i> <pack_w> <pack_charge> <batt_a_v> <batt_b_v> <div> <pwr>",
+        notes="Pack shunt monitor; 0.000375 ohm, 200 A external shunt with persisted calibration.",
+        telemetry_segment=";BATT <pack_v> <pack_i> <pack_w> <pack_charge> <batt_a_v> <batt_b_v> <div> <pwr> <pack_valid> <midpoint_valid>",
     ),
     I2cDeviceScope(
         name="Midpoint INA228",
@@ -81,7 +81,7 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         leader_only=True,
         status=I2cSimStatus.SHIPPING,
         firmware_sources=(
-            "firmware/arduino/src/power/ina228_adapter.h",
+            "firmware/arduino/src/power_monitor/ina228_adapter.h",
             "firmware/arduino/src/power/ina228_constants.h",
         ),
         notes="Midpoint VBUS for per-cell voltage; batt_b = pack_v - batt_a_v.",

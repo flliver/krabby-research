@@ -162,20 +162,34 @@ void hostDisplayStep(unsigned long nowMs)
     }
 
     const ImuMeasurement imu = leaderImu().measure();
+    PowerMonitorMeasurement pack;
+    PowerMonitorMeasurement midpoint;
+    Volts batteryB(NAN);
+    if (leaderBattery().isOnline())
+    {
+        const auto sample = leaderBattery().sample();
+        if (sample.valid)
+        {
+            pack.voltage = Volts(sample.packVolts);
+            pack.current = Amps(sample.packAmps);
+            pack.power = Watts(sample.packWatts);
+            pack.charge = Coulombs(sample.packChargeCoulombs);
+            pack.isValid = true;
+            midpoint.voltage = Volts(sample.battAVolts);
+            midpoint.isValid = true;
+            batteryB = Volts(sample.battBVolts);
+        }
+    }
     DisplayFrame frame = buildDisplayFrame(
         ROLE_FRONT,
         g_controllerFreshness,
         g_actuatorStatus,
         imu,
         static_cast<uint32_t>(nowMs),
-        kMoveThreshold);
-    if (leaderBattery().isOnline())
-    {
-        const auto sample = leaderBattery().sample();
-        const Volts batteryVoltage[2] = {
-            Volts(sample.battAVolts), Volts(sample.battBVolts)};
-        setBatteryVoltages(frame, batteryVoltage);
-    }
+        kMoveThreshold,
+        pack,
+        midpoint,
+        batteryB);
 
     for (ActuatorId actuatorId = ActuatorId::FLHY;
          actuatorId < ActuatorId::ActuatorCount;

@@ -1,66 +1,151 @@
+import enum
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
+
+
+class PackVoltageRegion(enum.IntEnum):
+    """Voltage-region codes carried in battery telemetry."""
+
+    NORMAL = 0
+    WARN = 1
+    SOFT_CUT = 2
+    HARD_CUT = 3
+    OVER_VOLT = 4
+
+
+def _known_or_raw(enum_type, value):
+    """Keep a defined value as its enum member, an undefined one as a plain int."""
+    try:
+        return enum_type(value)
+    except ValueError:
+        return value
+
+
+def _label(value) -> str:
+    return value.name if isinstance(value, enum.IntEnum) else str(value)
 
 
 @dataclass(frozen=True, slots=True)
 class BatteryTelemetry:
-    pack_v: float
-    pack_i: float
-    pack_w: float
-    pack_charge: float
-    batt_a_v: float
-    batt_b_v: float
-    divergence_flag: int
-    power_state: int
+    pack_volts: float
+    pack_current_amperes: float
+    pack_power_watts: float
+    pack_charge_coulombs: float
+    battery_a_volts: float
+    battery_b_volts: float
+    # Divergence assumed when either monitor is unavailable or a voltage is non-finite.
+    divergence: bool
+    # Unknown bytes are retained as plain ints rather than coerced or dropped, so
+    # a firmware that gains a value stays parseable and the unknown stays visible.
+    pack_region: Union[PackVoltageRegion, int]
+    # Each flag reports whether all four reads from that monitor succeeded.
+    pack_valid: bool
+    midpoint_valid: bool
 
     TAG = "BATT"
+    TOKEN_COUNT = 11
+    VALID_TOKENS = ("0", "1")
 
     @classmethod
     def from_tokens(cls, tokens) -> Optional["BatteryTelemetry"]:
-        if not tokens or len(tokens) != 9:
+        # Released firmware and the host simulator omit unavailable samples
+        # and use eight fields, without the two per-monitor validity flags.
+        if tokens and len(tokens) == 9:
+            try:
+                if not all(math.isfinite(float(value)) for value in tokens[1:7]):
+                    return None
+                if not 0 <= int(tokens[8]) <= 6:
+                    return None
+            except ValueError:
+                return None
+            tokens = [*tokens, "1", "1"]
+        if not tokens or len(tokens) != cls.TOKEN_COUNT:
+            return None
+        (tag, pack_v, pack_i, pack_w, pack_charge, battery_a, battery_b,
+         divergence, region, pack_valid, midpoint_valid) = tokens
+        if tag != cls.TAG:
+            return None
+        if any(token not in cls.VALID_TOKENS
+               for token in (divergence, pack_valid, midpoint_valid)):
             return None
         try:
-            tag = tokens[0]
-            if tag != cls.TAG:
+            region_value = int(region)
+            if not 0 <= region_value <= 255:
                 return None
-            pack_v = float(tokens[1])
-            pack_i = float(tokens[2])
-            pack_w = float(tokens[3])
-            pack_charge = float(tokens[4])
-            batt_a_v = float(tokens[5])
-            batt_b_v = float(tokens[6])
-            divergence_flag = int(tokens[7])
-            power_state = int(tokens[8])
+            return cls(
+                pack_volts=float(pack_v),
+                pack_current_amperes=float(pack_i),
+                pack_power_watts=float(pack_w),
+                pack_charge_coulombs=float(pack_charge),
+                battery_a_volts=float(battery_a),
+                battery_b_volts=float(battery_b),
+                divergence=divergence == "1",
+                pack_region=_known_or_raw(PackVoltageRegion, region_value),
+                pack_valid=pack_valid == "1",
+                midpoint_valid=midpoint_valid == "1",
+            )
         except ValueError:
             return None
-
-        fields = (pack_v, pack_i, pack_w, pack_charge, batt_a_v, batt_b_v)
-        if not all(math.isfinite(value) for value in fields):
-            return None
-        if divergence_flag not in (0, 1):
-            return None
-        if power_state < 0 or power_state > 6:
-            return None
-
-        return cls(
-            pack_v=pack_v,
-            pack_i=pack_i,
-            pack_w=pack_w,
-            pack_charge=pack_charge,
-            batt_a_v=batt_a_v,
-            batt_b_v=batt_b_v,
-            divergence_flag=divergence_flag,
-            power_state=power_state,
-        )
 
     @classmethod
     def from_segment(cls, segment: str) -> Optional["BatteryTelemetry"]:
         return cls.from_tokens(segment.split())
 
+    # Preserve the SDK names used by the upstream host simulator's consumers.
+    @property
+    def pack_v(self) -> float:
+        return self.pack_volts
+
+    @property
+    def pack_i(self) -> float:
+        return self.pack_current_amperes
+
+    @property
+    def pack_w(self) -> float:
+        return self.pack_power_watts
+
+    @property
+    def pack_charge(self) -> float:
+        return self.pack_charge_coulombs
+
+    @property
+    def batt_a_v(self) -> float:
+        return self.battery_a_volts
+
+    @property
+    def batt_b_v(self) -> float:
+        return self.battery_b_volts
+
+    @property
+    def divergence_flag(self) -> int:
+        return int(self.divergence)
+
+    @property
+    def power_state(self) -> int:
+        return int(self.pack_region)
+
+    @staticmethod
+    def format_battery_voltage(volts: float) -> str:
+        return f"{volts:.2f}"
+
+    @property
+    def split_available(self) -> bool:
+        return self.pack_valid and self.midpoint_valid
+
     def format_compact(self) -> str:
+        region = _label(self.pack_region)
+        divergence = " DIVERGE" if self.divergence else ""
+        down = "".join(
+            f" {name}:DOWN"
+            for name, ok in (("pack", self.pack_valid), ("mid", self.midpoint_valid))
+            if not ok
+        )
         return (
-            f"pack {self.pack_v:.2f}V {self.pack_i:.3f}A {self.pack_w:.2f}W "
-            f"A {self.batt_a_v:.2f}V B {self.batt_b_v:.2f}V "
-            f"div={self.divergence_flag} pwr={self.power_state}"
+            f"pack:{self.pack_volts:.2f}V "
+            f"{self.pack_current_amperes:+.2f}A "
+            f"{self.pack_power_watts:.1f}W "
+            f"A:{self.format_battery_voltage(self.battery_a_volts)}V "
+            f"B:{self.format_battery_voltage(self.battery_b_volts)}V "
+            f"q:{self.pack_charge_coulombs:.0f}C {region}{divergence}{down}"
         )

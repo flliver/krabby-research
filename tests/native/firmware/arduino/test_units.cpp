@@ -1,5 +1,7 @@
 #include <type_traits>
 #include <stdint.h>
+#include <math.h>
+#include <stdlib.h>
 
 #include "src/units/angular_units.h"
 #include "src/units/base_units.h"
@@ -14,6 +16,13 @@ class EncoderCounts : public LinearUnit<EncoderCounts, int16_t>
 public:
     using LinearUnit<EncoderCounts, int16_t>::LinearUnit;
 };
+
+static_assert(std::is_same<decltype(abs(Volts(-1.0f))), Volts>::value,
+    "absolute value must preserve the concrete unit");
+static_assert(abs(EncoderCounts(-12)).value() == 12,
+    "integer absolute value must work in constant expressions");
+static_assert(abs(Amps(-2.0f)).value() == 2.0f,
+    "absolute value must be shared by linear units");
 
 template <typename Value>
 class HasScalarMultiply
@@ -141,9 +150,28 @@ static void test_electrical_milli_conversions_round_trip()
     TEST_ASSERT_EQUAL_FLOAT(37500.0f, Watts(37.5f).toMilliWatts().value());
 }
 
+static void test_linear_unit_absolute_value()
+{
+    TEST_ASSERT_EQUAL_FLOAT(2.5f, abs(Volts(-2.5f)).value());
+    TEST_ASSERT_EQUAL_FLOAT(2.5f, abs(Volts(2.5f)).value());
+    TEST_ASSERT_EQUAL_FLOAT(1.5f, abs(Volts(1.0f) - Volts(2.5f)).value());
+    TEST_ASSERT_EQUAL_FLOAT(0.0f, abs(Volts(-0.0f)).value());
+    TEST_ASSERT_FALSE(signbit(abs(Volts(-0.0f)).value()));
+    TEST_ASSERT_FALSE(signbit(abs(Volts(0.0f)).value()));
+    TEST_ASSERT_TRUE(isnan(abs(Volts(NAN)).value()));
+    TEST_ASSERT_TRUE(isinf(abs(Volts(INFINITY)).value()));
+    TEST_ASSERT_TRUE(isinf(abs(Volts(-INFINITY)).value()));
+    TEST_ASSERT_FALSE(signbit(abs(Volts(-INFINITY)).value()));
+    TEST_ASSERT_EQUAL_INT16(0, abs(EncoderCounts(0)).value());
+    TEST_ASSERT_EQUAL_INT16(INT16_MAX, abs(EncoderCounts(INT16_MAX)).value());
+    TEST_ASSERT_EQUAL_INT16(INT16_MAX, abs(EncoderCounts(-INT16_MAX)).value());
+    TEST_ASSERT_EQUAL_INT(3, abs(-3));
+}
+
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_linear_unit_absolute_value);
     RUN_TEST(test_same_unit_assignment_preserves_value);
     RUN_TEST(test_acceleration_and_angular_rate_support_vector_operations);
     RUN_TEST(test_degrees_per_second_supports_calibration_operations);

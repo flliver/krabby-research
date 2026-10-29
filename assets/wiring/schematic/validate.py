@@ -28,7 +28,7 @@ def validate_svg_links(svg_path: Path) -> None:
 def validate(output_dir: Path) -> None:
     sheets_dir = output_dir / "sheets"
     for diagram in DIAGRAMS:
-        for suffix in ("html", "svg", "png", "pdf"):
+        for suffix in ("svg", "png"):
             require(sheets_dir / f"{diagram.name}.{suffix}")
         validate_svg_links(sheets_dir / f"{diagram.name}.svg")
     print("M16 wiring outputs and links are valid.")

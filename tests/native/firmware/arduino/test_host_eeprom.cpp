@@ -7,7 +7,6 @@
 
 namespace {
 
-constexpr int EEPROM_ROLE_ADDR = 32;
 constexpr uint8_t EEPROM_ROLE_MAGIC = 0xAB;
 
 LinearActuator makeActuator()
