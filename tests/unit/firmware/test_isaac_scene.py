@@ -7,6 +7,7 @@ import pytest
 from firmware.sim.isaac_scene import (
     DEFAULT_CRAB_HEX_PLAY_TASK,
     _crab_hex_articulation_uses_ref_joint_names,
+    configure_open_loop_velocity_drive,
     resolve_eighteen_joint_indices,
     resolve_front_board_joint_indices,
     resolve_joint_indices_by_name,
@@ -146,3 +147,50 @@ def test_resolve_front_board_joint_indices_uses_config_names():
     out = resolve_front_board_joint_indices(robot, config)
     assert set(out) == set(config.isaac_joint_names())
     assert len(out) == 6
+
+
+def test_front_board_open_loop_joint_names_include_cam_shaft_yaw():
+    """``front_board_rig`` passes these six names to ``configure_open_loop_velocity_drive``."""
+    config = SimulatedRobotConfig.front_board_rev3()
+    names = set(config.isaac_joint_names())
+    assert "FL_Body_CamShaft_RevoluteJoint" in names
+    assert "FR_Body_CamShaft_RevoluteJoint" in names
+    assert not any("Body_Hip" in n for n in names)
+
+
+def test_eighteen_joint_open_loop_indices_include_six_cam_shafts():
+    """Plant ``crab.usda`` rig: all 18 firmware DOFs including ``*HY`` cam shafts."""
+    configs = ThreeBoardSimConfigs.rev3()
+    hy_joint_names = [
+        slot.isaac_joint_name
+        for slot in configs.all_slots()
+        if slot.firmware_actuator_id.endswith("HY")
+    ]
+    assert len(hy_joint_names) == 6
+    assert all("Body_CamShaft" in name for name in hy_joint_names)
+
+    robot = MagicMock()
+
+    def find_joints(names, preserve_order=True):
+        del preserve_order
+        if names == ["FL_Body_CamShaft_RevoluteJoint"]:
+            return ([0], ["FL_Body_CamShaft_RevoluteJoint"])
+        if names == ["lf_hip_yaw"]:
+            raise ValueError("plant")
+        return (list(range(len(names))), list(names))
+
+    robot.find_joints.side_effect = find_joints
+    indices = resolve_eighteen_joint_indices(robot, configs)
+    for name in hy_joint_names:
+        assert name in indices
+    assert len(set(indices.values())) == 18
+
+
+def test_configure_open_loop_velocity_drive_zeros_stiffness_on_every_index():
+    robot = MagicMock()
+    robot.actuators = {}
+    joint_ids = list(range(18))
+
+    configure_open_loop_velocity_drive(robot, joint_ids)
+
+    robot.write_joint_stiffness_to_sim.assert_called_once_with(0.0, joint_ids=joint_ids)
