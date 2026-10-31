@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass
 
@@ -43,6 +44,8 @@ def draw_pot_calibration_bands(count: int, seed: int) -> tuple[PotCalibrationBan
 
 def travel_fraction_to_pot_adc(fraction: float, band: PotCalibrationBand) -> int:
     """Map normalized travel [0, 1] onto ``[min_adc, max_adc]``, saturate outside."""
+    if not math.isfinite(fraction):
+        return int(round((band.min_adc + band.max_adc) / 2))
     if fraction <= 0.0:
         return band.min_adc
     if fraction >= 1.0:

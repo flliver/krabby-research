@@ -1,8 +1,15 @@
 """Joint angle to linear-pot ADC mapping."""
 
+import math
+
 import pytest
 
-from firmware.sim.pot_position import ADC_FULL_SCALE, joint_angle_to_pot_adc
+from firmware.sim.pot_position import (
+    ADC_FULL_SCALE,
+    joint_angle_to_pot_adc,
+    joint_angle_to_travel_fraction,
+    normalize_joint_travel_limits,
+)
 
 
 @pytest.mark.parametrize(
@@ -21,3 +28,13 @@ def test_joint_angle_to_pot_adc_ideal_full_scale(position, lower, upper, expecte
 def test_joint_angle_to_pot_adc_clamps_outside_limits():
     assert joint_angle_to_pot_adc(-5.0, 0.0, 1.0, band=None) == 0
     assert joint_angle_to_pot_adc(5.0, 0.0, 1.0, band=None) == ADC_FULL_SCALE
+
+
+def test_normalize_joint_travel_limits_fallback_for_unbounded_usd():
+    lo, hi = normalize_joint_travel_limits(float("-inf"), float("inf"))
+    assert lo == -math.pi and hi == math.pi
+
+
+def test_joint_angle_to_travel_fraction_unbounded_limits():
+    assert joint_angle_to_travel_fraction(0.0, float("nan"), float("nan")) == 0.5
+    assert joint_angle_to_travel_fraction(0.0, float("-inf"), float("inf")) == 0.5

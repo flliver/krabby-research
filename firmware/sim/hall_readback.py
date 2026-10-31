@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Sequence
 
 from firmware.sim.host_bridge import HostActuatorBridge
+from firmware.sim.pot_position import normalize_joint_travel_limits
 from firmware.sim.simulated_actuator import SimulatedActuator
 
 
@@ -32,4 +33,5 @@ def sync_hall_edge_counts(
         position = float(joint_pos[env_index][joint_index].item())
         lower = float(limits[env_index][joint_index][0].item())
         upper = float(limits[env_index][joint_index][1].item())
+        lower, upper = normalize_joint_travel_limits(lower, upper)
         bridge.sync_hall_joint(hall_slot, position, lower, upper)
