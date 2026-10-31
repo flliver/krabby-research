@@ -31,6 +31,8 @@ class WrenchSample:
 def wrench_body_name_for_joint(isaac_joint_name: str) -> str:
     """Child link body for the joint that the firmware slot drives (``find_bodies`` name)."""
     leg = isaac_joint_name.split("_", 1)[0]
+    if "_Body_CamShaft_RevoluteJoint" in isaac_joint_name:
+        return f"{leg}_CamShaft"
     if "_Body_Hip_RevoluteJoint" in isaac_joint_name:
         return f"{leg}_Hip"
     if "_Hip_Femur_RevoluteJoint" in isaac_joint_name:

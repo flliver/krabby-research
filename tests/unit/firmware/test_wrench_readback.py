@@ -23,6 +23,7 @@ class _TensorCell:
 
 
 def test_wrench_body_names_match_crab_usd_child_links():
+    assert wrench_body_name_for_joint("FL_Body_CamShaft_RevoluteJoint") == "FL_CamShaft"
     assert wrench_body_name_for_joint("FL_Body_Hip_RevoluteJoint") == "FL_Hip"
     assert wrench_body_name_for_joint("FL_Hip_Femur_RevoluteJoint") == "FL_Femur"
     assert wrench_body_name_for_joint("FR_Femur_Tibia_RevoluteJoint") == "FR_Tibia"
@@ -39,10 +40,10 @@ def test_resolve_wrench_body_indices_uses_find_bodies():
     assert indices["FLHY"] == 0
     assert indices["FRKL"] == 5
     expected_names = [
-        "FL_Hip",
+        "FL_CamShaft",
         "FL_Femur",
         "FL_Tibia",
-        "FR_Hip",
+        "FR_CamShaft",
         "FR_Femur",
         "FR_Tibia",
     ]
