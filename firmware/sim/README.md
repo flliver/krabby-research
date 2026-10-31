@@ -19,7 +19,7 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 
 **Order:** Same as `LinearActuator* ACT_LIST_FRONT[]` in `firmware/arduino/arduino.ino` (FL yaw -> knee, then FR yaw -> knee).
 
-**Isaac resolution:** Prefer exact USD names above (see `assets/crab_simple.usda`). Per-leg regex examples: `FL_.*_RevoluteJoint` returns three joints; exclude `*_Body_CamShaft_*` if a broad pattern is used - the table names are the driven DOFs aligned with `hal/server/robot_definition_krabby_hex.py` `mcu_joints` for FL/FR.
+**Isaac resolution:** Prefer exact USD names above on the loaded hex plant (default `assets/crab.usda`). Per-leg regex examples: `FL_.*_RevoluteJoint` returns three joints; exclude `*_Body_CamShaft_*` if a broad pattern is used - the table names are the driven DOFs aligned with `hal/server/robot_definition_krabby_hex.py` `mcu_joints` for FL/FR.
 
 **PWM / drive:** `LinearActuator::driveActuator` - extend = `PWM_R`, retract = `PWM_L`, motion gated by `EN` HIGH. Signed motor command: `(EN high) * (PWM_R - PWM_L)` (`firmware/arduino/actuator_manager.h`).
 
@@ -38,20 +38,7 @@ Linux/macOS use a PTY; Windows uses a localhost `socket://` TCP bridge or an opt
 - `host/` - host `Arduino.h`, shipping `actuator_manager.h` build, `libkrabby_host`, and `host_bridge.py`.
 - [ROLE_BOOT.md](ROLE_BOOT.md) - three-board SYNC election, EEPROM hints, and host APIs.
 
-Build and test commands live in `firmware/Makefile` (`host-actuator`, `test-native`, `compile-firmware`).
-
-## Isaac integration tests
-
-Isaac Sim tests are opt-in (`RUN_FIRMWARE_ISAAC=1`, `@pytest.mark.isaacsim`). Run them in the **`krabby-isaacsim`** Docker image (`make build-isaacsim-image` from repo root), not on host Python unless you have a full Isaac Lab + Sim install:
-
-```bash
-./images/isaacsim/run_firmware_isaac_pytest.sh
-# or: make -C firmware test-firmware-isaac
-```
-
-Pass/fail comes from `build/firmware-isaac-pytest/outcomes.jsonl` (see [images/isaacsim/README.md](../../images/isaacsim/README.md) — Firmware simulation tests).
-
-GUI **Cur** column over sim MCU: [firmware/gui/CURRENT_SENSE_SIM_DEMO.md](../gui/CURRENT_SENSE_SIM_DEMO.md) (`run_gui_sim_demo` + `python -m firmware.gui`).
+Build and test commands: [DOCUMENTATION.md](DOCUMENTATION.md) (index) and `firmware/Makefile`.
 
 ## Current-sense tuning (manual)
 

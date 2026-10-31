@@ -13,9 +13,11 @@
 # junit.xml) via summarize_firmware_isaac_results.py. The container process often exits 0
 # even when pytest failed, so its exit code is informational only.
 #
-# Environment:
-#   KRABBY_ISAACSIM_IMAGE  docker tag (default: krabby-isaacsim:latest)
-#   KRABBY_ISAAC_DEVICE    passed to AppLauncher (default: cuda:0)
+# Environment (host; forwarded into the container when set):
+#   KRABBY_ISAACSIM_IMAGE   docker tag (default: krabby-isaacsim:latest)
+#   KRABBY_ISAAC_DEVICE     passed to AppLauncher (default: cuda:0)
+#   KRABBY_PLANT            hex plant name (see docs/crab-hexapod-plant.md)
+#   KRABBY_HEX_USD_PATH     explicit USD override
 
 set -uo pipefail
 
@@ -44,6 +46,8 @@ docker run --rm --gpus all \
   -e RUN_FIRMWARE_ISAAC=1 \
   -e FIRMWARE_ISAAC_RESULTS_DIR=/results \
   -e "KRABBY_ISAAC_DEVICE=$DEVICE" \
+  -e KRABBY_PLANT \
+  -e KRABBY_HEX_USD_PATH \
   -e PYTHONUNBUFFERED=1 \
   --entrypoint /bin/bash \
   "$IMAGE" \

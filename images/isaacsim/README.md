@@ -176,10 +176,18 @@ The wrapper bind-mounts `firmware/`, `tests/`, `assets/`, and `parkour/` from yo
 python3 images/isaacsim/summarize_firmware_isaac_results.py build/firmware-isaac-pytest
 ```
 
-Optional environment variables:
+Optional environment variables (host exports are passed into the container when set):
 
-- `KRABBY_ISAACSIM_IMAGE` — override the Docker tag (default `krabby-isaacsim:latest`)
-- `KRABBY_ISAAC_DEVICE` — GPU device for the env cfg (default `cuda:0`)
+- `KRABBY_ISAACSIM_IMAGE` - override the Docker tag (default `krabby-isaacsim:latest`)
+- `KRABBY_ISAAC_DEVICE` - GPU device for the env cfg (default `cuda:0`)
+- `KRABBY_PLANT` - named hex plant (`main` / `A15+B`, `legacy_golden`, ...); see [docs/crab-hexapod-plant.md](../../docs/crab-hexapod-plant.md) section 4
+- `KRABBY_HEX_USD_PATH` - explicit USD path; wins over `KRABBY_PLANT`. Do not set in shell profiles
+
+Default when both are unset: **`assets/crab.usda`** (same as forward PLAY), via `firmware/sim/isaac_scene.configure_crab_hex_usd_env()`.
+
+```bash
+KRABBY_PLANT=legacy_golden make -C firmware test-firmware-isaac
+```
 
 From `firmware/Makefile`, the same entry point is `make test-firmware-isaac` (repo root image must already exist).
 
