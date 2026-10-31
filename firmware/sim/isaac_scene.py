@@ -151,13 +151,35 @@ def resolve_front_board_joint_indices(
     return resolve_joint_indices_by_name(robot, cfg.isaac_joint_names())
 
 
-def _crab_hex_articulation_uses_ref_joint_names(robot: Articulation) -> bool:
-    """True when the loaded USD matches ``assets/crab_hex_ref.usd`` naming."""
+_PLANT_USD_JOINT_PROBE = "FL_Body_CamShaft_RevoluteJoint"
+"""Main plant ``assets/crab.usda``: yaw DOF is ``*_Body_CamShaft_*`` (HY slots in sim config)."""
+
+_REF_USD_JOINT_PROBE = "lf_hip_yaw"
+"""HAL ref ``assets/crab_hex_ref.usd``: URDF-style names, single yaw joint per leg (no cam shaft)."""
+
+
+def _articulation_has_joint(robot: Articulation, joint_name: str) -> bool:
     try:
-        robot.find_joints(["FL_Body_Hip_RevoluteJoint"], preserve_order=True)
-    except ValueError:
+        joint_ids, _ = robot.find_joints([joint_name], preserve_order=True)
+    except (ValueError, TypeError):
+        return False
+    return bool(joint_ids)
+
+
+def _crab_hex_articulation_uses_ref_joint_names(robot: Articulation) -> bool:
+    """Classify loaded hex USD: ref (``crab_hex_ref.usd``) vs main plant (``crab.usda``).
+
+    Plant exposes ``FL_Body_CamShaft_RevoluteJoint`` (and passive ``*_Body_Hip_*``); ref exposes
+    ``lf_hip_yaw`` instead. Do not probe ``Body_Hip`` alone — it exists on the plant as a passive DOF.
+    """
+    if _articulation_has_joint(robot, _PLANT_USD_JOINT_PROBE):
+        return False
+    if _articulation_has_joint(robot, _REF_USD_JOINT_PROBE):
         return True
-    return False
+    raise ValueError(
+        "Cannot classify hex articulation joint naming: missing "
+        f"{_PLANT_USD_JOINT_PROBE!r} (main plant) and {_REF_USD_JOINT_PROBE!r} (crab_hex_ref)."
+    )
 
 
 def resolve_eighteen_joint_indices(

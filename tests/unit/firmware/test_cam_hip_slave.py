@@ -45,6 +45,8 @@ def test_build_binding_on_plant_usd():
 
         def find_joints(self, names, preserve_order=True):
             del preserve_order
+            if names == ["FL_Body_CamShaft_RevoluteJoint"]:
+                return ([self.SHAFT_ID], ["FL_Body_CamShaft_RevoluteJoint"])
             if names == [".*_Body_CamShaft_RevoluteJoint"]:
                 return ([self.SHAFT_ID], ["FL_Body_CamShaft_RevoluteJoint"])
             if names == ["FL_Body_Hip_RevoluteJoint"]:
@@ -60,8 +62,10 @@ def test_build_binding_skips_ref_usd_profile():
 
     def find_joints(names, preserve_order=True):
         del preserve_order
-        if names == ["FL_Body_Hip_RevoluteJoint"]:
-            raise ValueError("ref USD uses lf_hip_yaw, not FL_Body_Hip")
+        if names == ["FL_Body_CamShaft_RevoluteJoint"]:
+            raise ValueError("ref USD has no cam shaft joint")
+        if names == ["lf_hip_yaw"]:
+            return ([0], ["lf_hip_yaw"])
         return ([0], ["lf_hip_yaw"])
 
     robot.find_joints.side_effect = find_joints
@@ -89,6 +93,8 @@ def plant_articulation():
 
         def find_joints(self, names, preserve_order=True):
             del preserve_order
+            if names == ["FL_Body_CamShaft_RevoluteJoint"]:
+                return ([self.SHAFT_ID], ["FL_Body_CamShaft_RevoluteJoint"])
             if names == [".*_Body_CamShaft_RevoluteJoint"]:
                 return ([self.SHAFT_ID], ["FL_Body_CamShaft_RevoluteJoint"])
             if names == ["FL_Body_Hip_RevoluteJoint"]:
