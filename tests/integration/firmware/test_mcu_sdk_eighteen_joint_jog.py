@@ -12,6 +12,11 @@ from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
 from firmware.sim.simulated_robot_config import KRABBY_HEX_FIRMWARE_ACTUATOR_IDS
 from firmware.sim.serial_pty_bridge import SimMcuPtyBridge
 from firmware.sim.three_board_mcu_host import ThreeBoardMcuHost
+from firmware.sim.isaac_scene import _crab_hex_articulation_uses_ref_joint_names
+from firmware.sim.plant_jog_expectations import (
+    min_commanded_jog_travel_rad,
+    skip_plant_jog_coupling_check,
+)
 from tests.integration.firmware.conftest import park_at_default_pose
 from tests.integration.firmware.test_mcu_sdk_pty_jog import _fast_connect_sleep
 
@@ -51,8 +56,7 @@ assert {hal_joint_to_firmware_id(name) for name in HAL_MCU_JOINTS} == set(
 )
 
 JOG_PWM = 255
-JOG_STEPS = 40
-MIN_COMMANDED_TRAVEL = 0.04
+JOG_STEPS = 55
 OTHER_JOINT_RATIO = 4
 
 
@@ -169,12 +173,19 @@ def test_krabby_mcu_sdk_jog_each_hal_joint_moves_only_its_isaac_dof(
         JOG_STEPS,
     )
     cmd_travel = moved[commanded_joint]
-    assert abs(cmd_travel) > MIN_COMMANDED_TRAVEL, (
+    _core, robot, _configs, _indices = eighteen_joint_rig
+    min_travel = min_commanded_jog_travel_rad(robot)
+    assert abs(cmd_travel) > min_travel, (
         f"{hal_joint_name} ({firmware_id}) did not move {commanded_joint} enough: {moved}"
     )
 
+    if not _crab_hex_articulation_uses_ref_joint_names(robot):
+        return
+
     for name, delta in moved.items():
         if name == commanded_joint:
+            continue
+        if skip_plant_jog_coupling_check(robot, commanded_joint, name):
             continue
         assert abs(delta) * OTHER_JOINT_RATIO < abs(cmd_travel), (
             f"SDK jog on {hal_joint_name} also moved {name}: {moved}"

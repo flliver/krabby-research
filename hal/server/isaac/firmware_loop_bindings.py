@@ -21,7 +21,8 @@ class RobotCoreCommandLoop:
         for actuator in self._core.actuators:
             if actuator.slot.firmware_actuator_id == firmware_actuator_id:
                 return self._core.pin_state.signed_pwm_command(*actuator.slot.drive_pins)
-        raise KeyError(f"unknown firmware actuator id: {firmware_actuator_id!r}")
+        # Full-hex HAL commands name all 18 actuators; FRONT ``RobotCore`` only owns six.
+        return 0
 
 
 class ThreeBoardCommandLoop:

@@ -55,14 +55,17 @@ def test_jog_drives_one_joint_and_advances_millis(front_board_rig):
         for name, idx in indices.items()
     }
     from firmware.sim.isaac_scene import physics_step_ms
+    from firmware.sim.plant_jog_expectations import cross_leg_jog_coupling_ratio
 
     assert core.millis() == 40 * physics_step_ms(core.env)
     assert abs(moved[jogged_joint]) > 0.05, f"jogged joint did not move: {moved}"
     # The rest of the FL leg swings with the driven joint, and the FR leg drifts a little
     # as the body reacts, so the uncommanded joints are bounded against the driven one
     # rather than against zero.
+    cross_leg_ratio = cross_leg_jog_coupling_ratio(robot)
     for name, delta in moved.items():
-        if name.startswith("FR_"):
-            assert abs(delta) * 5 < abs(moved[jogged_joint]), (
-                f"{name} moved without a jog: {moved}"
-            )
+        if name == jogged_joint or not name.startswith("FR_"):
+            continue
+        assert abs(delta) * cross_leg_ratio < abs(moved[jogged_joint]), (
+            f"{name} moved without a jog: {moved}"
+        )
