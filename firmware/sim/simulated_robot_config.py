@@ -28,7 +28,7 @@ class SimulatedSlotConfig:
     pin_pot: int  # potentiometer (analogRead)
     pin_is: int  # current sense (analogRead)
     firmware_actuator_id: str  # e.g. FLHY - matches LinearActuator name / telemetry
-    isaac_joint_name: str  # USD PhysicsRevoluteJoint name in assets/crab_simple.usda
+    isaac_joint_name: str  # USD PhysicsRevoluteJoint name on the loaded hex plant
 
     @property
     def drive_pins(self) -> tuple[int, int, int]:
@@ -40,11 +40,19 @@ def isaac_joint_name_for_firmware_id(firmware_actuator_id: str) -> str:
     leg = firmware_actuator_id[:2]
     segment = firmware_actuator_id[2:]
     segment_map = {
-        "HY": "Body_Hip",
+        "HY": "Body_CamShaft",
         "HL": "Hip_Femur",
         "KL": "Femur_Tibia",
     }
     return f"{leg}_{segment_map[segment]}_RevoluteJoint"
+
+
+def isaac_body_hip_joint_name_for_firmware_id(firmware_actuator_id: str) -> str:
+    """Passive ``Body_Hip`` DOF on the plant USD (paired with each ``*HY`` cam shaft)."""
+    leg = firmware_actuator_id[:2]
+    if firmware_actuator_id[2:] != "HY":
+        raise ValueError(f"not a yaw actuator id: {firmware_actuator_id!r}")
+    return f"{leg}_Body_Hip_RevoluteJoint"
 
 
 # ``assets/crab_hex_ref.usd`` (HAL / joystick task) — URDF-style prefixes, 18 actuated DOFs.
@@ -102,10 +110,10 @@ def _rev3_slots_for_firmware_ids(
 
 # FRONT board, REV 3 - mirrors ACT_LIST_FRONT order in arduino.ino
 _FRONT_BOARD_REV3_SLOTS: tuple[SimulatedSlotConfig, ...] = (
-    SimulatedSlotConfig(0, 2, 3, 22, 0, 6, "FLHY", "FL_Body_Hip_RevoluteJoint"),
+    SimulatedSlotConfig(0, 2, 3, 22, 0, 6, "FLHY", "FL_Body_CamShaft_RevoluteJoint"),
     SimulatedSlotConfig(1, 4, 5, 24, 1, 7, "FLHL", "FL_Hip_Femur_RevoluteJoint"),
     SimulatedSlotConfig(2, 6, 7, 26, 2, 8, "FLKL", "FL_Femur_Tibia_RevoluteJoint"),
-    SimulatedSlotConfig(3, 8, 9, 23, 3, 9, "FRHY", "FR_Body_Hip_RevoluteJoint"),
+    SimulatedSlotConfig(3, 8, 9, 23, 3, 9, "FRHY", "FR_Body_CamShaft_RevoluteJoint"),
     SimulatedSlotConfig(4, 10, 11, 25, 4, 10, "FRHL", "FR_Hip_Femur_RevoluteJoint"),
     SimulatedSlotConfig(5, 12, 13, 27, 5, 11, "FRKL", "FR_Femur_Tibia_RevoluteJoint"),
 )

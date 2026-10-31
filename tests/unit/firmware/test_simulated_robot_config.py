@@ -21,10 +21,10 @@ _EXPECTED_DRIVE_PINS = (
 _EXPECTED_FIRMWARE_IDS = ("FLHY", "FLHL", "FLKL", "FRHY", "FRHL", "FRKL")
 
 _EXPECTED_ISAAC_JOINTS = (
-    "FL_Body_Hip_RevoluteJoint",
+    "FL_Body_CamShaft_RevoluteJoint",
     "FL_Hip_Femur_RevoluteJoint",
     "FL_Femur_Tibia_RevoluteJoint",
-    "FR_Body_Hip_RevoluteJoint",
+    "FR_Body_CamShaft_RevoluteJoint",
     "FR_Hip_Femur_RevoluteJoint",
     "FR_Femur_Tibia_RevoluteJoint",
 )
@@ -52,7 +52,15 @@ def test_isaac_joints_are_six_distinct_fl_fr_dof():
     config = SimulatedRobotConfig.front_board_rev3()
     config.validate_distinct_joints()
     assert config.isaac_joint_names() == _EXPECTED_ISAAC_JOINTS
-    assert all("CamShaft" not in name for name in config.isaac_joint_names())
+    hy_names = [
+        s.isaac_joint_name
+        for s in config.slots
+        if s.firmware_actuator_id.endswith("HY")
+    ]
+    assert hy_names == [
+        "FL_Body_CamShaft_RevoluteJoint",
+        "FR_Body_CamShaft_RevoluteJoint",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -87,8 +95,8 @@ def test_actuator_by_firmware_id_wires_isaac_joint_index():
     indices = _joint_indices_for_config(config)
     flhy = config.actuator_by_firmware_id("FLHY", indices)
 
-    assert flhy.joint_index == indices["FL_Body_Hip_RevoluteJoint"]
-    assert flhy.slot.isaac_joint_name == "FL_Body_Hip_RevoluteJoint"
+    assert flhy.joint_index == indices["FL_Body_CamShaft_RevoluteJoint"]
+    assert flhy.slot.isaac_joint_name == "FL_Body_CamShaft_RevoluteJoint"
     assert flhy.slot.pin_pot == 0
     assert flhy.slot.pin_is == 6
 
