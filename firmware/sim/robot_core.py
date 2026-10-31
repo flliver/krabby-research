@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
 from firmware.sim.pot_readback import sync_sensor_reads
@@ -28,6 +29,8 @@ class RobotCore:
     advance: Callable[[Any], Any] | None = None
     pin_state: PinStateModel = field(default_factory=PinStateModel)
     _wrench_body_indices: dict[str, int] | None = field(default=None, init=False, repr=False)
+    _cam_hip_slave: Any = field(default=None, init=False, repr=False)
+    _cam_hip_slave_resolved: bool = field(default=False, init=False, repr=False)
 
     @classmethod
     def front_board(
@@ -55,6 +58,8 @@ class RobotCore:
         self.bridge.reset()
         self.pin_state.reset()
         self._wrench_body_indices = None
+        self._cam_hip_slave = None
+        self._cam_hip_slave_resolved = False
         if self.config is not None:
             self.bridge.set_hall_edges_per_full_travel(
                 self.config.hall_edges_per_full_travel
@@ -76,6 +81,14 @@ class RobotCore:
 
     def millis(self) -> int:
         return self.bridge.millis()
+
+    def _slave_body_hip_after_physics(self) -> None:
+        if not self._cam_hip_slave_resolved:
+            self._cam_hip_slave = build_cam_hip_slave_binding(self.articulation)
+            self._cam_hip_slave_resolved = True
+        if self._cam_hip_slave is None:
+            return
+        apply_cam_hip_slave(self._cam_hip_slave, self.articulation)
 
     def _wrench_body_indices_cached(self) -> dict[str, int] | None:
         if self.config is None:
@@ -125,4 +138,6 @@ class RobotCore:
         # clears velocity targets every step, so a firmware-driven joint would never keep
         # the command written above.
         advance = self.advance or advance_sim
-        return advance(self.env)
+        result = advance(self.env)
+        self._slave_body_hip_after_physics()
+        return result

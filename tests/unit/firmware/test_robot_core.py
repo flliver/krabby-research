@@ -151,6 +151,25 @@ def test_reset_applies_pot_band_stops_to_host(core):
     )
 
 
+def test_step_slaves_body_hip_after_physics(core, monkeypatch):
+    loop, _, steps = core
+    calls: list[str] = []
+
+    monkeypatch.setattr(
+        "firmware.sim.robot_core.build_cam_hip_slave_binding",
+        lambda articulation: "binding",
+    )
+    monkeypatch.setattr(
+        "firmware.sim.robot_core.apply_cam_hip_slave",
+        lambda binding, articulation: calls.append("slave"),
+    )
+
+    loop.step()
+
+    assert len(steps) == 1
+    assert calls == ["slave"]
+
+
 def test_reset_clears_clock_and_pin_state(core):
     loop, _, _ = core
 

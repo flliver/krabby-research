@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms, resolve_eighteen_joint_indices
 from firmware.sim.pot_readback import sync_sensor_reads
@@ -25,6 +26,8 @@ class ThreeBoardRobotCore:
     configs: ThreeBoardSimConfigs
     advance: Any = None
     _wrench_body_indices: dict[str, int] | None = field(default=None, init=False, repr=False)
+    _cam_hip_slave: Any = field(default=None, init=False, repr=False)
+    _cam_hip_slave_resolved: bool = field(default=False, init=False, repr=False)
 
     @classmethod
     def eighteen_joints(
@@ -56,6 +59,8 @@ class ThreeBoardRobotCore:
     def configure_sensors_and_stops(self) -> None:
         """Hall scaling and pot bands (safe after external three-board boot / PTY host)."""
         self._wrench_body_indices = None
+        self._cam_hip_slave = None
+        self._cam_hip_slave_resolved = False
         for board_cfg in (self.configs.front, self.configs.left, self.configs.right):
             self.bridge.set_hall_edges_per_full_travel(
                 board_cfg.hall_edges_per_full_travel
@@ -110,6 +115,14 @@ class ThreeBoardRobotCore:
     def command_pwm_for_actuator(self, firmware_actuator_id: str) -> int:
         return int(self.bridge.three_board_actuator_command_pwm(firmware_actuator_id))
 
+    def _slave_body_hip_after_physics(self) -> None:
+        if not self._cam_hip_slave_resolved:
+            self._cam_hip_slave = build_cam_hip_slave_binding(self.articulation)
+            self._cam_hip_slave_resolved = True
+        if self._cam_hip_slave is None:
+            return
+        apply_cam_hip_slave(self._cam_hip_slave, self.articulation)
+
     def step(self, *, process_usb_serial: bool = False) -> Any:
         del process_usb_serial
         self.tick_firmware_without_physics()
@@ -120,4 +133,6 @@ class ThreeBoardRobotCore:
             actuator.apply_velocity_from_command_pwm(command_pwm, self.articulation)
 
         advance = self.advance or advance_sim
-        return advance(self.env)
+        result = advance(self.env)
+        self._slave_body_hip_after_physics()
+        return result
