@@ -37,15 +37,29 @@ def ensure_parkour_tasks_on_path() -> None:
         sys.path.insert(0, src)
 
 
-def default_crab_simple_usd_path() -> Path:
-    return repo_root() / "assets" / "crab_simple.usda"
+def configure_crab_hex_usd_env() -> None:
+    """Set ``KRABBY_HEX_USD_PATH`` when unset (same precedence as forward PLAY).
 
+    ``KRABBY_HEX_USD_PATH`` > ``KRABBY_PLANT`` > main plant ``assets/crab.usda`` via
+    ``_crab_usd_path()``. Call only after ``_import_parkour_env_deps()`` (parkour on path).
+    """
+    if os.environ.get("KRABBY_HEX_USD_PATH"):
+        return
+    from parkour_tasks.crab_hex_forward_task.config.crab_hex.crab_hex_phases import (
+        plant_usd_path,
+    )
 
-def configure_crab_simple_usd_env() -> None:
-    """Use ``assets/crab_simple.usda`` when unset (joint names in ``SimulatedRobotConfig``)."""
-    usd = default_crab_simple_usd_path()
-    if usd.is_file():
-        os.environ.setdefault("KRABBY_HEX_USD_PATH", str(usd))
+    plant = os.environ.get("KRABBY_PLANT", "").strip()
+    if plant:
+        usd = plant_usd_path(plant)
+        if usd is not None:
+            os.environ["KRABBY_HEX_USD_PATH"] = usd
+            return
+    from parkour_tasks.crab_hex_forward_task.config.crab_hex.crab_hex_scene_cfg import (
+        _crab_usd_path,
+    )
+
+    os.environ.setdefault("KRABBY_HEX_USD_PATH", _crab_usd_path())
 
 
 def _import_parkour_env_deps() -> None:
@@ -65,7 +79,7 @@ def build_crab_hex_env_cfg(
 ) -> Any:
     """Parse parkour crab env cfg with ``num_envs=1`` defaults suited to firmware smoke tests."""
     _import_parkour_env_deps()
-    configure_crab_simple_usd_env()
+    configure_crab_hex_usd_env()
     from isaaclab_tasks.utils import parse_env_cfg
 
     env_cfg = parse_env_cfg(
