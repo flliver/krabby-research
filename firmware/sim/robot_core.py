@@ -6,6 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+import torch
+
 from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
@@ -132,12 +134,15 @@ class RobotCore:
     def step(self, *, process_usb_serial: bool = False) -> Any:
         # Plant state is from the previous step's physics; refresh pots before firmware reads.
         self.tick_firmware_without_physics(process_usb_serial=process_usb_serial)
-        for actuator in self.actuators:
-            actuator.apply_velocity_target(self.pin_state, self.articulation)
-        # Not env.step(): the task's RL action term rewrites joint position targets and
-        # clears velocity targets every step, so a firmware-driven joint would never keep
-        # the command written above.
-        advance = self.advance or advance_sim
-        result = advance(self.env)
-        self._slave_body_hip_after_physics()
+        # Articulation target buffers are inference tensors after the first env step; writes
+        # outside inference_mode corrupt joint state (NaN positions on firmware jogs).
+        with torch.inference_mode():
+            for actuator in self.actuators:
+                actuator.apply_velocity_target(self.pin_state, self.articulation)
+            # Not env.step(): the task's RL action term rewrites joint position targets and
+            # clears velocity targets every step, so a firmware-driven joint would never keep
+            # the command written above.
+            advance = self.advance or advance_sim
+            result = advance(self.env)
+            self._slave_body_hip_after_physics()
         return result

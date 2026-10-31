@@ -62,7 +62,11 @@ def _cam_shaft_to_hip(theta_shaft: Any, omega_shaft: Any) -> tuple[Any, Any]:
 
 
 def apply_cam_hip_slave(binding: CamHipSlaveBinding, articulation: Any) -> None:
-    """After physics: map shaft state to hip targets and sync simulated joint state."""
+    """After physics: map shaft state to passive Body_Hip PD targets (same as training MDP).
+
+    Do not call ``write_joint_state_to_sim`` on the full articulation — that teleports every
+    DOF and has been observed to corrupt PhysX state (NaN joint positions on firmware jogs).
+    """
     import torch
 
     data = articulation.data
@@ -78,10 +82,3 @@ def apply_cam_hip_slave(binding: CamHipSlaveBinding, articulation: Any) -> None:
     articulation.set_joint_velocity_target(
         omega_hip, joint_ids=binding.hip_joint_ids
     )
-    if not hasattr(articulation, "write_joint_state_to_sim"):
-        return
-    joint_pos = data.joint_pos.clone()
-    joint_vel = data.joint_vel.clone()
-    joint_pos[:, binding.hip_joint_ids] = theta_hip
-    joint_vel[:, binding.hip_joint_ids] = omega_hip
-    articulation.write_joint_state_to_sim(joint_pos, joint_vel)

@@ -40,6 +40,8 @@ def _park_joints_mid_travel(core, robot, config, indices) -> None:
     """Mid-span pose so each joint can reach both sim soft limits during auto-cal."""
     import torch
 
+    from firmware.sim.pot_position import normalize_joint_travel_limits
+
     with torch.inference_mode():
         limits = robot.data.soft_joint_pos_limits[0]
         pos = robot.data.joint_pos.clone()
@@ -48,6 +50,7 @@ def _park_joints_mid_travel(core, robot, config, indices) -> None:
             joint_index = indices[slot.isaac_joint_name]
             lo = limits[joint_index, 0].item()
             hi = limits[joint_index, 1].item()
+            lo, hi = normalize_joint_travel_limits(lo, hi)
             pos[0, joint_index] = 0.5 * (lo + hi)
         robot.write_joint_state_to_sim(pos, vel)
         robot.set_joint_velocity_target(vel)

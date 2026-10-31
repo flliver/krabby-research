@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+import torch
+
 from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms, resolve_eighteen_joint_indices
@@ -127,12 +129,13 @@ class ThreeBoardRobotCore:
         del process_usb_serial
         self.tick_firmware_without_physics()
 
-        for actuator in self.actuators:
-            name = actuator.slot.firmware_actuator_id
-            command_pwm = self.bridge.three_board_actuator_command_pwm(name)
-            actuator.apply_velocity_from_command_pwm(command_pwm, self.articulation)
+        with torch.inference_mode():
+            for actuator in self.actuators:
+                name = actuator.slot.firmware_actuator_id
+                command_pwm = self.bridge.three_board_actuator_command_pwm(name)
+                actuator.apply_velocity_from_command_pwm(command_pwm, self.articulation)
 
-        advance = self.advance or advance_sim
-        result = advance(self.env)
-        self._slave_body_hip_after_physics()
+            advance = self.advance or advance_sim
+            result = advance(self.env)
+            self._slave_body_hip_after_physics()
         return result

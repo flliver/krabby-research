@@ -144,11 +144,10 @@ def test_apply_slaves_hip_to_whitworth_mapping(plant_articulation):
     assert robot.velocity_target is not None
     assert robot.position_target.item() == pytest.approx(want_hip.item(), abs=1e-6)
     assert robot.velocity_target.item() == pytest.approx(want_omega.item(), abs=1e-6)
-    assert robot.joint_pos[0, robot.HIP_ID].item() == pytest.approx(want_hip.item(), abs=1e-6)
 
 
-def test_cam_shaft_jog_updates_hip_position(plant_articulation):
-    """FLHY drives cam shaft; hip DOF follows ``cam_shaft_to_hip`` after apply."""
+def test_cam_shaft_jog_updates_hip_position_target(plant_articulation):
+    """FLHY drives cam shaft; hip PD targets follow ``cam_shaft_to_hip`` after apply."""
     robot, torch = plant_articulation
     mdp = _mdp_dir()
     if str(mdp) not in sys.path:
@@ -166,7 +165,6 @@ def test_cam_shaft_jog_updates_hip_position(plant_articulation):
         apply_cam_hip_slave(binding, robot)
         want_hip, _ = cam_shaft_to_hip(torch.tensor([shaft_angle]), torch.tensor([0.0]))
         math_hip = math.atan2(k * math.sin(shaft_angle), 1.0 + k * math.cos(shaft_angle))
-        assert robot.joint_pos[0, robot.HIP_ID].item() == pytest.approx(
-            want_hip.item(), abs=1e-6
-        )
-        assert robot.joint_pos[0, robot.HIP_ID].item() == pytest.approx(math_hip, abs=1e-6)
+        assert robot.position_target is not None
+        assert robot.position_target.item() == pytest.approx(want_hip.item(), abs=1e-6)
+        assert robot.position_target.item() == pytest.approx(math_hip, abs=1e-6)

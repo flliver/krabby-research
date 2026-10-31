@@ -53,7 +53,9 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python deps
-        run: pip install boto3 pytest pytest-cov pytest-timeout keyboard pyserial
+        run: |
+          pip install boto3 pytest pytest-cov pytest-timeout keyboard pyserial
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run native and Python firmware tests
         run: make -C firmware test-firmware

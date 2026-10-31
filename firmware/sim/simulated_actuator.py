@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+import torch
+
 from firmware.sim.pin_state import PinStateModel
 from firmware.sim.pot_calibration import PotCalibrationBand
 from firmware.sim.simulated_robot_config import SimulatedSlotConfig
@@ -51,7 +53,7 @@ class SimulatedActuator:
     ) -> float:
         speed = self.drive_scalar(pin_state)
         articulation.set_joint_velocity_target(
-            speed,
+            _joint_velocity_target_tensor(articulation, speed, self.joint_index),
             joint_ids=self.joint_index,
             env_ids=env_ids,
         )
@@ -67,11 +69,25 @@ class SimulatedActuator:
         """Drive from a named actuator's manager PWM (three-board sim path)."""
         speed = (command_pwm / PWM_COMMAND_FULL_SCALE) * self.max_joint_speed
         articulation.set_joint_velocity_target(
-            speed,
+            _joint_velocity_target_tensor(articulation, speed, self.joint_index),
             joint_ids=self.joint_index,
             env_ids=env_ids,
         )
         return speed
+
+
+def _joint_velocity_target_tensor(articulation: JointVelocityTarget, speed: float, joint_index: int):
+    """``(num_envs, 1)`` tensor on the articulation device (Isaac Lab contract)."""
+    data = getattr(articulation, "data", None)
+    joint_vel = getattr(data, "joint_vel", None) if data is not None else None
+    if joint_vel is None:
+        return speed
+    return torch.full(
+        (joint_vel.shape[0], 1),
+        float(speed),
+        device=joint_vel.device,
+        dtype=joint_vel.dtype,
+    )
 
 
 class RecordedArticulation:
@@ -88,7 +104,9 @@ class RecordedArticulation:
     ) -> None:
         del env_ids
         joint_id = joint_ids if isinstance(joint_ids, int) else int(joint_ids[0])
-        if hasattr(velocities, "__getitem__"):
+        if hasattr(velocities, "reshape"):
+            value = float(velocities.reshape(-1)[0].item())
+        elif hasattr(velocities, "__getitem__"):
             value = float(velocities[0])
         else:
             value = float(velocities)

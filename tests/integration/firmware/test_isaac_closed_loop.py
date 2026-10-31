@@ -13,10 +13,11 @@ CLOSED_LOOP_STEPS = 80
 
 
 def _normalized_travel(robot, joint_index: int) -> float:
+    from firmware.sim.pot_position import normalize_joint_travel_limits
+
     limits = robot.data.soft_joint_pos_limits[0, joint_index]
     pos = robot.data.joint_pos[0, joint_index].item()
-    lo = limits[0].item()
-    hi = limits[1].item()
+    lo, hi = normalize_joint_travel_limits(limits[0].item(), limits[1].item())
     return (pos - lo) / (hi - lo)
 
 
