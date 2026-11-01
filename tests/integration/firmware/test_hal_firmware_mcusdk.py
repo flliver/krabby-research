@@ -76,11 +76,12 @@ def test_command_action_moves_joint(hal_firmware_sdk):
 
     values = [0.0] * 18
     values[KRABBY_HEX_DEFINITION.get_joint_names().index(HAL_JOINT)] = 0.25
-    action = sdk.apply_command(_make_hex_command(values))
+    sdk.apply_command(_make_hex_command(values))
 
+    # Play-task action terms fight open-loop velocity; step firmware→articulation directly.
     with torch.inference_mode():
         for _ in range(DRIVE_STEPS):
-            env.step(action)
+            loop_core.step()
 
     after = robot.data.joint_pos[0, joint_index].item()
     assert after - before > 0.03
