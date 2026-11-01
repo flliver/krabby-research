@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import pytest
 
+from firmware.sim.plant_jog_expectations import (
+    max_zero_pwm_joint_drift_rad,
+    partial_pwm_ratio_bounds,
+)
 from tests.integration.firmware.conftest import park_at_default_pose
 
 pytestmark = pytest.mark.isaacsim
@@ -58,19 +62,21 @@ def test_negative_pwm_retracts(slow_rig):
 
 
 def test_zero_pwm_pulls_enable_low_and_holds(slow_rig):
-    core, _, config, _ = slow_rig
+    core, robot, config, _ = slow_rig
     _, _, pin_en = config.slot_by_firmware_id(SLOT).drive_pins
 
     delta = drive_from_default(slow_rig, 0)
 
     assert core.bridge.pin_digital(pin_en) == 0
-    assert abs(delta) < 0.01
+    assert abs(delta) < max_zero_pwm_joint_drift_rad(robot, SLOT)
 
 
 def test_partial_pwm_scales_travel(slow_rig):
     """122/255 of full scale should travel ~48% as far: the drive map is linear."""
+    _, robot, config, _ = slow_rig
     full = drive_from_default(slow_rig, 255)
     partial = drive_from_default(slow_rig, 122)
 
     ratio = partial / full
-    assert 0.45 < ratio < 0.51, f"partial/full travel ratio {ratio} (full={full}, partial={partial})"
+    lo, hi = partial_pwm_ratio_bounds(robot, SLOT)
+    assert lo < ratio < hi, f"partial/full travel ratio {ratio} (full={full}, partial={partial})"

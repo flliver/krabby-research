@@ -84,7 +84,9 @@ def map_load_to_pin_is_adc(
 ) -> int:
     """Piecewise map from load + drive state to raw current-sense ADC (firmware EMA unchanged)."""
     bp = breakpoints or CurrentSenseBreakpoints()
-    moving = en_energized and abs(joint_velocity_rad_s) >= bp.joint_moving_vel_rad_s
+    if not en_energized:
+        return int(bp.idle_adc)
+    moving = abs(joint_velocity_rad_s) >= bp.joint_moving_vel_rad_s
 
     if load_n >= bp.lift_load_force_n:
         adc = bp.lift_load_adc
@@ -108,11 +110,21 @@ def map_wrench_to_pin_is_adc(
     en_energized: bool,
     joint_velocity_rad_s: float = 0.0,
     applied_torque_nm: float | None = None,
+    drive_command_pwm: int = 0,
     breakpoints: CurrentSenseBreakpoints | None = None,
 ) -> int:
-    # Motor current sense is meaningful only when the H-bridge is enabled; ignore
-    # Isaac joint actuator torque when EN is low (passive PD holding is not shunt current).
-    torque_for_load = applied_torque_nm if en_energized else None
+    bp = breakpoints or CurrentSenseBreakpoints()
+    if not en_energized:
+        return int(bp.idle_adc)
+
+    wrench_n = wrench_load_newtons(sample)
+    moving = abs(joint_velocity_rad_s) >= bp.joint_moving_vel_rad_s
+    drive_active = abs(drive_command_pwm) >= 50
+    if (moving or drive_active) and wrench_n < bp.ground_contact_force_n:
+        # In-air jog: motor torque is high but contact load is not — use the moving band.
+        return int(bp.moving_no_contact_adc)
+
+    torque_for_load = applied_torque_nm
     load_n, _, _ = effective_load_newtons(
         sample,
         torque_for_load,
@@ -120,7 +132,7 @@ def map_wrench_to_pin_is_adc(
     )
     return map_load_to_pin_is_adc(
         load_n,
-        en_energized=en_energized,
+        en_energized=True,
         joint_velocity_rad_s=joint_velocity_rad_s,
         breakpoints=breakpoints,
     )

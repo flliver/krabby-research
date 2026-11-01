@@ -33,8 +33,11 @@ def sync_current_sense_analog_reads(
             body_index,
             env_index=plant.env_index,
         )
-        _, _, pin_en = actuator.slot.drive_pins
+        pwm_r, pwm_l, pin_en = actuator.slot.drive_pins
         en_energized = bridge.pin_digital(pin_en) != 0
+        drive_pwm = 0
+        if en_energized:
+            drive_pwm = bridge.pin_pwm(pwm_r) - bridge.pin_pwm(pwm_l)
         velocity = plant.joint_velocity_rad_s(actuator.joint_index)
         if velocity is None:
             continue
@@ -48,6 +51,7 @@ def sync_current_sense_analog_reads(
             en_energized=en_energized,
             joint_velocity_rad_s=velocity,
             applied_torque_nm=torque_nm,
+            drive_command_pwm=drive_pwm,
             breakpoints=breakpoints,
         )
         bridge.set_analog_read(actuator.slot.pin_is, adc)

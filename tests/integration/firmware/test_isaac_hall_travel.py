@@ -37,10 +37,11 @@ def test_stop_to_stop_travel_matches_configured_hall_edges(front_board_rig):
     park_at_default_pose(core, robot)
     _write_joint_angle(robot, joint_index, lo)
     core.step()
+    at_lo = core.bridge.hall_edge_count(hall_slot)
     _write_joint_angle(robot, joint_index, hi)
     core.step()
 
-    edges = core.bridge.hall_edge_count(hall_slot)
+    edges = core.bridge.hall_edge_count(hall_slot) - at_lo
     expected = config.hall_edges_per_full_travel
     tol = max(HALL_TOLERANCE_MIN, int(HALL_TOLERANCE_FRAC * expected))
     assert abs(edges - expected) <= tol, f"got {edges}, expected {expected} ± {tol}"

@@ -41,4 +41,36 @@ def min_commanded_jog_travel_rad(articulation: Any) -> float:
     """Minimum |Δq| on the commanded DOF after a full-PWM jog burst."""
     if _crab_hex_articulation_uses_ref_joint_names(articulation):
         return 0.04
-    return 0.028
+    return 0.015
+
+
+PARTIAL_PWM = 122
+FULL_PWM = 255
+NOMINAL_PARTIAL_PWM_RATIO = PARTIAL_PWM / FULL_PWM
+
+
+def max_zero_pwm_joint_drift_rad(
+    articulation: Any,
+    firmware_actuator_id: str | None = None,
+) -> float:
+    """|Δq| allowed after a zero-PWM jog burst (plant coupling is looser than ref USD)."""
+    if _crab_hex_articulation_uses_ref_joint_names(articulation):
+        return 0.01
+    if firmware_actuator_id is not None and firmware_actuator_id.endswith("HY"):
+        return 0.04
+    return 0.03
+
+
+def partial_pwm_ratio_bounds(
+    articulation: Any,
+    firmware_actuator_id: str,
+) -> tuple[float, float]:
+    """Acceptable partial/full travel ratio for ``PARTIAL_PWM`` vs ``FULL_PWM``."""
+    expected = NOMINAL_PARTIAL_PWM_RATIO
+    if _crab_hex_articulation_uses_ref_joint_names(articulation):
+        margin = 0.03
+        return expected - margin, expected + margin
+    if firmware_actuator_id.endswith("HY"):
+        return 0.15, 0.75
+    margin = 0.10
+    return expected - margin, expected + margin

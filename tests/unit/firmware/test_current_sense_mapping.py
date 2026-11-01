@@ -36,7 +36,7 @@ def test_moving_without_contact_hits_band():
 
 
 def test_ground_contact_load_hits_band():
-    adc = map_load_to_pin_is_adc(25.0, en_energized=False, breakpoints=BP)
+    adc = map_load_to_pin_is_adc(25.0, en_energized=True, breakpoints=BP)
     assert adc == DEFAULT_GROUND_CONTACT_ADC
 
 
@@ -81,6 +81,23 @@ def test_map_wrench_uses_torque_cross_check_for_adc():
     assert adc == DEFAULT_LIFT_LOAD_ADC
 
 
+def test_map_wrench_moving_in_air_ignores_high_motor_torque():
+    heavy_torque = WrenchSample(0.0, 0.0, 2.0, 0.0, 0.0, 0.0)
+    bp = CurrentSenseBreakpoints(
+        ground_contact_force_n=10.0,
+        lift_load_force_n=100.0,
+        effort_nm_to_load_n=10.0,
+    )
+    adc = map_wrench_to_pin_is_adc(
+        heavy_torque,
+        en_energized=True,
+        joint_velocity_rad_s=0.2,
+        applied_torque_nm=20.0,
+        breakpoints=bp,
+    )
+    assert adc == DEFAULT_MOVING_NO_CONTACT_ADC
+
+
 def test_map_wrench_ignores_torque_when_deenergized():
     light = WrenchSample(0.0, 0.0, 5.0, 0.0, 0.0, 0.0)
     bp = CurrentSenseBreakpoints(
@@ -108,7 +125,7 @@ def test_wrench_wrapper_uses_force_magnitude():
     assert adc == DEFAULT_IDLE_ADC
     heavy = WrenchSample(0.0, 0.0, 110.0, 0.0, 0.0, 0.0)
     assert (
-        map_wrench_to_pin_is_adc(heavy, en_energized=False, breakpoints=BP)
+        map_wrench_to_pin_is_adc(heavy, en_energized=True, breakpoints=BP)
         == DEFAULT_LIFT_LOAD_ADC
     )
 
@@ -118,7 +135,7 @@ def test_wrench_wrapper_uses_force_magnitude():
     [
         (0.0, False, 0.0, 0),
         (0.0, True, 0.1, 2),
-        (50.0, False, 0.0, 4),
+        (50.0, True, 0.0, 4),
         (200.0, True, 0.0, 30),
     ],
 )

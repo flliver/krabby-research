@@ -162,7 +162,7 @@ def gravity_front_board(crab_hex_play_env):
     set_crab_hex_gravity_enabled(env, robot, enabled=False)
 
 
-def park_at_default_pose(core, robot) -> None:
+def park_at_default_pose(core, robot, *, settle_steps: int = 12) -> None:
     """Undo a previous drive so each case starts from the same joint state."""
     import torch
 
@@ -175,6 +175,21 @@ def park_at_default_pose(core, robot) -> None:
         robot.set_joint_velocity_target(vel)
         robot.set_joint_position_target(pos)
     core.reset()
+    _coast_all_firmware_actuators(core)
+    for _ in range(settle_steps):
+        core.step()
+
+
+def _coast_all_firmware_actuators(core) -> None:
+    config = getattr(core, "config", None)
+    if config is not None:
+        for slot in config.slots:
+            core.jog(slot.firmware_actuator_id, 0)
+        return
+    configs = getattr(core, "configs", None)
+    if configs is not None:
+        for slot in configs.all_slots():
+            core.jog(slot.firmware_actuator_id, 0)
 
 
 def defer_isaac_teardown(callback: Callable[[], None]) -> None:

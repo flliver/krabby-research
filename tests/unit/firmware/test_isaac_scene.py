@@ -189,6 +189,16 @@ def test_eighteen_joint_open_loop_indices_include_six_cam_shafts():
 def test_configure_open_loop_velocity_drive_zeros_stiffness_on_every_index():
     robot = MagicMock()
     robot.actuators = {}
+
+    def find_joints(names, preserve_order=True):
+        del preserve_order
+        if names == ["FL_Body_CamShaft_RevoluteJoint"]:
+            raise ValueError("ref-style mock")
+        if names == ["lf_hip_yaw"]:
+            return ([0], ["lf_hip_yaw"])
+        raise ValueError(names)
+
+    robot.find_joints.side_effect = find_joints
     joint_ids = list(range(18))
 
     configure_open_loop_velocity_drive(robot, joint_ids)

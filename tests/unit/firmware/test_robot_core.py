@@ -65,6 +65,9 @@ class FakeHostBridge:
         self.update_all_calls += 1
         self.calls.append("firmware_loop_once")
 
+    def firmware_calibration_active(self) -> bool:
+        return False
+
 
 def _fake_env(physics_dt_s: float = FIRMWARE_STEP_MS / 1000.0):
     """Minimal Isaac env stub so ``physics_step_ms`` matches production."""

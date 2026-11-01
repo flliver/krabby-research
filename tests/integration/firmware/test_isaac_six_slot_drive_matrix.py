@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import pytest
 
+from firmware.sim.plant_jog_expectations import (
+    max_zero_pwm_joint_drift_rad,
+    partial_pwm_ratio_bounds,
+)
 from tests.integration.firmware.conftest import park_at_default_pose
 
 pytestmark = pytest.mark.isaacsim
@@ -74,23 +78,25 @@ def test_slot_negative_pwm_retracts(slow_front_rig, slot_index: int):
 
 @pytest.mark.parametrize("slot_index", range(6), ids=_slot_ids)
 def test_slot_zero_pwm_holds(slow_front_rig, slot_index: int):
-    core, _, config, _ = slow_front_rig
+    core, robot, config, _ = slow_front_rig
     slot = config.slot_by_index(slot_index)
     _, _, pin_en = slot.drive_pins
 
     delta = _drive_slot_delta(slow_front_rig, slot.firmware_actuator_id, 0)
 
     assert core.bridge.pin_digital(pin_en) == 0
-    assert abs(delta) < 0.01
+    fw_id = slot.firmware_actuator_id
+    assert abs(delta) < max_zero_pwm_joint_drift_rad(robot, fw_id)
 
 
 @pytest.mark.parametrize("slot_index", range(6), ids=_slot_ids)
 def test_slot_partial_pwm_scales_travel(slow_front_rig, slot_index: int):
-    _, _, config, _ = slow_front_rig
+    _, robot, config, _ = slow_front_rig
     fw_id = config.slot_by_index(slot_index).firmware_actuator_id
     full = _drive_slot_delta(slow_front_rig, fw_id, FULL_PWM)
     partial = _drive_slot_delta(slow_front_rig, fw_id, PARTIAL_PWM)
     ratio = partial / full
-    assert 0.45 < ratio < 0.51, (
+    lo, hi = partial_pwm_ratio_bounds(robot, fw_id)
+    assert lo < ratio < hi, (
         f"{fw_id} partial/full ratio {ratio} (full={full}, partial={partial})"
     )

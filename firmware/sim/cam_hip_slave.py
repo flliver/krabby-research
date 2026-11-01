@@ -50,15 +50,16 @@ def build_cam_hip_slave_binding(articulation: Any) -> CamHipSlaveBinding | None:
     )
 
 
+_CAM_SHAFT_TO_HIP = None
+
+
 def _cam_shaft_to_hip(theta_shaft: Any, omega_shaft: Any) -> tuple[Any, Any]:
-    from firmware.sim.isaac_scene import ensure_parkour_tasks_on_path
+    global _CAM_SHAFT_TO_HIP
+    if _CAM_SHAFT_TO_HIP is None:
+        from firmware.sim.isaac_scene import import_cam_shaft_to_hip
 
-    ensure_parkour_tasks_on_path()
-    from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_cam_mapping import (
-        cam_shaft_to_hip,
-    )
-
-    return cam_shaft_to_hip(theta_shaft, omega_shaft)
+        _CAM_SHAFT_TO_HIP = import_cam_shaft_to_hip()
+    return _CAM_SHAFT_TO_HIP(theta_shaft, omega_shaft)
 
 
 def apply_cam_hip_slave(binding: CamHipSlaveBinding, articulation: Any) -> None:

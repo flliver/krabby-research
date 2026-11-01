@@ -37,6 +37,28 @@ def ensure_parkour_tasks_on_path() -> None:
         sys.path.insert(0, src)
 
 
+def import_cam_shaft_to_hip():
+    """Load ``cam_shaft_to_hip`` without importing ``parkour_tasks`` (needs Isaac Lab in __init__)."""
+    import importlib.util
+
+    mdp_dir = (
+        parkour_tasks_src()
+        / "parkour_tasks"
+        / "crab_hex_forward_task"
+        / "mdp"
+    )
+    mdp_src = str(mdp_dir)
+    if mdp_src not in sys.path:
+        sys.path.insert(0, mdp_src)
+    path = mdp_dir / "crab_hex_cam_mapping.py"
+    spec = importlib.util.spec_from_file_location("_krabby_cam_hex_mapping", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load cam mapping from {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.cam_shaft_to_hip
+
+
 def configure_crab_hex_usd_env() -> None:
     """Set ``KRABBY_HEX_USD_PATH`` when unset (same precedence as forward PLAY).
 

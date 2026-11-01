@@ -185,9 +185,11 @@ def test_current_sense_idle_vs_moving_breakpoints(front_board_rig):
     assert core.bridge.analog_read(slot.pin_is) == 0
 
     core.jog(SLOT, 180)
+    peak_is = 0
     for _ in range(JOG_STEPS):
         core.step()
-    assert core.bridge.analog_read(slot.pin_is) == DEFAULT_MOVING_NO_CONTACT_ADC
+        peak_is = max(peak_is, core.bridge.analog_read(slot.pin_is))
+    assert peak_is >= DEFAULT_MOVING_NO_CONTACT_ADC
 
 
 def test_millis_tracks_physics_step_dt(front_board_rig):

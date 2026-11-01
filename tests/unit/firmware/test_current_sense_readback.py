@@ -12,6 +12,7 @@ from tests.unit.firmware.plant_readback_fixtures import TensorCell, articulation
 def test_sync_current_sense_sets_pin_is_from_wrench_and_en():
     bridge = MagicMock()
     bridge.pin_digital.return_value = 1
+    bridge.pin_pwm.return_value = 0
     config = SimulatedRobotConfig.front_board_rev3()
     indices = {name: i for i, name in enumerate(config.isaac_joint_names())}
     actuators = config.actuators(indices)
