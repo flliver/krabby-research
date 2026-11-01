@@ -74,11 +74,27 @@ def test_map_wrench_uses_torque_cross_check_for_adc():
     )
     adc = map_wrench_to_pin_is_adc(
         light,
-        en_energized=False,
+        en_energized=True,
         applied_torque_nm=15.0,
         breakpoints=bp,
     )
     assert adc == DEFAULT_LIFT_LOAD_ADC
+
+
+def test_map_wrench_ignores_torque_when_deenergized():
+    light = WrenchSample(0.0, 0.0, 5.0, 0.0, 0.0, 0.0)
+    bp = CurrentSenseBreakpoints(
+        ground_contact_force_n=10.0,
+        lift_load_force_n=100.0,
+        effort_nm_to_load_n=10.0,
+    )
+    adc = map_wrench_to_pin_is_adc(
+        light,
+        en_energized=False,
+        applied_torque_nm=15.0,
+        breakpoints=bp,
+    )
+    assert adc == DEFAULT_IDLE_ADC
 
 
 def test_wrench_wrapper_uses_force_magnitude():

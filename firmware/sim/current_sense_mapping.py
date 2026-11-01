@@ -110,9 +110,12 @@ def map_wrench_to_pin_is_adc(
     applied_torque_nm: float | None = None,
     breakpoints: CurrentSenseBreakpoints | None = None,
 ) -> int:
+    # Motor current sense is meaningful only when the H-bridge is enabled; ignore
+    # Isaac joint actuator torque when EN is low (passive PD holding is not shunt current).
+    torque_for_load = applied_torque_nm if en_energized else None
     load_n, _, _ = effective_load_newtons(
         sample,
-        applied_torque_nm,
+        torque_for_load,
         breakpoints=breakpoints,
     )
     return map_load_to_pin_is_adc(
