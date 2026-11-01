@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("serial")
 
 from firmware.krabby_mcu import KrabbyMCUSDK
+from firmware.mcu_port import McuSerialDevice
 from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
 from firmware.sim.three_board_mcu_host import ThreeBoardMcuHost
 
@@ -63,7 +64,7 @@ def test_sdk_receives_three_role_telemetry_lines(bridge, monkeypatch):
     _fast_connect_sleep(monkeypatch)
     host = ThreeBoardMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
 
@@ -87,7 +88,7 @@ def test_follower_jog_updates_target_joint_only(
     _fast_connect_sleep(monkeypatch)
     host = ThreeBoardMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
         _wait_for_joints(mcu, (follower_joint, front_joint))
@@ -121,7 +122,7 @@ def test_batch_jog_drives_left_and_right_follower_joints(bridge, monkeypatch):
     _fast_connect_sleep(monkeypatch)
     host = ThreeBoardMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
         _wait_for_joints(mcu, ("RLHY", "RRHY", "FLHY"))
@@ -157,7 +158,7 @@ def test_trajectory_command_drives_left_and_right_follower_joints(bridge, monkey
     _fast_connect_sleep(monkeypatch)
     host = ThreeBoardMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
         _wait_for_joints(mcu, ("RLHY", "RRHY"))
@@ -191,7 +192,7 @@ def test_hold_coasts_jogged_left_and_right_follower_joints(bridge, monkeypatch):
     _fast_connect_sleep(monkeypatch)
     host = ThreeBoardMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
         _wait_for_joints(mcu, ("RLHY", "RRHY"))

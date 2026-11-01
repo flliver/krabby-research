@@ -127,7 +127,10 @@ def main() -> int:
     bridge.firmware_setup()
     with SimMcuTcpBridge(bridge) as tcp:
         print(tcp.port_url, flush=True)
-        print("Set KRABBY_MCU_PORT to the URL above (or pass port= to KrabbyMCUSDK).", flush=True)
+        print(
+            "Set KRABBY_MCU_PORT to the URL above (or KrabbyMCUSDK(target=McuSerialUrl(...))).",
+            flush=True,
+        )
         try:
             threading.Event().wait()
         except KeyboardInterrupt:

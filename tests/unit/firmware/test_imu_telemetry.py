@@ -93,7 +93,9 @@ def _bare_sdk() -> KrabbyMCUSDK:
     invariants instead of a hand-copied stand-in that silently drifts when a
     field is renamed.
     """
-    return KrabbyMCUSDK(port="unused")
+    from firmware.mcu_port import McuSerialDevice
+
+    return KrabbyMCUSDK(target=McuSerialDevice(path="unused"))
 
 
 class TestImuFromTokens:

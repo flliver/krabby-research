@@ -1,10 +1,15 @@
 """
-Serial port auto-detection for Krabby MCU (Arduino Mega over USB).
-Used by krabby_mcu.KrabbyMCUSDK and firmware/scripts/detect_mcu_port.py / Makefile.
+Serial endpoint for Krabby MCU (Arduino Mega over USB or sim virtual serial).
+
+Used by krabby_mcu.KrabbyMCUSDK, firmware/scripts/detect_mcu_port.py, and Makefile.
 """
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
+from typing import Union
+
+import serial
 
 # USB VID/PID pairs for boards we drive. Shared with firmware.cli port scanning.
 MEGA_USB_IDS = {
@@ -13,21 +18,75 @@ MEGA_USB_IDS = {
 }
 
 
-def default_port() -> str:
-    """
-    Best-effort auto-detection of the MCU serial port.
-    Priority:
-      1) KRABBY_MCU_PORT env var (device path, COMn, or pyserial URL such as
-         socket://127.0.0.1:PORT for sim TCP bridge — see firmware/sim/VIRTUAL_SERIAL.md)
-      2) USB VID/PID matching a known board (CH340 adapters often report a
-         generic description like "USB Serial" with no manufacturer)
-      3) USB description/manufacturer containing common board identifiers
-      4) OS-specific fallback
-    """
-    env_port = os.getenv("KRABBY_MCU_PORT")
-    if env_port:
-        return env_port
+@dataclass(frozen=True, slots=True)
+class McuSerialDevice:
+    """Local serial device (USB ACM, PTY slave path, COM port)."""
 
+    path: str
+
+    def __str__(self) -> str:
+        return self.path
+
+    def open(
+        self,
+        *,
+        baud: int,
+        timeout: float = 0.5,
+        write_timeout: float = 0.5,
+    ) -> serial.Serial:
+        ser = serial.Serial()
+        ser.port = self.path
+        ser.baudrate = baud
+        ser.timeout = timeout
+        ser.write_timeout = write_timeout
+        ser.dtr = False
+        ser.open()
+        return ser
+
+
+@dataclass(frozen=True, slots=True)
+class McuSerialUrl:
+    """Pyserial URL (e.g. ``socket://127.0.0.1:54321`` for Windows sim TCP bridge)."""
+
+    url: str
+
+    def __str__(self) -> str:
+        return self.url
+
+    def open(
+        self,
+        *,
+        baud: int,
+        timeout: float = 0.5,
+        write_timeout: float = 0.5,
+    ) -> serial.Serial:
+        ser = serial.serial_for_url(
+            self.url,
+            baudrate=baud,
+            timeout=timeout,
+            write_timeout=write_timeout,
+        )
+        ser.dtr = False
+        return ser
+
+
+McuSerialTarget = Union[McuSerialDevice, McuSerialUrl]
+
+
+def parse_krabby_mcu_port_env(value: str) -> McuSerialTarget:
+    """Parse ``KRABBY_MCU_PORT`` (device path/COM or pyserial URL).
+
+    This is the only place that distinguishes URL vs device by the ``://`` heuristic.
+    """
+    raw = value.strip()
+    if not raw:
+        raise ValueError("KRABBY_MCU_PORT is empty")
+    if "://" in raw:
+        return McuSerialUrl(url=raw)
+    return McuSerialDevice(path=raw)
+
+
+def _autodetect_device_path() -> str:
     try:
         from serial.tools import list_ports
     except ImportError:
@@ -60,3 +119,18 @@ def default_port() -> str:
             return p.device
 
     return "COM5" if os.name == "nt" else "/dev/ttyACM0"
+
+
+def default_target() -> McuSerialTarget:
+    """
+    Default MCU serial endpoint for ``KrabbyMCUSDK()``.
+
+    Priority:
+      1) ``KRABBY_MCU_PORT`` env (parsed by :func:`parse_krabby_mcu_port_env`)
+      2) USB VID/PID or description heuristics → :class:`McuSerialDevice`
+      3) OS fallback ``/dev/ttyACM0`` or ``COM5``
+    """
+    env_port = os.getenv("KRABBY_MCU_PORT")
+    if env_port:
+        return parse_krabby_mcu_port_env(env_port)
+    return McuSerialDevice(path=_autodetect_device_path())

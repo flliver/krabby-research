@@ -221,7 +221,9 @@ class TestSdkStorage:
     def _bare_sdk(self) -> KrabbyMCUSDK:
         """A real SDK with no serial port opened; __init__ is I/O-free when given
         an explicit port, so this exercises the real object's invariants."""
-        return KrabbyMCUSDK(port="unused")
+        from firmware.mcu_port import McuSerialDevice
+
+        return KrabbyMCUSDK(target=McuSerialDevice(path="unused"))
 
     def test_battery_starts_as_none(self):
         assert self._bare_sdk().battery is None

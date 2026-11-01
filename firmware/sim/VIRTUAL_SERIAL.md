@@ -6,8 +6,8 @@ If you open the port yourself (not via `KrabbyMCUSDK.connect()`): **250000** bau
 
 | OS | Start bridge | Set `KRABBY_MCU_PORT` to |
 |----|--------------|---------------------------|
-| Linux / macOS | `python -m firmware.sim.serial_pty_bridge` | printed path, e.g. `/dev/pts/N` |
-| Windows | `python -m firmware.sim.serial_tcp_bridge` | printed URL, e.g. `socket://127.0.0.1:54321` |
+| Linux / macOS | `python -m firmware.sim.serial_pty_bridge` | printed path, e.g. `/dev/pts/N` → `McuSerialDevice(path=…)` or `KRABBY_MCU_PORT` |
+| Windows | `python -m firmware.sim.serial_tcp_bridge` | printed URL, e.g. `socket://127.0.0.1:54321` → `McuSerialUrl(url=…)` or `KRABBY_MCU_PORT` |
 
 Isaac / GUI sim demos call `open_sim_mcu_usb_bridge()` for you (PTY on Unix, TCP on Windows); use the path or URL they print.
 

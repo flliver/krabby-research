@@ -9,6 +9,7 @@ import pytest
 
 from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.krabby_mcu import KrabbyMCUSDK
+from firmware.mcu_port import McuSerialDevice
 from firmware.sim.current_sense_mapping import (
     DEFAULT_GROUND_CONTACT_ADC,
     DEFAULT_LIFT_LOAD_ADC,
@@ -116,7 +117,7 @@ def test_sdk_cur_idle_and_moving_bands(front_board_rig, monkeypatch):
     park_at_default_pose(core, robot)
 
     with IsaacMcuHost(core) as port:
-        mcu = KrabbyMCUSDK(port=port)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=port))
         try:
             assert mcu.connect() is True
             idle = _wait_joint_current(
@@ -146,7 +147,7 @@ def test_sdk_cur_ground_contact_band(gravity_front_board, monkeypatch):
     core.reset()
 
     with IsaacMcuHost(core) as port:
-        mcu = KrabbyMCUSDK(port=port)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=port))
         try:
             assert mcu.connect() is True
 
@@ -174,7 +175,7 @@ def test_sdk_cur_lift_load_band(gravity_front_board, monkeypatch):
     core.reset()
 
     with IsaacMcuHost(core) as port:
-        mcu = KrabbyMCUSDK(port=port)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=port))
         try:
             assert mcu.connect() is True
             _wait_joint_current(
@@ -198,7 +199,7 @@ def test_gui_cur_column_shows_lift_load_band(gravity_front_board, monkeypatch):
     core.reset()
 
     with IsaacMcuHost(core) as port:
-        mcu = KrabbyMCUSDK(port=port)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=port))
         try:
             assert mcu.connect() is True
             _wait_joint_current(

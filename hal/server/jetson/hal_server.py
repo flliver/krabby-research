@@ -21,6 +21,7 @@ from hal.server.jetson.front_camera_factory import (
     create_front_rgb_depth_camera,
 )
 from firmware.krabby_mcu import DEFAULT_BAUD
+from firmware.mcu_port import McuSerialTarget
 from hal.server.jetson.krabby_mcusdk import KrabbyMCUSDK
 from hal.server.jetson.sensor_backend_jetson import (
     JETSON_SENSOR_CATALOG,
@@ -135,7 +136,7 @@ class JetsonHalServer(HalServerBase):
         observation_dimensions: ObservationDimensions,
         action_dim: int,
         robot_definition: RobotDefinition,
-        mcu_port: Optional[str] = None,
+        mcu_target: McuSerialTarget | None = None,
         mcu_baud: int = DEFAULT_BAUD,
         mcu_auto_connect: bool = True,
     ):
@@ -148,7 +149,7 @@ class JetsonHalServer(HalServerBase):
                 a matching side catalog row (see ``JETSON_SENSOR_CATALOG`` ``policy_scan_slot``).
             action_dim: Action dimension (model output joint count)
             robot_definition: Robot definition for joint names and order (adapter uses get_joint_names()).
-            mcu_port: Serial port for MCU connection. If None, uses default from MCU SDK.
+            mcu_target: MCU serial endpoint. If None, uses :func:`firmware.mcu_port.default_target`.
             mcu_baud: Baud rate for MCU serial communication.
             mcu_auto_connect: If True, automatically connect to MCU on initialization.
         """
@@ -193,7 +194,7 @@ class JetsonHalServer(HalServerBase):
             try:
                 self._mcusdk = KrabbyMCUSDK(
                     mcu_joints=mcu_joints,
-                    port=mcu_port,
+                    target=mcu_target,
                     baud=mcu_baud,
                     auto_connect=mcu_auto_connect,
                 )

@@ -7,6 +7,7 @@ import time
 from typing import Dict, Optional
 
 from firmware.krabby_mcu import DEFAULT_BAUD, KrabbyMCUSDK, JOINT_GROUP_NAMES
+from firmware.mcu_port import McuSerialTarget
 from firmware.interfaces.joint_telemetry import JointTelemetry
 
 JOG_PWM = 200  # jog magnitude sent while a Retract/Extend button is held
@@ -281,13 +282,17 @@ class BattRow:
 
 
 class KrabbyTestGUI(tk.Tk):
-    def __init__(self, port: Optional[str] = None, baud: int = DEFAULT_BAUD):
+    def __init__(
+        self,
+        target: McuSerialTarget | None = None,
+        baud: int = DEFAULT_BAUD,
+    ):
         super().__init__()
         self.title("Krabby MCU Test")
         self.resizable(True, True)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self._mcu = KrabbyMCUSDK(port=port, baud=baud)
+        self._mcu = KrabbyMCUSDK(target=target, baud=baud)
         self._joint_rows: Dict[str, JointRow] = {}
         self._connected = False
 
@@ -370,12 +375,12 @@ class KrabbyTestGUI(tk.Tk):
     def _on_connected(self, ok: bool):
         if ok:
             self._connected = True
-            self._status_var.set(f"Connected: {self._mcu.port}")
+            self._status_var.set(f"Connected: {self._mcu.target}")
             self._poll_telemetry()
         else:
             self._status_var.set("Connection failed")
             messagebox.showerror(
-                "Connection Error", f"Could not connect to {self._mcu.port}"
+                "Connection Error", f"Could not connect to {self._mcu.target}"
             )
 
     def _poll_telemetry(self):
@@ -405,9 +410,11 @@ class KrabbyTestGUI(tk.Tk):
         elif self._mcu.last_feedback_ts:
             age = time.time() - self._mcu.last_feedback_ts
             if age < 1.0:
-                self._status_var.set(f"Connected: {self._mcu.port}")
+                self._status_var.set(f"Connected: {self._mcu.target}")
             else:
-                self._status_var.set(f"Connected: {self._mcu.port} (stale {age:.0f}s)")
+                self._status_var.set(
+                    f"Connected: {self._mcu.target} (stale {age:.0f}s)"
+                )
 
         self.after(TELEMETRY_REFRESH_MS, self._poll_telemetry)
 

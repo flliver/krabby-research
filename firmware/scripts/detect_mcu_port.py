@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-"""Print MCU serial device path (same rules as firmware.mcu_port.default_port)."""
+"""Print default MCU serial endpoint (same rules as firmware.mcu_port.default_target)."""
 from __future__ import annotations
 
-import os
 import sys
+from pathlib import Path
 
-# Repo root = parent of firmware/ (this file lives in firmware/scripts/)
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-if _REPO_ROOT not in sys.path:
-    sys.path.insert(0, _REPO_ROOT)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
-from firmware.mcu_port import default_port  # noqa: E402
+from firmware.mcu_port import McuSerialDevice, default_target  # noqa: E402
+
+
+def main() -> None:
+    target = default_target()
+    if not isinstance(target, McuSerialDevice):
+        print(target, file=sys.stderr)
+        sys.exit(
+            "detect_mcu_port prints a local device path; "
+            "KRABBY_MCU_PORT is set to a pyserial URL — use that URL directly."
+        )
+    print(target.path)
 
 
 if __name__ == "__main__":
-    try:
-        print(default_port())
-    except RuntimeError as e:
-        print(str(e), file=sys.stderr)
-        sys.exit(1)
+    main()

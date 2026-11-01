@@ -9,7 +9,7 @@ from firmware.interfaces.battery_telemetry import BatteryTelemetry
 from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.interfaces.telemetry_frame import TelemetryFrame
-from firmware.mcu_port import default_port
+from firmware.mcu_port import McuSerialTarget, default_target
 
 # Must match the firmware BAUD_RATE used for the telemetry link.
 DEFAULT_BAUD = 250000
@@ -58,8 +58,8 @@ JOINT_GROUP_NAMES = (
 
 
 class KrabbyMCUSDK:
-    def __init__(self, port=None, baud=DEFAULT_BAUD):
-        self.port = port or default_port()
+    def __init__(self, target: McuSerialTarget | None = None, baud=DEFAULT_BAUD):
+        self.target = target if target is not None else default_target()
         self.baud = baud
         self.ser = None
         self.running = False
@@ -91,23 +91,7 @@ class KrabbyMCUSDK:
             # A DTR reset would break three-board role election (followers stay in
             # their assigned roles and stop broadcasting SYNC, so a newly-reset
             # leader can never hear from them).
-            port = self.port
-            if "://" in str(port):
-                self.ser = serial.serial_for_url(
-                    port,
-                    baudrate=self.baud,
-                    timeout=0.5,
-                    write_timeout=0.5,
-                )
-                self.ser.dtr = False
-            else:
-                ser = serial.Serial()
-                ser.port = port
-                ser.baudrate = self.baud
-                ser.timeout = 0.5
-                ser.dtr = False
-                ser.open()
-                self.ser = ser
+            self.ser = self.target.open(baud=self.baud)
             time.sleep(
                 5.0
             )  # wait for boot + 3-board role election before starting reader
@@ -122,7 +106,7 @@ class KrabbyMCUSDK:
             self.battery = None
             self.thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.thread.start()
-            logger.info(f"Connected to {self.port}")
+            logger.info("Connected to %s", self.target)
 
             # On startup, immediately command the MCU to hold all joints
             # at their current positions so the legs don't drift or move
@@ -142,8 +126,8 @@ class KrabbyMCUSDK:
                     line = raw.decode("utf-8").strip()
                 except UnicodeDecodeError as e:
                     logger.warning(
-                        "Decode error on serial line (port=%s, len=%d): %s raw=%s",
-                        self.port,
+                        "Decode error on serial line (target=%s, len=%d): %s raw=%s",
+                        self.target,
                         len(raw),
                         e,
                         raw.hex(),

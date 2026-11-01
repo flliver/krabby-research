@@ -9,6 +9,7 @@ from typing import Optional
 
 from hal.client.data_structures.hardware import JointCommand
 from firmware.krabby_mcu import DEFAULT_BAUD, KrabbyMCUSDK as FirmwareKrabbyMCUSDK
+from firmware.mcu_port import McuSerialTarget
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class KrabbyMCUSDK:
     def __init__(
         self,
         mcu_joints: tuple[str, ...],
-        port: Optional[str] = None,
+        target: McuSerialTarget | None = None,
         baud: int = DEFAULT_BAUD,
         auto_connect: bool = True,
     ):
@@ -64,10 +65,15 @@ class KrabbyMCUSDK:
             )
         
         self._mcu_joints = mcu_joints
-        self._mcu = FirmwareKrabbyMCUSDK(port=port, baud=baud)
+        self._mcu = FirmwareKrabbyMCUSDK(target=target, baud=baud)
         self._connected = False
-        
-        logger.info(f"KrabbyMCUSDK initialized (port={port}, baud={baud}, auto_connect={auto_connect})")
+
+        logger.info(
+            "KrabbyMCUSDK initialized (target=%s, baud=%s, auto_connect=%s)",
+            target,
+            baud,
+            auto_connect,
+        )
         
         if auto_connect:
             self.connect()

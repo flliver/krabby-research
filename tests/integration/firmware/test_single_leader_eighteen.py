@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("serial")
 
 from firmware.krabby_mcu import KrabbyMCUSDK
+from firmware.mcu_port import McuSerialDevice
 from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
 from firmware.sim.single_leader_mcu_host import SingleLeaderEighteenMcuHost
 
@@ -40,7 +41,7 @@ def test_sdk_receives_three_roles_in_single_leader_mode(bridge, monkeypatch):
     _fast_connect_sleep(monkeypatch)
     host = SingleLeaderEighteenMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
 

@@ -8,6 +8,7 @@ import time
 import pytest
 
 from firmware.krabby_mcu import KrabbyMCUSDK
+from firmware.mcu_port import McuSerialDevice
 from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
 from firmware.sim.simulated_robot_config import KRABBY_HEX_FIRMWARE_ACTUATOR_IDS
 from firmware.sim.serial_pty_bridge import SimMcuPtyBridge
@@ -105,7 +106,7 @@ def test_krabby_mcu_sdk_jog_activates_each_hal_joint_on_three_board_host(
     _fast_connect_sleep(monkeypatch)
     host = ThreeBoardMcuHost(bridge)
     host.start()
-    mcu = KrabbyMCUSDK(port=host.slave_path)
+    mcu = KrabbyMCUSDK(target=McuSerialDevice(path=host.slave_path))
     try:
         assert mcu.connect() is True
         _wait_for_joint(mcu, firmware_id)
@@ -140,7 +141,7 @@ def _joint_deltas_after_sdk_jog(rig, hal_joint_name: str, pwm: int, steps: int) 
     # PTY relay only — ``ThreeBoardMcuHost``'s background firmware loop would double-tick
     # against ``core.step()`` and can couple motion across same-leg DOFs.
     with SimMcuPtyBridge(core.bridge) as pty:
-        mcu = KrabbyMCUSDK(port=pty.slave_path)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=pty.slave_path))
         try:
             assert mcu.connect() is True
             _wait_for_joint_with_firmware_ticks(core, mcu, firmware_id)

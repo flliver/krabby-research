@@ -10,6 +10,7 @@ import pytest
 pytest.importorskip("serial")
 
 from firmware.krabby_mcu import KrabbyMCUSDK
+from firmware.mcu_port import McuSerialDevice
 from firmware.sim.isaac_scene import configure_open_loop_velocity_drive
 from firmware.sim.robot_core import RobotCore
 from firmware.sim.simulated_mcu_host import SimulatedMcuHost
@@ -60,7 +61,7 @@ def test_krabby_mcu_sdk_jog_moves_isaac_and_updates_joints(sdk_rig, monkeypatch)
     before = robot.data.joint_pos[0, joint_index].item()
 
     with SimulatedMcuHost(core) as pty_path:
-        mcu = KrabbyMCUSDK(port=pty_path)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=pty_path))
         try:
             assert mcu.connect() is True
 

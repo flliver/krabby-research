@@ -101,7 +101,7 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
 
 - **Arduino IDE:** open **`firmware/arduino/arduino.ino`**, set **Board → Arduino Mega 2560**, choose the correct **Port**, set **`KRABBY_PIN_REV`** in **`board_pins.h`** if needed, then **Upload**. The serial monitor at **250000** baud (`BAUD_RATE` in `arduino.ino`) should show **`PINS_REV3_UNO_V02`** (or the matching label) after reset.
 - **Make + arduino-cli:** install [arduino-cli](https://arduino.github.io/arduino-cli/latest/installation/) and **GNU Make**. On Windows: `winget install GnuWin32.Make` then add **`C:\Program Files (x86)\GnuWin32\bin`** to your **`PATH`**. Put **arduino-cli** on your **`PATH`** (or set **`ARDUINO_CLI`**). Install **pyserial** for port auto-detect: `pip install -r firmware/requirements.txt`. From **`krabby-research`**:
-  - `make -C firmware upload-firmware` — auto-detects serial port via **`firmware/mcu_port.default_port()`**. Pass **`PORT=COM5`** (or `/dev/ttyACM0`) to override.
+  - `make -C firmware upload-firmware` — auto-detects serial device via **`firmware/mcu_port.default_target()`** (prints path from **`firmware/scripts/detect_mcu_port.py`**). Pass **`PORT=COM5`** (or `/dev/ttyACM0`) to override Makefile upload only.
   - Other revisions: `make -C firmware upload-firmware PIN_REV=1` (or `PIN_REV=2`).
   - Compile only: `make -C firmware compile-firmware`.
   - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.

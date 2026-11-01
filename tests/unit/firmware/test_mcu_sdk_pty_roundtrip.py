@@ -11,6 +11,7 @@ import pytest
 pytest.importorskip("serial")
 
 from firmware.krabby_mcu import KrabbyMCUSDK
+from firmware.mcu_port import McuSerialDevice
 from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
 from firmware.sim.serial_pty_bridge import SimMcuPtyBridge
 
@@ -60,7 +61,7 @@ def test_sdk_connect_jog_and_joint_telemetry(bridge, monkeypatch):
 
     with SimMcuPtyBridge(bridge) as pty:
         tick.start()
-        mcu = KrabbyMCUSDK(port=pty.slave_path)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=pty.slave_path))
         try:
             assert mcu.connect() is True
 
@@ -121,7 +122,7 @@ def test_sdk_parsed_en_fields_follow_jog_on_role_prefixed_telemetry(bridge, monk
 
     with SimMcuPtyBridge(bridge) as pty:
         tick.start()
-        mcu = KrabbyMCUSDK(port=pty.slave_path)
+        mcu = KrabbyMCUSDK(target=McuSerialDevice(path=pty.slave_path))
         try:
             assert mcu.connect() is True
             deadline = time.monotonic() + 3.0

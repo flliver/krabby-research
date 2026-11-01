@@ -133,9 +133,15 @@ def start_serial_sdk_session(
     # against ``ThreeBoardRobotCore.step()`` / ``tick_firmware_without_physics()``.
     core.reset()
     pty = SimMcuPtyBridge(core.bridge)
-    port = pty.start()
+    pty_slave_path = pty.start()
 
-    hal_mcu = HalKrabbyMCUSDK(tuple(mcu_joints), port=port, auto_connect=True)
+    from firmware.mcu_port import McuSerialDevice
+
+    hal_mcu = HalKrabbyMCUSDK(
+        tuple(mcu_joints),
+        target=McuSerialDevice(path=pty_slave_path),
+        auto_connect=True,
+    )
     deadline = time.monotonic() + connect_timeout_s
     while time.monotonic() < deadline:
         firmware_sdk = hal_mcu._mcu  # noqa: SLF001 — wait for telemetry reader
@@ -152,12 +158,12 @@ def start_serial_sdk_session(
         hal_mcu.close()
         raise RuntimeError(
             "KrabbyMCUSDK did not receive telemetry over PTY within "
-            f"{connect_timeout_s}s (port={port!r})"
+            f"{connect_timeout_s}s (pty_slave_path={pty_slave_path!r})"
         )
 
     logger.info(
         "Fullsim serial SDK on PTY %s (KrabbyMCUSDK wire protocol, same as Jetson teleop)",
-        port,
+        pty_slave_path,
     )
     loop = SerialSdkCommandLoop(hal_mcu, core, mcu_joints=tuple(mcu_joints))
     session = FullsimFirmwareSession(
@@ -165,7 +171,7 @@ def start_serial_sdk_session(
         firmware_loop=loop,
         mcu_host=pty,
         hal_krabby_sdk=hal_mcu,
-        pty_slave_path=port,
+        pty_slave_path=pty_slave_path,
         firmware_transport="serial_sdk",
     )
     return loop, session
