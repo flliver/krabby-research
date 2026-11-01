@@ -8,10 +8,6 @@ from firmware.sim.pin_state import (
     OUTPUT,
     PinStateModel,
 )
-from firmware.sim.simulated_actuator import (
-    RecordedArticulation,
-    SimulatedActuator,
-)
 from firmware.sim.simulated_robot_config import (
     SimulatedRobotConfig,
     SimulatedSlotConfig,
@@ -25,8 +21,6 @@ __all__ = [
     "LOW",
     "OUTPUT",
     "PinStateModel",
-    "RecordedArticulation",
-    "SimulatedActuator",
     "SimulatedRobotConfig",
     "SimulatedSlotConfig",
     "front_board_rev3_slots",

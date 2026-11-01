@@ -105,8 +105,10 @@ run_one_job() {
 
   echo "Installing package and test deps..."
   cd "$ROOT/$path" && pip install dist/*.whl && pip install pytest pytest-cov pytest-timeout pytest-asyncio keyboard pyserial
-  if [[ "$key" == hal-server-isaac ]] || [[ "$key" == hal-server-jetson ]] || [[ "$key" == compute-parkour ]] || [[ "$key" == hal-client ]]; then
+  if [[ "$key" == firmware ]] || [[ "$key" == hal-server-isaac ]] || [[ "$key" == hal-server-jetson ]] || [[ "$key" == compute-parkour ]] || [[ "$key" == hal-client ]]; then
     pip install torch --index-url https://download.pytorch.org/whl/cpu
+  fi
+  if [[ "$key" == hal-server-isaac ]] || [[ "$key" == hal-server-jetson ]] || [[ "$key" == compute-parkour ]] || [[ "$key" == hal-client ]]; then
     pip install scipy
   fi
   cd "$ROOT"
