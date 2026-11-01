@@ -160,3 +160,8 @@ extern "C" void krabby_host_firmware_reset_loop_state(void)
     s_firmwareSetupDone = false;
     krabby::sim::host::threeBoardFirmwareResetLoopState();
 }
+
+extern "C" int krabby_host_firmware_calibration_active(void)
+{
+    return krabby::sim::host::actuatorManager().calState != ActuatorManager::CAL_IDLE ? 1 : 0;
+}

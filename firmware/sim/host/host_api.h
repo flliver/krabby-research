@@ -53,6 +53,8 @@ void krabby_host_serial_usb_println(const char *text);
 void krabby_host_firmware_setup(void);
 void krabby_host_firmware_loop_once(void);
 void krabby_host_firmware_reset_loop_state(void);
+/** Non-zero while ``ActuatorManager`` auto-cal state machine is running. */
+int krabby_host_firmware_calibration_active(void);
 
 /** Run cooperative SYNC election for FRONT/LEFT/RIGHT (board ids 0/1/2). */
 void krabby_host_run_three_board_role_election(int roles_out[3]);

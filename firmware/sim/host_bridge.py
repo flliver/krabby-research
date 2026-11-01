@@ -113,6 +113,8 @@ class HostActuatorBridge:
         self._lib.krabby_host_firmware_loop_once.restype = None
         self._lib.krabby_host_firmware_reset_loop_state.argtypes = []
         self._lib.krabby_host_firmware_reset_loop_state.restype = None
+        self._lib.krabby_host_firmware_calibration_active.argtypes = []
+        self._lib.krabby_host_firmware_calibration_active.restype = ctypes.c_int
         self._lib.krabby_host_run_three_board_role_election.argtypes = [
             ctypes.POINTER(ctypes.c_int32),
         ]
@@ -168,6 +170,9 @@ class HostActuatorBridge:
     def firmware_reset_loop_state(self) -> None:
         """Clear setup/telemetry state without wiping EEPROM (simulated power-cycle)."""
         self._lib.krabby_host_firmware_reset_loop_state()
+
+    def firmware_calibration_active(self) -> bool:
+        return bool(self._lib.krabby_host_firmware_calibration_active())
 
     def handle_jog(self, actuator_name: str, pwm: int) -> None:
         self._lib.krabby_host_handle_jog(actuator_name.encode("ascii"), int(pwm))

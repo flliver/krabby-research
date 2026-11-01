@@ -14,6 +14,11 @@ from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
 from firmware.sim.hall_readback import retarget_hall_baselines_when_idle
 from firmware.sim.plant_readback import PlantReadbackView
+from firmware.sim.pot_autocal_plant import (
+    advance_travel_from_pwm,
+    default_travel_fractions,
+    sync_pot_reads_from_travel,
+)
 from firmware.sim.pot_readback import sync_pot_analog_reads, sync_sensor_reads
 from firmware.sim.pin_state import PinStateModel
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
@@ -36,6 +41,7 @@ class RobotCore:
     _wrench_body_indices: dict[str, int] | None = field(default=None, init=False, repr=False)
     _cam_hip_slave: Any = field(default=None, init=False, repr=False)
     _cam_hip_slave_resolved: bool = field(default=False, init=False, repr=False)
+    _cal_pot_travel: dict[str, float] = field(default_factory=dict, init=False, repr=False)
     _step_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     @classmethod
@@ -66,6 +72,7 @@ class RobotCore:
         self._wrench_body_indices = None
         self._cam_hip_slave = None
         self._cam_hip_slave_resolved = False
+        self._cal_pot_travel = default_travel_fractions(self.actuators)
         if self.config is not None:
             self.bridge.set_hall_edges_per_full_travel(
                 self.config.hall_edges_per_full_travel
@@ -122,18 +129,24 @@ class RobotCore:
 
     def tick_firmware_without_physics(self, *, process_usb_serial: bool = False) -> None:
         """Run one firmware control tick without advancing Isaac physics."""
-        sync_sensor_reads(
-            self.bridge,
-            self.actuators,
-            PlantReadbackView.from_articulation(self.articulation),
-            wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
-        )
+        plant = PlantReadbackView.from_articulation(self.articulation)
+        if self.bridge.firmware_calibration_active():
+            sync_pot_reads_from_travel(self.bridge, self.actuators, self._cal_pot_travel)
+        else:
+            sync_sensor_reads(
+                self.bridge,
+                self.actuators,
+                plant,
+                wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
+            )
         self.bridge.advance_millis(physics_step_ms(self.env))
         if process_usb_serial:
             self.bridge.firmware_loop_once()
         else:
             self.bridge.update_all()
         self.record_drive_pins_to_pin_state()
+        if self.bridge.firmware_calibration_active():
+            advance_travel_from_pwm(self.actuators, self.pin_state, self._cal_pot_travel)
 
     def step(self, *, process_usb_serial: bool = False) -> Any:
         with self._step_lock:

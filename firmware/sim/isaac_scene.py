@@ -210,12 +210,15 @@ def resolve_eighteen_joint_indices(
     return indices
 
 
-def configure_open_loop_velocity_drive(
+def _zero_actuator_gains_for_joint_ids(
     robot: Articulation,
-    joint_indices: Sequence[int],
+    joint_ids: Sequence[int],
+    *,
+    zero_damping: bool = False,
 ) -> None:
-    """Zero the position gain on firmware-driven joints so PWM velocity targets win."""
-    ids = sorted({int(i) for i in joint_indices})
+    ids = sorted({int(i) for i in joint_ids})
+    if not ids:
+        return
     robot.write_joint_stiffness_to_sim(0.0, joint_ids=ids)
 
     # Explicit actuator models (ParkourDCMotor) compute torque from their own gain
@@ -231,6 +234,29 @@ def configure_open_loop_velocity_drive(
         columns = [col for col, jid in enumerate(group_ids) if int(jid) in wanted]
         if columns:
             stiffness[:, columns] = 0.0
+        if zero_damping:
+            damping = getattr(actuator, "damping", None)
+            if damping is not None and columns:
+                damping[:, columns] = 0.0
+
+
+def configure_open_loop_velocity_drive(
+    robot: Articulation,
+    joint_indices: Sequence[int],
+) -> None:
+    """Zero the position gain on firmware-driven joints so PWM velocity targets win."""
+    _zero_actuator_gains_for_joint_ids(robot, joint_indices)
+
+    # Main plant (``crab.usda``): high-gain ``body_hip_tracking`` PD on ``*_Body_Hip_*``
+    # resists cam-shaft motion during firmware stop-to-stop cal and open-loop jogs.
+    if not _crab_hex_articulation_uses_ref_joint_names(robot):
+        try:
+            hip_ids, _ = robot.find_joints(
+                [".*_Body_Hip_RevoluteJoint"], preserve_order=True
+            )
+        except (ValueError, TypeError):
+            hip_ids = []
+        _zero_actuator_gains_for_joint_ids(robot, hip_ids, zero_damping=True)
 
 
 def step_env_once(env: Any) -> tuple[Any, ...]:
