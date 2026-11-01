@@ -29,6 +29,11 @@ void krabby_host_sync_hall_joint(
     float angle_rad,
     float lower_rad,
     float upper_rad);
+void krabby_host_retarget_hall_joint(
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad);
 int32_t krabby_host_hall_edge_count(uint8_t hall_slot);
 
 uint8_t krabby_host_eeprom_read(int addr);

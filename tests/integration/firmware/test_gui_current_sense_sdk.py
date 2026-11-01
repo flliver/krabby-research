@@ -55,16 +55,19 @@ def _wait_joint_current(
     predicate,
     timeout: float = TELEMETRY_WAIT_S,
     *,
+    host_driven: bool = False,
     core=None,
 ) -> int:
+    """Poll SDK telemetry. With ``IsaacMcuHost``, use ``host_driven=True`` (do not ``core.step()``)."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         jt = mcu.joints.get(name)
         if jt is not None and predicate(jt.current):
             return int(jt.current)
-        if core is not None:
+        if not host_driven and core is not None:
             core.step()
-        time.sleep(0.02)
+        else:
+            time.sleep(0.02)
     jt = mcu.joints.get(name)
     got = jt.current if jt is not None else None
     raise AssertionError(f"timeout waiting for {name} current predicate; last={got!r}")
@@ -116,7 +119,9 @@ def test_sdk_cur_idle_and_moving_bands(front_board_rig, monkeypatch):
         mcu = KrabbyMCUSDK(port=port)
         try:
             assert mcu.connect() is True
-            idle = _wait_joint_current(mcu, JOINT, lambda c: c <= 1, core=core)
+            idle = _wait_joint_current(
+                mcu, JOINT, lambda c: c <= 1, host_driven=True, core=core
+            )
             assert idle == 0
 
             core.jog(JOINT, JOG_PWM)
@@ -124,6 +129,7 @@ def test_sdk_cur_idle_and_moving_bands(front_board_rig, monkeypatch):
                 mcu,
                 JOINT,
                 lambda c: c >= DEFAULT_MOVING_NO_CONTACT_ADC - 1,
+                host_driven=True,
                 core=core,
             )
             assert moving >= DEFAULT_MOVING_NO_CONTACT_ADC - 1
@@ -150,6 +156,7 @@ def test_sdk_cur_ground_contact_band(gravity_front_board, monkeypatch):
                 "FLKL",
                 lambda c: c >= DEFAULT_GROUND_CONTACT_ADC - 1,
                 timeout=8.0,
+                host_driven=True,
                 core=core,
             )
             assert loaded >= DEFAULT_GROUND_CONTACT_ADC - 1
@@ -170,7 +177,9 @@ def test_sdk_cur_lift_load_band(gravity_front_board, monkeypatch):
         mcu = KrabbyMCUSDK(port=port)
         try:
             assert mcu.connect() is True
-            _wait_joint_current(mcu, "FLHL", lambda _c: True, timeout=8.0, core=core)
+            _wait_joint_current(
+                mcu, "FLHL", lambda _c: True, timeout=8.0, host_driven=True, core=core
+            )
             peak = _peak_current_after_lift(core, mcu, gui_cur=False, host_driven=True)
             assert peak >= LIFT_ADC_MIN, (
                 f"expected SDK current near {DEFAULT_LIFT_LOAD_ADC}, peak {peak}"
@@ -192,7 +201,9 @@ def test_gui_cur_column_shows_lift_load_band(gravity_front_board, monkeypatch):
         mcu = KrabbyMCUSDK(port=port)
         try:
             assert mcu.connect() is True
-            _wait_joint_current(mcu, "FLHL", lambda _c: True, timeout=8.0, core=core)
+            _wait_joint_current(
+                mcu, "FLHL", lambda _c: True, timeout=8.0, host_driven=True, core=core
+            )
             peak = _peak_current_after_lift(core, mcu, gui_cur=True, host_driven=True)
             assert peak >= LIFT_ADC_MIN, (
                 f"expected GUI Cur near {DEFAULT_LIFT_LOAD_ADC}, peak {peak}"

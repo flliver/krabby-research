@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,7 +12,9 @@ import torch
 from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
-from firmware.sim.pot_readback import sync_sensor_reads
+from firmware.sim.hall_readback import retarget_hall_baselines_when_idle
+from firmware.sim.plant_readback import PlantReadbackView
+from firmware.sim.pot_readback import sync_pot_analog_reads, sync_sensor_reads
 from firmware.sim.pin_state import PinStateModel
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
 from firmware.sim.simulated_robot_config import SimulatedRobotConfig
@@ -33,6 +36,7 @@ class RobotCore:
     _wrench_body_indices: dict[str, int] | None = field(default=None, init=False, repr=False)
     _cam_hip_slave: Any = field(default=None, init=False, repr=False)
     _cam_hip_slave_resolved: bool = field(default=False, init=False, repr=False)
+    _step_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     @classmethod
     def front_board(
@@ -121,7 +125,7 @@ class RobotCore:
         sync_sensor_reads(
             self.bridge,
             self.actuators,
-            self.articulation,
+            PlantReadbackView.from_articulation(self.articulation),
             wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
         )
         self.bridge.advance_millis(physics_step_ms(self.env))
@@ -132,17 +136,26 @@ class RobotCore:
         self.record_drive_pins_to_pin_state()
 
     def step(self, *, process_usb_serial: bool = False) -> Any:
-        # Plant state is from the previous step's physics; refresh pots before firmware reads.
-        self.tick_firmware_without_physics(process_usb_serial=process_usb_serial)
-        # Articulation target buffers are inference tensors after the first env step; writes
-        # outside inference_mode corrupt joint state (NaN positions on firmware jogs).
-        with torch.inference_mode():
-            for actuator in self.actuators:
-                actuator.apply_velocity_target(self.pin_state, self.articulation)
-            # Not env.step(): the task's RL action term rewrites joint position targets and
-            # clears velocity targets every step, so a firmware-driven joint would never keep
-            # the command written above.
-            advance = self.advance or advance_sim
-            result = advance(self.env)
-            self._slave_body_hip_after_physics()
-        return result
+        with self._step_lock:
+            # Plant state is from the previous step's physics; refresh pots before firmware reads.
+            self.tick_firmware_without_physics(process_usb_serial=process_usb_serial)
+            # Articulation target buffers are inference tensors after the first env step; writes
+            # outside inference_mode corrupt joint state (NaN positions on firmware jogs).
+            with torch.inference_mode():
+                for actuator in self.actuators:
+                    actuator.apply_velocity_target(self.pin_state, self.articulation)
+                # Not env.step(): the task's RL action term rewrites joint position targets and
+                # clears velocity targets every step, so a firmware-driven joint would never keep
+                # the command written above.
+                advance = self.advance or advance_sim
+                result = advance(self.env)
+                self._slave_body_hip_after_physics()
+                plant = PlantReadbackView.from_articulation(self.articulation)
+                sync_pot_analog_reads(self.bridge, self.actuators, plant)
+                retarget_hall_baselines_when_idle(
+                    self.bridge,
+                    self.actuators,
+                    plant,
+                    self.pin_state,
+                )
+            return result

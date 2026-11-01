@@ -12,6 +12,9 @@ void setHallEdgesPerFullTravel(uint32_t edges);
 // Accumulate hall edges from absolute joint-angle delta scaled by kHallEdgesPerFullTravel.
 void hallSimSyncJointAngle(uint8_t slot, float angleRad, float lowerRad, float upperRad);
 
+// Set baseline angle without incrementing (firmware commanded stop; no shaft motion on hardware).
+void hallSimRetargetJointAngle(uint8_t slot, float angleRad, float lowerRad, float upperRad);
+
 uint32_t hallSimEdgeCount(uint8_t slot);
 
 }  // namespace sim

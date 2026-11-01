@@ -23,7 +23,8 @@ int edgesForAbsDelta(float absDeltaRad, float spanRad)
     const double scaled =
         static_cast<double>(absDeltaRad) / static_cast<double>(spanRad) *
         static_cast<double>(g_edgesPerFullTravel);
-    return static_cast<int>(lround(scaled));
+    // Floor so sub-detent physics jitter does not round up to a spurious edge.
+    return static_cast<int>(std::floor(scaled));
 }
 
 }  // namespace
@@ -38,6 +39,15 @@ void resetHallSim()
     std::memset(g_upperRad, 0, sizeof(g_upperRad));
     std::memset(g_edgeCount, 0, sizeof(g_edgeCount));
     std::memset(g_hasLastAngle, 0, sizeof(g_hasLastAngle));
+}
+
+void hallSimRetargetJointAngle(uint8_t slot, float angleRad, float lowerRad, float upperRad)
+{
+    if (slot >= 6) return;
+    g_lowerRad[slot] = lowerRad;
+    g_upperRad[slot] = upperRad;
+    g_lastAngleRad[slot] = angleRad;
+    g_hasLastAngle[slot] = true;
 }
 
 void hallSimSyncJointAngle(uint8_t slot, float angleRad, float lowerRad, float upperRad)

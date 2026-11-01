@@ -10,7 +10,8 @@ import torch
 from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms, resolve_eighteen_joint_indices
-from firmware.sim.pot_readback import sync_sensor_reads
+from firmware.sim.plant_readback import PlantReadbackView
+from firmware.sim.pot_readback import sync_pot_analog_reads, sync_sensor_reads
 from firmware.sim.simulated_actuator import JointVelocityTarget, SimulatedActuator
 from firmware.sim.simulated_robot_config import ThreeBoardSimConfigs
 from firmware.sim.sim_mode import single_leader_eighteen_enabled
@@ -108,7 +109,7 @@ class ThreeBoardRobotCore:
         sync_sensor_reads(
             self.bridge,
             self.actuators,
-            self.articulation,
+            PlantReadbackView.from_articulation(self.articulation),
             wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
         )
         self.bridge.advance_millis(physics_step_ms(self.env))
@@ -138,4 +139,9 @@ class ThreeBoardRobotCore:
             advance = self.advance or advance_sim
             result = advance(self.env)
             self._slave_body_hip_after_physics()
+            sync_pot_analog_reads(
+                self.bridge,
+                self.actuators,
+                PlantReadbackView.from_articulation(self.articulation),
+            )
         return result

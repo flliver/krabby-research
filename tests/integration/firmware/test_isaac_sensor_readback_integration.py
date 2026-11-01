@@ -23,6 +23,7 @@ SLOT = "FLHL"
 EEPROM_ROLE_ADDR = 32
 EEPROM_ROLE_MAGIC = 0xAB
 CAL_MAGIC = 0xDEADBEEF
+CAL_DATA_MAGIC_OFFSET = 6 * 4 + 6 * 4
 JOG_STEPS = 40
 LIFT_SETTLE_STEPS = 120
 LIFT_JOG_STEPS = 200
@@ -106,7 +107,13 @@ def test_eeprom_calibration_save_load_round_trip(front_board_rig):
     core.bridge.set_actuator_stops(actuator, min_stop, max_stop)
     core.bridge.save_calibration()
 
-    magic = struct.unpack_from("<I", bytes(core.bridge.eeprom_read(i) for i in range(4)))[0]
+    magic = struct.unpack_from(
+        "<I",
+        bytes(
+            core.bridge.eeprom_read(i)
+            for i in range(CAL_DATA_MAGIC_OFFSET, CAL_DATA_MAGIC_OFFSET + 4)
+        ),
+    )[0]
     assert magic == CAL_MAGIC
 
     core.bridge.set_actuator_stops(actuator, 0, 1023)

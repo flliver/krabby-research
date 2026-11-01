@@ -71,6 +71,13 @@ class HostActuatorBridge:
             ctypes.c_float,
         ]
         self._lib.krabby_host_sync_hall_joint.restype = None
+        self._lib.krabby_host_retarget_hall_joint.argtypes = [
+            ctypes.c_uint8,
+            ctypes.c_float,
+            ctypes.c_float,
+            ctypes.c_float,
+        ]
+        self._lib.krabby_host_retarget_hall_joint.restype = None
         self._lib.krabby_host_hall_edge_count.argtypes = [ctypes.c_uint8]
         self._lib.krabby_host_hall_edge_count.restype = ctypes.c_int32
         self._lib.krabby_host_eeprom_read.argtypes = [ctypes.c_int]
@@ -208,6 +215,20 @@ class HostActuatorBridge:
         upper_rad: float,
     ) -> None:
         self._lib.krabby_host_sync_hall_joint(
+            int(hall_slot),
+            float(angle_rad),
+            float(lower_rad),
+            float(upper_rad),
+        )
+
+    def retarget_hall_joint(
+        self,
+        hall_slot: int,
+        angle_rad: float,
+        lower_rad: float,
+        upper_rad: float,
+    ) -> None:
+        self._lib.krabby_host_retarget_hall_joint(
             int(hall_slot),
             float(angle_rad),
             float(lower_rad),
