@@ -84,6 +84,11 @@ shadow **`timestamp`** updating.
 
 ### Step 3 — Start the isaacsim image (fullsim)
 
+Fullsim hex smoke uses the **plant of record** [`assets/crab.usda`](../assets/crab.usda) (Isaac HAL
+hex sets this via `firmware/sim/isaac_scene.configure_crab_hex_usd_env()` when no override is
+exported). [`assets/crab_hex_ref.usd`](../assets/crab_hex_ref.usd) is not the smoke plant. Plant
+overrides (`KRABBY_PLANT`, `KRABBY_HEX_USD_PATH`, spawn height): see [Plant table and selection](../docs/crab-hexapod-plant.md#4-plant-table-and-selection) in `crab-hexapod-plant.md` — set per run, not in shell profiles.
+
 On the sim host (repo clone optional if the image is current):
 
 ```bash
