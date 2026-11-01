@@ -16,8 +16,13 @@ Only these public layers; everything else is implementation detail inside them.
            |
   SimulatedRobotConfig   →  table: joint name, Mega pins, Isaac joint
            |
-  RobotCore              →  tick firmware, read pins, set Isaac targets, env.step()
+  RobotCore              →  tick firmware, read pins, set Isaac targets, advance_sim()
 ```
+
+`RobotCore.step()` advances the scene with `advance_sim()` in `isaac_scene.py`, not
+`env.step()`. A full env step runs the Isaac action manager and overwrites joint targets;
+firmware-in-the-loop must keep the velocity targets written from pin state (see comment in
+`robot_core.py`).
 
 Isaac HAL **`--backend fullsim`** attaches three-board host firmware to the same scene; it
 does **not** insert another tier between firmware and pins.
@@ -59,6 +64,9 @@ Tests refer to **joint names** (`FLHY`) and config slots, not scattered pin inte
 - A parallel firmware control loop written only for simulation
 - Extra orchestration objects between `SimulatedRobotConfig` and Isaac
 - CAN / leg-MCU simulation in the pin-sim tree (separate hardware path)
+- Lead-screw / pitch–knee linkage emulation (`crab_hex_linkage.py` in parkour): `*HL` and
+  `*KL` here map PWM to revolute velocity on `*_Hip_Femur_*` / `*_Femur_Tibia_*`
+  (`simulated_actuator.py`, open-loop gains in `isaac_scene.py`), not rod stroke math
 
 ## Further reading
 
