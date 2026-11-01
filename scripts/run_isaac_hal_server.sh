@@ -12,7 +12,7 @@
 # portal runs on the same machine (e.g. another container publishing 9000 on the host). Omitting bridge
 # NAT avoids 127.0.0.1 inside the Isaac container pointing at the wrong namespace.
 #
-# Image wheels (krabby-hal-server-isaac 0.1.2+ on PyPI) are the default after make build-isaacsim-image.
+# Image wheels (krabby-hal-server-isaac 0.1.5+ on PyPI) are the default after make build-isaacsim-image.
 # Set KRABBY_ISAAC_DEV_MOUNTS=1 to bind-mount hal/, compute/, teleop/, firmware/, and parkour/ over the image.
 #
 # Optional flags (--teleop-ip, --hexapod) may appear anywhere among script arguments.

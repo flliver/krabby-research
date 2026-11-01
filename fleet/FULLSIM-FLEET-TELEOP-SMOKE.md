@@ -43,7 +43,7 @@ Do **not** run **`krabby-locomotion`** on the same host while Isaac is up.
   **throwaway** name you will **decommission** after the check
 - **`krabby-launcher` ≥ 0.1.22** ([`BENCH-TELEOP.md`](BENCH-TELEOP.md))
 - Local **isaacsim** image: **`make build-isaacsim-image`** (embeds **`krabby-hal-server-isaac`**
-  **0.1.2** wheels; same release is on [PyPI](https://pypi.org/project/krabby-hal-server-isaac/0.1.2/))
+  **0.1.5** wheels; same release is on [PyPI](https://pypi.org/project/krabby-hal-server-isaac/0.1.5/))
 
 ### Step 1 — Register with the fleet manager
 
@@ -105,7 +105,7 @@ Uses wheels baked into **`krabby-isaacsim:latest`** (rebuild after HAL releases:
 **`KRABBY_ISAAC_DEV_MOUNTS=1`** when running the script from a **krabby-research** clone.
 
 If `main.py: error: unrecognized arguments: --backend fullsim` or **`--teleop-ip`**, rebuild
-the image — it predates **0.1.2** — or use **`KRABBY_ISAAC_DEV_MOUNTS=1`** from a current clone.
+the image — it predates **0.1.5** — or use **`KRABBY_ISAAC_DEV_MOUNTS=1`** from a current clone.
 
 If the entrypoint adds **`--joystick`**, use portal **operator override** so commands go
 through teleop HAL → **`apply_command`** → **firmware in the loop**, not only TCP
@@ -206,7 +206,7 @@ The **agent** may remain MQTT-online after HAL stop; this check is about teleop/
 disconnect unless fleet semantics for “offline” are extended later.
 
 Record: date, thing name, launcher version, **`krabby-hal-server-isaac`** wheel version (expect
-**0.1.2**+), pass/fail per row.
+**0.1.5**+), pass/fail per row.
 
 ---
 
@@ -214,7 +214,7 @@ Record: date, thing name, launcher version, **`krabby-hal-server-isaac`** wheel 
 
 | Missing piece | Effect |
 |---------------|--------|
-| **isaacsim** Docker image not in a registry; HAL wheels on PyPI (**`krabby-hal-server-isaac` 0.1.2**) | Manual **`make build-isaacsim-image`** on sim host |
+| **isaacsim** Docker image not in a registry; HAL wheels on PyPI (**`krabby-hal-server-isaac` 0.1.5**) | Manual **`make build-isaacsim-image`** on sim host |
 | **`krabby run`** launches Jetson HAL, not Isaac **fullsim** | Start **agent** and Isaac HAL separately |
 | No install flow when **`mcu_present`** is false | Operator starts Isaac manually |
 | No GPU preflight | Container fails on wrong hardware |

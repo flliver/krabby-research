@@ -182,7 +182,7 @@ python -m firmware --debug
 Shipped in `krabby-firmware` (PyPI). Needs a display and Tk (`sudo apt install python3-tk` on Orin if missing):
 
 ```bash
-pip install 'krabby-firmware>=0.2.17'
+pip install 'krabby-firmware>=0.2.18'
 python -m firmware.gui
 # or: krabby-firmware-gui
 # optional: python -m firmware.gui --port /dev/ttyACM0 --debug

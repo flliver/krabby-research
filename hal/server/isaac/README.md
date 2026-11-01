@@ -35,7 +35,7 @@ This package provides an entry point that runs both the IsaacSim HAL server and 
 ### From PyPI
 
 ```bash
-pip install krabby-hal-server-isaac==0.1.2
+pip install krabby-hal-server-isaac==0.1.5
 ```
 
 Pulls **`krabby-data-collection`**, **`krabby-controller`**, **`krabby-teleop-edge`**, and other
