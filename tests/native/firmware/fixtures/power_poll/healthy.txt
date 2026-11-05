@@ -1,5 +1,5 @@
 [healthy]
-;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=26.5,-12.5,331.25,1200
@@ -25,7 +25,7 @@ fill 77 12 14 5 1
 text 98 11 13.3V
 
 [identical]
-;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1050
 measurement.pack=26.5,-12.5,331.25,1200
@@ -36,7 +36,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [below-display-resolution]
-;BATT 26.51 -12.50 331.4 1200.0 13.26 13.26 0 0 1 1
+;BATT 26.51 -12.50 331.4 1200.0 13.26 13.26 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1100
 measurement.pack=26.5101566,-12.5,331.376953,1200
@@ -47,7 +47,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [exact-divergence-threshold]
-;BATT 27.00 -12.50 337.5 1200.0 13.25 13.75 0 0 1 1
+;BATT 27.00 -12.50 337.5 1200.0 13.25 13.75 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1150
 measurement.pack=27,-12.5,337.5,1200
@@ -67,7 +67,7 @@ fill 77 12 16 5 1
 text 98 11 13.8V
 
 [above-divergence-threshold]
-;BATT 27.12 -12.50 339.1 1200.0 13.25 13.88 1 0 1 1
+;BATT 27.12 -12.50 339.1 1200.0 13.25 13.88 1 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1200
 measurement.pack=27.125,-12.5,339.0625,1200
@@ -87,7 +87,7 @@ fill 77 12 16 5 1
 text 98 11 13.9V
 
 [both-bars-full]
-;BATT 28.00 -12.50 350.0 1200.0 14.00 14.00 0 0 1 1
+;BATT 28.00 -12.50 350.0 1200.0 14.00 14.00 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1250
 measurement.pack=28,-12.5,350,1200
@@ -113,7 +113,7 @@ fill 77 12 16 5 1
 text 98 11 14.0V
 
 [voltage-change-with-full-bars]
-;BATT 28.10 -12.50 351.2 1200.0 14.00 14.10 0 0 1 1
+;BATT 28.10 -12.50 351.2 1200.0 14.00 14.10 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1300
 measurement.pack=28.1000004,-12.5,351.25,1200

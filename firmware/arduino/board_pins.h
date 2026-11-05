@@ -71,3 +71,11 @@ inline const char* boardPinRevisionLabel()
 #ifndef STATUS_LED_PIN
 #define STATUS_LED_PIN 40
 #endif
+
+// Drives the Orin power gate; HIGH keeps the rail enabled.
+#ifndef ORIN_PWR_PIN
+#define ORIN_PWR_PIN 38
+#endif
+
+// True when the relay module is set to its H-trigger position, false when set to its L-trigger position.
+static constexpr bool IS_ORIN_POWER_ACTIVE_HIGH = true;

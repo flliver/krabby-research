@@ -1,5 +1,5 @@
 [A-higher-exact-threshold]
-;BATT 26.50 -12.50 331.2 1200.0 13.50 13.00 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.50 13.00 0 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=26.5,-12.5,331.25,1200
@@ -25,7 +25,7 @@ fill 77 12 11 5 1
 text 98 11 13.0V
 
 [A-higher-above-threshold]
-;BATT 26.38 -12.50 329.7 1200.0 13.50 12.88 1 0 1 1
+;BATT 26.38 -12.50 329.7 1200.0 13.50 12.88 1 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1050
 measurement.pack=26.375,-12.5,329.6875,1200
@@ -45,7 +45,7 @@ fill 77 12 10 5 1
 text 98 11 12.9V
 
 [A-higher-below-threshold]
-;BATT 26.62 -12.50 332.8 1200.0 13.50 13.12 0 0 1 1
+;BATT 26.62 -12.50 332.8 1200.0 13.50 13.12 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1100
 measurement.pack=26.625,-12.5,332.8125,1200

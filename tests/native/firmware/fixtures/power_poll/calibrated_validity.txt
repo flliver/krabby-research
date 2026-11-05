@@ -1,6 +1,6 @@
 save-result=0
 [raw-in-range-corrected-out-of-range]
-;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 0 1 1
+;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | storage.write-pending | storage.magic=200 | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=40.5,-12.5,493.75,1200
@@ -26,7 +26,7 @@ fill 77 12 16 5 1
 text 98 11 20.0V
 
 [wait]
-;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 0 1 1
+;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1050
 measurement.pack=40.5,-12.5,493.75,1200
@@ -37,7 +37,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [recover]
-;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 0 1 1
+;BATT 40.50 -12.50 493.8 1200.0 20.50 20.00 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1100
 measurement.pack=40.5,-12.5,493.75,1200
