@@ -574,9 +574,127 @@ static void test_continuous_read_failures_respect_cooldown_and_rollover()
     }
 }
 
+static void test_diagnostics_decode_registers_on_the_supplied_bus_and_address()
+{
+    for (uint8_t address : {PACK, MIDPOINT})
+    {
+        TwoWire wire;
+        Device device(PACK_OHMS);
+        attach(wire, address, device);
+        Ina228Adapter sensor(address, PACK_OHMS, PACK_MAX_AMPS, true);
+        TEST_ASSERT_TRUE(sensor.begin(&wire));
+        device.busVolts = 26.25;
+        device.coulombs = 1234.0;
+        TEST_ASSERT_EQUAL_UINT8(0, device.transmit({Register::ADC_CONFIG, 0xA1, 0x23}));
+        const unsigned resets = device.resetCount;
+        const unsigned accumulatorResets = device.accumulatorResetCount;
+        device.clearLog();
+
+        const auto diagnostics = sensor.readDiagnostics();
+        TEST_ASSERT_TRUE(diagnostics.isValid);
+        TEST_ASSERT_EQUAL_HEX16(0xA123, diagnostics.adcConfig);
+        TEST_ASSERT_EQUAL_HEX8(0xA, diagnostics.adcMode);
+        TEST_ASSERT_EQUAL_UINT32(2150400, diagnostics.busVoltageRegister);
+        TEST_ASSERT_EQUAL_FLOAT(26.25f, diagnostics.decodedBusVoltage.value());
+        TEST_ASSERT_EQUAL_UINT(2, device.operations.size());
+        TEST_ASSERT_EQUAL_UINT8(Register::ADC_CONFIG, device.operations[0].reg);
+        TEST_ASSERT_EQUAL_UINT8(Register::VBUS, device.operations[1].reg);
+        for (const auto &operation : device.operations)
+            TEST_ASSERT_FALSE(operation.isWrite);
+        TEST_ASSERT_EQUAL_UINT(resets, device.resetCount);
+        TEST_ASSERT_EQUAL_UINT(accumulatorResets, device.accumulatorResetCount);
+        TEST_ASSERT_EQUAL_FLOAT(1234.0f, device.coulombs);
+        TEST_ASSERT_EQUAL_HEX16(0xA123, device.registerValue(Register::ADC_CONFIG));
+        TEST_ASSERT_TRUE(wire.state().errors.empty());
+    }
+}
+
+static void test_diagnostics_fail_without_changing_measurement_recovery()
+{
+    for (uint8_t reg : {uint8_t(Register::ADC_CONFIG), uint8_t(Register::VBUS)})
+    {
+        TwoWire wire;
+        Device device(PACK_OHMS);
+        attach(wire, PACK, device);
+        Ina228Adapter sensor(PACK, PACK_OHMS, PACK_MAX_AMPS, true);
+        TEST_ASSERT_TRUE(sensor.begin(&wire));
+        device.nack = failReads({Register::CURRENT});
+        TEST_ASSERT_FALSE(sensor.measure().isValid);
+        TEST_ASSERT_EQUAL_UINT8(1, sensor.badTicks());
+        device.nack = failReads({reg});
+        device.clearLog();
+        for (int i = 0; i < 4; ++i)
+        {
+            fakeNow += 3000;
+            TEST_ASSERT_FALSE(sensor.readDiagnostics().isValid);
+        }
+        TEST_ASSERT_TRUE(sensor.isUp());
+        TEST_ASSERT_EQUAL_UINT8(1, sensor.badTicks());
+        TEST_ASSERT_EQUAL_UINT(8, device.operations.size());
+        for (const auto &operation : device.operations)
+        {
+            TEST_ASSERT_FALSE(operation.isWrite);
+            TEST_ASSERT_TRUE(operation.reg == Register::ADC_CONFIG || operation.reg == Register::VBUS);
+        }
+        device.nack = nullptr;
+        TEST_ASSERT_TRUE(sensor.readDiagnostics().isValid);
+        TEST_ASSERT_EQUAL_UINT8(1, sensor.badTicks());
+        TEST_ASSERT_TRUE(wire.state().errors.empty());
+    }
+}
+
+static void test_diagnostics_reject_short_register_reads()
+{
+    class ShortReadDevice : public Device
+    {
+    public:
+        uint8_t shortCount = 0;
+        std::vector<uint8_t> receive(uint8_t count) override
+        {
+            auto bytes = Device::receive(count);
+            if (count == shortCount && !bytes.empty()) bytes.pop_back();
+            return bytes;
+        }
+    };
+    for (uint8_t count : {2, 3})
+    {
+        TwoWire wire;
+        ShortReadDevice device;
+        attach(wire, MIDPOINT, device);
+        Ina228Adapter sensor(MIDPOINT);
+        TEST_ASSERT_TRUE(sensor.begin(&wire));
+        device.shortCount = count;
+        TEST_ASSERT_FALSE(sensor.readDiagnostics().isValid);
+        TEST_ASSERT_TRUE(wire.state().errors.empty());
+        device.shortCount = 0;
+        TEST_ASSERT_TRUE(sensor.readDiagnostics().isValid);
+    }
+}
+
+static void test_diagnostics_before_initialization_and_when_disconnected()
+{
+    Ina228Adapter sensor(PACK);
+    TEST_ASSERT_FALSE(sensor.readDiagnostics().isValid);
+    TEST_ASSERT_FALSE(sensor.begin(nullptr));
+    TEST_ASSERT_FALSE(sensor.readDiagnostics().isValid);
+    TwoWire wire;
+    Device device;
+    attach(wire, PACK, device);
+    TEST_ASSERT_TRUE(sensor.begin(&wire));
+    device.present = false;
+    TEST_ASSERT_FALSE(sensor.readDiagnostics().isValid);
+    TEST_ASSERT_TRUE(sensor.isUp());
+    TEST_ASSERT_EQUAL_UINT8(0, sensor.badTicks());
+    TEST_ASSERT_TRUE(wire.state().errors.empty());
+}
+
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_diagnostics_decode_registers_on_the_supplied_bus_and_address);
+    RUN_TEST(test_diagnostics_fail_without_changing_measurement_recovery);
+    RUN_TEST(test_diagnostics_reject_short_register_reads);
+    RUN_TEST(test_diagnostics_before_initialization_and_when_disconnected);
     RUN_TEST(test_transient_failures_clear_and_qualified_failure_keeps_partial_sample);
     RUN_TEST(test_runtime_failed_restart_and_recovered_bad_read_count_once);
     RUN_TEST(test_continuous_read_failures_respect_cooldown_and_rollover);

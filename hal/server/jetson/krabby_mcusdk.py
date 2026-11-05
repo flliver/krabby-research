@@ -77,7 +77,12 @@ class KrabbyMCUSDK:
         
         if auto_connect:
             self.connect()
-    
+
+    @property
+    def firmware_sdk(self) -> "FirmwareKrabbyMCUSDK":
+        """The firmware SDK and its serial reader."""
+        return self._mcu
+
     def connect(self) -> bool:
         """Connect to MCU. Returns True if successful."""
         if self._connected:

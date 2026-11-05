@@ -12,6 +12,16 @@
 class Ina228Adapter
 {
 public:
+    // Fields are meaningful only when both diagnostic registers were read.
+    struct Diagnostics
+    {
+        uint16_t adcConfig;
+        uint8_t adcMode;
+        uint32_t busVoltageRegister;
+        Volts decodedBusVoltage;
+        bool isValid;
+    };
+
     explicit Ina228Adapter(uint8_t address)
         : Ina228Adapter(address, 0.0f, 0.0f)
     {
@@ -96,10 +106,56 @@ public:
         return measurement;
     }
 
+    Diagnostics readDiagnostics()
+    {
+        static constexpr uint8_t ADC_CONFIG_REGISTER = 0x01;
+        static constexpr uint8_t BUS_VOLTAGE_REGISTER = 0x05;
+        const auto adc = readRegister(ADC_CONFIG_REGISTER, 2);
+        const auto vbus = readRegister(BUS_VOLTAGE_REGISTER, 3);
+        if (!adc.isValid || !vbus.isValid)
+            return {};
+
+        return {
+            static_cast<uint16_t>(adc.value),
+            static_cast<uint8_t>(adc.value >> 12),
+            vbus.value,
+            Volts(static_cast<float>(vbus.value >> 4) * 195.3125f / 1000000.0f),
+            true,
+        };
+    }
+
     uint8_t address() const { return address_; }
     uint8_t badTicks() const { return recovery_.badTicks(); }
 
 private:
+    struct RegisterReading
+    {
+        uint32_t value;
+        bool isValid;
+    };
+
+    // Diagnostic reads do not participate in measurement recovery or configuration.
+    RegisterReading readRegister(uint8_t reg, uint8_t byteCount)
+    {
+        if (!wire_)
+            return {};
+        wire_->beginTransmission(address_);
+        wire_->write(reg);
+        if (wire_->endTransmission(false) != 0 ||
+            wire_->requestFrom(address_, byteCount) != byteCount)
+            return {};
+
+        uint32_t value = 0;
+        for (uint8_t i = 0; i < byteCount; ++i)
+        {
+            const int byte = wire_->read();
+            if (byte < 0)
+                return {};
+            value = (value << 8) | static_cast<uint8_t>(byte);
+        }
+        return {value, true};
+    }
+
     bool recover()
     {
         isUp_ = start(wire_, true);

@@ -10,6 +10,7 @@ from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.interfaces.telemetry_frame import TelemetryFrame
 from firmware.mcu_port import McuSerialTarget, default_target
+from firmware.interfaces.power_messages import POWER_MSG_PREFIX, PowerMessage
 
 # Must match the firmware BAUD_RATE used for the telemetry link.
 DEFAULT_BAUD = 250000
@@ -63,6 +64,7 @@ class KrabbyMCUSDK:
         self.baud = baud
         self.ser = None
         self.running = False
+        self._write_lock = threading.Lock()
 
         # Structured telemetry per joint
         self.joints: Dict[str, Optional[JointTelemetry]] = {}
@@ -75,6 +77,10 @@ class KrabbyMCUSDK:
         # Latest BATT frame, emitted every leader telemetry tick. Each monitor
         # carries its own validity flag; None means no frame this session.
         self.battery: Optional[BatteryTelemetry] = None
+
+        # Power messages share this reader with telemetry.
+        self.last_power_message: Optional[PowerMessage] = None
+        self.on_power_message = None
 
         self.last_feedback_ts = None
         self.thread = None
@@ -147,6 +153,8 @@ class KrabbyMCUSDK:
                     self._parse_telemetry_line(line)
                     self.last_feedback_ts = time.time()
                     self.role_last_seen[role] = self.last_feedback_ts
+                elif line.startswith(POWER_MSG_PREFIX + " "):
+                    self._handle_power_line(line)
                 elif line.startswith("VER "):
                     self._last_ver_line = line
                 elif line.startswith("ERR "):
@@ -217,8 +225,9 @@ class KrabbyMCUSDK:
             parts.append(f"{val:.3f}")
 
         cmd = " ".join(parts) + "\n"
-        self.ser.write(cmd.encode("utf-8"))
-        self.ser.flush()
+        with self._write_lock:
+            self.ser.write(cmd.encode("utf-8"))
+            self.ser.flush()
 
         logger.info("CMD -> %s", " ".join(parts))
 
@@ -235,8 +244,9 @@ class KrabbyMCUSDK:
             parts.append(name)
             parts.append(str(pwm))
         cmd = " ".join(parts) + " \n"
-        self.ser.write(cmd.encode("utf-8"))
-        self.ser.flush()
+        with self._write_lock:
+            self.ser.write(cmd.encode("utf-8"))
+            self.ser.flush()
 
     def send_command_jog(self, joint_name: str, pwm: int):
         """Send J<name> <pwm> (-255 to 255)"""
@@ -244,16 +254,18 @@ class KrabbyMCUSDK:
             return
         pwm = max(-255, min(255, int(pwm)))
         cmd = f"J{joint_name} {pwm}\n"
-        self.ser.write(cmd.encode("utf-8"))
-        self.ser.flush()
+        with self._write_lock:
+            self.ser.write(cmd.encode("utf-8"))
+            self.ser.flush()
         logger.debug("CMD -> %s", cmd.strip())
 
     def read_version(self, timeout: float = 1.0) -> Optional[str]:
         if not self.ser or not self.ser.is_open:
             return None
         self._last_ver_line = None
-        self.ser.write(b"V\n")
-        self.ser.flush()
+        with self._write_lock:
+            self.ser.write(b"V\n")
+            self.ser.flush()
         deadline = time.time() + timeout
         while time.time() < deadline:
             if self._last_ver_line is not None:
@@ -264,8 +276,9 @@ class KrabbyMCUSDK:
     def send_command_calibrate(self):
         if not self.ser or not self.ser.is_open:
             return
-        self.ser.write(b"C\n")
-        self.ser.flush()
+        with self._write_lock:
+            self.ser.write(b"C\n")
+            self.ser.flush()
         logger.info("CMD -> AUTO-CALIBRATE (C)")
 
     def send_command_joints_hold(self):
@@ -274,9 +287,30 @@ class KrabbyMCUSDK:
         """
         if not self.ser or not self.ser.is_open:
             return
-        self.ser.write(b"H\n")
-        self.ser.flush()
+        with self._write_lock:
+            self.ser.write(b"H\n")
+            self.ser.flush()
         logger.info("CMD -> H")
+
+    def _handle_power_line(self, line: str):
+        msg = PowerMessage.parse(line)
+        if msg is None:
+            logger.debug("Unrecognized power line dropped: %r", line)
+            return
+        self.last_power_message = msg
+        if self.on_power_message is not None:
+            try:
+                self.on_power_message(msg)
+            except Exception:
+                logger.exception("on_power_message callback raised")
+
+    def send_power_message(self, msg: PowerMessage):
+        if not self.ser or not self.ser.is_open:
+            return
+        with self._write_lock:
+            self.ser.write((msg.format_line() + "\n").encode("utf-8"))
+            self.ser.flush()
+        logger.info("PWR -> %s", msg.format_line())
 
     def wait_for_move(self, seconds):
         time.sleep(seconds)

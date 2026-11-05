@@ -30,6 +30,11 @@ public:
     // probes it, draws what changed and flushes. True when a frame was flushed.
     bool render(const DisplayFrame &frame)
     {
+        // Leave a critically depleted panel untouched after the first clear.
+        if (frame.screen == DisplayScreen::Blank && hasPreviousFrame_ &&
+            previousFrame_.screen == DisplayScreen::Blank)
+            return false;
+
         if (!canvas_.isInitialized())
         {
             if (!canvas_.recover())
@@ -58,7 +63,16 @@ private:
     // Draws what changed since the previous frame; false when nothing did.
     bool drawChanges(const DisplayFrame &frame)
     {
-        const bool isFullRedraw = !hasPreviousFrame_;
+        if (frame.screen != DisplayScreen::Status)
+        {
+            drawSafetyScreen(frame);
+            previousFrame_ = frame;
+            hasPreviousFrame_ = true;
+            return true;
+        }
+
+        const bool isFullRedraw = !hasPreviousFrame_ ||
+            previousFrame_.screen != frame.screen;
         if (!isFullRedraw && displayFramesEqual(previousFrame_, frame))
             return false;
 
@@ -101,6 +115,33 @@ private:
         previousFrame_ = frame;
         hasPreviousFrame_ = true;
         return true;
+    }
+
+    // The caller selects the screen and schedules refreshes. No power policy here.
+    void drawSafetyScreen(const DisplayFrame &frame)
+    {
+        canvas_.useStatusFont();
+        canvas_.erase();
+        if (frame.screen == DisplayScreen::Blank)
+            return;
+
+        const bool overVoltage = frame.screen == DisplayScreen::OverVoltage;
+        canvas_.text(6, 2, overVoltage ? "OVER VOLTAGE" : "LOW BATTERY");
+        if (overVoltage)
+            canvas_.text(0, 20, "CHARGER/BMS FAULT");
+        else
+        {
+            canvas_.rectangle(34, 24, 52, 18);
+            canvas_.rectangleFill(86, 29, 3, 8, SSD1306_COLOR_WHITE);
+        }
+        char voltage[12];
+        const int decivolts = displayPackDecivolts(frame.packVoltage);
+        if (decivolts == BATTERY_DECIVOLTS_NO_SIGNAL)
+            snprintf(voltage, sizeof(voltage), "--.-V");
+        else
+            snprintf(voltage, sizeof(voltage), "%d.%dV",
+                     decivolts / 10, abs(decivolts % 10));
+        canvas_.text(44, overVoltage ? 40 : 46, voltage);
     }
 
     bool didControllerPresenceChange(const DisplayFrame &frame) const

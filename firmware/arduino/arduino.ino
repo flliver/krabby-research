@@ -21,11 +21,17 @@
 #include "src/actuator/actuator_role_names.h"
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
-#include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/ina228_provider.h"
+#include "src/power_monitor/power_poll.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
 #include "src/cli/power_calibration_command.h"
 #include "src/power_monitor/power_monitor_constants.h"
+#include "src/power_monitor/voltage_validity.h"
+#include "src/power_safety/power_safety_controller.h"
+#include "src/power_safety/power_safety_latch.h"
+#include "src/power_safety/power_message.h"
+#include "src/periodic_timer.h"
 #include "version.h"
 #include "src/controller/board_role_election.hpp"
 
@@ -114,15 +120,22 @@ bool wasTelemetryEmittedOnPreviousLoop = false;
 // Leader-only INA228s share the IMU/OLED bus. Pack measures V/I/P/charge
 // using the external shunt; midpoint supplies battery A voltage.
 // Adapter availability is tracked independently at each address.
-Ina228Adapter packPowerMonitor(PACK_POWER_MONITOR_ADDRESS,
+PowerSafetyController powerSafetyController;
+PeriodicTimer powerStatusLedToggleTimer(
+    POWER_STATUS_LED_TOGGLE_INTERVAL_MS);
+PeriodicTimer powerSafetyDisplayRefreshTimer(
+    POWER_SAFETY_DISPLAY_REFRESH_INTERVAL_MS);
+static void writeOrinPowerEnabledToPin(bool isPowerEnabled);
+static void reconcilePowerSafetyAtBoot();
+
+Ina228Provider packPowerProvider(PACK_POWER_MONITOR_ADDRESS,
     PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
-Ina228Adapter midpointPowerMonitor(MIDPOINT_POWER_MONITOR_ADDRESS);
+Ina228Provider midpointPowerProvider(MIDPOINT_POWER_MONITOR_ADDRESS);
 
 // Current power readings shared by telemetry and the deferred OLED render.
 Volts inferredBattBVoltage(NAN);
 PowerMonitorMeasurement packMeasurement;
 PowerMonitorMeasurement midpointMeasurement;
-
 // --- I2C sensor cluster (Milestone 16) — leader board only ---
 // The LSM6DSO IMU rides the leader's telemetry tick; followers never touch the bus.
 Lsm6dsoAdapter imuSensor;
@@ -170,6 +183,32 @@ public:
     }
 };
 
+class EepromPowerSafetyStorage
+{
+public:
+    void load(PowerSafetyLatchRecord &record)
+    {
+        EEPROM.get(EEPROM_POWER_SAFETY_ADDR, record);
+    }
+
+    void writeRecord(const PowerSafetyLatchRecord &record)
+    {
+        EEPROM.put(EEPROM_POWER_SAFETY_ADDR, record);
+    }
+
+    void updateMagic(uint8_t magic)
+    {
+        EEPROM.update(EEPROM_POWER_SAFETY_ADDR, magic);
+    }
+};
+
+static void logPowerSafetyTransitionResult(
+    PowerSafetyTransitionResult result)
+{
+    if (result == PowerSafetyTransitionResult::PersistenceFailed)
+        Serial.println(F("POWER SAFETY: EEPROM verification failed."));
+}
+
 PowerCalibration powerCalibration;
 
 static void logImuInitFailure(Lsm6dsoInitializationResult result)
@@ -211,59 +250,28 @@ static void logImuCalibrationResult(ImuCalibrationResult result)
     }
 }
 
-static bool readIna228Register(
-    uint8_t address, uint8_t reg, uint8_t *bytes, uint8_t byteCount)
-{
-    Wire.beginTransmission(address);
-    Wire.write(reg);
-    if (Wire.endTransmission(false) != 0 ||
-        Wire.requestFrom(address, byteCount) != byteCount)
-        return false;
-
-    for (uint8_t i = 0; i < byteCount; ++i)
-        bytes[i] = Wire.read();
-    return true;
-}
-
 static void printPowerMonitorDiagnostics(
     const __FlashStringHelper *label,
     Ina228Adapter &monitor)
 {
-    static constexpr uint8_t INA228_ADC_CONFIG_REGISTER = 0x01;
-    static constexpr uint8_t INA228_BUS_VOLTAGE_REGISTER = 0x05;
-    uint8_t adcConfig[2];
-    uint8_t vbus[3];
-    const bool didReadAdcConfig = readIna228Register(
-        monitor.address(), INA228_ADC_CONFIG_REGISTER, adcConfig, sizeof(adcConfig));
-    const bool didReadBusVoltage = readIna228Register(
-        monitor.address(), INA228_BUS_VOLTAGE_REGISTER, vbus, sizeof(vbus));
-
+    const auto diagnostics = monitor.readDiagnostics();
     Serial.print(F("INA228 DIAG: "));
     Serial.print(label);
-    if (!didReadAdcConfig || !didReadBusVoltage)
+    if (!diagnostics.isValid)
     {
         Serial.println(F(" register read failed"));
         return;
     }
 
-    const uint16_t adcRaw =
-        (static_cast<uint16_t>(adcConfig[0]) << 8) | adcConfig[1];
-    const uint32_t vbusRaw =
-        (static_cast<uint32_t>(vbus[0]) << 16) |
-        (static_cast<uint32_t>(vbus[1]) << 8) |
-        vbus[2];
-    const float decodedVoltage =
-        static_cast<float>(vbusRaw >> 4) * 195.3125f / 1000000.0f;
-
     Serial.print(F(" adc=0x"));
-    Serial.print(adcRaw, HEX);
+    Serial.print(diagnostics.adcConfig, HEX);
     Serial.print(F(" mode=0x"));
-    Serial.print(adcRaw >> 12, HEX);
+    Serial.print(diagnostics.adcMode, HEX);
     Serial.print(F(" vbus=0x"));
-    Serial.print(vbusRaw, HEX);
-    Serial.print(F(" decoded="));
-    Serial.print(decodedVoltage, 4);
-    Serial.print(F(" library="));
+    Serial.print(diagnostics.busVoltageRegister, HEX);
+    Serial.print(F(" register_voltage_V="));
+    Serial.print(diagnostics.decodedBusVoltage.value(), 4);
+    Serial.print(F(" sparkfun_driver_voltage_V="));
     Serial.println(monitor.readBusVoltage().value(), 4);
 }
 
@@ -274,8 +282,8 @@ static void printPowerCalibration()
     Serial.print(F("POWER CAL: packVoltageOffset=")); Serial.print(powerCalibration.packVoltageOffset().value(), 4);
     Serial.print(F(" midpointVoltageOffset="));      Serial.print(powerCalibration.midpointVoltageOffset().value(), 4);
     Serial.print(F(" packShuntCal="));               Serial.println(powerCalibration.packShuntScale(), 5);
-    printPowerMonitorDiagnostics(F("Pack"), packPowerMonitor);
-    printPowerMonitorDiagnostics(F("Midpoint"), midpointPowerMonitor);
+    printPowerMonitorDiagnostics(F("Pack"), packPowerProvider.get());
+    printPowerMonitorDiagnostics(F("Midpoint"), midpointPowerProvider.get());
 }
 
 static void printPowerCalibrationUsage()
@@ -335,7 +343,7 @@ static void handleCalibrationCommand(const String& line)
     }
 
     // Pack shunt calibration requires only the pack monitor.
-    if (!packPowerMonitor.isUp())
+    if (!packPowerProvider.get().isUp())
     {
         Serial.println(F("POWER CAL: Pack monitor offline; aborting (no write)."));
         return;
@@ -343,7 +351,7 @@ static void handleCalibrationCommand(const String& line)
 
     if (command.action == PowerCalibrationAction::CalibrateVoltageOffsets)
     {
-        if (!midpointPowerMonitor.isUp())
+        if (!midpointPowerProvider.get().isUp())
         {
             Serial.println(F("POWER CAL: Midpoint offline; voltage calibration needs both; aborting (no write)."));
             return;
@@ -352,8 +360,8 @@ static void handleCalibrationCommand(const String& line)
         const PowerCalibration::SaveResult result =
             powerCalibration.captureVoltage(
                 storage,
-                packPowerMonitor.readBusVoltage(),
-                midpointPowerMonitor.readBusVoltage(),
+                packPowerProvider.get().readBusVoltage(),
+                midpointPowerProvider.get().readBusVoltage(),
                 Volts(command.firstReference),
                 Volts(command.secondReference));
         if (result == PowerCalibration::SaveResult::InvalidInput)
@@ -376,7 +384,7 @@ static void handleCalibrationCommand(const String& line)
         // The operator forces a known current through the pack shunt, signed to
         // match the sensor's convention.
         const Amps knownCurrent(command.firstReference);
-        const Amps measuredCurrent = packPowerMonitor.readCurrent();
+        const Amps measuredCurrent = packPowerProvider.get().readCurrent();
         EepromPowerCalibrationStorage storage;
         const PowerCalibration::SaveResult result =
             powerCalibration.captureCurrent(
@@ -399,16 +407,16 @@ static void handleCalibrationCommand(const String& line)
 
 static void powerMonitorSetup()
 {
-    const bool isPackMonitorUp = packPowerMonitor.begin(&Wire);
+    const bool isPackMonitorUp = packPowerProvider.get().begin(&Wire);
     Serial.print(F("POWER MONITOR: Pack (INA228 0x"));
-    Serial.print(packPowerMonitor.address(), HEX);
+    Serial.print(packPowerProvider.get().address(), HEX);
     Serial.println(isPackMonitorUp
         ? F(") online, external shunt calibrated.")
         : F(") init FAILED; BATT fields marked invalid."));
 
-    const bool isMidpointMonitorUp = midpointPowerMonitor.begin(&Wire);
+    const bool isMidpointMonitorUp = midpointPowerProvider.get().begin(&Wire);
     Serial.print(F("POWER MONITOR: Midpoint (INA228 0x"));
-    Serial.print(midpointPowerMonitor.address(), HEX);
+    Serial.print(midpointPowerProvider.get().address(), HEX);
     Serial.println(isMidpointMonitorUp ? F(") online.") : F(") init FAILED."));
 
     EepromPowerCalibrationStorage storage;
@@ -417,12 +425,21 @@ static void powerMonitorSetup()
         : F("POWER CAL: none/invalid; running identity trims."));
 }
 
-// Acquire and calibrate both power monitors without writing telemetry.
-static void readPowerMeasurements()
+static Volts powerReadPackVoltage(bool &isValid)
 {
-    packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
-    midpointMeasurement = powerCalibration.applyMidpointCalibration(midpointPowerMonitor.measure());
-    inferredBattBVoltage = packMeasurement.voltage - midpointMeasurement.voltage;
+    packMeasurement = powerCalibration.applyPackCalibration(packPowerProvider.get().measure());
+    isValid = isBatteryPackVoltageValid(packMeasurement.voltage.value());
+    return packMeasurement.voltage;
+}
+
+// Acquire and calibrate both power monitors without writing telemetry.
+static void updatePowerMeasurements()
+{
+    const auto readings = readPowerMeasurements(
+        packPowerProvider, midpointPowerProvider, powerCalibration);
+    packMeasurement = readings.pack;
+    midpointMeasurement = readings.midpoint;
+    inferredBattBVoltage = readings.batteryB;
 }
 
 static void imuSetup()
@@ -578,12 +595,27 @@ void setup()
 
     if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
     {
+        pinMode(ORIN_PWR_PIN, OUTPUT);
         pinMode(STATUS_LED_PIN, OUTPUT);
         digitalWrite(STATUS_LED_PIN, LOW);
+
+        EepromPowerSafetyStorage storage;
+        const PowerSafetyLatchLoadResult latchLoadResult =
+            powerSafetyController.restorePowerSafetyState(
+                storage, millis());
+        writeOrinPowerEnabledToPin(
+            powerSafetyController.isOrinPowerCommandedOn());
+
+        if (latchLoadResult == PowerSafetyLatchLoadResult::Corrupt)
+            Serial.println(F("POWER SAFETY: corrupt EEPROM; failing safe."));
+        else if (!powerSafetyController.isOrinPowerCommandedOn())
+            Serial.println(F("POWER SAFETY: restored shutdown latch."));
+
         imuSetup();
         powerMonitorSetup();
         if (!oledRenderer.initialize())
             Serial.println(F("OLED: initialization failed at 0x3D."));
+        reconcilePowerSafetyAtBoot();
     }
 
     Serial.print("Krabby Ready ");
@@ -630,8 +662,247 @@ static void parseVerToken(const String& reply, String& ver, String& branch, Stri
     commit.trim();
 }
 
+static void writeOrinPowerEnabledToPin(bool isPowerEnabled)
+{
+    const bool pinIsHigh =
+        isPowerEnabled == IS_ORIN_POWER_ACTIVE_HIGH;
+    digitalWrite(ORIN_PWR_PIN, pinIsHigh ? HIGH : LOW);
+}
+
+static void holdAllActuatorsAcrossBoards()
+{
+    if (actuatorManager) actuatorManager->holdAll();
+    if (leftSerial) leftSerial->println("H");
+    if (rightSerial) rightSerial->println("H");
+}
+
+static void requestBellyDownParking()
+{
+    // TODO: Implement after the actuator lifecycle supports safe parking.
+}
+
+static void updatePowerSafetyDisplay(
+    const PowerSafetyController &controller,
+    Volts packVoltage,
+    bool isPackVoltageValid)
+{
+    const bool blank = !isPackVoltageValid ||
+        controller.lastPackVoltageRegion() == PackVoltageRegion::HardCut;
+    DisplayFrame frame;
+    frame.screen = blank ? DisplayScreen::Blank
+        : controller.state() == PowerSafetyState::OverVoltageLockout
+            ? DisplayScreen::OverVoltage : DisplayScreen::LowBattery;
+    frame.packVoltage = packVoltage;
+    oledRenderer.render(frame);
+}
+
+static void powerLowPowerSerial()
+{
+    if (!mainSerial) return;
+    while (mainSerial->available())
+    {
+        String line = mainSerial->readStringUntil('\n');
+        if (isShutdownAckLine(line.c_str()))
+            powerSafetyController.acceptShutdownAckIfExpected(millis());
+        else if (line.indexOf(SYNC_TOKEN) >= 0)
+            mainSerial->println(SYNC_TOKEN);
+    }
+}
+
+static void startLowPowerIndicators(
+    PowerSafetyController &controller, uint32_t now)
+{
+    controller.beginLowPowerIndicators();
+    powerStatusLedToggleTimer.restart(now);
+    powerSafetyDisplayRefreshTimer.restart(now);
+    digitalWrite(STATUS_LED_PIN, HIGH);
+    updatePowerSafetyDisplay(
+        controller,
+        controller.lastPackVoltage(),
+        controller.isLastPackReadingValid());
+}
+
+static void startPowerSleepMode(
+    PowerSafetyController &controller, uint32_t now)
+{
+    holdAllActuatorsAcrossBoards();
+    startLowPowerIndicators(controller, now);
+}
+
+static void runLowPowerIndicators(
+    PowerSafetyController &controller,
+    Volts packVoltage, bool isValid, uint32_t now)
+{
+    if (powerStatusLedToggleTimer.isExpired(now))
+    {
+        powerStatusLedToggleTimer.restart(now);
+        controller.toggleStatusLed();
+        digitalWrite(
+            STATUS_LED_PIN, controller.isStatusLedOn() ? HIGH : LOW);
+    }
+    if (powerSafetyDisplayRefreshTimer.isExpired(now))
+    {
+        powerSafetyDisplayRefreshTimer.restart(now);
+        updatePowerSafetyDisplay(
+            controller,
+            packVoltage,
+            isValid);
+    }
+}
+
+static void beginEmergencyShutdown(
+    PowerSafetyController &controller,
+    EmergencyShutdownReason reason, uint32_t now)
+{
+    holdAllActuatorsAcrossBoards();
+    if (reason == EmergencyShutdownReason::HardCut)
+    {
+        controller.armOrinCutoffIfNeeded(now);
+        return;
+    }
+
+    if (mainSerial)
+        emitPowerMessage(*mainSerial, EmergencyShutdownReason::OverVoltage);
+    writeOrinPowerEnabledToPin(false);
+    controller.markOrinPowerCut();
+    startLowPowerIndicators(controller, now);
+}
+
+// TODO: Move execution into PowerSafetyController after the actuator hardware + wire
+// boundary is separated from ActuatorManager + arduino.
+static void executePowerSafetyAction(
+    PowerSafetyController &controller,
+    PowerSafetyAction action,
+    uint32_t now)
+{
+    EepromPowerSafetyStorage storage;
+    switch (action)
+    {
+        case PowerSafetyAction::None:
+            return;
+        case PowerSafetyAction::BeginGracefulShutdown:
+        {
+            const PowerSafetyTransitionResult result =
+                controller.beginPoweringDown(storage);
+            if (result == PowerSafetyTransitionResult::Rejected)
+                return;
+            logPowerSafetyTransitionResult(result);
+            if (mainSerial)
+                emitPowerMessage(
+                    *mainSerial, PoweringDownReason::UnderVoltageSoft);
+            requestBellyDownParking();
+            holdAllActuatorsAcrossBoards();
+            controller.armOrinCutoff(now);
+            return;
+        }
+        case PowerSafetyAction::BeginHardShutdown:
+        {
+            const PowerSafetyTransitionResult result =
+                controller.enterSleep(storage, now);
+            if (result == PowerSafetyTransitionResult::Rejected)
+                return;
+            logPowerSafetyTransitionResult(result);
+            beginEmergencyShutdown(
+                controller, EmergencyShutdownReason::HardCut, now);
+            startPowerSleepMode(controller, now);
+            return;
+        }
+        case PowerSafetyAction::BeginOverVoltageShutdown:
+        {
+            const PowerSafetyTransitionResult result =
+                controller.enterOverVoltageLockout(storage);
+            if (result == PowerSafetyTransitionResult::Rejected)
+                return;
+            logPowerSafetyTransitionResult(result);
+            beginEmergencyShutdown(
+                controller, EmergencyShutdownReason::OverVoltage, now);
+            return;
+        }
+        case PowerSafetyAction::BeginResume:
+        {
+            const PowerSafetyTransitionResult result =
+                controller.beginResuming(storage);
+            if (result == PowerSafetyTransitionResult::Rejected)
+                return;
+            logPowerSafetyTransitionResult(result);
+            writeOrinPowerEnabledToPin(true);
+            controller.markOrinPowerRestored();
+            controller.clearStatusLed();
+            digitalWrite(STATUS_LED_PIN, LOW);
+            oledRenderer.invalidate();
+            if (mainSerial)
+                emitPowerMessage(
+                    *mainSerial, ResumingReason::VoltageRecovered);
+            return;
+        }
+        case PowerSafetyAction::CutOrinPower:
+        {
+            const PowerSafetyTransitionResult result =
+                controller.completeShutdown(storage, now);
+            if (result == PowerSafetyTransitionResult::Rejected)
+                return;
+            logPowerSafetyTransitionResult(result);
+            writeOrinPowerEnabledToPin(false);
+            controller.markOrinPowerCut();
+            startPowerSleepMode(controller, now);
+            return;
+        }
+        case PowerSafetyAction::CompleteResume:
+        {
+            const PowerSafetyTransitionResult result =
+                controller.completeResume(storage);
+            logPowerSafetyTransitionResult(result);
+            return;
+        }
+    }
+}
+
+static void reconcilePowerSafetyAtBoot()
+{
+    if (!powerSafetyController.isNormalOperationSuspended())
+        return;
+
+    const uint32_t now = millis();
+    bool isPackValid = false;
+    const Volts packVoltage = powerReadPackVoltage(isPackValid);
+    const PowerSafetyAction action =
+        powerSafetyController.reconcilePowerSafetyAfterReset(
+            packVoltage, isPackValid, now);
+    executePowerSafetyAction(powerSafetyController, action, now);
+    if (powerSafetyController.isNormalOperationSuspended())
+        startLowPowerIndicators(powerSafetyController, now);
+}
+
 void loop()
 {
+    if ((currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN) &&
+        powerSafetyController.isNormalOperationSuspended())
+    {
+        const uint32_t now = millis();
+        powerLowPowerSerial();
+        PowerSafetyAction action =
+            powerSafetyController.determinePowerSafetyAction(now);
+
+        if (powerSafetyController.shouldCheckForRecovery(now))
+        {
+            bool isPackValid = false;
+            const Volts packVoltage = powerReadPackVoltage(isPackValid);
+            action = powerSafetyController.determinePowerSafetyAction(
+                packVoltage, isPackValid, now);
+        }
+
+        executePowerSafetyAction(powerSafetyController, action, now);
+        if (powerSafetyController.isNormalOperationSuspended())
+        {
+            runLowPowerIndicators(
+                powerSafetyController,
+                powerSafetyController.lastPackVoltage(),
+                powerSafetyController.isLastPackReadingValid(),
+                now);
+        }
+        return;
+    }
+
     while (mainSerial->available())
     {
         char cmdType = mainSerial->peek();
@@ -639,11 +910,13 @@ void loop()
         {
             mainSerial->read();
             String payload = mainSerial->readStringUntil('\n');
-            size_t cmdCount = parseCommands(payload, cmdBuf, CMD_BUF_SIZE);
-            // Keeping it simple, we send all commands to all actuator managers, and let each actuator manager ignore any commands that aren't for them
-            actuatorManager->applyCommands(cmdBuf, cmdCount);
-            if (leftSerial)  { leftSerial->print("T ");  leftSerial->println(payload); }
-            if (rightSerial) { rightSerial->print("T "); rightSerial->println(payload); }
+            if (!powerSafetyController.areActuatorsParked())
+            {
+                size_t cmdCount = parseCommands(payload, cmdBuf, CMD_BUF_SIZE);
+                actuatorManager->applyCommands(cmdBuf, cmdCount);
+                if (leftSerial)  { leftSerial->print("T ");  leftSerial->println(payload); }
+                if (rightSerial) { rightSerial->print("T "); rightSerial->println(payload); }
+            }
         }
         else if (cmdType == 'B')
         {
@@ -658,10 +931,11 @@ void loop()
                 String pwm = nextTok(payload, i, len);
                 if (name.length() == 0 || pwm.length() == 0)
                     break;
-                actuatorManager->handleJog(name, pwm.toInt());
+                if (!powerSafetyController.areActuatorsParked())
+                    actuatorManager->handleJog(name, pwm.toInt());
             }
-            if (leftSerial)  { leftSerial->print("B ");  leftSerial->println(payload); }
-            if (rightSerial) { rightSerial->print("B "); rightSerial->println(payload); }
+            if (leftSerial && !powerSafetyController.areActuatorsParked())  { leftSerial->print("B ");  leftSerial->println(payload); }
+            if (rightSerial && !powerSafetyController.areActuatorsParked()) { rightSerial->print("B "); rightSerial->println(payload); }
         }
         else if (cmdType == 'J')
         {
@@ -673,15 +947,27 @@ void loop()
                 mainSerial->read();
             String name = mainSerial->readStringUntil(' ');
             int pwm = mainSerial->readStringUntil('\n').toInt();
-            actuatorManager->handleJog(name, pwm);
-            // Forward in the same J<name> <pwm> shape the host uses.
-            if (leftSerial)  { leftSerial->print("J");  leftSerial->print(name);  leftSerial->print(" ");  leftSerial->println(pwm); }
-            if (rightSerial) { rightSerial->print("J"); rightSerial->print(name); rightSerial->print(" "); rightSerial->println(pwm); }
+            if (!powerSafetyController.areActuatorsParked())
+            {
+                actuatorManager->handleJog(name, pwm);
+                // Forward in the same J<name> <pwm> shape the host uses.
+                if (leftSerial)  { leftSerial->print("J");  leftSerial->print(name);  leftSerial->print(" ");  leftSerial->println(pwm); }
+                if (rightSerial) { rightSerial->print("J"); rightSerial->print(name); rightSerial->print(" "); rightSerial->println(pwm); }
+            }
+        }
+        else if (cmdType == 'P')
+        {
+            String line = mainSerial->readStringUntil('\n');
+            if (isShutdownAckLine(line.c_str()))
+                powerSafetyController.acceptShutdownAckIfExpected(millis());
         }
         else if (cmdType == 'C')
         {
             mainSerial->read();
-            handleCalibrationCommand(mainSerial->readStringUntil('\n'));
+            String command = mainSerial->readStringUntil('\n');
+            if (!powerSafetyController.areActuatorsParked() ||
+                command.indexOf("PWR_SENSE") >= 0)
+                handleCalibrationCommand(command);
         }
         else if (cmdType == 'H')
         {
@@ -797,6 +1083,13 @@ void loop()
         wasTelemetryEmittedOnPreviousLoop = true;
         lastTelemetry = telemetryNowMilliseconds;
 
+        if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
+        {
+            updatePowerMeasurements();
+            const PowerSafetyAction action = powerSafetyController.determinePowerSafetyAction(
+                packMeasurement.voltage, isBatteryPackVoltageValid(packMeasurement.voltage.value()), telemetryNowMilliseconds);
+            executePowerSafetyAction(powerSafetyController, action, telemetryNowMilliseconds);
+        }
         mainSerial->print(boardTelemetryRoleLabel(currentRole));
         mainSerial->print(TELEMETRY_SEGMENT_DELIMITER);
         mainSerial->print(TELEMETRY_FIELD_SEPARATOR);
@@ -809,19 +1102,13 @@ void loop()
             imuMeasurement = imuSensor.measure();
             appendImuMeasurement(*mainSerial, imuMeasurement);
 
-            packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
-            midpointMeasurement = powerCalibration.applyMidpointCalibration(midpointPowerMonitor.measure());
-            inferredBattBVoltage = packMeasurement.voltage - midpointMeasurement.voltage;
-
             // Assume divergence when either battery cannot be read.
             const bool isDiverged =
-                !isfinite(midpointMeasurement.voltage.value()) ||
-                !isfinite(inferredBattBVoltage.value()) ||
-                abs(midpointMeasurement.voltage - inferredBattBVoltage)
-                    > BATTERY_DIVERGENCE_THRESHOLD;
+                areBatteryVoltagesDiverged(midpointMeasurement.voltage, inferredBattBVoltage);
 
             appendBatteryTelemetry(*mainSerial, packMeasurement, midpointMeasurement,
-                inferredBattBVoltage, isDiverged, PACK_REGION_NORMAL);
+                inferredBattBVoltage, isDiverged, static_cast<uint8_t>(powerSafetyController.lastPackVoltageRegion()),
+                static_cast<uint8_t>(powerSafetyController.state()));
         }
         mainSerial->println();
         mainSerial->flush();  // ensure full line is sent before next loop (avoids two "LEFT;" in one buffer on host)

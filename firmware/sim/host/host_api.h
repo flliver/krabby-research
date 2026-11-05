@@ -72,6 +72,12 @@ void krabby_host_enable_single_leader_eighteen_joint(int enabled);
 /** Signed PWM for a named actuator on FRONT/LEFT/RIGHT managers (-255..255). */
 int krabby_host_three_board_actuator_command_pwm(const char *actuator_name);
 
+/** Set physical INA228 inputs; returns 0 for non-finite inputs, otherwise 1.
+ * Set charge after firmware setup to avoid the driver's startup accumulator reset.
+ */
+int krabby_host_set_battery_inputs(float pack_volts, float pack_amps,
+    float battery_a_volts, float charge_coulombs);
+
 /** Test hooks: sim I2C presence and OLED framebuffer fingerprint (host I2C E2E tests). */
 void krabby_host_i2c_set_device_present(uint8_t address, int present);
 uint32_t krabby_host_oled_framebuffer_crc32(void);

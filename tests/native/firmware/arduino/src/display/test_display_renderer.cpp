@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <initializer_list>
 #include <string.h>
 
 #include "src/display/display_frame_model.h"
@@ -541,9 +542,165 @@ void test_only_a_drawn_frame_is_flushed(void)
     TEST_ASSERT_EQUAL_INT(1, canvas.displays);
 }
 
+void assertText(const RecordingCanvas &canvas, int x, int y, const char *text)
+{
+    for (int i = 0; i < canvas.count(); ++i)
+    {
+        const Call &call = canvas.at(i);
+        if (call.kind == CALL_TEXT && call.x0 == x && call.y0 == y &&
+            strcmp(call.text, text) == 0)
+            return;
+    }
+    TEST_FAIL_MESSAGE(text);
+}
+
+void test_safety_screens_draw_their_message_voltage_and_icon()
+{
+    RecordingCanvas canvas;
+    DisplayRenderer<RecordingCanvas> renderer(canvas);
+    DisplayFrame frame;
+    TEST_ASSERT_TRUE(frame.screen == DisplayScreen::Status);
+    frame.screen = DisplayScreen::LowBattery;
+    frame.packVoltage = Volts(23.5f);
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_ERASE));
+    TEST_ASSERT_EQUAL_INT(2, canvas.countOf(CALL_TEXT));
+    assertText(canvas, 6, 2, "LOW BATTERY");
+    assertText(canvas, 44, 46, "23.5V");
+    TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_RECT));
+    const Call &icon = canvas.at(3);
+    TEST_ASSERT_EQUAL_INT(CALL_RECT, icon.kind);
+    TEST_ASSERT_EQUAL_INT(34, icon.x0);
+    TEST_ASSERT_EQUAL_INT(24, icon.y0);
+    TEST_ASSERT_EQUAL_INT(52, icon.x1);
+    TEST_ASSERT_EQUAL_INT(18, icon.y1);
+    const Call &terminal = canvas.at(4);
+    TEST_ASSERT_EQUAL_INT(CALL_FILL, terminal.kind);
+    TEST_ASSERT_EQUAL_INT(86, terminal.x0);
+    TEST_ASSERT_EQUAL_INT(29, terminal.y0);
+    TEST_ASSERT_EQUAL_INT(3, terminal.x1);
+    TEST_ASSERT_EQUAL_INT(8, terminal.y1);
+    TEST_ASSERT_EQUAL_INT(SSD1306_COLOR_WHITE, terminal.color);
+
+    canvas.reset();
+    frame.screen = DisplayScreen::OverVoltage;
+    frame.packVoltage = Volts(30.0f);
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_ERASE));
+    TEST_ASSERT_EQUAL_INT(0, canvas.countOf(CALL_RECT));
+    TEST_ASSERT_EQUAL_INT(3, canvas.countOf(CALL_TEXT));
+    assertText(canvas, 6, 2, "OVER VOLTAGE");
+    assertText(canvas, 0, 20, "CHARGER/BMS FAULT");
+    assertText(canvas, 44, 40, "30.0V");
+
+    canvas.reset();
+    frame.packVoltage = Volts(30.25f);
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    assertText(canvas, 44, 40, "30.3V");
+    canvas.reset();
+    frame.packVoltage = Volts(NAN);
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    assertText(canvas, 44, 40, "--.-V");
+}
+
+void test_every_screen_transition_clears_previous_contents()
+{
+    const DisplayScreen screens[] = {DisplayScreen::Status, DisplayScreen::LowBattery,
+        DisplayScreen::OverVoltage, DisplayScreen::Blank};
+    for (DisplayScreen from : screens)
+        for (DisplayScreen to : screens)
+        {
+            if (from == to) continue;
+            RecordingCanvas canvas;
+            DisplayRenderer<RecordingCanvas> renderer(canvas);
+            DisplayFrame frame = baseFrame();
+            frame.screen = from;
+            TEST_ASSERT_TRUE(renderer.render(frame));
+            const DisplayFrame previous = frame;
+            frame.screen = to;
+            TEST_ASSERT_FALSE(displayFramesEqual(previous, frame));
+            canvas.reset();
+            TEST_ASSERT_TRUE(renderer.render(frame));
+            TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_ERASE));
+            TEST_ASSERT_EQUAL_INT(2, canvas.displays);
+            if (to == DisplayScreen::Status)
+            {
+                assertText(canvas, SSD1306_HEADER_ROLE_X, SSD1306_HEADER_Y, "FRONT");
+                TEST_ASSERT_GREATER_THAN_INT(0, canvas.countOf(CALL_LINE));
+            }
+            else if (to == DisplayScreen::Blank)
+                TEST_ASSERT_EQUAL_INT(0, canvas.countOf(CALL_TEXT));
+        }
+}
+
+void test_blank_is_cleared_once_until_invalidated_or_another_screen_is_drawn()
+{
+    RecordingCanvas canvas;
+    DisplayRenderer<RecordingCanvas> renderer(canvas);
+    DisplayFrame frame;
+    frame.screen = DisplayScreen::Blank;
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_ERASE));
+    canvas.reset();
+    frame.packVoltage = Volts(21.0f);
+    TEST_ASSERT_FALSE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(0, canvas.count());
+    TEST_ASSERT_EQUAL_INT(1, canvas.probes);
+    TEST_ASSERT_EQUAL_INT(1, canvas.displays);
+    renderer.invalidate();
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(2, canvas.displays);
+}
+
+void test_safety_display_failure_does_not_cache_an_undrawn_screen()
+{
+    for (DisplayScreen screen : {DisplayScreen::LowBattery, DisplayScreen::OverVoltage,
+                                DisplayScreen::Blank})
+    {
+        RecordingCanvas canvas;
+        DisplayRenderer<RecordingCanvas> renderer(canvas);
+        DisplayFrame frame;
+        frame.screen = screen;
+        frame.packVoltage = Volts(23.5f);
+        canvas.initialized = false;
+        canvas.recovers = false;
+        TEST_ASSERT_FALSE(renderer.render(frame));
+        TEST_ASSERT_EQUAL_INT(0, canvas.probes);
+        TEST_ASSERT_EQUAL_INT(0, canvas.count());
+        canvas.recovers = true;
+        canvas.responds = false;
+        TEST_ASSERT_FALSE(renderer.render(frame));
+        TEST_ASSERT_EQUAL_INT(0, canvas.count());
+        TEST_ASSERT_EQUAL_INT(0, canvas.displays);
+        canvas.responds = true;
+        TEST_ASSERT_TRUE(renderer.render(frame));
+        TEST_ASSERT_EQUAL_INT(1, canvas.displays);
+        TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_ERASE));
+    }
+}
+
+void test_safety_messages_keep_the_callers_periodic_refresh_behavior()
+{
+    RecordingCanvas canvas;
+    DisplayRenderer<RecordingCanvas> renderer(canvas);
+    DisplayFrame frame;
+    frame.screen = DisplayScreen::LowBattery;
+    frame.packVoltage = Volts(23.5f);
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    canvas.reset();
+    TEST_ASSERT_TRUE(renderer.render(frame));
+    TEST_ASSERT_EQUAL_INT(1, canvas.countOf(CALL_ERASE));
+    TEST_ASSERT_EQUAL_INT(2, canvas.displays);
+}
+
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_safety_screens_draw_their_message_voltage_and_icon);
+    RUN_TEST(test_every_screen_transition_clears_previous_contents);
+    RUN_TEST(test_blank_is_cleared_once_until_invalidated_or_another_screen_is_drawn);
+    RUN_TEST(test_safety_display_failure_does_not_cache_an_undrawn_screen);
+    RUN_TEST(test_safety_messages_keep_the_callers_periodic_refresh_behavior);
     RUN_TEST(test_subpixel_battery_changes_do_not_draw);
     RUN_TEST(test_voltage_fields_are_right_aligned);
     RUN_TEST(test_missing_battery_readings_replace_voltage_labels);

@@ -1,37 +1,28 @@
 #include "sim_battery_model.hpp"
-
-#include <cmath>
+#include "sim_i2c.hpp"
 
 namespace krabby {
 namespace sim {
 
-namespace {
+void resetSimBatteryModel() { setSimBatteryState(SimBatteryState{}); }
 
-SimBatteryState g_battery_state;
-
-}  // namespace
-
-void resetSimBatteryModel() { g_battery_state = SimBatteryState{}; }
-
-const SimBatteryState &simBatteryState() { return g_battery_state; }
-
-void setSimBatteryState(const SimBatteryState &state) { g_battery_state = state; }
-
-SimBatteryTelemetry computeSimBatteryTelemetry()
+SimBatteryState simBatteryState()
 {
-    SimBatteryTelemetry out{};
-    out.packVolts = g_battery_state.packVolts;
-    out.packAmps = g_battery_state.packAmps;
-    out.packWatts = g_battery_state.packVolts * g_battery_state.packAmps;
-    out.packChargeCoulombs = g_battery_state.packChargeCoulombs;
-    out.battAVolts = g_battery_state.battAVolts;
-    out.battBVolts = g_battery_state.packVolts - g_battery_state.battAVolts;
-    const float divergence = std::fabs(out.battAVolts - out.battBVolts);
-    out.divergenceFlag =
-        divergence > kSimBatteryDivergenceThresholdVolts ? static_cast<uint8_t>(1) : 0;
-    out.powerState = g_battery_state.powerState;
-    out.valid = true;
-    return out;
+    SimBatteryState state;
+    state.packVolts = simI2cBus().packIna228().busVolts;
+    state.packAmps = simI2cBus().packIna228().amps;
+    state.packChargeCoulombs = simI2cBus().packIna228().coulombs;
+    state.battAVolts = simI2cBus().midpointIna228().busVolts;
+    return state;
+}
+
+void setSimBatteryState(const SimBatteryState &state)
+{
+    auto &pack = simI2cBus().packIna228();
+    pack.busVolts = state.packVolts;
+    pack.amps = state.packAmps;
+    pack.coulombs = state.packChargeCoulombs;
+    simI2cBus().midpointIna228().busVolts = state.battAVolts;
 }
 
 }  // namespace sim

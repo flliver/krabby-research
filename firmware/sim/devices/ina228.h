@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Wire.h"
+#include "i2c_device.h"
 
 #include <cstdint>
 #include <functional>
@@ -52,7 +52,7 @@ struct Operation
 // Measurements follow from the physical inputs through the datasheet's integer
 // relations and the SHUNT_CAL the driver wrote, so a wrong calibration reads back
 // as a wrong current, power or charge.
-class Device : public wire_native::Device
+class Device : public krabby::sim::I2cDevice
 {
 public:
     explicit Device(double shunt = 0.0);
@@ -69,6 +69,7 @@ public:
     // Called with each step's name as it is logged, NACKed steps included.
     std::function<void(const std::string &step)> onStep;
 
+    bool recordOperations = true; // disable for continuously running robot simulation
     unsigned resetCount = 0;
     unsigned accumulatorResetCount = 0;
     std::vector<Operation> operations; // register reads and writes, refused ones included

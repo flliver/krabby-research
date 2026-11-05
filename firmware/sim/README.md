@@ -25,7 +25,7 @@ When the MCU role is **FRONT** (or UNKNOWN with front actuators), `arduino.ino` 
 
 Multi-board role election on the host sim is documented in [ROLE_BOOT.md](ROLE_BOOT.md). Optional single-leader 18-joint SDK shortcut: `KRABBY_SIM_SINGLE_LEADER_18=1` (see ROLE_BOOT.md).
 
-I2C sim scope (shipping LSM6DSO + SSD1306, INA228 blockers): [I2C_SIM_SCOPE.md](I2C_SIM_SCOPE.md).
+I2C sim scope (LSM6DSO, SSD1306, and real INA228 driver over simulated registers): [I2C_SIM_SCOPE.md](I2C_SIM_SCOPE.md).
 
 ## Virtual serial (SDK / GUI on sim USB)
 
