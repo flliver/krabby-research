@@ -7,6 +7,9 @@ import subprocess
 import sys
 
 
+HOST_POWEROFF_MOUNT = "/run/krabby:/run/krabby"
+
+
 def gpu_flags() -> list[str]:
     if platform.machine() == "aarch64":
         return ["--runtime=nvidia"]
@@ -79,6 +82,7 @@ def run_cmd(image_ref: str, extra_args: list[str], entrypoint: str | None = None
         *gpu_flags(),
         *ep,
         "-v", "/dev:/dev",
+        "-v", HOST_POWEROFF_MOUNT,
         *mounts,
         *network_flags(),
         image_ref,
@@ -226,6 +230,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
         "--privileged",
         *gpu_flags(),
         "-v", "/dev:/dev",
+        "-v", HOST_POWEROFF_MOUNT,
         *mounts,
         *network_flags(),
         "-e", "KRABBY_MCU_PORT",
