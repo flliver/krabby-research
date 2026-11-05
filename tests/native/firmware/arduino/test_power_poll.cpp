@@ -31,6 +31,8 @@ std::vector<std::string> events;
 
 void delay(unsigned long) {}
 
+#include "src/power_safety/power_safety_controller.h"
+PowerSafetyController powerSafetyController;
 #include "state.inc"
 #include "calibration.inc"
 #include "poll.inc"
@@ -98,9 +100,10 @@ void verifyMeasurement(const std::string &telemetry)
     std::istringstream fields(telemetry);
     const std::vector<std::string> tokens{std::istream_iterator<std::string>(fields),
         std::istream_iterator<std::string>()};
-    require(tokens.size() == 11, "unexpected battery telemetry shape");
-    require((tokens[9] == "1") == pack.isValid, "pack flag must reflect acquisition availability");
-    require((tokens[10] == "1") == midpoint.isValid, "midpoint flag must reflect acquisition availability");
+    require(tokens.size() == 12, "unexpected battery telemetry shape");
+    require((tokens[8] == "1") == pack.isValid, "pack flag must reflect acquisition availability");
+    require((tokens[9] == "1") == midpoint.isValid, "midpoint flag must reflect acquisition availability");
+    require(tokens[10] == "0" && tokens[11] == "0", "measurement-only harness must report normal/operating");
     require(sameValue(inferredBattBVoltage.value(), (pack.voltage - midpoint.voltage).value()), "inferred B must equal current difference");
     const float packFields[] = {pack.voltage.value(), pack.current.value(),
         pack.power.value(), pack.charge.value()};
@@ -122,7 +125,7 @@ void verifyMeasurement(const std::string &telemetry)
         require(tokens[i + 5] == expected.output.substr(1), "telemetry must use current battery values");
     }
     require((tokens[7] == "1") == (!isfinite(midpoint.voltage.value()) || !isfinite((pack.voltage - midpoint.voltage).value()) || fabs((midpoint.voltage - (pack.voltage - midpoint.voltage)).value()) > BATTERY_DIVERGENCE_THRESHOLD.value()), "divergence must use current values");
-    require((tokens[10] == "1") == midpointMeasurement.isValid, "measurement midpoint validity differs");
+    require((tokens[9] == "1") == midpointMeasurement.isValid, "measurement midpoint validity differs");
 }
 
 void test_measurement_defaults_and_exact_comparison()

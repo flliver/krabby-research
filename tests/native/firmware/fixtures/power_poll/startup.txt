@@ -1,5 +1,5 @@
 [never-read]
-;BATT nan nan nan nan nan nan 1 0 0 0
+;BATT nan nan nan nan nan nan 1 0 0 0 0
 events=millis=0 | millis=0 | telemetry.begin
 clock-after=0
 measurement.pack=nan,nan,nan,nan
@@ -10,7 +10,7 @@ mid.up/bad/begins/shunts/resets=0,1,0,0,0
 draw=0
 
 [second-failure]
-;BATT nan nan nan nan nan nan 1 0 0 0
+;BATT nan nan nan nan nan nan 1 0 0 0 0
 events=millis=50 | millis=50 | telemetry.begin
 clock-after=50
 measurement.pack=nan,nan,nan,nan
@@ -21,7 +21,7 @@ mid.up/bad/begins/shunts/resets=0,2,0,0,0
 draw=0
 
 [first-probe-absent]
-;BATT nan nan nan nan nan nan 1 0 0 0
+;BATT nan nan nan nan nan nan 1 0 0 0 0
 events=millis=100 | millis=100 | telemetry.begin
 clock-after=100
 measurement.pack=nan,nan,nan,nan
@@ -32,7 +32,7 @@ mid.up/bad/begins/shunts/resets=0,0,0,0,0
 draw=0
 
 [retry-count-one]
-;BATT nan nan nan nan nan nan 1 0 0 0
+;BATT nan nan nan nan nan nan 1 0 0 0 0
 events=millis=1899 | millis=1899 | telemetry.begin
 clock-after=1899
 measurement.pack=nan,nan,nan,nan
@@ -43,7 +43,7 @@ mid.up/bad/begins/shunts/resets=0,1,0,0,0
 draw=0
 
 [retry-count-two]
-;BATT nan nan nan nan nan nan 1 0 0 0
+;BATT nan nan nan nan nan nan 1 0 0 0 0
 events=millis=1999 | millis=1999 | telemetry.begin
 clock-after=1999
 measurement.pack=nan,nan,nan,nan
@@ -54,7 +54,7 @@ mid.up/bad/begins/shunts/resets=0,2,0,0,0
 draw=0
 
 [present-before-retry]
-;BATT nan nan nan nan nan nan 1 0 0 0
+;BATT nan nan nan nan nan nan 1 0 0 0 0
 events=millis=2099 | millis=2099 | telemetry.begin
 clock-after=2099
 measurement.pack=nan,nan,nan,nan
@@ -65,7 +65,7 @@ mid.up/bad/begins/shunts/resets=0,3,0,0,0
 draw=0
 
 [recovery-tick-still-invalid]
-;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 1 1 0 0
 events=millis=2100 | pack.begin | pack.calibrate | pack.voltage | pack.current | pack.power | pack.charge | millis=2100 | mid.begin | mid.reset | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=2100
 measurement.pack=26.5,-12.5,331.25,1200
@@ -91,7 +91,7 @@ fill 77 12 14 5 1
 text 98 11 13.3V
 
 [first-read-after-recovery]
-;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=2150
 measurement.pack=26.5,-12.5,331.25,1200

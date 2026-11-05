@@ -1,5 +1,5 @@
 [identity]
-;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 0 1 1
+;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=26,-12.5,325,1200
@@ -27,7 +27,7 @@ text 98 11 13.0V
 save-result=0
 save-result=0
 [offset-and-gain-applied]
-;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 1 1 0 0
 events=storage.write-pending | storage.magic=200 | storage.write-pending | storage.magic=200 | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1050
 measurement.pack=26.5,-15.000001,390.000031,1440
@@ -55,7 +55,7 @@ text 98 11 13.3V
 save-result=1
 save-result=1
 [rejected-input-keeps-calibration]
-;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1100
 measurement.pack=26.5,-15.000001,390.000031,1440
@@ -66,7 +66,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [reload-keeps-calibration]
-;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1150
 measurement.pack=26.5,-15.000001,390.000031,1440
@@ -78,7 +78,7 @@ draw=0
 
 save-result=2
 [failed-save-keeps-RAM-calibration]
-;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -15.00 390.0 1440.0 13.25 13.25 0 1 1 0 0
 events=storage.write-pending | storage.magic=200 | storage.magic=0 | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1200
 measurement.pack=26.5,-15.000001,390.000031,1440
@@ -89,7 +89,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [failed-save-invalidates-persisted-calibration]
-;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 0 1 1
+;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1250
 measurement.pack=26,-12.5,325,1200
