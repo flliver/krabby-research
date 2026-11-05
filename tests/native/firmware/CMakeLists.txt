@@ -90,6 +90,11 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/power_monitor/test_power_monitor_constants
     arduino/src/telemetry/test_telemetry_poll
     arduino/test_eeprom_layout
+    arduino/src/test_periodic_timer
+    arduino/src/power_safety/test_power_safety_latch
+    arduino/src/power_safety/test_power_message
+    arduino/src/power_safety/test_power_safety_policy
+    arduino/src/power_safety/test_power_safety_controller
     arduino/test_power_poll
 )
 

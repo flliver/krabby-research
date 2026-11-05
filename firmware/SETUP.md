@@ -416,7 +416,9 @@ only bytes 40–65. Constants live in `src/imu/imu_constants.h`; the
 | 41 | 1 | `ImuCalibrationRecord.schema` | layout version, currently `1` (`EEPROM_IMU_CAL_SCHEMA`) |
 | 42–53 | 12 | `ImuCalibrationRecord.gyroBiasDegreesPerSecond[3]` | 3 × 4-byte float; gyro zero-rate bias, deg/s, raw sensor frame |
 | 54–65 | 12 | `ImuCalibrationRecord.accelBiasG[3]` | 3 × 4-byte float; reserved accelerometer offset, g, raw sensor frame; zero until accelerometer calibration is implemented |
-| 66– | — | free | `EEPROM_SENSOR_CAL_NEXT_ADDR` = 66; Task 3 (INA228 cal) and later blocks allocate from here, each with its own magic + schema |
+| 66–79 | 14 | `PowerCalibrationRecord` | INA228 voltage offsets and Pack shunt scale |
+| 80–82 | 3 | `PowerSafetyLatchRecord` | magic, schema, and durable power-safety latch |
+| 83–4095 | 4013 | — | available; `EEPROM_NEXT_AVAILABLE_ADDR` = 83 |
 
 So "`ImuCalibrationRecord` is 26 bytes" means exactly bytes 40–65:
 1 (magic) + 1 (schema) + 12 (gyro bias) + 12 (accel bias) = 26. The

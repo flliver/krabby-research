@@ -71,7 +71,7 @@ void appendImuMeasurement(
 
 // Voltage-region codes carried in BATT telemetry. Task 3 emits NORMAL;
 // power-management transitions are implemented in Task 4.
-enum PackVoltageRegion : uint8_t
+enum LegacyPackVoltageRegion : uint8_t
 {
     PACK_REGION_NORMAL = 0,
     PACK_REGION_WARN = 1,
@@ -87,7 +87,8 @@ inline void appendBatteryTelemetry(
     const PowerMonitorMeasurement& midpointMeasurement,
     Volts inferredBattBVoltage,
     bool isDiverged,
-    uint8_t packRegion)
+    uint8_t packRegion,
+    int16_t powerSafetyState = -1)
 {
     out.print(TELEMETRY_SEGMENT_DELIMITER);
     out.print(BATT_TELEMETRY_TAG);
@@ -106,11 +107,21 @@ inline void appendBatteryTelemetry(
     out.print(TELEMETRY_FIELD_SEPARATOR);
     out.print(isDiverged ? 1 : 0);
     out.print(TELEMETRY_FIELD_SEPARATOR);
-    out.print(packRegion);
-    out.print(TELEMETRY_FIELD_SEPARATOR);
+    if (powerSafetyState < 0)
+    {
+        out.print(packRegion);
+        out.print(TELEMETRY_FIELD_SEPARATOR);
+    }
     out.print(packMeasurement.isValid ? 1 : 0);
     out.print(TELEMETRY_FIELD_SEPARATOR);
     out.print(midpointMeasurement.isValid ? 1 : 0);
+    if (powerSafetyState >= 0)
+    {
+        out.print(TELEMETRY_FIELD_SEPARATOR);
+        out.print(packRegion);
+        out.print(TELEMETRY_FIELD_SEPARATOR);
+        out.print(powerSafetyState);
+    }
 }
 
 // Legacy eight-field serializer retained for the upstream host simulator.
