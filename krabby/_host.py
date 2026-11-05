@@ -255,6 +255,81 @@ def _ensure_dialout() -> None:
 
 _BOOT_SERVICE_PATH = Path("/etc/systemd/system/krabby-locomotion.service")
 _BOOT_SERVICE_NAME = "krabby-locomotion.service"
+_POWER_BRIDGE_DIR = Path("/run/krabby")
+_POWER_REQUEST_PATH = _POWER_BRIDGE_DIR / "poweroff.request"
+_POWER_READY_PATH = _POWER_BRIDGE_DIR / "poweroff.ready"
+_POWER_PATH_UNIT_PATH = Path("/etc/systemd/system/krabby-poweroff.path")
+_POWER_PATH_UNIT_NAME = "krabby-poweroff.path"
+_POWER_SERVICE_UNIT_PATH = Path("/etc/systemd/system/krabby-poweroff.service")
+_POWER_TMPFILES_PATH = Path("/etc/tmpfiles.d/krabby-poweroff.conf")
+
+
+def _poweroff_path_unit() -> str:
+    return f"""\
+[Unit]
+Description=Watch for Krabby host-poweroff requests
+
+[Path]
+PathExists={_POWER_REQUEST_PATH}
+Unit=krabby-poweroff.service
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _poweroff_service_unit() -> str:
+    return f"""\
+[Unit]
+Description=Power off the Krabby host after an MCU safety request
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rm -f {_POWER_REQUEST_PATH}
+ExecStart=/usr/bin/sleep 2
+ExecStart=/usr/bin/systemctl --no-block poweroff
+"""
+
+
+def _poweroff_tmpfiles_config() -> str:
+    return (
+        f"d {_POWER_BRIDGE_DIR} 0750 root root -\n"
+        f"f {_POWER_READY_PATH} 0444 root root - ready\n"
+    )
+
+
+def _ensure_poweroff_bridge() -> bool:
+    """Install the root-owned request path used by the locomotion container."""
+    if not shutil.which("systemctl"):
+        print("[skip] systemctl not found — skipping host-poweroff bridge")
+        return True
+
+    files = (
+        (_POWER_PATH_UNIT_PATH, _poweroff_path_unit()),
+        (_POWER_SERVICE_UNIT_PATH, _poweroff_service_unit()),
+        (_POWER_TMPFILES_PATH, _poweroff_tmpfiles_config()),
+    )
+    try:
+        for path, contents in files:
+            if not path.exists() or path.read_text() != contents:
+                path.write_text(contents)
+                print(f"[+]   wrote {path}")
+        if _run(["systemd-tmpfiles", "--create", str(_POWER_TMPFILES_PATH)]) != 0:
+            print("[err] failed to create host-poweroff runtime directory", file=sys.stderr)
+            return False
+        _POWER_REQUEST_PATH.unlink(missing_ok=True)
+    except PermissionError:
+        print("[err] cannot install host-poweroff bridge — run with sudo", file=sys.stderr)
+        return False
+
+    if _run(["systemctl", "daemon-reload"]) != 0:
+        print("[err] systemctl daemon-reload failed", file=sys.stderr)
+        return False
+    if _run(["systemctl", "enable", "--now", _POWER_PATH_UNIT_NAME]) != 0:
+        print(f"[err] failed to enable {_POWER_PATH_UNIT_NAME}", file=sys.stderr)
+        return False
+    print(f"[ok]  host-poweroff bridge enabled ({_POWER_PATH_UNIT_NAME})")
+    return True
 
 
 def _boot_service_unit(krabby_bin: str, user: str) -> str:
@@ -263,9 +338,9 @@ def _boot_service_unit(krabby_bin: str, user: str) -> str:
 [Unit]
 Description=Krabby locomotion stack
 Documentation=https://github.com/flliver/krabby-research
-After=docker.service network-online.target krabby-agent.service
+After=docker.service {_POWER_PATH_UNIT_NAME} network-online.target krabby-agent.service
 Wants=network-online.target krabby-agent.service
-Requires=docker.service
+Requires=docker.service {_POWER_PATH_UNIT_NAME}
 StartLimitIntervalSec=300
 StartLimitBurst=10
 
@@ -342,6 +417,7 @@ def run_host_setup(launch_on_startup: bool = True) -> None:
     ok &= _ensure_pro_controller_led_udev()
     ok &= _ensure_hid_nintendo()
     ok &= _ensure_bt_input_conf()
+    ok &= _ensure_poweroff_bridge()
     ok &= _ensure_boot_service(launch_on_startup)
     _ensure_dialout()
     if ok:
