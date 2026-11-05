@@ -13,7 +13,8 @@
 
 #include "unity.h"
 #include <Arduino.h>
-#include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/ina228_provider.h"
+#include "src/power_monitor/power_poll.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
 #include "src/power_monitor/voltage_validity.h"
@@ -31,17 +32,20 @@ std::vector<std::string> events;
 
 void delay(unsigned long) {}
 
-#include "src/power_safety/power_safety_controller.h"
-PowerSafetyController powerSafetyController;
-#include "state.inc"
-#include "calibration.inc"
-#include "poll.inc"
+Ina228Provider packPowerProvider(PACK_POWER_MONITOR_ADDRESS,
+    PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
+Ina228Provider midpointPowerProvider(MIDPOINT_POWER_MONITOR_ADDRESS);
+Ina228Adapter &packPowerMonitor = packPowerProvider.get();
+Ina228Adapter &midpointPowerMonitor = midpointPowerProvider.get();
+PowerCalibration powerCalibration;
+PowerMonitorMeasurement packMeasurement;
+PowerMonitorMeasurement midpointMeasurement;
+Volts inferredBattBVoltage(NAN);
 
 namespace
 {
 std::string recordingDirectory;
 
-// Capture declaration-initialized production state before any scenario runs.
 const auto initialPack = packPowerMonitor;
 const auto initialMidpoint = midpointPowerMonitor;
 const auto initialCalibration = powerCalibration;
@@ -163,6 +167,111 @@ public:
     }
 };
 
+struct FixedMonitor
+{
+    PowerMonitorMeasurement reading;
+    unsigned measurements = 0;
+    PowerMonitorMeasurement measure() { ++measurements; return reading; }
+};
+
+struct FixedMonitorProvider
+{
+    FixedMonitor monitor;
+    FixedMonitor &get() { return monitor; }
+};
+
+void test_providers_supply_stable_independent_monitor_instances()
+{
+    Ina228Provider pack(PACK_POWER_MONITOR_ADDRESS,
+        PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
+    Ina228Provider midpoint(MIDPOINT_POWER_MONITOR_ADDRESS);
+    const size_t eventsBefore = Wire.state().events.size();
+    Ina228Adapter &first = pack.get();
+    TEST_ASSERT_EQUAL_PTR(&first, &pack.get());
+    TEST_ASSERT_TRUE(&first != &midpoint.get());
+    TEST_ASSERT_EQUAL_UINT8(PACK_POWER_MONITOR_ADDRESS, first.address());
+    TEST_ASSERT_EQUAL_UINT8(MIDPOINT_POWER_MONITOR_ADDRESS, midpoint.get().address());
+    TEST_ASSERT_FALSE(first.isUp());
+    TEST_ASSERT_EQUAL_UINT(eventsBefore, Wire.state().events.size());
+
+    TEST_ASSERT_TRUE(first.begin(&Wire));
+    powerPollFake::devices[0].coulombs = 1234.375;
+    const unsigned resets = powerPollFake::devices[0].resetCount;
+    const unsigned accumulatorResets = powerPollFake::devices[0].accumulatorResetCount;
+    powerPollFake::devices[0].nack = failReads({ina228_native::CURRENT});
+    TEST_ASSERT_FALSE(first.measure().isValid);
+    TEST_ASSERT_EQUAL_UINT8(1, pack.get().badTicks());
+    TEST_ASSERT_TRUE(pack.get().isUp());
+    TEST_ASSERT_EQUAL_UINT(resets, powerPollFake::devices[0].resetCount);
+    TEST_ASSERT_EQUAL_UINT(accumulatorResets, powerPollFake::devices[0].accumulatorResetCount);
+    TEST_ASSERT_EQUAL_FLOAT(1234.375f, powerPollFake::devices[0].coulombs);
+}
+
+void test_provider_poll_applies_calibration_and_reads_each_monitor_once()
+{
+    FixedMonitorProvider packProvider;
+    FixedMonitorProvider midpointProvider;
+    auto &pack = packProvider.monitor.reading;
+    auto &midpoint = midpointProvider.monitor.reading;
+    pack.voltage = Volts(26.0f);
+    pack.current = Amps(-12.5f);
+    pack.power = Watts(320.0f);
+    pack.charge = Coulombs(100.0f);
+    pack.isValid = true;
+    midpoint.voltage = Volts(13.0f);
+    midpoint.isValid = true;
+    PowerCalibration calibration;
+    Storage storage;
+    require(calibration.captureVoltage(storage, Volts(26), Volts(13),
+        Volts(26.5f), Volts(13.25f)) == PowerCalibration::SaveResult::Saved,
+        "voltage calibration must save");
+    require(calibration.captureCurrent(storage, Amps(-12.5f), Amps(-15)) ==
+        PowerCalibration::SaveResult::Saved, "current calibration must save");
+
+    const auto readings = readPowerMeasurements(packProvider, midpointProvider, calibration);
+    TEST_ASSERT_EQUAL_UINT(1, packProvider.monitor.measurements);
+    TEST_ASSERT_EQUAL_UINT(1, midpointProvider.monitor.measurements);
+    TEST_ASSERT_TRUE(readings.pack.isValid);
+    TEST_ASSERT_TRUE(readings.midpoint.isValid);
+    TEST_ASSERT_EQUAL_FLOAT(26.5f, readings.pack.voltage.value());
+    TEST_ASSERT_EQUAL_FLOAT(13.25f, readings.midpoint.voltage.value());
+    TEST_ASSERT_EQUAL_FLOAT(13.25f, readings.batteryB.value());
+    TEST_ASSERT_EQUAL_FLOAT(-15.0f, readings.pack.current.value());
+    TEST_ASSERT_EQUAL_FLOAT(384.0f, readings.pack.power.value());
+    TEST_ASSERT_EQUAL_FLOAT(120.0f, readings.pack.charge.value());
+    TEST_ASSERT_EQUAL_FLOAT(26.0f, pack.voltage.value());
+    TEST_ASSERT_EQUAL_FLOAT(-12.5f, pack.current.value());
+}
+
+void test_provider_poll_preserves_partial_failures_and_refreshes_every_call()
+{
+    FixedMonitorProvider packProvider;
+    FixedMonitorProvider midpointProvider;
+    auto &pack = packProvider.monitor.reading;
+    auto &midpoint = midpointProvider.monitor.reading;
+    pack.voltage = Volts(26.0f);
+    pack.current = Amps(NAN);
+    pack.isValid = false;
+    midpoint.voltage = Volts(13.0f);
+    midpoint.isValid = true;
+    const PowerCalibration calibration;
+    const auto first = readPowerMeasurements(packProvider, midpointProvider, calibration);
+    TEST_ASSERT_FALSE(first.pack.isValid);
+    TEST_ASSERT_TRUE(isnan(first.pack.current.value()));
+    TEST_ASSERT_TRUE(first.midpoint.isValid);
+    TEST_ASSERT_EQUAL_FLOAT(13.0f, first.batteryB.value());
+
+    pack.voltage = Volts(25.0f);
+    midpoint = PowerMonitorMeasurement{};
+    const auto second = readPowerMeasurements(packProvider, midpointProvider, calibration);
+    TEST_ASSERT_EQUAL_UINT(2, packProvider.monitor.measurements);
+    TEST_ASSERT_EQUAL_UINT(2, midpointProvider.monitor.measurements);
+    TEST_ASSERT_EQUAL_FLOAT(25.0f, second.pack.voltage.value());
+    TEST_ASSERT_FALSE(second.midpoint.isValid);
+    TEST_ASSERT_TRUE(isnan(second.batteryB.value()));
+    TEST_ASSERT_EQUAL_FLOAT(26.0f, first.pack.voltage.value());
+}
+
 class Scenario
 {
 public:
@@ -193,16 +302,24 @@ public:
     {
         powerPollFake::now = now;
         Print output;
-        readPowerMeasurements();
-        Print *mainSerial = &output;
-#include "telemetry.inc"
+        const auto readings = readPowerMeasurements(packPowerProvider, midpointPowerProvider, powerCalibration);
+        packMeasurement = readings.pack;
+        midpointMeasurement = readings.midpoint;
+        inferredBattBVoltage = readings.batteryB;
+        const bool isDiverged = areBatteryVoltagesDiverged(
+            readings.midpoint.voltage, readings.batteryB);
+        // Acquisition integration only; no lifecycle controller or sketch scheduler.
+        appendBatteryTelemetry(output, readings.pack, readings.midpoint,
+            readings.batteryB, isDiverged, 0, 0);
         const BoardRole currentRole = ROLE_UNKNOWN;
         ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT]{};
         ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount]{};
         const ImuMeasurement imuMeasurement{};
         const uint32_t nowMilliseconds = now;
-        const struct { int pwmDeadband; } ACTUATOR_CONFIG = {20};
-#include "display.inc"
+        const DisplayFrame displayFrame = buildDisplayFrame(
+            currentRole, controllerFreshnessTrackers, latestActuatorStatus,
+            imuMeasurement, nowMilliseconds, 20,
+            readings.pack, readings.midpoint, readings.batteryB);
         verifyMeasurement(output.output);
         const bool drew = renderer_.render(displayFrame);
         text_ << "[" << label << "]\n" << output.output << "\n";
@@ -726,6 +843,9 @@ int runTests(int argc, char **argv)
     if (argc == 3 && std::string(argv[1]) == "--record") recordingDirectory = argv[2];
     else if (argc != 1) return 2;
     UNITY_BEGIN();
+    RUN_TEST(test_providers_supply_stable_independent_monitor_instances);
+    RUN_TEST(test_provider_poll_applies_calibration_and_reads_each_monitor_once);
+    RUN_TEST(test_provider_poll_preserves_partial_failures_and_refreshes_every_call);
     RUN_TEST(test_measurement_defaults_and_exact_comparison);
     RUN_TEST(test_healthy_divergence_and_visible_resolution);
     RUN_TEST(test_startup_and_initial_recovery);

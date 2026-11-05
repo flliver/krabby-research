@@ -21,7 +21,8 @@
 #include "src/actuator/actuator_role_names.h"
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
-#include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/ina228_provider.h"
+#include "src/power_monitor/power_poll.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
 #include "src/cli/power_calibration_command.h"
@@ -127,9 +128,9 @@ PeriodicTimer powerSafetyDisplayRefreshTimer(
 static void writeOrinPowerEnabledToPin(bool isPowerEnabled);
 static void reconcilePowerSafetyAtBoot();
 
-Ina228Adapter packPowerMonitor(PACK_POWER_MONITOR_ADDRESS,
+Ina228Provider packPowerProvider(PACK_POWER_MONITOR_ADDRESS,
     PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
-Ina228Adapter midpointPowerMonitor(MIDPOINT_POWER_MONITOR_ADDRESS);
+Ina228Provider midpointPowerProvider(MIDPOINT_POWER_MONITOR_ADDRESS);
 
 // Current power readings shared by telemetry and the deferred OLED render.
 Volts inferredBattBVoltage(NAN);
@@ -281,8 +282,8 @@ static void printPowerCalibration()
     Serial.print(F("POWER CAL: packVoltageOffset=")); Serial.print(powerCalibration.packVoltageOffset().value(), 4);
     Serial.print(F(" midpointVoltageOffset="));      Serial.print(powerCalibration.midpointVoltageOffset().value(), 4);
     Serial.print(F(" packShuntCal="));               Serial.println(powerCalibration.packShuntScale(), 5);
-    printPowerMonitorDiagnostics(F("Pack"), packPowerMonitor);
-    printPowerMonitorDiagnostics(F("Midpoint"), midpointPowerMonitor);
+    printPowerMonitorDiagnostics(F("Pack"), packPowerProvider.get());
+    printPowerMonitorDiagnostics(F("Midpoint"), midpointPowerProvider.get());
 }
 
 static void printPowerCalibrationUsage()
@@ -342,7 +343,7 @@ static void handleCalibrationCommand(const String& line)
     }
 
     // Pack shunt calibration requires only the pack monitor.
-    if (!packPowerMonitor.isUp())
+    if (!packPowerProvider.get().isUp())
     {
         Serial.println(F("POWER CAL: Pack monitor offline; aborting (no write)."));
         return;
@@ -350,7 +351,7 @@ static void handleCalibrationCommand(const String& line)
 
     if (command.action == PowerCalibrationAction::CalibrateVoltageOffsets)
     {
-        if (!midpointPowerMonitor.isUp())
+        if (!midpointPowerProvider.get().isUp())
         {
             Serial.println(F("POWER CAL: Midpoint offline; voltage calibration needs both; aborting (no write)."));
             return;
@@ -359,8 +360,8 @@ static void handleCalibrationCommand(const String& line)
         const PowerCalibration::SaveResult result =
             powerCalibration.captureVoltage(
                 storage,
-                packPowerMonitor.readBusVoltage(),
-                midpointPowerMonitor.readBusVoltage(),
+                packPowerProvider.get().readBusVoltage(),
+                midpointPowerProvider.get().readBusVoltage(),
                 Volts(command.firstReference),
                 Volts(command.secondReference));
         if (result == PowerCalibration::SaveResult::InvalidInput)
@@ -383,7 +384,7 @@ static void handleCalibrationCommand(const String& line)
         // The operator forces a known current through the pack shunt, signed to
         // match the sensor's convention.
         const Amps knownCurrent(command.firstReference);
-        const Amps measuredCurrent = packPowerMonitor.readCurrent();
+        const Amps measuredCurrent = packPowerProvider.get().readCurrent();
         EepromPowerCalibrationStorage storage;
         const PowerCalibration::SaveResult result =
             powerCalibration.captureCurrent(
@@ -406,16 +407,16 @@ static void handleCalibrationCommand(const String& line)
 
 static void powerMonitorSetup()
 {
-    const bool isPackMonitorUp = packPowerMonitor.begin(&Wire);
+    const bool isPackMonitorUp = packPowerProvider.get().begin(&Wire);
     Serial.print(F("POWER MONITOR: Pack (INA228 0x"));
-    Serial.print(packPowerMonitor.address(), HEX);
+    Serial.print(packPowerProvider.get().address(), HEX);
     Serial.println(isPackMonitorUp
         ? F(") online, external shunt calibrated.")
         : F(") init FAILED; BATT fields marked invalid."));
 
-    const bool isMidpointMonitorUp = midpointPowerMonitor.begin(&Wire);
+    const bool isMidpointMonitorUp = midpointPowerProvider.get().begin(&Wire);
     Serial.print(F("POWER MONITOR: Midpoint (INA228 0x"));
-    Serial.print(midpointPowerMonitor.address(), HEX);
+    Serial.print(midpointPowerProvider.get().address(), HEX);
     Serial.println(isMidpointMonitorUp ? F(") online.") : F(") init FAILED."));
 
     EepromPowerCalibrationStorage storage;
@@ -426,17 +427,19 @@ static void powerMonitorSetup()
 
 static Volts powerReadPackVoltage(bool &isValid)
 {
-    packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
+    packMeasurement = powerCalibration.applyPackCalibration(packPowerProvider.get().measure());
     isValid = isBatteryPackVoltageValid(packMeasurement.voltage.value());
     return packMeasurement.voltage;
 }
 
 // Acquire and calibrate both power monitors without writing telemetry.
-static void readPowerMeasurements()
+static void updatePowerMeasurements()
 {
-    packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
-    midpointMeasurement = powerCalibration.applyMidpointCalibration(midpointPowerMonitor.measure());
-    inferredBattBVoltage = packMeasurement.voltage - midpointMeasurement.voltage;
+    const auto readings = readPowerMeasurements(
+        packPowerProvider, midpointPowerProvider, powerCalibration);
+    packMeasurement = readings.pack;
+    midpointMeasurement = readings.midpoint;
+    inferredBattBVoltage = readings.batteryB;
 }
 
 static void imuSetup()
@@ -1082,7 +1085,7 @@ void loop()
 
         if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
         {
-            readPowerMeasurements();
+            updatePowerMeasurements();
             const PowerSafetyAction action = powerSafetyController.determinePowerSafetyAction(
                 packMeasurement.voltage, isBatteryPackVoltageValid(packMeasurement.voltage.value()), telemetryNowMilliseconds);
             executePowerSafetyAction(powerSafetyController, action, telemetryNowMilliseconds);
