@@ -16,6 +16,7 @@
 #include "src/power_monitor/ina228_adapter.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
+#include "src/power_monitor/voltage_validity.h"
 #include "src/display/display_renderer.h"
 #include "trace_canvas.h"
 

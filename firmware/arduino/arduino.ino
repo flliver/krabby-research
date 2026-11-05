@@ -22,6 +22,7 @@
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
 #include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/voltage_validity.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
 #include "src/cli/power_calibration_command.h"
@@ -211,59 +212,28 @@ static void logImuCalibrationResult(ImuCalibrationResult result)
     }
 }
 
-static bool readIna228Register(
-    uint8_t address, uint8_t reg, uint8_t *bytes, uint8_t byteCount)
-{
-    Wire.beginTransmission(address);
-    Wire.write(reg);
-    if (Wire.endTransmission(false) != 0 ||
-        Wire.requestFrom(address, byteCount) != byteCount)
-        return false;
-
-    for (uint8_t i = 0; i < byteCount; ++i)
-        bytes[i] = Wire.read();
-    return true;
-}
-
 static void printPowerMonitorDiagnostics(
     const __FlashStringHelper *label,
     Ina228Adapter &monitor)
 {
-    static constexpr uint8_t INA228_ADC_CONFIG_REGISTER = 0x01;
-    static constexpr uint8_t INA228_BUS_VOLTAGE_REGISTER = 0x05;
-    uint8_t adcConfig[2];
-    uint8_t vbus[3];
-    const bool didReadAdcConfig = readIna228Register(
-        monitor.address(), INA228_ADC_CONFIG_REGISTER, adcConfig, sizeof(adcConfig));
-    const bool didReadBusVoltage = readIna228Register(
-        monitor.address(), INA228_BUS_VOLTAGE_REGISTER, vbus, sizeof(vbus));
-
+    const auto diagnostics = monitor.readDiagnostics();
     Serial.print(F("INA228 DIAG: "));
     Serial.print(label);
-    if (!didReadAdcConfig || !didReadBusVoltage)
+    if (!diagnostics.isValid)
     {
         Serial.println(F(" register read failed"));
         return;
     }
 
-    const uint16_t adcRaw =
-        (static_cast<uint16_t>(adcConfig[0]) << 8) | adcConfig[1];
-    const uint32_t vbusRaw =
-        (static_cast<uint32_t>(vbus[0]) << 16) |
-        (static_cast<uint32_t>(vbus[1]) << 8) |
-        vbus[2];
-    const float decodedVoltage =
-        static_cast<float>(vbusRaw >> 4) * 195.3125f / 1000000.0f;
-
     Serial.print(F(" adc=0x"));
-    Serial.print(adcRaw, HEX);
+    Serial.print(diagnostics.adcConfig, HEX);
     Serial.print(F(" mode=0x"));
-    Serial.print(adcRaw >> 12, HEX);
+    Serial.print(diagnostics.adcMode, HEX);
     Serial.print(F(" vbus=0x"));
-    Serial.print(vbusRaw, HEX);
-    Serial.print(F(" decoded="));
-    Serial.print(decodedVoltage, 4);
-    Serial.print(F(" library="));
+    Serial.print(diagnostics.busVoltageRegister, HEX);
+    Serial.print(F(" register_voltage_V="));
+    Serial.print(diagnostics.decodedBusVoltage.value(), 4);
+    Serial.print(F(" sparkfun_driver_voltage_V="));
     Serial.println(monitor.readBusVoltage().value(), 4);
 }
 
@@ -815,10 +785,7 @@ void loop()
 
             // Assume divergence when either battery cannot be read.
             const bool isDiverged =
-                !isfinite(midpointMeasurement.voltage.value()) ||
-                !isfinite(inferredBattBVoltage.value()) ||
-                abs(midpointMeasurement.voltage - inferredBattBVoltage)
-                    > BATTERY_DIVERGENCE_THRESHOLD;
+                areBatteryVoltagesDiverged(midpointMeasurement.voltage, inferredBattBVoltage);
 
             appendBatteryTelemetry(*mainSerial, packMeasurement, midpointMeasurement,
                 inferredBattBVoltage, isDiverged, PACK_REGION_NORMAL);
