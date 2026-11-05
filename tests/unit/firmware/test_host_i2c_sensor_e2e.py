@@ -166,3 +166,70 @@ def test_missing_imu_nonfatal(host):
     host.handle_jog("FLHY", 80)
     host.firmware_loop_once()
     assert host.pin_digital(22) == 1
+
+
+@pytest.mark.parametrize("mode", ["front", "three_board", "single_leader"])
+def test_runtime_battery_inputs_use_driver_in_all_robot_modes(host, mode):
+    host.reset()
+    if mode == "three_board":
+        host.enable_three_board_firmware_loop()
+    elif mode == "single_leader":
+        host.enable_single_leader_eighteen_joint()
+    # Initialize the selected topology before setting charge: the real driver
+    # resets the accumulator at boot.
+    host.firmware_loop_once()
+    _drain_usb_tx(host)
+    host.set_battery_inputs(
+        pack_volts=26.25, pack_amps=-3.125,
+        battery_a_volts=12.75, charge_coulombs=-1000,
+    )
+    host.advance_millis(50)
+    host.firmware_loop_once()
+    frames = []
+    while host.serial_usb_tx_available():
+        line = _read_usb_line(host)
+        frames.append((TelemetryFrame.role_from_line(line), TelemetryFrame.parse_line(line)))
+    battery_frames = [(role, frame.battery) for role, frame in frames if frame.battery]
+    assert len(battery_frames) == 1
+    role, battery = battery_frames[0]
+    assert role == "FRONT"
+    assert battery.pack_volts == pytest.approx(26.25, abs=0.01)
+    assert battery.pack_current_amperes == pytest.approx(-3.125, abs=0.01)
+    # INA228 power is an unsigned magnitude, unlike the deleted V*I shortcut.
+    assert battery.pack_power_watts == pytest.approx(82.03125, abs=0.1)
+    assert battery.pack_charge_coulombs == pytest.approx(-1000, abs=0.1)
+    assert battery.battery_b_volts == pytest.approx(13.5, abs=0.01)
+    assert battery.divergence and battery.pack_valid and battery.midpoint_valid
+
+
+def test_battery_disconnect_recovery_and_oled_share_measurements(host):
+    host.reset()
+    host.firmware_setup()
+    host.advance_millis(250)
+    host.firmware_loop_once()
+    initial_screen = host.oled_framebuffer_crc32()
+    _drain_usb_tx(host)
+    host.i2c_set_device_present(0x41, False)
+    host.advance_millis(250)
+    host.firmware_loop_once()
+    battery = TelemetryFrame.parse_line(_read_usb_line(host)).battery
+    assert battery is not None
+    assert battery.pack_valid and not battery.midpoint_valid
+    assert battery.divergence
+    assert host.oled_framebuffer_crc32() != initial_screen
+    host.i2c_set_device_present(0x41, True)
+    host.advance_millis(250)
+    host.firmware_loop_once()
+    battery = TelemetryFrame.parse_line(_read_usb_line(host)).battery
+    assert battery.pack_valid and battery.midpoint_valid
+    assert host.oled_framebuffer_crc32() == initial_screen
+
+
+def test_battery_inputs_reject_nonfinite_values_without_changing_device(host):
+    host.reset()
+    host.firmware_setup()
+    for invalid in [float("nan"), float("inf")]:
+        with pytest.raises(ValueError, match="finite"):
+            host.set_battery_inputs(pack_volts=invalid, pack_amps=1, battery_a_volts=13)
+    battery = TelemetryFrame.parse_line(_emit_front_telemetry_line(host)).battery
+    assert battery.pack_volts == pytest.approx(DEFAULT_PACK_V, abs=0.01)

@@ -9,10 +9,8 @@ namespace sim {
 static constexpr float kSimDefaultPackVolts = 26.40f;
 static constexpr float kSimDefaultPackAmps = 1.250f;
 static constexpr float kSimDefaultBattAVolts = 13.20f;
-static constexpr float kSimDefaultPackChargeCoulombs = 100000.0f;
-static constexpr float kSimBatteryDivergenceThresholdVolts = 0.5f;
-
-static constexpr uint8_t kSimBatteryPowerStateNormal = 0;
+// The hardware driver resets the charge accumulator at startup.
+static constexpr float kSimDefaultPackChargeCoulombs = 0.0f;
 
 }  // namespace sim
 }  // namespace krabby

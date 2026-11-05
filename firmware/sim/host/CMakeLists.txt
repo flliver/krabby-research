@@ -2,6 +2,24 @@
 
 set(KRABBY_ARDUINO_DIR "${CMAKE_CURRENT_LIST_DIR}/../../arduino")
 
+# Shared register model has no Arduino/Wire dependency.
+add_library(ina228_native_device STATIC ../devices/ina228.cpp)
+target_include_directories(ina228_native_device PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../devices")
+set_target_properties(ina228_native_device PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(MSVC)
+    target_compile_options(ina228_native_device PRIVATE /W4 /WX)
+else()
+    target_compile_options(ina228_native_device PRIVATE -Wall -Wextra -Werror)
+endif()
+
+# This driver build sees runtime Wire, never the test-only TwoWire fake.
+add_library(sparkfun_sim_runtime STATIC ../vendor/SPI.cpp)
+target_include_directories(sparkfun_sim_runtime PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/../vendor")
+set_target_properties(sparkfun_sim_runtime PROPERTIES POSITION_INDEPENDENT_CODE ON)
+include("${CMAKE_CURRENT_LIST_DIR}/../cmake/sparkfun_ina228.cmake")
+add_sparkfun_ina228_driver(sparkfun_ina2xx_sim sparkfun_sim_runtime)
+
 add_library(krabby_sim_host STATIC
     pin_state.cpp
     sim_clock.cpp
@@ -19,6 +37,7 @@ add_library(krabby_sim_host STATIC
     sim_serial.cpp
     host_board_role.cpp
 )
+target_link_libraries(krabby_sim_host PUBLIC ina228_native_device sparkfun_ina2xx_sim)
 target_include_directories(krabby_sim_host PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_include_directories(krabby_sim_host PRIVATE "${KRABBY_ARDUINO_DIR}")
 target_compile_definitions(krabby_sim_host PUBLIC KRABBY_HOST_FIRMWARE=1)

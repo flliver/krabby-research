@@ -44,6 +44,9 @@ public:
         const std::string text = stream.str();
         write(reinterpret_cast<const uint8_t *>(text.data()), text.size());
     }
+    // Arduino prints byte-sized integers numerically; ostream treats them as characters.
+    void print(unsigned char value) { print(static_cast<unsigned int>(value)); }
+    void print(signed char value) { print(static_cast<int>(value)); }
     void print(float value, int precision)
     {
         std::ostringstream stream;

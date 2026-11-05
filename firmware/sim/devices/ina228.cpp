@@ -98,7 +98,7 @@ uint8_t Device::transmit(const std::vector<uint8_t> &bytes)
     const uint16_t value = bytes.size() == 3 ? uint16_t(bytes[1] << 8 | bytes[2]) : 0;
     const bool refused = !present || (isWrite && bytes.size() != 3) || (nack && nack(reg, isWrite, value));
     const Operation operation{reg, isWrite, value, !refused};
-    operations.push_back(operation);
+    if (recordOperations) operations.push_back(operation);
     if (onStep)
         if (const char *name = stepName(operation)) onStep(name);
     if (!present) return 2;
