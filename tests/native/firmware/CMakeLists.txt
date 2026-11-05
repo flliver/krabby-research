@@ -207,7 +207,14 @@ else()
     target_compile_options(oled_trace PRIVATE -Wall -Wextra -Werror)
 endif()
 
-include(cmake/power_poll_characterization.cmake)
+target_include_directories(test_power_poll PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/fakes/power_poll"
+    "${KRABBY_OLED_SIM_DIR}")
+target_compile_definitions(test_power_poll PRIVATE
+    KRABBY_POWER_POLL_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/power_poll")
+target_sources(test_power_poll PRIVATE
+    "${KRABBY_ARDUINO_DIR}/src/display/display_frame_model.cpp"
+    "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp")
 
 # The transport fake has no dependency on Unity or any device driver.
 add_library(wire_native_support STATIC fakes/wire/Wire.cpp)

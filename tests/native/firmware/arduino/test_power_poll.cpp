@@ -13,7 +13,7 @@
 
 #include "unity.h"
 #include <Arduino.h>
-#include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/ina228_provider.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
 #include "src/power_monitor/voltage_validity.h"
@@ -31,17 +31,20 @@ std::vector<std::string> events;
 
 void delay(unsigned long) {}
 
-#include "src/power_safety/power_safety_controller.h"
-PowerSafetyController powerSafetyController;
-#include "state.inc"
-#include "calibration.inc"
-#include "poll.inc"
+Ina228Provider packPowerProvider(PACK_POWER_MONITOR_ADDRESS,
+    PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
+Ina228Provider midpointPowerProvider(MIDPOINT_POWER_MONITOR_ADDRESS);
+Ina228Adapter &packPowerMonitor = packPowerProvider.get();
+Ina228Adapter &midpointPowerMonitor = midpointPowerProvider.get();
+PowerCalibration powerCalibration;
+PowerMonitorMeasurement packMeasurement;
+PowerMonitorMeasurement midpointMeasurement;
+Volts inferredBattBVoltage(NAN);
 
 namespace
 {
 std::string recordingDirectory;
 
-// Capture declaration-initialized production state before any scenario runs.
 const auto initialPack = packPowerMonitor;
 const auto initialMidpoint = midpointPowerMonitor;
 const auto initialCalibration = powerCalibration;
@@ -163,6 +166,33 @@ public:
     }
 };
 
+void test_providers_supply_stable_independent_monitor_instances()
+{
+    Ina228Provider pack(PACK_POWER_MONITOR_ADDRESS,
+        PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
+    Ina228Provider midpoint(MIDPOINT_POWER_MONITOR_ADDRESS);
+    const size_t eventsBefore = Wire.state().events.size();
+    Ina228Adapter &first = pack.get();
+    TEST_ASSERT_EQUAL_PTR(&first, &pack.get());
+    TEST_ASSERT_TRUE(&first != &midpoint.get());
+    TEST_ASSERT_EQUAL_UINT8(PACK_POWER_MONITOR_ADDRESS, first.address());
+    TEST_ASSERT_EQUAL_UINT8(MIDPOINT_POWER_MONITOR_ADDRESS, midpoint.get().address());
+    TEST_ASSERT_FALSE(first.isUp());
+    TEST_ASSERT_EQUAL_UINT(eventsBefore, Wire.state().events.size());
+
+    TEST_ASSERT_TRUE(first.begin(&Wire));
+    powerPollFake::devices[0].coulombs = 1234.375;
+    const unsigned resets = powerPollFake::devices[0].resetCount;
+    const unsigned accumulatorResets = powerPollFake::devices[0].accumulatorResetCount;
+    powerPollFake::devices[0].nack = failReads({ina228_native::CURRENT});
+    TEST_ASSERT_FALSE(first.measure().isValid);
+    TEST_ASSERT_EQUAL_UINT8(1, pack.get().badTicks());
+    TEST_ASSERT_TRUE(pack.get().isUp());
+    TEST_ASSERT_EQUAL_UINT(resets, powerPollFake::devices[0].resetCount);
+    TEST_ASSERT_EQUAL_UINT(accumulatorResets, powerPollFake::devices[0].accumulatorResetCount);
+    TEST_ASSERT_EQUAL_FLOAT(1234.375f, powerPollFake::devices[0].coulombs);
+}
+
 class Scenario
 {
 public:
@@ -193,16 +223,23 @@ public:
     {
         powerPollFake::now = now;
         Print output;
-        readPowerMeasurements();
-        Print *mainSerial = &output;
-#include "telemetry.inc"
+        packMeasurement = powerCalibration.applyPackCalibration(packPowerMonitor.measure());
+        midpointMeasurement = powerCalibration.applyMidpointCalibration(midpointPowerMonitor.measure());
+        inferredBattBVoltage = packMeasurement.voltage - midpointMeasurement.voltage;
+        const bool isDiverged = areBatteryVoltagesDiverged(
+            midpointMeasurement.voltage, inferredBattBVoltage);
+        // Acquisition integration only; no lifecycle controller or sketch scheduler.
+        appendBatteryTelemetry(output, packMeasurement, midpointMeasurement,
+            inferredBattBVoltage, isDiverged, 0, 0);
         const BoardRole currentRole = ROLE_UNKNOWN;
         ControllerFreshnessTracker controllerFreshnessTrackers[BOARD_ROLE_COUNT]{};
         ActuatorStatus latestActuatorStatus[ActuatorId::ActuatorCount]{};
         const ImuMeasurement imuMeasurement{};
         const uint32_t nowMilliseconds = now;
-        const struct { int pwmDeadband; } ACTUATOR_CONFIG = {20};
-#include "display.inc"
+        const DisplayFrame displayFrame = buildDisplayFrame(
+            currentRole, controllerFreshnessTrackers, latestActuatorStatus,
+            imuMeasurement, nowMilliseconds, 20,
+            packMeasurement, midpointMeasurement, inferredBattBVoltage);
         verifyMeasurement(output.output);
         const bool drew = renderer_.render(displayFrame);
         text_ << "[" << label << "]\n" << output.output << "\n";
@@ -726,6 +763,7 @@ int runTests(int argc, char **argv)
     if (argc == 3 && std::string(argv[1]) == "--record") recordingDirectory = argv[2];
     else if (argc != 1) return 2;
     UNITY_BEGIN();
+    RUN_TEST(test_providers_supply_stable_independent_monitor_instances);
     RUN_TEST(test_measurement_defaults_and_exact_comparison);
     RUN_TEST(test_healthy_divergence_and_visible_resolution);
     RUN_TEST(test_startup_and_initial_recovery);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/power_monitor/ina228_adapter.h"
+#include "src/power_monitor/ina228_provider.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/telemetry.h"
 
@@ -25,9 +25,9 @@ public:
     const HostBatterySample &latest() const { return latest_; }
 
 private:
-    Ina228Adapter pack_{PACK_POWER_MONITOR_ADDRESS,
+    Ina228Provider packProvider_{PACK_POWER_MONITOR_ADDRESS,
         PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true};
-    Ina228Adapter midpoint_{MIDPOINT_POWER_MONITOR_ADDRESS};
+    Ina228Provider midpointProvider_{MIDPOINT_POWER_MONITOR_ADDRESS};
     PowerCalibration calibration_;
     HostBatterySample latest_;
 };

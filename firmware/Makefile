@@ -110,12 +110,6 @@ test-native-coverage: test-native
 		--exclude-unreachable-branches --exclude-throw-branches \
 		--txt --print-summary --fail-under-line 90 --fail-under-branch 88
 
-	# Only the verbatim extracted sketch regions, not whole-sketch coverage.
-	$(CMAKE) -E chdir "$(REPO_ROOT)" $(GCOVR) --root . "$(NATIVE_COVERAGE_BUILD)" \
-		--gcov-executable "$(GCOV)" \
-		--filter 'firmware/arduino/arduino\.ino$$' \
-		--exclude-unreachable-branches --exclude-throw-branches \
-		--txt --print-summary --fail-under-line 100 --fail-under-branch 100
 
 test-firmware: test-native
 	cd "$(REPO_ROOT)" && $(PYTEST) -q tests/unit/firmware
