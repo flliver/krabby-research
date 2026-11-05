@@ -181,10 +181,19 @@ class BattRow:
     """
 
     COLS = ["", "pack V", "pack A", "pack W", "charge C", "battA", "battB",
-            "region", "diverge", "pack", "mid", "freshness"]
-    # Leave room for DIVERGED and the longer region labels.
-    COL_WIDTHS = {"region": 8, "diverge": 9, "pack": 6, "mid": 6, "freshness": 9}
-    # Status columns have independent colours.
+            "region", "lifecycle", "diverge", "pack", "mid", "freshness"]
+    # Numeric columns fit in 7; the word columns do not. "DIVERGED" is 8, and a
+    # clipped fault label is worse than none.
+    COL_WIDTHS = {
+        "region": 14,
+        "lifecycle": 20,
+        "diverge": 9,
+        "pack": 6,
+        "mid": 6,
+        "freshness": 9,
+    }
+    # Columns whose colour carries meaning, so their labels are kept by name
+    # rather than by an offset from the end of COLS.
     COLOURED = ("diverge", "pack", "mid", "freshness")
 
     @staticmethod
@@ -267,6 +276,7 @@ class BattRow:
             battery.format_battery_voltage(battery.battery_a_volts),
             battery.format_battery_voltage(battery.battery_b_volts),
             _state_label(battery.pack_region),
+            _state_label(battery.power_safety_state),
         ]
         for c, text in enumerate(fmt):
             if text is not None:

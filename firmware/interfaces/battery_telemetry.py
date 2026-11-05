@@ -12,6 +12,15 @@ class PackVoltageRegion(enum.IntEnum):
     SOFT_CUT = 2
     HARD_CUT = 3
     OVER_VOLT = 4
+    ABOVE_RECOVERY = 5
+
+
+class PowerSafetyState(enum.IntEnum):
+    OPERATING = 0
+    POWERING_DOWN = 1
+    SLEEP = 2
+    RESUMING = 3
+    OVER_VOLTAGE_LOCKOUT = 4
 
 
 def _known_or_raw(enum_type, value):
@@ -43,6 +52,8 @@ class BatteryTelemetry:
     pack_valid: bool
     midpoint_valid: bool
 
+    power_safety_state: Union[PowerSafetyState, int] = PowerSafetyState.OPERATING
+
     TAG = "BATT"
     TOKEN_COUNT = 11
     VALID_TOKENS = ("0", "1")
@@ -60,6 +71,16 @@ class BatteryTelemetry:
             except ValueError:
                 return None
             tokens = [*tokens, "1", "1"]
+        state_value = 0
+        if tokens and len(tokens) == 12:
+            try:
+                state_value = int(tokens[11])
+                if not 0 <= state_value <= 255:
+                    return None
+            except ValueError:
+                return None
+            # Task 4 carries divergence, validity flags, region, then lifecycle.
+            tokens = [*tokens[:8], tokens[10], tokens[8], tokens[9]]
         if not tokens or len(tokens) != cls.TOKEN_COUNT:
             return None
         (tag, pack_v, pack_i, pack_w, pack_charge, battery_a, battery_b,
@@ -84,6 +105,7 @@ class BatteryTelemetry:
                 pack_region=_known_or_raw(PackVoltageRegion, region_value),
                 pack_valid=pack_valid == "1",
                 midpoint_valid=midpoint_valid == "1",
+                power_safety_state=_known_or_raw(PowerSafetyState, state_value),
             )
         except ValueError:
             return None
@@ -147,5 +169,5 @@ class BatteryTelemetry:
             f"{self.pack_power_watts:.1f}W "
             f"A:{self.format_battery_voltage(self.battery_a_volts)}V "
             f"B:{self.format_battery_voltage(self.battery_b_volts)}V "
-            f"q:{self.pack_charge_coulombs:.0f}C {region}{divergence}{down}"
+            f"q:{self.pack_charge_coulombs:.0f}C {region}/{_label(self.power_safety_state)}{divergence}{down}"
         )

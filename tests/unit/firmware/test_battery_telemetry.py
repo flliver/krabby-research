@@ -1,7 +1,13 @@
 """BATT parsing and display tests.
 
-Adapter availability, numeric readings, divergence, and frame age remain
-separate fields. Divergence includes unavailable and non-finite battery inputs.
+``pack_region`` carries the measurement half of §4's power safety state: which voltage
+band ``pack_v`` falls in. Task 3 emits a constant NORMAL; Task 4 owns the
+thresholds that decide it, and adds the controller axis as its own field when it
+has a state machine to report.
+
+``pack_valid`` and ``midpoint_valid`` are the two monitors' liveness. They fail
+and recover independently, so most of what is worth testing is that nothing
+recombines them: a fault in one must not discard the other's reading.
 """
 
 import math
@@ -17,18 +23,19 @@ from firmware.krabby_mcu import KrabbyMCUSDK
 from firmware.interfaces.battery_telemetry import (
     BatteryTelemetry,
     PackVoltageRegion,
+    PowerSafetyState,
 )
 
 # Every field distinctive, so a serializer or parser that transposed two of them
 # could not produce a passing result by coincidence.
-BATT_SEG = "BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 0 0 1 1"
+BATT_SEG = "BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 0 1 1 0 0"
 
 
-def _seg(divergence=0, region=0, pack_valid=1, midpoint_valid=1):
+def _seg(divergence=0, region=0, pack_valid=1, midpoint_valid=1, state=0):
     """Build a BATT segment with the trailing bytes set explicitly."""
     return (
         "BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 "
-        f"{divergence} {region} {pack_valid} {midpoint_valid}"
+        f"{divergence} {pack_valid} {midpoint_valid} {region} {state}"
     )
 
 
@@ -50,6 +57,7 @@ class TestParsesAllTenFields:
         assert b.pack_region is PackVoltageRegion.NORMAL
         assert b.pack_valid is True
         assert b.midpoint_valid is True
+        assert b.power_safety_state is PowerSafetyState.OPERATING
 
     def test_divergence_flag_is_read_as_a_bool(self):
         assert _parse(_seg(divergence=1)).divergence is True
@@ -68,6 +76,24 @@ class TestRegionByte:
         assert b.pack_region == 200
         assert not isinstance(b.pack_region, PackVoltageRegion)
         assert b.pack_valid is True and b.midpoint_valid is True
+
+
+class TestPowerSafetyStateByte:
+    def test_every_defined_state_parses(self):
+        for state in PowerSafetyState:
+            assert _parse(_seg(state=int(state))).power_safety_state is state
+
+    def test_task3_frame_defaults_to_operating(self):
+        task3 = "BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 0 0 1 1"
+        assert (
+            _parse(task3).power_safety_state
+            is PowerSafetyState.OPERATING
+        )
+
+    def test_gui_has_separate_region_and_lifecycle_columns(self):
+        assert "region" in BattRow.COLS
+        assert "lifecycle" in BattRow.COLS
+        assert BattRow.COLS.index("region") != BattRow.COLS.index("lifecycle")
 
 
 class TestMalformedSegmentsAreDropped:
