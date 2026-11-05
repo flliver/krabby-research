@@ -24,10 +24,19 @@ enum class ActuatorGlyph : uint8_t
 
 static constexpr int16_t BATTERY_DECIVOLTS_NO_SIGNAL = INT16_MIN;
 
+enum class DisplayScreen : uint8_t
+{
+    Status,
+    LowBattery,
+    OverVoltage,
+    Blank,
+};
+
 struct DisplayFrame
 {
     DisplayFrame();
 
+    DisplayScreen screen;
     BoardRole role;
     bool controllers[BOARD_ROLE_COUNT];
     ActuatorGlyph actuators[ActuatorId::ActuatorCount];
