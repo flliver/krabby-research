@@ -9,6 +9,7 @@ from typing import Dict, Optional
 from firmware.krabby_mcu import DEFAULT_BAUD, KrabbyMCUSDK, JOINT_GROUP_NAMES
 from firmware.mcu_port import McuSerialTarget
 from firmware.interfaces.joint_telemetry import JointTelemetry
+from firmware.gui.power_scope import PowerScopeWindow, PowerTimelineRecorder
 
 JOG_PWM = 200  # jog magnitude sent while a Retract/Extend button is held
 TELEMETRY_REFRESH_MS = (
@@ -303,6 +304,7 @@ class KrabbyTestGUI(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self._mcu = KrabbyMCUSDK(target=target, baud=baud)
+        self._power_recorder = PowerTimelineRecorder()
         self._joint_rows: Dict[str, JointRow] = {}
         self._connected = False
 
@@ -333,6 +335,9 @@ class KrabbyTestGUI(tk.Tk):
         ttk.Button(btn_frame, text="Calibrate", command=self._calibrate).pack(
             side="left", padx=4
         )
+        ttk.Button(
+            btn_frame, text="Power Timeline", command=self._open_power_scope
+        ).pack(side="left", padx=4)
 
         imu_frame = ttk.Frame(self, padding=(8, 0))
         imu_frame.pack(fill="x")
@@ -401,6 +406,9 @@ class KrabbyTestGUI(tk.Tk):
             jr.update_from_telemetry(jt)
 
         now = time.time()
+        self._power_recorder.observe(
+            self._mcu.battery, self._mcu.last_power_message, now
+        )
         self._imu_row.update(self._mcu.imu)
         self._batt_row.update(self._mcu.battery, now)
 
@@ -453,6 +461,9 @@ class KrabbyTestGUI(tk.Tk):
             "Calibrate", "This will move ALL limbs to find limits. Continue?"
         ):
             self._mcu.send_command_calibrate()
+
+    def _open_power_scope(self):
+        PowerScopeWindow(self, self._power_recorder)
 
     def _on_close(self):
         self._connected = False
