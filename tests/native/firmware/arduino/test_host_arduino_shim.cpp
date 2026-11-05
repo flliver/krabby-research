@@ -86,9 +86,29 @@ static void test_constrain_and_abs_macros()
     TEST_ASSERT_EQUAL_INT(4, abs(4));
 }
 
+static void test_print_bytes_matches_arduino_numeric_overloads()
+{
+    Print output;
+    output.print(static_cast<uint8_t>(0));
+    output.print(' ');
+    output.print(static_cast<uint8_t>(255));
+    output.print(' ');
+    output.print(static_cast<int8_t>(-1));
+    TEST_ASSERT_EQUAL_STRING("0 255 -1", output.output.c_str());
+}
+
+static void test_delay_advances_simulated_time_without_sleeping()
+{
+    simClock().set(42);
+    delay(2);
+    TEST_ASSERT_EQUAL_UINT32(44, millis());
+}
+
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_print_bytes_matches_arduino_numeric_overloads);
+    RUN_TEST(test_delay_advances_simulated_time_without_sleeping);
     RUN_TEST(test_millis_uses_sim_clock);
     RUN_TEST(test_pin_mode_and_pwm_writes_are_recorded);
     RUN_TEST(test_analog_read_returns_host_analog_input);

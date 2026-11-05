@@ -350,10 +350,7 @@ void emitTelemetry(BoardRole role, ActuatorManager &manager, BoardHardwareSerial
     {
         const ImuMeasurement measurement = leaderImu().measure();
         appendImuMeasurement(port, measurement);
-        if (leaderBattery().isOnline())
-        {
-            krabby::sim::host::appendBatteryTelemetry(port, leaderBattery().sample());
-        }
+        krabby::sim::host::appendBatteryTelemetry(port, leaderBattery().sample());
     }
     port.println();
 }

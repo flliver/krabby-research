@@ -1,6 +1,8 @@
 #include "host_api.h"
 
 #include <cstring>
+#include <cmath>
+#include "sim_battery_model.hpp"
 
 #include "EEPROM.h"
 #include "actuator_manager.h"
@@ -348,4 +350,18 @@ extern "C" void krabby_host_set_three_board_follower_telemetry(
 {
     krabby::sim::host::setThreeBoardFollowerTelemetryEnabled(
         left_enabled != 0, right_enabled != 0);
+}
+
+extern "C" int krabby_host_set_battery_inputs(float pack_volts, float pack_amps,
+    float battery_a_volts, float charge_coulombs)
+{
+    if (!std::isfinite(pack_volts) || !std::isfinite(pack_amps) ||
+        !std::isfinite(battery_a_volts) || !std::isfinite(charge_coulombs)) return 0;
+    krabby::sim::SimBatteryState inputs;
+    inputs.packVolts = pack_volts;
+    inputs.packAmps = pack_amps;
+    inputs.battAVolts = battery_a_volts;
+    inputs.packChargeCoulombs = charge_coulombs;
+    krabby::sim::setSimBatteryState(inputs);
+    return 1;
 }

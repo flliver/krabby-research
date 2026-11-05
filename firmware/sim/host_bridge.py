@@ -17,7 +17,9 @@ def _repo_root() -> Path:
 
 def _library_candidates() -> list[Path]:
     root = _repo_root()
-    name = "krabby_host.dll" if sys.platform == "win32" else "libkrabby_host.so"
+    name = {"win32": "krabby_host.dll", "darwin": "libkrabby_host.dylib"}.get(
+        sys.platform, "libkrabby_host.so"
+    )
     return [root / "build" / "native-firmware-tests" / "krabby_sim_host" / name]
 
 
@@ -139,6 +141,8 @@ class HostActuatorBridge:
             ctypes.c_char_p,
         ]
         self._lib.krabby_host_three_board_actuator_command_pwm.restype = ctypes.c_int
+        self._lib.krabby_host_set_battery_inputs.argtypes = [ctypes.c_float] * 4
+        self._lib.krabby_host_set_battery_inputs.restype = ctypes.c_int
         self._lib.krabby_host_i2c_set_device_present.argtypes = [
             ctypes.c_uint8,
             ctypes.c_int,
@@ -298,6 +302,16 @@ class HostActuatorBridge:
                 actuator_name.encode("ascii")
             )
         )
+
+    def set_battery_inputs(
+        self, *, pack_volts: float, pack_amps: float,
+        battery_a_volts: float, charge_coulombs: float = 0.0,
+    ) -> None:
+        """Set INA228 physical inputs; firmware setup resets accumulated charge."""
+        if not self._lib.krabby_host_set_battery_inputs(
+            pack_volts, pack_amps, battery_a_volts, charge_coulombs
+        ):
+            raise ValueError("Battery inputs must be finite")
 
     def i2c_set_device_present(self, address: int, present: bool) -> None:
         self._lib.krabby_host_i2c_set_device_present(

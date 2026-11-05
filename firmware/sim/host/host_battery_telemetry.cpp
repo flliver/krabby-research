@@ -1,43 +1,46 @@
 #include "host_battery_telemetry.hpp"
 
-#include "sim_i2c.hpp"
-
+#include "EEPROM.h"
 #include "Wire.h"
+#include "src/power_monitor/voltage_validity.h"
 
 namespace krabby {
 namespace sim {
 namespace host {
-
 namespace {
-
 HostLeaderBattery g_leader_battery;
 
-bool probeAddress(uint8_t address)
+struct FrontPowerCalibrationStorage
 {
-    Wire.beginTransmission(address);
-    return Wire.endTransmission() == 0;
+    void load(PowerCalibrationRecord &record)
+    {
+        EEPROM.boards[static_cast<int>(BoardId::kFront)].get(EEPROM_POWER_CAL_ADDR, record);
+    }
+};
 }
-
-}  // namespace
 
 void HostLeaderBattery::setup()
 {
-    online_ = false;
+    // Reconstruct adapters to clear retry state after a simulated reboot.
+    pack_ = Ina228Adapter(PACK_POWER_MONITOR_ADDRESS,
+        PACK_SHUNT_RESISTANCE_OHMS, PACK_SHUNT_MAX_CURRENT_AMPS, true);
+    midpoint_ = Ina228Adapter(MIDPOINT_POWER_MONITOR_ADDRESS);
+    latest_ = HostBatterySample{};
     Wire.begin();
-    if (!probeAddress(kI2cAddrIna228Pack) || !probeAddress(kI2cAddrIna228Midpoint))
-    {
-        return;
-    }
-    online_ = true;
+    pack_.begin(&Wire);
+    midpoint_.begin(&Wire);
+    FrontPowerCalibrationStorage storage;
+    calibration_.load(storage);
 }
 
-SimBatteryTelemetry HostLeaderBattery::sample() const
+const HostBatterySample &HostLeaderBattery::sample()
 {
-    if (!online_)
-    {
-        return SimBatteryTelemetry{};
-    }
-    return computeSimBatteryTelemetry();
+    latest_.pack = calibration_.applyPackCalibration(pack_.measure());
+    latest_.midpoint = calibration_.applyMidpointCalibration(midpoint_.measure());
+    latest_.batteryB = latest_.pack.voltage - latest_.midpoint.voltage;
+    latest_.isDiverged = areBatteryVoltagesDiverged(
+        latest_.midpoint.voltage, latest_.batteryB);
+    return latest_;
 }
 
 HostLeaderBattery &leaderBattery() { return g_leader_battery; }

@@ -11,7 +11,7 @@ from firmware.sim.i2c_shipping_scope import (
 REPO = Path(__file__).resolve().parents[3]
 IMU_CONSTANTS = REPO / "firmware/arduino/src/imu/imu_constants.h"
 DISPLAY_CONSTANTS = REPO / "firmware/arduino/src/display/display_constants.h"
-INA228_CONSTANTS = REPO / "firmware/arduino/src/power/ina228_constants.h"
+INA228_CONSTANTS = REPO / "firmware/arduino/src/power_monitor/power_monitor_constants.h"
 
 
 def test_imu_addresses_match_imu_constants_h():
@@ -38,8 +38,8 @@ def test_ina228_addresses_match_ina228_constants_h():
     text = INA228_CONSTANTS.read_text(encoding="utf-8")
     pack = next(d for d in SHIPPING_I2C_DEVICES if d.primary_address == 0x40)
     mid = next(d for d in SHIPPING_I2C_DEVICES if d.primary_address == 0x41)
-    assert f"INA228_PACK_ADDRESS = 0x{pack.primary_address:02X}" in text
-    assert f"INA228_MIDPOINT_ADDRESS = 0x{mid.primary_address:02X}" in text
+    assert f"PACK_POWER_MONITOR_ADDRESS = 0x{pack.primary_address:02X}" in text
+    assert f"MIDPOINT_POWER_MONITOR_ADDRESS = 0x{mid.primary_address:02X}" in text
 
 
 def test_imu_telemetry_tag_matches_firmware():

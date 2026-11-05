@@ -111,11 +111,8 @@ void emitTelemetryIfDue()
     actuatorManager().printTelemetry(Serial);
     const ImuMeasurement measurement = krabby::sim::host::leaderImu().measure();
     appendImuMeasurement(Serial, measurement);
-    if (krabby::sim::host::leaderBattery().isOnline())
-    {
-        krabby::sim::host::appendBatteryTelemetry(
-            Serial, krabby::sim::host::leaderBattery().sample());
-    }
+    krabby::sim::host::appendBatteryTelemetry(
+        Serial, krabby::sim::host::leaderBattery().sample());
     Serial.println();
 }
 
@@ -126,7 +123,7 @@ extern "C" void krabby_host_firmware_setup(void)
     if (s_firmwareSetupDone) return;
     hallHwInit();
     // Sensor probes are best-effort: missing I2C devices must not block setup or the loop
-    // (IMU still appends with valid=0; BATT/OLED are skipped when offline).
+    // (IMU and BATT carry invalid flags; OLED is skipped when offline).
     krabby::sim::host::leaderImu().setup();
     krabby::sim::host::leaderBattery().setup();
     krabby::sim::host::hostDisplaySetup();
@@ -137,21 +134,23 @@ extern "C" void krabby_host_firmware_setup(void)
 
 extern "C" void krabby_host_firmware_loop_once(void)
 {
-    krabby::sim::host::hostDisplayStep(millis());
     if (krabby::sim::host::singleLeaderEighteenJointEnabled())
     {
         krabby::sim::host::singleLeaderEighteenFirmwareLoopOnce();
+        krabby::sim::host::hostDisplayStep(millis());
         return;
     }
     if (krabby::sim::host::threeBoardFirmwareLoopEnabled())
     {
         krabby::sim::host::threeBoardFirmwareLoopOnce();
+        krabby::sim::host::hostDisplayStep(millis());
         return;
     }
     if (!s_firmwareSetupDone) krabby_host_firmware_setup();
     drainUsbCommands();
     krabby::sim::host::actuatorManager().updateAll();
     emitTelemetryIfDue();
+    krabby::sim::host::hostDisplayStep(millis());
 }
 
 extern "C" void krabby_host_firmware_reset_loop_state(void)

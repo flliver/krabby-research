@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../devices/ina228.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -22,6 +24,9 @@ class SimI2cBus
 {
 public:
     void reset();
+
+    ina228_native::Device &packIna228() { return packIna228_; }
+    ina228_native::Device &midpointIna228() { return midpointIna228_; }
 
     void setDevicePresent(uint8_t address, bool present);
 
@@ -64,6 +69,9 @@ private:
 
     uint8_t readRegisterByte(uint8_t address, uint8_t reg) const;
 
+    ina228_native::Device *ina228ForAddress(uint8_t address);
+    ina228_native::Device packIna228_;
+    ina228_native::Device midpointIna228_;
     uint8_t txAddress_ = 0;
     std::vector<uint8_t> txBuffer_;
     std::deque<uint8_t> rxQueue_;
