@@ -790,6 +790,10 @@ class image_features_batched(ManagerTermBase):
     * at reset the reset rows' buffer is refilled with the current image (as the forward term does). The
       robot was just re-posed, so that image -- and the student's held latent -- can be up to one refresh
       (<= 5 steps) stale; recorded, not fixed (DESIGN B3).
+
+    ``lag`` (DR stress sweep, 2026-11-06; ``KRABBY_STRESS_DEPTH_LAG``, DEFAULT OFF = absent = 1): the image
+    returned is ``buffer[:, -1 - lag]``, ``lag`` refreshes (``lag`` x 0.1 s) old; the knob also sets
+    ``buffer_len = lag + 1``. Absent, the term returns ``buffer[:, -2]`` exactly as before.
     """
 
     def __init__(self, cfg, env: ParkourManagerBasedRLEnv):
@@ -801,6 +805,9 @@ class image_features_batched(ManagerTermBase):
         self.buffer_len = int(params["buffer_len"])
         if self.buffer_len < 2:
             raise ValueError(f"buffer_len must be >= 2 (the term returns buffer[:, -2]), got {self.buffer_len}")
+        self.lag = int(params.get("lag", 1))
+        if not 1 <= self.lag <= self.buffer_len - 1:
+            raise ValueError(f"lag must be in [1, buffer_len - 1] = [1, {self.buffer_len - 1}], got {self.lag}")
         self.crop = _check_depth_crop(params.get("crop"))
         self.depth_buffer = torch.zeros(self.num_envs, self.buffer_len, *self.resize, device=self.device)
 
@@ -828,7 +835,8 @@ class image_features_batched(ManagerTermBase):
         resize: tuple[int, int],
         buffer_len: int,
         crop: tuple[int, int, int, int] | None = None,
+        lag: int | None = None,
     ) -> torch.Tensor:
         if env.common_step_counter % DEPTH_TERM_PERIOD == 0:
             self.depth_buffer = torch.cat([self.depth_buffer[:, 1:], self._processed().unsqueeze(1)], dim=1)
-        return self.depth_buffer[:, -2]
+        return self.depth_buffer[:, -1 - getattr(self, "lag", 1)]

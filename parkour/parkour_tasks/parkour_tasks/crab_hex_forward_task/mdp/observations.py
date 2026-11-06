@@ -18,6 +18,7 @@ from parkour_isaaclab.envs.mdp.travel_frame import yaw_error
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
 from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
+from parkour_tasks.crab_hex_forward_task.mdp.stress_obs import build_stress_obs
 
 # Extra proprio dims vs ``ExtremeParkourObservations``: body-frame planar linear velocity
 # (2) + the gait clock's sin/cos (2, gait-formation-v2 Phase 1).
@@ -102,6 +103,9 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         self._cam_shaft_obs_ids = cam_ids
         self._pitch_joint_ids = pitch_ids
         self._knee_joint_ids = knee_ids
+        # NOTE(DR stress sweep, 2026-11-06): sensor-side stress (mdp/stress_obs.py), DEFAULT OFF -- None
+        # unless the omni stress knobs wrote ``env.cfg.stress_obs``; None takes the untouched path below.
+        self._stress_obs = build_stress_obs(env.cfg, self.device)
 
     def _get_contact_fill(self):
         """Motor-current-sense stance proxy (replaces ground-truth footpad contact).
@@ -241,9 +245,19 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         else:
             clock_sin, clock_cos = self._clock_channels(env, clock_phase)
         extra_head = self._extra_head_channels(env)
+        ang_vel = self.asset.data.root_ang_vel_b
+        lin_vel_xy = self.asset.data.root_lin_vel_b[:, :2]
+        joint_vel = self.asset.data.joint_vel
+        contact_fill = self._get_contact_fill()
+        stress_obs = getattr(self, "_stress_obs", None)
+        if stress_obs is not None:
+            # DR stress sweep (default off): raw sensor channels, before the scales and the history push.
+            ang_vel, imu_obs, lin_vel_xy, joint_pos_delta, joint_vel, contact_fill = stress_obs(
+                ang_vel, imu_obs, lin_vel_xy, joint_pos_delta, joint_vel, contact_fill
+            )
         obs_buf = torch.cat(
             (
-                self.asset.data.root_ang_vel_b * 0.25,
+                ang_vel * 0.25,
                 imu_obs,
                 0 * delta_yaw[:, None],
                 delta_yaw[:, None],
@@ -251,7 +265,7 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 self._command_channels(commands),
                 env_idx_tensor,
                 invert_env_idx_tensor,
-                self.asset.data.root_lin_vel_b[:, :2] * 2.0,
+                lin_vel_xy * 2.0,
                 # NOTE(gait-formation-v2 Phase 1): the gait clock, as sin/cos. Under the L/R
                 # mirror a swapped-handedness gait is the same schedule advanced by pi, so
                 # both dims carry mirror sign -1 (see crab_hex_mirror._HEAD_SIGNS).
@@ -259,9 +273,9 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
                 clock_cos,
                 *(() if extra_head is None else (extra_head,)),
                 joint_pos_delta,
-                self.asset.data.joint_vel * 0.05,
+                joint_vel * 0.05,
                 env.action_manager.get_term("joint_pos").action_history_buf[:, -1],
-                self._get_contact_fill(),
+                contact_fill,
             ),
             dim=-1,
         )

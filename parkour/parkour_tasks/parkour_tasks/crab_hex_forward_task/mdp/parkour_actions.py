@@ -20,6 +20,7 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     clock_command_speed,
     park_clock_phase,
 )
+from parkour_tasks.crab_hex_forward_task.mdp.stress_push import build_stress_push
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -182,6 +183,27 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         if self._stand_park:
             self.clock_parked = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
+        # NOTE(DR stress sweep, 2026-11-06): two more DEFAULT-OFF knobs, same pattern (attributes only the
+        # omni stress knobs write, ``getattr`` -> None -> the untouched path).
+        # ``stress_rod_speed_scale`` (``KRABBY_STRESS_ROD_SPEED``): multiplies both rods' slew limit (the
+        # loaded rod speed). The current-sense proxy's drive gate keeps the rated speed (a sensor constant).
+        # ``stress_cam_scale`` (``KRABBY_STRESS_CAM``): the cam motor's capability -- multiplies the cam
+        # acceleration limit and, below 1, caps the applied cam speed at scale x the full-action speed (the
+        # motor's effort / saturation are scaled on the actuator cfg by the same knob).
+        rod_scale = getattr(cfg, "stress_rod_speed_scale", None)
+        self._rod_speed_scale = None if rod_scale is None else float(rod_scale)
+        cam_scale = getattr(cfg, "stress_cam_scale", None)
+        self._cam_scale = None if cam_scale is None else float(cam_scale)
+        self._cam_speed_cap = None
+        if self._cam_scale is not None and self._cam_scale < 1.0 and self._cam_action_cols:
+            scale, _, _ = self._cam_raw_bounds(slice(None), self._cam_vel_applied)
+            self._cam_speed_cap = self._cam_scale * float(scale.abs().max())
+        # ``stress_push`` (``KRABBY_STRESS_PUSH_DV``): the additive push (mdp/stress_push.py), stepped once per env
+        # step in ``process_actions`` with its own timers and generator (no event-manager RNG draws).
+        self._stress_push = build_stress_push(
+            cfg, self.num_envs, env.step_dt, self.device, getattr(env.cfg, "seed", None)
+        )
+
     @property
     def rod_cmd_filtered(self) -> torch.Tensor:
         """``(N, 12)`` low-passed rod-length command, [hip x6 | knee x6] in leg order, each in
@@ -202,6 +224,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             env_ids = torch.arange(self.num_envs, device=self.device)
         self._rod_sync_needed[env_ids] = True
         self._cam_vel_applied[env_ids] = 0.0
+        stress_push = getattr(self, "_stress_push", None)
+        if stress_push is not None:
+            stress_push.reset(env_ids)
         # RSI cam staging (default off): runs after the event that staged it (env reset order:
         # events, then the action manager) and after the zeroing above, which it overrides for
         # the staged envs only.
@@ -340,7 +365,10 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         if self._lpf_alpha is not None:
             self._hip_rod_cmd_lpf = linkage.lpf_step(self._hip_rod_cmd_lpf, lam_h_cmd, self._lpf_alpha)
             lam_h_cmd = self._hip_rod_cmd_lpf
+        rod_speed_scale = getattr(self, "_rod_speed_scale", None)
         max_step_h = linkage.HIP_SPEED_M_S * dt
+        if rod_speed_scale is not None:
+            max_step_h = max_step_h * rod_speed_scale
         dlam_h = (lam_h_cmd - self._hip_rod_len).clamp(-max_step_h, max_step_h)
         self._hip_rod_len += dlam_h
         self.hip_rod_speed = dlam_h / dt
@@ -370,6 +398,8 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             self._knee_rod_cmd_lpf = linkage.lpf_step(self._knee_rod_cmd_lpf, lam_k_cmd, self._lpf_alpha)
             lam_k_cmd = self._knee_rod_cmd_lpf
         max_step_k = linkage.KNEE_SPEED_M_S * dt
+        if rod_speed_scale is not None:
+            max_step_k = max_step_k * rod_speed_scale
         dlam_k = (lam_k_cmd - self._knee_rod_len).clamp(-max_step_k, max_step_k)
         self._knee_rod_len += dlam_k
         self.knee_rod_speed = dlam_k / dt
@@ -396,6 +426,12 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         if self._cam_action_cols:
             cam_cmd = self._processed_actions[:, self._cam_action_cols]
             max_step = linkage.dims.CAM_ACCEL_LIMIT_RAD_S2 * self._env.physics_dt
+            cam_scale = getattr(self, "_cam_scale", None)
+            if cam_scale is not None:
+                max_step = max_step * cam_scale
+                cap = getattr(self, "_cam_speed_cap", None)
+                if cap is not None:
+                    cam_cmd = cam_cmd.clamp(-cap, cap)
             self._cam_vel_applied += (cam_cmd - self._cam_vel_applied).clamp(-max_step, max_step)
             self._asset.set_joint_velocity_target(
                 self._cam_vel_applied, joint_ids=self._cam_shaft_joint_ids
@@ -466,6 +502,15 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         else:
             self._raw_actions[:] = clipped_actions
         self._processed_actions = self._raw_actions * self._scale + self._offset
+        stress_push = getattr(self, "_stress_push", None)
+        if stress_push is not None:
+            # DR stress sweep (default off): the additive push, written before this step's physics.
+            hit = stress_push.step()
+            if hit is not None:
+                ids, dvel = hit
+                vel_w = self._asset.data.root_vel_w[ids].clone()
+                vel_w[:, :2] += dvel.to(vel_w.dtype)
+                self._asset.write_root_velocity_to_sim(vel_w, env_ids=ids)
 
 
 @configclass
