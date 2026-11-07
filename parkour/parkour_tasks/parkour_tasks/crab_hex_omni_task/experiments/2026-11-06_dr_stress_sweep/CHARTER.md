@@ -339,3 +339,81 @@ block. On terms 6 and 10 the teacher therefore sees what the student cannot.
      references are counted and shown; terms 13–15 report an interval bound with split and one-seed levels; the
      closing flag marks every row.
   3. **Push headings** are counter-based (seed, epoch, env, index), so push levels share headings per wave.
+- **2026-11-06 16:53, launch** (commit `c98f10b2`): the driver started on a clean tree and pinned code_sha `2c7f82d9…`
+  and eval_sha `9fe964d7…` (`results/launch.json`).
+- **2026-11-06 17:58, baseline gate PASSED** (decide-record-notify; `results/baseline.json`):
+  - All 6 nominal launches pass every per-seed `stable90` line.
+  - Field_light completion against the record:
+
+    | Base | Seed | Launch A | Launch B | Record |
+    |---|---|---|---|---|
+    | L000 | es1 | 1.00 | 1.00 | 1.00 |
+    | L000 | es2 | 0.99 | 0.99 | 0.99 |
+    | L090 | es1 | 0.97 | — | 0.95 |
+    | L090 | es2 | 0.95 | — | 0.95 |
+
+  - No split: launches A and B landed in the same class.
+  - The grid started at 17:58:45. The user was notified.
+- **2026-11-07 03:56, es1 grid complete:** all 55 cells (110 rows) ran with no failed row, retry or re-run. The es2
+  plan names 26 cells (`results/es2_plan.json`). Dose-reach checks on the es1 stamps:
+  - Every harness log carries its cell's `[KNOB]` line.
+  - The push cells show the root xy-velocity jump in the raw traces at every 500th step: |Δv| ≈ 0.47–0.50 m/s at
+    Δv 0.5 and ≈ 0.1 at 0.1, with none in the nominal.
+  - The smoke measured obs noise on `obs["policy"]`, which the student consumes (`OmniStudentStep.act`).
+  - A CPU-only failure-mode analysis of the raw traces was started (scratch, for the REPORT).
+- **2026-11-07 08:55, sweep complete** (`results/table.md`, `table.json`, `closing.json`): the 26 es2 cells
+  (52 rows) and the closing ran with no failed row, retry or re-run (176 rows in all, 16.0 GPU-h of driver time).
+  - **Closing:** launch Z (0 kg es1) equals launches A and B on all 18 line values, bitwise. The table is not stale
+    and carries no closing flag.
+  - **T01 rod speed FRAGILE.** At L090, ×0.7 fails both seeds (completion 0.58 / 0.66, plus survival.diag) and ×0.8
+    splits (0.76 / 0.85). At L000 it is ROBUST: ×0.7 passes both seeds.
+  - **Every other banded term is ROBUST.** T02 rod effort at L090 ×0.85 passes both seeds with completion −0.10 on
+    each; that is a drop flag for the user to judge at the report.
+  - **Report-only terms:**
+    - T13: 150 kg splits; 165 kg fails both seeds.
+    - T14: 0.2 m passes on one seed; 0.3 m splits.
+    - T15: passes on both seeds at the top level, 0.5 m/s.
+  - T10b (vxy zeroed) fails on every line. T12 (zero depth) passes: worst survival delta −0.04, completion −0.03.
+- **2026-11-07 08:59, T* follow-up launched** (§3.6, decide-record-notify):
+  - **Command:** `scripts/teacher_followup.py T01_rod_speed_0p7_L090 T01_rod_speed_0p8_L090 --nominal`.
+  - **What runs:** T* on the L090 nominal, ×0.7 and ×0.8, at es1 + es2. That is 6 cell-seeds, about 1.1 GPU-h.
+  - **Setup:** the same pins as the sweep, gate names `DRST_*`, output to `results/teacher.{json,md}`.
+  - **Not re-run on T*:** T02, because it is not FRAGILE (the user's rule: T* runs only for FRAGILE terms).
+  - **Cleanup before launch:** removed two gitignored bytecode files in `crab_hex_forward_task/mdp/__pycache__/`
+    that analysis agents had written at 04:11.
+  - **Not run:** a second seed at T14 0.2 m. The pre-registered terms 13–15 search reads es1, so 0.2 m stays a
+    one-seed level, which §3.3 allows.
+- **2026-11-07 09:10, independent verdict check** (5 opus agents, CPU only; results in the session scratch, summarised
+  in the REPORT): every verdict, edge and drop flag recomputed from the raw stamps without the campaign's reader
+  agrees with `table.json` (113 cell-seeds; values equal to 1e-9). Every launch check passes. Only cosmetic findings:
+  - one-seed levels carry no marker in the status column;
+  - T12 shows a tolerated edge though it has no band;
+  - the table has no field for the FRAGILE term's recommended range.
+
+  Four deciding passes sit on the completion line, at 85/100 or 86/100: T02 ×0.85 L090 es2, T01 ×0.8 L090 es2,
+  T14 0.3 m es1, and T13 150 kg es1 (0.86).
+- **2026-11-07 10:05, T* follow-up complete** (`results/teacher.{json,md}`): 12 rows, no failed row or retry,
+  1.1 GPU-h.
+  - The teacher's L090 nominal passes both seeds, with completion 0.98 / 0.96 (the student's: 0.97 / 0.95).
+  - **×0.7 L090:** T* fails both seeds on the student's own lines. Completion is 0.59 / 0.61 and survival.diag
+    0.79 / 0.79 (the student's: 0.58 / 0.66 and 0.83 / 0.87).
+  - **×0.8 L090:** T* splits as well, 0.87 pass / 0.84 fail. The student's split runs the other way, 0.76 / 0.85.
+  - **Read:** the rod-speed fragility at 90 kg is the teacher's, not a distillation loss. A rod-speed DR term has
+    to enter teacher training (rung 3), not only a student relaunch.
+  - **GPU used:** about 17.6 of the 18 GPU-h approved (driver 16.0, T* 1.1, smokes about 0.5).
+- **2026-11-07 13:20, REPORT written and checked** (`REPORT.md`; 0 GPU-h):
+  - **How:** a T* verifier, three recommendation drafts (risk, cost, literature) and an opus writer. A harness guard
+    blocked the writer's file write, so its returned text was saved verbatim. Three independent fable checkers
+    (numbers, rules, logic) then checked the file, and an opus fixer confirmed each finding against the evidence.
+    42 edits were applied; no verdict changed.
+  - **One blocking finding, fixed:** the priv_reg resume fix `eabe7324` is on main (since PR #10) and on this branch,
+    not on feature branches only.
+  - **Correction to the §3.6 T* caveat** (code read by the T* verifier, confirmed by the rules checker): with
+    `--policy-role teacher` the eval overwrites priv_explicit with the estimator output and runs `hist_encoding=True`,
+    so the priv_latent slot (CoM, friction, stiffness and damping ratios) is never read. T* did not see true μ or the
+    gain ratios. Its scan slice does carry true 3-D body velocity and the true base mass including payload. A T* read
+    is therefore confounded on T10 and the payload terms, not on T06.
+  - **Recommendations, all the user's call (nothing adopted):** rod-speed DR U(0.6, 1.35) per env in teacher
+    training, via a p3b-entry T* fine-tune behind a teacher gate (≈ 17.2 GPU-h minimum; needs new approval); bench
+    the rod holding force before plant-dependent work; the velocity-slot source and bias cells (rung 0) first; drop
+    rung 2 as a standalone relaunch. Eleven decisions in REPORT §9.

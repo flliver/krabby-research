@@ -1,0 +1,61 @@
+{
+ "launches": {
+  "L000_A@1": {
+   "pass": true,
+   "failed": [],
+   "completion": 1.0,
+   "launch_error": null
+  },
+  "L000_B@1": {
+   "pass": true,
+   "failed": [],
+   "completion": 1.0,
+   "launch_error": null
+  },
+  "L000_A@2": {
+   "pass": true,
+   "failed": [],
+   "completion": 0.99,
+   "launch_error": null
+  },
+  "L000_B@2": {
+   "pass": true,
+   "failed": [],
+   "completion": 0.99,
+   "launch_error": null
+  },
+  "L090_A@1": {
+   "pass": true,
+   "failed": [],
+   "completion": 0.97,
+   "launch_error": null
+  },
+  "L090_A@2": {
+   "pass": true,
+   "failed": [],
+   "completion": 0.95,
+   "launch_error": null
+  }
+ },
+ "record": {
+  "L000@1": {
+   "completion": 1.0,
+   "pass": true
+  },
+  "L000@2": {
+   "completion": 0.99,
+   "pass": true
+  },
+  "L090@1": {
+   "completion": 0.95,
+   "pass": true
+  },
+  "L090@2": {
+   "completion": 0.95,
+   "pass": true
+  }
+ },
+ "stop": false,
+ "reasons": [],
+ "split": false
+}
