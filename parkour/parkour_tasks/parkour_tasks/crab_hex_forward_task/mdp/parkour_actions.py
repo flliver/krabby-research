@@ -20,6 +20,7 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     clock_command_speed,
     park_clock_phase,
 )
+from parkour_tasks.crab_hex_forward_task.mdp.rod_speed_dr import build_rod_speed_dr
 from parkour_tasks.crab_hex_forward_task.mdp.stress_push import build_stress_push
 
 if TYPE_CHECKING:
@@ -192,6 +193,16 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         # motor's effort / saturation are scaled on the actuator cfg by the same knob).
         rod_scale = getattr(cfg, "stress_rod_speed_scale", None)
         self._rod_speed_scale = None if rod_scale is None else float(rod_scale)
+        # NOTE(rod-speed DR, 2026-11-07): ``rod_speed_dr`` (``KRABBY_DR_ROD_SPEED``, default off): a per-env
+        # TRAINING draw of the same factor (mdp/rod_speed_dr.py). Its ``(N, 1)`` scale is written in place at each
+        # env reset and never rebound, so aliasing it here makes the slew lines below broadcast it per env with no
+        # change. A DR draw on top of a fixed stress scale is not a single dose: refused.
+        self._rod_speed_dr = build_rod_speed_dr(cfg, self.num_envs, self.device, getattr(env.cfg, "seed", None))
+        if self._rod_speed_dr is not None:
+            if self._rod_speed_scale is not None:
+                raise ValueError("actions.joint_pos carries both rod_speed_dr (KRABBY_DR_ROD_SPEED) and "
+                                 "stress_rod_speed_scale (the stress rod-speed knob): refused, pick one")
+            self._rod_speed_scale = self._rod_speed_dr.scale
         cam_scale = getattr(cfg, "stress_cam_scale", None)
         self._cam_scale = None if cam_scale is None else float(cam_scale)
         self._cam_speed_cap = None
@@ -227,6 +238,14 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         stress_push = getattr(self, "_stress_push", None)
         if stress_push is not None:
             stress_push.reset(env_ids)
+        # Rod-speed DR (default off): redraw the reset envs' slew factor in place, from its own CPU generator.
+        rod_speed_dr = getattr(self, "_rod_speed_dr", None)
+        if rod_speed_dr is not None:
+            log = rod_speed_dr.reset(env_ids, int(getattr(self._env, "common_step_counter", 0)))
+            extras = getattr(self._env, "extras", None)
+            extras_log = extras.get("log") if isinstance(extras, dict) else None
+            if isinstance(extras_log, dict):
+                extras_log.update(log)
         # RSI cam staging (default off): runs after the event that staged it (env reset order:
         # events, then the action manager) and after the zeroing above, which it overrides for
         # the staged envs only.

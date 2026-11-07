@@ -129,6 +129,14 @@ five things the forward block cannot know about:
     (:func:`_apply_body_reward_set`) and writes ``omni_clock_turn_floor``; it skips the clock-radius
     rule (10.). World (unset) refuses the envelope knobs and the ``none`` encoding and writes nothing.
 
+16. **the training-time DR knobs** (rod-speed DR campaign, 2026-11-07; DEFAULT OFF, set by no preset) --
+    ``dr_knobs.py``, path-loaded and re-exported here the same way (``DR_VARS``, ``DR_KNOB_PARSERS``,
+    ``DR_ROD_SPEED_VAR``). ``KRABBY_DR_ROD_SPEED=lo:hi[:ramp_steps]`` writes ``actions.joint_pos.rod_speed_dr``;
+    the action term then redraws a per-env rod slew factor ``U(lo_eff, hi)`` at each env reset
+    (``crab_hex_forward_task/mdp/rod_speed_dr.py``). Applied by :func:`apply_omni_knobs`
+    (``dr_knobs.apply_dr_knobs``) right after the stress knobs and refused together with the stress rod-speed
+    scale.
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -231,6 +239,21 @@ def _stress_knobs():
         spec = importlib.util.spec_from_file_location(_STRESS_KNOBS_NAME, _STRESS_KNOBS_PY)
         mod = importlib.util.module_from_spec(spec)
         sys.modules[_STRESS_KNOBS_NAME] = mod
+        spec.loader.exec_module(mod)
+    return mod
+
+
+_DR_KNOBS_PY = Path(__file__).resolve().parent / "dr_knobs.py"
+_DR_KNOBS_NAME = "crab_hex_omni_dr_knobs"
+
+
+def _dr_knobs():
+    """``dr_knobs.py`` (pure), by path -- the same object for every loader of this module."""
+    mod = sys.modules.get(_DR_KNOBS_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_DR_KNOBS_NAME, _DR_KNOBS_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_DR_KNOBS_NAME] = mod
         spec.loader.exec_module(mod)
     return mod
 
@@ -377,6 +400,13 @@ STRESS_VXY_ZERO_VAR = _srk.VXY_ZERO_VAR
 STRESS_DEPTH_LAG_VAR = _srk.DEPTH_LAG_VAR
 STRESS_PUSH_DV_VAR = _srk.PUSH_DV_VAR
 
+_drk = _dr_knobs()
+# NOTE(rod-speed DR, 2026-11-07): the training-time DR knobs (dr_knobs.py, default off), re-exported for the same
+# whitelist reason; applied by ``dr_knobs.apply_dr_knobs`` right after the stress knobs.
+DR_VARS = _drk.DR_VARS
+DR_KNOB_PARSERS = _drk.DR_KNOB_PARSERS
+DR_ROD_SPEED_VAR = _drk.ROD_SPEED_VAR
+
 __all__ = [
     "SLOTS_VAR",
     "DIR_BAND_VAR",
@@ -461,6 +491,8 @@ __all__ = [
     "STRESS_KPKD_VAR", "STRESS_LEG_MASS_VAR", "STRESS_MU_VAR", "STRESS_ACT_DELAY_VAR", "STRESS_OBS_NOISE_VAR",
     "STRESS_CUR_SCALE_VAR", "STRESS_CUR_NOISE_VAR", "STRESS_VXY_NOISE_VAR", "STRESS_VXY_ZERO_VAR",
     "STRESS_DEPTH_LAG_VAR", "STRESS_PUSH_DV_VAR",
+    # training-time DR knobs (dr_knobs.py, 2026-11-07)
+    "DR_VARS", "DR_KNOB_PARSERS", "DR_ROD_SPEED_VAR",
 ]
 
 SLOTS_VAR = "KRABBY_OMNI_SLOTS"
@@ -1781,6 +1813,10 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     # NOTE(DR stress sweep, 2026-11-06): the stress knobs, default off (unset writes nothing). After the payload
     # (an armed push or leg-mass term sits beside ``events.payload_reset``) and before the last three calls.
     _srk.apply_stress_knobs(cfg, env)
+    # NOTE(rod-speed DR, 2026-11-07): the training-time DR knobs, default off (unset writes nothing). After the stress
+    # knobs, which they refuse to combine with (the stress rod-speed variable is passed in: config modules may not
+    # spell it), and before the last three calls.
+    _drk.apply_dr_knobs(cfg, env, exclusive_with=(_srk.ROD_SPEED_VAR,))
     # The motion-quality knobs (all default off; each one unset writes nothing).
     _mk.apply_motion_knobs(cfg, env)
     # NOTE(stride/posture plan step 3, 2026-09-25): the stroke/posture knobs, all default off. Last

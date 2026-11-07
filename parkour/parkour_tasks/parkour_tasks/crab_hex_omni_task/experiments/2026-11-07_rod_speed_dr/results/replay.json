@@ -1,0 +1,172 @@
+{
+ "read_at": "2026-11-07T17:21:20",
+ "dose_checked": true,
+ "a_sweep": {
+  "pin": {
+   "code_sha": "2c7f82d950ab7d30636a06834f8a1f5ec960db2b38664eb93abadd926b8e3609",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "pinned_at": "2026-11-06T16:53:52"
+  },
+  "cellseeds": 91,
+  "cellseed_diffs": {},
+  "row_diffs": {},
+  "teacher_diffs": {},
+  "check_flags": {},
+  "closing": {
+   "recorded": {
+    "status": "match",
+    "matches": [
+     "A",
+     "B"
+    ],
+    "launch": "Z"
+   },
+   "mine": {
+    "status": "match",
+    "matches": [
+     "A",
+     "B"
+    ]
+   },
+   "exact": true
+  },
+  "exact": true,
+  "checks_clean": true
+ },
+ "b_task4_sel": {
+  "stamp_paths": [],
+  "problems": {},
+  "diffs": {
+   "prescreen": [],
+   "ranked": [],
+   "block c28000": [],
+   "gate verdict": [],
+   "gate failed_lines": [],
+   "gate watch_flags": [],
+   "blocks state": [],
+   "pick": []
+  },
+  "candidates": [
+   "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_27000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_29000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_30000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_30991.pt"
+  ],
+  "ranked": [
+   "c28000",
+   "c29000",
+   "c30991",
+   "c27000",
+   "c30000"
+  ],
+  "action": {
+   "do": "selected",
+   "cand": "c28000"
+  },
+  "failed_blocks": [],
+  "pick": {
+   "cand": "c28000",
+   "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-10-22_23-41-17_T4F19_st_a2/model_28000.pt",
+   "sha256": "4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059",
+   "iter": 28000,
+   "tstar": "p3b"
+  },
+  "margins": {
+   "field_hard": {
+    "student": 0.89,
+    "tstar": 0.87,
+    "se_diff": 0.03138050148479946,
+    "margin": 0.06276100296959893,
+    "binds": "se",
+    "line": 0.807238997030401,
+    "pass": true
+   },
+   "field_light": {
+    "student": 0.995,
+    "tstar": 1.0,
+    "se_diff": 0.004934388893267336,
+    "margin": 0.05,
+    "binds": "floor",
+    "line": 0.95,
+    "pass": true
+   },
+   "ring_obst": {
+    "student": 1.0,
+    "tstar": 1.0,
+    "se_diff": 0.0,
+    "margin": 0.05,
+    "binds": "floor",
+    "line": 0.95,
+    "pass": true
+   },
+   "field_turn": {
+    "student": 1.0,
+    "tstar": 1.0,
+    "se_diff": 0.0,
+    "margin": 0.05,
+    "binds": "floor",
+    "line": 0.95,
+    "pass": true
+   }
+  },
+  "exact": true,
+  "checks_clean": true
+ },
+ "c_f19_zero_kg": {
+  "stages": {
+   "p3a": {
+    "its_past_p2a": 2999,
+    "its_from_heads": 2999,
+    "mine": {
+     "verdict": "FAIL",
+     "max_margin_used": 2.7098692720929014,
+     "fails": [
+      "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+      "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+      "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+      "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+     ],
+     "translate_statistic": "track_err",
+     "thresholds_version": "v1.2"
+    },
+    "record": {
+     "verdict": "FAIL",
+     "max_margin_used": 2.7098692720929014,
+     "fails": [
+      "track_err diag suite es1: worse by 0.0380 > margin 0.0291 (R)",
+      "ratio move_turn suite es1: worse by 0.0994 > margin 0.0367 (R)",
+      "track_err diag suite es2: worse by 0.0356 > margin 0.0291 (R)",
+      "ratio move_turn suite es2: worse by 0.0972 > margin 0.0372 (drift_scaled)"
+     ],
+     "translate_statistic": "track_err",
+     "thresholds_version": "v1.2"
+    },
+    "diffs": []
+   },
+   "p3b": {
+    "its_past_p2a": 5998,
+    "its_from_heads": 5998,
+    "mine": {
+     "verdict": "PASS",
+     "max_margin_used": 0.6619605845918585,
+     "fails": [],
+     "translate_statistic": "track_err",
+     "thresholds_version": "v1.2"
+    },
+    "record": {
+     "verdict": "PASS",
+     "max_margin_used": 0.6619605845918585,
+     "fails": [],
+     "translate_statistic": "track_err",
+     "thresholds_version": "v1.2"
+    },
+    "diffs": []
+   }
+  },
+  "exact": true,
+  "checks_clean": true
+ },
+ "exact": true,
+ "checks_clean": true
+}

@@ -1,0 +1,25 @@
+RSD_DUMP PASS C3 refused-knob list identical in both roots -- 22 keys
+RSD_DUMP INFO ref=/home/nickmagus/krabby/krabby-research (ab390e6f) new=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep (44c8165a) out=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1
+RSD_DUMP INFO dump root=ref case=C1 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/ref__C1.json
+RSD_DUMP INFO dump root=new case=C1 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/new__C1.json
+RSD_DUMP PASS C1 knob-off dump byte-identical to the reference (Isaac-Crab-Hex-Omni-Teacher-v0 x p3b.distill.env) -- 76643 / 76711 chars
+RSD_DUMP INFO dump root=ref case=C2 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/ref__C2.json
+RSD_DUMP INFO dump root=new case=C2 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/new__C2.json
+RSD_DUMP PASS C2 knob-off dump byte-identical to the reference (Isaac-Crab-Hex-Omni-Teacher-v0 x p3b.train.env) -- 76616 / 76684 chars
+RSD_DUMP INFO dump root=ref case=C3 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/ref__C3.json
+RSD_DUMP INFO dump root=new case=C3 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/new__C3.json
+RSD_DUMP PASS C3 knob-off dump byte-identical to the reference (Isaac-Crab-Hex-Omni-Student-v0 x p3b.distill.env) -- 89474 / 89542 chars
+RSD_DUMP INFO dump root=ref case=C4 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/ref__C4.json
+RSD_DUMP INFO dump root=new case=C4 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/new__C4.json
+RSD_DUMP PASS C4 knob-off dump byte-identical to the reference (Isaac-Crab-Hex-Omni-Student-Play-v0 x p3b.env) -- 84548 / 84582 chars
+RSD_DUMP INFO dump root=ref case=C5 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/ref__C5.json
+RSD_DUMP INFO dump root=new case=C5 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/new__C5.json
+RSD_DUMP PASS C5 knob-off dump byte-identical to the reference (Isaac-Crab-Hex-Omni-Student-Play-v0 x p3b.field_light.env) -- 85606 / 85640 chars
+RSD_DUMP INFO dump root=new case=C1 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/on__C1.json
+RSD_DUMP PASS C1 knob-on diff touches exactly rod_speed_dr and the environ key (Isaac-Crab-Hex-Omni-Teacher-v0) -- touched exactly ['/Isaac-Crab-Hex-Omni-Teacher-v0/env/actions/joint_pos/rod_speed_dr', '/_environ/KRABBY_DR_ROD_SPEED']
+RSD_DUMP INFO dump root=new case=C3 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/on__C3.json
+RSD_DUMP PASS C3 knob-on diff touches exactly rod_speed_dr and the environ key (Isaac-Crab-Hex-Omni-Student-v0) -- touched exactly ['/Isaac-Crab-Hex-Omni-Student-v0/env/actions/joint_pos/rod_speed_dr', '/_environ/KRABBY_DR_ROD_SPEED']
+RSD_DUMP INFO dump root=new case=C1 rc=0 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k1/refuse__C1.json
+RSD_DUMP FAIL C1 KRABBY_DR_ROD_SPEED + KRABBY_STRESS_ROD_SPEED=0.7 is refused -- BAD exit code 0: the dump was built with both knobs
+RSD_DUMP END pass=8 fail=1
+K1 rc=1 2026-11-07 17:28:57
