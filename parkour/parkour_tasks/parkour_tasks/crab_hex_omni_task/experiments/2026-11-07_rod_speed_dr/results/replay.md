@@ -1,6 +1,6 @@
 # CPU replay (step-8 precondition)
 
-Read 2026-11-07T17:21:20; dose checked: True.
+Read 2026-11-07T17:37:10; dose checked: True.
 
 | item | exact | launch checks clean | detail |
 |---|---|---|---|

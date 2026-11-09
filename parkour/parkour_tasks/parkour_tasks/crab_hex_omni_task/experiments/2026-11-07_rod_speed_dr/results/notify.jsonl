@@ -1,0 +1,1 @@
+{"at": "2026-11-08T17:24:39", "kind": "STOP", "text": "bridge: bridge C28000: a cell-seed differs from the sweep on the first launch and on its relaunch: diagnose on CPU (cfg dumps, per-stamp dose, first divergent step); a code-path difference stops the campaign, a diagnosed class flip is recorded and G1 proceeds on the in-pin references"}

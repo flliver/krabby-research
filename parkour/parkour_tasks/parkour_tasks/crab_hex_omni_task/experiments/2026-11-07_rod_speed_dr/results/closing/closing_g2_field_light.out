@@ -1,0 +1,16 @@
+run_meta: 449 keys; differ: ['n_steps_per_env', 'started_utc', 'termination_reason', 'travel_yaw_by_hold.back', 'travel_yaw_by_hold.diag', 'travel_yaw_by_hold.fwd', 'travel_yaw_by_hold.lat_l', 'travel_yaw_by_hold.move_turn', 'travel_yaw_by_hold.turn_l90']
+code_state differs: no
+dose (hip, knee) values seen: [(0.02800000086426735, 0.032999999821186066)]; episodes where X and Y differ: []
+  ep   5 first diff step 0 keys ['actions'] max|dact| 1.0915100574493408e-06
+  ep   7 first diff step 0 keys ['actions'] max|dact| 6.139278411865234e-06
+  ep  30 first diff step 0 keys ['actions'] max|dact| 1.7881393432617188e-07
+  ep  37 first diff step 5 keys ['actions'] max|dact| 9.5367431640625e-07
+  ep  52 first diff step 5 keys ['actions'] max|dact| 3.5762786865234375e-07
+  ep  62 first diff step 5 keys ['actions'] max|dact| 1.4781951904296875e-05
+  ep  94 first diff step 5 keys ['actions'] max|dact| 4.76837158203125e-07
+  ep  32 first diff step 10 keys ['actions'] max|dact| 4.425644874572754e-06
+  ep  46 first diff step 10 keys ['actions'] max|dact| 3.771856427192688e-07
+  ep  70 first diff step 10 keys ['actions'] max|dact| 7.033348083496094e-06
+  ep  76 first diff step 10 keys ['actions'] max|dact| 8.463859558105469e-06
+  ep  88 first diff step 10 keys ['actions'] max|dact| 1.1667609214782715e-05
+{"x": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10", "y": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19", "cfg_identical": true, "cfg_differs": [], "same_code": true, "dose_identical": true, "episodes": 100, "structural_mismatch": [], "differing_episodes": 100, "earliest_step": 0, "earliest_keys": ["actions"], "earliest_envs": [5, 7, 30], "earliest_max_dact": 6.139278411865234e-06, "step0_state_identical": true, "earliest_action_only_at_depth_frame": true, "first_diff_kinds": {"action-only@depth": 71, "other": 29}, "max_first_dact": 3.139674663543701e-05, "verdict": "CLASS-FLIP"}

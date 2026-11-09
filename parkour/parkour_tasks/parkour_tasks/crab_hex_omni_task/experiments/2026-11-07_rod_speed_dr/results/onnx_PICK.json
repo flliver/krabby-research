@@ -1,0 +1,69 @@
+{
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-08_02-57-24_RSD_ST_s19/model_31000.pt",
+ "checkpoint_iter": 31000,
+ "checkpoint_sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+ "complete": true,
+ "files": {
+  "depth_jit": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/depth_latest.pt",
+   "sha256": "c5d6e8c703cc841ab9c65faa4c6bd27de6c0afac94ea2b9a489118b5c6994a2c"
+  },
+  "depth_onnx": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/depth_latest.onnx",
+   "sha256": "0a04e0653afb1499b0998eae04491628170c67d14e439948b52198b2c8d246c3"
+  },
+  "io": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/omni_student_io.json",
+   "sha256": "4ee03d02cbf1f6736d4fa392d18bc36af0e893e008543e2f744cac65439bff1a"
+  },
+  "policy_jit": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/policy.pt",
+   "sha256": "94aa2833f3e23af07a5aaa685fb1a3836ed2b87e2e391f40ce034d0ed0d7454b"
+  },
+  "policy_onnx": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/policy.onnx",
+   "sha256": "ac0ea3e2b618a1ebfd6d90de560ab3cdfe2d7504b33ea9185582804684606783"
+  }
+ },
+ "out_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000",
+ "parity": {
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-08_02-57-24_RSD_ST_s19/model_31000.pt",
+  "checkpoint_iter": 31000,
+  "complete": true,
+  "encodes": 25,
+  "max_abs_action_err": 1.1622905731201172e-06,
+  "max_abs_latent_err": 1.341104507446289e-07,
+  "max_abs_raw_action_err": 1.430511474609375e-06,
+  "onnx_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000",
+  "parity_ok": true,
+  "runtime": "onnx.reference",
+  "steps_compared": 120,
+  "tol": 0.0001,
+  "tool": "onnx_parity.py",
+  "wall_s": 3.563511848449707
+ },
+ "parity_cmd": [
+  "/home/nickmagus/krabby/isaac_venv/bin/python",
+  "-B",
+  "-I",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-06_dr_stress_sweep/scripts/onnx_parity.py",
+  "--record",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/G0_record.npz",
+  "--out",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/parity.json",
+  "--checkpoint",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-08_02-57-24_RSD_ST_s19/model_31000.pt",
+  "--onnx-dir",
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000",
+  "--tol",
+  "0.0001"
+ ],
+ "parity_ok": true,
+ "parity_rc": 0,
+ "parity_tail": "ONNX_PARITY END ok=True steps=120 encodes=25 act_err=1.16e-06 lat_err=1.34e-07 (onnx.reference)\n",
+ "record": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/G0_record.npz",
+ "record_sha256": "0012cd155099a2ec2f9293eb8cad20c9d6a0d3ab80ec14df75f7a73ae557ff8c",
+ "tol": 0.0001,
+ "tool": "rsd_onnx.py",
+ "wall_s": 5.619332313537598
+}

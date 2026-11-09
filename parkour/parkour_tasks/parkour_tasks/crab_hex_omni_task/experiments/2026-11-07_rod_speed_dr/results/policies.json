@@ -13,6 +13,25 @@
    "role": "student",
    "added_at": "2026-11-07T16:41:24",
    "note": "F19 depth student c28000 (policy/manifest.yaml f19_9_student)"
+  },
+  "TDR": {
+   "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/model_28991.pt",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "role": "teacher",
+   "added_at": "2026-11-07T21:02:51"
+  },
+  "TCTL": {
+   "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-08_00-20-19_RSD_TCTL_s19/model_28991.pt",
+   "sha256": "72d63d51daaa9e517c964804d1ddf993f1fab79c0c6a818d9f98e49680dc6732",
+   "role": "teacher",
+   "added_at": "2026-11-08T01:37:09"
+  },
+  "PICK": {
+   "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-08_02-57-24_RSD_ST_s19/model_31000.pt",
+   "sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+   "role": "student",
+   "added_at": "2026-11-08T15:22:54",
+   "note": "selected c31000 (teacher TDR)"
   }
  }
 }

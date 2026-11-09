@@ -1,0 +1,19 @@
+# rsd_distill_check.py check --name RSD_ST_s19 --teacher <TDR model_28991.pt> --live
+# run 1: 2026-11-08T02:59 (CHARTER 3.4 +10-iteration check), output copied verbatim from the session (stdout only):
+RSD DISTILL CHECK RSD_ST_s19 D4 PASS first iteration 28991 (TDR iter 28991); reached 29007
+RSD DISTILL CHECK RSD_ST_s19 D1 PASS 6 [KNOB]/[omni-knobs] lines = T4F19_st_a2.log's + the DR line
+RSD DISTILL CHECK RSD_ST_s19 D2 PASS the [DR] line = the predicted draw (worktree module)
+RSD DISTILL CHECK RSD_ST_s19 D3 PASS teacher sha 03c3e4728ac2 = TDR (model_28991.pt)
+RSD DISTILL CHECK RSD_ST_s19 D5 PASS TDR tail from /home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19: ep_len 1765.8455499267577, crab_failure 0.2214518231153488
+RSD DISTILL CHECK RSD_ST_s19 D6 PASS live rc 0 rule None fails [] watch []
+RSD DISTILL CHECK RSD_ST_s19 RESULT PASS
+rc=0
+# run 2: 2026-11-08T03:06:54-05:00 (re-run for the record)
+RSD DISTILL CHECK RSD_ST_s19 D4 PASS first iteration 28991 (TDR iter 28991); reached 29070
+RSD DISTILL CHECK RSD_ST_s19 D1 PASS 6 [KNOB]/[omni-knobs] lines = T4F19_st_a2.log's + the DR line
+RSD DISTILL CHECK RSD_ST_s19 D2 PASS the [DR] line = the predicted draw (worktree module)
+RSD DISTILL CHECK RSD_ST_s19 D3 PASS teacher sha 03c3e4728ac2 = TDR (model_28991.pt)
+RSD DISTILL CHECK RSD_ST_s19 D5 PASS TDR tail from /home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19: ep_len 1765.8455499267577, crab_failure 0.2214518231153488
+RSD DISTILL CHECK RSD_ST_s19 D6 PASS live rc 0 rule None fails [] watch []
+RSD DISTILL CHECK RSD_ST_s19 RESULT PASS
+rc=0

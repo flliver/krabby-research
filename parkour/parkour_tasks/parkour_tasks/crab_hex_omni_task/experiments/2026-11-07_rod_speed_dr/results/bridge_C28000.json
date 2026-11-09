@@ -1,0 +1,152 @@
+{
+ "policy": "C28000",
+ "sha256": "4fa81f0f308a4a7ac73ba8db106ab9a9c286586d05ec7a18908d776b33db9059",
+ "role": "student",
+ "cell_seeds": {
+  "T00_nominal_L090_A@es1": {
+   "sweep_name": "DRS_T00_nominal_L090_A",
+   "sweep_stamps": {
+    "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T00_nominal_L090_A/suite__omni/seed001/2026-11-06_22-37-25",
+    "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T00_nominal_L090_A/field_light__omni/seed001/2026-11-06_22-44-29"
+   },
+   "sweep_launch_error": null,
+   "first": {
+    "stamps": {
+     "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_4fa81f0f_T00_nominal_L090_A/suite__omni/seed001/2026-11-08_20-44-52",
+     "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_4fa81f0f_T00_nominal_L090_A/field_light__omni/seed001/2026-11-08_20-52-15"
+    },
+    "problems": [],
+    "values": {
+     "field_light_completion": 0.95,
+     "h_meas.field_light": 1.0875572661558786,
+     "h_meas.suite": 1.086100588242213,
+     "pitch_rms.field_light": 0.06851881300810275,
+     "pitch_rms.suite": 0.02989811213618505,
+     "roll_rms.field_light": 0.03071234357200561,
+     "roll_rms.suite": 0.017539600977069816,
+     "survival.back": 1.0,
+     "survival.diag": 1.0,
+     "survival.fwd": 1.0,
+     "survival.move_turn": 1.0,
+     "survival.side": 1.0,
+     "survival.turn": 1.0,
+     "tracking.back": 0.004475954850700736,
+     "tracking.diag": 0.02615317505107062,
+     "tracking.fwd": 0.01024858229436898,
+     "tracking.side": 0.048232372728906237,
+     "turn_fc.turn": 0.9874644341968084
+    }
+   },
+   "relaunch": {
+    "stamps": {
+     "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_4fa81f0f_T00_nominal_L090_A_RL/suite__omni/seed001/2026-11-08_22-13-54",
+     "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_4fa81f0f_T00_nominal_L090_A_RL/field_light__omni/seed001/2026-11-08_22-21-03"
+    },
+    "problems": [],
+    "values": {
+     "field_light_completion": 0.95,
+     "h_meas.field_light": 1.0875572661558786,
+     "h_meas.suite": 1.086100588242213,
+     "pitch_rms.field_light": 0.06851881300810275,
+     "pitch_rms.suite": 0.02989811213618505,
+     "roll_rms.field_light": 0.03071234357200561,
+     "roll_rms.suite": 0.017539600977069816,
+     "survival.back": 1.0,
+     "survival.diag": 1.0,
+     "survival.fwd": 1.0,
+     "survival.move_turn": 1.0,
+     "survival.side": 1.0,
+     "survival.turn": 1.0,
+     "tracking.back": 0.004475954850700736,
+     "tracking.diag": 0.02615317505107062,
+     "tracking.fwd": 0.01024858229436898,
+     "tracking.side": 0.048232372728906237,
+     "turn_fc.turn": 0.9874644341968084
+    }
+   },
+   "diff_first": {
+    "field_light_completion": [
+     0.95,
+     0.97
+    ],
+    "h_meas.field_light": [
+     1.0875572661558786,
+     1.0881257951259613
+    ],
+    "pitch_rms.field_light": [
+     0.06851881300810275,
+     0.06769183109445638
+    ],
+    "roll_rms.field_light": [
+     0.03071234357200561,
+     0.030519654881715142
+    ]
+   },
+   "diff_relaunch": {
+    "field_light_completion": [
+     0.95,
+     0.97
+    ],
+    "h_meas.field_light": [
+     1.0875572661558786,
+     1.0881257951259613
+    ],
+    "pitch_rms.field_light": [
+     0.06851881300810275,
+     0.06769183109445638
+    ],
+    "roll_rms.field_light": [
+     0.03071234357200561,
+     0.030519654881715142
+    ]
+   },
+   "status": "STOP_diagnose"
+  },
+  "T01_rod_speed_0p7_L090@es1": {
+   "sweep_name": "DRS_T01_rod_speed_0p7_L090",
+   "sweep_stamps": {
+    "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-07_00-05-04",
+    "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-07_00-12-26"
+   },
+   "sweep_launch_error": null,
+   "first": {
+    "stamps": {
+     "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_4fa81f0f_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-08_21-29-35",
+     "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_4fa81f0f_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-08_21-36-57"
+    },
+    "problems": [],
+    "values": {
+     "field_light_completion": 0.58,
+     "h_meas.field_light": 1.0777169267336528,
+     "h_meas.suite": 1.0823083619276683,
+     "pitch_rms.field_light": 0.09521310569963537,
+     "pitch_rms.suite": 0.043263560755943745,
+     "roll_rms.field_light": 0.038850825370576714,
+     "roll_rms.suite": 0.01828070881645899,
+     "survival.back": 1.0,
+     "survival.diag": 0.83,
+     "survival.fwd": 1.0,
+     "survival.move_turn": 0.885,
+     "survival.side": 1.0,
+     "survival.turn": 1.0,
+     "tracking.back": 0.00028820645804783496,
+     "tracking.diag": 0.24094939893443057,
+     "tracking.fwd": 0.04325913147290272,
+     "tracking.side": 0.12953147197050185,
+     "turn_fc.turn": 0.9278031074249221
+    }
+   },
+   "relaunch": null,
+   "diff_first": {},
+   "status": "bitwise_first"
+  }
+ },
+ "sweep_pin": {
+  "code_sha": "2c7f82d950ab7d30636a06834f8a1f5ec960db2b38664eb93abadd926b8e3609",
+  "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+  "pinned_at": "2026-11-06T16:53:52"
+ },
+ "relaunch_due": [],
+ "verdict": "STOP",
+ "why": "a cell-seed differs from the sweep on the first launch and on its relaunch: diagnose on CPU (cfg dumps, per-stamp dose, first divergent step); a code-path difference stops the campaign, a diagnosed class flip is recorded and G1 proceeds on the in-pin references"
+}
