@@ -991,10 +991,13 @@ A five-agent CPU check (`sh-k4-halt-verify`) reproduced every gate number, both 
   - TDR + SH on the medium and the roughest wall field, with F19's plan and seed 1514. All 4 stands arrived and homed, with 0 falls in each: window error 1.5–4.6 mm and 2.4–10.6 mm, against F19's 0.2–3.8 mm and 0.9–22.8 mm.
   - 60 s of c31000 alone on the play env of record.
   - They are cited in the stand block and the student's `play_notes`. The files are local and untracked, in the main checkout.
-- **Two CI failures predate the bake.** Both are in `tests/unit/test_rod_speed_dr_campaign.py`, from this campaign's earlier commits, and fail under CI conditions with or without the bake:
-  - `test_ct_yaml_root_normaliser_replaces_the_worktree_before_main` assumes the worktree sits inside `/home/nickmagus/krabby/krabby-research`;
-  - `test_fx_distill_wrapper_reports_the_g1_pass_guard` expects older refusal wording.
-  They are outside the bake.
+- **CI test fixes** (local commit C, 2026-11-10, the user's "Fix them"; only `tests/unit/test_rod_speed_dr_campaign.py`, outside every pin). Three of its tests, from this campaign's earlier commits, would fail on a CI runner with or without the bake. The CI-shaped run above found two. It hid the third, because it mounted the Isaac venv at its real path:
+  - `test_ct_yaml_root_normaliser_replaces_the_worktree_before_main` assumed the worktree sits inside `/home/nickmagus/krabby/krabby-research`. It now checks the nested layout on explicit roots, and the defaults on whichever checkout runs it.
+  - `test_fx_distill_wrapper_reports_the_g1_pass_guard` expected "G1 PASS only", written before `results/g1.json` held G1's PASS (2a07ebeb), so it failed locally too. It now reads the committed record: no `--teacher-policy`, T*, and TDR's name on another file are refused, and the bundled TDR passes.
+  - That test and `test_distill_wrapper_dry_run_writes_the_knob_into_the_env_file` run the wrapper, whose G1 guard calls the Isaac venv python by its absolute path. A runner has none, so both now skip there.
+  - New: `test_fx_distill_wrapper_g1_guard_on_fake_records` runs the guard's own program on fake records, so every refusal, "G1 PASS only" included, is checked on any machine.
+  - From an independent review: `test_wrapper_python_is_the_launchers` pins that skip's path parse on every machine; the wrapper's dry runs skip, not fail, when `distill.sh` refuses this machine's Kit cache (74 GB of an 80 GB limit, checked even in a dry run); and only G1 refusal lines are counted.
+  - Checks: the file's 76 tests pass locally. A second CI-shaped run mounts the venv at `/home/runner/ci_venv`, so nothing exists under `/home/nickmagus`. On the merge with main it gives 3 failures before the fix (the three above) and 0 after; its 45 collection errors are main's own (environment gaps). Under Python 3.12 with CI's 60 s timeout, this file and `test_rod_speed_dr.py` pass (206 passed, 10 skipped; the CHARTER log says how that venv was obtained). CI is not called green before a real run.
 
 ### 13.10 Files
 - **Record** (this dir; committed in 825ea251, record commit A): `STAND_REPAIR.md` (§1–8 pre-registration, §9 log); `scripts/rsd_stand.py` (executors, gate call, re-anchors); `scripts/rsd_stand_queue.sh` (the queue runner); `results/stand/` (walker spec, pre-flight, heads, premise reads, CPU reads, and `gates/`: `sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, `replay_f19_*.json`).

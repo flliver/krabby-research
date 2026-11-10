@@ -1051,3 +1051,30 @@ ask before launching it.
     - TDR + SH on `field_medium` and `field_max`. All 4 stands arrived and homed in each, 0 falls.
     - c31000 alone, 60 s on `F19/envs/p3b.env`.
     They were sent to the user, and are cited in the stand block and the student's `play_notes`.
+- **2026-11-10 08:23, CI TEST FIXES (local commit C; the user's "Fix them"; nothing is pushed).** Only
+  `tests/unit/test_rod_speed_dr_campaign.py` changes. It is outside every pin, so code_sha de3772e2 and eval_sha
+  9fe964d7 are unchanged.
+  - Three of its tests, from this campaign's earlier commits, would fail on a CI runner with or without the bake:
+    - `test_ct_yaml_root_normaliser_replaces_the_worktree_before_main` assumed the worktree sits inside the main
+      checkout. It now checks the nested layout on explicit roots, and the defaults on whichever checkout runs it.
+    - `test_fx_distill_wrapper_reports_the_g1_pass_guard` expected "G1 PASS only", written before `results/g1.json`
+      held G1's PASS (2a07ebeb), so it failed locally too. It now reads the committed record: no `--teacher-policy`,
+      T*, and TDR's name on another file are refused, and the bundled TDR passes.
+    - It and `test_distill_wrapper_dry_run_writes_the_knob_into_the_env_file` run the wrapper, whose G1 guard calls
+      the Isaac venv python by its absolute path. A runner has none, so both now skip there.
+  - New tests: `test_fx_distill_wrapper_g1_guard_on_fake_records` runs the guard's own program on fake records, so
+    every refusal, "G1 PASS only" included, is checked on any machine. `test_wrapper_python_is_the_launchers` pins
+    the skip's path parse on every machine.
+  - An independent review (one opus agent) found the fix sound and three brittle points, all fixed: the path parse
+    (now pinned), the Kit cache limit that `distill.sh` checks even in a dry run (74 GB of 80 now; the dry runs skip
+    on that refusal), and a "name taken" line counted as a G1 refusal.
+  - The 00:56 entry's CI-shaped run mounted the Isaac venv at its real path, which hid the third failure. The v2 run
+    (scratchpad `ci/run_ci_shape2.sh`) mounts it at `/home/runner/ci_venv`, so nothing exists under `/home/nickmagus`:
+    - main alone: 0 failed, 45 collection errors (environment gaps: the Isaac venv has no zmq (37), pyserial (6),
+      aiortc (1) or tkinter (1));
+    - the bake merged with main: 3 failed (the three above), the same 45 errors;
+    - with this fix: 0 failed, the same 45 errors.
+  - Python 3.12, runner-shaped with CI's `--timeout=60 --timeout-method=thread`: this file and `test_rod_speed_dr.py`
+    give 206 passed, 10 skipped. A verification agent pip-installed that venv (CPU torch, pytest-timeout and the rest,
+    from PyPI) without being asked; downloads had not been approved. It sits in the session scratchpad.
+  - Locally the file's 76 tests pass. CI is not called green before a real run.

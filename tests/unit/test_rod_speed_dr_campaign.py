@@ -18,6 +18,7 @@ Pinned, because each failure is silent in a real run:
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -41,6 +42,10 @@ if not (SCRIPTS / "rsd_lib.py").is_file():
 
 torch = pytest.importorskip("torch")
 P3B_DISTILL_ENV = CD.parent / "2026-10-16_task4_pipeline" / "F19" / "envs" / "p3b.distill.env"
+#: the python rsd_distill.sh runs its G1 guard with: this machine's Isaac venv (absent on a CI runner, where the
+#: wrapper dies "cannot check the G1 record" before its dry run); test_wrapper_python_is_the_launchers pins the parse
+_PY_LINE = re.search(r"^PY=(.*)$", (SCRIPTS / "rsd_distill.sh").read_text(), re.M)
+WRAPPER_PY = Path(_PY_LINE.group(1) if _PY_LINE else "/no PY= line in rsd_distill.sh")
 
 
 def _load(name: str, path: Path):
@@ -91,6 +96,12 @@ def test_paths_resolve_to_this_worktree(mods):
     assert RL.W == REPO
     assert RL.TRAIN.is_file() and RL.DISTILL_SH.is_file() and RL.RSD_PY.is_file() and RL.DR_KNOBS_PY.is_file()
     assert RL.CD == CD
+
+
+def test_wrapper_python_is_the_launchers(mods):
+    """The wrapper tests skip where WRAPPER_PY is absent (a CI runner); a parse that drifted from rsd_distill.sh's
+    literal PY= line would skip them on this machine too, so the parse is pinned on every machine."""
+    assert WRAPPER_PY == Path(mods.RL.PY) and WRAPPER_PY.is_absolute()
 
 
 # ============================================================================== busy pattern
@@ -514,14 +525,25 @@ def test_end_to_end_counter_mismatch_stops_with_preflight_fail(tmp_path, monkeyp
 
 
 # ============================================================================== distill wrapper
-@pytest.mark.skipif(not P3B_DISTILL_ENV.is_file(), reason="no F19 env file")
+def _wrapper_dry_run(*args, env, timeout=600):
+    """``rsd_distill.sh ARGS --dry-run``. distill.sh checks this machine's Kit DerivedDataCache size even in a dry run,
+    and the wrapper unsets its TP_* override, so a cache over the limit skips the test (it says nothing about the
+    wrapper)."""
+    r = subprocess.run(["bash", str(SCRIPTS / "rsd_distill.sh"), *args, "--dry-run"], capture_output=True, text=True,
+                       env=env, timeout=timeout)
+    if r.returncode == 5 and "Kit DerivedDataCache is" in r.stderr:
+        pytest.skip(r.stderr.strip())
+    return r
+
+
+@pytest.mark.skipif(not P3B_DISTILL_ENV.is_file() or not WRAPPER_PY.is_file(),
+                    reason="no F19 env file, or no Isaac venv python for the wrapper's G1 guard (a CI runner)")
 def test_distill_wrapper_dry_run_writes_the_knob_into_the_env_file(tmp_path):
     ck = tmp_path / "model_100.pt"
     ck.write_bytes(b"x")
     env = {k: v for k, v in os.environ.items() if not k.startswith(("KRABBY_", "TP_", "DRS_", "RSD_"))}
     env["TP_STRAY"] = "1"
-    r = subprocess.run(["bash", str(SCRIPTS / "rsd_distill.sh"), "--name", "RSD_TEST_DRY", "--checkpoint", str(ck),
-                        "--dry-run"], capture_output=True, text=True, env=env, timeout=600)
+    r = _wrapper_dry_run("--name", "RSD_TEST_DRY", "--checkpoint", str(ck), env=env)
     assert r.returncode == 0, r.stderr
     envf = CD / "envs" / "p3b_dr.distill.env"
     assert envf.read_text() == P3B_DISTILL_ENV.read_text() + "KRABBY_DR_ROD_SPEED=0.6:1.35\n"
@@ -529,8 +551,7 @@ def test_distill_wrapper_dry_run_writes_the_knob_into_the_env_file(tmp_path):
     assert f"PYTHONPATH={REPO}/parkour/parkour_tasks:{REPO}/parkour" in r.stdout
     assert "--num_envs 192 --seed 19 --max_iterations 5000 --resume --checkpoint" in r.stdout
     assert "Isaac-Crab-Hex-Omni-Student-v0" in r.stdout
-    r = subprocess.run(["bash", str(SCRIPTS / "rsd_distill.sh"), "--name", "RSD_TEST_DRY", "--checkpoint",
-                        "model_100.pt", "--dry-run"], capture_output=True, text=True, env=env, timeout=60)
+    r = _wrapper_dry_run("--name", "RSD_TEST_DRY", "--checkpoint", "model_100.pt", env=env, timeout=60)
     assert r.returncode == 5
 
 
@@ -1940,12 +1961,16 @@ def test_ct_knob_multiset_comparison_is_order_free_and_counts_duplicates(mods):
 
 def test_ct_yaml_root_normaliser_replaces_the_worktree_before_main(mods):
     RL = mods.RL
-    assert str(RL.W).startswith(str(RL.MAIN) + "/")                                  # the worktree lives inside main
-    t = f"a: {RL.W}/assets/crab.usda\nb: {RL.MAIN}/parkour/logs\nc: {RL.MAIN}/.claude/worktrees/x\n"
-    assert RL.normalise_roots(t) == "a: <ROOT>/assets/crab.usda\nb: <ROOT>/parkour/logs\nc: <ROOT>/.claude/worktrees/x\n"
+    main = Path("/srv/krabby-research")                                              # the campaign's layout: the
+    w = main / ".claude" / "worktrees" / "dr-stress-sweep"                           # worktree lives inside main
+    t = f"a: {w}/assets/crab.usda\nb: {main}/parkour/logs\nc: {main}/.claude/worktrees/x\n"
+    got = RL.normalise_roots(t, w=w, main=main)
+    assert got == "a: <ROOT>/assets/crab.usda\nb: <ROOT>/parkour/logs\nc: <ROOT>/.claude/worktrees/x\n"
     # the wrong order would leave the worktree's own suffix in the text
-    wrong = t.replace(str(RL.MAIN), "<ROOT>").replace(str(RL.W), "<ROOT>")
-    assert wrong != RL.normalise_roots(t) and "<ROOT>/.claude/worktrees/dr-stress-sweep/assets" in wrong
+    wrong = t.replace(str(main), "<ROOT>").replace(str(w), "<ROOT>")
+    assert wrong != got and "<ROOT>/.claude/worktrees/dr-stress-sweep/assets" in wrong
+    # the defaults are this checkout and main (nested here; side by side on a CI runner)
+    assert RL.normalise_roots(f"{RL.W}/a {RL.MAIN}/b") == "<ROOT>/a <ROOT>/b"
     other = Path("/tmp/elsewhere")                                                    # explicit roots are honoured
     assert RL.normalise_roots(f"{other}/a {RL.MAIN}/b", w=other) == "<ROOT>/a <ROOT>/b"
 
@@ -2172,18 +2197,69 @@ def test_fx_dr_min_bound_follows_lo_eff_during_the_ramp(mods):
     assert T.dr_block_problems(late, {"lo": 0.6, "hi": 1.35, "ramp_steps": 0}, 0, 24) == []   # no ramp: lo at once
 
 
-@pytest.mark.skipif(not P3B_DISTILL_ENV.is_file(), reason="no F19 env file")
+@pytest.mark.skipif(not P3B_DISTILL_ENV.is_file() or not WRAPPER_PY.is_file(),
+                    reason="no F19 env file, or no Isaac venv python for the wrapper's G1 guard (a CI runner)")
 def test_fx_distill_wrapper_reports_the_g1_pass_guard(tmp_path):
-    """Dry runs only (a real launch is never attempted here): without --teacher-policy, and with T* (no G1 PASS
-    read for it), the wrapper reports WOULD REFUSE; a real launch dies on the same text before anything is written."""
+    """Dry runs only (a real launch is never attempted here), on the committed G1 record (PASS, read for TDR):
+    without --teacher-policy, with T*, and with TDR's name on another file the wrapper reports WOULD REFUSE (a real
+    launch dies on the same text before anything is written); with the bundled TDR it reports nothing."""
+    g1 = json.loads((CD / "results" / "g1.json").read_text())
+    tdr = g1["policies"]["tdr"]
+    assert g1["verdict"] == "PASS" and tdr["name"] == "TDR"
+    bundled = CD.parents[1] / "policy" / "rsd_9_p3b_rodspeed_dr" / "model_28991.pt"         # TDR, as baked
     ck = tmp_path / "model_100.pt"
     ck.write_bytes(b"x")
     env = {k: v for k, v in os.environ.items() if not k.startswith(("KRABBY_", "TP_", "DRS_", "RSD_"))}
-    for extra, want in (([], "--teacher-policy is required"), (["--teacher-policy", "TSTAR"], "G1 PASS only")):
-        r = subprocess.run(["bash", str(SCRIPTS / "rsd_distill.sh"), "--name", "RSD_TEST_DRY", "--checkpoint",
-                            str(ck), *extra, "--dry-run"], capture_output=True, text=True, env=env, timeout=600)
+    not_g1 = f"!= results/g1.json TDR {tdr['sha256'][:8]}"
+    for ckpt, extra, want in ((ck, [], ["--teacher-policy is required", not_g1]),
+                              (ck, ["--teacher-policy", "TSTAR"], ["was read for TDR 'TDR', not 'TSTAR'",
+                                                                    "!= the registry policy 'TSTAR'", not_g1]),
+                              (ck, ["--teacher-policy", "TDR"], ["!= the registry policy 'TDR'", not_g1]),
+                              (bundled, ["--teacher-policy", "TDR"], [])):
+        r = _wrapper_dry_run("--name", "RSD_TEST_DRY", "--checkpoint", str(ckpt), *extra, env=env)
         assert r.returncode == 0, r.stderr
-        assert "# WOULD REFUSE:" in r.stdout and want in r.stdout and "!= results/g1.json TDR" in r.stdout
+        refused = [ln for ln in r.stdout.split("\n")                                # the G1 line, not "name taken"
+                   if ln.startswith("# WOULD REFUSE:") and not ln.startswith("# WOULD REFUSE: name ")]
+        if want:
+            assert len(refused) == 1 and all(s in refused[0] for s in want), r.stdout
+            assert "G1 PASS only" not in refused[0]                                  # the wrapper read the PASS
+        else:
+            assert refused == [], r.stdout                                            # the G1 PASS teacher passes
+
+
+def test_fx_distill_wrapper_g1_guard_on_fake_records(tmp_path):
+    """The wrapper's G1 guard (its `python -c` program, run here with this interpreter) on fake records, so every
+    refusal is read on any machine, a CI runner included: no G1 read or a non-PASS one -> "G1 PASS only"; a PASS read
+    for another teacher or another file, or a registry that disagrees -> refused; the PASS read's own TDR -> nothing."""
+    m = re.search(r"""^G1_WHY=\$\("\$PY" -I -B -c '(.*?)' "\$CD/results" "\$TEACHER" "\$CK"\)""",
+                  (SCRIPTS / "rsd_distill.sh").read_text(), re.M | re.S)
+    assert m, "rsd_distill.sh's G1 guard call changed shape"
+    ck = tmp_path / "model_100.pt"
+    ck.write_bytes(b"x")
+    sha = hashlib.sha256(b"x").hexdigest()
+    res = tmp_path / "results"
+    res.mkdir()
+
+    def why(name, g1, reg):
+        for f, d in (("g1.json", g1), ("policies.json", reg)):
+            (res / f).unlink(missing_ok=True)
+            if d is not None:
+                (res / f).write_text(json.dumps(d))
+        r = subprocess.run([sys.executable, "-I", "-B", "-c", m.group(1), str(res), name, str(ck)],
+                           capture_output=True, text=True, timeout=60)
+        assert r.returncode == 0, r.stderr
+        return r.stdout.strip()
+
+    reg = {"policies": {"TDR": {"sha256": sha}}}
+    g1 = {"verdict": "PASS", "policies": {"tdr": {"name": "TDR", "sha256": sha}}}
+    assert why("TDR", g1, reg) == ""                                                    # the G1 PASS teacher
+    assert "G1 PASS only" in why("TDR", None, reg)                                      # no G1 read yet
+    assert "G1 PASS only" in why("TDR", dict(g1, verdict="FAIL-STRESS"), reg)
+    assert why("", g1, reg) == "--teacher-policy is required"
+    assert "was read for TDR 'TDR', not 'TCTL'" in why("TCTL", g1, {"policies": {"TCTL": {"sha256": sha}}})
+    assert "!= the registry policy 'TDR'" in why("TDR", g1, {"policies": {"TDR": {"sha256": "0" * 64}}})
+    other = dict(g1, policies={"tdr": {"name": "TDR", "sha256": "0" * 64}})             # G1 read another file
+    assert why("TDR", other, reg) == f"sha256(--checkpoint) {sha[:8]} != results/g1.json TDR 00000000"
 
 
 _SWEEP_LR = Path("/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr")
