@@ -1,0 +1,246 @@
+{
+ "stage": "sh",
+ "halt_lines": [
+  "stand.D2.K4.miss es1 <= max(1, R_h's)",
+  "stand.D2.K4.miss es2 <= max(1, R_h's)",
+  "stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+  "stand.D2.K6.settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+  "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+  "stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+  "stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+  "stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+  "stand.D2.K5.G5.suite es1 |body height - REFS| <= 0.03",
+  "stand.D2.K5.G5.walkstop es1 |body height - REFS| <= 0.03",
+  "stand.D2.K5.G5.suite es2 |body height - REFS| <= 0.03",
+  "stand.D2.K5.G5.walkstop es2 |body height - REFS| <= 0.03"
+ ],
+ "body_height": {
+  "rule": "the user's 2026-11-09 11:53 decision: a failed body-height line re-anchors on the R and HOLD controls when each fails the same line against REFS; the head passes within the tolerance of each control (STAND_REPAIR.md section 4)",
+  "lines": [
+   {
+    "id": "stand.D2.K5.G5.suite es1 |body height - REFS| <= 0.03",
+    "key": "suite es1",
+    "tol": 0.03,
+    "head": 1.06478,
+    "refs": 1.12014,
+    "controls": {
+     "R": {
+      "height": 1.06478,
+      "refs": 1.12014,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": 0.0,
+      "head_within_tol": true
+     },
+     "HOLD": {
+      "height": 1.06478,
+      "refs": 1.12014,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": 0.0,
+      "head_within_tol": true
+     }
+    },
+    "reanchored": true
+   },
+   {
+    "id": "stand.D2.K5.G5.walkstop es1 |body height - REFS| <= 0.03",
+    "key": "walkstop es1",
+    "tol": 0.03,
+    "head": 1.06243,
+    "refs": 1.11912,
+    "controls": {
+     "R": {
+      "height": 1.06191,
+      "refs": 1.11912,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": 0.000520000000000076,
+      "head_within_tol": true
+     },
+     "HOLD": {
+      "height": 1.06399,
+      "refs": 1.11912,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": -0.0015600000000000058,
+      "head_within_tol": true
+     }
+    },
+    "reanchored": true
+   },
+   {
+    "id": "stand.D2.K5.G5.suite es2 |body height - REFS| <= 0.03",
+    "key": "suite es2",
+    "tol": 0.03,
+    "head": 1.06514,
+    "refs": 1.12045,
+    "controls": {
+     "R": {
+      "height": 1.06514,
+      "refs": 1.12045,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": 0.0,
+      "head_within_tol": true
+     },
+     "HOLD": {
+      "height": 1.06514,
+      "refs": 1.12045,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": 0.0,
+      "head_within_tol": true
+     }
+    },
+    "reanchored": true
+   },
+   {
+    "id": "stand.D2.K5.G5.walkstop es2 |body height - REFS| <= 0.03",
+    "key": "walkstop es2",
+    "tol": 0.03,
+    "head": 1.06213,
+    "refs": 1.11918,
+    "controls": {
+     "R": {
+      "height": 1.06245,
+      "refs": 1.11918,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": -0.00031999999999987594,
+      "head_within_tol": true
+     },
+     "HOLD": {
+      "height": 1.06409,
+      "refs": 1.11918,
+      "control_fails_same_line": true,
+      "same_refs": true,
+      "head_minus_control": -0.0019599999999999618,
+      "head_within_tol": true
+     }
+    },
+    "reanchored": true
+   }
+  ],
+  "covered": [
+   "stand.D2.K5.G5.suite es1 |body height - REFS| <= 0.03",
+   "stand.D2.K5.G5.walkstop es1 |body height - REFS| <= 0.03",
+   "stand.D2.K5.G5.suite es2 |body height - REFS| <= 0.03",
+   "stand.D2.K5.G5.walkstop es2 |body height - REFS| <= 0.03"
+  ]
+ },
+ "lazy_rh": {
+  "halt_lines": [
+   "stand.D2.K4.miss es1 <= max(1, R_h's)",
+   "stand.D2.K4.miss es2 <= max(1, R_h's)",
+   "stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)"
+  ],
+  "not_rh_derived": [
+   "stand.D2.K4.miss es1 <= max(1, R_h's)",
+   "stand.D2.K4.miss es2 <= max(1, R_h's)"
+  ],
+  "lines": [
+   {
+    "id": "stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+    "clause": "homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.8285110843490778,
+    "head": 0.74,
+    "control": 0.67,
+    "control_note": "n 100 vs R_h 0.670 n 100, SE 0.0665",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.5413920686738178,
+    "head_value_lazy": 0.74,
+    "head_passes_reanchored": true
+   },
+   {
+    "id": "stand.D2.K6.settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+    "clause": "settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.830501256289338,
+    "head": 0.76,
+    "control": 0.67,
+    "control_note": "n 100 vs R_h 0.670 n 100, SE 0.0665",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.5429567002947421,
+    "head_value_lazy": 0.76,
+    "head_passes_reanchored": true
+   },
+   {
+    "id": "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+    "clause": "homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.945,
+    "head": 0.885,
+    "control": 0.825,
+    "control_note": "n 200 vs R_h 0.825 n 200, SE 0.0380",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.7548359066188409,
+    "head_value_lazy": 0.885,
+    "head_passes_reanchored": true
+   },
+   {
+    "id": "stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+    "clause": "settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.945,
+    "head": 0.93,
+    "control": 0.83,
+    "control_note": "n 200 vs R_h 0.830 n 200, SE 0.0376",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.7657816225679906,
+    "head_value_lazy": 0.93,
+    "head_passes_reanchored": true
+   },
+   {
+    "id": "stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+    "clause": "homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.8844430014551702,
+    "head": 0.81,
+    "control": 0.66,
+    "control_note": "n 100 vs R_h 0.660 n 100, SE 0.0670",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.5369878054825458,
+    "head_value_lazy": 0.81,
+    "head_passes_reanchored": true
+   },
+   {
+    "id": "stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+    "clause": "settled share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.8859286017720651,
+    "head": 0.82,
+    "control": 0.66,
+    "control_note": "n 100 vs R_h 0.660 n 100, SE 0.0670",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.5380163945441848,
+    "head_value_lazy": 0.82,
+    "head_passes_reanchored": true
+   }
+  ],
+  "covered": [
+   "stand.D2.K6.homed share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.settled share bin1 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.settled share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.homed share bin1 es2 >= R_h's - max(0.05, 2 SE)",
+   "stand.D2.K6.settled share bin1 es2 >= R_h's - max(0.05, 2 SE)"
+  ],
+  "reanchored": false,
+  "rule": "DESIGN 3.6: if the control fails the same line, the line re-anchors on the control (walker-caused, decide-record-notify); otherwise HALT",
+  "control": "SH_RH_RSD_TDR",
+  "lazy_read": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/stand/sh_lazy_rh_read.json"
+ },
+ "remaining": [
+  "stand.D2.K4.miss es1 <= max(1, R_h's)",
+  "stand.D2.K4.miss es2 <= max(1, R_h's)"
+ ],
+ "reanchored": false,
+ "decided_at": "2026-11-09T17:17:25"
+}

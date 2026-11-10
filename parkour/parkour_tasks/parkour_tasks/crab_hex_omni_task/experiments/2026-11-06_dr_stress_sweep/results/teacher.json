@@ -1,0 +1,1866 @@
+{
+ "cells": {
+  "T01_rod_speed_0p7_L090": {
+   "term": "T01",
+   "level": 0.7,
+   "base": "L090",
+   "seeds": {
+    "1": {
+     "teacher": {
+      "es": 1,
+      "pass": false,
+      "n_lines": 18,
+      "failed": [
+       "field_light_completion",
+       "survival.diag"
+      ],
+      "lines": {
+       "survival.fwd": {
+        "value": 0.99,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.029110480610151646,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.13145882398507647,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.002408696963410284,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.79,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": false
+       },
+       "tracking.diag": {
+        "value": 0.22562453406172156,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.895,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9363098165258055,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.07222580909729,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.019850984617598273,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.03924431827548912,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.053007190852535,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.09450475736797313,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0792914628982544,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.59,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": false
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 0.99,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.79,
+       "turn": 1.0,
+       "move_turn": 0.895
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-07_14-21-40",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-07_14-28-58"
+      },
+      "launch_error": null
+     },
+     "student": {
+      "es": 1,
+      "pass": false,
+      "n_lines": 18,
+      "failed": [
+       "field_light_completion",
+       "survival.diag"
+      ],
+      "lines": {
+       "survival.fwd": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.04325913147290272,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.12953147197050185,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.00028820645804783496,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.83,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": false
+       },
+       "tracking.diag": {
+        "value": 0.24094939893443057,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.885,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9278031074249221,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.0823083619276683,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.01828070881645899,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.038850825370576714,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.043263560755943745,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.09521310569963537,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0777169267336528,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.58,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": false
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 1.0,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.83,
+       "turn": 1.0,
+       "move_turn": 0.885
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-07_00-05-04",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-07_00-12-26"
+      },
+      "launch_error": null
+     },
+     "teacher_deltas": {
+      "survival.fwd": {
+       "value": 0.99,
+       "delta": [
+        -0.010000000000000009
+       ],
+       "flag": false
+      },
+      "tracking.fwd": {
+       "value": 0.029110480610151646,
+       "delta": [
+        -0.0017031920761003683
+       ],
+       "flag": false
+      },
+      "survival.side": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.side": {
+       "value": 0.13145882398507647,
+       "delta": [
+        0.06567735376579842
+       ],
+       "flag": false
+      },
+      "survival.back": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.back": {
+       "value": 0.002408696963410284,
+       "delta": [
+        -0.01759401912205183
+       ],
+       "flag": false
+      },
+      "survival.diag": {
+       "value": 0.79,
+       "delta": [
+        -0.20999999999999996
+       ],
+       "flag": true
+      },
+      "tracking.diag": {
+       "value": 0.22562453406172156,
+       "delta": [
+        0.19263405646054732
+       ],
+       "flag": false
+      },
+      "survival.turn": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "survival.move_turn": {
+       "value": 0.895,
+       "delta": [
+        -0.10499999999999998
+       ],
+       "flag": true
+      },
+      "turn_fc.turn": {
+       "value": 0.9363098165258055,
+       "delta": [
+        -0.05024465663147737
+       ],
+       "flag": false
+      },
+      "h_meas.suite": {
+       "value": 1.07222580909729,
+       "delta": [
+        -0.012833068768183464
+       ],
+       "flag": false
+      },
+      "roll_rms.suite": {
+       "value": 0.019850984617598273,
+       "delta": [
+        0.0013254218495130816
+       ],
+       "flag": false
+      },
+      "roll_rms.field_light": {
+       "value": 0.03924431827548912,
+       "delta": [
+        0.009818432081833736
+       ],
+       "flag": false
+      },
+      "pitch_rms.suite": {
+       "value": 0.053007190852535,
+       "delta": [
+        0.018423514973425745
+       ],
+       "flag": false
+      },
+      "pitch_rms.field_light": {
+       "value": 0.09450475736797313,
+       "delta": [
+        0.02450027531800232
+       ],
+       "flag": false
+      },
+      "h_meas.field_light": {
+       "value": 1.0792914628982544,
+       "delta": [
+        -0.009326130151748657
+       ],
+       "flag": false
+      },
+      "field_light_completion": {
+       "value": 0.59,
+       "delta": [
+        -0.39
+       ],
+       "flag": true
+      }
+     }
+    },
+    "2": {
+     "teacher": {
+      "es": 2,
+      "pass": false,
+      "n_lines": 18,
+      "failed": [
+       "field_light_completion",
+       "survival.diag"
+      ],
+      "lines": {
+       "survival.fwd": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.01872676165384224,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.12752842600616998,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.004104258390275506,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.79,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": false
+       },
+       "tracking.diag": {
+        "value": 0.2489838997446958,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.93,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9332323177429775,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.0727989375591278,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.019530181646086386,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.041098807236408505,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.05084492059736444,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.09645270697958466,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0789817670981088,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.61,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": false
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 1.0,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.79,
+       "turn": 1.0,
+       "move_turn": 0.93
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p7_L090/suite__omni/seed002/2026-11-07_14-32-31",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p7_L090/field_light__omni/seed002/2026-11-07_14-39-51"
+      },
+      "launch_error": null
+     },
+     "student": {
+      "es": 2,
+      "pass": false,
+      "n_lines": 18,
+      "failed": [
+       "field_light_completion",
+       "survival.diag"
+      ],
+      "lines": {
+       "survival.fwd": {
+        "value": 0.99,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.05121433681188492,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.13626961872628662,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 2.1183109054634386e-05,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.87,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": false
+       },
+       "tracking.diag": {
+        "value": 0.2437287730556259,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.9,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9286573913457575,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.0806057751178741,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.01798508843640718,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.03882185608681728,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.04914904774377489,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.09424298347455383,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0786737004915874,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.66,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": false
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 0.99,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.87,
+       "turn": 1.0,
+       "move_turn": 0.9
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p7_L090/suite__omni/seed002/2026-11-07_09-08-10",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p7_L090/field_light__omni/seed002/2026-11-07_09-15-43"
+      },
+      "launch_error": null
+     },
+     "teacher_deltas": {
+      "survival.fwd": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.fwd": {
+       "value": 0.01872676165384224,
+       "delta": [
+        -0.011622934361270154
+       ],
+       "flag": false
+      },
+      "survival.side": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.side": {
+       "value": 0.12752842600616998,
+       "delta": [
+        0.06344375383813561
+       ],
+       "flag": false
+      },
+      "survival.back": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.back": {
+       "value": 0.004104258390275506,
+       "delta": [
+        -0.01650924932868225
+       ],
+       "flag": false
+      },
+      "survival.diag": {
+       "value": 0.79,
+       "delta": [
+        -0.20999999999999996
+       ],
+       "flag": true
+      },
+      "tracking.diag": {
+       "value": 0.2489838997446958,
+       "delta": [
+        0.2176806112734233
+       ],
+       "flag": false
+      },
+      "survival.turn": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "survival.move_turn": {
+       "value": 0.93,
+       "delta": [
+        -0.06999999999999995
+       ],
+       "flag": true
+      },
+      "turn_fc.turn": {
+       "value": 0.9332323177429775,
+       "delta": [
+        -0.05530155913041446
+       ],
+       "flag": false
+      },
+      "h_meas.suite": {
+       "value": 1.0727989375591278,
+       "delta": [
+        -0.01153336962064122
+       ],
+       "flag": false
+      },
+      "roll_rms.suite": {
+       "value": 0.019530181646086386,
+       "delta": [
+        0.0011896195562387246
+       ],
+       "flag": false
+      },
+      "roll_rms.field_light": {
+       "value": 0.041098807236408505,
+       "delta": [
+        0.011483599508611261
+       ],
+       "flag": false
+      },
+      "pitch_rms.suite": {
+       "value": 0.05084492059736444,
+       "delta": [
+        0.018637210982139774
+       ],
+       "flag": false
+      },
+      "pitch_rms.field_light": {
+       "value": 0.09645270697958466,
+       "delta": [
+        0.026246793509679095
+       ],
+       "flag": false
+      },
+      "h_meas.field_light": {
+       "value": 1.0789817670981088,
+       "delta": [
+        -0.009570986032485962
+       ],
+       "flag": false
+      },
+      "field_light_completion": {
+       "value": 0.61,
+       "delta": [
+        -0.35
+       ],
+       "flag": true
+      }
+     }
+    }
+   }
+  },
+  "T01_rod_speed_0p8_L090": {
+   "term": "T01",
+   "level": 0.8,
+   "base": "L090",
+   "seeds": {
+    "1": {
+     "teacher": {
+      "es": 1,
+      "pass": true,
+      "n_lines": 18,
+      "failed": [],
+      "lines": {
+       "survival.fwd": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.012198833024670952,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.048773343116006895,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.01197152554671943,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.98,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.diag": {
+        "value": 0.06256687916680437,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.99,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9668927460909155,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.0783711870511374,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.01859858029111105,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.03280347779066972,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.045306889941037286,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.0783493394705077,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0839477280775707,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.87,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 1.0,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.98,
+       "turn": 1.0,
+       "move_turn": 0.99
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p8_L090/suite__omni/seed001/2026-11-07_14-43-27",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p8_L090/field_light__omni/seed001/2026-11-07_14-50-41"
+      },
+      "launch_error": null
+     },
+     "student": {
+      "es": 1,
+      "pass": false,
+      "n_lines": 18,
+      "failed": [
+       "field_light_completion"
+      ],
+      "lines": {
+       "survival.fwd": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.005254835032133975,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.05827802457728515,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.005996058671764004,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.98,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.diag": {
+        "value": 0.06486437997404138,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.99,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.944623317481406,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.083606739838918,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.017544176873325254,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.03322460912922391,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.03827898608723015,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.07915937612095578,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0823176801204681,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.76,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": false
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 1.0,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.98,
+       "turn": 1.0,
+       "move_turn": 0.99
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p8_L090/suite__omni/seed001/2026-11-07_00-16-02",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p8_L090/field_light__omni/seed001/2026-11-07_00-23-23"
+      },
+      "launch_error": null
+     },
+     "teacher_deltas": {
+      "survival.fwd": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.fwd": {
+       "value": 0.012198833024670952,
+       "delta": [
+        -0.018614839661581062
+       ],
+       "flag": false
+      },
+      "survival.side": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.side": {
+       "value": 0.048773343116006895,
+       "delta": [
+        -0.017008127103271153
+       ],
+       "flag": false
+      },
+      "survival.back": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.back": {
+       "value": 0.01197152554671943,
+       "delta": [
+        -0.008031190538742683
+       ],
+       "flag": false
+      },
+      "survival.diag": {
+       "value": 0.98,
+       "delta": [
+        -0.020000000000000018
+       ],
+       "flag": false
+      },
+      "tracking.diag": {
+       "value": 0.06256687916680437,
+       "delta": [
+        0.029576401565630128
+       ],
+       "flag": false
+      },
+      "survival.turn": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "survival.move_turn": {
+       "value": 0.99,
+       "delta": [
+        -0.010000000000000009
+       ],
+       "flag": false
+      },
+      "turn_fc.turn": {
+       "value": 0.9668927460909155,
+       "delta": [
+        -0.019661727066367374
+       ],
+       "flag": false
+      },
+      "h_meas.suite": {
+       "value": 1.0783711870511374,
+       "delta": [
+        -0.006687690814336067
+       ],
+       "flag": false
+      },
+      "roll_rms.suite": {
+       "value": 0.01859858029111105,
+       "delta": [
+        7.301752302585687e-05
+       ],
+       "flag": false
+      },
+      "roll_rms.field_light": {
+       "value": 0.03280347779066972,
+       "delta": [
+        0.00337759159701434
+       ],
+       "flag": false
+      },
+      "pitch_rms.suite": {
+       "value": 0.045306889941037286,
+       "delta": [
+        0.010723214061928034
+       ],
+       "flag": false
+      },
+      "pitch_rms.field_light": {
+       "value": 0.0783493394705077,
+       "delta": [
+        0.008344857420536894
+       ],
+       "flag": false
+      },
+      "h_meas.field_light": {
+       "value": 1.0839477280775707,
+       "delta": [
+        -0.00466986497243238
+       ],
+       "flag": false
+      },
+      "field_light_completion": {
+       "value": 0.87,
+       "delta": [
+        -0.10999999999999999
+       ],
+       "flag": true
+      }
+     }
+    },
+    "2": {
+     "teacher": {
+      "es": 2,
+      "pass": false,
+      "n_lines": 18,
+      "failed": [
+       "field_light_completion"
+      ],
+      "lines": {
+       "survival.fwd": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.015287599710119615,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.047401214741604525,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.008928558079934756,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.99,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.diag": {
+        "value": 0.06237112068022488,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9652283983668549,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.078239381313324,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.018886914723565008,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.034044248419427575,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.04580906367075381,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.08035954549840132,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.0836109121640525,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.84,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": false
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 1.0,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.99,
+       "turn": 1.0,
+       "move_turn": 1.0
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p8_L090/suite__omni/seed002/2026-11-07_14-54-19",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T01_rod_speed_0p8_L090/field_light__omni/seed002/2026-11-07_15-01-34"
+      },
+      "launch_error": null
+     },
+     "student": {
+      "es": 2,
+      "pass": true,
+      "n_lines": 18,
+      "failed": [],
+      "lines": {
+       "survival.fwd": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.fwd": {
+        "value": 0.006748368285636186,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.side": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.side": {
+        "value": 0.06147052394542851,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.back": {
+        "value": 1.0,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.back": {
+        "value": 0.004880521964234497,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.diag": {
+        "value": 0.99,
+        "line": 0.9,
+        "direction": ">=",
+        "pass": true
+       },
+       "tracking.diag": {
+        "value": 0.06725715494823192,
+        "line": 0.25,
+        "direction": "<=",
+        "pass": true
+       },
+       "survival.turn": {
+        "value": 1.0,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "survival.move_turn": {
+        "value": 0.995,
+        "line": 0.885,
+        "direction": ">=",
+        "pass": true
+       },
+       "turn_fc.turn": {
+        "value": 0.9484320511191411,
+        "line": 0.8,
+        "direction": ">=",
+        "pass": true
+       },
+       "h_meas.suite": {
+        "value": 1.083281695842743,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "roll_rms.suite": {
+        "value": 0.0174024055147596,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "roll_rms.field_light": {
+        "value": 0.032614395613121544,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.suite": {
+        "value": 0.035651585363643865,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "pitch_rms.field_light": {
+        "value": 0.07648273589071303,
+        "line": 0.1,
+        "direction": "<=",
+        "pass": true
+       },
+       "h_meas.field_light": {
+        "value": 1.082814266284307,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       },
+       "field_light_completion": {
+        "value": 0.85,
+        "line": 0.85,
+        "direction": ">=",
+        "pass": true
+       }
+      },
+      "survival_all": {
+       "stand": 1.0,
+       "fwd": 1.0,
+       "side": 1.0,
+       "back": 1.0,
+       "diag": 0.99,
+       "turn": 1.0,
+       "move_turn": 0.995
+      },
+      "lenient_feasible": true,
+      "stamps": {
+       "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p8_L090/suite__omni/seed002/2026-11-07_09-19-21",
+       "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRS_T01_rod_speed_0p8_L090/field_light__omni/seed002/2026-11-07_09-26-52"
+      },
+      "launch_error": null
+     },
+     "teacher_deltas": {
+      "survival.fwd": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.fwd": {
+       "value": 0.015287599710119615,
+       "delta": [
+        -0.015062096304992778
+       ],
+       "flag": false
+      },
+      "survival.side": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.side": {
+       "value": 0.047401214741604525,
+       "delta": [
+        -0.01668345742642985
+       ],
+       "flag": false
+      },
+      "survival.back": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "tracking.back": {
+       "value": 0.008928558079934756,
+       "delta": [
+        -0.011684949639023001
+       ],
+       "flag": false
+      },
+      "survival.diag": {
+       "value": 0.99,
+       "delta": [
+        -0.010000000000000009
+       ],
+       "flag": false
+      },
+      "tracking.diag": {
+       "value": 0.06237112068022488,
+       "delta": [
+        0.031067832208952373
+       ],
+       "flag": false
+      },
+      "survival.turn": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "survival.move_turn": {
+       "value": 1.0,
+       "delta": [
+        0.0
+       ],
+       "flag": false
+      },
+      "turn_fc.turn": {
+       "value": 0.9652283983668549,
+       "delta": [
+        -0.02330547850653708
+       ],
+       "flag": false
+      },
+      "h_meas.suite": {
+       "value": 1.078239381313324,
+       "delta": [
+        -0.006092925866445054
+       ],
+       "flag": false
+      },
+      "roll_rms.suite": {
+       "value": 0.018886914723565008,
+       "delta": [
+        0.0005463526337173459
+       ],
+       "flag": false
+      },
+      "roll_rms.field_light": {
+       "value": 0.034044248419427575,
+       "delta": [
+        0.0044290406916303315
+       ],
+       "flag": false
+      },
+      "pitch_rms.suite": {
+       "value": 0.04580906367075381,
+       "delta": [
+        0.013601354055529147
+       ],
+       "flag": false
+      },
+      "pitch_rms.field_light": {
+       "value": 0.08035954549840132,
+       "delta": [
+        0.010153632028495757
+       ],
+       "flag": false
+      },
+      "h_meas.field_light": {
+       "value": 1.0836109121640525,
+       "delta": [
+        -0.004941840966542266
+       ],
+       "flag": false
+      },
+      "field_light_completion": {
+       "value": 0.84,
+       "delta": [
+        -0.12
+       ],
+       "flag": true
+      }
+     }
+    }
+   }
+  }
+ },
+ "nominal": {
+  "L090@1": {
+   "es": 1,
+   "pass": true,
+   "n_lines": 18,
+   "failed": [],
+   "lines": {
+    "survival.fwd": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.fwd": {
+     "value": 0.030813672686252014,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.side": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.side": {
+     "value": 0.06578147021927805,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.back": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.back": {
+     "value": 0.020002716085462113,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.diag": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.diag": {
+     "value": 0.03299047760117424,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.turn": {
+     "value": 1.0,
+     "line": 0.885,
+     "direction": ">=",
+     "pass": true
+    },
+    "survival.move_turn": {
+     "value": 1.0,
+     "line": 0.885,
+     "direction": ">=",
+     "pass": true
+    },
+    "turn_fc.turn": {
+     "value": 0.9865544731572828,
+     "line": 0.8,
+     "direction": ">=",
+     "pass": true
+    },
+    "h_meas.suite": {
+     "value": 1.0850588778654735,
+     "line": 0.85,
+     "direction": ">=",
+     "pass": true
+    },
+    "roll_rms.suite": {
+     "value": 0.01852556276808519,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "roll_rms.field_light": {
+     "value": 0.02942588619365538,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "pitch_rms.suite": {
+     "value": 0.03458367587910925,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "pitch_rms.field_light": {
+     "value": 0.07000448204997081,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "h_meas.field_light": {
+     "value": 1.088617593050003,
+     "line": 0.85,
+     "direction": ">=",
+     "pass": true
+    },
+    "field_light_completion": {
+     "value": 0.98,
+     "line": 0.85,
+     "direction": ">=",
+     "pass": true
+    }
+   },
+   "survival_all": {
+    "stand": 1.0,
+    "fwd": 1.0,
+    "side": 1.0,
+    "back": 1.0,
+    "diag": 1.0,
+    "turn": 1.0,
+    "move_turn": 1.0
+   },
+   "lenient_feasible": true,
+   "stamps": {
+    "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T00_nominal_L090_A/suite__omni/seed001/2026-11-07_13-59-53",
+    "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T00_nominal_L090_A/field_light__omni/seed001/2026-11-07_14-07-10"
+   },
+   "launch_error": null
+  },
+  "L090@2": {
+   "es": 2,
+   "pass": true,
+   "n_lines": 18,
+   "failed": [],
+   "lines": {
+    "survival.fwd": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.fwd": {
+     "value": 0.030349696015112393,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.side": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.side": {
+     "value": 0.06408467216803437,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.back": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.back": {
+     "value": 0.020613507718957758,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.diag": {
+     "value": 1.0,
+     "line": 0.9,
+     "direction": ">=",
+     "pass": true
+    },
+    "tracking.diag": {
+     "value": 0.031303288471272506,
+     "line": 0.25,
+     "direction": "<=",
+     "pass": true
+    },
+    "survival.turn": {
+     "value": 1.0,
+     "line": 0.885,
+     "direction": ">=",
+     "pass": true
+    },
+    "survival.move_turn": {
+     "value": 1.0,
+     "line": 0.885,
+     "direction": ">=",
+     "pass": true
+    },
+    "turn_fc.turn": {
+     "value": 0.988533876873392,
+     "line": 0.8,
+     "direction": ">=",
+     "pass": true
+    },
+    "h_meas.suite": {
+     "value": 1.084332307179769,
+     "line": 0.85,
+     "direction": ">=",
+     "pass": true
+    },
+    "roll_rms.suite": {
+     "value": 0.018340562089847662,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "roll_rms.field_light": {
+     "value": 0.029615207727797244,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "pitch_rms.suite": {
+     "value": 0.032207709615224664,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "pitch_rms.field_light": {
+     "value": 0.07020591346990557,
+     "line": 0.1,
+     "direction": "<=",
+     "pass": true
+    },
+    "h_meas.field_light": {
+     "value": 1.0885527531305947,
+     "line": 0.85,
+     "direction": ">=",
+     "pass": true
+    },
+    "field_light_completion": {
+     "value": 0.96,
+     "line": 0.85,
+     "direction": ">=",
+     "pass": true
+    }
+   },
+   "survival_all": {
+    "stand": 1.0,
+    "fwd": 1.0,
+    "side": 1.0,
+    "back": 1.0,
+    "diag": 1.0,
+    "turn": 1.0,
+    "move_turn": 1.0
+   },
+   "lenient_feasible": true,
+   "stamps": {
+    "suite": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T00_nominal_L090_A/suite__omni/seed002/2026-11-07_14-10-49",
+    "field_light": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/dr_stress/lr/DRST_T00_nominal_L090_A/field_light__omni/seed002/2026-11-07_14-18-02"
+   },
+   "launch_error": null
+  }
+ }
+}

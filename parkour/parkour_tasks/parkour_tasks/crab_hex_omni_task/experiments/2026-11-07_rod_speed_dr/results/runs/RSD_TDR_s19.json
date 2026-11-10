@@ -1,0 +1,695 @@
+{
+ "name": "RSD_TDR_s19",
+ "arm": "dr",
+ "created": "2026-11-07T19:49:36",
+ "launcher_argv": [
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/scripts/rsd_train.py",
+  "--arm",
+  "dr",
+  "--name",
+  "RSD_TDR_s19",
+  "--checkpoint",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+  "--env-file",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/p3b.distill.env",
+  "--wait-idle"
+ ],
+ "cli": {
+  "arm": "dr",
+  "name": "RSD_TDR_s19",
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+  "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/p3b.distill.env",
+  "dr": "0.6:1.35:12000",
+  "iterations": 3000,
+  "num_envs": 256,
+  "seed": 19,
+  "timeout_s": 14400,
+  "expect_counter": null,
+  "wait_idle": true,
+  "dry_run": false,
+  "preflight_only": false
+ },
+ "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+ "experiment": "crab_hex_omni_teacher",
+ "trainer_argv": [
+  "/home/nickmagus/krabby/isaac_venv/bin/python",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl/train.py",
+  "--task",
+  "Isaac-Crab-Hex-Omni-Teacher-v0",
+  "--headless",
+  "--num_envs",
+  "256",
+  "--seed",
+  "19",
+  "--max_iterations",
+  "3000",
+  "--resume",
+  "--checkpoint",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+  "--run_name",
+  "RSD_TDR_s19"
+ ],
+ "wrapper_argv": [
+  "systemd-run",
+  "--user",
+  "--scope",
+  "-q",
+  "--unit=rsd-train-RSD_TDR_s19-1794098975",
+  "-p",
+  "MemoryMax=48G",
+  "-p",
+  "MemorySwapMax=0",
+  "timeout",
+  "--signal=TERM",
+  "14400",
+  "/home/nickmagus/krabby/isaac_venv/bin/python",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl/train.py",
+  "--task",
+  "Isaac-Crab-Hex-Omni-Teacher-v0",
+  "--headless",
+  "--num_envs",
+  "256",
+  "--seed",
+  "19",
+  "--max_iterations",
+  "3000",
+  "--resume",
+  "--checkpoint",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+  "--run_name",
+  "RSD_TDR_s19"
+ ],
+ "cwd": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour",
+ "unit": "rsd-train-RSD_TDR_s19-1794098975",
+ "log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/train/RSD_TDR_s19.log",
+ "env_path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/envs/RSD_TDR_s19.train.env",
+ "env": {
+  "krabby": {
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_RATE_W": "-0.05",
+   "KRABBY_APEX_W": "0.001",
+   "KRABBY_CLOCK_W": "0.001",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_FIELD_BLOCKS": "14:28",
+   "KRABBY_FIELD_EDGES": "wall",
+   "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+   "KRABBY_FIELD_PAD_R": "1.7",
+   "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+   "KRABBY_FLAT_TERRAIN_GEOM": "field",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_OMNI_CLOCK_HIDE": "1",
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:1.2",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_OMNI_PHASE": "2a",
+   "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_PAYLOAD_COM_XY": "0.10",
+   "KRABBY_PAYLOAD_COM_Z": "0.309",
+   "KRABBY_PAYLOAD_KG": "0:180",
+   "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+   "KRABBY_PHASEOUT": "",
+   "KRABBY_PLANT": "A15+B",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+   "KRABBY_YAW_W": "0.2",
+   "KRABBY_DR_ROD_SPEED": "0.6:1.35:12000"
+  },
+  "added": {
+   "OMNI_KIT_ACCEPT_EULA": "yes",
+   "TERM": "xterm",
+   "PYTHONUNBUFFERED": "1",
+   "PYTHONPATH": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour"
+  },
+  "base_keys": [
+   "DBUS_SESSION_BUS_ADDRESS",
+   "DEBUGINFOD_URLS",
+   "DESKTOP_SESSION",
+   "DISPLAY",
+   "GDMSESSION",
+   "GNOME_DESKTOP_SESSION_ID",
+   "GNOME_SHELL_SESSION_MODE",
+   "GPG_AGENT_INFO",
+   "GSM_SKIP_SSH_AGENT_WORKAROUND",
+   "GTK_MODULES",
+   "HOME",
+   "LANG",
+   "LOGNAME",
+   "PATH",
+   "PWD",
+   "QTWEBENGINE_DICTIONARIES_PATH",
+   "QT_ACCESSIBILITY",
+   "QT_IM_MODULE",
+   "SESSION_MANAGER",
+   "SHELL",
+   "SHLVL",
+   "SSH_AUTH_SOCK",
+   "USER",
+   "USERNAME",
+   "WINDOWPATH",
+   "XAUTHORITY",
+   "XDG_CONFIG_DIRS",
+   "XDG_CURRENT_DESKTOP",
+   "XDG_DATA_DIRS",
+   "XDG_MENU_PREFIX",
+   "XDG_RUNTIME_DIR",
+   "XDG_SESSION_CLASS",
+   "XDG_SESSION_DESKTOP",
+   "XDG_SESSION_TYPE",
+   "XMODIFIERS"
+  ],
+  "dropped_from_base": [],
+  "full_env_sha256": "ddcc3e7368c2c8ec8e08c361f807b26bae3f6d413754590807df59d4c220cc95"
+ },
+ "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+ "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+ "head": "1682e2e1c9f1412a6dd4f0026b96868bb8578ca3",
+ "file_hashes": {
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl/train.py": "376c3dd842ea5f483a924fdf44879b4aa8c4b200222cb33285be8c037139c162",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py": "90cb0e7834a88e06ca5cb6b08c50708e55a9c794c9aebd6e07602ac22ec58394",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/parkour_actions.py": "b5962de5a6faa78f52532ec8c1787e6143d3dac58317740b89fa3a689fcfd51a",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/dr_knobs.py": "6a76867170459ebbf9670f41e633474e848a1fb3df1b38728036f9f5a79c0606",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/omni_knobs.py": "fccdf9f1060291b9a504465ca06245fcb944ba8ffad60916b3d4688ac5397bdd",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/stress_knobs.py": "20fd2bc091b4a76e38ad3bb8d0b00c01674230edf3197a0369cbd4e137e62d70",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/run_phases.py": "f10c72f9d3f72897157d419bb923a0e7fcada10730b8db69ba79cae34641533e",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline/distill.sh": "89fe0c6ed818afc61142c33f55fd1a7586571e932a945982cedce4d11b8b5721",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/scripts/rsd_train.py": "d6784f8448d62415aebf99f0a4f1f56216d0c980d10f391a2567947d306b1f9c",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/scripts/rsd_launch.py": "5f96d2b85d63eb3ca957796700073aef18127228ded3c53eff50798a3b211051",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/p3b.distill.env": "b0dbeb5007d3602875d59d9d0ea4012e087897cc33911c4e1235a18cb2b13bcc",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt": "03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7",
+  "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/orchestrator.log": "b8a4627b9f12b3868b868434bd2a4786daaf696ce3aa587d627ff83886d3f5c2",
+  "/home/nickmagus/krabby/krabby-research/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/logs/seed19_X08_p3b_A15pB_train.log": "f9b3a95e595dc17c702e456b89c9738b21689762426e0d19040c3410c7c3f58f",
+  "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/params/env.yaml": "de35cd9a7c7ee3992b9e691c5ae164c76e310d7c1ba4b369b0c2456f0950dafa",
+  "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_11-14-00_seed19_X08_p3b_A15pB/params/agent.yaml": "58abc308ec6a5ac88a8f62b0ced4f6acd5d5eb8a2c9d3ce8bb8a2b5202475372"
+ },
+ "preflight": {
+  "PF1": {
+   "id": "PF1",
+   "ok": true,
+   "detail": "clean; code_sha de3772e26a3e = pin; eval_sha 9fe964d7",
+   "data": {
+    "code_state": {
+     "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+     "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+     "dirty": [],
+     "repo": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep"
+    },
+    "pin": {
+     "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+     "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+     "head": "1682e2e1c9f1412a6dd4f0026b96868bb8578ca3",
+     "pinned_at": "2026-11-07T17:38:33"
+    }
+   }
+  },
+  "PF2": {
+   "id": "PF2",
+   "ok": true,
+   "detail": "every module resolves under the worktree",
+   "data": {
+    "sys_path": [
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour",
+     "/usr/lib/python311.zip",
+     "/usr/lib/python3.11"
+    ],
+    "modules": {
+     "parkour_tasks": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "locations": [
+       "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks"
+      ]
+     },
+     "parkour_tasks.crab_hex_forward_task.mdp.parkour_actions": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/parkour_actions.py",
+      "locations": []
+     },
+     "parkour_tasks.crab_hex_forward_task.mdp.rod_speed_dr": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py",
+      "locations": []
+     },
+     "parkour_tasks.crab_hex_omni_task.config.crab_hex.omni_knobs": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/omni_knobs.py",
+      "locations": []
+     },
+     "parkour_tasks.crab_hex_omni_task.config.crab_hex.dr_knobs": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/dr_knobs.py",
+      "locations": []
+     },
+     "scripts.rsl_rl.runner_factory": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl/runner_factory.py",
+      "locations": []
+     },
+     "scripts.rsl_rl.modules.on_policy_runner_with_extractor": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl/modules/on_policy_runner_with_extractor.py",
+      "locations": []
+     },
+     "parkour_isaaclab": {
+      "origin": null,
+      "locations": [
+       "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_isaaclab",
+       "/home/nickmagus/krabby/krabby-research/parkour/parkour_isaaclab"
+      ]
+     },
+     "parkour_isaaclab.envs": {
+      "origin": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_isaaclab/envs/__init__.py",
+      "locations": [
+       "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_isaaclab/envs"
+      ]
+     }
+    }
+   }
+  },
+  "PF3": {
+   "id": "PF3",
+   "ok": true,
+   "detail": "sha 03b6009a iter 25992 counter 27300 lr 1.5e-05 (= T* f19_8_p3b_payload180/model_25992)",
+   "data": {
+    "facts": {
+     "path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+     "sha256": "03b6009a6e952133f6c21c36c8d315b76f945d431615ef6d6798b7f4a5f59fc7",
+     "iter": 25992,
+     "file_iter": 25992,
+     "counter": 27300,
+     "learning_rate": 1.5000000000000005e-05
+    },
+    "known": {
+     "label": "T* f19_8_p3b_payload180/model_25992",
+     "iter": 25992,
+     "counter": 27300,
+     "learning_rate": 1.5e-05,
+     "tstar": true
+    },
+    "expected": {
+     "loading": "[INFO]: Loading model checkpoint from: /home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+     "restored": "[INFO]: Restored algorithm state: counter 27300, learning_rate 1.5e-05",
+     "first_title": "Learning iteration 25992/28992",
+     "final_ckpt": "model_28991.pt"
+    }
+   }
+  },
+  "PF4": {
+   "id": "PF4",
+   "ok": true,
+   "detail": "env file sha b0dbeb5007d3; 34 KRABBY_* keys = p3b's 33 + the DR key",
+   "data": {
+    "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/p3b.distill.env",
+    "env_file_sha256": "b0dbeb5007d3602875d59d9d0ea4012e087897cc33911c4e1235a18cb2b13bcc",
+    "n_keys": 34
+   }
+  },
+  "PF5": {
+   "id": "PF5",
+   "ok": true,
+   "detail": "argv = run_phases template; cwd /home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour",
+   "data": {
+    "argv": [
+     "/home/nickmagus/krabby/isaac_venv/bin/python",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/scripts/rsl_rl/train.py",
+     "--task",
+     "Isaac-Crab-Hex-Omni-Teacher-v0",
+     "--headless",
+     "--num_envs",
+     "256",
+     "--seed",
+     "19",
+     "--max_iterations",
+     "3000",
+     "--resume",
+     "--checkpoint",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+     "--run_name",
+     "RSD_TDR_s19"
+    ],
+    "cwd": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour"
+   }
+  },
+  "PF6": {
+   "id": "PF6",
+   "ok": true,
+   "detail": "lo 0.6 hi 1.35 ramp_steps 12000 = 500 iterations at 24 steps/iteration",
+   "data": {
+    "spec": {
+     "lo": 0.6,
+     "hi": 1.35,
+     "ramp_steps": 12000
+    },
+    "knob_line": "[KNOB] KRABBY_DR_ROD_SPEED=0.6:1.35:12000 -> actions.joint_pos.rod_speed_dr = {'lo': 0.6, 'hi': 1.35, 'ramp_steps': 12000} (per-env rod slew x U(0.6, 1.35) redrawn at each env reset, lo ramps 1 -> 0.6 over 12000 env steps)",
+    "ramp_iterations": 500.0,
+    "steps_per_iteration": 24
+   }
+  },
+  "PF7": {
+   "id": "PF7",
+   "ok": true,
+   "detail": "seed 125822752223351 n 256 bounds [1, 1.35] min/mean/max 1.0051/1.1776/1.3496 q10/q50/q90 1.0299/1.1791/1.3219 sha16 fbb1c962f71c03f3",
+   "data": {
+    "line": "[DR] rod_speed n=256 step=0 bounds=[1, 1.35] (lo=0.6 hi=1.35 ramp_steps=12000) seed=125822752223351 min/mean/max 1.0051/1.1776/1.3496 sha16=fbb1c962f71c03f3 module=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py",
+    "lines": [
+     "[DR] rod_speed n=256 step=0 bounds=[1, 1.35] (lo=0.6 hi=1.35 ramp_steps=12000) seed=125822752223351 min/mean/max 1.0051/1.1776/1.3496 sha16=fbb1c962f71c03f3 module=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py"
+    ],
+    "seed": 125822752223351,
+    "env_seed": 19,
+    "num_envs": 256,
+    "step": 0,
+    "lo_eff": 1.0,
+    "hi": 1.35,
+    "min": 1.0050772428512573,
+    "mean": 1.1775994300842285,
+    "max": 1.3495527505874634,
+    "q10": 1.029896855354309,
+    "q50": 1.1790695190429688,
+    "q90": 1.3219138383865356,
+    "sha16": "fbb1c962f71c03f3",
+    "module": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py"
+   }
+  },
+  "PF8": {
+   "id": "PF8",
+   "ok": true,
+   "detail": "name free; guard ok (free 161 GB, DDC 73 GB); not busy",
+   "data": {
+    "existing": [],
+    "guard": {
+     "free_gb": {
+      "/home/nickmagus/krabby/krabby-research": 161.4,
+      "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep": 161.4
+     },
+     "ddc_gb": 73.0,
+     "free_min_gb": 30.0,
+     "ddc_max_gb": 78.0,
+     "problems": []
+    },
+    "busy": [],
+    "guard_problems": []
+   }
+  }
+ },
+ "expected_inrun": {
+  "loading": "[INFO]: Loading model checkpoint from: /home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+  "restored": "[INFO]: Restored algorithm state: counter 27300, learning_rate 1.5e-05",
+  "first_title": "Learning iteration 25992/28992",
+  "final_ckpt": "model_28991.pt",
+  "knob_lines": [
+   "[omni-knobs] parkours.base_parkour.clear_radius_m (2.0) did not match the terrain's clear_radius (1.7); syncing to the terrain (field geometry).",
+   "[omni-knobs] parkours.base_parkour.ring_outer_radius_m (4.5) did not match the terrain's ring_outer_radius (4.8); syncing to the terrain (field geometry).",
+   "[KNOB] KRABBY_PAYLOAD_KG=0:180 kg zero_frac=0.25 com_xy=+-0.1 m com_z=0.309 m -> events.payload_reset (box (0.7112, 1.2192, 0.3) m, absolute composite on the post-DR base at every reset)",
+   "[KNOB] KRABBY_ENTROPY_COEF=0.0025 consumed",
+   "[KNOB] KRABBY_ACTION_BOUND_LOSS=0.001 consumed",
+   "[KNOB] KRABBY_ACTION_BOUND_RAMP=0.0001:0.001:500 consumed",
+   "[KNOB] KRABBY_ACTION_BOUND=1.1 consumed",
+   "[KNOB] KRABBY_STD_PARAM=soft consumed",
+   "[KNOB] KRABBY_INIT_STD=0.8 consumed",
+   "[KNOB] KRABBY_PPO_HAND_DIAG=1 consumed",
+   "[KNOB] KRABBY_DR_ROD_SPEED=0.6:1.35:12000 -> actions.joint_pos.rod_speed_dr = {'lo': 0.6, 'hi': 1.35, 'ramp_steps': 12000} (per-env rod slew x U(0.6, 1.35) redrawn at each env reset, lo ramps 1 -> 0.6 over 12000 env steps)"
+  ],
+  "dr_line": "[DR] rod_speed n=256 step=0 bounds=[1, 1.35] (lo=0.6 hi=1.35 ramp_steps=12000) seed=125822752223351 min/mean/max 1.0051/1.1776/1.3496 sha16=fbb1c962f71c03f3 module=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py",
+  "run_dir_glob": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/<ts>_RSD_TDR_s19"
+ },
+ "status": "ok",
+ "launched": "2026-11-07T19:49:36",
+ "launcher_child_pid": 735926,
+ "preflight_inrun": [
+  {
+   "id": "PF9",
+   "ok": true,
+   "detail": "checkpoint path and alg_state restored as recorded",
+   "data": {
+    "got": [
+     "[INFO]: Loading model checkpoint from: /home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+     "[INFO]: Restored algorithm state: counter 27300, learning_rate 1.5e-05"
+    ]
+   }
+  },
+  {
+   "id": "PF10",
+   "ok": true,
+   "detail": "11 [KNOB]/[omni-knobs] lines = p3b's + the DR line",
+   "data": {
+    "missing": [],
+    "extra": []
+   }
+  },
+  {
+   "id": "PF11",
+   "ok": true,
+   "detail": "the [DR] line = PF7's (worktree module)",
+   "data": {
+    "got": [
+     "[DR] rod_speed n=256 step=0 bounds=[1, 1.35] (lo=0.6 hi=1.35 ramp_steps=12000) seed=125822752223351 min/mean/max 1.0051/1.1776/1.3496 sha16=fbb1c962f71c03f3 module=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py"
+    ]
+   }
+  },
+  {
+   "id": "PF12",
+   "ok": true,
+   "detail": "params/env.yaml + agent.yaml = p3b's (roots normalised; DR block / run_name / load_checkpoint excepted)",
+   "data": {
+    "run_dir": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19",
+    "compare": {
+     "ok": true,
+     "files": {
+      "env.yaml": {
+       "rod_speed_dr_block": [
+        "    rod_speed_dr:",
+        "      lo: 0.6",
+        "      hi: 1.35",
+        "      ramp_steps: 12000"
+       ],
+       "diff": [],
+       "equal": true
+      },
+      "agent.yaml": {
+       "excepted": {
+        "new": [
+         "run_name: RSD_TDR_s19",
+         "load_checkpoint: <ROOT>/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt"
+        ],
+        "p3b": [
+         "run_name: seed19_X08_p3b_A15pB",
+         "load_checkpoint: <ROOT>/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-10-22_03-27-53_seed19_X07_p3a_A15pB/model_22993.pt"
+        ]
+       },
+       "diff": [],
+       "equal": true
+      }
+     }
+    }
+   }
+  },
+  {
+   "id": "PF13",
+   "ok": true,
+   "detail": "Learning iteration 25992/28992; DR/ {'DR/rod_speed_lo': 0.9997, 'DR/rod_speed_mean': 1.1775, 'DR/rod_speed_min': 1.0051, 'DR/rod_speed_max': 1.3496}",
+   "data": {
+    "title": [
+     25992,
+     28992
+    ],
+    "dr": {
+     "DR/rod_speed_lo": 0.9997,
+     "DR/rod_speed_mean": 1.1775,
+     "DR/rod_speed_min": 1.0051,
+     "DR/rod_speed_max": 1.3496
+    }
+   }
+  }
+ ],
+ "rc": 0,
+ "ended": "2026-11-07T21:02:51",
+ "wall_s": 4395.1,
+ "run_dir": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19",
+ "pf14": {
+  "id": "PF14",
+  "ok": true,
+  "detail": "model_28991.pt (iter 28991); DR/ trace follows the ramp, late mean 0.9796",
+  "data": {
+   "final": {
+    "path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/model_28991.pt",
+    "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+    "iter": 28991,
+    "counter": 30450,
+    "learning_rate": 1.5000000000000004e-05
+   },
+   "blocks": 3001,
+   "blocks_with_dr": 3000,
+   "late": {
+    "n": 1000,
+    "mean": 0.9795791999999998,
+    "min_mean": 0.6032905000000004,
+    "max_mean": 1.3477455000000118,
+    "mid": 0.9750000000000001
+   },
+   "lo_trace": [
+    [
+     0,
+     0.9997
+    ],
+    [
+     75,
+     0.9398
+    ],
+    [
+     150,
+     0.8797
+    ],
+    [
+     225,
+     0.8197
+    ],
+    [
+     300,
+     0.7597
+    ],
+    [
+     375,
+     0.7003
+    ],
+    [
+     450,
+     0.6397
+    ],
+    [
+     525,
+     0.6
+    ],
+    [
+     600,
+     0.6
+    ],
+    [
+     675,
+     0.6
+    ],
+    [
+     750,
+     0.6
+    ],
+    [
+     825,
+     0.6
+    ],
+    [
+     900,
+     0.6
+    ],
+    [
+     975,
+     0.6
+    ],
+    [
+     1050,
+     0.6
+    ],
+    [
+     1125,
+     0.6
+    ],
+    [
+     1200,
+     0.6
+    ],
+    [
+     1275,
+     0.6
+    ],
+    [
+     1350,
+     0.6
+    ],
+    [
+     1425,
+     0.6
+    ],
+    [
+     1500,
+     0.6
+    ],
+    [
+     1575,
+     0.6
+    ],
+    [
+     1650,
+     0.6
+    ],
+    [
+     1725,
+     0.6
+    ],
+    [
+     1800,
+     0.6
+    ],
+    [
+     1875,
+     0.6
+    ],
+    [
+     1950,
+     0.6
+    ],
+    [
+     2025,
+     0.6
+    ],
+    [
+     2100,
+     0.6
+    ],
+    [
+     2175,
+     0.6
+    ],
+    [
+     2250,
+     0.6
+    ],
+    [
+     2325,
+     0.6
+    ],
+    [
+     2400,
+     0.6
+    ],
+    [
+     2475,
+     0.6
+    ],
+    [
+     2550,
+     0.6
+    ],
+    [
+     2625,
+     0.6
+    ],
+    [
+     2700,
+     0.6
+    ],
+    [
+     2775,
+     0.6
+    ],
+    [
+     2850,
+     0.6
+    ],
+    [
+     2925,
+     0.6
+    ]
+   ]
+  }
+ },
+ "why": null
+}

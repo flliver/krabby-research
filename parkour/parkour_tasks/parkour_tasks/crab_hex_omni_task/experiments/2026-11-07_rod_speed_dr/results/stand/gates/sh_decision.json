@@ -1,0 +1,34 @@
+{
+ "stage": "sh",
+ "decided_at": "2026-11-09T18:10:07",
+ "decision": "accept, disclose",
+ "by": "user",
+ "user_words": "Accept and disclose",
+ "rule": "Task 4 DESIGN 3.7 (a) as practised under Task 4 CHARTER section 2 (Authority): the run continues and stays eligible, disclosed; the lines stay unchanged (thresholds v1.2, no re-pin). Precedents: SH_T18 K4 (2026-10-14), R18 SH (2026-10-21).",
+ "accepted_lines": {
+  "stand.D2.K4.miss es1 <= max(1, R_h's)": {
+   "value": 5,
+   "line": 3
+  },
+  "stand.D2.K4.miss es2 <= max(1, R_h's)": {
+   "value": 6,
+   "line": 3
+  }
+ },
+ "reason": "Chance-level relative to the scripted teacher R_h beside TDR (SH_RH_RSD_TDR 4 / 5; head 5 / 6; pooled 11 vs 9 of 1600, two-sided p = 0.82). Not chance relative to D9's S1-era calibration (about 0.74 per env seed). The misses are a static sag of one loaded middle hip rod 0.0-0.9 mm over the 8 mm restore band, shared with the teacher at the same place (after the 1.346 m stand).",
+ "disclosed": [
+  "K4 restore misses 5 / 6 per 800 against D9's fixed 3 (R_h beside TDR 4 / 5; beside S1 1 / 1; beside T* 5 / 5; F19's SH 2 / 3)",
+  "K5.G2 walkstop homed 0.92 / 0.91 against 0.90 (SN beside TDR 0.997 / 1.000; F19's SH 0.993 / 0.997): a head-specific weakness no control covers; median settle 2.86 / 3.00 s against F19's 2.58 / 2.66",
+  "K6 bin 1 (0.844-0.970 m) homed 0.74 / 0.81 against F19's 0.98 / 0.98 (re-anchored on R_h beside TDR at 0.67 / 0.66)",
+  "the four K5 body-height lines re-anchored under the user's 11:53 rule and the six K6 lines on the lazy R_h control",
+  "0 exit falls and onset -1.305 s are common to every controller and carry no evidence for this head"
+ ],
+ "head": {
+  "name": "SH_RSD_TDR_sh_s19",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_height/runs/SH_RSD_TDR_sh_s19/model_5000.pt",
+  "sha256": "89f4428b559fc9a899187c699f7591a79fb3da153362fc8a81bedf902863dd8d"
+ },
+ "gate": "results/stand/gates/sh.json",
+ "reanchor": "results/stand/gates/sh_reanchor.json",
+ "record": "STAND_REPAIR.md section 9, 17:17 / 17:34 / 18:10"
+}

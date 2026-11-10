@@ -1,0 +1,139 @@
+{
+ "at": "2026-11-09T10:36:17",
+ "P4": {
+  "tdr_sha": true,
+  "tdr_agent_yaml": true,
+  "tstar_ckpt_sha": true,
+  "driver_is_tstar_walkplay_0kg": true,
+  "driver_env_eq_tdr_l000": true,
+  "driver_env_keys": 27,
+  "no_dr_stress_payload_keys": true,
+  "names_absent": {
+   "REFS_RSD_TDR": [],
+   "SN_RSD_TDR_sn_s19": [],
+   "SH_RSD_TDR_sh_s19": [],
+   "SH_RSD_TDR_sh_s19z": [],
+   "SH_RH_RSD_TDR": []
+  },
+  "candidates_identical_to_main": true,
+  "thresholds_path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/thresholds_v1_2.json",
+  "thresholds_is_v1_2": true,
+  "scripts_differ_from_main": {
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-11_stand_network/scripts": [],
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-13_stand_height/scripts": [],
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scripts": [],
+   "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline": []
+  },
+  "code_state": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "head": "2a07ebebfaf70fc4cfa33b74183de9086a66b546",
+   "dirty": [],
+   "repo": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep"
+  },
+  "pin": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "head": "1682e2e1c9f1412a6dd4f0026b96868bb8578ca3",
+   "pinned_at": "2026-11-07T17:38:33"
+  },
+  "disk": "ok",
+  "walker_spec_template": {
+   "S1_CKPT": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/model_28991.pt",
+   "S1_SHA256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "S1_AGENT_YAML": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/params/agent.yaml",
+   "REFS_ENV_STAMP": "<REFS(TDR) suite@1 stamp>",
+   "CANDIDATES": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/candidates.yaml",
+   "OVERLAY_CHAIN": "F19_p2a",
+   "S1_OVERLAY": {
+    "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+    "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+    "KRABBY_OMNI_DIR_BAND": "",
+    "KRABBY_OMNI_FACING": "0.2:1.2",
+    "KRABBY_YAW_W": "0.2",
+    "KRABBY_CLOCK_W": "0.001",
+    "KRABBY_APEX_W": "0.001",
+    "KRABBY_OMNI_CLOCK_HIDE": "1",
+    "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+    "KRABBY_RSI_FRAC": "0",
+    "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+    "KRABBY_ACTION_BOUND_LOSS": "0.001",
+    "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+    "KRABBY_ACTION_BOUND": "1.1",
+    "KRABBY_STD_PARAM": "soft",
+    "KRABBY_INIT_STD": "0.8",
+    "KRABBY_ENTROPY_COEF": "0.0025",
+    "KRABBY_ACTION_RATE_W": "-0.05",
+    "KRABBY_PPO_HAND_DIAG": "1",
+    "KRABBY_PHASEOUT": "",
+    "KRABBY_FLAT_TERRAIN_GEOM": "field",
+    "KRABBY_FIELD_PAD_R": "1.7",
+    "KRABBY_FIELD_BLOCKS": "14:28",
+    "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+    "KRABBY_FIELD_EDGES": "wall",
+    "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+    "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"
+   },
+   "REFS_NAME": "REFS_RSD_TDR"
+  }
+ },
+ "P1": {
+  "sn": "equal",
+  "sh": "equal",
+  "sn_verdict": "PASS",
+  "sh_verdict": "HALT",
+  "sh_halt": [
+   "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)"
+  ]
+ },
+ "P2": {
+  "sn_calib": {
+   "rc": 4,
+   "skipped_gates": [],
+   "diff": "equal"
+  },
+  "sh_read": {
+   "rc": 4,
+   "skipped_gates": [],
+   "diff": "equal"
+  },
+  "sh_k5_calib": {
+   "rc": 4,
+   "skipped_gates": [],
+   "diff": "equal"
+  },
+  "sh_lazy_rh_read": {
+   "rc": 4,
+   "skipped_gates": [
+    "K5"
+   ],
+   "diff": "equal"
+  },
+  "lazy_k5_vs_f19_original": {
+   "rc": 0,
+   "diff": "equal"
+  }
+ },
+ "P1_on_P2": "equal",
+ "P3": {
+  "reanchored": true,
+  "lines": [
+   {
+    "id": "stand.D2.K6.homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+    "clause": "homed share bin4 es1 >= R_h's - max(0.05, 2 SE)",
+    "op": ">=",
+    "s1_era_line": 0.945,
+    "head": 0.935,
+    "control": 0.89,
+    "control_note": "n 200 vs R_h 0.890 n 200, SE 0.0313",
+    "control_fails_same_line": true,
+    "reanchored_line": 0.8336661735721778,
+    "head_value_lazy": 0.935,
+    "head_passes_reanchored": true
+   }
+  ],
+  "not_rh_derived": [],
+  "expect": "reanchored True: R_h beside T* bin 4 es1 0.89 < 0.945; head 0.935 passes the re-anchored line"
+ },
+ "ok": true
+}

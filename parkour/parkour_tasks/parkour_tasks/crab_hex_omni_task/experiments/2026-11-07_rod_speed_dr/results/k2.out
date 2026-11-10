@@ -1,0 +1,5 @@
+RSD_SMOKE PASS group=D0 rc=0 checks=14 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k2/D0.json
+RSD_SMOKE PASS group=D1 rc=0 checks=35 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k2/D1.json
+RSD_SMOKE PASS group=D2 rc=0 checks=36 json=/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/k2/D2.json
+RSD_SMOKE END pass=3 fail=0
+K2 rc=0 2026-11-07 17:31:48

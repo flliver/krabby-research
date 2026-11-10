@@ -1,0 +1,127 @@
+{
+ "spec": {
+  "S1_CKPT": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/model_28991.pt",
+  "S1_SHA256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+  "S1_AGENT_YAML": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/params/agent.yaml",
+  "REFS_ENV_STAMP": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/suite__omni/seed001/2026-11-09_15-28-33",
+  "CANDIDATES": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/dr-stress-sweep/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/candidates.yaml",
+  "OVERLAY_CHAIN": "F19_p2a",
+  "S1_OVERLAY": {
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+   "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:1.2",
+   "KRABBY_YAW_W": "0.2",
+   "KRABBY_CLOCK_W": "0.001",
+   "KRABBY_APEX_W": "0.001",
+   "KRABBY_OMNI_CLOCK_HIDE": "1",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_ACTION_RATE_W": "-0.05",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_PHASEOUT": "",
+   "KRABBY_FLAT_TERRAIN_GEOM": "field",
+   "KRABBY_FIELD_PAD_R": "1.7",
+   "KRABBY_FIELD_BLOCKS": "14:28",
+   "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+   "KRABBY_FIELD_EDGES": "wall",
+   "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+   "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"
+  },
+  "REFS_NAME": "REFS_RSD_TDR"
+ },
+ "refs_stamps": {
+  "suite__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/suite__omni/seed001/2026-11-09_15-28-33",
+  "suite__omni@2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/suite__omni/seed002/2026-11-09_15-35-48",
+  "walkstop__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/walkstop__omni/seed001/2026-11-09_15-43-03",
+  "walkstop__omni@2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/walkstop__omni/seed002/2026-11-09_15-45-39",
+  "field_hard__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/field_hard__omni/seed001/2026-11-09_15-48-15",
+  "field_hard__omni@2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/field_hard__omni/seed002/2026-11-09_15-51-57",
+  "field_hard__omni@3": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/field_hard__omni/seed003/2026-11-09_15-55-33",
+  "field_hard__omni@4": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/field_hard__omni/seed004/2026-11-09_15-59-08",
+  "field_turn__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/field_turn__omni/seed001/2026-11-09_16-02-42"
+ },
+ "code_state": {
+  "suite__omni@1": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:35:38",
+   "writer": "phase2 run_arm.sh"
+  },
+  "suite__omni@2": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:42:52",
+   "writer": "phase2 run_arm.sh"
+  },
+  "walkstop__omni@1": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:45:28",
+   "writer": "phase2 run_arm.sh"
+  },
+  "walkstop__omni@2": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:48:05",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@1": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:51:46",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@2": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:55:22",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@3": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T10:58:58",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@4": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T11:02:32",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_turn__omni@1": {
+   "code_sha": "de3772e26a3ecdb8ceffa5804b5a80ef63021324e11e00cc220a4727fbbebd99",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-09T11:04:42",
+   "writer": "phase2 run_arm.sh"
+  }
+ },
+ "note": "TDR has no Task 4 driver stamp; REFS(TDR) suite@1 (Walk-Play, TDR, 0 kg, the driver env) stands in",
+ "written_at": "2026-11-09T11:05:06"
+}

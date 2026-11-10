@@ -1,0 +1,5 @@
+# K1 refusal re-read, 2026-11-07 17:35:16: the K1 run's refusal check (k1.out) required rc != 0, but crab_hex_phase_cfg_dump.py
+# catches the exception and simulation_app.close() exits 0 before sys.exit(1); rsd_dump_compare.refusal now requires the
+# exclusivity ValueError from dr_knobs.apply_dr_knobs in the log, no '[dump] wrote' line, and (caller) no json. Same log, re-read:
+RSD_DUMP REREAD refusal VERDICT OK rc=0 (Kit teardown exits 0 after the printed traceback); ValueError: KRABBY_DR_ROD_SPEED and ['KRABBY_STRESS_ROD_SPEED'] are exclusive: a per-env DR draw on top of a fixed rod-speed scale is not one dose json_written=no
+RSD_DUMP REREAD END pass=9 fail=0 (k1.out's 8 PASS + this refusal)
