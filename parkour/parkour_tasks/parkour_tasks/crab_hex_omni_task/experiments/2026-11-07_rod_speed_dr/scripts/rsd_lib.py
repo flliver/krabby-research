@@ -327,11 +327,22 @@ def policies_path() -> Path:
 
 
 def manifest_student_sha() -> str:
+    """c28000's sha256 as policy/manifest.yaml records it: the live stage ``f19_9_student`` (the F19 era) or, since the
+    2026-11-09 rod-speed DR bake moved that stage to ``superseded:``, the verbatim stage block of the superseded entry
+    ``F19_student``; either way its ``source`` must be c28000's run file."""
     d = tp().load_yaml(POLICY_MANIFEST)
-    st = next(s for s in d["stages"] if s.get("dir") == "f19_9_student")
+    st = next((s for s in d["stages"] if s.get("dir") == "f19_9_student"), None)
+    where = "f19_9_student"
+    if st is None:
+        sup = next((e for e in d.get("superseded") or [] if e.get("id") == "F19_student"), None)
+        st = (sup or {}).get("block")
+        where = "superseded F19_student block"
+        if not isinstance(st, dict) or st.get("dir") != "f19_9_student":
+            raise PolicyError("policy/manifest.yaml records c28000 neither as stage f19_9_student nor as the "
+                              "superseded F19_student block")
     want_src = C28000_CKPT.relative_to(MAIN).as_posix()
     if st.get("source") != want_src:
-        raise PolicyError(f"policy/manifest.yaml f19_9_student source {st.get('source')!r} != {want_src!r}")
+        raise PolicyError(f"policy/manifest.yaml {where} source {st.get('source')!r} != {want_src!r}")
     return st["sha256"]
 
 
@@ -350,10 +361,11 @@ def _check_ckpt(path: Path, role: str) -> None:
 
 def _builtin(name: str) -> dict | None:
     if name == "TSTAR":
-        return {"checkpoint": str(TSTAR_CKPT), "role": "teacher", "note": "T* = F19 p3b model_25992 (policy of record)"}
+        return {"checkpoint": str(TSTAR_CKPT), "role": "teacher",
+                "note": "T* = F19 p3b model_25992 (a live stage of policy/manifest.yaml, TDR's resume point)"}
     if name == "C28000":
         return {"checkpoint": str(C28000_CKPT), "role": "student",
-                "note": "F19 depth student c28000 (policy/manifest.yaml f19_9_student)"}
+                "note": "F19 depth student c28000 (policy/manifest.yaml superseded F19_student)"}
     return None
 
 
@@ -361,7 +373,8 @@ def _verify_builtin(name: str, sha: str) -> None:
     if name == "TSTAR" and not sha.startswith(TSTAR_SHA_PREFIX):
         raise PolicyError(f"TSTAR sha256 {sha[:12]} does not start {TSTAR_SHA_PREFIX}")
     if name == "C28000" and sha != manifest_student_sha():
-        raise PolicyError(f"C28000 sha256 {sha[:12]} != policy/manifest.yaml f19_9_student {manifest_student_sha()[:12]}")
+        raise PolicyError(f"C28000 sha256 {sha[:12]} != c28000's policy/manifest.yaml record (stage f19_9_student or "
+                          f"superseded F19_student) {manifest_student_sha()[:12]}")
 
 
 def load_registry() -> dict:

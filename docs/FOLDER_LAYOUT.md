@@ -202,20 +202,21 @@ parkour term, RSI, mirror) -- see the task's own README for the full delta table
 
 ```
 crab_hex_omni_task/
-├── README.md                         # Task usage + the delta table vs. the forward task + "Policy of record (F19, baked 2026-10-24)"
+├── README.md                         # Task usage + the delta table vs. the forward task + "Policy of record (rod-speed DR pairing, bake approved 2026-11-09)"
 ├── config/crab_hex/                  # Env, scene cfgs; crab_hex_omni_phases.py (KRABBY_OMNI_PHASE presets); omni_knobs.py
 │   └── agents/                       # RSL-RL PPO runner cfgs (teacher + the depth-student runner, Task 4 2026-10-16)
 ├── mdp/                              # crab_hex_omni_command(_math).py; omni observations/rewards/mirror/RSI; omni_parkour_event.py, omni_exposure.py, omni_events.py, omni_terrain_knobs.py (ring + field geometry); stroke (crab_hex_omni_stroke_{math,parity,rewards}.py), motion (crab_hex_omni_motion_rewards.py), restance (crab_hex_omni_restance.py), yaw window (crab_hex_omni_yaw_window.py), clearance (omni_clearance.py)
 ├── eval_categories.py                # Per-category eval plan (2026-09-21, D4): trained_categories/expand_rule/composite_guards -- Isaac-free, loaded by path; task-root (outside mdp/config), so it hashes into eval_sha, not code_sha
 ├── policy/                           # POLICY OF RECORD: the shipped head + the stage heads it was trained through
-│   ├── manifest.yaml                 #   (F19 lineage, baked 2026-10-24: f19_1_s1 -> f19_2_c4 -> f19_3_c5 -> f19_4_c6 -> f19_5_c6x_clockfree -> f19_6_p2a_field -> f19_7_p3a_payload90 -> f19_8_p3b_payload180 = current T*; + f19_9_student (ONNX exports only) and f19_stand_net/ (stand network of record); heads, obs_contract, construction, stages, stand_network, superseded (S1_s18, SH_T17, SN_Amask_s17, W), followups blocks); manifest = source of truth, README generated (experiments/tools/bundle_policy.py --sync / --check)
+│   ├── manifest.yaml                 #   (F19 lineage, baked 2026-10-24, + the rod-speed DR pairing, bake approved 2026-11-09: f19_1_s1 -> f19_2_c4 -> f19_3_c5 -> f19_4_c6 -> f19_5_c6x_clockfree -> f19_6_p2a_field -> f19_7_p3a_payload90 -> f19_8_p3b_payload180 = T* -> rsd_9_p3b_rodspeed_dr = current TDR; + rsd_10_student (ONNX exports only) and rsd_stand_net/ (stand network of record); heads, obs_contract, construction, stages, stand_network, superseded (F19, F19_student, SH_T4F19, SN_T4F19, S1_s18, SH_T17, SN_Amask_s17, W), followups blocks); manifest = source of truth, README generated (experiments/tools/bundle_policy.py --sync / --check)
 │   ├── <stage>/model_N.pt            #   one .pt per RL stage
-│   └── 1_fb6k .. 6_p2a_field/, stand_net/  # SUPERSEDED S1 s18 lineage and SH_T17 / A-mask s17 stand nets, files kept in place (superseded[].files)
+│   └── 1_fb6k .. 6_p2a_field/, stand_net/, f19_9_student/, f19_stand_net/  # SUPERSEDED S1 s18 lineage, SH_T17 / A-mask s17 stand nets, and F19's student and stand nets, files kept in place (superseded[].files)
 └── experiments/                      # Campaigns (index: experiments/README.md); eval/scenarios_omni{,_body}.yaml + scenarios_gpu0_sidesweep.yaml; lit reviews; tools/
     ├── 2026-09-16_1805_omni_formation/   # First training campaign (CLOSED at its 2b decision point): CHARTER.md, RSI_BANK.md, replay_reward_economy.py
     ├── 2026-09-19_facing_tracking_ladder/ # The facing/tracking candidate ladder: CHARTER.md, PLAN_AMENDMENTS.md, candidates.yaml (the spec), resolution.json (D00). Written by the driver at launch, not present before it: ledger.json + ledger_overrides.jsonl, REPORT.md, CHANGELOG.md, notify.log, state.json/heads.json. Per-category evaluation plan (2026-09-21, D9) adds, once the migration runs: resolution.<eval_sha[:12]>.json (D00s/D00bs, superseding D00 at the new eval) and, only on a failed acceptance, resolution.<eval_sha[:12]>.<kind>.rejected.json (kind = D00s|D00bs, overwritten each recomputation, never cited)
     ├── 2026-10-11_stand_network/scripts/, 2026-10-13_stand_height/scripts/  # stand-network trainers (sn_dagger / sh_dagger), eval launchers (sn_/sh_eval_rows.sh), table tests and video recorders (sh_record_video.sh/.py: --plan mix, --terrain field_max) -- the viewer + eval tools for the stand net of record
-    ├── 2026-10-16_task4_pipeline/    # M18 Task 4 (CLOSED): the campaign that produced the policy of record; pipeline.yaml, pipeline.lock.json, F19/ + R18/ runs, REPORT_baseline_vs_final.md, generated README.md, head/
+    ├── 2026-10-16_task4_pipeline/    # M18 Task 4 (CLOSED): the campaign that produced the F19 policy of record (now superseded) and the lineage under the current one; pipeline.yaml, pipeline.lock.json, F19/ + R18/ runs, REPORT_baseline_vs_final.md, generated README.md, head/
+    ├── 2026-11-07_rod_speed_dr/      # Rod-speed DR campaign: the record of the current policy of record (TDR + c31000 + SH_RSD_TDR): REPORT.md, BAKE_PLAN.md, STAND_REPAIR.md, CHARTER.md, scripts/, results/
     └── tools/                        # run_phases.py + launch/heartbeat (the phase chain); run_candidates.py + ledger_cli.py + resolution.py + launch_candidates.sh (the candidate ladder); bundle_policy.py / bundle_experiment.py (policy folder + campaign bundles); record_categories.py, replay_*.py, score_reference.py (viewer / CPU tools); pipeline/ (the Task 4 pipeline: pipeline.py, distill.sh, report.py, gate_read.py, gate_row.sh, select_student.py, ...)
 ```
 
@@ -223,18 +224,20 @@ Outputs of the stand-network, phase-2 and Task 4 runs land under `parkour/output
 
 ### Policy of record
 
-`crab_hex_omni_task/policy/` is the task's shipped lineage: the current head T*
-(`f19_8_p3b_payload180/model_25992.pt`, seed 19, payload 0-180 kg, produced by the M18 Task 4 pipeline and baked
-2026-10-24, commit de81f98a) and the stage heads it was trained through (`f19_1_s1`, `f19_2_c4`, `f19_3_c5`,
-`f19_4_c6`, `f19_5_c6x_clockfree` = the phase-1 head, `f19_6_p2a_field` = the phase-2 head, `f19_7_p3a_payload90`),
+`crab_hex_omni_task/policy/` is the task's shipped lineage: the current head TDR
+(`rsd_9_p3b_rodspeed_dr/model_28991.pt`, seed 19: T* fine-tuned for 3000 iterations with per-env rod-speed domain
+randomization, bake approved 2026-11-09) and the stage heads it was trained through (`f19_1_s1`, `f19_2_c4`, `f19_3_c5`,
+`f19_4_c6`, `f19_5_c6x_clockfree` = the phase-1 head, `f19_6_p2a_field` = the phase-2 head, `f19_7_p3a_payload90`,
+`f19_8_p3b_payload180` = T*, seed 19, payload 0-180 kg, TDR's resume point; the F19 stages were produced by the M18
+Task 4 pipeline and baked 2026-10-24, commit de81f98a),
 each sha-pinned in `policy/manifest.yaml` with its source run, preset (`phase`: `1b` for `f19_1_s1`, `1a` for
 c4..c6x, `2a` for p2a / p3a / p3b), overlay (`overlay_ref` into the pipeline-generated `candidates.yaml`, not a
 `KRABBY_OMNI_PHASE` preset of its own -- there is no phase-1c / 2b / 2c lineage here) and evals (the phase-2 and
-payload stages also their obstacle / payload rows). Beside them: the depth student `f19_9_student/` (a
-`kind: distill` stage with `bundled: false` -- its 122 MB `.pt` is cited by sha256 and source path because it is
-over GitHub's 100 MiB limit; the folder holds the ONNX exports `policy.onnx` + `depth_latest.onnx` +
-`omni_student_io.json`), and the `stand_network:` block (`f19_stand_net/model_5000.pt`, SH_T4F19, walker = T*,
-plus its warm-start ancestor `model_4000.pt`). It changes only on a user bake decision (edit the manifest,
+payload stages also their obstacle / payload rows). Beside them: the depth student `rsd_10_student/` (c31000, distilled
+from TDR; a `kind: distill` stage with `bundled: false` -- its 122 MB `.pt` is cited by sha256 and source path because
+it is over GitHub's 100 MiB limit; the folder holds the ONNX exports `policy.onnx` + `depth_latest.onnx` +
+`omni_student_io.json`), and the `stand_network:` block (`rsd_stand_net/model_5000.pt`, SH_RSD_TDR, walker = TDR,
+plus its warm-start ancestor `model_4000.pt`, SN_RSD_TDR). It changes only on a user bake decision (edit the manifest,
 `bundle_policy.py --sync`, commit); campaign records under `experiments/<campaign>/` are the provenance. Unlike
 the forward policy, the manifest also carries an `obs_contract` block (the clock observation columns, which stage
 was trained with `KRABBY_OMNI_CLOCK_HIDE` on, and the exact eval-env knobs the heads trained under), a `followups`
@@ -243,7 +246,8 @@ every stage trained with, less a stage's own `construction_delta` -- the phase-2
 only `KRABBY_STD_PARAM` / `KRABBY_INIT_STD` reach eval and play), a `payload:` block per payload stage, and a
 `superseded` block of earlier heads of record: entries whose files left the folder (W: source runs, sha256 and the
 last commit that holds them) and entries whose files STAY in place under `superseded[].files` (the seed-18
-lineage S1 s18 = `1_fb6k` .. `6_p2a_field`, and SH_T17 / A-mask s17 in `stand_net/`). No `--pin-mdp` /
+lineage S1 s18 = `1_fb6k` .. `6_p2a_field`, SH_T17 / A-mask s17 in `stand_net/`, and F19's student `f19_9_student/` and
+stand nets `f19_stand_net/` = F19_student, SH_T4F19, SN_T4F19). No `--pin-mdp` /
 `POLICY_SUMMARY.md` here: every stage is an overlay on a `KRABBY_OMNI_PHASE` preset recorded in a campaign's
 `candidates.yaml`, not its own preset. Guarded by `tests/unit/test_policy_of_record_omni.py`.
 
@@ -268,7 +272,8 @@ a VIEWER, not a driver: it replays a head through one follow-cam episode per sui
 per-category eval composes it, and writes mp4s plus a sanity JSON under `parkour/logs/videos/` --
 nothing in the ladder reads its output, and it is outside both `code_sha` and `eval_sha`. Its defaults
 reproduce the 2026-09-22 C1d recording (a superseded head); to record the policy of record pass
-`--checkpoint policy/f19_8_p3b_payload180/model_25992.pt --eval-run <T*'s suite__omni stamp>`.
+`--checkpoint policy/rsd_9_p3b_rodspeed_dr/model_28991.pt --eval-run <TDR's suite__omni stamp>` (its REFS(TDR)
+reference stamp).
 
 ## Assets (robot plant)
 

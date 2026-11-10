@@ -18,41 +18,60 @@ weights, terrain/curriculum knobs (besides the ring geometry), PPO hyper-paramet
 and the 18-channel action space are the forward recipe (verified by an Isaac config-delta test;
 see `tests/integration/test_crab_hex_omni_configs.py`). Since the Task 4 pipeline
 (2026-10-16) the task also has a 4-camera depth student (`Isaac-Crab-Hex-Omni-Student-v0` / `-Student-Play-v0`,
-runner `crab_hex_omni_student`); the student of record is `policy/f19_9_student` (camera use UNVERIFIED,
-followup `camera_use_unverified`).
+runner `crab_hex_omni_student`); the student of record is `policy/rsd_10_student` (c31000; camera use UNVERIFIED
+and not re-tested for c31000, followup `camera_use_unverified`).
 
-## Policy of record (F19, baked 2026-10-24)
+## Policy of record (rod-speed DR pairing, bake approved 2026-11-09)
 
-**Current head:** T* = `policy/f19_8_p3b_payload180/model_25992.pt` (seed 19, payload 0-180 kg, stable through
-135 kg on the sim plant), produced by the M18 Task 4 pipeline
+**Current head:** TDR = `policy/rsd_9_p3b_rodspeed_dr/model_28991.pt` (seed 19): T*
+(`policy/f19_8_p3b_payload180/model_25992.pt`, payload 0-180 kg, stable through 135 kg on the sim plant) fine-tuned
+for 3000 iterations with per-env rod-speed domain randomization (rod slew x U(0.6, 1.35),
+`KRABBY_DR_ROD_SPEED=0.6:1.35:12000`; TRAINING-only, never set in play, eval or deploy). T* and its lineage were
+produced by the M18 Task 4 pipeline
 ([`experiments/2026-10-16_task4_pipeline/`](experiments/2026-10-16_task4_pipeline/README.md), CLOSED; report
-`REPORT_baseline_vs_final.md`). Every number, sha256 and eval stamp is in [`policy/README.md`](policy/README.md)
+`REPORT_baseline_vs_final.md`); TDR, the student and the stand pair of record are the rod-speed DR campaign's
+([`experiments/2026-11-07_rod_speed_dr/`](experiments/2026-11-07_rod_speed_dr/REPORT.md): `REPORT.md`,
+`BAKE_PLAN.md`, `STAND_REPAIR.md`). Every number, sha256 and eval stamp is in [`policy/README.md`](policy/README.md)
 (generated from [`policy/manifest.yaml`](policy/manifest.yaml)); this section does not restate them.
 
 - **Per-phase heads:** phase 1 `f19_5_c6x_clockfree/model_14995.pt`, phase 2 `f19_6_p2a_field/model_19994.pt`,
-  payload `f19_8_p3b_payload180/model_25992.pt` (= current).
-- **Depth student:** `policy/f19_9_student/` (kind `distill`, c28000 distilled from T*): the folder holds the ONNX
-  export only (`policy.onnx` + `depth_latest.onnx` + `omni_student_io.json`); the 122 MB `.pt` stays in
-  `parkour/logs/` and is cited by sha256. Its camera use is UNVERIFIED (followup `camera_use_unverified`).
-- **Stand network of record:** `policy/f19_stand_net/model_5000.pt` (SH_T4F19, warm-started from SN_T4F19 =
-  `model_4000.pt` in the same folder), a second policy routed on stand holds beside T*.
+  payload `rsd_9_p3b_rodspeed_dr/model_28991.pt` (= current; it resumes from T* =
+  `f19_8_p3b_payload180/model_25992.pt`, which stays a live stage).
+- **Depth student:** `policy/rsd_10_student/` (kind `distill`, c31000 distilled from TDR under the same DR, no ramp):
+  the folder holds the ONNX export only (`policy.onnx` + `depth_latest.onnx` + `omni_student_io.json`); the 122 MB `.pt`
+  (`model_31000.pt`) stays in `parkour/logs/` and is cited by sha256, as F19's was. `omni_student_io.json` is
+  byte-identical to F19's, so a Jetson host only swaps the two ONNX files. Its camera use is UNVERIFIED and was not
+  re-tested for c31000 (followup `camera_use_unverified`).
+- **Stand network of record:** `policy/rsd_stand_net/model_5000.pt` (SH_RSD_TDR, warm-started from SN_RSD_TDR =
+  `model_4000.pt` in the same folder), a second policy routed on stand holds beside TDR. It was retrained beside TDR
+  with Task 4's recipe and is accepted with a disclosed K4 HALT: 5 / 6 restore misses per 800 against a fixed line of
+  3 (campaign `REPORT.md` section 13).
 - **Recipe (one line):** the Task 4 pipeline (`pipeline.yaml` + `experiments/tools/pipeline/pipeline.py`) runs the
   side-first B chain s1 -> c4 -> c5 -> c6 -> c6x -> p2a (overlays key-for-key identical to the seed-18 lineage's)
-  plus the payload stages p3a (0-90 kg) -> p3b (0-180 kg) = T*, then `distill.sh` for the student and
-  `sn_dagger` / `sh_dagger` for the stand nets beside T*.
+  plus the payload stages p3a (0-90 kg) -> p3b (0-180 kg) = T*, then 3000 more p3b iterations with
+  `KRABBY_DR_ROD_SPEED` = TDR, `distill.sh` from TDR for the student (c31000 selected) and `sn_dagger` / `sh_dagger`
+  for the stand nets beside TDR (Task 4's recipe with only the walker swapped).
+- **Why this pairing:** at 90 kg with the rods slowed to x0.7, F19's student completed 0.58 / 0.66 of field_light
+  episodes (two env seeds) and c31000 completes 0.92 / 0.95; TDR completes 0.94 / 0.92 against T*'s 0.59 / 0.61
+  (campaign `REPORT.md` section 1). The play / eval / deploy contract is unchanged: the same 27-key env.
 
-**Superseded (files kept):** the seed-18 lineage S1 s18 (`policy/1_fb6k` .. `policy/6_p2a_field`, baked
-2026-10-06 / 2026-10-08) and the stand nets SH_T17 / A-mask s17 (`policy/stand_net/`) stay in the folder under the
-manifest's `superseded:` entries; W (2026-09-25) is recorded there with its files in git history.
+**Superseded (files kept):** F19 (baked 2026-10-24; the policy of record until 2026-11-09): its student
+`policy/f19_9_student/` (c28000) and stand nets `policy/f19_stand_net/` (SH_T4F19 / SN_T4F19) stay in place, and its
+stages s1 .. p3b stay the lineage (T* is TDR's resume point). Earlier still: the seed-18 lineage S1 s18
+(`policy/1_fb6k` .. `policy/6_p2a_field`, baked 2026-10-06 / 2026-10-08) and the stand nets SH_T17 / A-mask s17
+(`policy/stand_net/`); all stay in the folder under the manifest's `superseded:` entries; W (2026-09-25) is recorded
+there with its files in git history.
 
-**Observation contract:** every F19 head from c6x on was trained with `KRABBY_OMNI_CLOCK_HIDE=1` (clock columns
-zeroed on every frame) — any play, eval or export must set it too, or the head is fed an out-of-distribution
-live clock. Every stage trained the soft std: without `KRABBY_STD_PARAM=soft` the checkpoint does not load (a loud
-`RuntimeError`, `std` vs `std_raw`), and without `KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are
-silently capped at 0.25 m/s. Full contract (width, exact columns, the rest of the carried eval env) in
-`policy/README.md`'s Observation contract section. Training-only keys (field geometry, DIFF, promotion, PHASEOUT,
-action_rate, the payload knobs) are not policy inputs and are not carried; to view a head on the wall field, add the
-`field_env` block of the `f19_6_p2a_field` stage in the manifest in place of `KRABBY_FLAT_TERRAIN_GEOM=ring`.
+**Observation contract:** every head of record from c6x on (the F19 lineage and TDR) was trained with
+`KRABBY_OMNI_CLOCK_HIDE=1` (clock columns zeroed on every frame) — any play, eval or export must set it too, or the
+head is fed an out-of-distribution live clock. Every stage trained the soft std: without `KRABBY_STD_PARAM=soft` the
+checkpoint does not load (a loud `RuntimeError`, `std` vs `std_raw`), and without
+`KRABBY_OMNI_SPEED_ELLIPSE=0.35:0.35:0.25` lateral commands are silently capped at 0.25 m/s. Full contract (width,
+exact columns, the rest of the carried eval env) in
+`policy/README.md`'s Observation contract section (unchanged from F19's). Training-only keys (field geometry, DIFF,
+promotion, PHASEOUT, action_rate, the payload knobs, the rod-speed DR `KRABBY_DR_ROD_SPEED`) are not policy inputs
+and are not carried; to view a head on the wall field, add the `field_env` block of the `f19_6_p2a_field` stage in the
+manifest in place of `KRABBY_FLAT_TERRAIN_GEOM=ring`.
 
 ```bash
 cd parkour  # from krabby-research/; the full carried env -- KRABBY_FLAT_TERRAIN_GEOM=ring is required by
@@ -80,7 +99,7 @@ env \
   KRABBY_PLANT=A15+B \
   KRABBY_STD_PARAM=soft \
   python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Walk-Play-v0 \
-  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/f19_8_p3b_payload180/model_25992.pt
+  --num_envs 1 --real-time --checkpoint $PWD/$P/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt
 ```
 
 (The same env and command as `policy/README.md`'s play block, plus the two explanatory comment lines after `cd parkour`;
@@ -91,10 +110,12 @@ eval / video commands; for the phase-1 head use `policy/f19_5_c6x_clockfree/mode
 copy the checkpoint out of `policy/` before playing it, or delete that folder afterwards.)
 
 **Open follow-ups:** see `policy/README.md` "Open follow-ups" (generated from the manifest's `followups`). At the
-F19 bake: `move_turn` is still open and worse at T* (the accepted cost), `stand_march` is resolved at the
-controller level by routing `f19_stand_net`, `back_overshoot` is resolved at T*, and F19 added
+F19 bake (the state at T*): `move_turn` is still open and worse at T* (the accepted cost), `stand_march` is resolved
+at the controller level by routing `f19_stand_net`, `back_overshoot` is resolved at T*, and F19 added
 `camera_use_unverified`, `payload_sim_plant`, `student_checkpoint_not_bundled`, `two_network_export` and the
-`stand_*` items.
+`stand_*` items. The rod-speed DR bake revised the list for the new pairing; the disclosures it carries are K4 at
+5 / 6 restore misses per 800 against a fixed 3, walkstop homing 0.92 / 0.91 against a 0.90 line, bin-1 homing
+0.74 / 0.81 (F19: 0.98), one training seed per network, and 180 kg never read for TDR.
 
 ## Delta from the forward task
 
@@ -404,8 +425,8 @@ etc. — defensive, they never appear in a forward window today). Everything els
 0.2`, DR, `EDGE_W`/`STUMBLE_W`/`COLLISION_W`/`CLEARANCE_W`/`FOOT_CLEAR_*`/`SWING_MIN_CLEAR_W`,
 `GOAL_VEL_W`, `FLAT_TERRAIN_MODE/FLAT_FRAC/DIFF` — is the forward window's own values, carried
 unchanged. (`TRACK_SIGMA2`/`TRACK_L1_W` used to be on that carried-unchanged list; Revision 4 moved
-them.) No student preset: the depth student is distilled from T* on preset `2a` by
-`experiments/tools/pipeline/distill.sh` (see the Task 4 section below).
+them.) No student preset: the depth student is distilled from the teacher head (TDR for c31000, T* for F19's
+c28000) on preset `2a` by `experiments/tools/pipeline/distill.sh` (see the Task 4 section below).
 
 ### Omni-only knobs (`config/crab_hex/omni_knobs.py`, `mdp/omni_terrain_knobs.py`)
 
@@ -624,7 +645,7 @@ The driver's default `--phases` is `1a,1b,1c,2a,2b` and default `--pause-after` 
 decision point). This driver trains no student: its training subprocess env carries only
 `KRABBY_OMNI_PHASE` / `KRABBY_PLANT`. The omni depth student (`Isaac-Crab-Hex-Omni-Student-v0`) is
 trained by the Task 4 pipeline's distill stage (`experiments/tools/pipeline/distill.sh`; the head of record is
-`policy/f19_9_student/`). Halts (each notifies; `--continue` overrides, `--redo`
+`policy/rsd_10_student/`). Halts (each notifies; `--continue` overrides, `--redo`
 reruns): `dead_plant` (soundness at 2000 iterations on FROM-SCRATCH windows only, the sideways rule —
 no omni window qualifies (1a is 1000 it), so collapse is covered by the soft gates and `gate_1c`), `gate_1a`/`gate_1b` (soft, short-stage), `gate_1c` (the written
 formation gate), `gate_facing` (the turn-rate gate from 2a; facing precision watched), `nan`, `infra`.
@@ -782,9 +803,11 @@ declares it in its own `eval_carry`, and it reaches the eval through `eval_env_f
 - `replay_stroke_posture.py {readout,income,gate,parity,pooled} ...` — offline replay of the stroke / posture math.
 - `record_categories.py` (Isaac, a VIEWER) — per-category follow-cam video through the harness path. Every
   default reproduces the 2026-09-22 C1d recording (`crab_hex_omni_flat_walk/2026-09-22_11-58-07_seed3_X08_c6_A15pB/
-  model_7996.pt`), not a head of record: to record T* pass `--checkpoint policy/f19_8_p3b_payload180/model_25992.pt
-  --eval-run <its suite__omni stamp>` (`parkour/logs/rsl_rl/gait_eval/omni_phases/F19/seed19_X08_p3b_A15pB/
-  suite__omni/seed001/2026-10-22_16-32-02`).
+  model_7996.pt`), not a head of record: to record TDR pass `--checkpoint policy/rsd_9_p3b_rodspeed_dr/model_28991.pt
+  --eval-run <its suite__omni stamp>` (its REFS(TDR) reference stamp, `parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/
+  suite__omni/seed001/2026-11-09_15-28-33`, main checkout); to record T* pass `--checkpoint
+  policy/f19_8_p3b_payload180/model_25992.pt` with its own stamp (`parkour/logs/rsl_rl/gait_eval/omni_phases/F19/
+  seed19_X08_p3b_A15pB/suite__omni/seed001/2026-10-22_16-32-02`).
 
 ### Gates
 
@@ -829,13 +852,16 @@ declares it in its own `eval_carry`, and it reaches the eval through `eval_env_f
 
 ## Task 4 pipeline, payload, depth student and stand network
 
-The policy of record was produced by the M18 Task 4 pipeline,
+The policy of record's lineage (through T*) was produced by the M18 Task 4 pipeline,
 [`experiments/2026-10-16_task4_pipeline/`](experiments/2026-10-16_task4_pipeline/README.md) (CLOSED; report
 `REPORT_baseline_vs_final.md`). Its README is GENERATED by `experiments/tools/pipeline/report.py --readme` and
 carries the full command block: `pipeline.py check | gen | lock | run | status | continue | gate`
 (`experiments/tools/pipeline/pipeline.py`, the one entry point; driver stages run through
 `launch_candidates.sh --reference-chain`), `distill.sh` (the depth student) and `report.py`. The play / eval /
-student / stand-network commands for the heads of record are in [`policy/README.md`](policy/README.md).
+student / stand-network commands for the heads of record are in [`policy/README.md`](policy/README.md). TDR, c31000 and
+the stand pair of record were then trained by the rod-speed DR campaign
+([`experiments/2026-11-07_rod_speed_dr/`](experiments/2026-11-07_rod_speed_dr/REPORT.md)), which resumed T* and used
+Task 4's recipe and thresholds (v1.2).
 
 - **Payload** (`config/crab_hex/payload_knobs.py`): `KRABBY_PAYLOAD_KG` (range `lo:hi`), `KRABBY_PAYLOAD_ZERO_FRAC`,
   `KRABBY_PAYLOAD_COM_XY`, `KRABBY_PAYLOAD_COM_Z` — a random deck mass / CoM event, TRAINING-only (not a policy
@@ -845,8 +871,9 @@ student / stand-network commands for the heads of record are in [`policy/README.
 - **Depth student:** `Isaac-Crab-Hex-Omni-Student-v0` / `-Student-Play-v0` (4 depth cameras; play and eval need
   `--enable_cameras`; the harness's `--policy-role student`), runner `CrabHexOmniStudentPPORunnerCfg`
   (`crab_hex_omni_student`). The runner refuses the knobs in `omni_student_spec.STUDENT_RUNNER_KNOBS_REFUSED`.
-  The ONNX I/O contract is `policy/f19_9_student/omni_student_io.json`.
-- **Stand network:** a second policy routed on stand holds beside T* (`policy/f19_stand_net/`); its eval rows,
+  The ONNX I/O contract is `policy/rsd_10_student/omni_student_io.json` (byte-identical to F19's copy in
+  `f19_9_student/`).
+- **Stand network:** a second policy routed on stand holds beside the walker (`policy/rsd_stand_net/`); its eval rows,
   table test and video recorder are the stand-height campaign's scripts
   (`experiments/2026-10-13_stand_height/scripts/`: `sh_eval_rows.sh`, `sh_table_test.sh`, `sh_record_video.sh`,
   incl. zero-height mode); the exact commands are in `policy/README.md` "Evaluate it / watch it".
@@ -857,19 +884,19 @@ student / stand-network commands for the heads of record are in [`policy/README.
 - `sh_record_video.py` / `.sh`: the built-in defaults (walker S1 s18, `--stand-ckpt` SH_T18, `--eval-run` the SH_T18
   hraise stamp) are the campaign's 2026-10-14 configuration, not the policy of record, and a default run is now
   REFUSED on `harness_sha256` (the reference stamp predates the 2026-10-15 / 10-16 harness edits). Record the pair of
-  record with explicit `--checkpoint` (T*) / `--stand-ckpt` (SH_T4F19) / `--eval-run` (the SH_T4F19_sh_s19 hraise
+  record with explicit `--checkpoint` (TDR) / `--stand-ckpt` (SH_RSD_TDR) / `--eval-run` (the SH_RSD_TDR_sh_s19 hraise
   es1 stamp) as `policy/README.md` does. Environment overrides of `sh_record_video.sh`: `SH_VIDEO_OUT` (default
   `parkour/logs/videos/sh_stand_height`), `SH_PY`, `SH_VIDEO_MEMORY_MAX` (24G), `SH_DDC`, `SH_DDC_MAX_GB` (80),
   `SH_UP_WAIT` (120 s), `SH_VIDEO_TIMEOUT`.
 - `sh_core.STAND_NET_CKPT`'s comment still calls A-mask s17 "the stand network of record"; that held 2026-10-13..15
   only. It is now `superseded:` SN_Amask_s17 (sha 769cf253); the net of record is the manifest's `stand_network`
-  (`f19_stand_net`).
+  (`rsd_stand_net`).
 - `sh_dagger.py` (no `--help`: `add_help=False`) also takes `--warm-start PATH --warm-sha SHA` (both or neither;
   default the pinned A-mask s17), and the env override `SN_WALKER_SPEC` (+ `SN_WALKER_CK` / `SN_WALKER_ST`,
   `P2_REANCHOR=1`) replaces the default walker S1 s18 by another (set by `pipeline.py walker_spec_env` for the stand
   stages beside T*). `sh_table_test.py` defaults likewise to S1 s18 + A-mask s17 (`--s1-ckpt`, `--stand-ckpt`); it
   also takes `--eval-run`, `--friction`, `--overwrite`, `--cam-eye` / `--cam-lookat` / `--quality` and
-  `--rss-abort-gb`. For a table test beside T* export the walker spec first (`policy/README.md` "Evaluate it").
+  `--rss-abort-gb`. For a table test beside TDR export the walker spec first (`policy/README.md` "Evaluate it").
 - `2026-10-11_stand_network/scripts/sn_record_video.sh`'s busy check predates the stand-height and `sn_table_test`
   scripts and does not see them: use `sh_record_video.sh` (its check covers both campaigns) or check
   `ps -ww -eo args` by hand first.

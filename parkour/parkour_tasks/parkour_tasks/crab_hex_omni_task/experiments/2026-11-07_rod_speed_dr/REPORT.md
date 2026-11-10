@@ -1,6 +1,6 @@
 # Rod-speed DR in teacher training (rung 3, T01 fix) — REPORT
 
-**Status: FINAL 2026-11-08 23:46. G2 PASS, read 2026-11-08 22:55 and verified (§8.4). Teacher gate G1 PASS; selection SELECTED c31000; ONNX parity ok; student gate G2 PASS. Updated 2026-11-09: the pick's veto clip is recorded and the record is committed locally (§11 decisions 4 and 6). ADOPTED 2026-11-09 (decision 5): TDR and c31000 are the next omni teacher and student. The stand re-pairing to TDR is COMPLETE (§13): SN passed under the user's body-height re-anchor [9 13:24], and SH is accepted with its K4 HALT disclosed [9 18:10]. F19 stays the policy of record in `policy/` until the bake. The bake, the commit of the stand record and the push are the user's calls.**
+**Status: FINAL 2026-11-08 23:46. G2 PASS, read 2026-11-08 22:55 and verified (§8.4). Teacher gate G1 PASS; selection SELECTED c31000; ONNX parity ok; student gate G2 PASS. Updated 2026-11-09: the pick's veto clip is recorded and the record is committed locally (§11 decisions 4 and 6). ADOPTED 2026-11-09 (decision 5): TDR and c31000 are the next omni teacher and student. The stand re-pairing to TDR is COMPLETE (§13): SN passed under the user's body-height re-anchor [9 13:24], and SH is accepted with its K4 HALT disclosed [9 18:10]. BAKED on the user's "Bake as proposed" [9 23:08] (`BAKE_PLAN.md`; local commit B, 2026-11-10): TDR, c31000 and SH_RSD_TDR + SN_RSD_TDR are the omni policy of record in `policy/`, and F19 is superseded with its files kept. Nothing is pushed; the push is the user's call.**
 
 - **Campaign:** `crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/`. It follows the DR stress sweep (`../2026-11-06_dr_stress_sweep/REPORT.md` §3, §9 decisions 2–3) and runs rung 3 of `../lit-review-domain-randomization.md` §13, shrunk to rod speed. Pre-registered 2026-11-07 15:40, before any GPU row [7 15:40]. Plan of record: `~/.claude/plans/rosy-toasting-dongarra.md` (3-pass audit, cap reached, accepted as is).
 - **Code and pins:** branch `feat/rod-speed-dr`, commit `1682e2e1` (local). code_sha `de3772e2…`; eval_sha `9fe964d7…`, the sweep's, unchanged. Pinned 2026-11-07 17:38 on a clean tree (`launch.json`). Every row from the reference arm to G2 ran on this pin (`g2.json` pin). Lines: Task 4 `p3a.stable90`, thresholds v1.2, applied per seed.
@@ -90,7 +90,7 @@
    - ≈ 29.5 h from the first Kit check (2026-11-07 17:26) to the G2 read (2026-11-08 22:55). ≈ 26.4 h of it passed before G2's rows started (19:49).
    - 2.4 h of that was the GPU sitting idle while the bridge decision waited (17:24–19:49).
    - The distill was the longest single step (9.6 h). G2's rows took 3.1 h.
-8. **Nothing is pushed.** On 2026-11-09 the user approved the veto clip and the local record commit (§11 decisions 4 and 6), and both are done. TDR and the pick are adopted (decision 5) and the SN/SH re-pairing is done (§13); the bake, the commit of the stand record and the push are the user's calls (§11).
+8. **Nothing is pushed.** On 2026-11-09 the user approved the veto clip and the local record commit (§11 decisions 4 and 6), and both are done. TDR and the pick are adopted (decision 5), the SN/SH re-pairing is done (§13), and the stand record (825ea251) and the bake (commit B, §13.9) are committed locally; the push is the user's call (§11).
 
 ## 2. Verdict table
 
@@ -708,7 +708,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
 
 ### 9.2 Hardware
 - **Deploy interface:** unchanged. The pick's `omni_student_io.json` has the same sha256 prefix as F19's export, and the ONNX matches the `.pt` (§6).
-- **What the pick changes:** in sim, the deployable student no longer fails slow rods at 90 kg. At ×0.7 L090 its survival.diag is 1.00 against c28000's 0.83 / 0.87†, and its completion 0.92 / 0.95 against 0.58 / 0.66†. It is not a deploy candidate yet: the veto clip is recorded (decision 4) and the SN/SH re-pairing is done (§13), but the bake remains (decision 5), and the bench comes before first stand (sweep decision 5).
+- **What the pick changes:** in sim, the deployable student no longer fails slow rods at 90 kg. At ×0.7 L090 its survival.diag is 1.00 against c28000's 0.83 / 0.87†, and its completion 0.92 / 0.95 against 0.58 / 0.66†. It is baked as the omni student of record (§13.9), after the veto clip (decision 4) and the SN/SH re-pairing (§13); for hardware, the bench still comes before first stand (sweep decision 5).
 - **Posture:**
   - TDR stands ≈ 0.03 m taller in every cell: suite h_meas 1.117 against 1.089 at L000, 1.114 against 1.085 at L090.
   - TDR's suite pitch_rms at ×0.7 is about half of old T\*'s (0.028 against 0.053).
@@ -755,7 +755,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
   - Rod speed tested at 0 and 90 kg; 135 kg nominal only; 150 kg as a WATCH cell for the student only.
 - **Sim plant:** load-blind slew; drive force not enforced; `applied_torque` is a PD estimate; rated forces are never enforced (sweep REPORT §8).
 - **ONNX parity covers one 120-step CPU record.**
-- **Storage:** TDR, TCTL and RSD_ST_s19 exist only under the worktree's gitignored `parkour/logs/` [C §5]. Removing the worktree deletes them. The stamps are untracked in the main checkout.
+- **Storage:** TDR, TCTL and RSD_ST_s19 were trained under the worktree's gitignored `parkour/logs/` [C §5]. Since 2026-11-09 23:17 they are also hardlinked into the main checkout's `parkour/logs/rsl_rl/` (decision 8), so removing the worktree no longer deletes them. The stamps are untracked in the main checkout.
 - **Tests:** two `test_task4_pipeline.py` tests fail on main-checkout data since the disk deletion. The fix is unmerged (§3.4). The plan also lists three dose-smoke unit tests that fail in this worktree since `parkour/logs/rsl_rl/metrics_history` appeared there. They are on its left-out list and unfixed.
 - **The 2.4-h idle GPU** at the bridge STOP is the campaign's one avoidable wall-clock loss. From 19:49, rows ran pending the decision.
 - **The stand pairing's disclosed weaknesses** (§13.8). SH fails K4, D9's fixed restore-miss line (5 / 6 per 800 against ≤ 3), and is accepted by the user's "Accept and disclose" [9 18:10]. The misses are chance-level only against the scripted teacher beside TDR (4 / 5), not against D9's calibration. Fourteen lines pass only by re-anchor: eight body-height lines on S1-era R and HOLD rows, and six K6 homing lines on R_h beside TDR. No control covers SH's walkstop homing (0.92 / 0.91 against 0.90). Low stands (0.844–0.970 m) home 0.74 / 0.81, against F19's 0.98. The stand nets were trained and judged at 0 kg, without rod-speed DR, on one seed each.
@@ -778,13 +778,13 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
    - F19's c28000 clip is in the main checkout at `../2026-10-16_task4_pipeline/F19/clip/`. The terrain draw differs between the two clips, so they are not a paired comparison.
    - What it shows: in frames sampled every 2 s, the robot stays upright for the whole 30 s. It is a look before adoption (decision 5), not a gate.
    - Wall-clock: 103 s in Kit, about 2 min in all.
-5. **Done 2026-11-09 09:55: adopted.** You answered "Yes, adopt": adopt TDR and c31000, start the SN/SH re-pairing, and bake only after your approval. F19 stays the policy of record in `policy/` until that bake. The question was: adopt TDR and the pick as the omni teacher and student of record?
+5. **Done 2026-11-09 09:55: adopted.** You answered "Yes, adopt": adopt TDR and c31000, start the SN/SH re-pairing, and bake only after your approval. F19 stayed the policy of record in `policy/` until that bake, done on your "Bake as proposed" [9 23:08] (§13.9). The question was: adopt TDR and the pick as the omni teacher and student of record?
    - Evidence: §4, §5, §8. For the student, the pick removes F19's FRAGILE cell (×0.7 L090 0.92 / 0.95 against c28000's 0.58 / 0.66†) and matches TDR there.
    - What still stands between the pick and a deploy candidate:
      - your look at the veto clip (decision 4, recorded 2026-11-09);
      - SN/SH re-pairing to TDR: **done 2026-11-09** (§13). SN `SN_RSD_TDR_sn_s19/model_4000.pt` (sha `6cd82ff5`) passed under your body-height re-anchor [9 13:24]. SH `SH_RSD_TDR_sh_s19/model_5000.pt` (sha `89f4428b`) is accepted with its K4 HALT disclosed, your "Accept and disclose" [9 18:10]. It took ≈ 6.8 h of wall-clock, against F19's 7.03 h (`STAND_REPAIR.md` §7);
-     - the bake into `crab_hex_omni_task/policy/` (the plan's left-out list), then a new bundle;
-     - copies of the run dirs that outlive the worktree (decision 8);
+     - the bake into `crab_hex_omni_task/policy/`: **done** on your "Bake as proposed" [9 23:08], local commit B (§13.9);
+     - copies of the run dirs that outlive the worktree: **done 2026-11-09 23:17** (decision 8);
      - for hardware, the sweep's open items that this campaign did not touch: the bench before first stand (sweep decision 5) and the velocity slot (sweep decision 6).
    - **Recommend adopting both together after the clip, then SN/SH re-pairing (≈ 6.6 h), with the bake only on your approval.** F19 stays of record until the bake. TDR alone changes no deployed policy.
 6. **Done 2026-11-09: the campaign record is committed locally** (your "Yes, both" to decisions 4 and 6). Not pushed.
@@ -800,7 +800,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
    - Left out: the empty `results/rsd_gate.lock`, the sweep's `run_sweep.lock`, and the `k1/` and `k2/` dumps and logs, which §4 keeps untracked. `*.log` and `*.mp4` files are gitignored.
    - The two checks behind it are logged in §6 [8 23:26].
 7. **Merge the test fix `96028b98`?** It sits on branch `claude/nostalgic-bouman-546381`, not merged and not pushed. It adds test-only skip guards to the two `test_task4_pipeline.py` R18 tests broken by the disk deletion. **Recommend yes, via your PR.**
-8. **Protect the trained runs?**
+8. **Done 2026-11-09 23:17: the trained runs are protected.** Approved with the bake [9 23:08]: TDR, TCTL and the student run are hardlinked into the main checkout's `parkour/logs/rsl_rl/` (every file shares its inode, link count 2; the shas re-checked there). The question was: protect the trained runs?
    - TDR, TCTL and the student run live only in the worktree's gitignored `parkour/logs/`.
    - **Recommend hardlink-copying them into the main checkout's `parkour/logs/`** (set aside in the plan) **before any worktree cleanup**, or bundling them under `policy/` at adoption. No GPU.
 9. **Replicate on a second training seed?**
@@ -825,7 +825,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
 ## 12. Files and how to re-read them
 - **Record** (`crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/`):
   - `CHARTER.md`: design §1–3; pins §4, with the amended class-flip rule (20:12) and its multi-wave bullet (23:06); files §5; log §6.
-  - `STAND_REPAIR.md`: the stand re-pairing to TDR (§13). Pre-registration §1–8 (2026-11-09 10:28) and log §9 (to 18:10). Untracked until the user's commit.
+  - `STAND_REPAIR.md`: the stand re-pairing to TDR (§13). Pre-registration §1–8 (2026-11-09 10:28) and log §9 (to 18:10). Committed in 825ea251 (record commit A).
   - `results/`:
     - G1: `g1.{json,md}`.
     - G2: `g2.{json,md}` (read 2026-11-08 22:55:06).
@@ -835,9 +835,9 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
     - Kit checks: `k1.out`, `k1.reread.out`, `k2.out`, and `k1/` and `k2/` (the dumps and logs, untracked).
     - Runs: `runs/RSD_{TDR,TCTL}_s19.json` (PF1–PF14), `runs/RSD_ST_s19.{distill.json,check.out}`.
     - Logs: `rsd_gate.log` (the `RSD ROW / SKIP / READ / STOP` sentinels; gitignored) and `notify.jsonl`.
-    - Stand re-pairing (§13; untracked): `stand/` holds the walker spec, the pre-flight (`preflight.json`, `preflight/`), the heads, premise reads and CPU reads, and `stand/gates/` (`sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, and the F19 replays `replay_f19_*.json`).
+    - Stand re-pairing (§13; committed in 825ea251): `stand/` holds the walker spec, the pre-flight (`preflight.json`, `preflight/`), the heads, premise reads and CPU reads, and `stand/gates/` (`sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, and the F19 replays `replay_f19_*.json`).
   - `envs/`: the cell env files, `p3b_dr.distill.env`, `RSD_T{DR,CTL}_s19.train.env`.
-  - `scripts/`: `rsd_lib.py`, `rsd_gate.py`, `rsd_train.py`, `rsd_launch.py`, `rsd_distill.sh`, `rsd_distill_check.py`, `rsd_queue.sh`, `rsd_onnx.py`, `rsd_dump_check.sh`, `rsd_dump_compare.py`, `rsd_smoke.{py,sh}`, `clip_pick.sh` (the veto clip, decision 4). For the stand re-pairing (§13; untracked): `rsd_stand.py` (Task 4's `sn` / `sh` executors, the gate call and the re-anchors) and `rsd_stand_queue.sh` (its serial queue runner).
+  - `scripts/`: `rsd_lib.py`, `rsd_gate.py`, `rsd_train.py`, `rsd_launch.py`, `rsd_distill.sh`, `rsd_distill_check.py`, `rsd_queue.sh`, `rsd_onnx.py`, `rsd_dump_check.sh`, `rsd_dump_compare.py`, `rsd_smoke.{py,sh}`, `clip_pick.sh` (the veto clip, decision 4). For the stand re-pairing (§13; committed in 825ea251): `rsd_stand.py` (Task 4's `sn` / `sh` executors, the gate call and the re-anchors) and `rsd_stand_queue.sh` (its serial queue runner). For the bake: `bake_videos.sh` (the sample videos, §13.9).
   - `clip/`: the pick's veto clip, `student_c31000_field_hard.mp4` and `student_c31000_field_hard_small.mp4`. They are local only, since `*.mp4` is gitignored. Its Kit log is `parkour/outputs/omni_plan/rod_speed_dr/clip_pick.log` in the main checkout.
   - The class tools: `classflip_check.py` (the §4 test for two stamps of one row; `--known` for the cross-pin bridge), `wave_diff.py` (per-wave first differences of a suite row) and `diag_closing_rows.py` (the diagnostic relaunch driver). They were copied into `scripts/` at 23:29 and committed in the record commit (decision 6).
   - The closing and diagnostic comparisons, as `classflip_check.py` / `wave_diff.py` printed them: `results/closing/closing_g2_{field_light,suite,suite_waves}.out` and `results/closing/diag_compare.out` (in the record commit).
@@ -972,10 +972,33 @@ A five-agent CPU check (`sh-k4-halt-verify`) reproduced every gate number, both 
 - **Record note:** `sh_reanchor.json`'s K6 `control_note` quotes the control-only SE; the lines use the head + control SE. The numbers are unaffected.
 
 ### 13.9 The bake
-The candidates are TDR, c31000, SN `6cd82ff5` (SH's warm-start ancestor) and SH `89f4428b`. The bake rewrites `policy/manifest.yaml` and `tests/unit/test_policy_of_record_omni.py` as a separate step. It must copy TDR's checkpoint out of the worktree (decision 8). The bake, the commit and the push are the user's calls; none has happened. F19 stays the policy of record until the bake.
+**Done** on the user's "Bake as proposed" [9 23:08], as planned in `BAKE_PLAN.md` (its §2 defaults), in local commit B (2026-11-10). Nothing is pushed.
+- **What moved** (`crab_hex_omni_task/policy/manifest.yaml`; the policy README regenerated by `bundle_policy.py --sync`):
+  - `current` = `rsd_9_p3b_rodspeed_dr`: TDR `model_28991.pt` (`03c3e472`).
+  - `rsd_10_student`: c31000's ONNX export, `policy.onnx` (`ac0ea3e2`), `depth_latest.onnx` (`0a04e065`) and `omni_student_io.json` (`4ee03d02`, byte-identical to F19's, so the deploy interface is unchanged). Its `model_31000.pt` (`155b5981`, 122 MB) is cited by sha, as F19's was.
+  - `rsd_stand_net`: SH `model_5000.pt` (`89f4428b`) and its warm-start ancestor SN `model_4000.pt` (`6cd82ff5`).
+  - F19's student and stand nets are superseded with their files kept (`F19`, `F19_student`, `SH_T4F19`, `SN_T4F19`), and F19's stages stay the lineage (T* is TDR's resume point). Nothing is deleted.
+  - The manifest carries every disclosure of §13.8, the class-flip rules' timing (§7) and the evidence-shape labels (TDR has REFS(TDR) Walk-Play rows and G1 cells, not Task 4 driver rows; 180 kg is not read).
+- **Runs protected:** TDR, TCTL and the student run are hardlinked into the main checkout (decision 8, done [9 23:17]).
+- **Checks:**
+  - `bundle_policy.py --check` reads OK: 10 stages (1 cited), the stand network and 13 kept superseded files.
+  - `tests/unit/test_policy_of_record_omni.py` grew from 78 to 96 tests, and all pass.
+  - The unit suite's failure set equals the pre-bake baseline.
+  - A CI-shaped run (a depth-1 merge with main, uid 1001, `env -i`, no main checkout; the Isaac venv stands in for CI's) adds no failure to the branch's.
+  - No pinned file is touched: code_sha `de3772e2` and eval_sha `9fe964d7` are unchanged, and there is no relock.
+  - Four independent verifiers (workflow `rsd-bake-verify`: records, tests, docs and an adversarial pass) found nothing blocking. Their 14 confirmed findings are fixed.
+- **Sample videos** (VIDEO ONLY; the user's request [9 23:17]; `scripts/bake_videos.sh`, from the bundled files, 23:18–23:38):
+  - TDR + SH on the medium and the roughest wall field, with F19's plan and seed 1514. All 4 stands arrived and homed, with 0 falls in each: window error 1.5–4.6 mm and 2.4–10.6 mm, against F19's 0.2–3.8 mm and 0.9–22.8 mm.
+  - 60 s of c31000 alone on the play env of record.
+  - They are cited in the stand block and the student's `play_notes`. The files are local and untracked, in the main checkout.
+- **Two CI failures predate the bake.** Both are in `tests/unit/test_rod_speed_dr_campaign.py`, from this campaign's earlier commits, and fail under CI conditions with or without the bake:
+  - `test_ct_yaml_root_normaliser_replaces_the_worktree_before_main` assumes the worktree sits inside `/home/nickmagus/krabby/krabby-research`;
+  - `test_fx_distill_wrapper_reports_the_g1_pass_guard` expects older refusal wording.
+  They are outside the bake.
 
 ### 13.10 Files
-- **Record** (this dir; untracked until the user's commit): `STAND_REPAIR.md` (§1–8 pre-registration, §9 log); `scripts/rsd_stand.py` (executors, gate call, re-anchors); `scripts/rsd_stand_queue.sh` (the queue runner); `results/stand/` (walker spec, pre-flight, heads, premise reads, CPU reads, and `gates/`: `sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, `replay_f19_*.json`).
+- **Record** (this dir; committed in 825ea251, record commit A): `STAND_REPAIR.md` (§1–8 pre-registration, §9 log); `scripts/rsd_stand.py` (executors, gate call, re-anchors); `scripts/rsd_stand_queue.sh` (the queue runner); `results/stand/` (walker spec, pre-flight, heads, premise reads, CPU reads, and `gates/`: `sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, `replay_f19_*.json`).
+- **Bake** (this dir): `BAKE_PLAN.md`; `scripts/bake_videos.sh`. In the main checkout (untracked): the videos `parkour/logs/videos/sh_stand_height/sh_mix_RSD_s1514_{rough,roughest}_sequence{.mp4,_phone.mp4,_sanity.json}` and `parkour/outputs/omni_plan/rod_speed_dr/videos/` (the student clips and the queue log).
 - **Main checkout** (untracked; beside F19's, where the readers find the S1-era controls):
   - run dirs `parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/` and `…/stand_height/runs/SH_RSD_TDR_sh_s19/`;
   - stamps `parkour/outputs/omni_plan/phase2/lr/{REFS_RSD_TDR,SN_RSD_TDR_sn_s19,SH_RSD_TDR_sh_s19,SH_RSD_TDR_sh_s19z,SH_RH_RSD_TDR}/`;

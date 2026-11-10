@@ -142,5 +142,5 @@ Host setup for kit bring-up is **this quick-start** (`krabby install` above), no
 | [docs/FOLDER_LAYOUT.md](docs/FOLDER_LAYOUT.md) | Repository map (task package, experiments/ keep-set, policy of record) |
 | [parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/README.md) | Crab-hex forward-walk RL task: phases, training, evaluation |
 | [parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/README.md) | Crab-hex omnidirectional-walk RL task: presets, drivers, Task 4 pipeline, evaluation |
-| [parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md) | Omni policy of record (walker T*, depth student, stand network) and how to play / evaluate it |
+| [parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/README.md) | Omni policy of record (walker TDR, depth student, stand network) and how to play / evaluate it |
 | [parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/README.md](parkour/parkour_tasks/parkour_tasks/crab_hex_sideways_task/README.md) | Crab-hex sideways-walk RL task |

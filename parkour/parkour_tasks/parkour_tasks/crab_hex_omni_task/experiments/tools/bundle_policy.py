@@ -11,8 +11,11 @@ heads that were deliberately left in the folder (``superseded[].files``). Histor
 2026-10-08), the stand networks A-mask s17 (2026-10-13) and SH_T17 (2026-10-15); since 2026-10-24 the Task 4
 deliverable run F19 (seed 19: s1 -> c4 -> c5 -> c6 -> c6x -> p2a -> p3a -> p3b = T*, the depth student distilled from
 T* as a ``kind: distill`` stage, and the stand nets SH_T4F19 / SN_T4F19 beside T*) SUPERSEDES the seed-18 lineage and
-SH_T17, whose files STAY in the folder (``superseded[].files``). It changes ONLY on a bake / adoption decision, which
-is the user's: edit the manifest, run ``--sync``, commit.
+SH_T17, whose files STAY in the folder (``superseded[].files``); since 2026-11-09 the rod-speed DR pairing (TDR = T* +
+3000 iterations of rod-speed DR as ``current``, the depth student c31000 as the ``distill`` stage and the stand nets
+SH_RSD_TDR / SN_RSD_TDR beside TDR) supersedes F19's student and stand nets, whose files also STAY, while F19's s1 .. p3b
+stay live stages. It changes ONLY on a bake / adoption decision, which is the user's: edit the manifest, run ``--sync``,
+commit.
 
     python3 experiments/tools/bundle_policy.py --sync     # copy missing stage / asset / stand files (sha-verified),
                                                           #   verify present ones, regenerate README.md,

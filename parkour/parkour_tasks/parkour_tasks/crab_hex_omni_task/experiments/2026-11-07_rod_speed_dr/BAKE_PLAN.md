@@ -1,7 +1,8 @@
 # Bake plan — rod-speed DR pairing as the omni policy of record
 
-**Status: APPROVED 2026-11-09 23:08 ("Bake as proposed", CHARTER §6), with the §2 defaults. Executing; nothing is
-pushed.** F19 stays the policy of record in `policy/` until commit B lands.
+**Status: APPROVED 2026-11-09 23:08 ("Bake as proposed", CHARTER §6), with the §2 defaults. DONE 2026-11-10 in local
+commit B; nothing is pushed.** The rod-speed DR pairing is the policy of record in `policy/`; F19 is superseded with
+its files kept.
 
 - **Source:** a read-only map of the F19 bake (de81f98a; also the stand bakes 4f3019b2 / 75d6261b and the docs pass
   593a047e), and an independent check of that map. Workflow `rsd-stand-addendum-and-bake-map`, 2026-11-09.
@@ -72,7 +73,8 @@ pushed.** F19 stays the policy of record in `policy/` until commit B lands.
    - the uninformative exit-fall reading;
    - the reader mismatches: two K5-control INVALID cells.
 7. **Not included unless you ask:**
-   - a walker + stand mix video beside TDR (F19 shipped two; about 10–20 min of GPU);
+   - a walker + stand mix video beside TDR (F19 shipped two; about 10–20 min of GPU). The user asked for sample videos
+     at 23:17; recorded 23:18–23:38 by `scripts/bake_videos.sh` (CHARTER §6);
    - Task 4-style Walk-Play rows for TDR (about 1 h of GPU). Without them, TDR's manifest evals are labelled by source:
      REFS(TDR) rows, plus G1 teacher-role cells on Student-Play, with 180 kg never read;
    - a local tag;

@@ -158,7 +158,7 @@ The policy runtime (`compute/parkour/`) is shared across simulation, testing, an
    - Maps inference output back to `JointCommand`
    - Loads `.pt` checkpoints (`compute/parkour/policy_interface.py`). The crab-hex policies of record live with
      their sim tasks (forward: `crab_hex_forward_task/policy/`, omni: `crab_hex_omni_task/policy/`); the omni
-     depth student's ONNX pair (`policy/f19_9_student/`) is not consumed by `compute/parkour`.
+     depth student's ONNX pair (`policy/rsd_10_student/`) is not consumed by `compute/parkour`.
 
 ## Container Communication Patterns
 
