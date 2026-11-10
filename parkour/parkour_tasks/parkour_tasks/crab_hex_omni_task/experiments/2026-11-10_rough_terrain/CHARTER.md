@@ -47,3 +47,32 @@ final check applied). Predecessors:
 - **Filed.** `../lit-review-rough-terrain.md`, `PLAN.md` (the audited plan) and this CHARTER.
 - **Prior reviews.** The review cites `lit-review-construction-terrain-dr.md` and `lit-review-obstacle-avoidance.md`,
   which live on the unmerged site branch, not on this one.
+
+### 2026-11-10 — step 1: trimmed site port (workflow `wf_bfd12127-97c`; opus·high porter, opus·xhigh reviewer)
+
+- **Ported** from site head `2a3e3c51` by file extraction:
+  - the site terrain library (`site_terrains.py`, `omni_site.py`, cfgs, generator 8-tuple and layers path);
+  - `site_raster.py`;
+  - a trimmed `site_task_math.py` (crossed and hazard radii only);
+  - spawn pad level (`spawn_level_z`, site mode only);
+  - per-kind telemetry in site mode, counting main's applied `promotion_mask`;
+  - the knobs `KRABBY_SITE_MIX / DIFF / LADDER` (default-off, site geometry only);
+  - 4 test files and the fixtures.
+- **Excluded:** layout v2 and scan ablation, site DR, site rewards, the critic group, rsl_rl changes, camera code
+  and the recorder or readout scripts. `parkour_actions.py` is untouched, so the rod-speed DR AST pins hold.
+- **Loud refusals.** The 20 unported site knobs now raise loudly if set (`SITE_UNPORTED_VARS`). Step 2 removes any
+  friction-contract name it reuses.
+- **Neutrality (CPU).** All 232 recorded env files (rod-speed DR, DR sweep, F19) give identical cfg snapshots,
+  stdout and exception types against a `git archive` of `3f944c4b`. TDR's recorded env.yaml gives an identical
+  dump geometry and 23 / 23 dump checks. Only the error text for an unset geometry changes (it now lists 'site').
+- **Unit suite** (same command as the baseline): 3 failed and 45 collection errors, identical node ids to main's
+  baseline, with 369 more passes. The 3 failures are recorded-artifact tests; the collection errors are zmq / serial.
+- **Review: READY, no blocking.** Minor items carried to step 2:
+  - SITE's ladders, bands and cross_r are unchanged: pits and rubble band 2.0–3.6 m, cross_r 4.1;
+  - `DEFAULT_SITE_MIX` still contains blockers: refuse a blank mix or change the default;
+  - the 0.03 m roughness cap in site geometry blocks gravel's 0.05 m;
+  - the telemetry's per-kind promote and demote means are not zero-filled; read `site_cnt_*`;
+  - the two neutrality pins skip without `git show 3f944c4b` (CI shallow checkouts).
+- **Not verifiable without Kit**, deferred to the step-5 smoke: the event manager accepting `spawn_level_z`, the
+  importer attributes, and the site-mode extras under the real runner.
+- **Pins.** code_sha moves with this commit (milestone boundary, as planned); eval_sha does not.

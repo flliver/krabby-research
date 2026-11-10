@@ -483,15 +483,21 @@ def _stand_in_generator_cls():
             (self._generate_curriculum_terrains if curriculum else self._generate_random_terrains)()
 
         def _get_terrain_mesh(self, difficulty, cfg):
+            # NOTE(rough-terrain campaign step 1, 2026-11-10; the site teacher's edit, ported): the real
+            # ``_get_terrain_mesh`` now returns 8 values (the 8th, ``layers_full``, is None for every non-site body --
+            # these tiles are flat / field), and the loops pass it to ``_store_site_layers``.
             self.seen.append(float(difficulty))
             return (("mesh", len(self.seen)), np.zeros(3), np.zeros((2, 2)), np.zeros(2), np.zeros((2, 2)),
-                    np.zeros((2, 2)), None)
+                    np.zeros((2, 2)), None, None)
 
         def _add_sub_terrain(self, mesh, origin, row, col, goal):
             self.added.append((mesh, int(row), int(col)))
 
         def _store_block_mask(self, row, col, mask):
             pass
+
+        def _store_site_layers(self, row, col, layers):
+            assert layers is None           # a non-site tile emits no layers
 
     return StandInGenerator
 

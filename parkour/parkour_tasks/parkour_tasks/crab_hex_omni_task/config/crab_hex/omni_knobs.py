@@ -137,6 +137,14 @@ five things the forward block cannot know about:
     (``dr_knobs.apply_dr_knobs``) right after the stress knobs and refused together with the stress rod-speed
     scale.
 
+17. **the site TERRAIN knobs** (rough-terrain campaign step 1, 2026-11-10: ported from the closed site teacher,
+    ``worktree-sen0581-cameras`` 2a3e3c51; DEFAULT OFF, set by no preset) -- ``KRABBY_SITE_MIX`` /
+    ``KRABBY_SITE_DIFF`` / ``KRABBY_SITE_LADDER`` live in ``mdp/omni_terrain_knobs.py`` with the field knobs and are
+    re-exported here (``SITE_GEOM``, ``SITE_*_VAR``, ``SITE_KNOB_PARSERS``) for the driver's whitelist / round-trip
+    table only. They act only under ``KRABBY_FLAT_TERRAIN_GEOM=site`` (``apply_omni_ring_knobs``' site branch and
+    ``install_omni_terrain_generator``); :func:`apply_omni_knobs` does not call anything new. Terrain geometry like
+    ``KRABBY_FIELD_*``: an eval row carries them in its own env file (never stripped).
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -354,6 +362,14 @@ FIELD_EDGES_VAR = _tk.FIELD_EDGES_VAR
 FIELD_MIN_GAP_VAR = _tk.FIELD_MIN_GAP_VAR
 FIELD_SIZE_SCALE_VAR = _tk.FIELD_SIZE_SCALE_VAR
 FIELD_KNOB_PARSERS = _tk.FIELD_KNOB_PARSERS
+# NOTE(rough-terrain campaign step 1, 2026-11-10): the site TERRAIN knobs (mdp/omni_terrain_knobs.py, ported from the
+# site teacher), re-exported for the same whitelist reason; applied by ``apply_omni_ring_knobs`` (site branch) and
+# ``install_omni_terrain_generator``. SITE_KNOB_PARSERS is for the driver's round-trip table.
+SITE_GEOM = _tk.SITE_GEOM
+SITE_MIX_VAR = _tk.SITE_MIX_VAR
+SITE_DIFF_VAR = _tk.SITE_DIFF_VAR
+SITE_LADDER_VAR = _tk.SITE_LADDER_VAR
+SITE_KNOB_PARSERS = _tk.SITE_KNOB_PARSERS
 
 _bk = _body_knobs()
 # NOTE(body-frame command mode, 2026-10-15): the three command-frame knobs (body_knobs.py),
@@ -481,6 +497,8 @@ __all__ = [
     # field-geometry knobs (mdp/omni_terrain_knobs.py, 2026-10-06)
     "FIELD_PAD_R_VAR", "FIELD_BLOCKS_VAR", "FIELD_KINDS_VAR", "FIELD_EDGES_VAR",
     "FIELD_MIN_GAP_VAR", "FIELD_SIZE_SCALE_VAR", "FIELD_KNOB_PARSERS",
+    # site terrain knobs (mdp/omni_terrain_knobs.py; rough-terrain port 2026-11-10)
+    "SITE_GEOM", "SITE_MIX_VAR", "SITE_DIFF_VAR", "SITE_LADDER_VAR", "SITE_KNOB_PARSERS",
     # body-frame command knobs (body_knobs.py, 2026-10-15)
     "COMMAND_FRAME_VAR", "BODY_ENVELOPE_VAR", "BODY_CAP_VAR", "COMMAND_FRAMES", "parse_command_frame",
     "parse_body_envelope_knob", "parse_body_cap_knob", "BODY_KNOB_PARSERS", "body_frame_env_refusals",

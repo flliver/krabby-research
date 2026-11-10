@@ -507,9 +507,12 @@ def test_driver_constants_match_the_generator_sources(rc):
     assert field_src.index(rc.FIELD_SUB_TERRAIN_KEYS[0]) < field_src.index(rc.FIELD_SUB_TERRAIN_KEYS[1])
     for key in rc.RING_SUB_TERRAIN_KEYS:
         assert f'"{key}": OmniRingTerrainCfg(' in ring_src, key
-    terrains_src = (TERRAINS / "omni_terrains.py").read_text()
+    # NOTE(rough-terrain campaign step 1, 2026-11-10; the site teacher's edit, ported): the site bodies
+    # (``omni_site_field_terrain`` / ``omni_site_terrain`` / ``omni_site_terrain_b4``) live in ``site_terrains.py``, not
+    # ``omni_terrains.py``: every body must be defined in one of the two generator-source files.
+    terrains_srcs = [(TERRAINS / "omni_terrains.py").read_text(), (TERRAINS / "site_terrains.py").read_text()]
     for func in rc.OMNI_SUB_TERRAIN_KINDS:
-        assert f"def {func}(" in terrains_src, func
+        assert any(f"def {func}(" in src for src in terrains_srcs), func
     cfg_src = (TERRAINS / "omni_terrains_cfg.py").read_text()
     field_cls = cfg_src[cfg_src.index("class OmniFieldTerrainCfg"):]
     for attr, (lo, hi) in rc.FIELD_SIZE_RANGES.items():

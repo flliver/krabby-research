@@ -25,6 +25,13 @@ def _parkour_field_to_mesh_impl(func: Callable, edge_axes: str) -> Callable:
     when ``cfg.vertical_edges`` is set, hands the stamped field to
     ``convert_height_field_to_mesh(riser_field=...)`` so every block edge becomes a vertical
     riser. A 3-value body takes the original path untouched (6 return values, same call).
+
+    Site teacher (``crab_hex_omni_task/experiments/2026-10-28_site_teacher/DESIGN.md`` §2.2, 2026-10-28): a
+    body may return a 5th value, ``layers`` (the site kind raster dict of ``site_raster``'s emission
+    contract, in the body's own pixel frame). The 4th value then keeps its meaning (the stamped riser
+    field: block mask + walls exactly as above), and the wrapper returns an 8th value, ``layers_full``:
+    the same dict with every array padded into the bordered frame of ``heights``
+    (:func:`pad_site_layers`). 3- and 4-value bodies take today's path byte for byte (6 / 7 values).
     """
     if edge_axes not in ("x", "xy"):
         raise ValueError(f"edge_axes must be 'x' or 'xy', got {edge_axes!r}")
@@ -50,7 +57,10 @@ def _parkour_field_to_mesh_impl(func: Callable, edge_axes: str) -> Callable:
         cfg.size = tuple(sub_terrain_size)
         # generate the height field
         out = func(difficulty, cfg, num_goals)
-        if len(out) == 4:
+        layers = None
+        if len(out) == 5:
+            z_gen, goals, goal_heights, stamped, layers = out
+        elif len(out) == 4:
             z_gen, goals, goal_heights, stamped = out
         else:
             z_gen, goals, goal_heights = out
@@ -94,12 +104,67 @@ def _parkour_field_to_mesh_impl(func: Callable, edge_axes: str) -> Callable:
         origin = np.array([0.5 * cfg.size[0], 0.5 * cfg.size[1], origin_z])
         # PLAN H (2026-09-03): the int16 height field (border included) is returned so the
         # generator can keep it for spawn-spread z lookup / clearance checks.
+        if layers is not None:
+            # Site teacher: the kind raster, bordered like ``heights`` (DESIGN §2.2).
+            layers_full = pad_site_layers(layers, heights.shape, border_pixels)
+            return [mesh], origin, goals, goal_heights, edge_mask, heights, block_mask, layers_full
         if block_mask is not None:
             # Omni phase-2 step 2: the exact block occupancy, same frame as ``heights``.
             return [mesh], origin, goals, goal_heights, edge_mask, heights, block_mask
         return [mesh], origin, goals, goal_heights, edge_mask, heights
 
     return wrapper
+
+
+#: The site kind raster's per-pixel layers (``site_raster.LAYER_DTYPES``, restated: this library module
+#: cannot import the task package). Border pixels -- and tiles stored before the generator's first site
+#: tile -- are 0 in every layer (``site_raster.LAYER_INIT``: ground at level 0); a test pins the two equal.
+SITE_LAYER_DTYPES = {"kind": np.int8, "level": np.int16, "surface0": np.int16, "material": np.int8}
+#: Per-tile scalars and their value on a tile that emitted none (``site_raster.TILE_INIT``).
+SITE_TILE_INIT = {"cross_r": float("nan"), "d": float("nan"), "centre_level_m": 0.0}
+#: Generator attribute per layer / tile scalar (``site_raster.GENERATOR_ATTRS``).
+SITE_GENERATOR_ATTRS = {
+    "kind": "site_kind", "level": "site_level", "surface0": "site_surface0", "material": "site_material",
+    "cross_r": "site_cross_r", "d": "site_d", "centre_level_m": "site_centre_level_m",
+}
+
+
+def pad_site_layers(layers: dict, full_shape: tuple[int, int], border_pixels: int) -> dict:
+    """A body's ``layers`` dict (its own pixel frame) -> the same dict in the decorator's bordered frame:
+    every array placed at ``[b:-b, b:-b]`` of a zero array of ``full_shape`` and its contract dtype
+    (border = ground, level 0, surface0 0, material 0); ``tile`` copied unchanged."""
+    out = {}
+    b = int(border_pixels)
+    for key, dtype in SITE_LAYER_DTYPES.items():
+        full = np.zeros(full_shape, dtype=dtype)
+        full[b:-b, b:-b] = np.asarray(layers[key]).astype(dtype, copy=False)
+        out[key] = full
+    out["tile"] = dict(layers["tile"])
+    return out
+
+
+def store_site_layers(holder, row: int, col: int, layers: dict | None, grid_rc: tuple[int, int],
+                      tile_px: tuple[int, int]) -> None:
+    """Keep one tile's bordered site layers on ``holder`` (the terrain generator; DESIGN §2.2).
+
+    ``None`` stores nothing. The seven ``site_*`` arrays (:data:`SITE_GENERATOR_ATTRS`) are allocated on
+    the first non-None tile -- per-pixel ``(R, C, W, L)`` at their contract dtype filled 0 (ground, level
+    0), per-tile ``(R, C)`` float32 filled with :data:`SITE_TILE_INIT` -- so tiles generated before it
+    (flat tiles, whose bodies emit no layers) read as ground with no crossing. Ring / field / flat-only
+    generators never allocate (the attributes stay None, as ``block_masks``).
+    """
+    if layers is None:
+        return
+    r, c = (int(v) for v in grid_rc)
+    if getattr(holder, SITE_GENERATOR_ATTRS["kind"], None) is None:
+        for key, dtype in SITE_LAYER_DTYPES.items():
+            setattr(holder, SITE_GENERATOR_ATTRS[key], np.zeros((r, c, *tile_px), dtype=dtype))
+        for key, fill in SITE_TILE_INIT.items():
+            setattr(holder, SITE_GENERATOR_ATTRS[key], np.full((r, c), fill, dtype=np.float32))
+    for key in SITE_LAYER_DTYPES:
+        getattr(holder, SITE_GENERATOR_ATTRS[key])[row, col, :, :] = layers[key]
+    for key in SITE_TILE_INIT:
+        getattr(holder, SITE_GENERATOR_ATTRS[key])[row, col] = float(layers["tile"][key])
 
 
 parkour_field_to_mesh = functools.partial(_parkour_field_to_mesh_impl, edge_axes="x")

@@ -44,6 +44,30 @@ bars, slabs and pits over the whole tile square (``OmniFieldTerrainCfg``). Three
   flat only), the ``KRABBY_FIELD_*`` knobs (:data:`FIELD_VARS`), and the same parkour-term radius
   sync (``clear_radius_m`` = the pad, so ``reach_edge`` means "left the pad" and ``field_frac`` /
   the sectors are measured beyond it).
+
+THE SITE GEOMETRY (site teacher, experiments/2026-10-28_site_teacher/DESIGN.md §3, 2026-10-28; ported from
+``worktree-sen0581-cameras`` 2a3e3c51 by the rough-terrain campaign, experiments/2026-11-10_rough_terrain/PLAN.md
+step 1, 2026-11-10)
+-----------------------------------------------------------------------------------------------
+``KRABBY_FLAT_TERRAIN_GEOM=site`` selects the construction-site course (``OMNI_SITE_TERRAINS_CFG``: one
+column kind per sub-terrain, ``site_raster.SITE_SUBTERRAIN_KEYS``). :func:`install_omni_terrain_generator`
+installs it like the field; :func:`require_omni_geom` accepts it, refusing ``KRABBY_RING_*`` and ALLOWING
+``KRABBY_FIELD_*`` (they configure the two legacy-field columns); :func:`apply_omni_site_knobs` (the
+``site`` branch of the dispatcher) asserts the generator, applies ``KRABBY_SITE_MIX`` (columns) and
+``KRABBY_SITE_DIFF`` (the site-difficulty band), the pad / roughness / ramp caps, the radius sync and the
+pad-level spawn. The site terrain knobs (:data:`SITE_VARS`) under ring / field are IGNORED with a
+``[KNOB] ... ignored`` line, never refused (a row's geometry is its own, DESIGN §3.7).
+
+``KRABBY_SITE_LADDER`` (PLAN_rev1 B4, 2026-10-29) is terrain geometry like ``KRABBY_SITE_DIFF`` (never stripped
+from an eval row): blank = today's ladder, ``b4`` = the bottom rung (``site_terrains.SITE_LADDER_BOTTOMS``), which
+the site applier arms by writing ``site_terrains.SITE_LADDER_BODIES["b4"]`` into every hazard sub-terrain's
+``function``. Its parent is the site geometry itself; under ring / field it is ignored like every site knob.
+
+Port scope (rough-terrain, 2026-11-10): only the site TERRAIN knobs above are ported. The site teacher's other
+``KRABBY_SITE_*`` knobs (site physics DR, site curriculum / rewards / terminations, the critic group) and
+``KRABBY_MAX_INIT_TERRAIN_LEVEL`` are NOT, so :func:`refuse_unported_site_knobs` REFUSES any of them
+(:data:`SITE_UNPORTED_VARS`) in every geometry rather than letting a stale site env file apply nothing. The ramp cap
+reads no site foot friction (:func:`site_friction_floor` is None: ramps stay at 20 deg).
 """
 from __future__ import annotations
 
@@ -90,6 +114,31 @@ __all__ = [
     "apply_field_geometry",
     "apply_omni_field_knobs",
     "install_omni_terrain_generator",
+    # site geometry (site teacher DESIGN §1.2 / §3; skeleton, milestone M1)
+    "SITE_GEOM",
+    "SITE_MIX_VAR",
+    "SITE_DIFF_VAR",
+    "SITE_VARS",
+    "SITE_MIX_MAX_COLS",
+    "DEFAULT_SITE_MIX",
+    "parse_site_mix",
+    "parse_site_diff",
+    "SITE_KNOB_PARSERS",
+    "DEFAULT_SITE_DIFF",
+    "SITE_PAD_R",
+    "SITE_NOISE_MAX",
+    "site_ramp_cap_deg",
+    "assert_site_sub_terrains",
+    "apply_site_mix",
+    "apply_omni_site_knobs",
+    # site bottom rung (PLAN_rev1 B4, 2026-10-29)
+    "SITE_LADDER_VAR",
+    "SITE_LADDERS",
+    "parse_site_ladder",
+    # rough-terrain port (2026-11-10): the site teacher's knobs this branch does NOT carry
+    "SITE_UNPORTED_VARS",
+    "refuse_unported_site_knobs",
+    "site_friction_floor",
 ]
 
 GEOM_VAR = "KRABBY_FLAT_TERRAIN_GEOM"
@@ -99,7 +148,8 @@ BLOCKS_VAR = "KRABBY_RING_BLOCKS"
 RING_VARS = (CLEAR_R_VAR, BLOCKS_VAR)
 
 FIELD_GEOM = "field"
-OMNI_GEOMS = (RING_GEOM, FIELD_GEOM)
+# ``SITE_GEOM`` (defined with the site knobs below) is the third value.
+OMNI_GEOMS = (RING_GEOM, FIELD_GEOM, "site")
 FIELD_PAD_R_VAR = "KRABBY_FIELD_PAD_R"
 FIELD_BLOCKS_VAR = "KRABBY_FIELD_BLOCKS"
 FIELD_KINDS_VAR = "KRABBY_FIELD_KINDS"
@@ -121,6 +171,65 @@ FIELD_PAD_R_HEADROOM = 1.0
 FIELD_HALF_WIDTH = 4.80
 #: Upper bound on blocks per tile (the dense default is 28; 60 is already ~35 % cover).
 FIELD_BLOCKS_MAX = 60
+
+# Site geometry (site teacher, experiments/2026-10-28_site_teacher/DESIGN.md §3). ``site`` is a VALUE
+# of KRABBY_FLAT_TERRAIN_GEOM (the third of OMNI_GEOMS).
+SITE_GEOM = "site"
+SITE_MIX_VAR = "KRABBY_SITE_MIX"
+SITE_DIFF_VAR = "KRABBY_SITE_DIFF"
+#: The bottom-rung ladder (PLAN_rev1 B4): blank = today's ladder.
+SITE_LADDER_VAR = "KRABBY_SITE_LADDER"
+SITE_VARS = (SITE_MIX_VAR, SITE_DIFF_VAR, SITE_LADDER_VAR)
+#: ``site_terrains.SITE_LADDER_BOTTOMS``' names restated (standalone, torch-free module; a test pins the two equal).
+SITE_LADDERS = ("b4",)
+#: Upper bound on the total column count of a mix.
+SITE_MIX_MAX_COLS = 40
+#: The mix when KRABBY_SITE_MIX is unset under ``site``: 20 columns, flat 0.2, legacy field 0.2,
+#: hazards 0.6 (pits get 2 as the holes-row kind).
+DEFAULT_SITE_MIX = ("flat=4,field_sparse=2,field_dense=2,pits=2,trench=1,ledge_down=1,ledge_up=1,terraces=1,"
+                    "snags=1,straddle=1,chests=1,walls=1,rubble=1,ramps=1")
+# ``site_raster.SITE_KINDS`` restated (this module is path-loaded standalone and stays torch-free);
+# a test pins the two equal.
+_SITE_KINDS = ("flat", "field_sparse", "field_dense", "pits", "trench", "ledge_down", "ledge_up", "terraces",
+               "snags", "straddle", "chests", "walls", "rubble", "ramps")
+# ``site_raster.SITE_SUBTERRAIN_KEYS`` restated (same order, same reason, same pin).
+_SITE_SUBTERRAIN_KEYS = ("parkour_flat", "site_field_sparse", "site_field_dense", "site_pits", "site_trench",
+                         "site_ledge_down", "site_ledge_up", "site_terraces", "site_snags", "site_straddle",
+                         "site_chests", "site_walls", "site_rubble", "site_ramps")
+#: The default site-difficulty band (``KRABBY_SITE_DIFF`` unset).
+DEFAULT_SITE_DIFF = (0.0, 1.0)
+#: The site pad (m): the default, and the largest ``KRABBY_FIELD_PAD_R`` the site layouts accept (their
+#: hazard radii start 0.3 m beyond it; ``site_terrains.PAD_R_M``).
+SITE_PAD_R = 1.7
+#: The half-width every site feature lies in (m); ``ring_outer_radius_m`` is synced to it.
+SITE_HALF_WIDTH = 4.80
+#: Largest roughness amplitude (m) a site sub-terrain may carry (``noise_range[1]``; the PLAN's 1-3 cm cap).
+SITE_NOISE_MAX = 0.03
+#: Ramp slope cap (deg) and its margin below the friction angle (``site_terrains.RAMP_MAX_DEG`` / §3.3).
+SITE_RAMP_MAX_DEG = 20.0
+SITE_RAMP_FRICTION_MARGIN_DEG = 3.0
+#: Forward-block knobs the site applier supersedes / refuses.
+FLAT_FRAC_VAR = "KRABBY_FLAT_TERRAIN_FLAT_FRAC"
+RSI_FRAC_VAR = "KRABBY_RSI_FRAC"
+#: The spawn event the site applier arms ``spawn_level_z`` on.
+SPAWN_EVENT = "reset_root_state"
+#: The site teacher's knobs that the rough-terrain port does NOT carry (2026-11-10): its physics DR
+#: (``site_dr_knobs``), its curriculum / rewards / terminations and PLAN_rev1 training-only keys
+#: (``site_task_knobs``, ``site_keys.EVAL_STRIP_KEYS`` on the site branch) and its critic-only obs group. Each is
+#: REFUSED when set (:func:`refuse_unported_site_knobs`), in every geometry: on this branch it would apply nothing.
+SITE_UNPORTED_VARS = (
+    # site physics DR
+    "KRABBY_SITE_GROUND_COMBINE", "KRABBY_SITE_FOOT_FRICTION", "KRABBY_SITE_FOOT_DYN_RATIO",
+    "KRABBY_SITE_FOOT_RESTITUTION", "KRABBY_SITE_ACTION_DELAY", "KRABBY_SITE_PROP_NOISE", "KRABBY_SITE_ROD_SCALE",
+    "KRABBY_SITE_CAM_SCALE",
+    # site curriculum, rewards, terminations
+    "KRABBY_SITE_PROMOTE", "KRABBY_SITE_CRASH_N", "KRABBY_SITE_VOID_W", "KRABBY_SITE_EDGE_W", "KRABBY_SITE_BLOCKER_W",
+    "KRABBY_SITE_SLACK", "KRABBY_SITE_IMPACT",
+    # PLAN_rev1 training-only keys
+    "KRABBY_SITE_SLACK_GEOM", "KRABBY_SITE_SLACK_HALFW", "KRABBY_SITE_PROMOTE_RULE", "KRABBY_MAX_INIT_TERRAIN_LEVEL",
+    # the critic-only observation group
+    "KRABBY_SITE_CRITIC_OBS",
+)
 
 
 # ------------------------------------------------------------------------------ parsers
@@ -285,7 +394,7 @@ def apply_ring_geometry(
             sub_terrains[key].n_blocks = int(count)
 
 
-def apply_omni_ring_knobs(cfg, environ=None, classes=None, field_classes=None) -> None:
+def apply_omni_ring_knobs(cfg, environ=None, classes=None, field_classes=None, site_classes=None) -> None:
     """Guard the ring geometry and apply ``KRABBY_RING_*`` (called from ``__post_init__``).
 
     Args:
@@ -303,9 +412,22 @@ def apply_omni_ring_knobs(cfg, environ=None, classes=None, field_classes=None) -
     accepts ``ring`` or ``field`` (and refuses mixed knob families); ``field`` goes to
     :func:`apply_omni_field_knobs` (``field_classes`` = ``(field_cls, flat_cls)``, defaulting to the
     real cfg classes), ``ring`` runs the body below exactly as before.
+
+    Site teacher (DESIGN §3.1, 2026-10-28): ``site`` goes to :func:`apply_omni_site_knobs`
+    (``site_classes`` = ``(flat_cls, site_field_cls, site_cls)``); under ring / field a set
+    ``KRABBY_SITE_*`` prints ``[KNOB] <var>=<value> ignored (geometry is <g>)`` and applies nothing.
     """
     env = os.environ if environ is None else environ
-    if require_omni_geom(env) == FIELD_GEOM:
+    geom = require_omni_geom(env)
+    refuse_unported_site_knobs(env)
+    if geom == SITE_GEOM:
+        apply_omni_site_knobs(cfg, env, classes=site_classes)
+        return
+    # DESIGN §3.7: a site knob under ring / field is a hand-composed env -- ignored, never refused.
+    for var in SITE_VARS:
+        if not _is_blank(env.get(var)):
+            print(f"[KNOB] {var}={env.get(var)} ignored (geometry is {geom})", flush=True)
+    if geom == FIELD_GEOM:
         apply_omni_field_knobs(cfg, env, classes=field_classes)
         return
 
@@ -473,12 +595,15 @@ def read_omni_geom(environ=None) -> str | None:
 
 
 def require_omni_geom(environ=None) -> str:
-    """Require ``KRABBY_FLAT_TERRAIN_GEOM`` in ``("ring", "field")`` and no MIXED knob family.
+    """Require ``KRABBY_FLAT_TERRAIN_GEOM`` in :data:`OMNI_GEOMS` and no MIXED knob family.
 
     Raises ``RuntimeError`` naming the leaked value for anything else (same message family as
     :func:`require_ring_geom`), and naming the offending variables when a ``KRABBY_RING_*`` knob is
     set under ``field`` or a ``KRABBY_FIELD_*`` knob under ``ring``. Blank values count as unset,
     as they do when the knobs are applied.
+
+    Under ``site`` (DESIGN §3.1) ``KRABBY_RING_*`` is refused and ``KRABBY_FIELD_*`` is ALLOWED: it
+    configures the site generator's two legacy-field columns.
     """
     env = os.environ if environ is None else environ
     raw = env.get(GEOM_VAR)
@@ -655,8 +780,9 @@ def apply_omni_field_knobs(cfg, environ=None, classes=None) -> None:
     _sync_parkour_radii(cfg, tg.sub_terrains[(field_keys + flat_keys)[0]], note="field geometry")
 
 
-def install_omni_terrain_generator(cfg, environ=None, field_generator=None) -> str | None:
-    """Install the omni FIELD generator when ``KRABBY_FLAT_TERRAIN_GEOM=field``; else a no-op.
+def install_omni_terrain_generator(cfg, environ=None, field_generator=None, site_generator=None) -> str | None:
+    """Install the omni FIELD generator when ``KRABBY_FLAT_TERRAIN_GEOM=field`` (the SITE generator,
+    ``OMNI_SITE_TERRAINS_CFG``, when ``site``; ``site_generator`` overrides it for tests); else a no-op.
 
     Called FIRST in both omni env ``__post_init__``s (after the phase-mode guard, before
     ``super().__post_init__()``), so everything downstream -- the forward knob block's flat
@@ -673,18 +799,294 @@ def install_omni_terrain_generator(cfg, environ=None, field_generator=None) -> s
 
     env = os.environ if environ is None else environ
     geom = read_omni_geom(env)
-    if geom != FIELD_GEOM:
-        return geom
-    if field_generator is None:
-        from parkour_isaaclab.terrains.omni.config.omni_field import (  # noqa: PLC0415
-            OMNI_FIELD_TERRAINS_CFG,
-        )
+    if geom == SITE_GEOM:
+        if site_generator is None:
+            from parkour_isaaclab.terrains.omni.config.omni_site import (  # noqa: PLC0415
+                OMNI_SITE_TERRAINS_CFG,
+            )
 
-        field_generator = OMNI_FIELD_TERRAINS_CFG
+            site_generator = OMNI_SITE_TERRAINS_CFG
+        generator = site_generator
+    elif geom == FIELD_GEOM:
+        if field_generator is None:
+            from parkour_isaaclab.terrains.omni.config.omni_field import (  # noqa: PLC0415
+                OMNI_FIELD_TERRAINS_CFG,
+            )
+
+            field_generator = OMNI_FIELD_TERRAINS_CFG
+        generator = field_generator
+    else:
+        return geom
     terrain = getattr(cfg.scene, "terrain", None)
     if terrain is None:
-        raise RuntimeError(
-            f"{GEOM_VAR}={FIELD_GEOM} but the scene has no terrain importer to install the field into"
-        )
-    terrain.terrain_generator = copy.deepcopy(field_generator)
+        if geom == FIELD_GEOM:
+            raise RuntimeError(
+                f"{GEOM_VAR}={FIELD_GEOM} but the scene has no terrain importer to install the field into"
+            )
+        raise RuntimeError(f"{GEOM_VAR}={geom} but the scene has no terrain importer to install the {geom} into")
+    terrain.terrain_generator = copy.deepcopy(generator)
     return geom
+
+
+# ================================================================================ SITE
+# Site teacher (experiments/2026-10-28_site_teacher/DESIGN.md §1.2, §3). Default-off: the parsers map
+# blank to None, and nothing below runs unless KRABBY_FLAT_TERRAIN_GEOM=site.
+
+
+def parse_site_mix(text) -> dict[str, int] | None:
+    """``KRABBY_SITE_MIX`` -> ``{kind: count}`` over every site column kind, in ``SITE_KINDS`` order
+    (kinds the text omits are 0); None when blank.
+
+    Grammar ``name=count[,name=count]...``, whitespace around tokens allowed; ``name`` a site column
+    kind, ``count`` a non-negative integer (floats refused); duplicates refused; total in
+    ``[1, SITE_MIX_MAX_COLS]``.
+    """
+    if _is_blank(text):
+        return None
+    counts: dict[str, int] = {}
+    for token in str(text).split(","):
+        name, sep, raw = token.partition("=")
+        name, raw = name.strip(), raw.strip()
+        if not sep or not name:
+            raise ValueError(f'{SITE_MIX_VAR} entries must be "name=count", got {token.strip()!r} in {text!r}')
+        if name not in _SITE_KINDS:
+            raise ValueError(f"{SITE_MIX_VAR}: unknown kind {name!r} in {text!r}; valid: {', '.join(_SITE_KINDS)}")
+        if name in counts:
+            raise ValueError(f"{SITE_MIX_VAR}: kind {name!r} given twice in {text!r}")
+        if not raw.isdigit() or not raw.isascii():
+            raise ValueError(f"{SITE_MIX_VAR}: count for {name!r} must be a non-negative integer, got {raw!r}")
+        counts[name] = int(raw)
+    total = sum(counts.values())
+    if not 1 <= total <= SITE_MIX_MAX_COLS:
+        raise ValueError(f"{SITE_MIX_VAR} must total 1..{SITE_MIX_MAX_COLS} columns, got {total} ({text!r})")
+    return {name: counts.get(name, 0) for name in _SITE_KINDS}
+
+
+def parse_site_diff(text) -> tuple[float, float] | None:
+    """``KRABBY_SITE_DIFF`` -> ``(lo, hi)`` site-difficulty band, ``0 <= lo <= hi <= 1``; None when
+    blank (the applier's default band is ``0:1``)."""
+    if _is_blank(text):
+        return None
+    parts = str(text).strip().split(":")
+    if len(parts) != 2:
+        raise ValueError(f'{SITE_DIFF_VAR} must be "lo:hi", got {text!r}')
+    lo, hi = (_parse_float(SITE_DIFF_VAR, part) for part in parts)
+    if not 0.0 <= lo <= hi <= 1.0:
+        raise ValueError(f"{SITE_DIFF_VAR} needs 0 <= lo <= hi <= 1, got {text!r}")
+    return lo, hi
+
+
+def parse_site_ladder(text) -> str | None:
+    """``KRABBY_SITE_LADDER`` -> a :data:`SITE_LADDERS` name (read as ``strip().lower()``); None when blank
+    (today's ladder). Anything else is refused."""
+    if _is_blank(text):
+        return None
+    value = str(text).strip().lower()
+    if value not in SITE_LADDERS:
+        raise ValueError(f"{SITE_LADDER_VAR} must be blank (today's ladder) or one of {SITE_LADDERS}, got {text!r}")
+    return value
+
+
+SITE_KNOB_PARSERS = {
+    SITE_MIX_VAR: parse_site_mix,
+    SITE_DIFF_VAR: parse_site_diff,
+    SITE_LADDER_VAR: parse_site_ladder,
+}
+"""``{KRABBY_SITE_*: parser}`` -- for the campaign driver's value round-trip table (DESIGN §1.2)."""
+
+
+def refuse_unported_site_knobs(environ=None) -> None:
+    """Raise ``RuntimeError`` naming every :data:`SITE_UNPORTED_VARS` key set (non-blank) in ``environ``.
+
+    Called first in :func:`apply_omni_ring_knobs`, so it runs in every omni process; with none of them set (every
+    main recipe and eval row) it reads the environment and writes nothing."""
+    env = os.environ if environ is None else environ
+    armed = [f"{var}={env.get(var)!r}" for var in SITE_UNPORTED_VARS if not _is_blank(env.get(var))]
+    if armed:
+        raise RuntimeError(
+            f"{', '.join(armed)}: the site teacher's DR / curriculum / reward / termination / critic knobs are NOT "
+            "ported to this branch (only KRABBY_SITE_MIX / KRABBY_SITE_DIFF / KRABBY_SITE_LADDER are); unset them"
+        )
+
+
+def site_friction_floor(environ=None) -> float | None:
+    """The site foot-friction floor the ramp cap reads: always None on this branch (the site teacher's
+    ``site_dr_knobs.parse_friction_floor`` read ``KRABBY_SITE_FOOT_FRICTION``, which is not ported and is refused by
+    :func:`refuse_unported_site_knobs`), so :func:`site_ramp_cap_deg` is its 20 deg cap."""
+    return None
+
+
+def site_ramp_cap_deg(mu_floor: float | None) -> float:
+    """``min(20, degrees(atan(mu_floor)) - 3)`` (DESIGN §3.3, "capped by friction"); 20 deg when the site
+    foot friction is not armed. ``site_terrains.ramp_cap_deg`` restated (a test pins the two equal)."""
+    if mu_floor is None:
+        return SITE_RAMP_MAX_DEG
+    return min(SITE_RAMP_MAX_DEG, math.degrees(math.atan(float(mu_floor))) - SITE_RAMP_FRICTION_MARGIN_DEG)
+
+
+def assert_site_sub_terrains(sub_terrains, flat_cls, site_field_cls, site_cls) -> None:
+    """Raise unless ``sub_terrains`` is the site generator's: keys exactly the site sub-terrain keys in
+    order, ``parkour_flat`` a ``flat_cls``, the two legacy-field keys ``site_field_cls``, and every hazard
+    key a ``site_cls`` whose ``kind`` is its column kind. A ring / field generator (the install hook did
+    not run) or a hand-edited mix of keys fails here, by class, like the ring and field guards."""
+    if not sub_terrains:
+        raise RuntimeError("terrain generator has no sub_terrains; expected the omni site generator.")
+    keys = tuple(sub_terrains)
+    if keys != _SITE_SUBTERRAIN_KEYS:
+        raise RuntimeError(
+            f"{GEOM_VAR}={SITE_GEOM} requires the omni site generator's sub-terrains {_SITE_SUBTERRAIN_KEYS} "
+            f"in that order, found {keys} (was install_omni_terrain_generator called before the knob block?)"
+        )
+    want = {"parkour_flat": flat_cls, "site_field_sparse": site_field_cls, "site_field_dense": site_field_cls}
+    bad = []
+    for name, key in zip(_SITE_KINDS, _SITE_SUBTERRAIN_KEYS):
+        sub = sub_terrains[key]
+        cls = want.get(key, site_cls)
+        if not isinstance(sub, cls) or (cls is site_cls and getattr(sub, "kind", None) != name):
+            bad.append(f"{key}={type(sub).__name__}(kind={getattr(sub, 'kind', None)!r})")
+    if bad:
+        raise RuntimeError(f"{GEOM_VAR}={SITE_GEOM}: wrong site sub-terrain classes / kinds: {', '.join(bad)}")
+
+
+def apply_site_mix(tg, mix: dict[str, int]) -> None:
+    """``tg.num_cols = total`` and each sub-terrain's ``proportion = count / total`` in site-key order
+    (zero-count keys stay declared with proportion 0). The generator's curriculum rule
+    (``index / num_cols + 0.001 < cumsum(p)``) then gives each kind exactly ``count`` consecutive
+    columns in canonical order (DESIGN §3.4)."""
+    total = int(sum(mix.values()))
+    tg.num_cols = total
+    for name, key in zip(_SITE_KINDS, _SITE_SUBTERRAIN_KEYS):
+        tg.sub_terrains[key].proportion = int(mix[name]) / total
+
+
+def apply_omni_site_knobs(cfg, environ=None, classes=None, ladder_bodies=None) -> None:
+    """The ``site`` branch of :func:`apply_omni_ring_knobs` (DESIGN §3.1), in this order:
+
+    1. refuse ``KRABBY_RSI_FRAC > 0`` (RSI frames are flat-ground absolute z; every F19 stage sets 0);
+    2. :func:`assert_site_sub_terrains` (``classes`` = ``(flat_cls, site_field_cls, site_cls)``, default the
+       real cfg classes, imported lazily);
+    3. the ``KRABBY_FIELD_*`` knobs on the legacy columns (``apply_field_geometry`` on the filtered
+       ``{site_field_sparse, site_field_dense, parkour_flat}`` mapping; the pad separately, below);
+    4. the pad radius (``KRABBY_FIELD_PAD_R`` or :data:`SITE_PAD_R`) on EVERY sub-terrain -- a pad above
+       1.7 m is refused here (the hazard radii are laid out for it);
+    5. the mix (``KRABBY_SITE_MIX`` or :data:`DEFAULT_SITE_MIX`, :func:`apply_site_mix`; a set
+       ``KRABBY_FLAT_TERRAIN_FLAT_FRAC`` is superseded and reported ``ignored``);
+    6. the d mapping: ``site_d_range`` (``KRABBY_SITE_DIFF`` or 0:1) and ``gen_d_range`` (the generator's
+       ``difficulty_range`` as the forward block left it) into every site hazard sub-terrain; with
+       ``KRABBY_SITE_LADDER`` set (PLAN_rev1 B4), also that ladder's body into every hazard sub-terrain's
+       ``function`` (``ladder_bodies`` = ``{ladder: body}``, default ``site_terrains.SITE_LADDER_BODIES``,
+       imported lazily); blank writes nothing (today's ``omni_site_terrain``, today's dump);
+    7. the roughness cap (any sub-terrain with ``noise_range[1] > 0.03`` refused) and the ramp cap
+       (:func:`site_ramp_cap_deg` of :func:`site_friction_floor`, None here: 20 deg) on every hazard sub-terrain;
+    8. the parkour-term radius sync (``clear_radius_m`` = pad, ``ring_outer_radius_m`` = 4.80) and
+       ``events.reset_root_state.params["spawn_level_z"] = True`` (DESIGN §3.8).
+
+    Only reached under ``KRABBY_FLAT_TERRAIN_GEOM=site``, which is itself the armed knob: ring / field
+    processes never call it.
+    """
+    env = os.environ if environ is None else environ
+    raw_rsi = env.get(RSI_FRAC_VAR)
+    if not _is_blank(raw_rsi) and _parse_float(RSI_FRAC_VAR, raw_rsi) > 0.0:
+        raise RuntimeError(
+            f"{GEOM_VAR}={SITE_GEOM} refuses {RSI_FRAC_VAR}={raw_rsi}: RSI frames carry flat-ground absolute z, "
+            "which is wrong on raised / sunken site pads (every F19 stage sets 0)"
+        )
+    if classes is None:
+        from parkour_isaaclab.terrains.omni.omni_terrains_cfg import (  # noqa: PLC0415
+            OmniFlatTerrainCfg,
+            OmniSiteFieldTerrainCfg,
+            OmniSiteTerrainCfg,
+        )
+
+        flat_cls, site_field_cls, site_cls = OmniFlatTerrainCfg, OmniSiteFieldTerrainCfg, OmniSiteTerrainCfg
+    else:
+        flat_cls, site_field_cls, site_cls = classes
+
+    terrain = getattr(cfg.scene, "terrain", None)
+    tg = getattr(terrain, "terrain_generator", None) if terrain is not None else None
+    if tg is None:
+        raise RuntimeError(
+            "the omni site geometry requires scene.terrain.terrain_generator to be OMNI_SITE_TERRAINS_CFG; "
+            "found None (a flat/plane terrain importer)."
+        )
+    subs = tg.sub_terrains
+    assert_site_sub_terrains(subs, flat_cls, site_field_cls, site_cls)
+    hazard_keys = _SITE_SUBTERRAIN_KEYS[3:]
+
+    def _get(var, parse, **kw):
+        raw = env.get(var)
+        return None if _is_blank(raw) else parse(raw, **kw)
+
+    # 3. the legacy columns' FIELD_* knobs (the pad is every column's, step 4)
+    legacy = {k: subs[k] for k in ("site_field_sparse", "site_field_dense", "parkour_flat")}
+    apply_field_geometry(
+        legacy, site_field_cls, flat_cls,
+        blocks=_get(FIELD_BLOCKS_VAR, parse_field_blocks),
+        kinds=_get(FIELD_KINDS_VAR, parse_field_kinds),
+        vertical_edges=_get(FIELD_EDGES_VAR, parse_field_edges),
+        min_gap=_get(FIELD_MIN_GAP_VAR, parse_field_min_gap),
+        size_scale=_get(FIELD_SIZE_SCALE_VAR, parse_field_size_scale),
+    )
+    # 4. the pad on every sub-terrain
+    pad = _get(FIELD_PAD_R_VAR, parse_field_pad_r, half_width=SITE_HALF_WIDTH)
+    if pad is not None and pad > SITE_PAD_R + 1e-9:
+        raise ValueError(
+            f"{FIELD_PAD_R_VAR}={env.get(FIELD_PAD_R_VAR)!r} is above the site pad {SITE_PAD_R} m: the site "
+            "hazards start 0.3 m beyond a 1.7 m pad (DESIGN §3.3), so a larger pad would cut into them"
+        )
+    pad = SITE_PAD_R if pad is None else pad
+    for key in _SITE_SUBTERRAIN_KEYS:
+        subs[key].clear_radius = float(pad)
+    # 5. the mix
+    raw_mix = env.get(SITE_MIX_VAR)
+    mix = parse_site_mix(raw_mix)
+    if mix is None:
+        mix = parse_site_mix(DEFAULT_SITE_MIX)
+    else:
+        print(f"[KNOB] {SITE_MIX_VAR}={raw_mix} consumed", flush=True)
+    if not _is_blank(env.get(FLAT_FRAC_VAR)):
+        print(f"[KNOB] {FLAT_FRAC_VAR}={env.get(FLAT_FRAC_VAR)} ignored (geometry is {SITE_GEOM}: "
+              f"{SITE_MIX_VAR} sets the columns)", flush=True)
+    apply_site_mix(tg, mix)
+    # 6. the d mapping
+    raw_diff = env.get(SITE_DIFF_VAR)
+    site_d = parse_site_diff(raw_diff)
+    if site_d is None:
+        site_d = DEFAULT_SITE_DIFF
+    else:
+        print(f"[KNOB] {SITE_DIFF_VAR}={raw_diff} consumed", flush=True)
+    gen_d = tuple(float(v) for v in tg.difficulty_range)
+    raw_ladder = env.get(SITE_LADDER_VAR)
+    ladder = parse_site_ladder(raw_ladder)
+    body = None
+    if ladder is not None:
+        if ladder_bodies is None:
+            from parkour_isaaclab.terrains.omni.site_terrains import SITE_LADDER_BODIES  # noqa: PLC0415
+
+            ladder_bodies = SITE_LADDER_BODIES
+        body = ladder_bodies[ladder]
+        print(f"[KNOB] {SITE_LADDER_VAR}={raw_ladder} consumed", flush=True)
+    # 7. roughness cap, ramp cap
+    rough = [f"{k}={tuple(subs[k].noise_range)}" for k in _SITE_SUBTERRAIN_KEYS
+             if float(subs[k].noise_range[1]) > SITE_NOISE_MAX + 1e-12]
+    if rough:
+        raise RuntimeError(
+            f"{GEOM_VAR}={SITE_GEOM}: roughness above the {SITE_NOISE_MAX} m site cap on {', '.join(rough)} "
+            "(the forward MODE-light block writes (0.02, 0.02))"
+        )
+    refuse_unported_site_knobs(env)
+    ramp_deg = site_ramp_cap_deg(site_friction_floor(env))
+    for key in hazard_keys:
+        sub = subs[key]
+        sub.site_d_range = tuple(site_d)
+        sub.gen_d_range = gen_d
+        sub.ramp_max_deg = float(ramp_deg)
+        if body is not None:
+            sub.function = body
+    # 8. the parkour-term radius sync and the pad-level spawn
+    _sync_parkour_radii(cfg, subs["parkour_flat"], note="site geometry")
+    events = getattr(cfg, "events", None)
+    spawn = getattr(events, SPAWN_EVENT, None) if events is not None else None
+    if spawn is None or getattr(spawn, "params", None) is None:
+        raise RuntimeError(f"{GEOM_VAR}={SITE_GEOM} needs events.{SPAWN_EVENT} (the ring spawn) to arm spawn_level_z")
+    spawn.params["spawn_level_z"] = True
