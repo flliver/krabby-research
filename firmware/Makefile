@@ -49,6 +49,14 @@ else
 PYTHON ?= python3
 endif
 
+# Repo venv (cantools for STM DBC codegen). Override: make stm-dbc VENV_PYTHON=/path/to/python
+VENV_PYTHON ?= $(REPO_ROOT)/.venv/bin/python
+STM_DBC_DIR   := $(CURDIR)/stm/dbc
+STM_DBC_GEN   := $(STM_DBC_DIR)/generated
+STM_SRC_DIR   := $(CURDIR)/stm
+STM_FW_BUILD  := $(BUILD_DIR)/stm-leg
+STM_HOST_BUILD := $(BUILD_DIR)/stm-host
+
 # Always bake in the 256-byte serial RX buffer. The leader forwards ~200-byte
 # follower telemetry lines from Serial1/Serial2; the AVR core's 64-byte default
 # RX buffer drops the middle of those lines and the host logs "can't keep up".
@@ -76,7 +84,24 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac stm-dbc stm-firmware host-stm
+
+# Leg-board CMake tree (default: stub; KRABBY_STM_BUILD_FIRMWARE=ON for MCU app link).
+stm-firmware:
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=OFF
+	$(CMAKE) --build "$(STM_FW_BUILD)"
+
+# Host shared library: core handlers + sim board port (Isaac / native tests).
+host-stm:
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_HOST_BUILD)" -DKRABBY_STM_HOST_LIBRARY=ON
+	$(CMAKE) --build "$(STM_HOST_BUILD)" --target krabby_stm_host
+
+# CAN-FD DBC → C for leg-board firmware (committed under stm/dbc/generated/).
+stm-dbc:
+	@test -x "$(VENV_PYTHON)" || { echo "ERROR: $(VENV_PYTHON) not found; create repo .venv and pip install cantools"; exit 1; }
+	"$(VENV_PYTHON)" "$(STM_DBC_DIR)/regenerate_c.py" --python "$(VENV_PYTHON)"
+	sha256sum "$(STM_DBC_DIR)/krabby_leg.dbc" | awk '{print $$1}' > "$(STM_DBC_DIR)/krabby_leg.sha256"
+	@echo "Regenerated $(STM_DBC_GEN)/krabby_leg.{c,h} and refreshed krabby_leg.sha256"
 
 host-actuator:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"

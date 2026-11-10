@@ -1,0 +1,506 @@
+VERSION "1.0.0"
+
+NS_ :
+    NS_DESC_
+    CM_
+    BA_DEF_
+    BA_
+    VAL_
+    CAT_DEF_
+    CAT_
+    FILTER
+    BA_DEF_DEF_
+    EV_DATA_
+    ENVVAR_DATA_
+    SGTYPE_
+    SGTYPE_VAL_
+    BA_DEF_SGTYPE_
+    BA_SGTYPE_
+    SIG_TYPE_REF_
+    VAL_TABLE_
+    SIG_GROUP_
+    SIG_VALTYPE_
+    SIGTYPE_VALTYPE_
+    BO_TX_BU_
+    BA_DEF_REL_
+    BA_REL_
+    BA_DEF_DEF_REL_
+    BU_SG_REL_
+    BU_EV_REL_
+    BU_BO_REL_
+    SG_MUL_VAL_
+
+BS_:
+
+BU_: KRABBY_HOST LEG_NODE
+
+BO_ 2348810240 LegCommand_FL: 64 KRABBY_HOST
+SG_ command_time_ms : 0|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ autocal_start : 32|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ autocal_abort : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_jog_pwm : 48|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_yaw_position_norm : 64|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_position_valid : 96|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_jog_pwm : 104|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_pitch_position_norm : 120|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_position_valid : 152|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_jog_pwm : 160|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ knee_position_norm : 176|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_position_valid : 208|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348810241 LegCommand_FR: 64 KRABBY_HOST
+SG_ command_time_ms : 0|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ autocal_start : 32|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ autocal_abort : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_jog_pwm : 48|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_yaw_position_norm : 64|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_position_valid : 96|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_jog_pwm : 104|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_pitch_position_norm : 120|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_position_valid : 152|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_jog_pwm : 160|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ knee_position_norm : 176|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_position_valid : 208|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348810242 LegCommand_ML: 64 KRABBY_HOST
+SG_ command_time_ms : 0|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ autocal_start : 32|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ autocal_abort : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_jog_pwm : 48|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_yaw_position_norm : 64|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_position_valid : 96|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_jog_pwm : 104|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_pitch_position_norm : 120|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_position_valid : 152|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_jog_pwm : 160|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ knee_position_norm : 176|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_position_valid : 208|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348810243 LegCommand_MR: 64 KRABBY_HOST
+SG_ command_time_ms : 0|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ autocal_start : 32|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ autocal_abort : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_jog_pwm : 48|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_yaw_position_norm : 64|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_position_valid : 96|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_jog_pwm : 104|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_pitch_position_norm : 120|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_position_valid : 152|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_jog_pwm : 160|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ knee_position_norm : 176|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_position_valid : 208|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348810244 LegCommand_RL: 64 KRABBY_HOST
+SG_ command_time_ms : 0|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ autocal_start : 32|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ autocal_abort : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_jog_pwm : 48|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_yaw_position_norm : 64|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_position_valid : 96|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_jog_pwm : 104|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_pitch_position_norm : 120|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_position_valid : 152|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_jog_pwm : 160|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ knee_position_norm : 176|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_position_valid : 208|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348810245 LegCommand_RR: 64 KRABBY_HOST
+SG_ command_time_ms : 0|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ autocal_start : 32|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ autocal_abort : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_jog_pwm : 48|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_yaw_position_norm : 64|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_yaw_position_valid : 96|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_jog_pwm : 104|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ hip_pitch_position_norm : 120|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ hip_pitch_position_valid : 152|8@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_jog_pwm : 160|16@1- (1,0) [-255|255] "" LEG_NODE
+ SG_ knee_position_norm : 176|32@1+ (1,0) [0|1] "" LEG_NODE
+ SG_ knee_position_valid : 208|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348810496 LegTelemetry_FL: 64 LEG_NODE
+SG_ hip_yaw_position_norm : 0|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pot_raw : 32|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_current_raw : 44|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_en_active : 56|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_retract : 57|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_extend : 65|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_hall_edges : 73|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_yaw_connection_state : 89|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_yaw_faults : 97|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_position_norm : 105|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pot_raw : 137|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_current_raw : 149|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_en_active : 161|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_retract : 162|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_extend : 170|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_hall_edges : 178|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_pitch_connection_state : 194|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_pitch_faults : 202|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_position_norm : 210|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pot_raw : 242|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_current_raw : 254|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_en_active : 266|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pwm_retract : 267|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_pwm_extend : 275|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_hall_edges : 283|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ knee_connection_state : 299|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ knee_faults : 307|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810497 LegTelemetry_FR: 64 LEG_NODE
+SG_ hip_yaw_position_norm : 0|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pot_raw : 32|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_current_raw : 44|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_en_active : 56|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_retract : 57|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_extend : 65|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_hall_edges : 73|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_yaw_connection_state : 89|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_yaw_faults : 97|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_position_norm : 105|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pot_raw : 137|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_current_raw : 149|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_en_active : 161|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_retract : 162|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_extend : 170|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_hall_edges : 178|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_pitch_connection_state : 194|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_pitch_faults : 202|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_position_norm : 210|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pot_raw : 242|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_current_raw : 254|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_en_active : 266|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pwm_retract : 267|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_pwm_extend : 275|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_hall_edges : 283|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ knee_connection_state : 299|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ knee_faults : 307|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810498 LegTelemetry_ML: 64 LEG_NODE
+SG_ hip_yaw_position_norm : 0|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pot_raw : 32|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_current_raw : 44|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_en_active : 56|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_retract : 57|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_extend : 65|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_hall_edges : 73|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_yaw_connection_state : 89|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_yaw_faults : 97|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_position_norm : 105|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pot_raw : 137|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_current_raw : 149|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_en_active : 161|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_retract : 162|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_extend : 170|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_hall_edges : 178|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_pitch_connection_state : 194|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_pitch_faults : 202|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_position_norm : 210|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pot_raw : 242|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_current_raw : 254|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_en_active : 266|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pwm_retract : 267|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_pwm_extend : 275|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_hall_edges : 283|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ knee_connection_state : 299|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ knee_faults : 307|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810499 LegTelemetry_MR: 64 LEG_NODE
+SG_ hip_yaw_position_norm : 0|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pot_raw : 32|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_current_raw : 44|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_en_active : 56|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_retract : 57|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_extend : 65|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_hall_edges : 73|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_yaw_connection_state : 89|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_yaw_faults : 97|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_position_norm : 105|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pot_raw : 137|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_current_raw : 149|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_en_active : 161|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_retract : 162|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_extend : 170|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_hall_edges : 178|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_pitch_connection_state : 194|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_pitch_faults : 202|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_position_norm : 210|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pot_raw : 242|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_current_raw : 254|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_en_active : 266|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pwm_retract : 267|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_pwm_extend : 275|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_hall_edges : 283|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ knee_connection_state : 299|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ knee_faults : 307|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810500 LegTelemetry_RL: 64 LEG_NODE
+SG_ hip_yaw_position_norm : 0|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pot_raw : 32|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_current_raw : 44|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_en_active : 56|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_retract : 57|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_extend : 65|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_hall_edges : 73|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_yaw_connection_state : 89|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_yaw_faults : 97|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_position_norm : 105|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pot_raw : 137|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_current_raw : 149|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_en_active : 161|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_retract : 162|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_extend : 170|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_hall_edges : 178|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_pitch_connection_state : 194|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_pitch_faults : 202|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_position_norm : 210|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pot_raw : 242|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_current_raw : 254|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_en_active : 266|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pwm_retract : 267|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_pwm_extend : 275|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_hall_edges : 283|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ knee_connection_state : 299|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ knee_faults : 307|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810501 LegTelemetry_RR: 64 LEG_NODE
+SG_ hip_yaw_position_norm : 0|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pot_raw : 32|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_current_raw : 44|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_yaw_en_active : 56|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_retract : 57|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_pwm_extend : 65|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_yaw_hall_edges : 73|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_yaw_connection_state : 89|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_yaw_faults : 97|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_position_norm : 105|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pot_raw : 137|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_current_raw : 149|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ hip_pitch_en_active : 161|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_retract : 162|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_pwm_extend : 170|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ hip_pitch_hall_edges : 178|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ hip_pitch_connection_state : 194|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ hip_pitch_faults : 202|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_position_norm : 210|32@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pot_raw : 242|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_current_raw : 254|12@1+ (1,0) [0|4095] "" KRABBY_HOST
+ SG_ knee_en_active : 266|1@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ knee_pwm_retract : 267|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_pwm_extend : 275|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ knee_hall_edges : 283|16@1+ (1,0) [0|65535] "" KRABBY_HOST
+ SG_ knee_connection_state : 299|8@1+ (1,0) [0|2] "" KRABBY_HOST
+ SG_ knee_faults : 307|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810752 NodeStatus_FL: 64 LEG_NODE
+SG_ leg_index : 0|8@1+ (1,0) [0|6] "" KRABBY_HOST
+ SG_ leg_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ run_mode : 16|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ cal_valid : 24|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ firmware_identity_0 : 32|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_1 : 40|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_2 : 48|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_3 : 56|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_4 : 64|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_5 : 72|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_6 : 80|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_7 : 88|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_8 : 96|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_9 : 104|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_10 : 112|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_11 : 120|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_12 : 128|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_13 : 136|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_14 : 144|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_15 : 152|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810753 NodeStatus_FR: 64 LEG_NODE
+SG_ leg_index : 0|8@1+ (1,0) [0|6] "" KRABBY_HOST
+ SG_ leg_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ run_mode : 16|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ cal_valid : 24|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ firmware_identity_0 : 32|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_1 : 40|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_2 : 48|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_3 : 56|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_4 : 64|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_5 : 72|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_6 : 80|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_7 : 88|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_8 : 96|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_9 : 104|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_10 : 112|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_11 : 120|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_12 : 128|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_13 : 136|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_14 : 144|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_15 : 152|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810754 NodeStatus_ML: 64 LEG_NODE
+SG_ leg_index : 0|8@1+ (1,0) [0|6] "" KRABBY_HOST
+ SG_ leg_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ run_mode : 16|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ cal_valid : 24|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ firmware_identity_0 : 32|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_1 : 40|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_2 : 48|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_3 : 56|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_4 : 64|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_5 : 72|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_6 : 80|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_7 : 88|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_8 : 96|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_9 : 104|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_10 : 112|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_11 : 120|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_12 : 128|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_13 : 136|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_14 : 144|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_15 : 152|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810755 NodeStatus_MR: 64 LEG_NODE
+SG_ leg_index : 0|8@1+ (1,0) [0|6] "" KRABBY_HOST
+ SG_ leg_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ run_mode : 16|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ cal_valid : 24|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ firmware_identity_0 : 32|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_1 : 40|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_2 : 48|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_3 : 56|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_4 : 64|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_5 : 72|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_6 : 80|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_7 : 88|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_8 : 96|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_9 : 104|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_10 : 112|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_11 : 120|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_12 : 128|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_13 : 136|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_14 : 144|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_15 : 152|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810756 NodeStatus_RL: 64 LEG_NODE
+SG_ leg_index : 0|8@1+ (1,0) [0|6] "" KRABBY_HOST
+ SG_ leg_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ run_mode : 16|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ cal_valid : 24|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ firmware_identity_0 : 32|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_1 : 40|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_2 : 48|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_3 : 56|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_4 : 64|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_5 : 72|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_6 : 80|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_7 : 88|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_8 : 96|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_9 : 104|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_10 : 112|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_11 : 120|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_12 : 128|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_13 : 136|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_14 : 144|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_15 : 152|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348810757 NodeStatus_RR: 64 LEG_NODE
+SG_ leg_index : 0|8@1+ (1,0) [0|6] "" KRABBY_HOST
+ SG_ leg_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ run_mode : 16|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ cal_valid : 24|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ firmware_identity_0 : 32|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_1 : 40|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_2 : 48|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_3 : 56|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_4 : 64|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_5 : 72|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_6 : 80|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_7 : 88|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_8 : 96|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_9 : 104|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_10 : 112|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_11 : 120|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_12 : 128|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_13 : 136|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_14 : 144|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ firmware_identity_15 : 152|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348812272 DiscoveryRequest: 1 KRABBY_HOST
+ SG_ trigger : 0|8@1+ (1,0) [0|255] "" LEG_NODE
+
+BO_ 2348812256 ProvisionSet: 9 KRABBY_HOST
+ SG_ new_leg_code : 0|8@1+ (1,0) [0|255] "" LEG_NODE
+ SG_ session_nonce : 8|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ crc32 : 40|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+
+BO_ 2348812273 FlashSessionOpen: 8 KRABBY_HOST
+ SG_ leg_index : 0|8@1+ (1,0) [0|5] "" LEG_NODE
+ SG_ session_nonce : 8|32@1+ (1,0) [0|4294967295] "" LEG_NODE
+ SG_ image_kind : 40|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348812274 FlashSessionClose: 2 KRABBY_HOST
+ SG_ leg_index : 0|8@1+ (1,0) [0|5] "" LEG_NODE
+ SG_ action : 8|8@1+ (1,0) [0|1] "" LEG_NODE
+
+BO_ 2348811008 FlashXcpRequest_FL: 64 KRABBY_HOST
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" LEG_NODE
+
+BO_ 2348811136 FlashXcpResponse_FL: 64 LEG_NODE
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811200 FlashProgress_FL: 4 LEG_NODE
+ SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
+ SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348811009 FlashXcpRequest_FR: 64 KRABBY_HOST
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" LEG_NODE
+
+BO_ 2348811137 FlashXcpResponse_FR: 64 LEG_NODE
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811201 FlashProgress_FR: 4 LEG_NODE
+ SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
+ SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348811010 FlashXcpRequest_ML: 64 KRABBY_HOST
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" LEG_NODE
+
+BO_ 2348811138 FlashXcpResponse_ML: 64 LEG_NODE
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811202 FlashProgress_ML: 4 LEG_NODE
+ SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
+ SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348811011 FlashXcpRequest_MR: 64 KRABBY_HOST
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" LEG_NODE
+
+BO_ 2348811139 FlashXcpResponse_MR: 64 LEG_NODE
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811203 FlashProgress_MR: 4 LEG_NODE
+ SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
+ SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348811012 FlashXcpRequest_RL: 64 KRABBY_HOST
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" LEG_NODE
+
+BO_ 2348811140 FlashXcpResponse_RL: 64 LEG_NODE
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811204 FlashProgress_RL: 4 LEG_NODE
+ SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
+ SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+BO_ 2348811013 FlashXcpRequest_RR: 64 KRABBY_HOST
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" LEG_NODE
+
+BO_ 2348811141 FlashXcpResponse_RR: 64 LEG_NODE
+ SG_ xcp_data : 0|512@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811205 FlashProgress_RR: 4 LEG_NODE
+ SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
+ SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
+
+VAL_ 0 run_mode 0 "application" 1 "bootloader" ;
+CM_ BO_ 2348812272 "Prompt all nodes to emit NodeStatus";
+CM_ "Krabby leg bus schema 1.0.0; IDs per CAN_PROTOCOL.md";

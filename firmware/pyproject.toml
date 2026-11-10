@@ -25,10 +25,17 @@ dependencies = [
     "pyserial>=3.5",
 ]
 
+[project.optional-dependencies]
+stm = [
+    "python-can>=4.3",
+    "cantools>=39.0",
+]
+
 [project.scripts]
 krabby-firmware = "firmware.__main__:main"
 krabby-firmware-gui = "firmware.gui.__main__:main"
+krabby-firmware-stm = "firmware.stm.cli:main"
 
 [tool.setuptools]
-package-dir = {"firmware" = ".", "firmware.interfaces" = "interfaces", "firmware.gui" = "gui", "firmware.sim" = "sim"}
-packages = ["firmware", "firmware.interfaces", "firmware.gui", "firmware.sim"]
+package-dir = {"firmware" = ".", "firmware.interfaces" = "interfaces", "firmware.gui" = "gui", "firmware.sim" = "sim", "firmware.stm" = "stm", "firmware.stm.cli" = "stm/cli"}
+packages = ["firmware", "firmware.interfaces", "firmware.gui", "firmware.sim", "firmware.stm", "firmware.stm.cli"]
