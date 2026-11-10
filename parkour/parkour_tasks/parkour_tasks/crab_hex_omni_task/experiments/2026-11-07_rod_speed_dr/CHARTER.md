@@ -894,3 +894,121 @@ ask before launching it.
   - GPU used ≈ 27.6 h of 35 (the clip ≈ 0.03 h).
   - Still the user's calls: accepting G2 (decision 3), adoption (5), the R18 test fix (7), protecting the runs (8), a
     replication seed (9), the next gate's class window (10), the next rungs (11) and push (12).
+- **2026-11-09 09:55, decision 5: the user ADOPTED TDR and c31000.** The user answered "Yes, adopt" to "Adopt the new
+  teacher and student, then re-pair the stand network?". The button's text: "Adopt TDR and c31000, then start the
+  SN/SH re-pairing. Bake only after I approve."
+  - TDR (`model_28991.pt`, sha `03c3e472`) and c31000 (`model_31000.pt`, sha `155b5981`) are the next omni teacher
+    and student. Adopting the pick takes G2 PASS as accepted (decision 3).
+  - F19 stays the policy of record in `crab_hex_omni_task/policy/` (`manifest.yaml`) until a bake, which only the
+    user can approve.
+  - Next: re-pair the stand networks (Task 4's stages `sn` and `sh`, walker T* → TDR). The re-pairing will be
+    pre-registered here, as a new section, before its first GPU row. Started 09:57 by mapping Task 4's stand stages,
+    their gates and the F19 record (workflow `rsd-stand-repair-map`, read-only).
+- **2026-11-09 10:28, the stand re-pairing is pre-registered in `STAND_REPAIR.md`, before any GPU row.** It is a
+  separate file rather than a CHARTER section, so this log stays the CHARTER's last section; it has its own log (§9).
+  - Method: Task 4's `sn` and `sh` recipe with the walker T* → TDR.
+    - Seed 19; 4000 / 5000 iterations; the F19_p2a overlay; 0 kg; no DR key.
+    - The rows, the table test and the readers are Task 4's.
+    - Judged by Task 4's own `pipeline.stand_gate` (D1 / D2, thresholds v1.2), loaded as a library by
+      `scripts/rsd_stand.py`; `pipeline.py` itself cannot run here (its lock pin, its 150 GB disk floor).
+  - The walker swap:
+    - REFS(TDR) rows under a new name; REFS(TDR) suite@1 stands in for the driver stamp TDR does not have.
+    - New names for every head.
+    - Outputs in the main checkout beside F19's, where the readers find the S1-era controls.
+  - Decisions as DESIGN 3.6:
+    - The lazy R_h control beside TDR runs up front and is read only if an R_h-derived line fails.
+    - A re-anchor is decide-record-notify; any other HALT is the user's call.
+    - Known risk: the fixed G5 body-height line (0.03; F19 read 0.019–0.022; TDR walks ≈ 0.03 m taller).
+  - Pre-flight (CPU) runs beside the REFS rows: F19's gates, reads and re-anchor replayed through this code. SN training
+    starts only after it passes.
+  - Budget ≈ 7.0 h wall-clock; the campaign's GPU use goes to ≈ 34.6 of 35 h.
+- **2026-11-09 11:53, the user's decision on the stand body-height lines: re-anchor on the controls.**
+  - The question (asked ≈ 10:55): the stand gates' fixed body-height lines will fail beside TDR. Measured on suite rows,
+    the stand controllers hold ≈ 1.065 m whatever the walker, and TDR stands at 1.120 m. The line is 0.03.
+  - The user answered "Re-anchor on controls": "Re-anchor the eight body-height lines (SN G5 and SH K5-G5) on the R and
+    HOLD controls as walker-caused, fixed before any stand row is read."
+  - No stand row existed when the decision was made; SN training was at iteration 1871.
+  - The rule is recorded in `STAND_REPAIR.md` §4 and §9, in DESIGN 3.6's form:
+    - both controls fail the same line, so the failure is walker-caused;
+    - the head then passes if it stands within 0.03 m of each control.
+  - The heights come from `sn_calib`'s own G5 records, so no extra GPU runs.
+  - Earlier on the stand re-pairing, all in `STAND_REPAIR.md` §9:
+    - the pre-flight passed (10:42);
+    - the review fixed two launcher bugs (10:52);
+    - REFS(TDR) ran 10:28–11:04;
+    - SN training started at 11:05, and its start-up env check passed at 11:07.
+- **2026-11-09 13:24, the SN stand gate passes under the user's body-height rule. SH training started.**
+  - The D1 read is HALT on exactly the four G5 body-height lines: the head stands 0.054–0.057 m below REFS(TDR),
+    against a 0.03 line.
+    - The R and HOLD controls fail each line by about the same amount.
+    - The head stands within 0.0022 m of each control, so all four lines re-anchor
+      (`results/stand/gates/sn_reanchor.json`).
+  - The other 31 decisive lines pass at or near F19's SN values: field_hard completion 0.925 against 0.910, and no stand
+    falls.
+  - Post-settle stepping at walkstop rose beside TDR. It is a WATCH line and stays under its line.
+  - SN head: `SN_RSD_TDR_sn_s19/model_4000.pt` (sha 6cd82ff5). SH warm-starts from it, and its env check passed at
+    13:26.
+  - The SH read is due near 17:25. Details are in `STAND_REPAIR.md` §9.
+- **2026-11-09 17:17, SH stand gate HALT on K4 restore misses only. The user's call.**
+  - Twelve of 101 decisive lines failed. Ten re-anchor by the pre-registered rules:
+    - the four body-height copies, on the R / HOLD controls (the user's 11:53 rule);
+    - six K6 homing shares in bins 1 and 4, on the lazy R_h control beside TDR. The control fails them, and the head
+      beats it.
+  - K4 remains: restore misses 5 / 6 per 800, against D9's fixed ≤ 3.
+    - The scripted R_h control beside TDR misses 4 / 5; it missed 1 / 1 beside S1 and 5 / 5 beside T*.
+    - F19's SH missed 2 / 3.
+    - There are 0 exit falls.
+  - Precedent: on 2026-10-21 the user accepted and disclosed R18's 13 / 10 against its control's 7 / 3.
+  - Details are in `STAND_REPAIR.md` §9. A CPU verification workflow is running before the question is closed.
+- **2026-11-09 17:34, the CPU check of the SH read confirms it.**
+  - The five-agent workflow reproduced every number, including K4 recounted from the raw npz, and every stamp's
+    identity. The rule application matches §4 and DESIGN 3.6.
+  - **K4.**
+    - The misses are a static sag 0.0–0.9 mm over the 8 mm restore band.
+    - Head and control share the same place, after the 1.346 m stand, a place the T*-era misses did not use.
+    - The head against its control is 11 vs 9 of 1600 (p = 0.82). Against D9's own calibration, 5 / 6 is not chance.
+  - **New disclosures:**
+    - K5 walkstop homed 0.92 / 0.91, against a 0.90 line. SN beside the same TDR reads 0.997 / 1.000 and F19's SH
+      0.993 / 0.997, so this is a weakness of the head.
+    - Bin-1 homing 0.74 / 0.81, against F19's 0.98.
+    - The 0-exit-fall reading is common to every controller.
+  - The decision on K4 stays with the user. Details are in `STAND_REPAIR.md` §9, 17:34.
+- **2026-11-09 18:10, the user's decision on SH's K4: "Accept and disclose."**
+  - Task 4 DESIGN 3.7 (a), as for R18. The lines are unchanged (thresholds v1.2).
+  - Recorded reason: chance-level relative to R_h beside TDR, not to D9's calibration
+    (`results/stand/gates/sh_decision.json`).
+  - The stand re-pairing to TDR is complete:
+    - SN `SN_RSD_TDR_sn_s19/model_4000.pt` (6cd82ff5) passed under the body-height re-anchor;
+    - SH `SH_RSD_TDR_sh_s19/model_5000.pt` (89f4428b) is accepted with its K4 HALT disclosed.
+  - Next: the REPORT addendum, then the bake proposal. The bake, the commit and the push are the user's.
+- **2026-11-09 18:41, the REPORT stand addendum is written (§13), and the bake is proposed (`BAKE_PLAN.md`).**
+  - The addendum (≈ 2,100 words) is claim-checked, and its fixes are applied. It updates the REPORT status line, §1
+    item 8, §9.2, §10, decision 5 of §11, and §12.
+  - The bake plan:
+    - bundles TDR, c31000's exports and SN/SH under new `rsd_*` dirs;
+    - cites c31000's `.pt` by sha;
+    - keeps F19's files as superseded, with nothing deleted;
+    - touches no pinned file, so there is no relock.
+  - It runs as two local commits (A: the record; B: the bake). It awaits the user's approval.
+- **2026-11-09 23:08, the user approved the bake: "Bake as proposed."** It approves `BAKE_PLAN.md` with its §2 defaults:
+  - the names `rsd_9_p3b_rodspeed_dr` (TDR), `rsd_10_student` (c31000) and `rsd_stand_net` (SH + SN); `current` and
+    `heads.payload` point at TDR;
+  - two local commits, A (this record) and then B (the bake), every file staged by name; nothing is pushed;
+  - the hardlink copy of the TDR, TCTL and student run dirs into the main checkout's gitignored `parkour/logs/rsl_rl/`
+    (REPORT §11 decision 8, taken as approved with it);
+  - the `rsd_lib.manifest_student_sha` fallback, the living docs in commit B (pinned prose deferred) and the
+    disclosures in the manifest.
+  - Not included (§2 item 7): the mix video, Walk-Play rows for TDR, a local tag, a campaign deliverable / head
+    keep-set.
+  - Done 23:17: the three run dirs are hardlinked into the main checkout's `parkour/logs/rsl_rl/` (TDR 34 files, TCTL
+    34, student 47; every file shares its inode, link count 2, so no extra disk). Re-hashed there: TDR
+    `model_28991.pt` 03c3e472, TCTL `model_28991.pt` 72d63d51, c31000 `model_31000.pt` 155b5981.
+- **2026-11-09 23:17, the user asked for sample videos: "once its done baking record sample videos with the baked
+  model."** This adds the mix video of `BAKE_PLAN.md` §2 item 7. VIDEO ONLY, read by no gate.
+  - `scripts/bake_videos.sh`, one Isaac process at a time on this worktree's code, from the baked files (TDR
+    `policy/rsd_9_p3b_rodspeed_dr/model_28991.pt`, SH `policy/rsd_stand_net/model_5000.pt`; each sha checked first):
+    - the walker + stand mix of F19's two bake videos, with the same plan (`--plan mix --seed 1514`) on
+      `field_medium` and `field_max`;
+    - the depth student c31000 alone, 60 s on the play env of record (`F19/envs/p3b.env`, 0 kg).
+  - It runs while the CPU-only build does, since the files are byte-identical to the bake's. The videos are cited in
+    the stand block if they are done before commit B.

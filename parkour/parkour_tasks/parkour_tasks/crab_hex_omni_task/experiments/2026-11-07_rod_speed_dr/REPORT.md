@@ -1,6 +1,6 @@
 # Rod-speed DR in teacher training (rung 3, T01 fix) — REPORT
 
-**Status: FINAL 2026-11-08 23:46. G2 PASS, read 2026-11-08 22:55 and verified (§8.4). Teacher gate G1 PASS; selection SELECTED c31000; ONNX parity ok; student gate G2 PASS. Nothing is adopted, baked or pushed. Updated 2026-11-09: the pick's veto clip is recorded and the record is committed locally (§11 decisions 4 and 6). Adoption, bake and push are the user's calls.**
+**Status: FINAL 2026-11-08 23:46. G2 PASS, read 2026-11-08 22:55 and verified (§8.4). Teacher gate G1 PASS; selection SELECTED c31000; ONNX parity ok; student gate G2 PASS. Updated 2026-11-09: the pick's veto clip is recorded and the record is committed locally (§11 decisions 4 and 6). ADOPTED 2026-11-09 (decision 5): TDR and c31000 are the next omni teacher and student. The stand re-pairing to TDR is COMPLETE (§13): SN passed under the user's body-height re-anchor [9 13:24], and SH is accepted with its K4 HALT disclosed [9 18:10]. F19 stays the policy of record in `policy/` until the bake. The bake, the commit of the stand record and the push are the user's calls.**
 
 - **Campaign:** `crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/`. It follows the DR stress sweep (`../2026-11-06_dr_stress_sweep/REPORT.md` §3, §9 decisions 2–3) and runs rung 3 of `../lit-review-domain-randomization.md` §13, shrunk to rod speed. Pre-registered 2026-11-07 15:40, before any GPU row [7 15:40]. Plan of record: `~/.claude/plans/rosy-toasting-dongarra.md` (3-pass audit, cap reached, accepted as is).
 - **Code and pins:** branch `feat/rod-speed-dr`, commit `1682e2e1` (local). code_sha `de3772e2…`; eval_sha `9fe964d7…`, the sweep's, unchanged. Pinned 2026-11-07 17:38 on a clean tree (`launch.json`). Every row from the reference arm to G2 ran on this pin (`g2.json` pin). Lines: Task 4 `p3a.stable90`, thresholds v1.2, applied per seed.
@@ -55,7 +55,7 @@
 - **Pooled:** es1 + es2 together (200 field_light episodes), paired episode for episode.
 - **m:** max(0.05, 2·SE_diff), with SE_diff the paired SE of the pooled difference (Task 4's margin).
 - **Class flip:** defined in §7.1.
-- **Citations:** [7 hh:mm] and [8 hh:mm] are CHARTER §6 entries of 2026-11-07 and 2026-11-08. File names are under `results/` unless a path is given.
+- **Citations:** [7 hh:mm], [8 hh:mm] and [9 hh:mm] are CHARTER §6 entries of 2026-11-07, 2026-11-08 and 2026-11-09. [S hh:mm] are entries in the log of `STAND_REPAIR.md` (§9, 2026-11-09; §13). File names are under `results/` unless a path is given.
 - **†:** recomputed for this REPORT from the stamps. Line values use the sweep's `stress_read.read_stamps` (CPU, in memory). Episode-pair counts use each field_light stamp's `scenario_metrics.json` under Task 4's `field_episodes` rule (complete = `schedule_complete`). These values are in no results file.
 
 ## 1. Bottom line
@@ -90,7 +90,7 @@
    - ≈ 29.5 h from the first Kit check (2026-11-07 17:26) to the G2 read (2026-11-08 22:55). ≈ 26.4 h of it passed before G2's rows started (19:49).
    - 2.4 h of that was the GPU sitting idle while the bridge decision waited (17:24–19:49).
    - The distill was the longest single step (9.6 h). G2's rows took 3.1 h.
-8. **Nothing is pushed.** On 2026-11-09 the user approved the veto clip and the local record commit (§11 decisions 4 and 6), and both are done. Adopting TDR or the pick, the bake (SN/SH re-pairing) and the push are the user's calls (§11).
+8. **Nothing is pushed.** On 2026-11-09 the user approved the veto clip and the local record commit (§11 decisions 4 and 6), and both are done. TDR and the pick are adopted (decision 5) and the SN/SH re-pairing is done (§13); the bake, the commit of the stand record and the push are the user's calls (§11).
 
 ## 2. Verdict table
 
@@ -708,7 +708,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
 
 ### 9.2 Hardware
 - **Deploy interface:** unchanged. The pick's `omni_student_io.json` has the same sha256 prefix as F19's export, and the ONNX matches the `.pt` (§6).
-- **What the pick changes:** in sim, the deployable student no longer fails slow rods at 90 kg. At ×0.7 L090 its survival.diag is 1.00 against c28000's 0.83 / 0.87†, and its completion 0.92 / 0.95 against 0.58 / 0.66†. It is not a deploy candidate yet: the veto clip, SN/SH re-pairing and the bake remain (decision 5), and the bench comes before first stand (sweep decision 5).
+- **What the pick changes:** in sim, the deployable student no longer fails slow rods at 90 kg. At ×0.7 L090 its survival.diag is 1.00 against c28000's 0.83 / 0.87†, and its completion 0.92 / 0.95 against 0.58 / 0.66†. It is not a deploy candidate yet: the veto clip is recorded (decision 4) and the SN/SH re-pairing is done (§13), but the bake remains (decision 5), and the bench comes before first stand (sweep decision 5).
 - **Posture:**
   - TDR stands ≈ 0.03 m taller in every cell: suite h_meas 1.117 against 1.089 at L000, 1.114 against 1.085 at L090.
   - TDR's suite pitch_rms at ×0.7 is about half of old T\*'s (0.028 against 0.053).
@@ -758,12 +758,13 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
 - **Storage:** TDR, TCTL and RSD_ST_s19 exist only under the worktree's gitignored `parkour/logs/` [C §5]. Removing the worktree deletes them. The stamps are untracked in the main checkout.
 - **Tests:** two `test_task4_pipeline.py` tests fail on main-checkout data since the disk deletion. The fix is unmerged (§3.4). The plan also lists three dose-smoke unit tests that fail in this worktree since `parkour/logs/rsl_rl/metrics_history` appeared there. They are on its left-out list and unfixed.
 - **The 2.4-h idle GPU** at the bridge STOP is the campaign's one avoidable wall-clock loss. From 19:49, rows ran pending the decision.
+- **The stand pairing's disclosed weaknesses** (§13.8). SH fails K4, D9's fixed restore-miss line (5 / 6 per 800 against ≤ 3), and is accepted by the user's "Accept and disclose" [9 18:10]. The misses are chance-level only against the scripted teacher beside TDR (4 / 5), not against D9's calibration. Fourteen lines pass only by re-anchor: eight body-height lines on S1-era R and HOLD rows, and six K6 homing lines on R_h beside TDR. No control covers SH's walkstop homing (0.92 / 0.91 against 0.90). Low stands (0.844–0.970 m) home 0.74 / 0.81, against F19's 0.98. The stand nets were trained and judged at 0 kg, without rod-speed DR, on one seed each.
 
 ## 11. Decisions for you
 
 1. **Done 2026-11-08 20:18: the amended §4 class-flip rule, with the executor's correction.** You kept the corrected wording ("Keep it"): the action-only, depth-frame condition applies to the stamp's earliest difference, not to each episode's first difference [8 20:18]. G2 was read under it.
 2. **Done 2026-11-08 23:06: multi-wave rows are judged on wave 0.** You answered "1" to the 23:05 question (§7.6). The suite closing is a class flip, and G2 PASS stands [8 23:06].
-3. **Accept G2 PASS?**
+3. **Accept G2 PASS?** Taken as accepted by your adoption of the pick (decision 5, 2026-11-09).
    - Evidence: §8.4. Every S and N line passes on both seeds. No relaunch or es3 ran. R WATCH and the WATCH cells raise no flag.
    - Its closing rests on decisions 1 and 2, both made after the data were read.
    - Both checks agree with §8.4: the diagnostic relaunch reproduces Z bit for bit in both row shapes, and `g2-verify` confirms 4 / 4 [8 23:26].
@@ -777,11 +778,12 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
    - F19's c28000 clip is in the main checkout at `../2026-10-16_task4_pipeline/F19/clip/`. The terrain draw differs between the two clips, so they are not a paired comparison.
    - What it shows: in frames sampled every 2 s, the robot stays upright for the whole 30 s. It is a look before adoption (decision 5), not a gate.
    - Wall-clock: 103 s in Kit, about 2 min in all.
-5. **Adopt TDR and the pick as the omni teacher and student of record?**
+5. **Done 2026-11-09 09:55: adopted.** You answered "Yes, adopt": adopt TDR and c31000, start the SN/SH re-pairing, and bake only after your approval. F19 stays the policy of record in `policy/` until that bake. The question was: adopt TDR and the pick as the omni teacher and student of record?
    - Evidence: §4, §5, §8. For the student, the pick removes F19's FRAGILE cell (×0.7 L090 0.92 / 0.95 against c28000's 0.58 / 0.66†) and matches TDR there.
    - What still stands between the pick and a deploy candidate:
      - your look at the veto clip (decision 4, recorded 2026-11-09);
-     - SN/SH re-pairing to TDR and the bake into `crab_hex_omni_task/policy/` (the plan's left-out list). For F19 these took sn 3.05 h + sh 3.56 h of wall-clock (`REPORT_baseline_vs_final.md`, F19 stage table), then a new bundle;
+     - SN/SH re-pairing to TDR: **done 2026-11-09** (§13). SN `SN_RSD_TDR_sn_s19/model_4000.pt` (sha `6cd82ff5`) passed under your body-height re-anchor [9 13:24]. SH `SH_RSD_TDR_sh_s19/model_5000.pt` (sha `89f4428b`) is accepted with its K4 HALT disclosed, your "Accept and disclose" [9 18:10]. It took ≈ 6.8 h of wall-clock, against F19's 7.03 h (`STAND_REPAIR.md` §7);
+     - the bake into `crab_hex_omni_task/policy/` (the plan's left-out list), then a new bundle;
      - copies of the run dirs that outlive the worktree (decision 8);
      - for hardware, the sweep's open items that this campaign did not touch: the bench before first stand (sweep decision 5) and the velocity slot (sweep decision 6).
    - **Recommend adopting both together after the clip, then SN/SH re-pairing (≈ 6.6 h), with the bake only on your approval.** F19 stays of record until the bake. TDR alone changes no deployed policy.
@@ -823,6 +825,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
 ## 12. Files and how to re-read them
 - **Record** (`crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/`):
   - `CHARTER.md`: design §1–3; pins §4, with the amended class-flip rule (20:12) and its multi-wave bullet (23:06); files §5; log §6.
+  - `STAND_REPAIR.md`: the stand re-pairing to TDR (§13). Pre-registration §1–8 (2026-11-09 10:28) and log §9 (to 18:10). Untracked until the user's commit.
   - `results/`:
     - G1: `g1.{json,md}`.
     - G2: `g2.{json,md}` (read 2026-11-08 22:55:06).
@@ -832,8 +835,9 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
     - Kit checks: `k1.out`, `k1.reread.out`, `k2.out`, and `k1/` and `k2/` (the dumps and logs, untracked).
     - Runs: `runs/RSD_{TDR,TCTL}_s19.json` (PF1–PF14), `runs/RSD_ST_s19.{distill.json,check.out}`.
     - Logs: `rsd_gate.log` (the `RSD ROW / SKIP / READ / STOP` sentinels; gitignored) and `notify.jsonl`.
+    - Stand re-pairing (§13; untracked): `stand/` holds the walker spec, the pre-flight (`preflight.json`, `preflight/`), the heads, premise reads and CPU reads, and `stand/gates/` (`sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, and the F19 replays `replay_f19_*.json`).
   - `envs/`: the cell env files, `p3b_dr.distill.env`, `RSD_T{DR,CTL}_s19.train.env`.
-  - `scripts/`: `rsd_lib.py`, `rsd_gate.py`, `rsd_train.py`, `rsd_launch.py`, `rsd_distill.sh`, `rsd_distill_check.py`, `rsd_queue.sh`, `rsd_onnx.py`, `rsd_dump_check.sh`, `rsd_dump_compare.py`, `rsd_smoke.{py,sh}`, `clip_pick.sh` (the veto clip, decision 4).
+  - `scripts/`: `rsd_lib.py`, `rsd_gate.py`, `rsd_train.py`, `rsd_launch.py`, `rsd_distill.sh`, `rsd_distill_check.py`, `rsd_queue.sh`, `rsd_onnx.py`, `rsd_dump_check.sh`, `rsd_dump_compare.py`, `rsd_smoke.{py,sh}`, `clip_pick.sh` (the veto clip, decision 4). For the stand re-pairing (§13; untracked): `rsd_stand.py` (Task 4's `sn` / `sh` executors, the gate call and the re-anchors) and `rsd_stand_queue.sh` (its serial queue runner).
   - `clip/`: the pick's veto clip, `student_c31000_field_hard.mp4` and `student_c31000_field_hard_small.mp4`. They are local only, since `*.mp4` is gitignored. Its Kit log is `parkour/outputs/omni_plan/rod_speed_dr/clip_pick.log` in the main checkout.
   - The class tools: `classflip_check.py` (the §4 test for two stamps of one row; `--known` for the cross-pin bridge), `wave_diff.py` (per-wave first differences of a suite row) and `diag_closing_rows.py` (the diagnostic relaunch driver). They were copied into `scripts/` at 23:29 and committed in the record commit (decision 6).
   - The closing and diagnostic comparisons, as `classflip_check.py` / `wave_diff.py` printed them: `results/closing/closing_g2_{field_light,suite,suite_waves}.out` and `results/closing/diag_compare.out` (in the record commit).
@@ -850,6 +854,7 @@ The pick is non-inferior to its teacher at ×0.7 and does not beat it by m. Its 
   - `parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-07_19-49-46_RSD_TDR_s19/`
   - `…/2026-11-08_00-20-19_RSD_TCTL_s19/`
   - `parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-08_02-57-24_RSD_ST_s19/`
+- **Stand re-pairing outputs** (main checkout, untracked): the SN / SH run dirs, stamps, table test and logs are listed in §13.10.
 - **References:**
   - `../2026-11-06_dr_stress_sweep/REPORT.md` (the baseline).
   - `../2026-10-16_task4_pipeline/REPORT_baseline_vs_final.md` (F19, T\*, c28000, stage wall-clock).
@@ -865,3 +870,113 @@ $G replay --out /tmp/rsd_replay.json                             # the CPU repla
 ```
 
 - **The † values:** `stress_read.read_stamps(<suite stamp>, <field_light stamp>, es)` from `../2026-11-06_dr_stress_sweep/scripts/`, loaded with its `cells.py` under `python -B -I`. It writes nothing. Pair counts: each field_light stamp's `scenario_metrics.json`, an episode counting as complete when its `termination_reason` is `schedule_complete` (Task 4's `thresholds.field_episodes`).
+
+## 13. Stand re-pairing to TDR (addendum, 2026-11-09)
+
+**Status: COMPLETE 2026-11-09 18:10.** SN passes under the user's body-height re-anchor [9 13:24]. SH HALTed on K4 restore misses, and the user accepted it with the HALT disclosed [9 18:10]. [9 hh:mm] cites a CHARTER §6 entry of 2026-11-09, and [S hh:mm] an entry in the log of `STAND_REPAIR.md` (§9). File names are under `results/stand/` unless a path is given.
+
+### 13.1 What ran
+- **Why.** On adopting TDR and c31000 the user asked to "start the SN/SH re-pairing. Bake only after I approve." [9 09:55]. The method was pre-registered in `STAND_REPAIR.md` at 10:28, before any GPU row.
+- **Recipe: Task 4's, with only the walker swapped** (T\* `03b6009a` → TDR `03c3e472`).
+  - `sn`: DAgger of the scripted re-stance controller R, 4000 iterations. `sh`: DAgger of R_h warm-started from SN, 5000 iterations, deadband 0.25.
+  - Seed 19, the F19_p2a overlay, 0 kg, no DR key. Each trainer's env equals F19's key for key, except the root of the RSI bank path.
+  - REFS(TDR) suite@1 stands in for the driver stamp, which TDR does not have.
+- **Judge:** Task 4's `pipeline.stand_gate` (D1 for SN, D2 for SH; thresholds v1.2), loaded as a library by `scripts/rsd_stand.py`. `pipeline.py` cannot run here (its lock pin, its 150 GB disk floor).
+
+| Part | Local time | Hours | F19 (h) |
+|---|---|---|---|
+| REFS(TDR), 9 rows | 10:28–11:04 | 0.6 | 0.62 |
+| SN: train (1.69 h), 9 rows, read | 11:05–13:24 | 2.32 | 2.43 |
+| SH: train (2.30 h), table test, 13 rows, lazy R_h control (16:49–17:11), read | 13:24–17:17 | 3.88 | 3.56 + 0.42 |
+| **Total** | 10:28–17:17 | **≈ 6.8** | **7.03** |
+
+The campaign now stands at ≈ 34.4 of the approved ≈ 35 GPU-h.
+
+### 13.2 Pre-flight and checks
+- **Pre-flight PASS [S 10:42]** (`preflight.json`, CPU). Through this code, F19's SN gate (PASS), its SH gate (HALT on K6 bin 4 es1) and its K6 re-anchor replay line for line. The worktree readers reproduce every clause of F19's reads. Every stand, phase-2 and pipeline script is byte-identical to the main checkout's. One exclusion was recorded before any gate read: the lazy-read comparison leaves out `sh_read`'s own K5 roll-up, which no gate reads.
+- **Review [S 10:52]** (three read-only agents). The launcher reproduces Task 4's executors. Two blocking bugs in its own added checks were fixed before any trainer started.
+- **Premise reads: no STOP.** SN ratio 1.031. SH random-target homing 0.98 against the control's 0.93 (`sn_premise.json`, `sh_premise.json`).
+
+### 13.3 The body-height rule [9 11:53]
+- **The risk** [S 10:52]. The fixed line |body height − REFS| ≤ 0.03 (four G5 lines in D1, four K5 copies in D2) compares the stand pose with the walker's. Stand controllers hold ≈ 1.065 m whatever the walker. On suite rows (es1 / es2), the S1-era R and HOLD read 1.0648 / 1.0651 and F19's SN 1.0655 / 1.0664. REFS(TDR) reads 1.1201 / 1.1205, REFS(T\*) 1.0866 / 1.0856. The expected gap was ≈ 0.055.
+- **The decision.** The user chose "Re-anchor on controls", "fixed before any stand row is read". No stand row existed; SN was at iteration 1871.
+- **The rule** (DESIGN 3.6's form). A failed line re-anchors when R and HOLD each fail it against REFS(TDR). The head then passes if it stands within 0.03 m of each control. The heights are `sn_calib`'s own G5 records, so no GPU runs [S 11:53, 12:02].
+
+### 13.4 SN gate (D1): PASS under the re-anchor [9 13:24]
+- **Head:** `SN_RSD_TDR_sn_s19/model_4000.pt`, sha `6cd82ff5`.
+- **Read:** HALT on exactly the four G5 lines; 31 of 35 decisive lines pass (`gates/sn.json`). All four re-anchor (`gates/sn_reanchor.json`). The head stands at 1.0618–1.0661 m, REFS(TDR) at 1.1191–1.1205 m. R and HOLD fail each line by about the head's margin, and the head is within 0.0022 m of each.
+- **Lines that moved against F19's SN** (every other line is equal or within 0.007):
+
+| Line, es1 / es2 | SN beside TDR | F19's SN | Line |
+|---|---|---|---|
+| G2 walkstop median settle (s) | 2.70 / 2.80 | 3.05 / 2.92 | ≤ 3.92 / 3.96 |
+| G4 field_hard completion, es1–4 | 0.925 | 0.910 | ≥ 0.825 (F19 0.7875) |
+| G5 suite \|h − REFS\| (m) | 0.0545 / 0.0544 | 0.0211 / 0.0192 | ≤ 0.03 |
+| G5 walkstop \|h − REFS\| (m) | 0.0573 / 0.0565 | 0.0213 / 0.0211 | ≤ 0.03 |
+| WATCH post-settle steps/s | 0.41 / 0.45 | 0.35 / 0.35 | 0.5 |
+| WATCH post-settle taps/s | 0.81 / 0.70 | 0.67 / 0.58 | 1.0 |
+
+- **WATCH: no flag.** Post-settle stepping at walkstop rose beside TDR but stays under its lines.
+
+### 13.5 SH gate (D2): HALT on 12 of 101 lines [9 17:17]
+- **Head:** `SH_RSD_TDR_sh_s19/model_5000.pt`, sha `89f4428b`, warm-started from SN (`gates/sh.json`, read 17:14). F19's SH also HALTed, on K6 bin 4 es1, which re-anchored.
+- **Four K5 body-height lines re-anchor** under the 11:53 rule (`gates/sh_reanchor.json`). The head stands at 1.0621–1.0651 m, REFS(TDR) at 1.119–1.120 m. Both controls fail each line, and the head is within 0.002 m of each.
+- **Six K6 lines re-anchor** on the lazy control R_h beside TDR (`SH_RH_RSD_TDR`, DESIGN 3.6). The control fails each S1-era line, and the head beats it on all six:
+
+| K6 line | S1-era line | R_h beside TDR | Head | F19's SH | Re-anchored line |
+|---|---|---|---|---|---|
+| homed, bin 1 es1 | 0.829 | 0.67 | 0.74 | 0.98 | 0.541 |
+| settled, bin 1 es1 | 0.831 | 0.67 | 0.76 | 0.98 | 0.543 |
+| homed, bin 4 es1 | 0.945 | 0.825 | 0.885 | 0.935 | 0.755 |
+| settled, bin 4 es1 | 0.945 | 0.83 | 0.93 | 0.955 | 0.766 |
+| homed, bin 1 es2 | 0.884 | 0.66 | 0.81 | 0.98 | 0.537 |
+| settled, bin 1 es2 | 0.886 | 0.66 | 0.82 | 0.98 | 0.538 |
+
+- **K4 stays a HALT.** It counts restore misses among 800 restore-required hand-backs per env seed. D9 fixes its line at ≤ 3, so it has no lazy path. Even on the control's own count, max(1, R_h's) = 4 / 5, the head would fail by one miss per seed.
+
+| Restore misses per 800 | es1 / es2 |
+|---|---|
+| R_h beside S1 (the S1-era control) | 1 / 1 |
+| R_h beside T\* (F19's lazy control) | 5 / 5 |
+| R_h beside T\* p3a (R18's lazy control) | 7 / 3 |
+| R_h beside TDR (this control) | 4 / 5 |
+| F19's SH beside T\* | 2 / 3 |
+| R18's SH beside T\* p3a | 13 / 10 |
+| **This SH beside TDR** | **5 / 6** |
+
+### 13.6 K4 diagnosis [9 17:34]
+A five-agent CPU check (`sh-k4-halt-verify`) reproduced every gate number, both re-anchors, every K4 count from the raw npz, and every stamp's identity: walker `03c3e472`, head `89f4428b`, warm start `6cd82ff5`, eval `9fe964d7`, clean tree [S 17:34].
+- **A miss** is a restore that timed out at 5.31 s. Completion needs the 1.064 m target and every hip rod within 8 mm of nominal for 0.2 s.
+- **A static sag, not a slow restore.** In 19 of the 20 TDR-era misses (head 11, control 9), one loaded middle hip rod sat 0.0–0.9 mm over the 8 mm band for the whole post-ramp window, with the body already at height. The 20th is a lifted leg 7 of 10 rows from completing. Completions land at ramp end + 0.2 s (p50 = p90 = p99), so a longer timeout would not change the count.
+- **The same place for head and teacher.** 11 of the 20 TDR-era misses follow the 1.346 m stand, against 1 of 15 beside T\* (Fisher p = 0.004). No head miss shares an episode with a control miss.
+- **Statistics.** Head against its control: 11 vs 9 of 1600, two-sided p = 0.82. Against F19's SH: 11 vs 5, p = 0.21 (R18's precedent: 23 vs 10, p = 0.035). Against D9's calibration (≈ 0.74 per env seed), 5 / 6 is not chance (p 0.012 / 0.0025). At the control's ≈ 4.5 per seed, a head as good as R_h passes ≤ 3 with probability 0.34 per seed, 0.12 on both.
+- **What it does not show:** the physical cause (a footprint at stand entry is inferred, not measured), or an isolated walker effect. The eras also differ in code and eval pins (T\* era `cbaf6797` / `8c8d22f0`, TDR rows `de3772e2` / `9fe964d7`). So "walker-caused" is the most direct reading, not an isolated one.
+- **What a miss costs.** The restore hands back to TDR anyway, with no exit fall and the onset inside its line (readings every controller shares, §13.8): ≈ 1.6–3.5 s of extra standing.
+
+### 13.7 The decision [9 18:10]
+- **"Accept and disclose"**: Task 4 DESIGN 3.7 (a), as for R18 on 2026-10-21. The lines stay unchanged: thresholds v1.2, no re-pin (`gates/sh_decision.json`).
+- **Recorded reason.** The misses are chance-level relative to the scripted teacher beside TDR (p = 0.82), not relative to D9's S1-era calibration. They are a static sag at the 8 mm restore band, shared with the teacher at the same place.
+- **Eligibility.** The record follows Task 4's CHARTER §2: an accepted run stays eligible, disclosed. DESIGN 3.7 (a) says it "forfeits 4c". With one SH candidate the difference decides nothing.
+- **Not taken:** a post-hoc amendment K4 ≤ R_h(TDR) + 2 (6 / 7, which the head passes), and a second SH seed (≈ 3.8 h, past 35 GPU-h).
+
+### 13.8 Disclosures and what they mean
+- **K4 above D9's line** (§13.5). This would be the first SH shipped above it: R18 never shipped, and F19's SH passed at 2 / 3. In sim, 11 of 1600 restores (≈ 0.7 %) stood ≈ 1.6–3.5 s longer and handed back with one middle hip rod just outside the 8 mm band. No fall followed in these rows, a reading every controller shares (below), so it is not evidence for this head.
+- **Ten SH lines pass only by re-anchor** (§13.5): four K5 body-height lines on the S1-era R and HOLD rows, and six K6 homing lines on R_h beside TDR. Against the S1-era lines the head fails all ten.
+- **Walkstop homing 0.92 / 0.91 against 0.90** (K5.G2), 6 and 3 stands of 300 to spare. SN beside the same TDR homes 0.997 / 1.000, F19's SH 0.993 / 0.997, the S1-era R 0.97 / 0.977. Median settle is 2.86 / 3.00 s against F19's SH 2.58 / 2.66. No control covers this line, so it is this head's weakness: 8–9 % of walk-to-stand stops do not home.
+- **Low commanded heights.** Bin 1 (0.844–0.970 m) homes 0.74 / 0.81, against F19's 0.98 / 0.98. The line re-anchors, but one low stand in four to five does not home (one in three for R_h beside TDR).
+- **K3 table falls es1 0.67 per 100**, against F19's 0.17. It passes, under R_h's 0.83.
+- **Uninformative readings.** 0 exit falls and onset excess −1.305 s are common to every controller (R_h beside S1, T\* and TDR; F19's SH).
+- **The R and HOLD controls are S1-era rows** (`P2R_RSTg_s18`, `P2R_HOLD_s18`; walker `968cc550`), not run beside TDR, as the 11:53 rule specifies.
+- **The K5 suite height lines are structural.** Head, R and HOLD read 1.06478 / 1.06514 m to 5 dp, as F19's did. Only the walkstop lines tell heads apart.
+- **Untested:** standing under payload (0 kg only, DESIGN 3.6) and on slow rods (the stand trainers refuse the DR knob). The pick's ×0.7 result (§8) covers walking, not the stand nets.
+- **Record note:** `sh_reanchor.json`'s K6 `control_note` quotes the control-only SE; the lines use the head + control SE. The numbers are unaffected.
+
+### 13.9 The bake
+The candidates are TDR, c31000, SN `6cd82ff5` (SH's warm-start ancestor) and SH `89f4428b`. The bake rewrites `policy/manifest.yaml` and `tests/unit/test_policy_of_record_omni.py` as a separate step. It must copy TDR's checkpoint out of the worktree (decision 8). The bake, the commit and the push are the user's calls; none has happened. F19 stays the policy of record until the bake.
+
+### 13.10 Files
+- **Record** (this dir; untracked until the user's commit): `STAND_REPAIR.md` (§1–8 pre-registration, §9 log); `scripts/rsd_stand.py` (executors, gate call, re-anchors); `scripts/rsd_stand_queue.sh` (the queue runner); `results/stand/` (walker spec, pre-flight, heads, premise reads, CPU reads, and `gates/`: `sn.json`, `sn_reanchor.json`, `sh.json`, `sh_reanchor.json`, `sh_decision.json`, `replay_f19_*.json`).
+- **Main checkout** (untracked; beside F19's, where the readers find the S1-era controls):
+  - run dirs `parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/` and `…/stand_height/runs/SH_RSD_TDR_sh_s19/`;
+  - stamps `parkour/outputs/omni_plan/phase2/lr/{REFS_RSD_TDR,SN_RSD_TDR_sn_s19,SH_RSD_TDR_sh_s19,SH_RSD_TDR_sh_s19z,SH_RH_RSD_TDR}/`;
+  - table test `parkour/logs/videos/sh_table/2026-11-09_15-44-23_full/`; logs `parkour/outputs/omni_plan/rod_speed_dr/stand/`.

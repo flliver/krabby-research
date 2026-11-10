@@ -1,0 +1,42 @@
+{
+ "stage": "sn",
+ "name": "SN_RSD_TDR_sn_s19",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_4000.pt",
+ "sha256": "6cd82ff539daa3e78efa8de94fcb9fb21c8ba2f43715242a7c2e08bbb2ce534d",
+ "train_log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/train_log.jsonl",
+ "krabby_env_sha256": "38631fe9e608d6b1453de2e2d26898dd1328132b283c1c2033f0a4bec69201bd",
+ "krabby_env_vs_f19": "equal except the worktree RSI bank path (bytes identical)",
+ "status": {
+  "arm": "mask",
+  "checkpoints": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_1000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_1500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_2000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_2500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_3000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_3500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_4000.pt"
+  ],
+  "final_checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_4000.pt",
+  "iterations_run": 4000,
+  "iterations_schedule": 4000,
+  "mode": "dagger",
+  "opt_steps": 64000,
+  "s_per_iter": 1.5219304171204566,
+  "status": "done",
+  "student_forwards": 96000,
+  "wall_s": 6087.721668243408
+ },
+ "args": [
+  "--mode",
+  "dagger",
+  "--arm",
+  "mask",
+  "--seed",
+  "19",
+  "--iterations",
+  "4000"
+ ],
+ "recorded_at": "2026-11-09T12:47:07"
+}

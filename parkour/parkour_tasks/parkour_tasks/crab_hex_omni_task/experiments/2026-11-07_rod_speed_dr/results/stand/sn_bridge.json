@@ -1,0 +1,56 @@
+{
+ "field_hard__omni@1": {
+  "identity": false,
+  "meta_fails": [],
+  "refs_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/field_hard__omni/seed001/2026-11-09_15-48-15",
+  "sn_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SN_RSD_TDR_sn_s19/field_hard__omni/seed001/2026-11-09_18-06-53",
+  "swap_live": {
+   "episodes": 100,
+   "fails": [],
+   "off_stand_series_clean": true,
+   "pre_entry_episodes_checked": 0,
+   "pre_entry_matches_refs": true,
+   "stand_actions_equal_stand_net": true,
+   "stand_mode_share": 0.13690931905447368,
+   "stand_steps": 47500,
+   "stand_steps_differ_from_s1": 47500
+  },
+  "verdict": "PASS"
+ },
+ "suite__omni@1": {
+  "identity": false,
+  "meta_fails": [],
+  "refs_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/suite__omni/seed001/2026-11-09_15-28-33",
+  "sn_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SN_RSD_TDR_sn_s19/suite__omni/seed001/2026-11-09_17-47-17",
+  "swap_live": {
+   "episodes": 1000,
+   "fails": [],
+   "off_stand_series_clean": true,
+   "pre_entry_episodes_checked": 0,
+   "pre_entry_matches_refs": true,
+   "stand_actions_equal_stand_net": true,
+   "stand_mode_share": 0.30322580645161273,
+   "stand_steps": 235000,
+   "stand_steps_differ_from_s1": 235000
+  },
+  "verdict": "PASS"
+ },
+ "walkstop__omni@1": {
+  "identity": false,
+  "meta_fails": [],
+  "refs_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RSD_TDR/walkstop__omni/seed001/2026-11-09_15-43-03",
+  "sn_stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/SN_RSD_TDR_sn_s19/walkstop__omni/seed001/2026-11-09_18-01-36",
+  "swap_live": {
+   "episodes": 100,
+   "fails": [],
+   "off_stand_series_clean": true,
+   "pre_entry_episodes_checked": 100,
+   "pre_entry_matches_refs": true,
+   "stand_actions_equal_stand_net": true,
+   "stand_mode_share": 0.6486486486486487,
+   "stand_steps": 180000,
+   "stand_steps_differ_from_s1": 180000
+  },
+  "verdict": "PASS"
+ }
+}
