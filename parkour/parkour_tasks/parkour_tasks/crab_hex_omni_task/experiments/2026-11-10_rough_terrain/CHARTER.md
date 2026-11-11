@@ -273,3 +273,14 @@ floor. Pending; not needed before step 9.
 
 - **Disk:** 28 GB free; the DDC cap stays at 100 GB. Step 6 starts now and will stop at the queue's 20 GB disk floor
   (≈ 10 rows) unless the user frees space first. The rows are reversible, and the completed ones are reused.
+
+### 2026-11-10 21:20–21:30 — disk freed (user: "Delete both")
+
+- **Site chain raw episodes deleted.** All 86 `raw/` directories under `parkour/outputs/site_teacher/chain/`
+  (`episode_*.npz` only), 39 GB. Every summary, metrics, run_meta, tp_row and code_state file is kept, as is
+  `site_teacher/rows`.
+- **Kit DerivedDataCache emptied** (95 GB; `isaac_venv/.../isaacsim/kit/cache/DerivedDataCache`). The baseline queue
+  was first paused between rows with STOP_QUEUE, after 5 rows (RTQ_DONE fail=0), and no Isaac or Kit process was
+  running. Kit regenerates the cache, so the first launches are slower.
+- **Free disk 28 → 156 GB.** The baseline resumes; its 5 completed rows (at the pinned build) are reused. The DDC cap
+  is back to the default 80 GB.
