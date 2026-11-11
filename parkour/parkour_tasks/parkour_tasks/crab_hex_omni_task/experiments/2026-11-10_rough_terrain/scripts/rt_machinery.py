@@ -364,6 +364,8 @@ def params_allow_rules(krabby: dict, expect: dict, smoke: bool) -> dict:
                     None))
         env.append((r"parkours\.base_parkour\.(clear_radius_m|ring_outer_radius_m)",
                     "parkour term radii synced to the site terrain (omni_terrain_knobs)", None))
+        env.append((r"events\.reset_root_state\.params\.spawn_level_z",
+                    "spawn reads the tile centre level (site geometry; PLAN step 2)", _must(True, "spawn_level_z")))
     if krabby.get("KRABBY_RT_FRICTION"):
         lo, hi = (float(x) for x in krabby["KRABBY_RT_FRICTION"].split(":")[1:3])
         env.append((r"events\.physics_material\.func", "friction contract: the startup material event replaced",
