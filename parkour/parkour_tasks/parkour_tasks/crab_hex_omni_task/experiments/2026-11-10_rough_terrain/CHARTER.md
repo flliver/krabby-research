@@ -222,3 +222,24 @@ floor. Pending; not needed before step 9.
   every stamped row, so the first failure afterwards raised TypeError. Renamed; the sentinel still printed
   `RTQ_DONE fail=1 (queue crashed …)` as designed.
 - Next: relaunch the smoke block from S.train_ref. The S.neutral stamp is at the pinned build and is reused.
+
+### 2026-11-10 19:50–20:15 — step 5, smoke run 2
+
+- **Training smokes pass** (rerun after the fixes): S.train_ref, S.train_rt and S.train.cmp all rc 0.
+- **S.train50** stopped at iteration ≈ 2 on PF14 (params diff against TDR's run). The only disallowed difference was
+  `events.reset_root_state.params.spawn_level_z: absent → True`, which is planned: the site spawn at the tile
+  centre level. The allow-list rule is added (must equal True under site geometry). The recorded params now read
+  `RT PARAMS OK`: every difference is a planned one (terrain generator keys, friction-contract keys, ground
+  multiply, rod-DR ramp 0, run name and iterations). S.train50 reruns under the name `RT5_smoke50b`.
+- **Eval smoke rows.** 7 rows plus their probes rc 0 (slopes b1–b3, hills b1–b3, ledge_up b1). The CPU checks run at
+  the end of the block.
+- **DerivedDataCache guard stop.** The cache was at 81 GB against the 80 GB cap. It grew at 75 GB (19:52) → 81 GB
+  (20:14) over 13 Kit launches, ≈ 0.46 GB per launch: steady growth (new terrain meshes per row), not the
+  2.4 GB/s corruption balloon. Disk went 45 → 39 GB free.
+  - Projection: ≈ 40 GB more DDC plus ≈ 33 GB of baseline and gate stamps, against 39 GB free.
+  - **Decision (reversible): cap raised to `RTQ_DDC_MAX_GB=100` for the rest of the smoke.** The 3 GB per-step
+    growth guard still catches a balloon.
+  - **Asked the user** to free space (delete the regenerable DDC, 81 GB, and/or the closed site campaign's chain
+    raw npz, 39 GB) before step 6.
+- **Launcher hazard fixed** (`rt_launch.sh` refuses before rotating while a queue holds the lock). A relaunch had
+  rotated the live queue's log.
