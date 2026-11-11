@@ -338,17 +338,10 @@ def _depth_to_bgr(depth: np.ndarray) -> np.ndarray:
 def _isaac_interface_from_sim_cfgs(robot_link: str = "base") -> IsaacSensorInterface:
     """Same sensor catalog as HAL Isaac teleop (``sim_rgbd_camera_cfgs``), without a running env."""
 
-    from hal.server.isaac.sim_rgbd_camera_cfgs import sim_rgbd_camera_cfgs_for_robot_link
+    from hal.server.isaac.sim_rgbd_camera_cfgs import sim_hal_camera_cfgs_for_robot_link
 
-    fc, fr, src, srr, slc, slr = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
-    scene_sensors = {
-        "front_camera": SimpleNamespace(cfg=fc),
-        "front_rgb": SimpleNamespace(cfg=fr),
-        "side_right_camera": SimpleNamespace(cfg=src),
-        "side_right_rgb": SimpleNamespace(cfg=srr),
-        "side_left_camera": SimpleNamespace(cfg=slc),
-        "side_left_rgb": SimpleNamespace(cfg=slr),
-    }
+    cfgs = sim_hal_camera_cfgs_for_robot_link(robot_link)
+    scene_sensors = {name: SimpleNamespace(cfg=cfg) for name, cfg in cfgs.items()}
     return IsaacSensorInterface(scene_sensors=scene_sensors)
 
 

@@ -13,7 +13,7 @@ from hal.server.robot_definition import RobotDefinition
 from hal.client.data_structures.hardware import (
     HardwareObservations,
     JointCommand,
-    RgbdCatalogObservation,
+    SensorObservation,
 )
 from hal.server.jetson.rgb_depth_camera import RgbDepthCamera
 from hal.server.jetson.front_camera_factory import (
@@ -532,7 +532,7 @@ class JetsonHalServer(HalServerBase):
         nf_scan = self.observation_dimensions.num_scan_front
         ns_scan = self.observation_dimensions.num_side_scan
 
-        rgbd_by_catalog_id: dict[str, RgbdCatalogObservation] = {}
+        rgbd_by_catalog_id: dict[str, SensorObservation] = {}
         for cid, cam in self._hal_rgbd_cameras.items():
             entry = JETSON_SENSOR_CATALOG_BY_ID.get(cid)
             if entry is None:
@@ -587,9 +587,8 @@ class JetsonHalServer(HalServerBase):
                 elif entry.policy_scan_slot == "side" and ns_scan > 0:
                     scan_c = np.zeros(ns_scan, dtype=np.float32)
 
-            rgbd_by_catalog_id[cid] = RgbdCatalogObservation(
-                rgb=rgb_u8,
-                depth=depth_f,
+            rgbd_by_catalog_id[cid] = SensorObservation(
+                channels={"rgb": rgb_u8, "depth": depth_f},
                 scan_features=(
                     np.asarray(scan_c, dtype=np.float32)
                     if scan_c is not None
@@ -611,18 +610,25 @@ class JetsonHalServer(HalServerBase):
                 self._primary_chunk_missing_warned = True
         else:
             self._primary_chunk_missing_warned = False
-            if chunk_p.rgb.shape != expected_rgb_shape:
+            primary_rgb = chunk_p.channels.get("rgb")
+            primary_depth = chunk_p.channels.get("depth")
+            if primary_rgb is None or primary_depth is None:
+                raise RuntimeError(
+                    f"Primary catalog {self._primary_catalog_id!r}: expected rgb and "
+                    f"depth channels, got {sorted(chunk_p.channels)}"
+                )
+            if primary_rgb.shape != expected_rgb_shape:
                 raise RuntimeError(
                     f"Primary catalog {self._primary_catalog_id!r}: rgb shape "
-                    f"{chunk_p.rgb.shape} != expected {expected_rgb_shape}"
+                    f"{primary_rgb.shape} != expected {expected_rgb_shape}"
                 )
-            if chunk_p.depth.shape != expected_depth_shape:
+            if primary_depth.shape != expected_depth_shape:
                 raise RuntimeError(
                     f"Primary catalog {self._primary_catalog_id!r}: depth shape "
-                    f"{chunk_p.depth.shape} != expected {expected_depth_shape}"
+                    f"{primary_depth.shape} != expected {expected_depth_shape}"
                 )
-            camera_rgb = chunk_p.rgb
-            camera_depth = chunk_p.depth
+            camera_rgb = primary_rgb
+            camera_depth = primary_depth
             scan_features = chunk_p.scan_features
             if scan_features is not None:
                 scan_features = np.asarray(scan_features, dtype=np.float32)

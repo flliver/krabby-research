@@ -431,6 +431,96 @@ def run_test_isaacsim_hal_server_with_real_isaaclab():
         flush_logs()
         return False
 
+def run_test_isaacsim_tof_cameras():
+    """Attach SEN0581-spec ToF cameras, spawn a box, assert 100x100 depth via HalClient.
+
+    Requires ``--enable-hal-cameras`` equivalent: cameras are attached to the scene cfg
+    before env creation. Headless RTX cameras are enabled via AppLauncher args already
+    used by this runner when cameras are present.
+    """
+    global current_step
+    current_step = "[TEST] test_isaacsim_tof_cameras"
+    logger.info(f"{current_step}...")
+    _import_env_stack()
+
+    env = None
+    try:
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA is required for this test but is not available")
+
+        from isaaclab.assets import RigidObjectCfg
+        import isaaclab.sim as sim_utils
+        from hal.server.isaac.sim_rgbd_camera_cfgs import (
+            apply_sim_hal_camera_update_periods,
+            attach_sim_rgbd_sensors_to_scene_cfg,
+        )
+        from hal.server.robot_definition_unitree_go2 import UNITREE_GO2_DEFINITION
+        from tests.integration.test_isaacsim_tof_cameras import (
+            place_tof_test_box_on_optical_axis,
+            run_tof_hal_client_check,
+        )
+
+        # Play cfg: same known-good Go2 path as walk_tof_preview / local integ runner.
+        task_name = "Isaac-Extreme-Parkour-Teacher-Unitree-Go2-Play-v0"
+        device = "cuda"
+        current_step = f"[STEP] parse_env_cfg {task_name}"
+        logger.info(current_step)
+        env_cfg = parse_env_cfg(task_name, device=device, num_envs=1, use_fabric=True)
+
+        # Placeholder spawn; repositioned onto the belly-right optical axis after reset.
+        box_distance_m = 0.35
+        env_cfg.scene.tof_test_box = RigidObjectCfg(
+            prim_path="{ENV_REGEX_NS}/TofTestBox",
+            spawn=sim_utils.CuboidCfg(
+                size=(0.2, 0.2, 0.2),
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+                collision_props=sim_utils.CollisionPropertiesCfg(),
+                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
+            ),
+            init_state=RigidObjectCfg.InitialStateCfg(
+                pos=(0.5, -0.5, 0.4),
+                rot=(1.0, 0.0, 0.0, 0.0),
+            ),
+        )
+
+        attach_sim_rgbd_sensors_to_scene_cfg(env_cfg.scene, "base")
+        _sensor_dt = env_cfg.sim.dt * env_cfg.decimation
+        apply_sim_hal_camera_update_periods(env_cfg.scene, control_dt=_sensor_dt)
+
+        current_step = "[STEP] Creating env with HAL cameras + ToF test box"
+        logger.info(current_step)
+        env = ParkourManagerBasedRLEnv(cfg=env_cfg, render_mode=None)
+        env.reset()
+
+        target = place_tof_test_box_on_optical_axis(env, distance_m=box_distance_m)
+        logger.info("[STEP] ToF test box placed at %s", target)
+
+        current_step = "[STEP] HAL client ToF depth check"
+        logger.info(current_step)
+        run_tof_hal_client_check(
+            env=env,
+            robot_definition=UNITREE_GO2_DEFINITION,
+            box_expected_m=box_distance_m,
+            box_catalog_id="belly_right_tof",
+        )
+
+        env.close()
+        env = None
+        logger.info("[PASS] test_isaacsim_tof_cameras passed")
+        flush_logs()
+        return True
+    except Exception as e:
+        logger.error(f"[FAIL] test_isaacsim_tof_cameras failed: {e}")
+        traceback.print_exc()
+        if env is not None:
+            try:
+                env.close()
+            except Exception:
+                pass
+        flush_logs()
+        return False
+
+
 def run_test_inference_latency_requirement():
     """Test that inference latency meets < 15ms requirement with real model and Isaac Sim.
     
@@ -756,6 +846,7 @@ def main():
         "test_isaacsim_noop": run_test_isaacsim_noop,
         "test_isaacsim_create_environment_only": run_test_isaacsim_create_environment_only,
         "test_isaacsim_hal_server_with_real_isaaclab": run_test_isaacsim_hal_server_with_real_isaaclab,
+        "test_isaacsim_tof_cameras": run_test_isaacsim_tof_cameras,
         "test_inference_latency_requirement": run_test_inference_latency_requirement,
     }
     

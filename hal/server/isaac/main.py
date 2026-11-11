@@ -44,7 +44,12 @@ def _sim_rgbd_mount_link(robot: str) -> str | None:
     """USD link under ``Robot/<link>/`` for HAL sim RGB-D prims; ``None`` if ``robot`` is ``auto``."""
 
     if robot == "hex":
-        return "crab_hex"
+        # Plant-of-record crab.usda uses chassis/body; legacy crab_hex_ref.usd uses crab_hex.
+        usd = os.environ.get("KRABBY_HEX_USD_PATH", "")
+        name = Path(usd).name.lower() if usd else ""
+        if "crab_hex_ref" in name:
+            return "crab_hex"
+        return "chassis/body"
     if robot in ("go2", "quad"):
         return "base"
     return None
@@ -188,6 +193,14 @@ def main():
             "ICE/STUN from teleop/edge/robot_settings.py. Combine with --joystick for krabby-uno-sim on TCP."
         ),
     )
+    parser.add_argument(
+        "--enable-hal-cameras",
+        action="store_true",
+        help=(
+            "Attach HAL sim cameras (front RGB-D + ToF depth) even without --teleop-ip. "
+            "Implied by --teleop-ip. Use for headless integration tests that need depth frames."
+        ),
+    )
     add_command_backend_arguments(parser)
 
     AppLauncher.add_app_launcher_args(parser)
@@ -222,15 +235,19 @@ def main():
         args.command_bind = "tcp://*:5556" if args.joystick else "inproc://hal_commands"
 
     teleop_enabled = args.teleop_ip is not None
+    hal_cameras = bool(args.enable_hal_cameras) or teleop_enabled
 
-    args.enable_cameras = teleop_enabled
-    logger.info("enable_cameras=%s (sim RGB-D sensors only with --teleop-ip)", args.enable_cameras)
-    if teleop_enabled and getattr(args, "headless", False):
+    args.enable_cameras = hal_cameras
+    logger.info(
+        "enable_cameras=%s (HAL sim cameras via --enable-hal-cameras or --teleop-ip)",
+        args.enable_cameras,
+    )
+    if hal_cameras and getattr(args, "headless", False):
         logger.warning(
-            "Headless + --teleop-ip turns on Isaac RTX/Hydra cameras (Pinhole RGB + ray depth). "
+            "Headless + HAL cameras turns on Isaac RTX/Hydra cameras (pinhole RGB + depth). "
             "Kit may segfault during Hydra init on some GPUs (e.g. RTX 50xx) or with swap full. "
             "For fleet teleop smoke, prefer a local session without --headless; use headless only "
-            "for HAL+fullsim without --teleop-ip (joystick/TCP)."
+            "for HAL+fullsim without cameras, or accept RTX cost for --enable-hal-cameras tests."
         )
 
     # Launch IsaacLab
@@ -317,24 +334,23 @@ def main():
         # One env is enough for joystick control and significantly speeds up startup and step time.
         env_cfg.scene.num_envs = 1
 
-    if teleop_enabled:
+    if hal_cameras:
+        from hal.server.isaac.sim_rgbd_camera_cfgs import (
+            apply_sim_hal_camera_update_periods,
+        )
+
         sim_rgbd_link = _sim_rgbd_mount_link(args.robot)
         if sim_rgbd_link is None:
             raise ValueError(
-                f"Cannot resolve sim RGB-D mount link for --robot {args.robot!r} with --teleop-ip"
+                f"Cannot resolve sim RGB-D mount link for --robot {args.robot!r} "
+                "with --enable-hal-cameras / --teleop-ip"
             )
         attach_sim_rgbd_sensors_to_scene_cfg(env_cfg.scene, sim_rgbd_link)
         _sensor_dt = env_cfg.sim.dt * env_cfg.decimation
-        env_cfg.scene.front_camera.update_period = _sensor_dt
-        env_cfg.scene.front_rgb.update_period = _sensor_dt
-        env_cfg.scene.side_right_camera.update_period = _sensor_dt
-        env_cfg.scene.side_right_rgb.update_period = _sensor_dt
-        env_cfg.scene.side_left_camera.update_period = _sensor_dt
-        env_cfg.scene.side_left_rgb.update_period = _sensor_dt
+        apply_sim_hal_camera_update_periods(env_cfg.scene, control_dt=_sensor_dt)
         logger.info(
-            "HAL sim RGB-D sensors on Robot/%s "
-            "(front_rgb, front_camera, side_right_rgb, side_right_camera, "
-            "side_left_rgb, side_left_camera)",
+            "HAL sim cameras on Robot/%s "
+            "(front_rgb, front_camera, belly_left_tof, belly_right_tof, rear_tof)",
             sim_rgbd_link,
         )
 

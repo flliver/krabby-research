@@ -19,8 +19,7 @@ def test_isaac_teleop_bootstrap_includes_gray16_depth_rows() -> None:
     assert bootstrap == (
         "front_rgbd",
         "front_rgbd_gray16_depth",
-        "side_right_rgbd",
-        "side_right_rgbd_gray16_depth",
-        "side_left_rgbd",
-        "side_left_rgbd_gray16_depth",
+        "belly_right_tof_gray16_depth",
+        "belly_left_tof_gray16_depth",
+        "rear_tof_gray16_depth",
     )

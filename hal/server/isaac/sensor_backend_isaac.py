@@ -1,9 +1,9 @@
 """Isaac Sim GStreamer sensor backend.
 
 **Live HAL**: pass ``scene_sensors`` (e.g. ``IsaacSimHalServer.camera_sensors``). When
-``front_rgb`` + ``front_camera`` (pinhole depth) and/or ``side_right_*`` / ``side_left_*`` pairs exist, each
-pair adds **two** ``SensorInfo`` rows: ``front_rgbd`` / ``side_right_rgbd`` / ``side_left_rgbd``
-plus matching ``*_gray16_depth`` (``camera_driver="isaac_scene"``).
+``front_rgb`` + ``front_camera`` exist, adds ``front_rgbd`` plus ``front_rgbd_gray16_depth``.
+Depth-only ToF prims ``belly_*_tof`` / ``rear_tof`` add a catalog row with modality
+``depth`` and a matching ``*_gray16_depth`` preview (``camera_driver="isaac_scene"``).
 
 **Explicit configuration**: pass ``configured_sensors=(...)`` to supply a fixed
 ``SensorInfo`` list (call-site specific). If set, **scene introspection is skipped**.
@@ -20,7 +20,7 @@ from typing import Any, Optional
 from hal.server.gstreamer_runtime import build_software_appsrc_encode_pipeline_string
 from hal.server.isaac.sim_depth_ranges import (
     ISAAC_FRONT_DEPTH_PREVIEW_M,
-    ISAAC_SIDE_DEPTH_PREVIEW_M,
+    ISAAC_TOF_DEPTH_PREVIEW_M,
 )
 from hal.server.sensor_interface import (
     GStreamerHandle,
@@ -29,20 +29,19 @@ from hal.server.sensor_interface import (
     SensorPose,
 )
 
-# Logical RGB-D ids in ``HardwareObservations.rgbd_by_catalog_id`` and rosbag ``/camera/{id}/*``.
-# Same strings as Jetson catalog rows for cross-backend bags; Isaac defines them here.
-ISAAC_HAL_RGBD_CATALOG_IDS: tuple[str, ...] = (
-    "front_rgbd",
-    "side_right_rgbd",
-    "side_left_rgbd",
-)
+from hal.server.isaac.sim_hal_camera_entries import SIM_HAL_CAMERA_ENTRIES
 
-_SIDE_RIGHT_POSE = SensorPose(
-    0.0, -0.08, 0.12, 0.0, 0.0, -0.7071067811865476, 0.7071067811865476
-)
-_SIDE_LEFT_POSE = SensorPose(
-    0.0, 0.08, 0.12, 0.0, 0.0, 0.7071067811865476, 0.7071067811865476
-)
+# Logical catalog ids in ``HardwareObservations.rgbd_by_catalog_id`` and rosbag ``/camera/{id}/*``.
+ISAAC_HAL_RGBD_CATALOG_CHANNELS: dict[str, tuple[str, ...]] = {
+    entry.catalog_id: entry.channels for entry in SIM_HAL_CAMERA_ENTRIES
+}
+ISAAC_HAL_RGBD_CATALOG_IDS: tuple[str, ...] = tuple(ISAAC_HAL_RGBD_CATALOG_CHANNELS.keys())
+
+_TOF_DEFAULT_POSES: dict[str, tuple[float, float, float]] = {
+    entry.catalog_id: entry.default_pose_xyz
+    for entry in SIM_HAL_CAMERA_ENTRIES
+    if entry.rgb_attr is None
+}
 
 
 def _append_rgbd_pair_from_scene(
@@ -93,14 +92,58 @@ def _append_rgbd_pair_from_scene(
     )
 
 
+def _append_depth_only_from_scene(
+    out: list[SensorInfo],
+    scene_sensors: dict,
+    *,
+    depth_key: str,
+    catalog_id: str,
+    default_pose: SensorPose | None,
+    depth_range_m: tuple[float, float],
+    default_res: tuple[int, int] = (100, 100),
+    default_fps: int = 20,
+) -> None:
+    """Depth-only catalog row + gray16 preview (no RGB prim required)."""
+    if depth_key not in scene_sensors:
+        return
+    depth_cfg = getattr(scene_sensors[depth_key], "cfg", None)
+    res, fps = _resolution_and_fps_from_cfg(depth_cfg, default_res, default_fps)
+    pose = _pose_from_sensor_cfg(depth_cfg) or default_pose
+    out.append(
+        SensorInfo(
+            id=catalog_id,
+            type="rgbd",
+            modality="depth",
+            resolution=res,
+            fps=fps,
+            pose=pose,
+            camera_driver="isaac_scene",
+            extra={
+                "isaac_sensor_depth": depth_key,
+            },
+        )
+    )
+    out.append(
+        SensorInfo(
+            id=f"{catalog_id}_gray16_depth",
+            type="depth",
+            modality="depth",
+            resolution=res,
+            fps=fps,
+            pose=pose,
+            camera_driver="isaac_scene",
+            extra={
+                "isaac_sensor_depth": depth_key,
+                "depth_range_m": depth_range_m,
+                "gst_depth_source_catalog_id": catalog_id,
+            },
+        )
+    )
+
+
 def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
-    """Map scene sensors to Jetson-matching catalog ids.
-
-    Full scene: ``front_rgbd``, ``side_right_rgbd``, ``side_left_rgbd``, plus matching
-    ``*_gray16_depth`` rows. Missing RGB or depth prim for a pair skips that pair's rows.
-    """
+    """Map scene sensors to catalog ids (front RGB-D + three ToF depth cameras)."""
     out: list[SensorInfo] = []
-
     _append_rgbd_pair_from_scene(
         out,
         scene_sensors,
@@ -110,25 +153,20 @@ def _sensor_infos_from_scene_cameras(scene_sensors: dict) -> list[SensorInfo]:
         default_pose=SensorPose(0.33, 0.0, 0.08, 0.0, 0.0, 0.0, 1.0),
         depth_range_m=ISAAC_FRONT_DEPTH_PREVIEW_M,
     )
-    _append_rgbd_pair_from_scene(
-        out,
-        scene_sensors,
-        rgb_key="side_right_rgb",
-        depth_key="side_right_camera",
-        catalog_id="side_right_rgbd",
-        default_pose=_SIDE_RIGHT_POSE,
-        depth_range_m=ISAAC_SIDE_DEPTH_PREVIEW_M,
-    )
-    _append_rgbd_pair_from_scene(
-        out,
-        scene_sensors,
-        rgb_key="side_left_rgb",
-        depth_key="side_left_camera",
-        catalog_id="side_left_rgbd",
-        default_pose=_SIDE_LEFT_POSE,
-        depth_range_m=ISAAC_SIDE_DEPTH_PREVIEW_M,
-    )
-
+    for catalog_id, depth_key in (
+        ("belly_right_tof", "belly_right_tof"),
+        ("belly_left_tof", "belly_left_tof"),
+        ("rear_tof", "rear_tof"),
+    ):
+        xyz = _TOF_DEFAULT_POSES[catalog_id]
+        _append_depth_only_from_scene(
+            out,
+            scene_sensors,
+            depth_key=depth_key,
+            catalog_id=catalog_id,
+            default_pose=SensorPose(xyz[0], xyz[1], xyz[2], 0.0, 0.0, 0.0, 1.0),
+            depth_range_m=ISAAC_TOF_DEPTH_PREVIEW_M,
+        )
     return out
 
 

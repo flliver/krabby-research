@@ -73,10 +73,10 @@ def test_grab_failure_fills_rgbd_and_primary_with_zeros(jetson_server):
     assert hw_obs.rgbd_by_catalog_id is not None
     assert "front_rgbd" in hw_obs.rgbd_by_catalog_id
     ch = hw_obs.rgbd_by_catalog_id["front_rgbd"]
-    assert ch.rgb.shape == (h, w, 3)
-    assert ch.depth.shape == (h, w)
-    assert np.all(ch.rgb == 0)
-    assert np.all(ch.depth == 0.0)
+    assert ch.channels["rgb"].shape == (h, w, 3)
+    assert ch.channels["depth"].shape == (h, w)
+    assert np.all(ch.channels["rgb"] == 0)
+    assert np.all(ch.channels["depth"] == 0.0)
     assert ch.scan_features is not None
     assert ch.scan_features.shape == (nf,)
     assert np.all(ch.scan_features == 0.0)

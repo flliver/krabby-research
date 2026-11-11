@@ -368,22 +368,28 @@ def start_hal_teleop_signaling_thread(
                             ):
                                 base = (sensor.extra or {})["gst_depth_source_catalog_id"]
                                 chunk = obs.rgbd_by_catalog_id.get(base)
-                                if chunk is None or chunk.depth.size == 0:
+                                depth = (
+                                    None
+                                    if chunk is None
+                                    else chunk.channels.get("depth")
+                                )
+                                if depth is None or depth.size == 0:
                                     continue
                                 # depth_range_m: same contract as Gst depth sensors; validated in
                                 # _validate_sensor_pipeline_binding before the offer is accepted.
                                 dr = (sensor.extra or {})["depth_range_m"]
                                 depth_range = (float(dr[0]), float(dr[1]))
                                 preview = depth_meters_to_rgb24_u8(
-                                    chunk.depth, depth_range_m=depth_range
+                                    depth, depth_range_m=depth_range
                                 )
                                 latest_rgb[cid] = np.ascontiguousarray(preview, dtype=np.uint8)
                                 latest_capture_ns[cid] = int(obs.timestamp_ns)
                                 continue
 
                             chunk = obs.rgbd_by_catalog_id.get(cid)
-                            if chunk is not None and chunk.rgb is not None and chunk.rgb.size > 0:
-                                latest_rgb[cid] = np.ascontiguousarray(chunk.rgb, dtype=np.uint8)
+                            rgb = None if chunk is None else chunk.channels.get("rgb")
+                            if rgb is not None and rgb.size > 0:
+                                latest_rgb[cid] = np.ascontiguousarray(rgb, dtype=np.uint8)
                                 latest_capture_ns[cid] = int(obs.timestamp_ns)
             finally:
                 with hal_client_lock:

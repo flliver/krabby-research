@@ -250,6 +250,7 @@ test-isaacsim: build-isaacsim-image
 	@echo "  PYTHONUNBUFFERED=1 timeout 300 docker run --rm --gpus all \\"
 	@echo "    --entrypoint /workspace/run_test_runner.sh \\"
 	@echo "    krabby-isaacsim:latest <test_name>"
+	@echo "  ToF cameras: test_isaacsim_tof_cameras"
 	@echo "See test_runner.py and run_test_runner.sh for more information"
 	PYTHONUNBUFFERED=1 timeout 600 docker run --rm --gpus all \
 		--entrypoint /workspace/run_test_runner.sh \

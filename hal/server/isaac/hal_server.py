@@ -13,13 +13,14 @@ from hal.server import HalServerBase, HalServerConfig
 from hal.client.data_structures.hardware import (
     HardwareObservations,
     JointCommand,
-    RgbdCatalogObservation,
+    SensorObservation,
 )
 from hal.server.isaac.isaacsim_mcusdk import IsaacSimMCUSDK
 from hal.server.isaac.sim_depth_ranges import (
     ISAAC_FRONT_DEPTH_POSINF_CLIP_M,
-    ISAAC_SIDE_DEPTH_POSINF_CLIP_M,
+    ISAAC_TOF_DEPTH_POSINF_CLIP_M,
 )
+from hal.server.isaac.sim_hal_camera_entries import SIM_HAL_CAMERA_ENTRIES
 from hal.server.isaac.primary_zed_base_state import isaac_primary_rgbd_base_state
 from hal.server.isaac.sensor_backend_isaac import IsaacSensorInterface
 from hal.server.sensor_interface import SensorInterface
@@ -171,8 +172,8 @@ def _read_catalog_rgbd_pair(
     depth_key: str,
     posinf_clip_m: float,
     label: str,
-) -> tuple[Optional[tuple[int, int, np.ndarray, np.ndarray]], Optional[RgbdCatalogObservation]]:
-    """Read one Isaac scene RGB-D pair for ``rgbd_by_catalog_id`` and optional legacy side fields."""
+) -> tuple[Optional[tuple[int, int, np.ndarray, np.ndarray]], Optional[SensorObservation]]:
+    """Read one Isaac scene RGB-D pair for ``rgbd_by_catalog_id``."""
     pair = _native_rgb_depth_pair(
         _read_pinhole_rgb(camera_sensors, rgb_key),
         _read_scene_depth(camera_sensors, depth_key),
@@ -184,7 +185,33 @@ def _read_catalog_rgbd_pair(
     _, _, rgb_u8, depth_f32 = pair
     if not (np.any(rgb_u8) or np.any(depth_f32)):
         return pair, None
-    return pair, RgbdCatalogObservation(rgb=rgb_u8, depth=depth_f32)
+    return pair, SensorObservation(channels={"rgb": rgb_u8, "depth": depth_f32})
+
+
+def _read_catalog_depth_only(
+    camera_sensors: dict,
+    *,
+    depth_key: str,
+    posinf_clip_m: float,
+    label: str,
+) -> Optional[SensorObservation]:
+    """Read a depth-only Isaac scene camera into a ``SensorObservation``."""
+    depth_arr = _read_scene_depth(camera_sensors, depth_key)
+    if depth_arr is None:
+        return None
+    # Reuse RGB-D sanitization with a zero RGB placeholder; keep depth only.
+    pair = _native_rgb_depth_pair(
+        np.zeros((*depth_arr.shape, 3), dtype=np.uint8),
+        depth_arr,
+        posinf_clip_m=posinf_clip_m,
+        label=label,
+    )
+    if pair is None:
+        return None
+    _, _, _, depth_f32 = pair
+    if not np.any(depth_f32):
+        return None
+    return SensorObservation(channels={"depth": depth_f32})
 
 
 class IsaacSimHalServer(HalServerBase):
@@ -553,7 +580,7 @@ class IsaacSimHalServer(HalServerBase):
         joint_positions = np.zeros(n_joints, dtype=np.float32)
         joint_positions[:len(joint_positions_from_obs)] = joint_positions_from_obs
 
-        # Cameras: front (ZED-like), side_right / side_left (MaixSense-like; Jetson catalog ids).
+        # Cameras: front (ZED-like) + belly/rear ToF depth (SEN0581-spec).
         depth_raw_front = _read_scene_depth(self.camera_sensors, "front_camera")
         rgb_raw_front = _read_pinhole_rgb(self.camera_sensors, "front_rgb")
 
@@ -601,36 +628,38 @@ class IsaacSimHalServer(HalServerBase):
                 rgb_camera_1 = None
                 depth_map = None
 
-        rgbd_by_catalog_id: dict[str, RgbdCatalogObservation] = {}
+        rgbd_by_catalog_id: dict[str, SensorObservation] = {}
         if front_pair is not None:
             fh, fw, fr_rgb, fr_d = front_pair
             if np.any(fr_rgb) or np.any(fr_d):
-                rgbd_by_catalog_id["front_rgbd"] = RgbdCatalogObservation(rgb=fr_rgb, depth=fr_d)
+                rgbd_by_catalog_id["front_rgbd"] = SensorObservation(
+                    channels={"rgb": fr_rgb, "depth": fr_d}
+                )
 
+        for entry in SIM_HAL_CAMERA_ENTRIES:
+            if entry.catalog_id == "front_rgbd":
+                continue
+            if entry.rgb_attr is not None:
+                _, obs = _read_catalog_rgbd_pair(
+                    self.camera_sensors,
+                    rgb_key=entry.rgb_attr,
+                    depth_key=entry.depth_attr,
+                    posinf_clip_m=ISAAC_TOF_DEPTH_POSINF_CLIP_M,
+                    label=f"{entry.catalog_id}: ",
+                )
+            else:
+                obs = _read_catalog_depth_only(
+                    self.camera_sensors,
+                    depth_key=entry.depth_attr,
+                    posinf_clip_m=ISAAC_TOF_DEPTH_POSINF_CLIP_M,
+                    label=f"{entry.catalog_id}: ",
+                )
+            if obs is not None:
+                rgbd_by_catalog_id[entry.catalog_id] = obs
+
+        # Legacy side_* fields: no longer populated (sim MaixSense sides removed).
         side_camera_rgb = None
         side_camera_depth = None
-
-        side_right_pair, side_right_obs = _read_catalog_rgbd_pair(
-            self.camera_sensors,
-            rgb_key="side_right_rgb",
-            depth_key="side_right_camera",
-            posinf_clip_m=ISAAC_SIDE_DEPTH_POSINF_CLIP_M,
-            label="Side right: ",
-        )
-        if side_right_obs is not None:
-            rgbd_by_catalog_id["side_right_rgbd"] = side_right_obs
-        if side_right_pair is not None:
-            _, _, side_camera_rgb, side_camera_depth = side_right_pair
-
-        _, side_left_obs = _read_catalog_rgbd_pair(
-            self.camera_sensors,
-            rgb_key="side_left_rgb",
-            depth_key="side_left_camera",
-            posinf_clip_m=ISAAC_SIDE_DEPTH_POSINF_CLIP_M,
-            label="Side left: ",
-        )
-        if side_left_obs is not None:
-            rgbd_by_catalog_id["side_left_rgbd"] = side_left_obs
 
         # Base motion: same HAL contract as Jetson primary ZED (xyzw quat, base-frame twist).
         with torch.inference_mode():

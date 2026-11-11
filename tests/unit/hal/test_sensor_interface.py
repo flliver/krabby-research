@@ -156,31 +156,35 @@ def test_jetson_depth_gray16_nvenc_pipeline_shape():
     assert "nvv4l2h264enc" in pipe
 
 
-def test_isaac_scene_introspection_matches_jetson_side_ids():
+def test_isaac_scene_introspection_front_and_tof_ids():
     from types import SimpleNamespace
 
-    # Scene keys mirror hal.server.isaac.main attach_sim_rgbd_sensors_to_scene_cfg naming.
-    # Dummy cfg objects suffice: introspection only needs paired rgb/depth scene entries.
-    dummy_cfg = SimpleNamespace(width=640, height=480)
+    # Scene keys mirror attach_sim_rgbd_sensors_to_scene_cfg naming.
+    front_cfg = SimpleNamespace(width=640, height=480)
+    tof_cfg = SimpleNamespace(width=100, height=100)
     iface = IsaacSensorInterface(
         scene_sensors={
-            "front_camera": SimpleNamespace(cfg=dummy_cfg),
-            "front_rgb": SimpleNamespace(cfg=dummy_cfg),
-            "side_right_camera": SimpleNamespace(cfg=dummy_cfg),
-            "side_right_rgb": SimpleNamespace(cfg=dummy_cfg),
-            "side_left_camera": SimpleNamespace(cfg=dummy_cfg),
-            "side_left_rgb": SimpleNamespace(cfg=dummy_cfg),
+            "front_camera": SimpleNamespace(cfg=front_cfg),
+            "front_rgb": SimpleNamespace(cfg=front_cfg),
+            "belly_right_tof": SimpleNamespace(cfg=tof_cfg),
+            "belly_left_tof": SimpleNamespace(cfg=tof_cfg),
+            "rear_tof": SimpleNamespace(cfg=tof_cfg),
         }
     )
     ids = {s.id for s in iface.list_sensors()}
     assert ids == {
         "front_rgbd",
         "front_rgbd_gray16_depth",
-        "side_right_rgbd",
-        "side_right_rgbd_gray16_depth",
-        "side_left_rgbd",
-        "side_left_rgbd_gray16_depth",
+        "belly_right_tof",
+        "belly_right_tof_gray16_depth",
+        "belly_left_tof",
+        "belly_left_tof_gray16_depth",
+        "rear_tof",
+        "rear_tof_gray16_depth",
     }
+    tof = next(s for s in iface.list_sensors() if s.id == "belly_left_tof")
+    assert tof.modality == "depth"
+    assert tof.resolution == (100, 100)
 
 
 def test_isaac_list_and_handle_and_pipeline_shape():
