@@ -61,7 +61,11 @@ DOSE_TOL = 0.10
 HILL_TOL = (0.85, 1.15)
 PROBE_XY_TOL_M = 0.05
 PROBE_PAD_TOL_M = 0.03
-PROBE_SURFACE_TOL_M = 0.02                  # harness spawn terrain_z vs the probe's surface under the root at reset
+# harness spawn terrain_z vs the probe's surface under the root at reset. 0.04 m, not 0.02: the spawn pad carries
+# main's 2 cm roughness (spline overshoot to ~0.035 m), so the root-point surface and the harness pad level differ
+# by up to that much on a correct build (smoke run 2: 0.0203-0.0242 m on single envs, dpad <= 0.009 m, dxy 0). The
+# fallback this guards (terrain_z = root_z - 1.05) is caught by the terrain_mesh check independently.
+PROBE_SURFACE_TOL_M = 0.04
 MU_TOL = 1e-5
 PIN_FILE = object()                         # default ``pin``: read results/pin.json (M.read_pin)
 
