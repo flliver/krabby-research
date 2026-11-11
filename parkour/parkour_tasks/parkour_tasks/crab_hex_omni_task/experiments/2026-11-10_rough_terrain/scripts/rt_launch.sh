@@ -15,6 +15,12 @@ for x in "$@"; do [ "$x" = --dry ] && { echo "RT_LAUNCH refused: --dry runs in t
 OUT=${RT_TP_OUT:-/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain}
 mkdir -p "$OUT/logs"
 LOG=$OUT/logs/queue_$BLOCK.log
+# Refuse BEFORE rotating while another queue holds the lock: rotating a live queue's log moves it out from under
+# its watcher (2026-11-10 smoke relaunch). The lock is rt_queue.py's flock file, probed non-blocking here.
+LOCK=$("$PY" -I -B -c "import sys; sys.path.insert(0, '$HERE'); import rt_machinery as M; print(M.LOCK_PATH)")
+if [ -e "$LOCK" ] && ! flock -n "$LOCK" true; then
+  echo "RT_LAUNCH refused: another queue holds $LOCK (its log is still $LOG); nothing rotated"; exit 3
+fi
 [ -e "$LOG" ] && mv "$LOG" "$LOG.$(stat -c %Y "$LOG")"
 setsid nohup env -u PYTHONPATH PYTHONDONTWRITEBYTECODE=1 "$PY" -I -B "$HERE/rt_queue.py" --block "$BLOCK" "$@" \
   > "$LOG" 2>&1 < /dev/null &
