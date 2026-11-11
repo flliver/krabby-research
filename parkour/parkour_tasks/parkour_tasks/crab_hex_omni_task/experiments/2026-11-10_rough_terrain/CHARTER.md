@@ -193,3 +193,32 @@ reviewed in the same workflow.
 **Disk:** 46 GB free. The baseline (≈ 15 GB) plus the gate block (≈ 18 GB) would cross the queue's 20 GB floor
 during step 9. Asked the user whether to delete the closed site campaign's chain raw npz (≈ 39 GB) or lower the
 floor. Pending; not needed before step 9.
+
+### 2026-11-10 19:40–19:47 — step 5, smoke run 1 (pin code_sha 89c1916b, eval_sha 9fe964d7 = main)
+
+- **S.neutral: BITWISE.** TDR at the new build, every new knob off, on its saved nominal L090 field_light es1 row
+  equals both saved stamps (`results/step5/neutrality.json`).
+- **S.train_ref and S.train_rt** (400 envs, TDR weights) pass:
+  - every kind builds;
+  - the column count is the mix (3 / 2 / 1 / 2 × 7) and the env share matches;
+  - ≥ 20 envs per column, ≥ 40 resets per column;
+  - every shape has one μ, static = dynamic, restitution 0;
+  - μ equals the contract draw (err 6e-8); gravel 0.201–0.491; others 0.81–1.50 (mean 1.18), TDR's buckets;
+  - friction obs = 2μ − 1 (err 3e-8);
+  - obs width 1149;
+  - spawn root height within 1.085 ± 0.05 m on every kind;
+  - per-kind telemetry keys present.
+- **Slide test (contact-level combine priority).**
+  - **Gravel μ_eff 0.201 measures 0.177**, against 0.60 under "average" and 1.0 under "max". So the ground's
+    multiply (or min) wins over the robot's average.
+  - The high-μ env (1.498) read 0.11. Its trace falls for ≈ 0.3 s, then rebounds (0.085 → 0.27 m/s): the body
+    pivots on stuck feet, so this is not a slide measurement. The fit also ran over the rebound.
+  - **Decision (decide-record-notify): the high-μ slide is report-only.** The low-μ read is decisive. Multiply vs
+    min is settled by the configured ground mode (multiply), PhysX's priority (multiply > min > average), and the
+    PF14 params diff of the real run. `fit_decel` now ends the sliding phase at the first rebound (test added).
+- **Module-origin check** read `parkour_isaaclab: null`. It is a namespace package with no `__file__`, so this was a
+  check bug. The probe now reads `__path__`. The rt kinds that built exist only in this worktree.
+- **Queue crash on the failure path.** `rt_queue.py` reused the name `st` (the failure tally) for a stamp list after
+  every stamped row, so the first failure afterwards raised TypeError. Renamed; the sentinel still printed
+  `RTQ_DONE fail=1 (queue crashed …)` as designed.
+- Next: relaunch the smoke block from S.train_ref. The S.neutral stamp is at the pinned build and is reused.

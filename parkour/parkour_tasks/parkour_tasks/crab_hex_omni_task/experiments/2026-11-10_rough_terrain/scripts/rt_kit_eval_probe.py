@@ -145,7 +145,7 @@ def main() -> int:
            "env_seed": int(args.env_seed), "num_envs": int(args.episodes), "task": args.task,
            "checkpoint": args.checkpoint, "launch_krabby": LAUNCH_KRABBY, "manifest_block": BLOCK,
            "pythonpath": LAUNCH_PYTHONPATH, "build": PROBE_BUILD,
-           "modules": {"parkour_tasks": parkour_tasks.__file__, "parkour_isaaclab": parkour_isaaclab.__file__,
+           "modules": {"parkour_tasks": parkour_tasks.__file__, "parkour_isaaclab": (getattr(parkour_isaaclab, "__file__", None) or next(iter(parkour_isaaclab.__path__), None)),
                        "rt_friction": rt_friction.__file__, "site_raster": site_raster.__file__}}
     env_cfg = parse_env_cfg(args.task, device=args.device, num_envs=int(args.episodes))
     out["overrides"] = harness_overrides(env_cfg)

@@ -473,8 +473,14 @@ def test_fit_decel_recovers_mu_and_the_slide_verdict_separates_combine_modes():
         assert f["n"] >= 3 and f["mu_meas"] == pytest.approx(mu, rel=1e-6)
     assert C.slide_verdict(0.21, 0.2, low=True)["pass"]
     assert not C.slide_verdict(0.6, 0.2, low=True)["pass"]          # what an 'average' combine would read
-    assert C.slide_verdict(1.2, 1.5, low=False)["pass"] and not C.slide_verdict(0.9, 1.5, low=False)["pass"]
+    hi_ok, hi_low = C.slide_verdict(1.2, 1.5, low=False), C.slide_verdict(0.9, 1.5, low=False)
+    assert hi_ok["pass"] and hi_low["pass"] and hi_ok["report_only"] and hi_low["report_only"]   # high mu: report only
+    assert hi_ok["would_pass_old_line"] and not hi_low["would_pass_old_line"]
     assert not C.slide_verdict(None, 0.2, low=True)["pass"]
+    # the sliding phase ends at the first rebound (the first smoke's pivoting high-mu body: speed falls, then rises)
+    v = np.concatenate([np.clip(1.0 - 0.5 * C.G * t[:10], 0, None), [0.08, 0.17, 0.27, 0.35]])
+    f = C.fit_decel(np.arange(1, len(v) + 1) * 0.02, v)
+    assert f["n"] <= 11 and f["mu_meas"] == pytest.approx(0.5, rel=0.15)
 
 
 def test_within_spawn_and_early_flags():

@@ -80,6 +80,9 @@ def fit_decel(t, v, v_min: float = 0.05) -> dict:
     t = np.asarray(t, np.float64)
     v = np.asarray(v, np.float64)
     stop = int(np.argmax(v < v_min)) if (v < v_min).any() else len(v)
+    rise = np.flatnonzero(np.diff(v) > 0)      # the sliding phase also ends at the first rebound (a pivoting body)
+    if rise.size:
+        stop = min(stop, int(rise[0]) + 1)
     tt, vv = t[:stop], v[:stop]
     if len(tt) < 3:
         return {"n": int(len(tt)), "mu_meas": None, "why": "fewer than 3 sliding samples"}
@@ -98,7 +101,11 @@ def slide_verdict(mu_meas, mu_eff: float, low: bool) -> dict:
         avg = 0.5 * (mu_eff + 1.0)
         ok = abs(mu_meas - mu_eff) <= SLIDE_LOW_ABS + SLIDE_LOW_REL * mu_eff and mu_meas < 0.5 * (mu_eff + avg)
         return {"pass": bool(ok), "mu_eff": mu_eff, "mu_meas": mu_meas, "average_combine_would_read": avg}
-    return {"pass": bool(mu_meas >= SLIDE_HIGH_MIN_REL * mu_eff), "mu_eff": mu_eff, "mu_meas": mu_meas}
+    # High-mu env: REPORT ONLY (CHARTER 2026-11-10 step-5 entry). The first smoke showed the high-friction body
+    # pivots on stuck feet (speed falls, then rebounds), so a root-velocity slide does not measure sliding friction
+    # there; the low-mu gravel read is the decisive combine-priority measurement.
+    return {"pass": True, "report_only": True, "mu_eff": mu_eff, "mu_meas": mu_meas,
+            "would_pass_old_line": bool(mu_meas >= SLIDE_HIGH_MIN_REL * mu_eff)}
 
 
 def within_spawn(values, target: float = M.SPAWN_Z_M, tol: float = M.SPAWN_TOL_M) -> dict:

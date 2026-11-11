@@ -250,12 +250,12 @@ def run(a, st: dict) -> int:
         rc = run_child([str(x) for x in argv_r], env, log)
         note = f"({time.time() - t0:.0f} s; log {log})"
         if s.slot and rc == 0:
-            st = pinned_stamps(M.slot_dir(*s.slot), pin)
-            if not st:
+            stamps = pinned_stamps(M.slot_dir(*s.slot), pin)     # not ``st``: that name is the failure tally
+            if not stamps:
                 rc, note = 8, (f"(gate_row rc 0 but no complete stamp at the pinned build in {M.slot_dir(*s.slot)}; "
                                f"log {log})")
             else:
-                note = f"(stamp {st[-1]}; {time.time() - t0:.0f} s)"
+                note = f"(stamp {stamps[-1]}; {time.time() - t0:.0f} s)"
         say(M.sentinel(s.label, rc, note))
         if rc != 0:
             st["fail"] += 1

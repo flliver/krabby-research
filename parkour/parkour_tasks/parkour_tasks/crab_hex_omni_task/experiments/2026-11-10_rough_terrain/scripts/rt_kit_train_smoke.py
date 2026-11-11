@@ -133,7 +133,7 @@ def main() -> int:
     t0 = time.time()
     out = {"tool": "rt_kit_train_smoke.py", "mode": args.mode, "task": args.task, "num_envs": args.num_envs,
            "seed": args.seed, "checkpoint": args.checkpoint, "launch_krabby": LAUNCH_KRABBY, "checks": {}}
-    mods = {"parkour_tasks": parkour_tasks.__file__, "parkour_isaaclab": parkour_isaaclab.__file__,
+    mods = {"parkour_tasks": parkour_tasks.__file__, "parkour_isaaclab": (getattr(parkour_isaaclab, "__file__", None) or next(iter(parkour_isaaclab.__path__), None)),
             "runner_factory": runner_factory.__file__, "rt_friction": rt_friction.__file__}
     pp = LAUNCH_PYTHONPATH
     check(out, "modules_and_pythonpath_under_worktree", all(under_w(v) for v in mods.values()) and pp == M.PYTHONPATH_W,
