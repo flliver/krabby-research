@@ -742,3 +742,15 @@ Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes no
   - yaw: the env-only retention arm.
   - Either is read on es9+ with fresh TDR rows.
 - **Housekeeping.** At 15:37 a mistyped shell command created an empty stray file, `experiments/2026-11-11_rough_terrain_placeholder` (0 bytes). It was removed at 15:45. It sits under the `experiments/20*` path the code_sha excludes, so no stamp's build or dirty flag moved; confirm-2's stamps are checked at read time anyway.
+
+### 2026-11-11 16:55 — Amendment A step 9 (confirm-2) done; full read: HALT_R
+
+- **confirm-2** (`sconf2`): 21 rows, ran 15:37 → 16:52, fail=0.
+- **Full read** (`readout_fresh --full`, `results/short_arm/gates_fresh.json`): 104 lookups, all at real es5–8.
+- **Verdict: HALT_R.**
+  - G PASS.
+  - R completion 7 / 7 pass: field_hard +0.040, field_light +0.015, ring 0, field_turn −0.005, L090 +0.010, L135 +0.040, ×0.7 L090 +0.055.
+  - Solved kinds 2 / 2 pass: hills +0.015, gravel 0.
+  - side22 FAST/FAST.
+  - R tracking FAIL: back es5 and es6, yaw es6.
+- Step 10 is running: the fable·high independent re-derivation, hash checks and report lines (`wf_50c2a6c8-2b5`).
