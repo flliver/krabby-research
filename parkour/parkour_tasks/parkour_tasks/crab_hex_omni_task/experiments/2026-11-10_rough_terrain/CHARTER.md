@@ -284,3 +284,33 @@ floor. Pending; not needed before step 9.
   running. Kit regenerates the cache, so the first launches are slower.
 - **Free disk 28 → 156 GB.** The baseline resumes; its 5 completed rows (at the pinned build) are reused. The DDC cap
   is back to the default 80 GB.
+
+### 2026-11-10 21:25–23:39 — step 6 DONE (TDR baseline) and step 7 STOP 0 (gates frozen)
+
+- **Step 6.** 43 steps, fail = 0. TDR (03c3e472) at the pinned build: 21 kind rows at es3 and 19 retention rows
+  (`results/step6/baseline.json`).
+- **TDR es3 success** (complete AND crossed; n = 100 per row):
+
+  | Kind | b1 | b2 | b3 |
+  |---|---|---|---|
+  | slopes | 1.00 | 0.70 | 0.16 (stuck 0.09) |
+  | hills | 1.00 | 1.00 | 1.00 |
+  | ledge_up | 0.98 | 0.41 (stuck 0.46) | 0.00, complete 0.76, all stuck (above envelope) |
+  | ledge_down | 1.00 | 0.37 | 0.00 (above envelope) |
+  | pits | 0.99 | 0.55 | 0.01 (above envelope) |
+  | gravel | 1.00 | 1.00 | 1.00 |
+  | rubble | 1.00 | 1.00 | 0.79 |
+
+- **TDR retention** (completion): field_hard es1–4 0.9475; field_light 0.995; ring_obst 1.00; field_turn 0.99;
+  field_light L090 0.995; L135 0.96; ×0.7 L090 0.93; suite 1.00; side22 1.00.
+- **Step 7, STOP 0.** `make_thresholds.py` wrote `thresholds_rough_v1.json` (sha ce45e01b…) by the frozen rule
+  (decide-record-notify):
+  - **gated (5):** slopes b2 (TDR 0.70), ledge_up b2 (0.41), ledge_down b2 (0.37), pits b2 (0.55), rubble b3
+    (0.79, flagged borderline);
+  - **solved (2):** hills and gravel. They enter R on b3 (TDR 1.00).
+  - Decision **proceed** (5 ≥ k = 2).
+  - The literature's prediction holds: TDR already handles hills and gravel blind.
+- **Next:**
+  - step 8 training launches now;
+  - the plan's fable·high check of the gate bands and statistics runs in parallel on CPU (no new-teacher number
+    exists before step 9). A thresholds problem it finds is fixed and re-frozen before step 9.

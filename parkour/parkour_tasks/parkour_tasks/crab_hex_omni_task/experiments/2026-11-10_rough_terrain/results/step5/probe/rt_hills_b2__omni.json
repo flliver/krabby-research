@@ -1,0 +1,232 @@
+{
+ "tool": "rt_kit_eval_probe.py",
+ "manifest": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+ "scenario": "rt_hills_b2__omni",
+ "env_seed": 1,
+ "num_envs": 4,
+ "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+ "launch_krabby": {
+  "KRABBY_ACTION_LPF_HZ": "0",
+  "KRABBY_ACTION_LPF_OBS": "0",
+  "KRABBY_APEX_W": "1.0",
+  "KRABBY_CLOCK_W": "1.0",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_LIN_VEL_X": "0.0:0.35",
+  "KRABBY_OMNI_ANG_VEL_CLIP": "0.2",
+  "KRABBY_OMNI_ANG_VEL_MAX": "0.3",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CLOCK_TURN_R": "1.2",
+  "KRABBY_OMNI_CMD_OBS": "0",
+  "KRABBY_OMNI_COMMAND_FRAME": "world",
+  "KRABBY_OMNI_FACING_OBS_CLIP": "0.6",
+  "KRABBY_OMNI_FACING_OBS_ENCODING": "raw",
+  "KRABBY_OMNI_RELAY_HYST": "0",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_OMNI_STAND_HOLD": "0",
+  "KRABBY_OMNI_STAND_OBS": "0",
+  "KRABBY_OMNI_STAND_PARK": "0",
+  "KRABBY_OMNI_YAW_RANGE": "-3.14159:3.14159",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PLAY_DEBUG_VIS": "0",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TRACK_L1_W": "-1.0",
+  "KRABBY_TRACK_SIGMA2": "0.1"
+ },
+ "manifest_block": {
+  "KRABBY_FLAT_TERRAIN_MODE": "light",
+  "KRABBY_FLAT_TERRAIN_FLAT_FRAC": "0.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "site",
+  "KRABBY_SITE_LADDER": "rt",
+  "KRABBY_SITE_MIX": "hills=20",
+  "KRABBY_SITE_DIFF": "0.3:0.6",
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0"
+ },
+ "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+ "build": {
+  "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+  "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+  "dirty": "False",
+  "dirty_paths": [],
+  "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+  "writer": "rt_kit_eval_probe.py"
+ },
+ "modules": {
+  "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+  "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+  "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+  "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+ },
+ "overrides": {
+  "seed": 1,
+  "freeze_terrain_levels": true,
+  "spawn_yaw_pin": 0.0
+ },
+ "material_event": "randomize_rigid_body_material",
+ "rt_friction_params": {
+  "friction_range": [
+   0.6,
+   2.0
+  ],
+  "num_buckets": 64
+ },
+ "layers_npz": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/results/step5/probe/rt_hills_b2__omni.npz",
+ "envs": [
+  {
+   "index": 0,
+   "row": 2,
+   "col": 0,
+   "tile_name": "rt_hills",
+   "tile_kind": "hills",
+   "tile_d": 0.3736656904220581,
+   "centre_level_m": 0.0,
+   "root_reset": [
+    -25.0,
+    -95.0,
+    1.0850000381469727
+   ],
+   "surface_under_root_reset": -0.014999999664723873,
+   "root_steps": [
+    [
+     -25.000009536743164,
+     -95.0,
+     1.0829991102218628
+    ],
+    [
+     -25.000011444091797,
+     -94.99998474121094,
+     1.0771982669830322
+    ]
+   ],
+   "surface_under_root_steps": [
+    -0.014999999664723873,
+    -0.019999999552965164
+   ],
+   "mu_shape_min": 0.8772270679473877,
+   "mu_shape_max": 0.8772270679473877,
+   "shapes_equal": true,
+   "static_eq_dynamic": true,
+   "restitution_max": 0.0,
+   "mu_eff_attr": null,
+   "friction_obs": 0.8772270679473877
+  },
+  {
+   "index": 1,
+   "row": 0,
+   "col": 4,
+   "tile_name": "rt_hills",
+   "tile_kind": "hills",
+   "tile_d": 0.308267742395401,
+   "centre_level_m": 0.0,
+   "root_reset": [
+    -45.0,
+    -55.0,
+    1.0850000381469727
+   ],
+   "surface_under_root_reset": 0.014999999664723873,
+   "root_steps": [
+    [
+     -44.9999885559082,
+     -55.000091552734375,
+     1.0830148458480835
+    ],
+    [
+     -44.9999885559082,
+     -55.0001335144043,
+     1.0771406888961792
+    ]
+   ],
+   "surface_under_root_steps": [
+    -0.009999999776482582,
+    -0.009999999776482582
+   ],
+   "mu_shape_min": 1.734866976737976,
+   "mu_shape_max": 1.734866976737976,
+   "shapes_equal": true,
+   "static_eq_dynamic": true,
+   "restitution_max": 0.0,
+   "mu_eff_attr": null,
+   "friction_obs": 1.734866976737976
+  },
+  {
+   "index": 2,
+   "row": 9,
+   "col": 9,
+   "tile_name": "rt_hills",
+   "tile_kind": "hills",
+   "tile_d": 0.5499105453491211,
+   "centre_level_m": 0.0,
+   "root_reset": [
+    45.0,
+    -5.0,
+    1.0850000381469727
+   ],
+   "surface_under_root_reset": -0.009999999776482582,
+   "root_steps": [
+    [
+     44.999996185302734,
+     -4.999969959259033,
+     1.0830342769622803
+    ],
+    [
+     45.0000114440918,
+     -4.999964714050293,
+     1.0775986909866333
+    ]
+   ],
+   "surface_under_root_steps": [
+    0.014999999664723873,
+    -0.019999999552965164
+   ],
+   "mu_shape_min": 1.5166414976119995,
+   "mu_shape_max": 1.5166414976119995,
+   "shapes_equal": true,
+   "static_eq_dynamic": true,
+   "restitution_max": 0.0,
+   "mu_eff_attr": null,
+   "friction_obs": 1.5166414976119995
+  },
+  {
+   "index": 3,
+   "row": 7,
+   "col": 14,
+   "tile_name": "rt_hills",
+   "tile_kind": "hills",
+   "tile_d": 0.3167615830898285,
+   "centre_level_m": 0.0,
+   "root_reset": [
+    25.0,
+    45.0,
+    1.0850000381469727
+   ],
+   "surface_under_root_reset": 0.019999999552965164,
+   "root_steps": [
+    [
+     25.0,
+     45.00004959106445,
+     1.0830938816070557
+    ],
+    [
+     25.0,
+     45.00019836425781,
+     1.0779423713684082
+    ]
+   ],
+   "surface_under_root_steps": [
+    0.014999999664723873,
+    0.014999999664723873
+   ],
+   "mu_shape_min": 1.5241186618804932,
+   "mu_shape_max": 1.5241186618804932,
+   "shapes_equal": true,
+   "static_eq_dynamic": true,
+   "restitution_max": 0.0,
+   "mu_eff_attr": null,
+   "friction_obs": 1.5241186618804932
+  }
+ ],
+ "obs_width": 1149,
+ "wall_s": 6.592505693435669,
+ "complete": true
+}

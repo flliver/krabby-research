@@ -1,0 +1,761 @@
+{
+ "tool": "rt_kit_train_smoke.py",
+ "mode": "rt",
+ "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+ "num_envs": 400,
+ "seed": 19,
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+ "launch_krabby": {
+  "KRABBY_ACTION_BOUND": "1.1",
+  "KRABBY_ACTION_BOUND_LOSS": "0.001",
+  "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+  "KRABBY_ACTION_RATE_W": "-0.05",
+  "KRABBY_APEX_W": "0.001",
+  "KRABBY_CLOCK_W": "0.001",
+  "KRABBY_DR_ROD_SPEED": "0.6:1.35",
+  "KRABBY_ENTROPY_COEF": "0.0025",
+  "KRABBY_EPISODE_S": "6",
+  "KRABBY_FIELD_BLOCKS": "14:28",
+  "KRABBY_FIELD_EDGES": "wall",
+  "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+  "KRABBY_FIELD_PAD_R": "1.7",
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "site",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+  "KRABBY_OMNI_DIR_BAND": "",
+  "KRABBY_OMNI_FACING": "0.2:1.2",
+  "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+  "KRABBY_OMNI_PHASE": "2a",
+  "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_PAYLOAD_COM_XY": "0.10",
+  "KRABBY_PAYLOAD_COM_Z": "0.309",
+  "KRABBY_PAYLOAD_KG": "0:180",
+  "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+  "KRABBY_PHASEOUT": "",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PPO_HAND_DIAG": "1",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_RT_FRICTION": "gravel:0.2:0.5",
+  "KRABBY_SITE_LADDER": "rt",
+  "KRABBY_SITE_MIX": "flat=3,field_sparse=2,field_dense=1,slopes=2,hills=2,ledge_up=2,ledge_down=2,pits=2,gravel=2,rubble=2",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+  "KRABBY_YAW_W": "0.2"
+ },
+ "checks": {
+  "modules_and_pythonpath_under_worktree": {
+   "pass": true,
+   "modules": {
+    "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+    "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+    "runner_factory": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/runner_factory.py",
+    "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py"
+   },
+   "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour"
+  },
+  "process_krabby_env_is_the_env_file": {
+   "pass": true,
+   "differ": []
+  },
+  "every_kind_builds_and_column_count_is_the_mix": {
+   "pass": true,
+   "got": {
+    "field_dense": 1,
+    "field_sparse": 2,
+    "flat": 3,
+    "gravel": 2,
+    "hills": 2,
+    "ledge_down": 2,
+    "ledge_up": 2,
+    "pits": 2,
+    "rubble": 2,
+    "slopes": 2
+   },
+   "want": {
+    "flat": 3,
+    "field_sparse": 2,
+    "field_dense": 1,
+    "slopes": 2,
+    "hills": 2,
+    "ledge_up": 2,
+    "ledge_down": 2,
+    "pits": 2,
+    "gravel": 2,
+    "rubble": 2
+   }
+  },
+  "env_share_per_kind": {
+   "pass": true,
+   "share": {
+    "field_dense": 0.05,
+    "field_sparse": 0.1,
+    "flat": 0.15,
+    "gravel": 0.1,
+    "hills": 0.1,
+    "ledge_down": 0.1,
+    "ledge_up": 0.1,
+    "pits": 0.1,
+    "rubble": 0.1,
+    "slopes": 0.1
+   },
+   "want": {
+    "flat": 0.15,
+    "field_sparse": 0.1,
+    "field_dense": 0.05,
+    "slopes": 0.1,
+    "hills": 0.1,
+    "ledge_up": 0.1,
+    "ledge_down": 0.1,
+    "pits": 0.1,
+    "gravel": 0.1,
+    "rubble": 0.1
+   }
+  },
+  "every_column_has_two_envs": {
+   "pass": true,
+   "min": 20
+  },
+  "every_shape_one_mu_static_eq_dynamic_restitution0": {
+   "pass": true,
+   "n_shapes": 25
+  },
+  "contract_event_armed": {
+   "pass": true,
+   "func": "rt_friction_contract"
+  },
+  "mu_equals_contract_draw": {
+   "pass": true,
+   "max_err": 5.744441033961323e-08
+  },
+  "gravel_mu_in_range": {
+   "pass": true,
+   "n": 40,
+   "min": 0.20141971111297607,
+   "max": 0.49101516604423523,
+   "range": [
+    0.2,
+    0.5
+   ]
+  },
+  "others_mu_are_tdr_buckets": {
+   "pass": true,
+   "n": 360,
+   "min": 0.8105504512786865,
+   "max": 1.4983044862747192,
+   "mean": 1.183238955007659,
+   "want_range": [
+    0.8,
+    1.5
+   ]
+  },
+  "obs_width_1149": {
+   "pass": true,
+   "width": 1149
+  },
+  "friction_input": {
+   "pass": true,
+   "obs_col": 210,
+   "max_err": 2.9802322387695312e-08,
+   "term_err": 2.9802322387695312e-08,
+   "mapping": "2 mu_eff - 1"
+  },
+  "every_column_resets": {
+   "pass": true,
+   "min": 40
+  },
+  "spawn_height_first_step_per_kind": {
+   "pass": true,
+   "per_kind": {
+    "field_dense": {
+     "n": 60,
+     "n_out": 0,
+     "min": 1.0629968643188477,
+     "max": 1.103118896484375
+    },
+    "field_sparse": {
+     "n": 120,
+     "n_out": 0,
+     "min": 1.062986135482788,
+     "max": 1.103339433670044
+    },
+    "flat": {
+     "n": 181,
+     "n_out": 0,
+     "min": 1.0629651546478271,
+     "max": 1.1030617952346802
+    },
+    "gravel": {
+     "n": 121,
+     "n_out": 0,
+     "min": 1.0629808902740479,
+     "max": 1.1029943227767944
+    },
+    "hills": {
+     "n": 121,
+     "n_out": 0,
+     "min": 1.062974452972412,
+     "max": 1.1031298637390137
+    },
+    "ledge_down": {
+     "n": 121,
+     "n_out": 0,
+     "min": 1.0629950761795044,
+     "max": 1.1034166812896729
+    },
+    "ledge_up": {
+     "n": 122,
+     "n_out": 0,
+     "min": 1.062984585762024,
+     "max": 1.1034241914749146
+    },
+    "pits": {
+     "n": 120,
+     "n_out": 0,
+     "min": 1.0629827976226807,
+     "max": 1.1033226251602173
+    },
+    "rubble": {
+     "n": 120,
+     "n_out": 0,
+     "min": 1.0629937648773193,
+     "max": 1.1031737327575684
+    },
+    "slopes": {
+     "n": 120,
+     "n_out": 0,
+     "min": 1.0629875659942627,
+     "max": 1.1030337810516357
+    }
+   }
+  },
+  "per_kind_telemetry_keys_logged": {
+   "pass": true,
+   "missing": [],
+   "n_need": 40
+  },
+  "slide_contact_mu": {
+   "pass": true,
+   "low_mu_gravel": {
+    "env": 87,
+    "mu_eff": 0.20141971111297607,
+    "mu_meas": 0.17654199546342966,
+    "average_combine_would_read": 0.600709855556488
+   },
+   "high_mu": {
+    "env": 123,
+    "mu_eff": 1.4983044862747192,
+    "mu_meas": 0.572213792193212,
+    "average_combine_would_read": null
+   }
+  }
+ },
+ "step_dt": 0.02,
+ "max_episode_length": 300,
+ "episode_length_s": 6.0,
+ "columns": {
+  "kinds": [
+   "flat",
+   "flat",
+   "flat",
+   "gravel",
+   "gravel",
+   "field_sparse",
+   "field_sparse",
+   "field_dense",
+   "slopes",
+   "slopes",
+   "hills",
+   "hills",
+   "ledge_up",
+   "ledge_up",
+   "ledge_down",
+   "ledge_down",
+   "pits",
+   "pits",
+   "rubble",
+   "rubble"
+  ],
+  "envs_per_column": [
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20
+  ]
+ },
+ "material_event": {
+  "func": "rt_friction_contract",
+  "params": {
+   "friction_range": [
+    0.6,
+    2.0
+   ],
+   "num_buckets": 64,
+   "gravel_range": [
+    0.2,
+    0.5
+   ],
+   "gravel_sub_terrains": [
+    "rt_gravel"
+   ]
+  }
+ },
+ "mu_by_kind": {
+  "field_dense": [
+   0.8452767133712769,
+   1.484147071838379
+  ],
+  "field_sparse": [
+   0.8105504512786865,
+   1.4983044862747192
+  ],
+  "flat": [
+   0.8105504512786865,
+   1.4899688959121704
+  ],
+  "gravel": [
+   0.20141971111297607,
+   0.49101516604423523
+  ],
+  "hills": [
+   0.8105504512786865,
+   1.4983044862747192
+  ],
+  "ledge_down": [
+   0.8658984303474426,
+   1.4983044862747192
+  ],
+  "ledge_up": [
+   0.8452767133712769,
+   1.4899688959121704
+  ],
+  "pits": [
+   0.8439270853996277,
+   1.4983044862747192
+  ],
+  "rubble": [
+   0.8105504512786865,
+   1.484147071838379
+  ],
+  "slopes": [
+   0.8452767133712769,
+   1.484147071838379
+  ]
+ },
+ "early_by_kind": {
+  "gravel": {
+   "episodes": 81,
+   "early": 0,
+   "time_outs": 79
+  },
+  "hills": {
+   "episodes": 81,
+   "early": 0,
+   "time_outs": 79
+  },
+  "field_dense": {
+   "episodes": 40,
+   "early": 0,
+   "time_outs": 39
+  },
+  "flat": {
+   "episodes": 121,
+   "early": 0,
+   "time_outs": 117
+  },
+  "ledge_down": {
+   "episodes": 81,
+   "early": 0,
+   "time_outs": 78
+  },
+  "field_sparse": {
+   "episodes": 80,
+   "early": 0,
+   "time_outs": 80
+  },
+  "slopes": {
+   "episodes": 80,
+   "early": 0,
+   "time_outs": 80
+  },
+  "ledge_up": {
+   "episodes": 82,
+   "early": 0,
+   "time_outs": 79
+  },
+  "pits": {
+   "episodes": 80,
+   "early": 0,
+   "time_outs": 80
+  },
+  "rubble": {
+   "episodes": 80,
+   "early": 0,
+   "time_outs": 78
+  }
+ },
+ "resets_per_column": [
+  40,
+  40,
+  41,
+  41,
+  40,
+  40,
+  40,
+  40,
+  40,
+  40,
+  41,
+  40,
+  42,
+  40,
+  41,
+  40,
+  40,
+  40,
+  40,
+  40
+ ],
+ "spawn_reset_placement": {
+  "field_dense": {
+   "n": 40,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.1050000190734863,
+   "median": 1.0950000286102295,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "field_sparse": {
+   "n": 80,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.100000023841858,
+   "median": 1.0750000476837158,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "flat": {
+   "n": 121,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.0950000286102295,
+   "median": 1.0750000476837158,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "gravel": {
+   "n": 81,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.0700000524520874,
+   "max": 1.100000023841858,
+   "median": 1.0800000429153442,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "hills": {
+   "n": 81,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.1050000190734863,
+   "median": 1.0950000286102295,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "ledge_down": {
+   "n": 81,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.1050000190734863,
+   "median": 1.090000033378601,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "ledge_up": {
+   "n": 82,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.0649999380111694,
+   "max": 1.1050000190734863,
+   "median": 1.0800000429153442,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "pits": {
+   "n": 80,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.0700000524520874,
+   "max": 1.1050000190734863,
+   "median": 1.090000033378601,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "rubble": {
+   "n": 80,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.100000023841858,
+   "median": 1.0750000476837158,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "slopes": {
+   "n": 80,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.1050000190734863,
+   "median": 1.100000023841858,
+   "target": 1.085,
+   "tol": 0.05
+  }
+ },
+ "site_log_keys": [
+  "Metrics/base_parkour/site_cnt_crossed/field_dense",
+  "Metrics/base_parkour/site_cnt_crossed/field_sparse",
+  "Metrics/base_parkour/site_cnt_crossed/flat",
+  "Metrics/base_parkour/site_cnt_crossed/gravel",
+  "Metrics/base_parkour/site_cnt_crossed/hills",
+  "Metrics/base_parkour/site_cnt_crossed/ledge_down",
+  "Metrics/base_parkour/site_cnt_crossed/ledge_up",
+  "Metrics/base_parkour/site_cnt_crossed/pits",
+  "Metrics/base_parkour/site_cnt_crossed/rubble",
+  "Metrics/base_parkour/site_cnt_crossed/slopes",
+  "Metrics/base_parkour/site_cnt_down/field_dense",
+  "Metrics/base_parkour/site_cnt_down/field_sparse",
+  "Metrics/base_parkour/site_cnt_down/flat",
+  "Metrics/base_parkour/site_cnt_down/gravel",
+  "Metrics/base_parkour/site_cnt_down/hills",
+  "Metrics/base_parkour/site_cnt_down/ledge_down",
+  "Metrics/base_parkour/site_cnt_down/ledge_up",
+  "Metrics/base_parkour/site_cnt_down/pits",
+  "Metrics/base_parkour/site_cnt_down/rubble",
+  "Metrics/base_parkour/site_cnt_down/slopes",
+  "Metrics/base_parkour/site_cnt_end/field_dense",
+  "Metrics/base_parkour/site_cnt_end/field_sparse",
+  "Metrics/base_parkour/site_cnt_end/flat",
+  "Metrics/base_parkour/site_cnt_end/gravel",
+  "Metrics/base_parkour/site_cnt_end/hills",
+  "Metrics/base_parkour/site_cnt_end/ledge_down",
+  "Metrics/base_parkour/site_cnt_end/ledge_up",
+  "Metrics/base_parkour/site_cnt_end/pits",
+  "Metrics/base_parkour/site_cnt_end/rubble",
+  "Metrics/base_parkour/site_cnt_end/slopes",
+  "Metrics/base_parkour/site_cnt_failed/field_dense",
+  "Metrics/base_parkour/site_cnt_failed/field_sparse",
+  "Metrics/base_parkour/site_cnt_failed/flat",
+  "Metrics/base_parkour/site_cnt_failed/gravel",
+  "Metrics/base_parkour/site_cnt_failed/hills",
+  "Metrics/base_parkour/site_cnt_failed/ledge_down",
+  "Metrics/base_parkour/site_cnt_failed/ledge_up",
+  "Metrics/base_parkour/site_cnt_failed/pits",
+  "Metrics/base_parkour/site_cnt_failed/rubble",
+  "Metrics/base_parkour/site_cnt_failed/slopes",
+  "Metrics/base_parkour/site_cnt_held/field_dense",
+  "Metrics/base_parkour/site_cnt_held/field_sparse",
+  "Metrics/base_parkour/site_cnt_held/flat",
+  "Metrics/base_parkour/site_cnt_held/gravel",
+  "Metrics/base_parkour/site_cnt_held/hills",
+  "Metrics/base_parkour/site_cnt_held/ledge_down",
+  "Metrics/base_parkour/site_cnt_held/ledge_up",
+  "Metrics/base_parkour/site_cnt_held/pits",
+  "Metrics/base_parkour/site_cnt_held/rubble",
+  "Metrics/base_parkour/site_cnt_held/slopes",
+  "Metrics/base_parkour/site_cnt_up/field_dense",
+  "Metrics/base_parkour/site_cnt_up/field_sparse",
+  "Metrics/base_parkour/site_cnt_up/flat",
+  "Metrics/base_parkour/site_cnt_up/gravel",
+  "Metrics/base_parkour/site_cnt_up/hills",
+  "Metrics/base_parkour/site_cnt_up/ledge_down",
+  "Metrics/base_parkour/site_cnt_up/ledge_up",
+  "Metrics/base_parkour/site_cnt_up/pits",
+  "Metrics/base_parkour/site_cnt_up/rubble",
+  "Metrics/base_parkour/site_cnt_up/slopes",
+  "Metrics/base_parkour/site_crossed_frac/gravel",
+  "Metrics/base_parkour/site_crossed_frac/hills",
+  "Metrics/base_parkour/site_crossed_frac/ledge_down",
+  "Metrics/base_parkour/site_crossed_frac/ledge_up",
+  "Metrics/base_parkour/site_crossed_frac/pits",
+  "Metrics/base_parkour/site_crossed_frac/rubble",
+  "Metrics/base_parkour/site_crossed_frac/slopes",
+  "Metrics/base_parkour/site_demote/field_dense",
+  "Metrics/base_parkour/site_demote/field_sparse",
+  "Metrics/base_parkour/site_demote/flat",
+  "Metrics/base_parkour/site_demote/gravel",
+  "Metrics/base_parkour/site_demote/hills",
+  "Metrics/base_parkour/site_demote/ledge_down",
+  "Metrics/base_parkour/site_demote/ledge_up",
+  "Metrics/base_parkour/site_demote/pits",
+  "Metrics/base_parkour/site_demote/rubble",
+  "Metrics/base_parkour/site_demote/slopes",
+  "Metrics/base_parkour/site_fail_frac/field_dense",
+  "Metrics/base_parkour/site_fail_frac/field_sparse",
+  "Metrics/base_parkour/site_fail_frac/flat",
+  "Metrics/base_parkour/site_fail_frac/gravel",
+  "Metrics/base_parkour/site_fail_frac/hills",
+  "Metrics/base_parkour/site_fail_frac/ledge_down",
+  "Metrics/base_parkour/site_fail_frac/ledge_up",
+  "Metrics/base_parkour/site_fail_frac/pits",
+  "Metrics/base_parkour/site_fail_frac/rubble",
+  "Metrics/base_parkour/site_fail_frac/slopes",
+  "Metrics/base_parkour/site_level/field_dense",
+  "Metrics/base_parkour/site_level/field_sparse",
+  "Metrics/base_parkour/site_level/flat",
+  "Metrics/base_parkour/site_level/gravel",
+  "Metrics/base_parkour/site_level/hills",
+  "Metrics/base_parkour/site_level/ledge_down",
+  "Metrics/base_parkour/site_level/ledge_up",
+  "Metrics/base_parkour/site_level/pits",
+  "Metrics/base_parkour/site_level/rubble",
+  "Metrics/base_parkour/site_level/slopes",
+  "Metrics/base_parkour/site_metres/gravel",
+  "Metrics/base_parkour/site_metres/ledge_down",
+  "Metrics/base_parkour/site_metres/ledge_up",
+  "Metrics/base_parkour/site_metres/pits",
+  "Metrics/base_parkour/site_metres/rubble",
+  "Metrics/base_parkour/site_promote/field_dense",
+  "Metrics/base_parkour/site_promote/field_sparse",
+  "Metrics/base_parkour/site_promote/flat",
+  "Metrics/base_parkour/site_promote/gravel",
+  "Metrics/base_parkour/site_promote/hills",
+  "Metrics/base_parkour/site_promote/ledge_down",
+  "Metrics/base_parkour/site_promote/ledge_up",
+  "Metrics/base_parkour/site_promote/pits",
+  "Metrics/base_parkour/site_promote/rubble",
+  "Metrics/base_parkour/site_promote/slopes",
+  "Metrics/base_parkour/site_track_p50/field_dense",
+  "Metrics/base_parkour/site_track_p50/field_sparse",
+  "Metrics/base_parkour/site_track_p50/flat",
+  "Metrics/base_parkour/site_track_p50/gravel",
+  "Metrics/base_parkour/site_track_p50/hills",
+  "Metrics/base_parkour/site_track_p50/ledge_down",
+  "Metrics/base_parkour/site_track_p50/ledge_up",
+  "Metrics/base_parkour/site_track_p50/pits",
+  "Metrics/base_parkour/site_track_p50/rubble",
+  "Metrics/base_parkour/site_track_p50/slopes"
+ ],
+ "slide": {
+  "low_mu_gravel": {
+   "env": 87,
+   "kind": "gravel",
+   "v0": 1.0,
+   "fit": {
+    "n": 27,
+    "decel": 1.731876975496245,
+    "mu_meas": 0.17654199546342966,
+    "v0": 0.9653171300888062,
+    "t_stop": 0.52
+   },
+   "speeds": [
+    0.9653171300888062,
+    0.9225783348083496,
+    0.8765573501586914,
+    0.8312504887580872,
+    0.7879089713096619,
+    0.7453338503837585,
+    0.7032300233840942,
+    0.6607805490493774,
+    0.6175236105918884,
+    0.5748146772384644,
+    0.5342058539390564,
+    0.49317848682403564,
+    0.4531797766685486,
+    0.41654348373413086,
+    0.38410624861717224,
+    0.35366716980934143,
+    0.32471928000450134,
+    0.29703468084335327,
+    0.27022501826286316,
+    0.2438441962003708
+   ],
+   "quat0": [
+    [
+     0.5826523900032043,
+     -0.003473439486697316,
+     0.00013900194608140737,
+     -0.8127140402793884
+    ]
+   ],
+   "pass": true,
+   "mu_eff": 0.20141971111297607,
+   "mu_meas": 0.17654199546342966,
+   "average_combine_would_read": 0.600709855556488
+  },
+  "high_mu": {
+   "env": 123,
+   "kind": "field_sparse",
+   "v0": 2.0,
+   "fit": {
+    "n": 18,
+    "decel": 5.61341730141541,
+    "mu_meas": 0.572213792193212,
+    "v0": 1.8887238502502441,
+    "t_stop": 0.33999999999999997
+   },
+   "speeds": [
+    1.8887238502502441,
+    1.794692873954773,
+    1.7059874534606934,
+    1.6238948106765747,
+    1.5407358407974243,
+    1.4498709440231323,
+    1.349938988685608,
+    1.2406470775604248,
+    1.1295233964920044,
+    1.0130163431167603,
+    0.8857329487800598,
+    0.7553134560585022,
+    0.6223160624504089,
+    0.48611360788345337,
+    0.3437340259552002,
+    0.22566211223602295,
+    0.10359984636306763,
+    0.0853842943906784,
+    0.172749325633049,
+    0.27331727743148804
+   ],
+   "quat0": [
+    [
+     0.6930054426193237,
+     0.0001560320088174194,
+     -0.0031647346913814545,
+     -0.7209254503250122
+    ]
+   ],
+   "pass": true,
+   "report_only": true,
+   "mu_eff": 1.4983044862747192,
+   "mu_meas": 0.572213792193212,
+   "would_pass_old_line": false
+  }
+ },
+ "pass": true,
+ "wall_s": 69.20272135734558,
+ "complete": true
+}
