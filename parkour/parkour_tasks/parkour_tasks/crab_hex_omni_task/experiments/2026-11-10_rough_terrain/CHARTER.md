@@ -754,3 +754,191 @@ Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes no
   - side22 FAST/FAST.
   - R tracking FAIL: back es5 and es6, yaw es6.
 - Step 10 is running: the fable·high independent re-derivation, hash checks and report lines (`wf_50c2a6c8-2b5`).
+
+### 2026-11-11 17:10 — Amendment A steps 10–11: verdict HALT_R stands (G PASS, R FAIL on tracking only); checks done; HALT for the user
+
+The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high independent re-derivation, the hash checks, pre-registered report lines 1–7 and a CPU mechanism read. Nothing was edited or launched. **All seeds below are REAL seeds.** The readout's labels `suite es1` and `suite es2` mean real es5 and es6.
+
+- **Verdict: HALT_R** (frozen). Source: `results/short_arm/gates_fresh.json`, sha 43849afb, commit 9da889b6.
+  - The pick, c1 = RT_s19 `model_29500` (6d1f29be, +509 its), is read against TDR `model_28991` (03c3e472). TDR is read from its RTF rows.
+  - Decision row: "G passes, R fails: HALT_R; the user decides."
+  - TDR + student c31000 + SH_RSD_TDR / SN_RSD_TDR stay the omni policy of record.
+  - Nothing has been re-distilled, re-paired, baked or pushed.
+- **Re-derivation** (claude-fable-5-2): **reproduces.**
+  - Method: its own stamp walk, success rule, pairing and margins on the 66 raw stamps (33 RTC, 33 RTF). Suite lines go through the repo `zero_kg_check` on inputs it assembled. It also computed its own point estimates from `metrics/episode_NN.json`.
+  - Result: 382 values equal to 1e-12, and the same verdict.
+
+- **G: PASS.** Success at es5–6, n = 200 per teacher, paired on (es, env_index). 2 kinds gain and none regresses, against k = 2.
+
+  | Kind / band | c1 | TDR | Diff | SE | Needed | CI lower | Read | es5 / es6, c1 vs TDR |
+  |---|---|---|---|---|---|---|---|---|
+  | slopes b2 | 0.920 | 0.790 | +0.130 | 0.033 | gain 0.100 | +0.065 | **GAIN** | 0.92 / 0.92 vs 0.77 / 0.81 |
+  | ledge_up b2 | 0.330 | 0.360 | −0.030 | 0.035 | regress 0.070 | — | — | 0.35 / 0.31 vs 0.38 / 0.34 |
+  | ledge_down b2 | 0.520 | 0.345 | +0.175 | 0.033 | gain 0.100 | +0.109 | **GAIN** | 0.53 / 0.51 vs 0.35 / 0.34 |
+  | pits b2 | 0.570 | 0.495 | +0.075 | 0.045 | gain 0.135 | −0.013 | — | |
+  | rubble b3 | 0.825 | 0.735 | +0.090 | 0.039 | gain 0.118 | +0.013 | — | |
+
+  - Some episodes end within 0.02 m of a crossing radius (slopes 3, rubble 5, ledge_up 2, pits 1). None of them can flip a flag.
+  - A plain analytic paired SE agrees with the bootstrap SE within 1.1 % on every G line.
+
+- **R: FAIL, on tracking only.**
+  - **Completion: 7 / 7 rows pass** (rule: new ≥ TDR − max(0.05, 2·SE)).
+
+    | Row | c1 | TDR |
+    |---|---|---|
+    | field_hard (es5–8) | 0.965 | 0.925 |
+    | field_light | 1.000 | 0.985 |
+    | ring | 1.0 | 1.0 |
+    | field_turn | 0.995 | 1.000 |
+    | L090 | 1.00 | 0.99 |
+    | L135 | 0.99 | 0.95 |
+    | ×0.7 L090 | 0.930 | 0.875 (SE binds; line 0.818) |
+
+  - **Solved kinds: 2 / 2 pass.** hills b3 is 1.000 vs 0.985; gravel b3 is 1.000 vs 1.000.
+  - **side22 (es5):** FAST/FAST, against TDR's FAST/FAST.
+  - **Tracking: 3 lines fail.** This is the v1.2 decisive set, drift 0, 22 lines. The margin is max(R, 3·SE), and R binds on every line. R is the line's 95 % paired-bootstrap resolution.
+
+    | Line | Seed | c1 | TDR | Worse by | Margin | se_diff | Read |
+    |---|---|---|---|---|---|---|---|
+    | track_err back | es5 | 0.0809 | 0.0107 | 0.0702 | 0.0617 | 0.0033 | **FAIL** (≈ 2.6 SE over) |
+    | track_err back | es6 | 0.0796 | 0.0155 | 0.0641 | 0.0617 | 0.0040 | **FAIL** (≈ 0.6 SE over) |
+    | yaw_progress turn | es5 | 0.1659 | 0.1710 | 0.0052 | 0.0066 | 0.0006 | pass |
+    | yaw_progress turn | es6 | 0.1645 | 0.1715 | 0.0070 | 0.0066 | 0.0006 | **FAIL** (≈ 0.7 SE over) |
+
+    - The other 18 lines pass:
+      - fwd and side track_err improve (worse by −0.021 to −0.044);
+      - diag is worse by 0.019 / 0.021, against 0.029;
+      - move_turn is worse by 0.002 / 0.000, against 0.037;
+      - survival is 1.00 in all four translate categories;
+      - facing_closed is worse by 0.002 / 0.006, against 0.050.
+    - The 6000-it drift re-read is not applicable (report only).
+
+- **Report lines** (pre-registered; report only, never gated).
+  1. **Success beside completion.** No kind gains on success while its completion drops past its margin.
+     - slopes and ledge_down: completion moves with success (+0.130 and +0.175). ledge_down has 0 stuck episodes.
+     - ledge_up: completion is 0.865 vs 0.915 (−0.050, inside the 0.065 margin). Falls are 27 vs 17, stuck 107 vs 111.
+     - pits: completion 0.590 vs 0.520. rubble: 0.925 vs 0.860, a rise past its 0.058 margin.
+     - Every non-completer on the five rows, for both teachers, is a 'fall' at a last-sample tilt of 0.48–0.50 rad.
+     - ledge_down falls are 96 vs 131:
+       - tips at the rim (seg 1, pitch_fwd): 68 vs 125;
+       - c1 adds roll falls in the side hold (seg 2): 25 vs 6. es1–2 shows the same, 25 vs 10.
+  2. **Split at 0.14 m** (step 9's height method; success counts, c1 / TDR).
+
+     | Kind | Below 0.14 m | At or above 0.14 m | Where the change sits |
+     |---|---|---|---|
+     | ledge_down | 38 / 39 of 40 | 66 / 30 of 160 | +36 above, mostly 0.16–0.18 m (29 / 6) |
+     | ledge_up | 57 / 59 of 79 | 9 / 13 of 121 | above: 10 fewer stuck, 14 more falls |
+     | pits (depth estimated) | 22 / 25 of 28 | 92 / 74 of 172 | +18 above; no gain at the gate |
+
+     - Easy drops are intact at +509; step 9's 34990 lost 15 of 38 of them.
+     - The drop-tolerance curve moved up by about 2–3 cm.
+     - The split does not depend on the cut: 0.13 m and 0.15 m give the same picture, and es1–2 tells the same story.
+     - Where c1 is not better (ledge_up above the line, pits below it), it is level with TDR within noise.
+  3. **Slopes up / down** (100 episodes per variant).
+     - Down: c1 92 vs TDR 65. 30 of TDR's 35 falls are in the seg-2 side hold.
+     - Up: 92 vs 93.
+     - So +27 of the +26 net successes come from the descent.
+     - c1 removes most of the lateral (roll) tips: 4 vs 30. This is the same mechanism as step 9: a lower, more level stance.
+  4. **Back ratio, yaw rate, pitch** (flat suite, 0 kg; values are es5 / es6).
+     - **Back hold** (command 0.22 m/s):
+       - Ratio 1.081 / 1.080 vs 1.011 / 1.016, which is 0.238 vs 0.222–0.223 m/s.
+       - c1's ratio is 1.076–1.081 on all four seeds (es1, 2, 5, 6).
+       - Strides are longer: 10.8 vs 11.8 steps/m, at 2.50 vs 2.67 Hz.
+       - Action saturation is 0.536 vs 0.498, body height 1.115 vs 1.127 m, and cross-track 0.018 vs 0.042.
+     - **In-place turn** (saturated 0.3 rad/s command):
+       - yaw_progress is 0.1659 / 0.1645 vs 0.1710 / 0.1715, which is −3.5 %.
+       - The rate over the first 3 s is −7.5 %, and 90 % of net yaw comes at 8.3 vs 8.1 s.
+       - Net yaw and facing_closed are unchanged.
+       - The robot takes fewer steps per second with the same yaw per step.
+     - **Pitch:** there is no lean into travel at +509. fwd is +0.061 vs +0.063, back −0.022 vs −0.033. The step-9 lean grows late along RT_s19: fwd +0.061, +0.066, +0.082 and +0.110 at 29500, 31000, 33000 and 34990.
+     - **Survival** is 1.0 on every suite line.
+  5. **Selection → confirm shrinkage** (es1–2 → es5–6).
+     - **slopes:** +0.190 → +0.130 (−1.3 sd). c1 moved −0.015 and TDR +0.045, all on the descent (54 → 65 of 100), so about three quarters of the shrinkage is the reference row.
+     - **ledge_down:** +0.185 → +0.175 (−0.2 sd), with CI lower +0.116 → +0.109. This is not a selection artefact.
+     - **back worse_by:** 0.0616 / 0.0564 → 0.0702 / 0.0641, so z goes +0.04 / +1.80 → −2.55 / −0.63.
+       - About 80 % (es5) and 50 % (es6) of the move is TDR's per-seed spread.
+       - c1 itself is stable to ±0.003.
+     - **yaw worse_by:** 0.0069 / 0.0064 → 0.0052 / 0.0070. The pattern flips from fail-pass to pass-fail, and c1 reads 0.1645–0.1659 on all four seeds.
+     - The R lines were never selected on (Q = {c1}), so their drift is not a winner's curse.
+     - The pre-registered "c1 sits on both lines" held.
+     - Pooled over es1/2/5/6 (report only; ARM forbids pooling into the read): back 0.0631 vs 0.0617, yaw 0.0064 vs 0.0066.
+  6. **Seed × length** (es1–2 screen; z = the minimum suite slack in SE units; back ratio and yaw are es1 / es2).
+
+     | Cell | slopes b2 | ledge_down b2 | z (binding line) | back ratio | yaw_progress |
+     |---|---|---|---|---|---|
+     | c1, s19 +509 | +0.190 GAIN | +0.185 GAIN | −0.40 (yaw) | 1.079 / 1.076 | 0.1646 / 0.1649 |
+     | c2, s19 +1009 | +0.190 GAIN | −0.050 | −3.67 (yaw) | 1.067 / 1.062 | 0.1627 / 0.1630 |
+     | c3, s20 +509 | +0.065 | +0.145 GAIN | −23.9 (yaw) | 1.014 / 1.011 | 0.1508 / 0.1486 |
+     | c4, s20 +1009 | +0.130 GAIN | +0.040 | −33.8 (yaw; move_turn also fails) | 1.045 / 1.042 | 0.1389 / 0.1389 |
+     | s19 +2009 (sweep, es1 only) | +0.145 GAIN | +0.055 | +0.13 | 1.048 | 0.1650 |
+     | s19 +4009 (sweep, es1 only) | +0.100 | +0.090 | −10.9 (back) | 1.104 | 0.1634 |
+     | s19 +5999 (step 9) | +0.150 GAIN | −0.085 REGRESS | −22.5 (yaw) | 1.109 | 0.147 |
+     | TDR | — | — | — | 1.018 / 1.019 | 0.1715 / 0.1712 |
+
+     - Only s19 +509 gained on both kinds.
+     - Yaw is below TDR in every cell. The loss is systematic and worst on seed 20.
+     - Back overshoot varies with seed and iteration.
+  7. **Hash line: all pass.**
+     - **Thresholds:** thresholds_rough_v1.json is ce45e01b (decision 'proceed', frozen on TDR 03c3e472). Its recorded script and rows_rt hashes equal the current files.
+     - **Frozen scripts:** readout.py 14e8717c, rt_spec.py 6716d999, make_thresholds.py 8c67532f.
+     - **Rows:** rows_rt.json is 0b038f03. Every gated and solved row's cross_r equals rule.cross_r: slopes, hills and gravel 3.0; ledges, pits and rubble 3.2.
+     - **R-tracking inputs** are unchanged since c2054a8c: tools/pipeline, thresholds_v1_2.json 969b2988, threshold_inputs.yaml, pipeline.yaml, resolution.36e5a8af7000.json 77a2b062 and side22_classify.py.
+       - The diff is empty against both HEAD and the working tree, and nothing is untracked or ignored.
+       - The modules actually executed resolve to these paths; thresholds version v1.2, statistic track_err.
+     - **Stamps:** 66 / 66 (33 RTC, 33 RTF) are at code_sha 89c1916b / eval_sha 9fe964d7, which equals pin.json. All are clean with tp_row rc 0.
+       - The real seed (5–8) agrees across the seed dir name, run_meta and tp_row.
+       - env and args equal the composed row, the role is teacher, no KRABBY_DR_* key is set, and there is one stamp per seed dir.
+       - The 66 are exactly the expected slots and the same paths gates_fresh.json served.
+     - **Checkpoint identity:** the stamp name prefix equals run_meta checkpoint_sha256 on 66 / 66. model_29500.pt re-hashes to 6d1f29be and model_28991.pt to 03c3e472.
+     - **Pairing:** env_index sets are equal and spawns agree within 1e-4 m. Each kind stamp has 100 episodes, and raw length equals n_steps.
+     - **Records:** selection.json is tracked and clean (05f67c37, caab51ec), and its pick sha equals the RTC sha. gates_fresh.json (43849afb) is committed in 9da889b6.
+
+- **Mechanism** (CPU, report only; supported, not proven).
+  - **The back overshoot at +509 comes from stride length and action magnitude, not from the lean.**
+    - RT_s19's median rod-action |μ| peaked at 1.094 around its 29291–29391 (TDR 1.006–1.020). It was 1.080 just before model_29500.
+    - RT_s20s stayed near 1.00 through 29500, and c3 shows no overshoot.
+    - Across TDR and c1–c4 (n = 5): corr(|μ|, back ratio) = 0.94 and corr(steps/m, back ratio) = −0.84.
+    - The reward barely prices overshoot: the net pressure is about −1.4 per m/s.
+    - Back crosses its line first because its command sits at 88 % of the 0.25 semi-axis.
+  - **Possible coupling to the slopes gain** (n = 5, weak): corr(slopes diff, back ratio) = 0.93. c3, the only cell with neither a lowered stance nor overshoot, also has no slopes gain.
+  - **Yaw slows because of the mix**, in both seeds and within about 400 its.
+    - Flat and field fell to 0.15 each (TDR: 0.5 / 0.5), so clean flat-turn samples drop about 3×.
+    - The orientation term reaches flat tiles only.
+    - The turn gait becomes a hazard gait: cadence 1.16 vs 1.25, swing apex 0.128 vs 0.124.
+  - **Not causes at +509:** noise std, KL, LR, priv_reg coefficient, payload and rod-speed DR.
+
+- **Reconciled** (the report inputs disagreed; I opened the files):
+  - the fwd pitch at 33000 is +0.082 (sweep.json), not +0.080;
+  - about three quarters of the slopes shrinkage is the reference row, not all of it;
+  - where c1 is not better on the split, it is "level within noise", not "better".
+
+- **Honest reading.**
+  - On fresh seeds, c1 is a better rough-terrain teacher than TDR:
+    - slope-descent falls drop from 35 to 8 per 100;
+    - ledge_down rises from 0.345 to 0.520, on 0.14–0.20 m drops, with the easy drops intact;
+    - every completion row is level or better (field_hard +0.040, ×0.7 L090 +0.055, L135 +0.040);
+    - survival is 1.0 and side22 is FAST/FAST.
+  - ledge_up, pits and rubble did not gain.
+  - c1 misses R on two flat-tracking lines:
+    - a seed-stable 8 % back overshoot (1.08 vs 1.01–1.02), beyond the line's resolution on both fresh seeds;
+    - an in-place turn 3–4 % slower, sitting on the line: it fails es6 by 0.0004 and passes es5, and 2 of 4 seeds fail.
+  - The checkpoint replicated; the recipe did not.
+    - Seed 20 never gained on both kinds.
+    - Along RT_s19, ledge_down swings by about 4 paired SE per 500 its.
+    - So c1 is one good checkpoint, not a reproducible recipe.
+  - Back overshoot has now appeared in five fine-tunes, and the reward still does not price it.
+  - The frozen verdict stands: HALT_R, and the user decides.
+
+- **HALT: options put to the user.** The recommendation is (A) staged.
+  - **(A) Accept c1 by a disclosed user overrule of R tracking, then P2** (≈ 19–21 h wall-clock to a bake proposal).
+    - Steps: re-distil ≈ 9.6 h; a pre-registered student terrain and tracking read on es9+ against c31000, ≈ 1–2 h; stand re-pair ≈ 7 h; bake videos ≈ 0.5–1 h.
+    - Staged: the user approves P2 now and makes the final overrule at the bake proposal, with the student's own numbers in hand.
+    - The policy of record changes only on a bake yes.
+    - Precedents: the S1 KEEP over its back 1.09, D12, D05, and the SH K4 accept-and-disclose.
+  - **(B) Pre-registered remedy arm** (≈ 12–15 h to a verdict; ACCEPT ≈ 15 %).
+    - Levers: yaw retention, which is env-only (flat + field ≈ 0.4, a turn dose, ORIENT_ALL_TILES after the replay gate), plus priced back overshoot, which is a code change (the pin moves; replay gate; neutrality row).
+    - Read: selection on es1–2, confirm on es9–12 against fresh TDR rows.
+    - If accepted, P2 follows.
+  - **(C) Env-only remedy arm** (≈ 9–10 h; ACCEPT ≈ 10 %): retention plus a higher KRABBY_ACTION_BOUND_LOSS; from TDR, or warm-started from c1.
+  - **(D) Close as NOT ACCEPTED** (≈ 0.5–1 h CPU): TDR stays of record, and c1 is kept as the slope- and drop-reference run.
+  - **Not available:** re-reading c1 on es9+, pooling seeds, neighbouring checkpoints on es5–8, or the drift re-read. ARM's "Never" list forbids these, or they do not apply.
