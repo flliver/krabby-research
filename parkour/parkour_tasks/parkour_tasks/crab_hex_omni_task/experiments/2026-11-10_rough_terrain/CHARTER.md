@@ -683,3 +683,29 @@ Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes no
   - match the `G=PASS` sentinel, never the exit code;
   - keep `RT_TP_OUT` unset;
   - the step-10 hash line carries rows_rt 0b038f03 and the cross_r check.
+
+### 2026-11-11 14:50 — Amendment A steps 4–6: RT_s20s trained, selection done, pick c1 (fable recompute AGREES)
+
+- **Pre-run RTF.** TDR at es5–8, 33 rows, ran 09:51 → 12:07 with fail=0. Still unread.
+- **Step 4: RT_s20s.**
+  - TDR resume, seed 20, 1010 its, 256 envs, `RT_train.env` unchanged. Ran 12:08 → 12:47 (2327 s); PF1–PF14 PASS.
+  - c3 = model_29500, sha 17fb0214. c4 = model_30000, sha 1245089a.
+  - Record: `results/runs/RT_s20s.json`.
+- **Step 5: selection rows.** 19 rows (`RTA_*`), 12:47 → 14:31, fail=0.
+- **Step 6: pick.** Read on es1–2 against TDR, n = 200 per kind; z is the minimum over 22 suite lines.
+
+  | id | slopes b2 diff | ledge_down b2 diff | z (binding line) | Q | E |
+  |---|---|---|---|---|---|
+  | c1, RT_s19 +509 | +0.190 GAIN | +0.185 GAIN | −0.40 (yaw es1) | yes | no |
+  | c2, RT_s19 +1009 | +0.190 GAIN | −0.050 | −3.67 (yaw es1) | no | no |
+  | c3, RT_s20s +509 | +0.065 | +0.145 GAIN | −23.9 (yaw es2) | no | no |
+  | c4, RT_s20s +1009 | +0.130 GAIN | +0.040 | −33.8 (yaw es1) | no | no |
+
+  - **Pick c1** (6d1f29be): tier 3, flagged "R tracking predicted marginal".
+    - c1's es1 back line has z +0.035 of slack.
+    - c1's es2 yaw line has z +0.40.
+  - **fable·high independent recompute** (`wf_13ec06c2-187`, claude-fable-5-2): **AGREES**.
+    - Same Q, E, tier and pick, max difference 0.0 on every number.
+    - Its own stamp walk and success vectors; 30 stamps, es1–2 only, no RTF/RTC opened.
+  - **Seed-20 replication: no.** RT_s20s gained one of the two kinds at each length, never both, and its turning is far worse (z −24 / −34).
+- `selection.json` is committed with this entry. confirm-1 (`sconf1`) launches next: 12 rows, c1 at es5–6.

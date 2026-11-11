@@ -1,0 +1,5376 @@
+{
+ "schema": "rt_short_selection_v1",
+ "created": "2026-11-11T14:32:00",
+ "arm": "short_arm/ARM.md (Amendment A, commit cb04f86a)",
+ "rule": "ARM 'Pick rule' (pre-registered, commit cb04f86a). G lines from readout.g_line with the frozen G rule (slopes b2, ledge_down b2, es1-2 vs TDR's RT9 rows). Suite lines from gate_read.zero_kg_check on es1 and es2, drift 0 (vs TDR's RT6 R_suite rows). z(c) = min over the 22 decisive suite lines (11 per seed) of (margin - worse_by) / se_diff, each line's own se_diff from the same call (se_diff 0: +inf if worse_by <= margin else -inf; a missing line: -inf). Q = slopes gains and ledge_down gains and neither regresses. E = Q and z > 0. Tier 1: E members with z >= 1 -> largest ledge_down diff. Tier 2: E non-empty -> largest z. Tier 3: Q non-empty -> largest z in Q, flag 'R tracking predicted marginal'. Ties: ledge_down diff within 0.010 (tier 1) or z within 0.1 (tiers 2-3) -> fewer iterations, then seed 19. Q empty -> stop and ask.",
+ "tie_tolerances": {
+  "ledge_down_diff": 0.010000001,
+  "z": 0.10000000000100001,
+  "z_tier1": 1.0
+ },
+ "tdr": {
+  "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567"
+ },
+ "screen": {
+  "kinds": [
+   "slopes b2",
+   "ledge_down b2"
+  ],
+  "env_seeds": [
+   1,
+   2
+  ],
+  "suite_env_seeds": [
+   1,
+   2
+  ]
+ },
+ "candidates": [
+  {
+   "id": "c1",
+   "run": "RT_s19",
+   "seed": 19,
+   "file_iter": 29500,
+   "its_after_tdr": 509,
+   "updates": 510,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_29500.pt",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "iter": 29500,
+   "read_ok": true,
+   "G": {
+    "slopes": {
+     "row": "rt_slopes_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.935,
+     "tdr": 0.745,
+     "diff": 0.19000000000000006,
+     "se": 0.0333625538590798,
+     "ci95": [
+      0.12460939443620365,
+      0.25539060556379645
+     ],
+     "n": 200,
+     "gain_need": 0.10008766157723939,
+     "ci_lb": 0.12460939443620365,
+     "gain": true,
+     "regress_margin": 0.0667251077181596,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.935,
+      "termination_reasons": {
+       "fall": 13,
+       "schedule_complete": 187
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.94,
+        "success": 0.94,
+        "stuck": 0.0,
+        "crossed": 0.99
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.93,
+        "success": 0.93,
+        "stuck": 0.0,
+        "crossed": 0.99
+       }
+      },
+      "crossed": 0.99,
+      "success": 0.935,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.528402072962685,
+       "min": 2.8502128160524287,
+       "max": 5.947819343679433,
+       "p05": 3.304311332753411,
+       "p10": 3.3599712574272655,
+       "p25": 3.572107378823642,
+       "p50": 3.9860541544204464,
+       "p75": 5.531557770769165,
+       "p90": 5.672398864794083,
+       "p95": 5.733159810191227
+      },
+      "r_max_completers": {
+       "n": 187,
+       "mean": 4.582737059873187,
+       "min": 3.1428705355947653,
+       "max": 5.947819343679433,
+       "p05": 3.312695285193098,
+       "p10": 3.3779801839096297,
+       "p25": 3.60525957265909,
+       "p50": 5.080445768237528,
+       "p75": 5.543389144416488,
+       "p90": 5.674971193554709,
+       "p95": 5.73798688780845
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.745,
+      "termination_reasons": {
+       "fall": 51,
+       "schedule_complete": 149
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.78,
+        "success": 0.78,
+        "stuck": 0.0,
+        "crossed": 0.91
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.71,
+        "success": 0.71,
+        "stuck": 0.0,
+        "crossed": 0.85
+       }
+      },
+      "crossed": 0.88,
+      "success": 0.745,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.098596486727377,
+       "min": 1.7749730078812676,
+       "max": 5.94226028578015,
+       "p05": 2.8448283775949252,
+       "p10": 2.968159958102079,
+       "p25": 3.4043163584041736,
+       "p50": 3.7851576462909975,
+       "p75": 5.470691845182395,
+       "p90": 5.690928605327879,
+       "p95": 5.766973091010373
+      },
+      "r_max_completers": {
+       "n": 149,
+       "mean": 4.444536321845051,
+       "min": 3.329024787796097,
+       "max": 5.94226028578015,
+       "p05": 3.4028689609999683,
+       "p10": 3.476884248294838,
+       "p25": 3.6818715038028156,
+       "p50": 3.9971609528043355,
+       "p75": 5.610310648378243,
+       "p90": 5.724887906320491,
+       "p95": 5.7926760495990495
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 94,
+         "pitch_fwd": 5,
+         "roll": 1
+        },
+        "termination_reasons": {
+         "fall": 6,
+         "schedule_complete": 94
+        },
+        "slip_ratio_median": 0.22095213302779504
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 93,
+         "pitch_fwd": 6,
+         "roll": 1
+        },
+        "termination_reasons": {
+         "fall": 7,
+         "schedule_complete": 93
+        },
+        "slip_ratio_median": 0.21805601031450927
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 78,
+         "pitch_back": 1,
+         "pitch_fwd": 2,
+         "roll": 19
+        },
+        "termination_reasons": {
+         "fall": 22,
+         "schedule_complete": 78
+        },
+        "slip_ratio_median": 0.22338767618130936
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 71,
+         "pitch_back": 2,
+         "pitch_fwd": 2,
+         "roll": 25
+        },
+        "termination_reasons": {
+         "fall": 29,
+         "schedule_complete": 71
+        },
+        "slip_ratio_median": 0.22487949174701266
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 45,
+      "tdr_only": 7
+     }
+    },
+    "ledge_down": {
+     "row": "rt_ledge_down_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.59,
+     "tdr": 0.405,
+     "diff": 0.18499999999999994,
+     "se": 0.03514187815128838,
+     "ci95": [
+      0.11612191882347472,
+      0.25387808117652516
+     ],
+     "n": 200,
+     "gain_need": 0.10542563445386513,
+     "ci_lb": 0.11612191882347472,
+     "gain": true,
+     "regress_margin": 0.07028375630257676,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.59,
+      "termination_reasons": {
+       "fall": 82,
+       "schedule_complete": 118
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.56,
+        "success": 0.56,
+        "stuck": 0.0,
+        "crossed": 0.56
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.62,
+        "success": 0.62,
+        "stuck": 0.0,
+        "crossed": 0.62
+       }
+      },
+      "crossed": 0.59,
+      "success": 0.59,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 3.4171776513662344,
+       "min": 1.5863875213956922,
+       "max": 4.8346988920048375,
+       "p05": 1.784067410094037,
+       "p10": 1.83012337305663,
+       "p25": 2.0148558991951253,
+       "p50": 4.199047261392582,
+       "p75": 4.517831431494498,
+       "p90": 4.64406609391959,
+       "p95": 4.683081289991548
+      },
+      "r_max_completers": {
+       "n": 118,
+       "mean": 4.430016260063733,
+       "min": 3.5221023112138776,
+       "max": 4.8346988920048375,
+       "p05": 3.906307141645669,
+       "p10": 4.074909136084451,
+       "p25": 4.355095388297322,
+       "p50": 4.498175778228983,
+       "p75": 4.592713904603224,
+       "p90": 4.675653613937952,
+       "p95": 4.709803356984486
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.405,
+      "termination_reasons": {
+       "fall": 119,
+       "schedule_complete": 81
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.4,
+        "success": 0.4,
+        "stuck": 0.0,
+        "crossed": 0.4
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.41,
+        "success": 0.41,
+        "stuck": 0.0,
+        "crossed": 0.41
+       }
+      },
+      "crossed": 0.405,
+      "success": 0.405,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 2.9794767484468685,
+       "min": 1.526235210438388,
+       "max": 4.958423672452249,
+       "p05": 1.6191007067568504,
+       "p10": 1.655633772711069,
+       "p25": 1.746271016845368,
+       "p50": 1.9788854282312016,
+       "p75": 4.728231984317439,
+       "p90": 4.84052386001769,
+       "p95": 4.878259208332201
+      },
+      "r_max_completers": {
+       "n": 81,
+       "mean": 4.701870182169397,
+       "min": 3.706909991162047,
+       "max": 4.958423672452249,
+       "p05": 4.13520053622936,
+       "p10": 4.42893026716336,
+       "p25": 4.675042831674524,
+       "p50": 4.772581806759871,
+       "p75": 4.839316780632916,
+       "p90": 4.880244892345897,
+       "p95": 4.908816239669002
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 56,
+         "pitch_fwd": 31,
+         "roll": 13
+        },
+        "termination_reasons": {
+         "fall": 44,
+         "schedule_complete": 56
+        },
+        "slip_ratio_median": 0.25777524788015216
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 62,
+         "pitch_fwd": 25,
+         "roll": 13
+        },
+        "termination_reasons": {
+         "fall": 38,
+         "schedule_complete": 62
+        },
+        "slip_ratio_median": 0.2616164241827422
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 40,
+         "pitch_fwd": 55,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 60,
+         "schedule_complete": 40
+        },
+        "slip_ratio_median": 0.30250619952437097
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 41,
+         "pitch_fwd": 54,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 59,
+         "schedule_complete": 41
+        },
+        "slip_ratio_median": 0.27670259975074746
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 47,
+      "tdr_only": 10
+     }
+    }
+   },
+   "suite": {
+    "env_seeds_logical": [
+     1,
+     2
+    ],
+    "its_past_p2a": 0,
+    "stamps": {
+     "new": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_R_suite/suite__omni/seed001/2026-11-11_11-52-29",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_6d1f29be_R_suite/suite__omni/seed002/2026-11-11_17-47-36",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ],
+     "tdr": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed001/2026-11-11_04-21-27",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed002/2026-11-11_04-28-52",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ]
+    },
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "lines": [
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.014183352489001377,
+      "p2a": 0.03890581596281262,
+      "worse_by": -0.02472246347381124,
+      "se_diff": 0.002890658598625044,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.007803879939420444,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.008671975795875132,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.48662754346697007
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.00284327531560824,
+      "p2a": 0.04729167644929877,
+      "worse_by": -0.04444840113369053,
+      "se_diff": 0.002187386114370966,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.026280006324169713,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.0065621583431128986,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -2.097402944248169
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.0791016777884026,
+      "p2a": 0.017530288990629916,
+      "worse_by": 0.061571388797772686,
+      "se_diff": 0.0027919829602907164,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.006121339151512917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.008375948880872149,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.9983963373573476
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.024147533919198994,
+      "p2a": 0.00569033522807727,
+      "worse_by": 0.018457198691121723,
+      "se_diff": 0.00280224118539793,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.01117933832018414,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.00840672355619379,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.6350271899409629
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es1",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.7513395832039296,
+      "p2a": 0.7653395769237009,
+      "worse_by": 0.013999993719771342,
+      "se_diff": 0.005181121429188097,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.05720729498693833,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.01554336428756429,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.38174969941997755
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9705746185364521,
+      "p2a": 0.9764035883856473,
+      "worse_by": 0.005828969849195231,
+      "se_diff": 0.002581312915330533,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.004747270395472958,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.007743938745991599,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.11724202859310837
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.16464867362327348,
+      "p2a": 0.17153612147799557,
+      "worse_by": 0.00688744785472209,
+      "se_diff": 0.000707278515016951,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.009943555989956582,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.002121835545050853,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 1.0426284017186846
+     },
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.01981484327245364,
+      "p2a": 0.039275336922192094,
+      "worse_by": -0.019460493649738453,
+      "se_diff": 0.0036049018577349367,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.010450494865466897,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.01081470557320481,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.3830529360255087
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.007417988288034527,
+      "p2a": 0.047784637842102295,
+      "worse_by": -0.04036664955406777,
+      "se_diff": 0.0015252600343601274,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.01923124611325533,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.0045757801030803825,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -1.9047958411255923
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.07552720062285179,
+      "p2a": 0.019119326762635058,
+      "worse_by": 0.05640787386021673,
+      "se_diff": 0.0029243883506270226,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.023362183271427917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.008773165051881068,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.9146685783737414
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.026135669120692206,
+      "p2a": 0.007416702489680516,
+      "worse_by": 0.01871896663101169,
+      "se_diff": 0.001930230360269192,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.016049598703615886,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.0057906910808075765,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.6440334190045813
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es2",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.7616070149244296,
+      "p2a": 0.7680587771988913,
+      "worse_by": 0.006451762274461648,
+      "se_diff": 0.004313466628041936,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.062019955473854194,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.012940399884125809,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.17592567241845244
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9731144640896805,
+      "p2a": 0.975483695594769,
+      "worse_by": 0.0023692315050884982,
+      "se_diff": 0.002544070425193649,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.006925071677909345,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.007632211275580947,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.04765396202926479
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.1648607333347492,
+      "p2a": 0.17121219777756042,
+      "worse_by": 0.0063514644428112055,
+      "se_diff": 0.0006290355744779725,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.007558220912239205,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.0018871067234339173,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.9614907234529636
+     }
+    ],
+    "n_lines": 22,
+    "fails": [
+     "yaw_progress turn suite es1"
+    ],
+    "problems": [],
+    "status": "FAIL"
+   },
+   "z": -0.39814141602393,
+   "z_binding": {
+    "row": "suite es1",
+    "statistic": "yaw_progress turn"
+   },
+   "z_lines": [
+    {
+     "row": "suite es1",
+     "statistic": "track_err fwd",
+     "z": 26.127654820204263,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.02472246347381124,
+     "se_diff": 0.002890658598625044,
+     "slack": 0.07552613006793053,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err side",
+     "z": 30.008654689314533,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.04444840113369053,
+     "se_diff": 0.002187386114370966,
+     "slack": 0.06564051457835979,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err back",
+     "z": 0.035422256168497236,
+     "margin": 0.06167028713341018,
+     "worse_by": 0.061571388797772686,
+     "se_diff": 0.0027919829602907164,
+     "slack": 9.8898335637497e-05,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err diag",
+     "z": 3.7855454620713007,
+     "margin": 0.02906521009413416,
+     "worse_by": 0.018457198691121723,
+     "se_diff": 0.00280224118539793,
+     "slack": 0.010608011403012436,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "ratio move_turn",
+     "z": 4.376124835065438,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.013999993719771342,
+     "se_diff": 0.005181121429188097,
+     "slack": 0.02267323415975977,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "facing_closed turn",
+     "z": 17.002370601014597,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.005828969849195231,
+     "se_diff": 0.002581312915330533,
+     "slack": 0.043888438823635134,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "yaw_progress turn",
+     "z": -0.39814141602393,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.00688744785472209,
+     "se_diff": 0.000707278515016951,
+     "slack": -0.0002815968694921513,
+     "fails": true
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err fwd",
+     "z": 19.49128243064202,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.019460493649738453,
+     "se_diff": 0.0036049018577349367,
+     "slack": 0.07026416024385775,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err side",
+     "z": 40.35952008967571,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.04036664955406777,
+     "se_diff": 0.0015252600343601274,
+     "slack": 0.061558762998737034,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err back",
+     "z": 1.7994919423287719,
+     "margin": 0.06167028713341018,
+     "worse_by": 0.05640787386021673,
+     "se_diff": 0.0029243883506270226,
+     "slack": 0.0052624132731934545,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err diag",
+     "z": 5.360108138429431,
+     "margin": 0.02906521009413416,
+     "worse_by": 0.01871896663101169,
+     "se_diff": 0.001930230360269192,
+     "slack": 0.010346243463122469,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "ratio move_turn",
+     "z": 7.006305649520756,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.006451762274461648,
+     "se_diff": 0.004313466628041936,
+     "slack": 0.030221465605069463,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "facing_closed turn",
+     "z": 18.61118965059225,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.0023692315050884982,
+     "se_diff": 0.002544070425193649,
+     "slack": 0.04734817716774187,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "yaw_progress turn",
+     "z": 0.4044072429923293,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.0063514644428112055,
+     "se_diff": 0.0006290355744779725,
+     "slack": 0.00025438654241873287,
+     "fails": false
+    }
+   ],
+   "z_unexpected_lines": [],
+   "ledge_down_diff": 0.18499999999999994,
+   "slopes_diff": 0.19000000000000006,
+   "Q": true,
+   "E": false
+  },
+  {
+   "id": "c2",
+   "run": "RT_s19",
+   "seed": 19,
+   "file_iter": 30000,
+   "its_after_tdr": 1009,
+   "updates": 1010,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_30000.pt",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "iter": 30000,
+   "read_ok": true,
+   "G": {
+    "slopes": {
+     "row": "rt_slopes_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.935,
+     "tdr": 0.745,
+     "diff": 0.19000000000000006,
+     "se": 0.03026429156200423,
+     "ci95": [
+      0.13068198853847177,
+      0.24931801146152835
+     ],
+     "n": 200,
+     "gain_need": 0.1,
+     "ci_lb": 0.13068198853847177,
+     "gain": true,
+     "regress_margin": 0.06052858312400846,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.935,
+      "termination_reasons": {
+       "fall": 13,
+       "schedule_complete": 187
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.94,
+        "success": 0.94,
+        "stuck": 0.0,
+        "crossed": 0.96
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.93,
+        "success": 0.93,
+        "stuck": 0.0,
+        "crossed": 0.93
+       }
+      },
+      "crossed": 0.945,
+      "success": 0.935,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.427648544358894,
+       "min": 2.452470008962127,
+       "max": 5.944955103138861,
+       "p05": 2.883060522384514,
+       "p10": 3.2636317436921343,
+       "p25": 3.5182760218760065,
+       "p50": 3.9653778507444235,
+       "p75": 5.53057706388771,
+       "p90": 5.684227675076023,
+       "p95": 5.743728580166415
+      },
+      "r_max_completers": {
+       "n": 187,
+       "mean": 4.540473630481941,
+       "min": 3.033672612511755,
+       "max": 5.944955103138861,
+       "p05": 3.2668693959920905,
+       "p10": 3.381812675171164,
+       "p25": 3.5966818679432397,
+       "p50": 4.001304486486511,
+       "p75": 5.536393567328522,
+       "p90": 5.6921520192305985,
+       "p95": 5.751101646718494
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.745,
+      "termination_reasons": {
+       "fall": 51,
+       "schedule_complete": 149
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.78,
+        "success": 0.78,
+        "stuck": 0.0,
+        "crossed": 0.91
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.71,
+        "success": 0.71,
+        "stuck": 0.0,
+        "crossed": 0.85
+       }
+      },
+      "crossed": 0.88,
+      "success": 0.745,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.098596486727377,
+       "min": 1.7749730078812676,
+       "max": 5.94226028578015,
+       "p05": 2.8448283775949252,
+       "p10": 2.968159958102079,
+       "p25": 3.4043163584041736,
+       "p50": 3.7851576462909975,
+       "p75": 5.470691845182395,
+       "p90": 5.690928605327879,
+       "p95": 5.766973091010373
+      },
+      "r_max_completers": {
+       "n": 149,
+       "mean": 4.444536321845051,
+       "min": 3.329024787796097,
+       "max": 5.94226028578015,
+       "p05": 3.4028689609999683,
+       "p10": 3.476884248294838,
+       "p25": 3.6818715038028156,
+       "p50": 3.9971609528043355,
+       "p75": 5.610310648378243,
+       "p90": 5.724887906320491,
+       "p95": 5.7926760495990495
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 94,
+         "pitch_fwd": 2,
+         "roll": 4
+        },
+        "termination_reasons": {
+         "fall": 6,
+         "schedule_complete": 94
+        },
+        "slip_ratio_median": 0.22751448713752215
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 93,
+         "roll": 7
+        },
+        "termination_reasons": {
+         "fall": 7,
+         "schedule_complete": 93
+        },
+        "slip_ratio_median": 0.22009762733584012
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 78,
+         "pitch_back": 1,
+         "pitch_fwd": 2,
+         "roll": 19
+        },
+        "termination_reasons": {
+         "fall": 22,
+         "schedule_complete": 78
+        },
+        "slip_ratio_median": 0.22338767618130936
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 71,
+         "pitch_back": 2,
+         "pitch_fwd": 2,
+         "roll": 25
+        },
+        "termination_reasons": {
+         "fall": 29,
+         "schedule_complete": 71
+        },
+        "slip_ratio_median": 0.22487949174701266
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 41,
+      "tdr_only": 3
+     }
+    },
+    "ledge_down": {
+     "row": "rt_ledge_down_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.355,
+     "tdr": 0.405,
+     "diff": -0.050000000000000044,
+     "se": 0.03317387787759369,
+     "ci95": [
+      -0.11502080064008367,
+      0.015020800640083584
+     ],
+     "n": 200,
+     "gain_need": 0.1,
+     "ci_lb": -0.11502080064008367,
+     "gain": false,
+     "regress_margin": 0.06634775575518738,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.355,
+      "termination_reasons": {
+       "fall": 129,
+       "schedule_complete": 71
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.34,
+        "success": 0.34,
+        "stuck": 0.0,
+        "crossed": 0.34
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.37,
+        "success": 0.37,
+        "stuck": 0.0,
+        "crossed": 0.37
+       }
+      },
+      "crossed": 0.355,
+      "success": 0.355,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 2.8353363622334427,
+       "min": 1.5344841929357775,
+       "max": 4.830474939982557,
+       "p05": 1.7009311519177002,
+       "p10": 1.7320812886530763,
+       "p25": 1.8474852873890848,
+       "p50": 2.041616429143648,
+       "p75": 4.487292279714232,
+       "p90": 4.65341622383779,
+       "p95": 4.689090803714619
+      },
+      "r_max_completers": {
+       "n": 71,
+       "mean": 4.524633226713615,
+       "min": 3.219500650015452,
+       "max": 4.830474939982557,
+       "p05": 4.13375287203203,
+       "p10": 4.337433412847084,
+       "p25": 4.475154855284497,
+       "p50": 4.59339035387919,
+       "p75": 4.66848182017512,
+       "p90": 4.698130649622061,
+       "p95": 4.734123249853585
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.405,
+      "termination_reasons": {
+       "fall": 119,
+       "schedule_complete": 81
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.4,
+        "success": 0.4,
+        "stuck": 0.0,
+        "crossed": 0.4
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.41,
+        "success": 0.41,
+        "stuck": 0.0,
+        "crossed": 0.41
+       }
+      },
+      "crossed": 0.405,
+      "success": 0.405,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 2.9794767484468685,
+       "min": 1.526235210438388,
+       "max": 4.958423672452249,
+       "p05": 1.6191007067568504,
+       "p10": 1.655633772711069,
+       "p25": 1.746271016845368,
+       "p50": 1.9788854282312016,
+       "p75": 4.728231984317439,
+       "p90": 4.84052386001769,
+       "p95": 4.878259208332201
+      },
+      "r_max_completers": {
+       "n": 81,
+       "mean": 4.701870182169397,
+       "min": 3.706909991162047,
+       "max": 4.958423672452249,
+       "p05": 4.13520053622936,
+       "p10": 4.42893026716336,
+       "p25": 4.675042831674524,
+       "p50": 4.772581806759871,
+       "p75": 4.839316780632916,
+       "p90": 4.880244892345897,
+       "p95": 4.908816239669002
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 34,
+         "pitch_fwd": 55,
+         "roll": 11
+        },
+        "termination_reasons": {
+         "fall": 66,
+         "schedule_complete": 34
+        },
+        "slip_ratio_median": 0.31437120330649815
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 37,
+         "pitch_fwd": 54,
+         "roll": 9
+        },
+        "termination_reasons": {
+         "fall": 63,
+         "schedule_complete": 37
+        },
+        "slip_ratio_median": 0.27091398230110497
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 40,
+         "pitch_fwd": 55,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 60,
+         "schedule_complete": 40
+        },
+        "slip_ratio_median": 0.30250619952437097
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 41,
+         "pitch_fwd": 54,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 59,
+         "schedule_complete": 41
+        },
+        "slip_ratio_median": 0.27670259975074746
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 17,
+      "tdr_only": 27
+     }
+    }
+   },
+   "suite": {
+    "env_seeds_logical": [
+     1,
+     2
+    ],
+    "its_past_p2a": 0,
+    "stamps": {
+     "new": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_R_suite/suite__omni/seed001/2026-11-11_18-12-39",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_R_suite/suite__omni/seed002/2026-11-11_18-20-00",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ],
+     "tdr": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed001/2026-11-11_04-21-27",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed002/2026-11-11_04-28-52",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ]
+    },
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "lines": [
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.022052508428259454,
+      "p2a": 0.03890581596281262,
+      "worse_by": -0.016853307534553164,
+      "se_diff": 0.002642148440948019,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.007803879939420444,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.007926445322844058,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.3317340787466705
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.029623135998658734,
+      "p2a": 0.04729167644929877,
+      "worse_by": -0.017668540450640036,
+      "se_diff": 0.0027528175660703797,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.026280006324169713,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.00825845269821114,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.8337318737355306
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.06741360869964996,
+      "p2a": 0.017530288990629916,
+      "worse_by": 0.049883319709020046,
+      "se_diff": 0.003329896735338775,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.006121339151512917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.009989690206016325,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.8088712089358103
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.0028245840185986415,
+      "p2a": 0.00569033522807727,
+      "worse_by": -0.0028657512094786286,
+      "se_diff": 0.0025204983849251446,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.01117933832018414,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.0075614951547754335,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.09859729897692997
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es1",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.7418089011329381,
+      "p2a": 0.7653395769237009,
+      "worse_by": 0.023530675790762845,
+      "se_diff": 0.004122825716979383,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.05720729498693833,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.01236847715093815,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.6416308885615252
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9616372399127597,
+      "p2a": 0.9764035883856473,
+      "worse_by": 0.014766348472887603,
+      "se_diff": 0.0024220262711009714,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.004747270395472958,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.007266078813302914,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.297005593554942
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.16271139594199252,
+      "p2a": 0.17153612147799557,
+      "worse_by": 0.008824725536003053,
+      "se_diff": 0.0006041014276748356,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.009943555989956582,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.0018123042830245067,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 1.335895338198562
+     },
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.020029323288734524,
+      "p2a": 0.039275336922192094,
+      "worse_by": -0.01924601363345757,
+      "se_diff": 0.0036403058871335788,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.010450494865466897,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.010920917661400737,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.3788311931738676
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.03308327359699481,
+      "p2a": 0.047784637842102295,
+      "worse_by": -0.014701364245107484,
+      "se_diff": 0.0020735144225681188,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.01923124611325533,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.006220543267704356,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.6937186460185506
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.061763388773440564,
+      "p2a": 0.019119326762635058,
+      "worse_by": 0.042644062010805506,
+      "se_diff": 0.004648947402009267,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.023362183271427917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.0139468422060278,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.6914847326485508
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.004218646423213457,
+      "p2a": 0.007416702489680516,
+      "worse_by": -0.0031980560664670588,
+      "se_diff": 0.0022117928438288893,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.016049598703615886,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.006635378531486668,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.1100303784527771
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es2",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.7456560337032931,
+      "p2a": 0.7680587771988913,
+      "worse_by": 0.02240274349559812,
+      "se_diff": 0.004397876658457527,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.062019955473854194,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.01319362997537258,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.6108746022899731
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9644003092717215,
+      "p2a": 0.975483695594769,
+      "worse_by": 0.011083386323047506,
+      "se_diff": 0.00269412582124594,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.006925071677909345,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.00808237746373782,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.22292767501183886
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.1630210795546242,
+      "p2a": 0.17121219777756042,
+      "worse_by": 0.008191118222936222,
+      "se_diff": 0.0007363167952873103,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.007558220912239205,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.002208950385861931,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 1.2399792609991949
+     }
+    ],
+    "n_lines": 22,
+    "fails": [
+     "yaw_progress turn suite es1",
+     "yaw_progress turn suite es2"
+    ],
+    "problems": [],
+    "status": "FAIL"
+   },
+   "z": -3.6730165649723463,
+   "z_binding": {
+    "row": "suite es1",
+    "statistic": "yaw_progress turn"
+   },
+   "z_lines": [
+    {
+     "row": "suite es1",
+     "statistic": "track_err fwd",
+     "z": 25.606802812485707,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.016853307534553164,
+     "se_diff": 0.002642148440948019,
+     "slack": 0.06765697412867246,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err side",
+     "z": 14.116683348102326,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.017668540450640036,
+     "se_diff": 0.0027528175660703797,
+     "slack": 0.0388606538953093,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err back",
+     "z": 3.5397396259469773,
+     "margin": 0.06167028713341018,
+     "worse_by": 0.049883319709020046,
+     "se_diff": 0.003329896735338775,
+     "slack": 0.011786967424390137,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err diag",
+     "z": 12.668510916169897,
+     "margin": 0.02906521009413416,
+     "worse_by": -0.0028657512094786286,
+     "se_diff": 0.0025204983849251446,
+     "slack": 0.03193096130361279,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "ratio move_turn",
+     "z": 3.187753495046414,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.023530675790762845,
+     "se_diff": 0.004122825716979383,
+     "slack": 0.013142552088768265,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "facing_closed turn",
+     "z": 14.430504167923493,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.014766348472887603,
+     "se_diff": 0.0024220262711009714,
+     "slack": 0.03495106019994276,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "yaw_progress turn",
+     "z": -3.6730165649723463,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.008824725536003053,
+     "se_diff": 0.0006041014276748356,
+     "slack": -0.0022188745507731146,
+     "fails": true
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err fwd",
+     "z": 19.24280057760059,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.01924601363345757,
+     "se_diff": 0.0036403058871335788,
+     "slack": 0.07004968022757686,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err side",
+     "z": 17.310454800368085,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.014701364245107484,
+     "se_diff": 0.0020735144225681188,
+     "slack": 0.03589347768977675,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err back",
+     "z": 4.092587735963968,
+     "margin": 0.06167028713341018,
+     "worse_by": 0.042644062010805506,
+     "se_diff": 0.004648947402009267,
+     "slack": 0.019026225122604677,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err diag",
+     "z": 14.586929445322502,
+     "margin": 0.02906521009413416,
+     "worse_by": -0.0031980560664670588,
+     "se_diff": 0.0022117928438288893,
+     "slack": 0.03226326616060122,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "ratio move_turn",
+     "z": 3.2448578012049336,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.02240274349559812,
+     "se_diff": 0.004397876658457527,
+     "slack": 0.01427048438393299,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "facing_closed turn",
+     "z": 14.340095791040657,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.011083386323047506,
+     "se_diff": 0.00269412582124594,
+     "slack": 0.03863402234978286,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "yaw_progress turn",
+     "z": -2.152969004445585,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.008191118222936222,
+     "se_diff": 0.0007363167952873103,
+     "slack": -0.001585267237706284,
+     "fails": true
+    }
+   ],
+   "z_unexpected_lines": [],
+   "ledge_down_diff": -0.050000000000000044,
+   "slopes_diff": 0.19000000000000006,
+   "Q": false,
+   "E": false
+  },
+  {
+   "id": "c3",
+   "run": "RT_s20s",
+   "seed": 20,
+   "file_iter": 29500,
+   "its_after_tdr": 509,
+   "updates": 510,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-11_12-08-32_RT_s20s/model_29500.pt",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "iter": 29500,
+   "read_ok": true,
+   "G": {
+    "slopes": {
+     "row": "rt_slopes_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.81,
+     "tdr": 0.745,
+     "diff": 0.06500000000000006,
+     "se": 0.03066878948438461,
+     "ci95": [
+      0.0048891726106062225,
+      0.12511082738939389
+     ],
+     "n": 200,
+     "gain_need": 0.1,
+     "ci_lb": 0.0048891726106062225,
+     "gain": false,
+     "regress_margin": 0.06133757896876922,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.81,
+      "termination_reasons": {
+       "fall": 38,
+       "schedule_complete": 162
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.82,
+        "success": 0.82,
+        "stuck": 0.0,
+        "crossed": 0.91
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.8,
+        "success": 0.8,
+        "stuck": 0.0,
+        "crossed": 0.93
+       }
+      },
+      "crossed": 0.92,
+      "success": 0.81,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.055531696219656,
+       "min": 2.599878561640281,
+       "max": 5.579649138603182,
+       "p05": 2.8230108934694527,
+       "p10": 3.0750363493327892,
+       "p25": 3.4568591580588097,
+       "p50": 3.771854848012408,
+       "p75": 5.122246321853095,
+       "p90": 5.314988238024186,
+       "p95": 5.387142102277763
+      },
+      "r_max_completers": {
+       "n": 162,
+       "mean": 4.269254689354024,
+       "min": 3.0805350525510335,
+       "max": 5.579649138603182,
+       "p05": 3.3124690668439145,
+       "p10": 3.4119052405238985,
+       "p25": 3.562052724532588,
+       "p50": 3.8454613314375417,
+       "p75": 5.178150382393916,
+       "p90": 5.335910967692546,
+       "p95": 5.4067748544322605
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.745,
+      "termination_reasons": {
+       "fall": 51,
+       "schedule_complete": 149
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.78,
+        "success": 0.78,
+        "stuck": 0.0,
+        "crossed": 0.91
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.71,
+        "success": 0.71,
+        "stuck": 0.0,
+        "crossed": 0.85
+       }
+      },
+      "crossed": 0.88,
+      "success": 0.745,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.098596486727377,
+       "min": 1.7749730078812676,
+       "max": 5.94226028578015,
+       "p05": 2.8448283775949252,
+       "p10": 2.968159958102079,
+       "p25": 3.4043163584041736,
+       "p50": 3.7851576462909975,
+       "p75": 5.470691845182395,
+       "p90": 5.690928605327879,
+       "p95": 5.766973091010373
+      },
+      "r_max_completers": {
+       "n": 149,
+       "mean": 4.444536321845051,
+       "min": 3.329024787796097,
+       "max": 5.94226028578015,
+       "p05": 3.4028689609999683,
+       "p10": 3.476884248294838,
+       "p25": 3.6818715038028156,
+       "p50": 3.9971609528043355,
+       "p75": 5.610310648378243,
+       "p90": 5.724887906320491,
+       "p95": 5.7926760495990495
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 82,
+         "pitch_back": 2,
+         "pitch_fwd": 3,
+         "roll": 13
+        },
+        "termination_reasons": {
+         "fall": 18,
+         "schedule_complete": 82
+        },
+        "slip_ratio_median": 0.243580632220128
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 80,
+         "pitch_fwd": 5,
+         "roll": 15
+        },
+        "termination_reasons": {
+         "fall": 20,
+         "schedule_complete": 80
+        },
+        "slip_ratio_median": 0.2328318428398809
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 78,
+         "pitch_back": 1,
+         "pitch_fwd": 2,
+         "roll": 19
+        },
+        "termination_reasons": {
+         "fall": 22,
+         "schedule_complete": 78
+        },
+        "slip_ratio_median": 0.22338767618130936
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 71,
+         "pitch_back": 2,
+         "pitch_fwd": 2,
+         "roll": 25
+        },
+        "termination_reasons": {
+         "fall": 29,
+         "schedule_complete": 71
+        },
+        "slip_ratio_median": 0.22487949174701266
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 26,
+      "tdr_only": 13
+     }
+    },
+    "ledge_down": {
+     "row": "rt_ledge_down_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.55,
+     "tdr": 0.405,
+     "diff": 0.14500000000000002,
+     "se": 0.028772362797266055,
+     "ci95": [
+      0.08860616891735855,
+      0.20139383108264147
+     ],
+     "n": 200,
+     "gain_need": 0.1,
+     "ci_lb": 0.08860616891735855,
+     "gain": true,
+     "regress_margin": 0.05754472559453211,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.555,
+      "termination_reasons": {
+       "fall": 89,
+       "schedule_complete": 111
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.55,
+        "success": 0.55,
+        "stuck": 0.0,
+        "crossed": 0.55
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.56,
+        "success": 0.55,
+        "stuck": 0.01,
+        "crossed": 0.55
+       }
+      },
+      "crossed": 0.55,
+      "success": 0.55,
+      "stuck": 0.005,
+      "r_max_all": {
+       "n": 200,
+       "mean": 3.2949734691983497,
+       "min": 1.5192760081013512,
+       "max": 4.780234699537059,
+       "p05": 1.5912930762850537,
+       "p10": 1.637319107218277,
+       "p25": 1.8114311735631092,
+       "p50": 4.23515295192893,
+       "p75": 4.5839658063163355,
+       "p90": 4.6724206439261335,
+       "p95": 4.699810504904968
+      },
+      "r_max_completers": {
+       "n": 111,
+       "mean": 4.472700300572291,
+       "min": 3.1989491561571235,
+       "max": 4.780234699537059,
+       "p05": 3.8072478193557364,
+       "p10": 4.242057507689216,
+       "p25": 4.377988259427537,
+       "p50": 4.566694365564359,
+       "p75": 4.643313468916638,
+       "p90": 4.697064902207977,
+       "p95": 4.731949892236979
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.405,
+      "termination_reasons": {
+       "fall": 119,
+       "schedule_complete": 81
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.4,
+        "success": 0.4,
+        "stuck": 0.0,
+        "crossed": 0.4
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.41,
+        "success": 0.41,
+        "stuck": 0.0,
+        "crossed": 0.41
+       }
+      },
+      "crossed": 0.405,
+      "success": 0.405,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 2.9794767484468685,
+       "min": 1.526235210438388,
+       "max": 4.958423672452249,
+       "p05": 1.6191007067568504,
+       "p10": 1.655633772711069,
+       "p25": 1.746271016845368,
+       "p50": 1.9788854282312016,
+       "p75": 4.728231984317439,
+       "p90": 4.84052386001769,
+       "p95": 4.878259208332201
+      },
+      "r_max_completers": {
+       "n": 81,
+       "mean": 4.701870182169397,
+       "min": 3.706909991162047,
+       "max": 4.958423672452249,
+       "p05": 4.13520053622936,
+       "p10": 4.42893026716336,
+       "p25": 4.675042831674524,
+       "p50": 4.772581806759871,
+       "p75": 4.839316780632916,
+       "p90": 4.880244892345897,
+       "p95": 4.908816239669002
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 55,
+         "pitch_fwd": 38,
+         "roll": 7
+        },
+        "termination_reasons": {
+         "fall": 45,
+         "schedule_complete": 55
+        },
+        "slip_ratio_median": 0.311116746555719
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 56,
+         "pitch_fwd": 39,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 44,
+         "schedule_complete": 56
+        },
+        "slip_ratio_median": 0.2897251889205318
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 40,
+         "pitch_fwd": 55,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 60,
+         "schedule_complete": 40
+        },
+        "slip_ratio_median": 0.30250619952437097
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 41,
+         "pitch_fwd": 54,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 59,
+         "schedule_complete": 41
+        },
+        "slip_ratio_median": 0.27670259975074746
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 33,
+      "tdr_only": 4
+     }
+    }
+   },
+   "suite": {
+    "env_seeds_logical": [
+     1,
+     2
+    ],
+    "its_past_p2a": 0,
+    "stamps": {
+     "new": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_R_suite/suite__omni/seed001/2026-11-11_18-44-15",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_R_suite/suite__omni/seed002/2026-11-11_18-51-17",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ],
+     "tdr": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed001/2026-11-11_04-21-27",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed002/2026-11-11_04-28-52",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ]
+    },
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "lines": [
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.009406141424961434,
+      "p2a": 0.03890581596281262,
+      "worse_by": -0.029499674537851184,
+      "se_diff": 0.0024839797749944504,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.007803879939420444,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.007451939324983351,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.5806603443316407
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.027808273317293963,
+      "p2a": 0.04729167644929877,
+      "worse_by": -0.019483403132004806,
+      "se_diff": 0.002586619672765806,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.026280006324169713,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.007759859018297417,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.919370462170951
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.014167069599738236,
+      "p2a": 0.017530288990629916,
+      "worse_by": -0.0033632193908916808,
+      "se_diff": 0.0022458191882785703,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.006121339151512917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.006737457564835711,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.05453549103178474
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.03376569097385229,
+      "p2a": 0.00569033522807727,
+      "worse_by": 0.02807535574577502,
+      "se_diff": 0.002529375845274688,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.01117933832018414,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.007588127535824064,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.965943671311741
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es1",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.7364628667348925,
+      "p2a": 0.7653395769237009,
+      "worse_by": 0.02887671018880844,
+      "se_diff": 0.0037830866605370376,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.05720729498693833,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.011349259981611112,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.7874057414216806
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9640385846987718,
+      "p2a": 0.9764035883856473,
+      "worse_by": 0.012365003686875542,
+      "se_diff": 0.002003826444831389,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.004747270395472958,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.006011479334494167,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.24870571530074104
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.15081783912687827,
+      "p2a": 0.17153612147799557,
+      "worse_by": 0.020718282351117306,
+      "se_diff": 0.0008156989753288759,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.009943555989956582,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.002447096925986628,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 3.136353271886005
+     },
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.007665133494905163,
+      "p2a": 0.039275336922192094,
+      "worse_by": -0.03161020342728693,
+      "se_diff": 0.0032022574817559078,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.010450494865466897,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.009606772445267723,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.6222031901718276
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.028258047646140927,
+      "p2a": 0.047784637842102295,
+      "worse_by": -0.01952659019596137,
+      "se_diff": 0.0027211227870733096,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.01923124611325533,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.00816336836121993,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.9214083459369717
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.01123816757090168,
+      "p2a": 0.019119326762635058,
+      "worse_by": -0.007881159191733378,
+      "se_diff": 0.0024262752024543136,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.023362183271427917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.00727882560736294,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.12779507860380498
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.0353669723438208,
+      "p2a": 0.007416702489680516,
+      "worse_by": 0.027950269854140286,
+      "se_diff": 0.0021395136469769555,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.016049598703615886,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.0064185409409308666,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.961640041947645
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es2",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.738757781803773,
+      "p2a": 0.7680587771988913,
+      "worse_by": 0.029300995395118212,
+      "se_diff": 0.003950316583910579,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.062019955473854194,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.011850949751731739,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.7989750858956254
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9675687286975927,
+      "p2a": 0.975483695594769,
+      "worse_by": 0.007914966897176301,
+      "se_diff": 0.00342141838951874,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.006925071677909345,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.010264255168556221,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.15919910366329454
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.148590258502116,
+      "p2a": 0.17121219777756042,
+      "worse_by": 0.022621939275444425,
+      "se_diff": 0.0006707065909010094,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.007558220912239205,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.002012119772703028,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 3.424530666226797
+     }
+    ],
+    "n_lines": 22,
+    "fails": [
+     "yaw_progress turn suite es1",
+     "yaw_progress turn suite es2"
+    ],
+    "problems": [],
+    "status": "FAIL"
+   },
+   "z": -23.879425828660633,
+   "z_binding": {
+    "row": "suite es2",
+    "statistic": "yaw_progress turn"
+   },
+   "z_lines": [
+    {
+     "row": "suite es1",
+     "statistic": "track_err fwd",
+     "z": 32.32850039294297,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.029499674537851184,
+     "se_diff": 0.0024839797749944504,
+     "slack": 0.08030334113197048,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err side",
+     "z": 15.725356535768086,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.019483403132004806,
+     "se_diff": 0.002586619672765806,
+     "slack": 0.04067551657667407,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err back",
+     "z": 28.95758788762969,
+     "margin": 0.06167028713341018,
+     "worse_by": -0.0033632193908916808,
+     "se_diff": 0.0022458191882785703,
+     "slack": 0.06503350652430187,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err diag",
+     "z": 0.39134332298157976,
+     "margin": 0.02906521009413416,
+     "worse_by": 0.02807535574577502,
+     "se_diff": 0.002529375845274688,
+     "slack": 0.0009898543483591385,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "ratio move_turn",
+     "z": 2.0608879442417782,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.02887671018880844,
+     "se_diff": 0.0037830866605370376,
+     "slack": 0.007796517690722669,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "facing_closed turn",
+     "z": 18.640538995929774,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.012365003686875542,
+     "se_diff": 0.002003826444831389,
+     "slack": 0.037352404985954824,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "yaw_progress turn",
+     "z": -17.30102867935745,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.020718282351117306,
+     "se_diff": 0.0008156989753288759,
+     "slack": -0.014112431365887367,
+     "fails": true
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err fwd",
+     "z": 25.736178458771487,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.03161020342728693,
+     "se_diff": 0.0032022574817559078,
+     "slack": 0.08241387002140622,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err side",
+     "z": 14.96393467948774,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.01952659019596137,
+     "se_diff": 0.0027211227870733096,
+     "slack": 0.040718703640630634,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err back",
+     "z": 28.665934620602137,
+     "margin": 0.06167028713341018,
+     "worse_by": -0.007881159191733378,
+     "se_diff": 0.0024262752024543136,
+     "slack": 0.06955144632514357,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err diag",
+     "z": 0.521118545595275,
+     "margin": 0.02906521009413416,
+     "worse_by": 0.027950269854140286,
+     "se_diff": 0.0021395136469769555,
+     "slack": 0.0011149402399938738,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "ratio move_turn",
+     "z": 1.8662383957882243,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.029300995395118212,
+     "se_diff": 0.003950316583910579,
+     "slack": 0.007372232484412898,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "facing_closed turn",
+     "z": 12.217869028737534,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.007914966897176301,
+     "se_diff": 0.00342141838951874,
+     "slack": 0.041802441775654064,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "yaw_progress turn",
+     "z": -23.879425828660633,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.022621939275444425,
+     "se_diff": 0.0006707065909010094,
+     "slack": -0.016016088290214486,
+     "fails": true
+    }
+   ],
+   "z_unexpected_lines": [],
+   "ledge_down_diff": 0.14500000000000002,
+   "slopes_diff": 0.06500000000000006,
+   "Q": false,
+   "E": false
+  },
+  {
+   "id": "c4",
+   "run": "RT_s20s",
+   "seed": 20,
+   "file_iter": 30000,
+   "its_after_tdr": 1009,
+   "updates": 1010,
+   "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-11_12-08-32_RT_s20s/model_30000.pt",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "iter": 30000,
+   "read_ok": true,
+   "G": {
+    "slopes": {
+     "row": "rt_slopes_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.875,
+     "tdr": 0.745,
+     "diff": 0.13,
+     "se": 0.02996121219072254,
+     "ci95": [
+      0.07127602410618383,
+      0.18872397589381618
+     ],
+     "n": 200,
+     "gain_need": 0.1,
+     "ci_lb": 0.07127602410618383,
+     "gain": true,
+     "regress_margin": 0.05992242438144508,
+     "regress": false,
+     "le_noise": false,
+     "new_row": {
+      "n": 200,
+      "completion": 0.88,
+      "termination_reasons": {
+       "fall": 24,
+       "schedule_complete": 176
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.89,
+        "success": 0.89,
+        "stuck": 0.0,
+        "crossed": 0.95
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.87,
+        "success": 0.86,
+        "stuck": 0.01,
+        "crossed": 0.9
+       }
+      },
+      "crossed": 0.925,
+      "success": 0.875,
+      "stuck": 0.005,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.244139023629548,
+       "min": 2.589332007390626,
+       "max": 5.745745915398743,
+       "p05": 2.9400928184731767,
+       "p10": 3.228341059101501,
+       "p25": 3.433407028148075,
+       "p50": 3.7978360825404254,
+       "p75": 5.348859219893733,
+       "p90": 5.534541305013491,
+       "p95": 5.622483899829972
+      },
+      "r_max_completers": {
+       "n": 176,
+       "mean": 4.396735386758208,
+       "min": 2.94098801169867,
+       "max": 5.745745915398743,
+       "p05": 3.293505572420562,
+       "p10": 3.356319042313548,
+       "p25": 3.5521170893036196,
+       "p50": 3.8545021687098044,
+       "p75": 5.373647370877933,
+       "p90": 5.54189527489233,
+       "p95": 5.630613981475664
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.745,
+      "termination_reasons": {
+       "fall": 51,
+       "schedule_complete": 149
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.78,
+        "success": 0.78,
+        "stuck": 0.0,
+        "crossed": 0.91
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.71,
+        "success": 0.71,
+        "stuck": 0.0,
+        "crossed": 0.85
+       }
+      },
+      "crossed": 0.88,
+      "success": 0.745,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 4.098596486727377,
+       "min": 1.7749730078812676,
+       "max": 5.94226028578015,
+       "p05": 2.8448283775949252,
+       "p10": 2.968159958102079,
+       "p25": 3.4043163584041736,
+       "p50": 3.7851576462909975,
+       "p75": 5.470691845182395,
+       "p90": 5.690928605327879,
+       "p95": 5.766973091010373
+      },
+      "r_max_completers": {
+       "n": 149,
+       "mean": 4.444536321845051,
+       "min": 3.329024787796097,
+       "max": 5.94226028578015,
+       "p05": 3.4028689609999683,
+       "p10": 3.476884248294838,
+       "p25": 3.6818715038028156,
+       "p50": 3.9971609528043355,
+       "p75": 5.610310648378243,
+       "p90": 5.724887906320491,
+       "p95": 5.7926760495990495
+      },
+      "slopes_variant": {
+       "up_sunk_pad": 100,
+       "down_raised_pad": 100,
+       "flat": 0,
+       "n": 200,
+       "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 89,
+         "pitch_back": 1,
+         "pitch_fwd": 2,
+         "roll": 8
+        },
+        "termination_reasons": {
+         "fall": 11,
+         "schedule_complete": 89
+        },
+        "slip_ratio_median": 0.23526566828191664
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 87,
+         "pitch_fwd": 2,
+         "roll": 11
+        },
+        "termination_reasons": {
+         "fall": 13,
+         "schedule_complete": 87
+        },
+        "slip_ratio_median": 0.2236865438521585
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 78,
+         "pitch_back": 1,
+         "pitch_fwd": 2,
+         "roll": 19
+        },
+        "termination_reasons": {
+         "fall": 22,
+         "schedule_complete": 78
+        },
+        "slip_ratio_median": 0.22338767618130936
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 71,
+         "pitch_back": 2,
+         "pitch_fwd": 2,
+         "roll": 25
+        },
+        "termination_reasons": {
+         "fall": 29,
+         "schedule_complete": 71
+        },
+        "slip_ratio_median": 0.22487949174701266
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 33,
+      "tdr_only": 7
+     }
+    },
+    "ledge_down": {
+     "row": "rt_ledge_down_b2__omni",
+     "band": "b2",
+     "status": "OK",
+     "why": null,
+     "new": 0.445,
+     "tdr": 0.405,
+     "diff": 0.03999999999999998,
+     "se": 0.03290262518021928,
+     "ci95": [
+      -0.02448914535322981,
+      0.10448914535322977
+     ],
+     "n": 200,
+     "gain_need": 0.1,
+     "ci_lb": -0.02448914535322981,
+     "gain": false,
+     "regress_margin": 0.06580525036043856,
+     "regress": false,
+     "le_noise": true,
+     "new_row": {
+      "n": 200,
+      "completion": 0.445,
+      "termination_reasons": {
+       "fall": 111,
+       "schedule_complete": 89
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.46,
+        "success": 0.46,
+        "stuck": 0.0,
+        "crossed": 0.46
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.43,
+        "success": 0.43,
+        "stuck": 0.0,
+        "crossed": 0.43
+       }
+      },
+      "crossed": 0.445,
+      "success": 0.445,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 3.050922149220511,
+       "min": 1.4055729026367696,
+       "max": 4.84717902558813,
+       "p05": 1.6704676115146742,
+       "p10": 1.7538441677033187,
+       "p25": 1.884430261621075,
+       "p50": 2.235363351419707,
+       "p75": 4.433820876530319,
+       "p90": 4.609444856927911,
+       "p95": 4.67691161113874
+      },
+      "r_max_completers": {
+       "n": 89,
+       "mean": 4.453289568859905,
+       "min": 3.6797814404033606,
+       "max": 4.84717902558813,
+       "p05": 4.140409118926648,
+       "p10": 4.2199957208730865,
+       "p25": 4.350375374282305,
+       "p50": 4.450966177632586,
+       "p75": 4.604010216822251,
+       "p90": 4.677857095135712,
+       "p95": 4.719165120618655
+      }
+     },
+     "tdr_row": {
+      "n": 200,
+      "completion": 0.405,
+      "termination_reasons": {
+       "fall": 119,
+       "schedule_complete": 81
+      },
+      "per_es": {
+       "es1": {
+        "n": 100,
+        "completion": 0.4,
+        "success": 0.4,
+        "stuck": 0.0,
+        "crossed": 0.4
+       },
+       "es2": {
+        "n": 100,
+        "completion": 0.41,
+        "success": 0.41,
+        "stuck": 0.0,
+        "crossed": 0.41
+       }
+      },
+      "crossed": 0.405,
+      "success": 0.405,
+      "stuck": 0.0,
+      "r_max_all": {
+       "n": 200,
+       "mean": 2.9794767484468685,
+       "min": 1.526235210438388,
+       "max": 4.958423672452249,
+       "p05": 1.6191007067568504,
+       "p10": 1.655633772711069,
+       "p25": 1.746271016845368,
+       "p50": 1.9788854282312016,
+       "p75": 4.728231984317439,
+       "p90": 4.84052386001769,
+       "p95": 4.878259208332201
+      },
+      "r_max_completers": {
+       "n": 81,
+       "mean": 4.701870182169397,
+       "min": 3.706909991162047,
+       "max": 4.958423672452249,
+       "p05": 4.13520053622936,
+       "p10": 4.42893026716336,
+       "p25": 4.675042831674524,
+       "p50": 4.772581806759871,
+       "p75": 4.839316780632916,
+       "p90": 4.880244892345897,
+       "p95": 4.908816239669002
+      }
+     },
+     "aggregate": {
+      "new": {
+       "es1": {
+        "fall_classes": {
+         "none": 46,
+         "pitch_fwd": 37,
+         "roll": 17
+        },
+        "termination_reasons": {
+         "fall": 54,
+         "schedule_complete": 46
+        },
+        "slip_ratio_median": 0.2993078898621727
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 43,
+         "pitch_fwd": 47,
+         "roll": 10
+        },
+        "termination_reasons": {
+         "fall": 57,
+         "schedule_complete": 43
+        },
+        "slip_ratio_median": 0.32863372352339637
+       }
+      },
+      "ref": {
+       "es1": {
+        "fall_classes": {
+         "none": 40,
+         "pitch_fwd": 55,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 60,
+         "schedule_complete": 40
+        },
+        "slip_ratio_median": 0.30250619952437097
+       },
+       "es2": {
+        "fall_classes": {
+         "none": 41,
+         "pitch_fwd": 54,
+         "roll": 5
+        },
+        "termination_reasons": {
+         "fall": 59,
+         "schedule_complete": 41
+        },
+        "slip_ratio_median": 0.27670259975074746
+       }
+      }
+     },
+     "paired_wins_losses": {
+      "new_only": 26,
+      "tdr_only": 18
+     }
+    }
+   },
+   "suite": {
+    "env_seeds_logical": [
+     1,
+     2
+    ],
+    "its_past_p2a": 0,
+    "stamps": {
+     "new": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_R_suite/suite__omni/seed001/2026-11-11_19-16-04",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_R_suite/suite__omni/seed002/2026-11-11_19-23-45",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ],
+     "tdr": [
+      {
+       "row": "R_suite",
+       "es": 1,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed001/2026-11-11_04-21-27",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      },
+      {
+       "row": "R_suite",
+       "es": 2,
+       "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+       "status": "OK",
+       "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed002/2026-11-11_04-28-52",
+       "problems": [],
+       "notes": [],
+       "duplicates": [],
+       "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+       "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+      }
+     ]
+    },
+    "translate_statistic": "track_err",
+    "thresholds_version": "v1.2",
+    "lines": [
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.009009789788723244,
+      "p2a": 0.03890581596281262,
+      "worse_by": -0.029896026174089374,
+      "se_diff": 0.003161574414419988,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.007803879939420444,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.009484723243259963,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.588461978796427
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.03493601840882432,
+      "p2a": 0.04729167644929877,
+      "worse_by": -0.012355658040474449,
+      "se_diff": 0.0027078489513045487,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.026280006324169713,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.008123546853913647,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.5830309502982787
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.04511773725747892,
+      "p2a": 0.017530288990629916,
+      "worse_by": 0.027587448266849002,
+      "se_diff": 0.0028552706912583843,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.006121339151512917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.008565812073775153,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.4473377626273993
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.03505615428535713,
+      "p2a": 0.00569033522807727,
+      "worse_by": 0.029365819057279863,
+      "se_diff": 0.0027647882209914263,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.01117933832018414,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.008294364662974278,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 1.0103425697654382
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es1",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.6774563880233324,
+      "p2a": 0.7653395769237009,
+      "worse_by": 0.0878831889003685,
+      "se_diff": 0.004117986583906618,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.05720729498693833,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.012353959751719854,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 2.396385428330945
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es1",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es1",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es1",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es1",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.946831133773633,
+      "p2a": 0.9764035883856473,
+      "worse_by": 0.0295724546120143,
+      "se_diff": 0.0026315940133590566,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.004747270395472958,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.00789478204007717,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.5948108600474001
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es1",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.13891275750430182,
+      "p2a": 0.17153612147799557,
+      "worse_by": 0.03262336397369375,
+      "se_diff": 0.0007690116410457121,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.009943555989956582,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.002307034923137136,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 4.93855584187965
+     },
+     {
+      "statistic": "track_err fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.fwd.ratio.median - 1|",
+      "head": 0.008230138436862822,
+      "p2a": 0.039275336922192094,
+      "worse_by": -0.031045198485329273,
+      "se_diff": 0.003646658189675029,
+      "R": 0.05080366659411929,
+      "R_source": "cat.fwd.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.010450494865466897,
+      "margin": {
+       "margin": 0.05080366659411929,
+       "binds": "R",
+       "R": 0.05080366659411929,
+       "3SE": 0.010939974569025086,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.6110818483507422
+     },
+     {
+      "statistic": "track_err side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.side.ratio.median - 1|",
+      "head": 0.03439132331698236,
+      "p2a": 0.047784637842102295,
+      "worse_by": -0.013393314525119937,
+      "se_diff": 0.0030724959567418383,
+      "R": 0.021192113444669265,
+      "R_source": "cat.side.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": 0.01923124611325533,
+      "margin": {
+       "margin": 0.021192113444669265,
+       "binds": "R",
+       "R": 0.021192113444669265,
+       "3SE": 0.009217487870225515,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": -0.631995225964069
+     },
+     {
+      "statistic": "track_err back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.back.ratio.median - 1|",
+      "head": 0.042133101277578966,
+      "p2a": 0.019119326762635058,
+      "worse_by": 0.023013774514943908,
+      "se_diff": 0.0022645913325319528,
+      "R": 0.06167028713341018,
+      "R_source": "cat.back.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.023362183271427917,
+      "margin": {
+       "margin": 0.06167028713341018,
+       "binds": "R",
+       "R": 0.06167028713341018,
+       "3SE": 0.006793773997595858,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.37317443431321534
+     },
+     {
+      "statistic": "track_err diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "track_err",
+      "watch": false,
+      "key_path": "|aggregate.suite.by_category.diag.ratio.median - 1|",
+      "head": 0.03581323634384026,
+      "p2a": 0.007416702489680516,
+      "worse_by": 0.028396533854159745,
+      "se_diff": 0.002400333118501351,
+      "R": 0.02906521009413416,
+      "R_source": "cat.diag.ratio@guard (99 %) on |r - 1| (the same median's resolution; CHARTER 2026-10-22)",
+      "worse_by_rule": "|head - 1| - |p2a - 1| (an increase in tracking error; one-sided)",
+      "drift": -0.016049598703615886,
+      "margin": {
+       "margin": 0.02906521009413416,
+       "binds": "R",
+       "R": 0.02906521009413416,
+       "3SE": 0.007200999355504053,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.9769939306198455
+     },
+     {
+      "statistic": "ratio move_turn",
+      "row": "suite es2",
+      "category": "move_turn",
+      "key": "ratio",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.move_turn.ratio.median",
+      "head": 0.6819311969045896,
+      "p2a": 0.7680587771988913,
+      "worse_by": 0.08612758029430168,
+      "se_diff": 0.003337307138067448,
+      "R": 0.03667322787953111,
+      "R_source": "cat.move_turn.ratio@guard (99 %)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.062019955473854194,
+      "margin": {
+       "margin": 0.03667322787953111,
+       "binds": "R",
+       "R": 0.03667322787953111,
+       "3SE": 0.010011921414202344,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 2.348513759880219
+     },
+     {
+      "statistic": "survival fwd",
+      "row": "suite es2",
+      "category": "fwd",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.11000000000000004,
+      "R_source": "max(cat.fwd.survival 0.1100, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.11000000000000004,
+       "binds": "R",
+       "R": 0.11000000000000004,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival side",
+      "row": "suite es2",
+      "category": "side",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.050701576452323587,
+      "R_source": "max(cat.side.survival 0.0450, binomial guard G(n=200) 0.0507)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.050701576452323587,
+       "binds": "R",
+       "R": 0.050701576452323587,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival back",
+      "row": "suite es2",
+      "category": "back",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.10499999999999998,
+      "R_source": "max(cat.back.survival 0.1050, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.10499999999999998,
+       "binds": "R",
+       "R": 0.10499999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "survival diag",
+      "row": "suite es2",
+      "category": "diag",
+      "key": "survival",
+      "watch": false,
+      "key_path": "own-hold survival (n_steps >= prologue + settle + hold)",
+      "head": 1.0,
+      "p2a": 1.0,
+      "worse_by": 0.0,
+      "se_diff": 0.0,
+      "R": 0.14004999999999998,
+      "R_source": "max(cat.diag.survival 0.1400, binomial guard G(n=100) 0.0717)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.0,
+      "margin": {
+       "margin": 0.14004999999999998,
+       "binds": "R",
+       "R": 0.14004999999999998,
+       "3SE": 0.0,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.0
+     },
+     {
+      "statistic": "facing_closed turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "facing_closed",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.facing_closed.median",
+      "head": 0.9467847773979812,
+      "p2a": 0.975483695594769,
+      "worse_by": 0.028698918196787826,
+      "se_diff": 0.0026408086012597877,
+      "R": 0.049717408672830365,
+      "R_source": "cat.turn.facing_closed (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": -0.006925071677909345,
+      "margin": {
+       "margin": 0.049717408672830365,
+       "binds": "R",
+       "R": 0.049717408672830365,
+       "3SE": 0.007922425803779363,
+       "drift_scaled": 0.0
+      },
+      "fails": false,
+      "margin_used": 0.5772408289748868
+     },
+     {
+      "statistic": "yaw_progress turn",
+      "row": "suite es2",
+      "category": "turn",
+      "key": "yaw_progress",
+      "watch": false,
+      "key_path": "aggregate.suite.by_category.turn.yaw_progress.median",
+      "head": 0.13888037439861517,
+      "p2a": 0.17121219777756042,
+      "worse_by": 0.032331823378945246,
+      "se_diff": 0.0009566102479529278,
+      "R": 0.006605850985229938,
+      "R_source": "cat.turn.yaw_progress (95 % block)",
+      "worse_by_rule": "p2a - head (a one-sided drop)",
+      "drift": 0.007558220912239205,
+      "margin": {
+       "margin": 0.006605850985229938,
+       "binds": "R",
+       "R": 0.006605850985229938,
+       "3SE": 0.0028698307438587835,
+       "drift_scaled": 0.0
+      },
+      "fails": true,
+      "margin_used": 4.89442214958166
+     }
+    ],
+    "n_lines": 22,
+    "fails": [
+     "track_err diag suite es1",
+     "ratio move_turn suite es1",
+     "yaw_progress turn suite es1",
+     "ratio move_turn suite es2",
+     "yaw_progress turn suite es2"
+    ],
+    "problems": [],
+    "status": "FAIL"
+   },
+   "z": -33.83240460844632,
+   "z_binding": {
+    "row": "suite es1",
+    "statistic": "yaw_progress turn"
+   },
+   "z_lines": [
+    {
+     "row": "suite es1",
+     "statistic": "track_err fwd",
+     "z": 25.525159996277857,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.029896026174089374,
+     "se_diff": 0.003161574414419988,
+     "slack": 0.08069969276820867,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err side",
+     "z": 12.389085243835904,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.012355658040474449,
+     "se_diff": 0.0027078489513045487,
+     "slack": 0.033547771485143714,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err back",
+     "z": 11.936815297725794,
+     "margin": 0.06167028713341018,
+     "worse_by": 0.027587448266849002,
+     "se_diff": 0.0028552706912583843,
+     "slack": 0.03408283886656118,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "track_err diag",
+     "z": -0.1087276634294642,
+     "margin": 0.02906521009413416,
+     "worse_by": 0.029365819057279863,
+     "se_diff": 0.0027647882209914263,
+     "slack": -0.0003006089631457029,
+     "fails": true
+    },
+    {
+     "row": "suite es1",
+     "statistic": "ratio move_turn",
+     "z": -12.43567942182462,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.0878831889003685,
+     "se_diff": 0.004117986583906618,
+     "slack": -0.05120996102083739,
+     "fails": true
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "facing_closed turn",
+     "z": 7.655038717428286,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.0295724546120143,
+     "se_diff": 0.0026315940133590566,
+     "slack": 0.020144954060816067,
+     "fails": false
+    },
+    {
+     "row": "suite es1",
+     "statistic": "yaw_progress turn",
+     "z": -33.83240460844632,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.03262336397369375,
+     "se_diff": 0.0007690116410457121,
+     "slack": -0.026017512988463814,
+     "fails": true
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err fwd",
+     "z": 22.444896346795396,
+     "margin": 0.05080366659411929,
+     "worse_by": -0.031045198485329273,
+     "se_diff": 0.003646658189675029,
+     "slack": 0.08184886507944857,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err side",
+     "z": 11.256460043145042,
+     "margin": 0.021192113444669265,
+     "worse_by": -0.013393314525119937,
+     "se_diff": 0.0030724959567418383,
+     "slack": 0.0345854279697892,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err back",
+     "z": 17.069972874640438,
+     "margin": 0.06167028713341018,
+     "worse_by": 0.023013774514943908,
+     "se_diff": 0.0022645913325319528,
+     "slack": 0.038656512618466275,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "track_err diag",
+     "z": 0.2785764337542881,
+     "margin": 0.02906521009413416,
+     "worse_by": 0.028396533854159745,
+     "se_diff": 0.002400333118501351,
+     "slack": 0.0006686762399744153,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "ratio move_turn",
+     "z": -14.818639810121988,
+     "margin": 0.03667322787953111,
+     "worse_by": 0.08612758029430168,
+     "se_diff": 0.003337307138067448,
+     "slack": -0.049454352414770565,
+     "fails": true
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival fwd",
+     "z": "+inf",
+     "margin": 0.11000000000000004,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.11000000000000004,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival side",
+     "z": "+inf",
+     "margin": 0.050701576452323587,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.050701576452323587,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival back",
+     "z": "+inf",
+     "margin": 0.10499999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.10499999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "survival diag",
+     "z": "+inf",
+     "margin": 0.14004999999999998,
+     "worse_by": 0.0,
+     "se_diff": 0.0,
+     "slack": 0.14004999999999998,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "facing_closed turn",
+     "z": 7.959111639524253,
+     "margin": 0.049717408672830365,
+     "worse_by": 0.028698918196787826,
+     "se_diff": 0.0026408086012597877,
+     "slack": 0.02101849047604254,
+     "fails": false
+    },
+    {
+     "row": "suite es2",
+     "statistic": "yaw_progress turn",
+     "z": -26.89284632771487,
+     "margin": 0.006605850985229938,
+     "worse_by": 0.032331823378945246,
+     "se_diff": 0.0009566102479529278,
+     "slack": -0.025725972393715307,
+     "fails": true
+    }
+   ],
+   "z_unexpected_lines": [],
+   "ledge_down_diff": 0.03999999999999998,
+   "slopes_diff": 0.13,
+   "Q": false,
+   "E": false
+  }
+ ],
+ "Q": [
+  "c1"
+ ],
+ "E": [],
+ "tier1_members": [],
+ "pick": {
+  "id": "c1",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_29500.pt",
+  "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+  "run": "RT_s19",
+  "seed": 19,
+  "file_iter": 29500,
+  "its_after_tdr": 509,
+  "tier": 3,
+  "reason": "tier 3: E empty, Q = ['c1']; largest z in Q; best z -0.398141; tie set (within 0.1) ['c1'] -> c1 (fewer iterations, then seed 19)",
+  "flag": "R tracking predicted marginal",
+  "tie_set": [
+   "c1"
+  ]
+ },
+ "served_stamps": [
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_rt_slopes_b2/rt_slopes_b2__omni/seed001/2026-11-11_11-59-38",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "es": 1,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_rt_slopes_b2/rt_slopes_b2__omni/seed002/2026-11-11_12-04-31",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "es": 2,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT9_03c3e472_rt_slopes_b2/rt_slopes_b2__omni/seed001/2026-11-11_08-23-43",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "es": 1,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT9_03c3e472_rt_slopes_b2/rt_slopes_b2__omni/seed002/2026-11-11_08-33-48",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "es": 2,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed001/2026-11-11_12-09-25",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "es": 1,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed002/2026-11-11_12-13-01",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "es": 2,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT9_03c3e472_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed001/2026-11-11_09-13-41",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "es": 1,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT9_03c3e472_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed002/2026-11-11_09-20-58",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "es": 2,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_R_suite/suite__omni/seed001/2026-11-11_11-52-29",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "es": 1,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_6d1f29be_R_suite/suite__omni/seed002/2026-11-11_17-47-36",
+   "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+   "es": 2,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed001/2026-11-11_04-21-27",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "es": 1,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed002/2026-11-11_04-28-52",
+   "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+   "es": 2,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_rt_slopes_b2/rt_slopes_b2__omni/seed001/2026-11-11_17-55-03",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "es": 1,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_rt_slopes_b2/rt_slopes_b2__omni/seed002/2026-11-11_18-00-13",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "es": 2,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed001/2026-11-11_18-05-19",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "es": 1,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed002/2026-11-11_18-08-58",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "es": 2,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_R_suite/suite__omni/seed001/2026-11-11_18-12-39",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "es": 1,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_a346185c_R_suite/suite__omni/seed002/2026-11-11_18-20-00",
+   "sha256": "a346185cd00119a385cbc45654d7ff9e4bf97a2bfbaaa9bfd91242ab8ec71faa",
+   "es": 2,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_rt_slopes_b2/rt_slopes_b2__omni/seed001/2026-11-11_18-27-22",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "es": 1,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_rt_slopes_b2/rt_slopes_b2__omni/seed002/2026-11-11_18-32-12",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "es": 2,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed001/2026-11-11_18-37-00",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "es": 1,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed002/2026-11-11_18-40-38",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "es": 2,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_R_suite/suite__omni/seed001/2026-11-11_18-44-15",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "es": 1,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_17fb0214_R_suite/suite__omni/seed002/2026-11-11_18-51-17",
+   "sha256": "17fb0214abd303b7f1915134d8968887b703ba76ca837fc797c674c4793fbca0",
+   "es": 2,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_rt_slopes_b2/rt_slopes_b2__omni/seed001/2026-11-11_18-58-21",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "es": 1,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_rt_slopes_b2/rt_slopes_b2__omni/seed002/2026-11-11_19-03-20",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "es": 2,
+   "rid": "rt_slopes_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed001/2026-11-11_19-08-25",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "es": 1,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed002/2026-11-11_19-12-13",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "es": 2,
+   "rid": "rt_ledge_down_b2__omni",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_R_suite/suite__omni/seed001/2026-11-11_19-16-04",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "es": 1,
+   "rid": "R_suite",
+   "status": "OK"
+  },
+  {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_1245089a_R_suite/suite__omni/seed002/2026-11-11_19-23-45",
+   "sha256": "1245089a6bef402e3e1565423c7823dafb3d0eb60be82529fe81d27b78361462",
+   "es": 2,
+   "rid": "R_suite",
+   "status": "OK"
+  }
+ ],
+ "served_checks": {
+  "ok": true,
+  "problems": [],
+  "n_lookups": 48,
+  "n_unique": 30,
+  "real_es_served": [
+   1,
+   2
+  ]
+ },
+ "root": {
+  "excluded_prefixes": [
+   "RTF_"
+  ],
+  "excluded_es_min": 5,
+  "linked": 72,
+  "excluded": 16,
+  "excluded_names": [
+   "RTF_03c3e472_R_field_hard",
+   "RTF_03c3e472_R_field_light",
+   "RTF_03c3e472_R_field_light_L090",
+   "RTF_03c3e472_R_field_light_L135",
+   "RTF_03c3e472_R_field_turn",
+   "RTF_03c3e472_R_ring_obst",
+   "RTF_03c3e472_R_side22",
+   "RTF_03c3e472_R_suite",
+   "RTF_03c3e472_R_x07_L090_field_light",
+   "RTF_03c3e472_rt_gravel_b3",
+   "RTF_03c3e472_rt_hills_b3",
+   "RTF_03c3e472_rt_ledge_down_b2",
+   "RTF_03c3e472_rt_ledge_up_b2",
+   "RTF_03c3e472_rt_pits_b2",
+   "RTF_03c3e472_rt_rubble_b3",
+   "RTF_03c3e472_rt_slopes_b2"
+  ]
+ },
+ "guards": {
+  "thresholds": {
+   "ok": true,
+   "problems": [],
+   "path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/thresholds_rough_v1.json",
+   "sha256": "ce45e01b370d9530ba7fe8867e72a81b112052697a8ea97d5a86235d3b1a5254",
+   "want_sha256": "ce45e01b370d9530ba7fe8867e72a81b112052697a8ea97d5a86235d3b1a5254",
+   "frozen_scripts": {
+    "make_thresholds.py": "8c67532f4164ca590776eb4f21de4884a99f5f03bbfce4681c02404969762a86",
+    "readout.py": "14e8717c8371a9e45ecd4aebb812d5d6b458be685459a7f159f9b1af9975a46f",
+    "rt_spec.py": "6716d9994d000c6517ddf6bcd730c9a4b91b9f29e30224e62c20c178aa2db99d"
+   },
+   "frozen_scripts_recorded": {
+    "make_thresholds.py": "8c67532f4164ca590776eb4f21de4884a99f5f03bbfce4681c02404969762a86",
+    "readout.py": "14e8717c8371a9e45ecd4aebb812d5d6b458be685459a7f159f9b1af9975a46f",
+    "rt_spec.py": "6716d9994d000c6517ddf6bcd730c9a4b91b9f29e30224e62c20c178aa2db99d"
+   }
+  },
+  "r_inputs": {
+   "ok": true,
+   "problems": [],
+   "since": "c2054a8c",
+   "paths": [
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/tools/pipeline",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/thresholds_v1_2.json",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/threshold_inputs.yaml",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/pipeline.yaml",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-23_clock_deprecation/resolution.36e5a8af7000.json",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts/side22_classify.py",
+    "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/manifests"
+   ],
+   "sha256": {
+    "2026-10-16_task4_pipeline/thresholds_v1_2.json": "969b2988ca288529b49fe4b49aa1437c5b8e5be1e91b0a239e70469b4ff781e2",
+    "2026-09-23_clock_deprecation/resolution.36e5a8af7000.json": "77a2b062ef362adc22a444e3b256b32ad6c6ca2551ae18322dc87c512ca58e99"
+   },
+   "threshold_inputs_named": [
+    {
+     "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-09-23_clock_deprecation/resolution.36e5a8af7000.json",
+     "under_checked_paths": true
+    },
+    {
+     "path": "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-01_ppo_construction/scripts/side22_classify.py",
+     "under_checked_paths": true
+    }
+   ]
+  },
+  "pin": {
+   "ok": true,
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+  }
+ },
+ "sources": {
+  "select.py": "2f4b6c9c88e449eb57c93687cf030ff52bf97f849abd173e98e2a6f6bb9c69bd",
+  "readout_fresh.py": "385ccb142ed87f7b4138bd2d212fc40207e5014946178da43062d9f698b6a454",
+  "readout.py": "14e8717c8371a9e45ecd4aebb812d5d6b458be685459a7f159f9b1af9975a46f",
+  "rt_spec.py": "6716d9994d000c6517ddf6bcd730c9a4b91b9f29e30224e62c20c178aa2db99d",
+  "thresholds_rough_v1.json": "ce45e01b370d9530ba7fe8867e72a81b112052697a8ea97d5a86235d3b1a5254"
+ }
+}
