@@ -346,3 +346,27 @@ floor. Pending; not needed before step 9.
      - each gated row's cross_r = the file's rule.cross_r;
      - step-9 stamps at code_sha 89c1916b / eval_sha 9fe964d7;
      - no change under tools/pipeline or the campaign manifests since c2054a8c.
+
+### 2026-11-11 00:37 — step 8 early read at iteration 1500 (report only)
+
+- **Training fall share per kind**, iterations 300–500 → 1300–1500:
+
+  | Kind | 300–500 | 1300–1500 |
+  |---|---|---|
+  | flat | 0.172 | 0.196 |
+  | field_sparse | 0.227 | 0.292 |
+  | field_dense | 0.229 | 0.450 |
+  | slopes | 0.604 | 0.568 |
+  | hills | 0.292 | 0.232 |
+  | ledge_up | 0.608 | 0.527 |
+  | ledge_down | 0.799 | 0.788 |
+  | pits | 0.716 | 0.792 |
+  | gravel | 0.410 | 0.368 |
+  | rubble | 0.373 | 0.343 |
+
+- **Confounded by level.** Main's rule promotes falls, so columns climb to and wrap around their top levels within
+  the first few hundred iterations (TDR's field levels 1.04 → 6 by ≈ 300 iterations). A rising fall share on the
+  field columns therefore mixes harder levels with any forgetting. TDR's own training ran a 0.30–0.36
+  obstacle-tile fall share. Not a stop, and no remedy, per settled 6.
+- **Watch item for step 9:** field_dense 0.23 → 0.45 and pits 0.72 → 0.79. The retention rows (field_hard es1–4,
+  field_light) and the pits gate band will answer them deterministically.
