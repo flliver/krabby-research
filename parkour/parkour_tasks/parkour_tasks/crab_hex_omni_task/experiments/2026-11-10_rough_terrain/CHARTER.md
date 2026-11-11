@@ -370,3 +370,15 @@ floor. Pending; not needed before step 9.
   obstacle-tile fall share. Not a stop, and no remedy, per settled 6.
 - **Watch item for step 9:** field_dense 0.23 → 0.45 and pits 0.72 → 0.79. The retention rows (field_hard es1–4,
   field_light) and the pits gate band will answer them deterministically.
+
+### 2026-11-11 03:17 — step 8 DONE; step 9 launched
+
+- **Training `RT_s19`** ran 23:43 → 03:17 (12 859 s, 3.6 h, slower than the ≈ 2.5 h planned). Final
+  `parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_34990.pt`, sha256 d58ceb34…, iteration
+  34990. PF1–PF14 all PASS; `results/runs/RT_s19.json` status ok.
+- **Step 9 gate block launched 03:18.** G.check, G.thresholds (frozen file regenerates) and G.ident (record ok, sha
+  and iteration match) all rc 0. 47 rows:
+  - both teachers at es1–2 on slopes b2, ledge_up b2, ledge_down b2, pits b2 and rubble b3 (G), and on hills b3 and
+    gravel b3 (R solved);
+  - the new teacher's 19 retention rows.
+  - Then G.audit and G.read. Disk 120 GB free.
