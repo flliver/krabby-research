@@ -629,3 +629,34 @@ Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes no
 - **Open:** at 33000 only 73 fwd holds fall within ±20° of the commanded heading, which may mean heading drift. Not investigated.
 - **Scratch** (outside the repo): reader A `step9diag/sweep_opus55/`, reader B `step9diag/sweep_reader2/`, reconciler `step9diag/sweep_reconcile/kinds.py`.
 - **No verdict change.** The HALT for the user stands.
+
+### 2026-11-11 11:05 — Amendment A (short arm): user decisions, audit, pre-registration
+
+- **User decisions.**
+  - At the step-9 HALT: "Plan short arm".
+  - After the draft: "Audit, up to 2 passes". The two defaults offered with it stand: the 4-candidate pool, and no fifth mix-change candidate.
+  - After the audit: "Approve + es2 suite". The selection screen reads `R_suite` on es1–2, not es1 only.
+- **Design.** A judge panel (`wf_9b4e3a73-705`, 3 opus·high designers, opus·xhigh judge) produced it. Full text: `short_arm/ARM.md`, pre-registered by this commit.
+  - Four candidates, same mix (`RT_train.env` unchanged):
+
+    | id | checkpoint | sha |
+    |---|---|---|
+    | c1 | RT_s19 model_29500 | 6d1f29be |
+    | c2 | RT_s19 model_30000 | a346185c |
+    | c3 | new run RT_s20s (TDR resume, seed 20, 1010 its) model_29500 | — |
+    | c4 | RT_s20s model_30000 | — |
+
+  - A mechanical pick on es1–2 (slopes b2, ledge_down b2, suite).
+  - Slack z = min over 22 suite lines of (margin − worse_by) / se_diff.
+  - One confirm on fresh seeds es5–8 against TDR's RTF rows, G first.
+  - Gates (thresholds_rough_v1, ce45e01b) and every frozen script are byte-unchanged; the build is unchanged.
+- **Audit** (`wf_41c270b0-953`, `wf_03db3f66-e66`), 2 passes:
+  - **Pass 1** found 4 blocking issues; all are fixed.
+    1. The pick rule is now scaled by noise; the yaw line's per-seed noise is ≈ 0.0007–0.0009, not "seed-stable".
+    2. The fable recompute now gates the selection commit.
+    3. The HALT_R remedy now reads on es9+ with fresh TDR rows.
+    4. The readout now fails closed on the R-tracking inputs.
+  - **Pass 2** (opus·xhigh plus an independent fable·high; both found the same issue): the G FAIL branch skipped step 10. It now runs the fable re-derivation, hash checks and report lines on the confirm-1 rows. This fix was not re-audited.
+  - Deferred findings are listed in ARM.md under "Left for implementation".
+- **Pre-run.** TDR's 33 rows at es+4 (`RTF_03c3e472_*`, scratch driver `rt_tdr_fresh.py`) started 09:51 under the never-idle rule. They are unread, and stay so until `selection.json` is committed.
+- **Odds** (stated before any number): ACCEPT ≈ 8 %, G pass ≈ 0.45, HALT_R ≈ 0.35. c1 sits on both the yaw and the back line.
