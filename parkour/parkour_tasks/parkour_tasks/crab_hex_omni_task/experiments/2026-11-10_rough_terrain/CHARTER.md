@@ -382,3 +382,54 @@ floor. Pending; not needed before step 9.
     gravel b3 (R solved);
   - the new teacher's 19 retention rows.
   - Then G.audit and G.read. Disk 120 GB free.
+
+### 2026-11-11 06:25 — step 9 verdict: NOT ACCEPTED (G FAIL, R FAIL)
+
+- **Gate block** 03:18 → 06:23, `RTQ_DONE gate fail=0`. 47 rows. Read-out in `results/step9/gates.json`:
+  - new teacher RT_s19 `model_34990.pt`, sha d58ceb34;
+  - TDR sha 03c3e472.
+- **G per kind** (success, es1–2, n = 200 each; gain needs diff ≥ max(0.10, 3·SE) and CI lower bound ≥ 0.05;
+  regress means diff < −max(0.05, 2·SE)):
+
+  | Kind / band | New | TDR | Diff | 95 % CI | Read |
+  |---|---|---|---|---|---|
+  | slopes b2 | 0.895 | 0.745 | +0.150 | +0.091 … +0.209 | **GAIN** (falls 21 vs 51) |
+  | ledge_up b2 | 0.445 | 0.430 | +0.015 | −0.055 … +0.085 | — (stuck 0.495 vs 0.48) |
+  | ledge_down b2 | 0.320 | 0.405 | −0.085 | −0.152 … −0.018 | **REGRESS** (falls 136 vs 119) |
+  | pits b2 | 0.515 | 0.475 | +0.040 | −0.039 … +0.119 | — |
+  | rubble b3 | 0.840 | 0.825 | +0.015 | −0.052 … +0.082 | — |
+
+  1 kind gains, and k = 2 → **G FAIL**.
+- **R completion:** all 7 rows pass, every difference ≤ noise.
+
+  | Row | Diff |
+  |---|---|
+  | field_hard | +0.0025 |
+  | field_light | −0.010 |
+  | ring | 0 |
+  | field_turn | +0.010 |
+  | L090 | −0.015 |
+  | L135 | +0.005 |
+  | ×0.7 L090 | −0.005 |
+
+- **R solved:** both pass. hills b3 is 0.995 vs 0.98; gravel b3 is 1.00 vs 1.00.
+- **R tracking (v1.2 suite, es1–2, drift 0): FAIL on 4 of 22 lines.**
+
+  | Line | es1 head vs TDR | es2 head vs TDR | Margin |
+  |---|---|---|---|
+  | track_err back | 0.109 vs 0.018 | 0.109 vs 0.019 | 0.0617 |
+  | yaw_progress turn | 0.147 vs 0.172 | 0.147 vs 0.171 | 0.0066 |
+
+  - move_turn passes narrowly: worse by 0.034 / 0.033 against a margin of 0.0367.
+  - fwd, side and diag tracking, survival and facing_closed pass.
+  - side22 is FAST/FAST, not lost.
+  - The drift term would not rescue these lines; the decisive read is drift 0.
+- **Decision row:** "G fails: not accepted; CPU diagnosis; HALT, the user decides." TDR stays the teacher of record.
+  Nothing is re-distilled, re-paired or baked. RT_s19 stays on disk as a run, not a policy.
+- **Running:**
+  - workflow `wf_107a6868-957`:
+    - fable·high independent re-derivation of every G and R line from the raw stamps;
+    - the hash checks (pre-registered line 6);
+    - pre-registered report lines 1–5;
+    - CPU mechanism diagnosis.
+  - The results are recorded in the next entry, before the HALT question.
