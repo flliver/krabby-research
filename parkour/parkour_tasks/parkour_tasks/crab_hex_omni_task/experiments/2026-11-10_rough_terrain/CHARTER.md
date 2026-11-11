@@ -584,3 +584,48 @@ Checks behind this entry: the fable·high independent re-derivation, the hash ch
   - **P4 lost-foothold levers** (≈ 11–15 (code and neutrality plus one arm) h wall-clock): A looser pitch termination in training only, ≥ 4 loaded feet, and slowing stance near drops. All 590 non-completions on the gate rows are tilt-limit tips at walking height. Eval keeps the 0.5 rad termination, so recovery past 0.5 rad earns no credit there.
   - **Partial use of the slopes skill** (0 for (a); as option 3 or 4 for (b) and (c), plus ≈ 1 for fresh TDR seeds in (c) h wall-clock): RT_s19 has no route to acceptance: it fails R as well as G. Realistic uses: (a) keep it as the slope-descent reference run; (b) warm-start option 3 or 4 from it; (c) a slopes-only teacher as a new campaign with G set before any number exists, read on fresh seeds.
 
+
+### 2026-11-11 08:15 — checkpoint sweep (report only; table in `results/sweep/sweep.json`)
+
+Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes nothing. TDR stays teacher of record, and RT_s19 stays a run, not a policy. Nothing was trained, baked, re-distilled or pushed.
+
+- **Sweep.** Three intermediate RT_s19 checkpoints were evaluated:
+  - checkpoints: `model_29500` (6d1f29be), `model_31000` (6808f24c) and `model_33000` (c495e783), all from `parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19`;
+  - rows per checkpoint: `rt_slopes_b2` es1–2, `rt_ledge_down_b2` es1–2 and `R_suite` es1 only;
+  - driver: `results/sweep/rt_sweep.py` (run from scratch, outside the repo, using the campaign queue; copied in after the run). Log `outputs/omni_plan/rough_terrain/logs/queue_sweep.log`, 06:52 → ≈ 07:55, 15 rows, `RTQ_DONE sweep fail=0`;
+  - stamps: `lr/RTSW_<sha8>_*`;
+  - comparison rows: 34990 from `RT9_d58ceb34_*`, TDR kind rows from `RT9_03c3e472_*`, and the TDR suite from `RT6_03c3e472_R_suite` (seed001; TDR by run_meta sha);
+  - build: every stamp is at code_sha 89c1916b and eval_sha 9fe964d7, clean, with the same composed env, args and level file as the TDR row. Spawn xy and pad level are bit-identical per (es, env_index).
+- **Readers.** Two independent CPU readings were taken, A (claude-opus-5-5) and B (claude-fable-5-2), plus a reconciler re-count.
+  - All three agree on every number, and all reproduce the ten step-9 values at 34990 and TDR.
+  - The only differences are bootstrap seeds in the 4th decimal of the SEs. No call changes.
+  - Wording settled from the counts: the ledge_down loss below 0.14 m is *mostly* late, not entirely. 31000 reads 33/38 (es2 14/18) before 33000 recovers to 37/38.
+
+  | Checkpoint (its after TDR) | slopes b2 | down / up | ledge_down b2 | < 0.14 / ≥ 0.14 m | back ratio | back worse (R 0.0617) | yaw_prog turn | yaw worse (R 0.0066) | move_turn | pitch fwd / back |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | TDR 28991 | 0.745 | 54 / 95 | 0.405 | 38/38 / 43/162 | 1.0175 | — | 0.1715 | — | 0.7653 | +0.063 / −0.033 |
+  | 29500 (+509) | 0.935 | 94 / 93 | 0.590 | 36/38 / 82/162 | 1.0791 | 0.0616 (in by 0.0001) | 0.1646 | 0.0069 (past by 0.0003) | 0.7513 | +0.061 / −0.022 |
+  | 31000 (+2009) | 0.890 | 79 / 99 | 0.460 | 33/38 / 59/162 | 1.0481 | 0.0306 | 0.1650 | 0.0065 (in by 0.00006) | 0.7310 | +0.066 / −0.048 |
+  | 33000 (+4009) | 0.845 | 74 / 95 | 0.495 | 37/38 / 62/162 | 1.1044 | 0.0869 PAST | 0.1634 | 0.0081 PAST | 0.8539 | +0.082 / −0.033 |
+  | 34990 (+5999) | 0.895 | 81 / 98 | 0.320 | 23/38 / 41/162 | 1.1093 | 0.0918 PAST | 0.1474 | 0.0241 PAST | 0.7314 | +0.110 / −0.076 |
+
+- **Paired against TDR** (n = 200, gain/regress rule as in step 9; descriptive only).
+
+  | Checkpoint | slopes b2 diff (SE, lb) | ledge_down b2 diff (SE) |
+  |---|---|---|
+  | 29500 | +0.190 (0.033, +0.125) GAIN | +0.185 (0.035) reads as gain |
+  | 31000 | +0.145 (0.032, +0.083) GAIN | +0.055 (0.033) — |
+  | 33000 | +0.100 (0.033, +0.036) — (lb < 0.05) | +0.090 (0.030) — |
+  | 34990 | +0.150 (0.031, +0.090) GAIN | −0.085 (0.034) REGRESS |
+
+  - Other es1 lines (fwd, side and diag track_err, turn facing_closed, survival 1.0) are inside R at every checkpoint.
+- **Reading.**
+  - The slopes gain is an early step, complete by 29500 and all down-variant; it does not keep growing.
+  - Ledge_down sits above TDR through 33000. The regression, the below-0.14 m loss, the pitch lean and the yaw_progress drop land together between 33000 and 34990.
+  - The back overshoot is already +0.06 at 29500, and yaw sits on its floor from the start. An earlier stop would not obviously clear the tracking lines.
+  - 31000 is the only checkpoint inside every es1 line, with a yaw margin of 0.00006.
+  - Ledge_down swings by about 4 paired SE between checkpoints.
+  - These calls rest on one suite seed, and choosing the best of four checkpoints on the same episodes is selection. A shorter fine-tune (about 500–2000 its) is a candidate for a fresh run on new eval seeds plus the es2 suite, not a result.
+- **Open:** at 33000 only 73 fwd holds fall within ±20° of the commanded heading, which may mean heading drift. Not investigated.
+- **Scratch** (outside the repo): reader A `step9diag/sweep_opus55/`, reader B `step9diag/sweep_reader2/`, reconciler `step9diag/sweep_reconcile/kinds.py`.
+- **No verdict change.** The HALT for the user stands.

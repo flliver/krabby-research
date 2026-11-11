@@ -1,0 +1,92 @@
+{
+ "schema": "rt_sweep_v1",
+ "report_only": true,
+ "readers": [
+  "claude-opus-5-5",
+  "claude-fable-5-2"
+ ],
+ "rows": [
+  {
+   "ckpt": "TDR",
+   "slopes_success": 0.745,
+   "slopes_down_ok": "54/100",
+   "slopes_up_ok": "95/100",
+   "ledge_down_success": 0.405,
+   "ld_below014": "38/38",
+   "ld_above014": "43/162",
+   "back_ratio": 1.0175,
+   "track_err_back": 0.0175,
+   "fwd_ratio": 1.0389,
+   "move_turn_ratio": 0.7653,
+   "yaw_progress_turn": 0.1715,
+   "pitch_fwd": 0.063,
+   "pitch_back": -0.0328
+  },
+  {
+   "ckpt": "29500",
+   "slopes_success": 0.935,
+   "slopes_down_ok": "94/100",
+   "slopes_up_ok": "93/100",
+   "ledge_down_success": 0.59,
+   "ld_below014": "36/38",
+   "ld_above014": "82/162",
+   "back_ratio": 1.0791,
+   "track_err_back": 0.0791,
+   "fwd_ratio": 1.0142,
+   "move_turn_ratio": 0.7513,
+   "yaw_progress_turn": 0.1646,
+   "pitch_fwd": 0.0608,
+   "pitch_back": -0.0221
+  },
+  {
+   "ckpt": "31000",
+   "slopes_success": 0.89,
+   "slopes_down_ok": "79/100",
+   "slopes_up_ok": "99/100",
+   "ledge_down_success": 0.46,
+   "ld_below014": "33/38",
+   "ld_above014": "59/162",
+   "back_ratio": 1.0481,
+   "track_err_back": 0.0481,
+   "fwd_ratio": 0.9878,
+   "move_turn_ratio": 0.731,
+   "yaw_progress_turn": 0.165,
+   "pitch_fwd": 0.0655,
+   "pitch_back": -0.0477
+  },
+  {
+   "ckpt": "33000",
+   "slopes_success": 0.845,
+   "slopes_down_ok": "74/100",
+   "slopes_up_ok": "95/100",
+   "ledge_down_success": 0.495,
+   "ld_below014": "37/38",
+   "ld_above014": "62/162",
+   "back_ratio": 1.1044,
+   "track_err_back": 0.1044,
+   "fwd_ratio": 1.0492,
+   "move_turn_ratio": 0.8539,
+   "yaw_progress_turn": 0.1634,
+   "pitch_fwd": 0.082,
+   "pitch_back": -0.0329
+  },
+  {
+   "ckpt": "34990",
+   "slopes_success": 0.895,
+   "slopes_down_ok": "81/100",
+   "slopes_up_ok": "98/100",
+   "ledge_down_success": 0.32,
+   "ld_below014": "23/38",
+   "ld_above014": "41/162",
+   "back_ratio": 1.1093,
+   "track_err_back": 0.1093,
+   "fwd_ratio": 1.0527,
+   "move_turn_ratio": 0.7314,
+   "yaw_progress_turn": 0.1474,
+   "pitch_fwd": 0.1099,
+   "pitch_back": -0.0755
+  }
+ ],
+ "paired_vs_tdr": "Descriptive only. n = 200 paired episodes per kind (es1 + es2, 100 each; key (es, env_index); spawn xy and pad level identical to TDR at every checkpoint, max difference 0.0). SE = paired bootstrap over episodes (4000 resamples, my own seed 12345); the analytic paired SE agrees to within 0.0005. Gain means diff >= max(0.10, 3SE) and CI lower bound (diff - 1.96SE) >= 0.05; regress means diff < -max(0.05, 2SE); in both, |diff| <= 0.04 counts as noise.\nSLOPES b2: 29500 +0.190 (SE 0.033, lb 0.125, 45 wins / 7 losses) GAIN; 31000 +0.145 (SE 0.032, lb 0.083, 37/8) GAIN; 33000 +0.100 (SE 0.033, lb 0.036, 32/12) not a gain (lb < 0.05; diff equals the 0.10 floor), no regress; 34990 +0.150 (SE 0.031, lb 0.089, 36/6) GAIN (matches step 9's +0.150).\nLEDGE_DOWN b2: 29500 +0.185 (SE 0.035, lb 0.116, 47/10) GAIN, not just \"no loss\"; 31000 +0.055 (SE 0.032, lb -0.009, 27/16) neutral; 33000 +0.090 (SE 0.030, lb 0.031, 28/10) neutral; 34990 -0.085 (SE 0.034, margin 0.068, 15/32) REGRESS (matches step 9).\nSUITE es1 only, so one env seed; the step-9 R lines used es1 and es2. Worse_by is measured against the frozen R floors with margin = max(R, 3SE), drift term 0, and SE = env bootstrap (1000 resamples, seed 12345); 3SE never exceeds R here. Back track_err (R 0.0617): 29500 +0.0616 (SE 0.0028) is under the margin by 0.0001 (pass on a knife edge); 31000 +0.0306 (SE 0.0035) passes; 33000 +0.0869 (SE 0.0023) fails; 34990 +0.0918 (SE 0.0034) fails. Turn yaw_progress (R 0.0066): 29500 +0.0069 (SE 0.0007) fails by 0.0003; 31000 +0.0065 (SE 0.0005) passes by 0.0001; 33000 +0.0081 (SE 0.0005) fails; 34990 +0.0241 (SE 0.0010) fails. Only 31000 clears both es1 lines, and only just on yaw. All es1 fwd/back holds survived at every checkpoint (survival_by_hold 1.0 everywhere).",
+ "reconcile_agree": "Yes, on every number. Reader A (claude-opus-5-5) and Reader B (claude-fable-5-2) report the same table to 4 decimals at all five checkpoints, and both reproduce all ten step-9 values at 34990 and TDR. I recomputed from the stamps with my own code and got the same results.\n\n- **Kind rows:** success, the up and down slopes splits, the ledge_down split at 0.14 m (per seed too), and paired wins and losses all match. For example, slopes 45/7, 37/8, 32/12, 36/6 and ledge_down 47/10, 27/16, 28/10, 15/32. Spawn xy and pad level are bit-identical to TDR for every (es, env_index).\n- **Suite medians:** match. The frozen R values from gates.json are back 0.061670 and yaw_progress 0.006606.\n- **Knife-edge margins, exact:**\n  - 29500 back worse_by is 0.061571, inside R by 0.000099.\n  - 29500 yaw worse_by is 0.006887, past R by 0.000281.\n  - 31000 yaw worse_by is 0.006542, inside R by 0.000064. A rounded this to 0.0001; B's 0.00006 is the exact figure.\n- **Other es1 lines:** fwd, side and diag track_err and turn facing_closed are inside R at every checkpoint. The largest is diag at 29500, 0.0185 against R 0.0291.\n- **Differences that are only bootstrap seed:** the 4th-decimal SEs and the CI lower bounds. Slopes 34990 lb is 0.089 (A), 0.091 (B, equal to gates.json) and 0.090 (mine). Ledge_down 33000 lb is 0.031 (A and B) and 0.033 (mine). No call changes.\n\nTwo wording points, settled from the counts:\n1. **Ledge_down below 0.14 m.** B says the loss is \"entirely late\". It is mostly late, not entirely. 31000 already reads 33/38 (es2 14/18), then 33000 recovers to 37/38 before the drop to 23/38 at 34990. A's \"mostly a final-checkpoint event\" is correct.\n2. **Forward pitch.** A says it \"grows late\" and B says it is \"flat through 31000\". Both describe the same series: +0.063, +0.061, +0.066, +0.082, +0.110. The lean starts at 33000 and is largest at 34990. The step between 33000 and 34990 (forward and back pitch, the yaw drop, the ledge_down loss) is common to both readers. So is the point that the back overshoot is already present at 29500 and is not part of that late step.\n\nA's side note is still open: only 73 fwd holds within \u00b120\u00b0 at 33000. Neither reader investigated it, and it does not affect any number in the table."
+}
