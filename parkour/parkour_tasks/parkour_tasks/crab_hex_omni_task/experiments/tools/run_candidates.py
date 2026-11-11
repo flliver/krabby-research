@@ -2356,7 +2356,9 @@ OMNI_SUB_TERRAIN_KINDS = {"omni_flat_terrain": "flat", "omni_ring_terrain": "rin
                           # the ``site`` geometry
                           "omni_site_field_terrain": "site_field", "omni_site_terrain": "site",
                           # KRABBY_SITE_LADDER=b4: the same hazard columns on the bottom rung
-                          "omni_site_terrain_b4": "site"}
+                          "omni_site_terrain_b4": "site",
+                          # KRABBY_SITE_LADDER=rt (rough-terrain PLAN step 2, 2026-11-10): the rt hazard columns
+                          "omni_site_terrain_rt": "site"}
 #: The two generators' obstacle sub-terrain KEYS, in generator order (``config/omni_ring.py`` /
 #: ``config/omni_field.py``; ``tests/unit/test_omni_phase2_tooling.py`` pins them to those files).
 RING_SUB_TERRAIN_KEYS = ("omni_ring_sparse", "omni_ring_dense")
@@ -2844,12 +2846,28 @@ def _site_cfgs(txt: str) -> list[dict]:
     return [cfg for kind, cfg in _sub_terrains(txt).values() if kind == "site"]
 
 
+def _dump_is_rt(txt: str) -> bool:
+    """A site dump on the rough-terrain ladder: its hazard columns stamp on ``omni_site_terrain_rt``."""
+    cfgs = _site_cfgs(txt)
+    return bool(cfgs) and all(str(cfg.get("function")).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+                              == "omni_site_terrain_rt" for cfg in cfgs)
+
+
 def _site_mix_ok(txt: str, value) -> bool:
     """``KRABBY_SITE_MIX``: a site dump whose ``num_cols`` is the mix total and whose every sub-terrain's
-    ``proportion`` is ``count / total`` in ``SITE_SUBTERRAIN_KEYS`` order (blank = ``DEFAULT_SITE_MIX``)."""
-    mix = _site_parse(knobs().SITE_MIX_VAR, value)
-    if mix is None:
-        mix = _site_parse(knobs().SITE_MIX_VAR, _terrain().DEFAULT_SITE_MIX)
+    ``proportion`` is ``count / total`` in ``SITE_SUBTERRAIN_KEYS`` order (blank = ``DEFAULT_SITE_MIX``). On an rt
+    dump (rough-terrain ladder, :func:`_dump_is_rt`) the keys are ``omni_terrain_knobs.RT_SUBTERRAIN_KEYS`` and the
+    mix is parsed on ``rt`` (blank never passes: the rt applier refuses it)."""
+    tk = _terrain()
+    rt = _dump_is_rt(txt)
+    if rt:
+        mix = None if not str(value or "").strip() else tk.parse_site_mix(str(value), tk.RT_LADDER)
+        if mix is None:
+            return False
+    else:
+        mix = _site_parse(knobs().SITE_MIX_VAR, value)
+        if mix is None:
+            mix = _site_parse(knobs().SITE_MIX_VAR, tk.DEFAULT_SITE_MIX)
     if dump_terrain_geom(txt) != "site":
         return False
     tg = _dig(_dump_doc(txt), "scene", "terrain", "terrain_generator") or {}
@@ -2858,8 +2876,29 @@ def _site_mix_ok(txt: str, value) -> bool:
     if tg.get("num_cols") != total:
         return False
     sr = _site_raster()
+    pairs = zip(tk.RT_COLUMN_KINDS, tk.RT_SUBTERRAIN_KEYS) if rt else zip(sr.SITE_KINDS, sr.SITE_SUBTERRAIN_KEYS)
     return all(isinstance(subs.get(key), dict) and _same(subs[key].get("proportion"), mix.get(kind, 0) / total)
-               for kind, key in zip(sr.SITE_KINDS, sr.SITE_SUBTERRAIN_KEYS))
+               for kind, key in pairs)
+
+
+def _rt_friction_ok(txt: str, value) -> bool:
+    """``KRABBY_RT_FRICTION`` (rough-terrain PLAN step 2): set -> ``events.physics_material`` is the contract
+    (``rt_friction_contract``, ``gravel_range`` the band), the terrain material combines ``multiply`` at static =
+    dynamic = 1.0 and ``rt_friction`` is dumped; blank -> the material event is still TDR's
+    ``randomize_rigid_body_material`` and no ``rt_friction`` is dumped."""
+    spec = knob_parsers()[knobs().RT_FRICTION_VAR]("" if value is None else str(value))
+    doc = _dump_doc(txt)
+    event = _dig(doc, "events", "physics_material") or {}
+    leaf = str(event.get("func", "")).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+    if spec is None:
+        return leaf == "randomize_rigid_body_material" and _dig(doc, "rt_friction") is None
+    params = event.get("params") if isinstance(event.get("params"), dict) else {}
+    band = params.get("gravel_range")
+    mat = _dig(doc, "scene", "terrain", "physics_material") or {}
+    return (leaf == "rt_friction_contract" and isinstance(band, list) and len(band) == 2
+            and _same(band[0], spec["lo"]) and _same(band[1], spec["hi"])
+            and mat.get("friction_combine_mode") == "multiply" and _same(mat.get("static_friction"), 1.0)
+            and _same(mat.get("dynamic_friction"), 1.0) and isinstance(_dig(doc, "rt_friction"), dict))
 
 
 def _site_diff_ok(txt: str, value) -> bool:
@@ -3087,6 +3126,8 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_SITE_MIX": _site_mix_ok,
     "KRABBY_SITE_DIFF": _site_diff_ok,
     "KRABBY_SITE_LADDER": _site_ladder_ok,
+    # ---- the rough-terrain friction contract (rough-terrain PLAN step 2, 2026-11-10). Env side.
+    "KRABBY_RT_FRICTION": _rt_friction_ok,
 }
 
 
@@ -3377,6 +3418,8 @@ def knob_parsers() -> dict:
         # NOTE(rough-terrain campaign step 1, 2026-11-10): the site TERRAIN knobs' own parsers (re-exported by
         # omni_knobs from mdp/omni_terrain_knobs.py).
         **k.SITE_KNOB_PARSERS,
+        # NOTE(rough-terrain PLAN step 2, 2026-11-10): the friction contract's parser (re-exported by omni_knobs).
+        **k.RT_KNOB_PARSERS,
     }
     _KNOB_PARSERS_CACHE = table
     return table

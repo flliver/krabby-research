@@ -68,6 +68,25 @@ Port scope (rough-terrain, 2026-11-10): only the site TERRAIN knobs above are po
 ``KRABBY_MAX_INIT_TERRAIN_LEVEL`` are NOT, so :func:`refuse_unported_site_knobs` REFUSES any of them
 (:data:`SITE_UNPORTED_VARS`) in every geometry rather than letting a stale site env file apply nothing. The ramp cap
 reads no site foot friction (:func:`site_friction_floor` is None: ramps stay at 20 deg).
+
+THE ROUGH-TERRAIN LADDER (experiments/2026-11-10_rough_terrain/PLAN.md step 2, 2026-11-10)
+------------------------------------------------------------------------------------------
+``KRABBY_SITE_LADDER=rt`` (under ``KRABBY_FLAT_TERRAIN_GEOM=site`` only) selects the traversable-terrain columns:
+:func:`install_omni_terrain_generator` installs ``OMNI_SITE_RT_TERRAINS_CFG`` (:data:`RT_SUBTERRAIN_KEYS`, column
+order = key order: gravel next to the flat / field columns) instead of the site generator, and the site applier
+takes its rt branch -- ``KRABBY_SITE_MIX`` is REQUIRED (blank refused) and may name only :data:`RT_COLUMN_KINDS` (blocker
+and unused site kinds are refused), every rt hazard column gets ``site_terrains.RT_BODY``; everything else (FIELD_*
+on the legacy columns, pad, d mapping, caps, radius sync, pad-level spawn) as on the site. Today's ladder and ``b4``
+are untouched.
+
+``KRABBY_RT_FRICTION=gravel:LO:HI`` (:func:`parse_rt_friction`, :func:`apply_rt_friction_knobs`; DEFAULT OFF, a
+training AND gravel-eval knob, never stripped from an eval row) arms the friction contract: ground (terrain and sim
+material) friction combine ``multiply`` at mu 1.0, and the robot's startup material event replaced by
+``mdp/rt_friction.rt_friction_contract`` -- one effective mu per env on EVERY shape (static = dynamic): ``(b + 1) / 2``
+of the event's own ``num_buckets`` buckets ``b ~ U(friction_range)`` (TDR's 64 x U(0.6, 2.0)) off the gravel columns,
+``U(LO, HI)`` on them, from a generator keyed by (env seed, env index) -- and ``cfg.rt_friction`` (the privileged
+friction input then reads ``2 mu_eff - 1``, TDR's own encoding). Only under ``site`` + ``rt``; an rt mix with gravel
+columns needs it. Unset: nothing is written.
 """
 from __future__ import annotations
 
@@ -139,6 +158,23 @@ __all__ = [
     "SITE_UNPORTED_VARS",
     "refuse_unported_site_knobs",
     "site_friction_floor",
+    # rough-terrain ladder (2026-11-10, rough-terrain PLAN step 2)
+    "RT_LADDER",
+    "RT_COLUMN_KINDS",
+    "RT_SUBTERRAIN_KEYS",
+    "RT_HAZARD_KINDS",
+    "RT_REFUSED_KINDS",
+    "RT_TRAIN_MIX",
+    "assert_rt_sub_terrains",
+    "RT_FRICTION_VAR",
+    "RT_FRICTION_ATTR",
+    "RT_FRICTION_KIND",
+    "RT_FRICTION_MU_MIN",
+    "RT_FRICTION_MU_MAX",
+    "RT_GRAVEL_KEYS",
+    "parse_rt_friction",
+    "RT_KNOB_PARSERS",
+    "apply_rt_friction_knobs",
 ]
 
 GEOM_VAR = "KRABBY_FLAT_TERRAIN_GEOM"
@@ -230,6 +266,36 @@ SITE_UNPORTED_VARS = (
     # the critic-only observation group
     "KRABBY_SITE_CRITIC_OBS",
 )
+#: The rough-terrain ladder (``KRABBY_SITE_LADDER=rt``; ``site_terrains.RT_LADDER`` restated, a test pins the two).
+RT_LADDER = "rt"
+#: The rt generator's column kinds, in its sub-terrain (= column) order; ``site_raster.TILE_KINDS`` names each one.
+RT_COLUMN_KINDS = ("flat", "gravel", "field_sparse", "field_dense", "slopes", "hills", "ledge_up", "ledge_down",
+                  "pits", "rubble")
+#: ``OMNI_SITE_RT_TERRAINS_CFG``'s sub-terrain keys, in :data:`RT_COLUMN_KINDS` order (``config/omni_site.py``; pinned).
+RT_SUBTERRAIN_KEYS = ("parkour_flat", "rt_gravel", "site_field_sparse", "site_field_dense", "rt_slopes", "rt_hills",
+                      "site_ledge_up", "site_ledge_down", "site_pits", "site_rubble")
+#: The rt hazard columns (``site_terrains.RT_KINDS``): every one stamps on ``site_terrains.RT_BODY``.
+RT_HAZARD_KINDS = ("gravel", "slopes", "hills", "ledge_up", "ledge_down", "pits", "rubble")
+#: Site column kinds an rt mix may not name: the blockers (PLAN settled 1: nothing that forces a stop) and the site
+#: kinds the rough-terrain set does not use.
+RT_REFUSED_KINDS = ("chests", "walls", "trench", "terraces", "snags", "straddle", "ramps")
+#: The rough-terrain training mix (PLAN Design, 20 columns).
+RT_TRAIN_MIX = ("flat=3,field_sparse=2,field_dense=1,slopes=2,hills=2,ledge_up=2,ledge_down=2,pits=2,gravel=2,"
+                "rubble=2")
+#: The rt-only column kinds (not site kinds): a mix naming one is an rt mix.
+_RT_ONLY_KINDS = tuple(k for k in RT_COLUMN_KINDS if k not in _SITE_KINDS)
+#: The friction contract (``KRABBY_RT_FRICTION=gravel:LO:HI``).
+RT_FRICTION_VAR = "KRABBY_RT_FRICTION"
+#: The env-cfg attribute the contract writes (``mdp/rt_friction.RT_FRICTION_ATTR``; the observation reads it).
+RT_FRICTION_ATTR = "rt_friction"
+#: The one column kind the contract's low-mu band applies to, and its sub-terrain keys.
+RT_FRICTION_KIND = "gravel"
+RT_GRAVEL_KEYS = ("rt_gravel",)
+#: Bounds on the gravel band (typo guard; PhysX needs mu >= 0, TDR's effective mu tops out at 1.5).
+RT_FRICTION_MU_MIN, RT_FRICTION_MU_MAX = 0.05, 2.0
+#: The robot material event the contract replaces (TDR's ``events.physics_material``) and the leaf of its function.
+RT_MATERIAL_EVENT = "physics_material"
+RT_MATERIAL_EVENT_FUNC = "randomize_rigid_body_material"
 
 
 # ------------------------------------------------------------------------------ parsers
@@ -780,9 +846,12 @@ def apply_omni_field_knobs(cfg, environ=None, classes=None) -> None:
     _sync_parkour_radii(cfg, tg.sub_terrains[(field_keys + flat_keys)[0]], note="field geometry")
 
 
-def install_omni_terrain_generator(cfg, environ=None, field_generator=None, site_generator=None) -> str | None:
+def install_omni_terrain_generator(cfg, environ=None, field_generator=None, site_generator=None,
+                                   rt_generator=None) -> str | None:
     """Install the omni FIELD generator when ``KRABBY_FLAT_TERRAIN_GEOM=field`` (the SITE generator,
-    ``OMNI_SITE_TERRAINS_CFG``, when ``site``; ``site_generator`` overrides it for tests); else a no-op.
+    ``OMNI_SITE_TERRAINS_CFG``, when ``site``; ``site_generator`` overrides it for tests -- and the rough-terrain
+    generator ``OMNI_SITE_RT_TERRAINS_CFG`` when ``site`` with ``KRABBY_SITE_LADDER=rt``, ``rt_generator`` its test
+    override); else a no-op.
 
     Called FIRST in both omni env ``__post_init__``s (after the phase-mode guard, before
     ``super().__post_init__()``), so everything downstream -- the forward knob block's flat
@@ -799,7 +868,15 @@ def install_omni_terrain_generator(cfg, environ=None, field_generator=None, site
 
     env = os.environ if environ is None else environ
     geom = read_omni_geom(env)
-    if geom == SITE_GEOM:
+    if geom == SITE_GEOM and parse_site_ladder(env.get(SITE_LADDER_VAR)) == RT_LADDER:
+        if rt_generator is None:
+            from parkour_isaaclab.terrains.omni.config.omni_site import (  # noqa: PLC0415
+                OMNI_SITE_RT_TERRAINS_CFG,
+            )
+
+            rt_generator = OMNI_SITE_RT_TERRAINS_CFG
+        generator = rt_generator
+    elif geom == SITE_GEOM:
         if site_generator is None:
             from parkour_isaaclab.terrains.omni.config.omni_site import (  # noqa: PLC0415
                 OMNI_SITE_TERRAINS_CFG,
@@ -833,24 +910,41 @@ def install_omni_terrain_generator(cfg, environ=None, field_generator=None, site
 # blank to None, and nothing below runs unless KRABBY_FLAT_TERRAIN_GEOM=site.
 
 
-def parse_site_mix(text) -> dict[str, int] | None:
+_AUTO = object()
+
+
+def parse_site_mix(text, ladder=_AUTO) -> dict[str, int] | None:
     """``KRABBY_SITE_MIX`` -> ``{kind: count}`` over every site column kind, in ``SITE_KINDS`` order
     (kinds the text omits are 0); None when blank.
 
     Grammar ``name=count[,name=count]...``, whitespace around tokens allowed; ``name`` a site column
     kind, ``count`` a non-negative integer (floats refused); duplicates refused; total in
     ``[1, SITE_MIX_MAX_COLS]``.
+
+    Rough-terrain ladder: with ``ladder="rt"`` -- or, ``ladder`` not given, when the text names an rt-only kind
+    (slopes / hills / gravel) -- the names are :data:`RT_COLUMN_KINDS` (a :data:`RT_REFUSED_KINDS` name is refused) and the
+    dict is over :data:`RT_COLUMN_KINDS`, in that order. ``ladder`` given as a site ladder (None / ``b4``) refuses the
+    rt-only kinds.
     """
     if _is_blank(text):
         return None
+    names_in = [tok.partition("=")[0].strip() for tok in str(text).split(",")]
+    rt = any(name in _RT_ONLY_KINDS for name in names_in) if ladder is _AUTO else ladder == RT_LADDER
+    kinds = RT_COLUMN_KINDS if rt else _SITE_KINDS
     counts: dict[str, int] = {}
     for token in str(text).split(","):
         name, sep, raw = token.partition("=")
         name, raw = name.strip(), raw.strip()
         if not sep or not name:
             raise ValueError(f'{SITE_MIX_VAR} entries must be "name=count", got {token.strip()!r} in {text!r}')
-        if name not in _SITE_KINDS:
-            raise ValueError(f"{SITE_MIX_VAR}: unknown kind {name!r} in {text!r}; valid: {', '.join(_SITE_KINDS)}")
+        if rt and name in RT_REFUSED_KINDS:
+            raise ValueError(f"{SITE_MIX_VAR}: kind {name!r} is refused under {SITE_LADDER_VAR}={RT_LADDER} (no "
+                             f"blockers or unused site kinds; valid: {', '.join(RT_COLUMN_KINDS)}) in {text!r}")
+        if not rt and name in _RT_ONLY_KINDS:
+            raise ValueError(f"{SITE_MIX_VAR}: kind {name!r} exists only under {SITE_LADDER_VAR}={RT_LADDER}, got "
+                             f"{text!r}")
+        if name not in kinds:
+            raise ValueError(f"{SITE_MIX_VAR}: unknown kind {name!r} in {text!r}; valid: {', '.join(kinds)}")
         if name in counts:
             raise ValueError(f"{SITE_MIX_VAR}: kind {name!r} given twice in {text!r}")
         if not raw.isdigit() or not raw.isascii():
@@ -859,7 +953,7 @@ def parse_site_mix(text) -> dict[str, int] | None:
     total = sum(counts.values())
     if not 1 <= total <= SITE_MIX_MAX_COLS:
         raise ValueError(f"{SITE_MIX_VAR} must total 1..{SITE_MIX_MAX_COLS} columns, got {total} ({text!r})")
-    return {name: counts.get(name, 0) for name in _SITE_KINDS}
+    return {name: counts.get(name, 0) for name in kinds}
 
 
 def parse_site_diff(text) -> tuple[float, float] | None:
@@ -877,13 +971,14 @@ def parse_site_diff(text) -> tuple[float, float] | None:
 
 
 def parse_site_ladder(text) -> str | None:
-    """``KRABBY_SITE_LADDER`` -> a :data:`SITE_LADDERS` name (read as ``strip().lower()``); None when blank
-    (today's ladder). Anything else is refused."""
+    """``KRABBY_SITE_LADDER`` -> a :data:`SITE_LADDERS` name or :data:`RT_LADDER` (read as ``strip().lower()``); None
+    when blank (today's ladder). Anything else is refused."""
     if _is_blank(text):
         return None
     value = str(text).strip().lower()
-    if value not in SITE_LADDERS:
-        raise ValueError(f"{SITE_LADDER_VAR} must be blank (today's ladder) or one of {SITE_LADDERS}, got {text!r}")
+    if value not in SITE_LADDERS and value != RT_LADDER:
+        raise ValueError(f"{SITE_LADDER_VAR} must be blank (today's ladder) or one of {SITE_LADDERS + (RT_LADDER,)}, "
+                         f"got {text!r}")
     return value
 
 
@@ -948,14 +1043,41 @@ def assert_site_sub_terrains(sub_terrains, flat_cls, site_field_cls, site_cls) -
         raise RuntimeError(f"{GEOM_VAR}={SITE_GEOM}: wrong site sub-terrain classes / kinds: {', '.join(bad)}")
 
 
-def apply_site_mix(tg, mix: dict[str, int]) -> None:
+def assert_rt_sub_terrains(sub_terrains, flat_cls, site_field_cls, site_cls) -> None:
+    """:func:`assert_site_sub_terrains` for the rough-terrain generator: keys exactly :data:`RT_SUBTERRAIN_KEYS` in
+    order, ``parkour_flat`` a ``flat_cls``, the two legacy-field keys ``site_field_cls``, every rt hazard key a
+    ``site_cls`` whose ``kind`` is its column kind."""
+    if not sub_terrains:
+        raise RuntimeError("terrain generator has no sub_terrains; expected the omni rough-terrain generator.")
+    keys = tuple(sub_terrains)
+    if keys != RT_SUBTERRAIN_KEYS:
+        raise RuntimeError(
+            f"{GEOM_VAR}={SITE_GEOM} with {SITE_LADDER_VAR}={RT_LADDER} requires the rough-terrain generator's "
+            f"sub-terrains {RT_SUBTERRAIN_KEYS} in that order, found {keys} (was install_omni_terrain_generator called "
+            "with the same environment before the knob block?)"
+        )
+    want = {"parkour_flat": flat_cls, "site_field_sparse": site_field_cls, "site_field_dense": site_field_cls}
+    bad = []
+    for name, key in zip(RT_COLUMN_KINDS, RT_SUBTERRAIN_KEYS):
+        sub = sub_terrains[key]
+        cls = want.get(key, site_cls)
+        if not isinstance(sub, cls) or (cls is site_cls and getattr(sub, "kind", None) != name):
+            bad.append(f"{key}={type(sub).__name__}(kind={getattr(sub, 'kind', None)!r})")
+    if bad:
+        raise RuntimeError(f"{GEOM_VAR}={SITE_GEOM} ({RT_LADDER}): wrong sub-terrain classes / kinds: {', '.join(bad)}")
+
+
+def apply_site_mix(tg, mix: dict[str, int], kinds=None, keys=None) -> None:
     """``tg.num_cols = total`` and each sub-terrain's ``proportion = count / total`` in site-key order
     (zero-count keys stay declared with proportion 0). The generator's curriculum rule
     (``index / num_cols + 0.001 < cumsum(p)``) then gives each kind exactly ``count`` consecutive
-    columns in canonical order (DESIGN §3.4)."""
+    columns in canonical order (DESIGN §3.4). ``kinds`` / ``keys`` default to the site tables (the rt branch passes
+    :data:`RT_COLUMN_KINDS` / :data:`RT_SUBTERRAIN_KEYS`)."""
+    kinds = _SITE_KINDS if kinds is None else kinds
+    keys = _SITE_SUBTERRAIN_KEYS if keys is None else keys
     total = int(sum(mix.values()))
     tg.num_cols = total
-    for name, key in zip(_SITE_KINDS, _SITE_SUBTERRAIN_KEYS):
+    for name, key in zip(kinds, keys):
         tg.sub_terrains[key].proportion = int(mix[name]) / total
 
 
@@ -983,8 +1105,16 @@ def apply_omni_site_knobs(cfg, environ=None, classes=None, ladder_bodies=None) -
 
     Only reached under ``KRABBY_FLAT_TERRAIN_GEOM=site``, which is itself the armed knob: ring / field
     processes never call it.
+
+    Rough-terrain ladder (``KRABBY_SITE_LADDER=rt``, rough-terrain PLAN step 2): the same steps on the rt generator
+    (:func:`assert_rt_sub_terrains`, :data:`RT_COLUMN_KINDS` / :data:`RT_SUBTERRAIN_KEYS`), with ``KRABBY_SITE_MIX``
+    REQUIRED (blank refused; :data:`RT_REFUSED_KINDS` refused by the parser), ``site_terrains.RT_BODY`` (or
+    ``ladder_bodies["rt"]``) written into every rt hazard column, and an rt mix with gravel columns refused unless
+    ``KRABBY_RT_FRICTION`` arms the friction contract (gravel's low friction comes only from it).
     """
     env = os.environ if environ is None else environ
+    rt = parse_site_ladder(env.get(SITE_LADDER_VAR)) == RT_LADDER
+    kinds, keys = (RT_COLUMN_KINDS, RT_SUBTERRAIN_KEYS) if rt else (_SITE_KINDS, _SITE_SUBTERRAIN_KEYS)
     raw_rsi = env.get(RSI_FRAC_VAR)
     if not _is_blank(raw_rsi) and _parse_float(RSI_FRAC_VAR, raw_rsi) > 0.0:
         raise RuntimeError(
@@ -1010,8 +1140,13 @@ def apply_omni_site_knobs(cfg, environ=None, classes=None, ladder_bodies=None) -
             "found None (a flat/plane terrain importer)."
         )
     subs = tg.sub_terrains
-    assert_site_sub_terrains(subs, flat_cls, site_field_cls, site_cls)
-    hazard_keys = _SITE_SUBTERRAIN_KEYS[3:]
+    if rt:
+        assert_rt_sub_terrains(subs, flat_cls, site_field_cls, site_cls)
+        hazard_keys = tuple(k for k in RT_SUBTERRAIN_KEYS
+                            if k not in ("parkour_flat", "site_field_sparse", "site_field_dense"))
+    else:
+        assert_site_sub_terrains(subs, flat_cls, site_field_cls, site_cls)
+        hazard_keys = _SITE_SUBTERRAIN_KEYS[3:]
 
     def _get(var, parse, **kw):
         raw = env.get(var)
@@ -1035,19 +1170,26 @@ def apply_omni_site_knobs(cfg, environ=None, classes=None, ladder_bodies=None) -
             "hazards start 0.3 m beyond a 1.7 m pad (DESIGN §3.3), so a larger pad would cut into them"
         )
     pad = SITE_PAD_R if pad is None else pad
-    for key in _SITE_SUBTERRAIN_KEYS:
+    for key in keys:
         subs[key].clear_radius = float(pad)
     # 5. the mix
     raw_mix = env.get(SITE_MIX_VAR)
-    mix = parse_site_mix(raw_mix)
+    mix = parse_site_mix(raw_mix, RT_LADDER if rt else None)
     if mix is None:
+        if rt:
+            raise ValueError(f"{SITE_MIX_VAR} is required under {SITE_LADDER_VAR}={RT_LADDER} (no default rough-terrain "
+                             f"mix; the training mix is {RT_TRAIN_MIX!r})")
         mix = parse_site_mix(DEFAULT_SITE_MIX)
     else:
         print(f"[KNOB] {SITE_MIX_VAR}={raw_mix} consumed", flush=True)
+    if rt and mix[RT_FRICTION_KIND] > 0 and _is_blank(env.get(RT_FRICTION_VAR)):
+        raise RuntimeError(f"{SITE_MIX_VAR}={raw_mix!r} has {RT_FRICTION_KIND} columns but {RT_FRICTION_VAR} is unset: "
+                           "the gravel tile's low friction comes only from the friction contract (set e.g. "
+                           f"{RT_FRICTION_VAR}={RT_FRICTION_KIND}:0.2:0.5)")
     if not _is_blank(env.get(FLAT_FRAC_VAR)):
         print(f"[KNOB] {FLAT_FRAC_VAR}={env.get(FLAT_FRAC_VAR)} ignored (geometry is {SITE_GEOM}: "
               f"{SITE_MIX_VAR} sets the columns)", flush=True)
-    apply_site_mix(tg, mix)
+    apply_site_mix(tg, mix, kinds, keys)
     # 6. the d mapping
     raw_diff = env.get(SITE_DIFF_VAR)
     site_d = parse_site_diff(raw_diff)
@@ -1061,13 +1203,13 @@ def apply_omni_site_knobs(cfg, environ=None, classes=None, ladder_bodies=None) -
     body = None
     if ladder is not None:
         if ladder_bodies is None:
-            from parkour_isaaclab.terrains.omni.site_terrains import SITE_LADDER_BODIES  # noqa: PLC0415
+            from parkour_isaaclab.terrains.omni.site_terrains import RT_BODY, SITE_LADDER_BODIES  # noqa: PLC0415
 
-            ladder_bodies = SITE_LADDER_BODIES
+            ladder_bodies = {**SITE_LADDER_BODIES, RT_LADDER: RT_BODY}
         body = ladder_bodies[ladder]
         print(f"[KNOB] {SITE_LADDER_VAR}={raw_ladder} consumed", flush=True)
     # 7. roughness cap, ramp cap
-    rough = [f"{k}={tuple(subs[k].noise_range)}" for k in _SITE_SUBTERRAIN_KEYS
+    rough = [f"{k}={tuple(subs[k].noise_range)}" for k in keys
              if float(subs[k].noise_range[1]) > SITE_NOISE_MAX + 1e-12]
     if rough:
         raise RuntimeError(
@@ -1090,3 +1232,121 @@ def apply_omni_site_knobs(cfg, environ=None, classes=None, ladder_bodies=None) -
     if spawn is None or getattr(spawn, "params", None) is None:
         raise RuntimeError(f"{GEOM_VAR}={SITE_GEOM} needs events.{SPAWN_EVENT} (the ring spawn) to arm spawn_level_z")
     spawn.params["spawn_level_z"] = True
+
+
+# ================================================================================ ROUGH-TERRAIN FRICTION CONTRACT
+# Rough-terrain PLAN step 2 (2026-11-10), the FIXED INTERFACE's friction contract. Default off: blank writes nothing.
+
+
+def parse_rt_friction(text) -> dict | None:
+    """``KRABBY_RT_FRICTION=gravel:LO:HI`` -> ``{"kind": "gravel", "lo": LO, "hi": HI}``; None when blank.
+
+    ``kind`` must be :data:`RT_FRICTION_KIND` (the only low-mu column); ``RT_FRICTION_MU_MIN <= LO <= HI <=
+    RT_FRICTION_MU_MAX``, both finite."""
+    if _is_blank(text):
+        return None
+    parts = [p.strip() for p in str(text).strip().split(":")]
+    if len(parts) != 3:
+        raise ValueError(f'{RT_FRICTION_VAR} must be "{RT_FRICTION_KIND}:LO:HI", got {text!r}')
+    if parts[0].lower() != RT_FRICTION_KIND:
+        raise ValueError(f"{RT_FRICTION_VAR}: the contract's low-mu band applies to {RT_FRICTION_KIND!r} columns only, "
+                         f"got {parts[0]!r} in {text!r}")
+    lo, hi = (_parse_float(RT_FRICTION_VAR, part) for part in parts[1:])
+    if not RT_FRICTION_MU_MIN <= lo <= hi <= RT_FRICTION_MU_MAX:
+        raise ValueError(f"{RT_FRICTION_VAR} needs {RT_FRICTION_MU_MIN:g} <= LO <= HI <= {RT_FRICTION_MU_MAX:g}, "
+                         f"got {text!r}")
+    return {"kind": RT_FRICTION_KIND, "lo": lo, "hi": hi}
+
+
+RT_KNOB_PARSERS = {RT_FRICTION_VAR: parse_rt_friction}
+"""``{KRABBY_RT_*: parser}`` -- the campaign driver's round-trip table (``run_candidates.knob_parsers``)."""
+
+
+def _func_leaf(func) -> str:
+    name = getattr(func, "__name__", None)
+    return str(name) if name else str(func).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+
+
+def _set_ground_material(material, where: str) -> None:
+    """Ground side of the contract: friction combine ``multiply`` at static = dynamic = 1.0 (restitution and its
+    combine mode untouched)."""
+    if material is None:
+        raise RuntimeError(f"{RT_FRICTION_VAR} is set but the env cfg has no {where}")
+    material.friction_combine_mode = "multiply"
+    material.static_friction = 1.0
+    material.dynamic_friction = 1.0
+
+
+def apply_rt_friction_knobs(cfg, environ=None, *, exclusive_with=(), contract_func=None) -> dict | None:
+    """Arm the friction contract when ``KRABBY_RT_FRICTION`` is set; unset (or blank) writes nothing, prints nothing
+    and returns None.
+
+    Called by ``omni_knobs.apply_omni_knobs`` after the payload knobs and BEFORE the stress knobs (``exclusive_with`` =
+    the stress sweep's fixed-mu variable, which config modules may not spell; refusing it here means a stress mu never
+    reaches the replaced event). Set, it requires ``KRABBY_FLAT_TERRAIN_GEOM=site``
+    with ``KRABBY_SITE_LADDER=rt`` and TDR's material event (``events.physics_material``, function
+    ``randomize_rigid_body_material``), then:
+
+    * ``scene.terrain.physics_material`` and ``sim.physics_material``: friction combine ``multiply``, static =
+      dynamic = 1.0 (PhysX takes the higher-priority combine mode of the pair, and multiply outranks the robot side's
+      average), so the effective mu of a contact is the robot shape's own;
+    * ``events.physics_material``: ``func`` -> ``mdp/rt_friction.rt_friction_contract`` (``contract_func`` overrides
+      it for tests), params ``asset_cfg`` (kept), ``friction_range`` / ``num_buckets`` (kept: the bucket
+      distribution TDR's event draws), ``gravel_range = (LO, HI)``, ``gravel_sub_terrains`` (:data:`RT_GRAVEL_KEYS`);
+      mode stays ``startup``;
+    * ``cfg.rt_friction`` (:data:`RT_FRICTION_ATTR`): the spec the privileged friction observation reads (it then
+      reports ``2 mu_eff - 1``).
+    """
+    env = os.environ if environ is None else environ
+    raw = env.get(RT_FRICTION_VAR)
+    spec = parse_rt_friction(raw)
+    if spec is None:
+        return None
+    geom = read_omni_geom(env)
+    ladder = parse_site_ladder(env.get(SITE_LADDER_VAR))
+    if geom != SITE_GEOM or ladder != RT_LADDER:
+        raise RuntimeError(f"{RT_FRICTION_VAR}={raw!r} needs {GEOM_VAR}={SITE_GEOM} and {SITE_LADDER_VAR}={RT_LADDER} "
+                           f"(found {geom!r} / {ladder!r}): the contract's gravel columns exist only there")
+    clash = [v for v in exclusive_with if not _is_blank(env.get(v))]
+    if clash:
+        raise ValueError(f"{RT_FRICTION_VAR} and {clash} are exclusive: both set the robot's friction")
+    events = getattr(cfg, "events", None)
+    event = getattr(events, RT_MATERIAL_EVENT, None) if events is not None else None
+    if event is None or getattr(event, "params", None) is None:
+        raise RuntimeError(f"{RT_FRICTION_VAR} is set but events.{RT_MATERIAL_EVENT} is off (the contract replaces it)")
+    if _func_leaf(event.func) != RT_MATERIAL_EVENT_FUNC:
+        raise RuntimeError(f"{RT_FRICTION_VAR}: events.{RT_MATERIAL_EVENT}.func is {_func_leaf(event.func)!r}, not "
+                           f"TDR's {RT_MATERIAL_EVENT_FUNC!r} (already replaced, or another material event)")
+    params = event.params
+    for key in ("asset_cfg", "friction_range", "num_buckets"):
+        if key not in params:
+            raise RuntimeError(f"{RT_FRICTION_VAR}: events.{RT_MATERIAL_EVENT}.params has no {key!r}")
+    friction_range = tuple(float(v) for v in params["friction_range"])
+    num_buckets = int(params["num_buckets"])
+    if contract_func is None:
+        from parkour_tasks.crab_hex_omni_task.mdp.rt_friction import rt_friction_contract  # noqa: PLC0415
+
+        contract_func = rt_friction_contract
+    scene = getattr(cfg, "scene", None)
+    _set_ground_material(getattr(getattr(scene, "terrain", None), "physics_material", None),
+                         "scene.terrain.physics_material")
+    sim_material = getattr(getattr(cfg, "sim", None), "physics_material", None)
+    if sim_material is not None:
+        _set_ground_material(sim_material, "sim.physics_material")
+    event.func = contract_func
+    event.params = {
+        "asset_cfg": params["asset_cfg"],
+        "friction_range": friction_range,
+        "num_buckets": num_buckets,
+        "gravel_range": (float(spec["lo"]), float(spec["hi"])),
+        "gravel_sub_terrains": tuple(RT_GRAVEL_KEYS),
+    }
+    setattr(cfg, RT_FRICTION_ATTR, {"gravel_range": [float(spec["lo"]), float(spec["hi"])],
+                                    "friction_range": list(friction_range), "num_buckets": num_buckets,
+                                    "obs": "2*mu_eff-1"})
+    print(f"[KNOB] {RT_FRICTION_VAR}={str(raw).strip()} -> ground friction combine multiply at mu 1.0; "
+          f"events.{RT_MATERIAL_EVENT} = rt_friction_contract (every shape one mu per env, static = dynamic: "
+          f"(b + 1) / 2 of {num_buckets} buckets b ~ U{friction_range} off {RT_FRICTION_KIND}, "
+          f"U({spec['lo']:g}, {spec['hi']:g}) on {RT_FRICTION_KIND}; keyed by (seed, env index)); "
+          f"cfg.{RT_FRICTION_ATTR} armed (friction obs = 2 mu_eff - 1)", flush=True)
+    return spec

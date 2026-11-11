@@ -65,6 +65,17 @@ ramps       berm 2.0-3.6 (slopes 0.6 m, plateau 0.4 m), H = 0.6 tan(alpha)    4.
 The ring radii assume the default 1.7 m pad (the first hazard 0.3 m beyond it): :func:`site_layout`
 refuses a pad above :data:`PAD_R_M`, and the site applier refuses ``KRABBY_FIELD_PAD_R`` above it.
 
+Rough-terrain ladder (``KRABBY_SITE_LADDER=rt``; ``crab_hex_omni_task/experiments/2026-11-10_rough_terrain/PLAN.md``
+step 2, 2026-11-10): a third ladder for the traversable-terrain columns -- the constant-gradient slope frustum, the
+wave field (hills), the rt ledges / pits / rubble and the gravel tile -- laid out by :data:`_RT_LAYOUTS` on
+:data:`RT_LADDERS` with the fixed crossing radii :data:`RT_CROSS_R` (all <= 3.2 m). It reaches the body as
+:func:`omni_site_terrain_rt` (:data:`RT_BODY`), written by the site applier (and the rt generator) only under
+``KRABBY_SITE_LADDER=rt``; today's ladder and ``b4`` (:data:`SITE_LADDER_BODIES`) are untouched, so every site / b4
+layout is byte-identical. Slopes, hills and gravel are riser-free (no vertical edge anywhere on the tile); gravel
+builds its own roughness (:attr:`SiteLayout.rough`, 0.02 -> 0.05 m) in place of the cfg's (main's knob loop forces
+``noise_range = (0.02, 0.02)`` on every sub-terrain, and the site applier caps ``noise_range`` at 0.03 m: neither
+reaches it).
+
 Pure numpy at module scope, like ``omni_terrains.py`` (whose helpers -- ``_oriented_box_mask``,
 ``_yawed_half_extents``, ``_dilate_square``, ``_tile_pixel_dims``, ``_sector_anchor_goals`` and
 ``field_layout`` -- are imported, not copied; ``omni_terrains.py`` itself is golden-pinned and never
@@ -96,6 +107,11 @@ __all__ = [
     "site_field_height_field", "omni_site_field_terrain", "omni_site_terrain",
     "LADDER_KNEE_D", "SITE_LADDER_BOTTOMS", "SITE_LADDER_PIT_COVER0", "PRIMARY_PARAM", "SITE_LADDER_BODIES",
     "pit_cover", "primary_metres", "ladder_of", "omni_site_terrain_b4",
+    # rough-terrain ladder (rt)
+    "RT_LADDER", "RT_KINDS", "RT_LADDERS", "RT_CROSS_R", "RT_PRIMARY_PARAM", "RT_BAND_R_IN_M", "RT_BAND_R_OUT_M",
+    "RT_SLOPE_PAD_MAX_M", "RT_HILL_RADIAL_WAVES", "RT_HILL_ANGULAR_WAVES", "RT_HILL_ANGULAR_DEPTH", "RT_BLEND_M",
+    "RT_GRAVEL_PAD_ROUGH_M", "RT_PIT_SECTOR_MIN", "has_primary", "rt_pit_plan", "rt_slope_profile",
+    "omni_site_terrain_rt", "RT_BODY",
 ]
 
 #: Spawn pad radius (m): toe reach from the pad centre is <= 1.46 m (``KRABBY_FIELD_PAD_R`` may only lower it).
@@ -253,6 +269,9 @@ class SiteLayout(NamedTuple):
     cross_r: float
     n_placed: int = 0
     n_skipped: int = 0
+    #: int roughness (vertical units, the body's pixel frame) the layout built itself -- the rt gravel tile only;
+    #: when set, :func:`site_height_field` adds it INSTEAD of the cfg's ``random_uniform_terrain`` roughness.
+    rough: np.ndarray | None = None
 
 
 # ============================================================================ difficulty and ladders
@@ -269,8 +288,9 @@ def site_difficulty(difficulty: float, cfg) -> float:
 
 
 def _check_ladder(ladder: str | None) -> None:
-    if ladder is not None and ladder not in SITE_LADDER_BOTTOMS:
-        raise ValueError(f"unknown site ladder {ladder!r}; valid: None (today's), {', '.join(SITE_LADDER_BOTTOMS)}")
+    if ladder is not None and ladder not in SITE_LADDER_BOTTOMS and ladder != RT_LADDER:
+        raise ValueError(f"unknown site ladder {ladder!r}; valid: None (today's), {', '.join(SITE_LADDER_BOTTOMS)}, "
+                         f"{RT_LADDER}")
 
 
 def ladder_value(kind: str, param: str, d_site: float, ladder: str | None = None) -> float:
@@ -280,6 +300,11 @@ def ladder_value(kind: str, param: str, d_site: float, ladder: str | None = None
     ``ladder`` (``KRABBY_SITE_LADDER``; None = today's): below :data:`LADDER_KNEE_D`, a parameter the ladder names
     in :data:`SITE_LADDER_BOTTOMS` is ``bottom + (today(knee) - bottom) * d_site / knee``; every other case runs
     today's expression unchanged (so ``d_site >= knee`` is byte-identical)."""
+    if ladder == RT_LADDER:
+        lo, hi = RT_LADDERS[kind][param]
+        value = lo + (hi - lo) * float(d_site)
+        cap = CAPS.get((kind, param))
+        return value if cap is None else min(value, cap)
     if ladder is not None:
         _check_ladder(ladder)
         bottom = SITE_LADDER_BOTTOMS[ladder].get((kind, param))
@@ -296,6 +321,8 @@ def ladder_value(kind: str, param: str, d_site: float, ladder: str | None = None
 def pit_cover(d_site: float, ladder: str | None = None) -> float:
     """The pits' cover target: :data:`PIT_COVER` at every d (today's), or under ``ladder`` below the knee
     ``cover0 + (PIT_COVER - cover0) * d_site / knee`` (:data:`SITE_LADDER_PIT_COVER0`)."""
+    if ladder == RT_LADDER:
+        return ladder_value("pits", "cover", d_site, RT_LADDER)
     if ladder is not None:
         _check_ladder(ladder)
         cover0 = SITE_LADDER_PIT_COVER0.get(ladder)
@@ -308,8 +335,16 @@ def pit_cover(d_site: float, ladder: str | None = None) -> float:
 def primary_metres(kind: str, d_site: float, ladder: str | None = None) -> float:
     """The primary hazard parameter (m, :data:`PRIMARY_PARAM`) of ``kind`` at ``d_site`` on ``ladder`` -- exactly
     the value the layout stamps from (before the vertical-scale rounding). ``KeyError`` for a kind without one
-    (chests, walls, ramps, the flat / legacy-field columns)."""
+    (chests, walls, ramps, the flat / legacy-field columns; on ``rt`` also slopes and hills, whose ladder is in
+    degrees)."""
+    if ladder == RT_LADDER:
+        return ladder_value(kind, RT_PRIMARY_PARAM[kind], d_site, RT_LADDER)
     return ladder_value(kind, PRIMARY_PARAM[kind], d_site, ladder)
+
+
+def has_primary(kind: str, ladder: str | None = None) -> bool:
+    """Whether :func:`primary_metres` has a metres parameter for ``kind`` on ``ladder``."""
+    return kind in (RT_PRIMARY_PARAM if ladder == RT_LADDER else PRIMARY_PARAM)
 
 
 def ramp_cap_deg(mu_floor: float | None) -> float:
@@ -340,6 +375,10 @@ class _Canvas:
         self.level = np.zeros((self.w, self.ell), dtype=np.int32)
         self.feature = np.zeros((self.w, self.ell), dtype=np.int32)
         self.ramp = np.zeros((self.w, self.ell), dtype=bool)
+        # rt ladder: a riser-free tile (slopes, hills, gravel: the riser field is all 0, so no vertical edge) and the
+        # gravel tile's own roughness (int vertical units; None = the cfg's roughness, as every other kind)
+        self.no_risers = False
+        self.rough: np.ndarray | None = None
 
     def px(self, metres: float) -> int:
         return int(round(float(metres) / self.vs))
@@ -646,6 +685,264 @@ _LAYOUTS = {
 }
 
 
+# ============================================================================ the rough-terrain ladder (rt)
+# crab_hex_omni_task/experiments/2026-11-10_rough_terrain/PLAN.md (Design, step 2). Every layout below is reached only
+# through ``site_layout(..., ladder="rt")`` (the body :func:`omni_site_terrain_rt`): today's ladder and b4 never see it.
+#: The ladder's name (``KRABBY_SITE_LADDER=rt``).
+RT_LADDER = "rt"
+#: The rt hazard column kinds (each one's layout in :data:`_RT_LAYOUTS`); flat / legacy-field columns are not hazards.
+RT_KINDS = ("slopes", "hills", "ledge_up", "ledge_down", "pits", "gravel", "rubble")
+#: ``(lo, hi)`` ladder endpoints at ``d_site`` 0 -> 1 (linear; the plant caps :data:`CAPS` still clamp the ledges --
+#: their tops are the caps). ``grade_deg``: the slope's constant gradient / the hills' realised maximum gradient;
+#: ``rough_m``: the gravel's roughness amplitude (heights in ``[-a, a]``); ``cover``: the pits' placed cover target.
+RT_LADDERS = {
+    "slopes": {"grade_deg": (2.0, 20.0)},
+    "hills": {"grade_deg": (2.0, 20.0)},
+    "ledge_up": {"height_m": (0.02, 0.30)},
+    "ledge_down": {"height_m": (0.02, 0.35)},
+    "pits": {"depth_m": (0.03, 0.35), "side_m": (0.15, 0.60), "cover": (0.10, 0.30)},
+    "gravel": {"rough_m": (0.02, 0.05)},
+    "rubble": {"height_max_m": (0.02, 0.15)},
+}
+#: Fixed crossing radius per rt kind (m, from the tile centre; PLAN Design "Crossed"): ledges pad edge + 1.5, pits /
+#: rubble band outer edge 2.7 + 0.5, slopes / hills / gravel 3.0. Every one <= 3.2 m.
+RT_CROSS_R = {"ledge_up": 3.2, "ledge_down": 3.2, "pits": 3.2, "rubble": 3.2, "slopes": 3.0, "hills": 3.0,
+              "gravel": 3.0}
+#: The metres-tagged rt kinds' primary parameter (the ``site_metres/<kind>`` telemetry); slopes / hills have none.
+RT_PRIMARY_PARAM = {"ledge_up": "height_m", "ledge_down": "height_m", "pits": "depth_m", "gravel": "rough_m",
+                    "rubble": "height_max_m"}
+#: The narrowed scatter band of the rt pits and rubble (m).
+RT_BAND_R_IN_M, RT_BAND_R_OUT_M = 2.0, 2.7
+#: Largest |pad level| of the slope frustum (m): ``r_out = min(r_rim + RT_SLOPE_PAD_MAX_M / g, SEAM_R_M)``.
+RT_SLOPE_PAD_MAX_M = 0.8
+#: Hills: full radial waves between the pad edge and the seam ring, angular waves around the tile and their depth
+#: (the angular factor ``1 + depth cos(m theta + phi)`` never drops below ``1 - depth``, so every heading meets hills).
+RT_HILL_RADIAL_WAVES = 2
+RT_HILL_ANGULAR_WAVES = 6
+RT_HILL_ANGULAR_DEPTH = 0.5
+#: The gravel amplitude map's blend width (m): off the pad, into the seam ring.
+RT_BLEND_M = 0.3
+#: The gravel tile's roughness amplitude on its spawn pad and at the seam ring: main's (TDR's) 0.02 m.
+RT_GRAVEL_PAD_ROUGH_M = 0.02
+#: The pits' angular slots never number fewer than this (one pit per slot).
+RT_PIT_SECTOR_MIN = 6
+#: The pits' deterministic fallback radii (fractions of the fit range, after the random draws).
+_RT_PIT_FALLBACK_R = (0.5, 0.0, 1.0, 0.25, 0.75)
+
+
+def _smoothstep(t: np.ndarray, width: float) -> tuple[np.ndarray, np.ndarray]:
+    """``(s, ds/dx)`` of the C1 smoothstep ``3u^2 - 2u^3`` with ``u = clip(t / width, 0, 1)`` (``t`` in metres)."""
+    u = np.clip(np.asarray(t, dtype=np.float64) / width, 0.0, 1.0)
+    return u * u * (3.0 - 2.0 * u), 6.0 * u * (1.0 - u) / width
+
+
+def rt_slope_profile(grade_deg: float, r_rim: float = PAD_R_M) -> tuple[float, float, float]:
+    """``(g, r_out, pad_level_abs)`` of the constant-gradient frustum (PLAN step 2): ``g = tan(grade)``, ``r_out =
+    min(r_rim + RT_SLOPE_PAD_MAX_M / g, SEAM_R_M)``, ``|pad level| = g (r_out - r_rim)`` (<= 0.8 m)."""
+    g = math.tan(math.radians(float(grade_deg)))
+    r_out = min(r_rim + RT_SLOPE_PAD_MAX_M / g, SEAM_R_M)
+    return g, r_out, g * (r_out - r_rim)
+
+
+def _layout_rt_slopes(rng, d, c: _Canvas, cfg, pad_r, ladder=None):
+    """Constant-gradient radial frustum: ``h(r) = sign * g * clip(r_out - r, 0, r_out - r_rim)``, ``r_rim`` the pad
+    edge; sign -1 sinks the pad (the walk out goes UP), +1 raises it (DOWN): by COLUMN PARITY (``cfg.tile_col``: even
+    column up, odd column down), so every level holds both variants; a body called without a column (``tile_col``
+    None) draws the sign 0.5 / 0.5. The draw is consumed either way (the RNG stream does not depend on the column).
+    The whole surface is walkable LEVEL (no feature), riser-free; the outer flat (``r >= r_out``) is level 0."""
+    sr = _site_raster()
+    g, r_out, _pad = rt_slope_profile(ladder_value("slopes", "grade_deg", d, RT_LADDER), pad_r)
+    u = rng.uniform(0.0, 1.0)
+    col = getattr(cfg, "tile_col", None)
+    sign = (-1 if u < 0.5 else 1) if col is None else (-1 if int(col) % 2 == 0 else 1)
+    h = sign * g * np.clip(r_out - c.r, 0.0, r_out - pad_r)
+    c.level[:] = np.rint(h / c.vs).astype(np.int32)
+    c.kind[(c.r > pad_r) & (c.r < r_out)] = sr.KIND_SLOPE
+    c.no_risers = True
+    return RT_CROSS_R["slopes"], 0, 0
+
+
+def _rt_hill_unit(c: _Canvas, pad_r: float, phi: float):
+    """The unit-amplitude wave field and its analytic gradient magnitude on the pixel centres: ``S(r) C(theta)`` with
+    ``S = (1 - cos(2 pi n u)) / 2`` over ``u = (r - pad_r) / (SEAM_R_M - pad_r)`` (``n`` =
+    :data:`RT_HILL_RADIAL_WAVES` full waves between the pad edge and the seam ring; 0 elsewhere) and ``C = 1 + depth
+    cos(m theta + phi)``. ``S`` is its own amplitude window: zero height AND zero slope at the pad edge (the waves
+    rise out of the pad with no crease; full slope a quarter wave, 0.34 m, out) and at the seam ring, so no blend
+    term ever steepens the field beyond the waves' own gradient."""
+    n, m, beta = RT_HILL_RADIAL_WAVES, RT_HILL_ANGULAR_WAVES, RT_HILL_ANGULAR_DEPTH
+    span = SEAM_R_M - pad_r
+    r = c.r
+    u = (r - pad_r) / span
+    inside = (u > 0.0) & (u < 1.0)
+    k = 2.0 * math.pi * n
+    s = np.where(inside, 0.5 * (1.0 - np.cos(k * u)), 0.0)
+    ds = np.where(inside, 0.5 * k / span * np.sin(k * u), 0.0)
+    theta = np.arctan2(c.dy, c.dx)
+    ang = 1.0 + beta * np.cos(m * theta + phi)
+    dang = -beta * m * np.sin(m * theta + phi)
+    grad = np.sqrt((ds * ang) ** 2 + (s * dang / np.maximum(r, 1e-9)) ** 2)
+    return s * ang, grad
+
+
+def _layout_rt_hills(rng, d, c: _Canvas, cfg, pad_r, ladder=None):
+    """Smooth 2-D waves on a flat spawn pad: the unit field of :func:`_rt_hill_unit` (a random angular phase) scaled so
+    its MAXIMUM gradient over the tile (analytic, on the pixel centres) is the ladder's grade. Walkable level, riser-free;
+    0 on the pad (``r <= pad_r``) and on the seam ring (``r >= SEAM_R_M``)."""
+    sr = _site_raster()
+    t = math.tan(math.radians(ladder_value("hills", "grade_deg", d, RT_LADDER)))
+    phi = rng.uniform(0.0, 2.0 * math.pi)
+    unit, grad = _rt_hill_unit(c, pad_r, phi)
+    amp = t / float(grad.max())
+    c.level[:] = np.rint(amp * unit / c.vs).astype(np.int32)
+    c.kind[unit > 0.0] = sr.KIND_HILL
+    c.no_risers = True
+    return RT_CROSS_R["hills"], 0, 0
+
+
+def _layout_rt_ledge(sign: int, kind: str):
+    base = _layout_ledge(sign, kind)
+
+    def layout(rng, d, c, cfg, pad_r, ladder=None):
+        base(rng, d, c, cfg, pad_r, RT_LADDER)
+        return RT_CROSS_R[kind], 0, 0
+    return layout
+
+
+def rt_pit_plan(d_site: float, hs: float) -> tuple[float, int, int, float]:
+    """``(side_m, n_px, n_pits, cover)`` of the rt pits at ``d_site``: every pit is exactly ``n_px = round(side^2 /
+    hs^2)`` pixels (so its area-equivalent side is within ~7 % of the ladder's at 0.08 m pixels) and the band holds
+    ``n_pits = max(RT_PIT_SECTOR_MIN, round(cover * band_area / (n_px hs^2)))`` of them, ONE per angular slot
+    ``[2 pi k / n, 2 pi (k + 1) / n)`` -- so the placed cover of every slot is ``n_px hs^2 n / band_area``."""
+    side = ladder_value("pits", "side_m", d_site, RT_LADDER)
+    cover = ladder_value("pits", "cover", d_site, RT_LADDER)
+    n_px = max(1, int(round(side * side / (hs * hs))))
+    area = math.pi * (RT_BAND_R_OUT_M ** 2 - RT_BAND_R_IN_M ** 2)
+    n = max(RT_PIT_SECTOR_MIN, int(round(cover * area / (n_px * hs * hs))))
+    return side, n_px, n, cover
+
+
+def _rank_square(c: _Canvas, bx: float, by: float, yaw: float, side: float, n_px: int):
+    """``(si, sj, mask)``: EXACTLY ``n_px`` pixels -- the ones nearest the centre in the yawed square's own Chebyshev
+    norm -- so a pit's area never depends on where its edges fall on the pixel grid."""
+    ex = 0.5 * side * (abs(math.cos(yaw)) + abs(math.sin(yaw))) + 2.0 * c.hs
+    si, sj = c.window(bx, by, ex, ex)
+    dx = c.dx[si, sj] - bx
+    dy = c.dy[si, sj] - by
+    u = math.cos(yaw) * dx + math.sin(yaw) * dy
+    v = -math.sin(yaw) * dx + math.cos(yaw) * dy
+    key = (np.maximum(np.abs(u), np.abs(v)) + 1e-6 * (np.abs(u) + np.abs(v))).ravel()
+    if key.size < n_px:
+        return si, sj, None
+    mask = np.zeros(key.size, dtype=bool)
+    mask[np.argsort(key, kind="stable")[:n_px]] = True
+    return si, sj, mask.reshape(dx.shape)
+
+
+def _layout_rt_pits(rng, d, c: _Canvas, cfg, pad_r, ladder=None):
+    """One pit of exactly ``n_px`` pixels per angular slot (:func:`rt_pit_plan`), wholly inside its slot and the
+    narrowed band ``[RT_BAND_R_IN_M, RT_BAND_R_OUT_M]``, >= :data:`PIT_GAP_PX` clear pixels from every other pit. The
+    yaw is the slot's radial direction plus ``U(-psi_max, psi_max)``, ``psi_max`` the largest twist whose radial extent
+    still fits the 0.7 m band (any twist for side <= 0.44 m, ~2 deg at 0.60 m) -- the site band's silent rejection of
+    large yawed pits, retuned. Draws: ``(twist, r, theta)`` per try."""
+    sr = _site_raster()
+    side, n_px, n, _cover = rt_pit_plan(d, c.hs)
+    depth_px = c.px(ladder_value("pits", "depth_m", d, RT_LADDER))
+    width = RT_BAND_R_OUT_M - RT_BAND_R_IN_M - c.hs
+    diag = side * math.sqrt(2.0)
+    psi_max = 0.25 * math.pi if diag <= width else max(0.0, math.asin(min(1.0, width / diag)) - 0.25 * math.pi)
+    max_tries = int(getattr(cfg, "max_tries", 64)) * PIT_TRIES_MULT
+    near = np.zeros((c.w, c.ell), dtype=bool)
+    theta_px = np.arctan2(c.dy, c.dx) % (2.0 * math.pi)
+    slot = 2.0 * math.pi / n
+    placed = 0
+    for k in range(n):
+        a0 = k * slot
+        hit = None
+        for t in range(max_tries + len(_RT_PIT_FALLBACK_R)):
+            # after max_tries random draws, the deterministic fallbacks: no twist, the slot's centre angle, the
+            # band's centre / inner / outer fit radius in turn
+            fb = t - max_tries
+            twist = 0.0 if fb >= 0 else rng.uniform(-psi_max, psi_max)
+            half = 0.5 * side * (abs(math.cos(twist)) + abs(math.sin(twist))) + 0.5 * c.hs
+            r_lo, r_hi = RT_BAND_R_IN_M + half, RT_BAND_R_OUT_M - half
+            if r_hi <= r_lo:
+                r_c = 0.5 * (r_lo + r_hi)
+            elif fb >= 0:
+                r_c = r_lo + _RT_PIT_FALLBACK_R[fb] * (r_hi - r_lo)
+            else:
+                r_c = rng.uniform(r_lo, r_hi)
+            th_lo, th_hi = a0 + half / r_c, a0 + slot - half / r_c
+            theta = a0 + 0.5 * slot if (fb >= 0 or th_hi <= th_lo) else rng.uniform(th_lo, th_hi)
+            si, sj, mask = _rank_square(c, r_c * math.cos(theta), r_c * math.sin(theta), theta + twist, side, n_px)
+            if mask is None or (mask & near[si, sj]).any():
+                continue
+            r_px = c.r[si, sj][mask]
+            if r_px.min() < RT_BAND_R_IN_M or r_px.max() > RT_BAND_R_OUT_M:
+                continue
+            rel = (theta_px[si, sj][mask] - a0) % (2.0 * math.pi)
+            if rel.max() >= slot:
+                continue
+            hit = (si, sj, mask)
+            break
+        if hit is None:
+            continue
+        full = c.stamp_box(*hit, sr.KIND_PIT, -depth_px)
+        near |= _ot._dilate_square(full, PIT_GAP_PX)
+        placed += 1
+    return RT_CROSS_R["pits"], placed, n - placed
+
+
+def _layout_rt_rubble(rng, d, c: _Canvas, cfg, pad_r, ladder=None):
+    """The site rubble (0.32 m cells of ``U(0, h_max)``) on the narrowed band ``[RT_BAND_R_IN_M, RT_BAND_R_OUT_M]``."""
+    sr = _site_raster()
+    h_max = ladder_value("rubble", "height_max_m", d, RT_LADDER)
+    n_i = -(-c.w // RUBBLE_CELL_PX)
+    n_j = -(-c.ell // RUBBLE_CELL_PX)
+    cells = np.rint(rng.uniform(0.0, h_max, size=(n_i, n_j)) / c.vs).astype(np.int32)
+    per_px = np.repeat(np.repeat(cells, RUBBLE_CELL_PX, axis=0), RUBBLE_CELL_PX, axis=1)[: c.w, : c.ell]
+    band = (c.r >= RT_BAND_R_IN_M) & (c.r <= RT_BAND_R_OUT_M)
+    c.feature[band] = per_px[band]
+    c.kind[band] = sr.KIND_RUBBLE
+    return RT_CROSS_R["rubble"], 0, 0
+
+
+def _layout_rt_gravel(rng, d, c: _Canvas, cfg, pad_r, ladder=None):
+    """Level 0 everywhere (low friction is the friction contract's, ``KRABBY_RT_FRICTION``); the tile's roughness is
+    built HERE: a unit field (uniform knots in [-1, 1] on the cfg's ``downsampled_scale`` grid, cubic-spline
+    upsampled to the pixel centres, clipped to [-1, 1]) times an amplitude map -- the ladder's ``rough_m`` beyond the
+    pad, main's 0.02 m on the spawn pad (``r <= pad_r``) and on the seam ring (``max(|x|, |y|) >= SEAM_R_M``), smoothstep
+    blends of :data:`RT_BLEND_M` between. Riser-free."""
+    from scipy.interpolate import RectBivariateSpline  # noqa: PLC0415  (scipy: the cfg roughness's own dependency)
+
+    sr = _site_raster()
+    a = ladder_value("gravel", "rough_m", d, RT_LADDER)
+    ds = float(getattr(cfg, "downsampled_scale", None) or c.hs)
+    size_x, size_y = c.w * c.hs, c.ell * c.hs
+    nx, ny = max(4, int(size_x / ds)), max(4, int(size_y / ds))
+    knots = rng.uniform(-1.0, 1.0, size=(nx, ny))
+    spline = RectBivariateSpline(np.linspace(0.0, size_x, nx), np.linspace(0.0, size_y, ny), knots)
+    unit = np.clip(spline((np.arange(c.w) + 0.5) * c.hs, (np.arange(c.ell) + 0.5) * c.hs), -1.0, 1.0)
+    cheb = np.maximum(np.abs(c.dx), np.abs(c.dy))
+    w_pad, _ = _smoothstep(c.r - pad_r, RT_BLEND_M)
+    w_seam, _ = _smoothstep(cheb - (SEAM_R_M - RT_BLEND_M), RT_BLEND_M)
+    amp = RT_GRAVEL_PAD_ROUGH_M + (a - RT_GRAVEL_PAD_ROUGH_M) * w_pad * (1.0 - w_seam)
+    c.rough = np.rint(unit * amp / c.vs).astype(np.int32)
+    c.kind[(c.r > pad_r) & (cheb < SEAM_R_M)] = sr.KIND_GRAVEL
+    c.no_risers = True
+    return RT_CROSS_R["gravel"], 0, 0
+
+
+_RT_LAYOUTS = {
+    "slopes": _layout_rt_slopes,
+    "hills": _layout_rt_hills,
+    "ledge_up": _layout_rt_ledge(-1, "ledge_up"),
+    "ledge_down": _layout_rt_ledge(+1, "ledge_down"),
+    "pits": _layout_rt_pits,
+    "gravel": _layout_rt_gravel,
+    "rubble": _layout_rt_rubble,
+}
+
+
 def site_layout(rng, d_site: float, cfg: "omni_terrains_cfg.OmniSiteTerrainCfg",
                 ladder: str | None = None) -> SiteLayout:
     """Pure body: dispatch on ``cfg.kind`` to the kind's layout (DESIGN §3.3) at site difficulty
@@ -659,15 +956,17 @@ def site_layout(rng, d_site: float, cfg: "omni_terrains_cfg.OmniSiteTerrainCfg",
     :data:`SEAM_R_M`.
     """
     kind = str(cfg.kind)
-    if kind not in _LAYOUTS:
-        raise ValueError(f"unknown site kind {kind!r}; valid: {', '.join(_LAYOUTS)}")
+    _check_ladder(ladder)
+    layouts = _RT_LAYOUTS if ladder == RT_LADDER else _LAYOUTS
+    if kind not in layouts:
+        where = f"on the {RT_LADDER} ladder" if ladder == RT_LADDER else "on the site ladders"
+        raise ValueError(f"unknown site kind {kind!r} {where}; valid: {', '.join(layouts)}")
     d = float(d_site)
     if not 0.0 <= d <= 1.0:
         raise ValueError(f"site difficulty must be in [0, 1], got {d_site!r}")
-    _check_ladder(ladder)
     pad_r, half = _check_cfg(cfg)
     c = _Canvas(cfg)
-    cross_r, n_placed, n_skipped = _LAYOUTS[kind](rng, d, c, cfg, pad_r, ladder)
+    cross_r, n_placed, n_skipped = layouts[kind](rng, d, c, cfg, pad_r, ladder)
 
     cheb = np.maximum(np.abs(c.dx), np.abs(c.dy))
     if ((c.kind != 0) & (cheb > half + 1e-9)).any():
@@ -676,7 +975,7 @@ def site_layout(rng, d_site: float, cfg: "omni_terrains_cfg.OmniSiteTerrainCfg",
         raise ValueError(f"site kind {kind!r}: non-zero level beyond the {SEAM_R_M} m seam")
 
     surface0 = c.level + c.feature
-    riser = np.where(c.ramp, c.level, surface0)
+    riser = np.zeros_like(surface0) if c.no_risers else np.where(c.ramp, c.level, surface0)
     return SiteLayout(
         raw=surface0.astype(np.float64),
         riser=riser.astype(np.int16),
@@ -686,6 +985,7 @@ def site_layout(rng, d_site: float, cfg: "omni_terrains_cfg.OmniSiteTerrainCfg",
         cross_r=float(cross_r),
         n_placed=int(n_placed),
         n_skipped=int(n_skipped),
+        rough=None if c.rough is None else c.rough.astype(np.int32),
     )
 
 
@@ -730,7 +1030,14 @@ def site_height_field(rng, difficulty: float, cfg: "omni_terrains_cfg.OmniSiteTe
     the spawn adds under ``spawn_level_z``)."""
     d_site = site_difficulty(difficulty, cfg)
     lay = site_layout(rng, d_site, cfg, ladder)
-    height_field_raw, goals, goal_heights = _finish(lay.raw, difficulty, cfg, num_goals)
+    if lay.rough is None:
+        height_field_raw, goals, goal_heights = _finish(lay.raw, difficulty, cfg, num_goals)
+    else:
+        # rt gravel: padding exactly as _finish, then the layout's OWN roughness instead of the cfg's (whatever
+        # ``apply_roughness`` / ``noise_range`` hold), so neither main's forced 0.02 nor the site cap flattens it
+        goals, goal_heights = _ot._sector_anchor_goals(cfg, num_goals)
+        goals = goals * cfg.horizontal_scale
+        height_field_raw = (padding_height_field_raw(lay.raw.copy(), cfg).astype(np.int32) + lay.rough).astype(np.int16)
     w, ell = lay.level.shape
     layers = {
         "kind": lay.kind,
@@ -759,10 +1066,21 @@ def omni_site_terrain_b4(difficulty: float, cfg: "omni_terrains_cfg.OmniSiteTerr
     return site_height_field(np.random, difficulty, cfg, num_goals, "b4")
 
 
+@parkour_field_to_mesh_xy
+def omni_site_terrain_rt(difficulty: float, cfg: "omni_terrains_cfg.OmniSiteTerrainCfg", num_goals: int):
+    """The rough-terrain ladder's body (``KRABBY_SITE_LADDER=rt``; :data:`_RT_LAYOUTS`): every rt hazard column
+    (slopes, hills, ledge_up / ledge_down, pits, gravel, rubble) of ``OMNI_SITE_RT_TERRAINS_CFG``."""
+    return site_height_field(np.random, difficulty, cfg, num_goals, RT_LADDER)
+
+
 #: ``{ladder: decorated body}`` -- what the site applier writes into every hazard sub-terrain's ``function`` when
 #: ``KRABBY_SITE_LADDER`` is set (the dump then names the ladder); a blank knob leaves :func:`omni_site_terrain`.
 SITE_LADDER_BODIES = {"b4": omni_site_terrain_b4}
-_LADDER_OF_BODY = {"omni_site_terrain": None, **{fn.__name__: name for name, fn in SITE_LADDER_BODIES.items()}}
+#: The rt ladder's body (kept out of :data:`SITE_LADDER_BODIES`, which lists the bottom-rung ladders of
+#: :data:`SITE_LADDER_BOTTOMS`); the site applier writes it into every rt hazard column under ``KRABBY_SITE_LADDER=rt``.
+RT_BODY = omni_site_terrain_rt
+_LADDER_OF_BODY = {"omni_site_terrain": None, **{fn.__name__: name for name, fn in SITE_LADDER_BODIES.items()},
+                   RT_BODY.__name__: RT_LADDER}
 
 
 def ladder_of(function) -> str | None:

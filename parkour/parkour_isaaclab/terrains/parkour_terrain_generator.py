@@ -57,6 +57,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
             sub_terrains_name = sub_terrains_names[sub_index]
             self.terrain_type[sub_row, sub_col] = sub_col
             sub_terrains_cfg = sub_terrains_cfgs[sub_index]
+            self._tile_col = sub_col      # read by _get_terrain_mesh (rt slopes: the up / down variant alternates by column parity)
             mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights, block_mask, layers = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
             # add to sub-terrains
             self.terrain_names[sub_row, sub_col] = sub_terrains_name
@@ -94,6 +95,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
                 # generate terrain
                 sub_terrains_cfg = sub_terrains_cfgs[sub_indices[sub_col]]
                 sub_terrains_name = sub_terrains_names[sub_indices[sub_col]]
+                self._tile_col = sub_col      # as in the random loop
                 mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights, block_mask, layers = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
                 # add to sub-terrains
                 self.terrain_type[sub_row, sub_col] = sub_indices[sub_col]
@@ -137,6 +139,9 @@ class ParkourTerrainGenerator(TerrainGenerator):
         # add other parameters to the sub-terrain configuration
         cfg.difficulty = float(difficulty)
         cfg.seed = self.cfg.seed
+        # the tile's column, handed only to a cfg that declares ``tile_col`` (the rt ladder's cfg; every other cfg is untouched)
+        if hasattr(cfg, "tile_col"):
+            cfg.tile_col = getattr(self, "_tile_col", None)
         # generate hash for the sub-terrain
         # generate the terrain
         out = cfg.function(difficulty, cfg, self.num_goals)

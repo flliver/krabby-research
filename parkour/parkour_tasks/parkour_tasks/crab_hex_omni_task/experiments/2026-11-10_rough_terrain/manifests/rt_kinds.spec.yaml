@@ -1,0 +1,16 @@
+# Rough-terrain kind-row spec (PLAN step 4; make_manifest.py --spec this file). Writes scenarios_rt.yaml (21 rows:
+# 7 kinds x 3 bands), envs/rt_kind_eval.env and rows_rt.json. The kinds, bands, friction and site counts are the
+# step-2 / step-4 FIXED INTERFACE; make_manifest.py refuses a spec that differs from it. Crossing radii, ladders
+# and the blind envelope live in scripts/rt_spec.py (one source for the generator and the read-out).
+schema: 1
+base_manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+base_scenario: field_hard__omni
+episodes: 100
+episode_length_s: 80.0
+site_count: 20
+legacy_diff: "0.20:1.0"
+ladder: rt
+bands: {b1: "0:0.3", b2: "0.3:0.6", b3: "0.6:1"}
+kinds: [slopes, hills, ledge_up, ledge_down, pits, gravel, rubble]
+friction: {gravel: "gravel:0.2:0.5"}
+kind_env_source: experiments/2026-10-16_task4_pipeline/F19/envs/p3b.field_hard.env

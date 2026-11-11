@@ -231,10 +231,12 @@ class OmniParkourEvent(ParkourEvent):
         """Site-mode state: the layers, the per-kind ledger, window counts and curriculum tally, and the metres table."""
         dev = self.device
         self._site = _site_raster.site_layers(self.env)
-        self._site_kinds = tuple(_site_raster.SITE_KINDS)
+        # TILE_KINDS = SITE_KINDS + the rough-terrain ladder's extra columns (slopes / hills / gravel): what
+        # ``tile_kind`` indexes; every key below is emitted per PRESENT kind, so a site-only grid logs as before.
+        self._site_kinds = tuple(_site_raster.TILE_KINDS)
         present = sorted({int(k) for k in self._site.tile_kind.reshape(-1).tolist()} - {-1})
         self._site_present = tuple(self._site_kinds[i] for i in present)
-        self._site_ledger = SiteKindLedger(self._site_kinds, tuple(_site_raster.SITE_KIND_POLICY), capacity=capacity)
+        self._site_ledger = SiteKindLedger(self._site_kinds, tuple(_site_raster.TILE_KIND_POLICY), capacity=capacity)
         self._site_win_up: dict[str, int] = {}
         self._site_win_down: dict[str, int] = {}
         self._site_tally = SiteCurriculumTally(self._site_kinds, self._site_present)
@@ -249,13 +251,16 @@ class OmniParkourEvent(ParkourEvent):
         subs = getattr(self.terrain.cfg.terrain_generator, "sub_terrains", None) or {}
         ladders = {}
         for name in self._site_present:
-            if name not in st.PRIMARY_PARAM:
+            if name not in st.PRIMARY_PARAM and name not in st.RT_PRIMARY_PARAM:
                 continue
-            key = _site_raster.SITE_SUBTERRAIN_KEYS[self._site_kinds.index(name)]
+            key = _site_raster.TILE_SUBTERRAIN_KEYS[self._site_kinds.index(name)]
             if key not in subs:
                 raise RuntimeError(f"site metres telemetry: the grid carries kind {name!r} but the generator has no "
                                    f"sub-terrain {key!r}")
-            ladders[name] = st.ladder_of(subs[key].function)
+            ladder = st.ladder_of(subs[key].function)
+            # the rt ladder's slopes / hills have no metres parameter (degrees); a site ladder's kinds always do
+            if st.has_primary(name, ladder):
+                ladders[name] = ladder
         self._site_metres_kinds = tuple(ladders)
         self._site_metres = site_primary_metres_table(
             lay.tile_kind, lay.tile_d, self._site_kinds, ladders, st.primary_metres).to(dev)

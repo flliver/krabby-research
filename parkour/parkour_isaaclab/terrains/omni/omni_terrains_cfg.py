@@ -135,3 +135,20 @@ class OmniSiteTerrainCfg(ExtremeParkourRoughTerrainCfg):
     gen_d_range: tuple[float, float] = (0.0, 1.0)
     ramp_max_deg: float = 20.0
     max_tries: int = 64
+
+
+@configclass
+class OmniSiteRtTerrainCfg(OmniSiteTerrainCfg):
+    """Rough-terrain teacher (``crab_hex_omni_task/experiments/2026-11-10_rough_terrain/PLAN.md`` step 2): one rt
+    hazard column of ``OMNI_SITE_RT_TERRAINS_CFG`` (``kind`` one of ``site_terrains.RT_KINDS``), laid out on the
+    rough-terrain ladder by ``site_terrains.omni_site_terrain_rt``. A SUBCLASS of :class:`OmniSiteTerrainCfg`, so every
+    site check (class, radius fields, d mapping, caps) applies unchanged. Installed only under
+    ``KRABBY_FLAT_TERRAIN_GEOM=site`` with ``KRABBY_SITE_LADDER=rt``.
+    """
+
+    function = site_terrains.omni_site_terrain_rt
+
+    tile_col: int | None = None
+    """The tile's column in the generator grid, set per tile by ``ParkourTerrainGenerator._get_terrain_mesh``: the
+    slopes layout alternates its up / down variant by column parity (even column up), so every level holds both.
+    None (a direct call of the body) falls back to a per-tile 0.5 / 0.5 draw."""

@@ -4,4 +4,5 @@ from .omni_terrains_cfg import (
     OmniFieldTerrainCfg,
     OmniSiteFieldTerrainCfg,
     OmniSiteTerrainCfg,
+    OmniSiteRtTerrainCfg,
 )

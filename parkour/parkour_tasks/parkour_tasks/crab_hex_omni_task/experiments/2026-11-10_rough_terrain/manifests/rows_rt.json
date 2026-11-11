@@ -1,0 +1,1090 @@
+{
+ "schema": 1,
+ "generated_by": "make_manifest.py",
+ "spec_sha256": "10b1f9230c6b83647ba5bc1455323efea390a9451b22c175100166b85499c8ae",
+ "paths_relative_to": "crab_hex_omni_task",
+ "teacher_args": [
+  "--task",
+  "Isaac-Crab-Hex-Omni-Student-Play-v0",
+  "--policy-role",
+  "teacher"
+ ],
+ "cross_r": {
+  "ledge_up": 3.2,
+  "ledge_down": 3.2,
+  "pits": 3.2,
+  "rubble": 3.2,
+  "slopes": 3.0,
+  "hills": 3.0,
+  "gravel": 3.0
+ },
+ "bands": {
+  "b1": [
+   0.0,
+   0.3
+  ],
+  "b2": [
+   0.3,
+   0.6
+  ],
+  "b3": [
+   0.6,
+   1.0
+  ]
+ },
+ "envelope_m": 0.14,
+ "above_envelope": [
+  [
+   "ledge_up",
+   "b3"
+  ],
+  [
+   "ledge_down",
+   "b3"
+  ],
+  [
+   "pits",
+   "b3"
+  ]
+ ],
+ "train_mix": {
+  "flat": 3,
+  "field_sparse": 2,
+  "field_dense": 1,
+  "slopes": 2,
+  "hills": 2,
+  "ledge_up": 2,
+  "ledge_down": 2,
+  "pits": 2,
+  "gravel": 2,
+  "rubble": 2
+ },
+ "kind_rows": [
+  {
+   "id": "rt_slopes_b1__omni",
+   "family": "kind",
+   "kind": "slopes",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "gradient",
+    "unit": "deg",
+    "bottom": 2.0,
+    "top": 7.3999999999999995
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_slopes_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_slopes_b2__omni",
+   "family": "kind",
+   "kind": "slopes",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "gradient",
+    "unit": "deg",
+    "bottom": 7.3999999999999995,
+    "top": 12.799999999999999
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_slopes_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_slopes_b3__omni",
+   "family": "kind",
+   "kind": "slopes",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "gradient",
+    "unit": "deg",
+    "bottom": 12.799999999999999,
+    "top": 20.0
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_slopes_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_hills_b1__omni",
+   "family": "kind",
+   "kind": "hills",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "realised max gradient",
+    "unit": "deg",
+    "bottom": 2.0,
+    "top": 7.3999999999999995
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_hills_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_hills_b2__omni",
+   "family": "kind",
+   "kind": "hills",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "realised max gradient",
+    "unit": "deg",
+    "bottom": 7.3999999999999995,
+    "top": 12.799999999999999
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_hills_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_hills_b3__omni",
+   "family": "kind",
+   "kind": "hills",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "realised max gradient",
+    "unit": "deg",
+    "bottom": 12.799999999999999,
+    "top": 20.0
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_hills_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_ledge_up_b1__omni",
+   "family": "kind",
+   "kind": "ledge_up",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "step height (pad sunk)",
+    "unit": "m",
+    "bottom": 0.02,
+    "top": 0.104
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_ledge_up_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_ledge_up_b2__omni",
+   "family": "kind",
+   "kind": "ledge_up",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "step height (pad sunk)",
+    "unit": "m",
+    "bottom": 0.104,
+    "top": 0.18799999999999997
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_ledge_up_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_ledge_up_b3__omni",
+   "family": "kind",
+   "kind": "ledge_up",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "step height (pad sunk)",
+    "unit": "m",
+    "bottom": 0.18799999999999997,
+    "top": 0.3
+   },
+   "above_envelope": true,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_ledge_up_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_ledge_down_b1__omni",
+   "family": "kind",
+   "kind": "ledge_down",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "drop height (pad raised)",
+    "unit": "m",
+    "bottom": 0.02,
+    "top": 0.119
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_ledge_down_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_ledge_down_b2__omni",
+   "family": "kind",
+   "kind": "ledge_down",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "drop height (pad raised)",
+    "unit": "m",
+    "bottom": 0.119,
+    "top": 0.21799999999999997
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_ledge_down_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_ledge_down_b3__omni",
+   "family": "kind",
+   "kind": "ledge_down",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "drop height (pad raised)",
+    "unit": "m",
+    "bottom": 0.21799999999999997,
+    "top": 0.35
+   },
+   "above_envelope": true,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_ledge_down_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_pits_b1__omni",
+   "family": "kind",
+   "kind": "pits",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "pothole depth",
+    "unit": "m",
+    "bottom": 0.03,
+    "top": 0.126
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_pits_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_pits_b2__omni",
+   "family": "kind",
+   "kind": "pits",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "pothole depth",
+    "unit": "m",
+    "bottom": 0.126,
+    "top": 0.22199999999999998
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_pits_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_pits_b3__omni",
+   "family": "kind",
+   "kind": "pits",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "pothole depth",
+    "unit": "m",
+    "bottom": 0.22199999999999998,
+    "top": 0.35
+   },
+   "above_envelope": true,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_pits_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_gravel_b1__omni",
+   "family": "kind",
+   "kind": "gravel",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "roughness amplitude",
+    "unit": "m",
+    "bottom": 0.02,
+    "top": 0.029
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_gravel_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": "gravel:0.2:0.5"
+  },
+  {
+   "id": "rt_gravel_b2__omni",
+   "family": "kind",
+   "kind": "gravel",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "roughness amplitude",
+    "unit": "m",
+    "bottom": 0.029,
+    "top": 0.038000000000000006
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_gravel_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": "gravel:0.2:0.5"
+  },
+  {
+   "id": "rt_gravel_b3__omni",
+   "family": "kind",
+   "kind": "gravel",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "roughness amplitude",
+    "unit": "m",
+    "bottom": 0.038000000000000006,
+    "top": 0.05
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_gravel_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": "gravel:0.2:0.5"
+  },
+  {
+   "id": "rt_rubble_b1__omni",
+   "family": "kind",
+   "kind": "rubble",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "site_diff": "0:0.3",
+   "ladder": {
+    "quantity": "cell height",
+    "unit": "m",
+    "bottom": 0.02,
+    "top": 0.059
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_rubble_b1__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_rubble_b2__omni",
+   "family": "kind",
+   "kind": "rubble",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "site_diff": "0.3:0.6",
+   "ladder": {
+    "quantity": "cell height",
+    "unit": "m",
+    "bottom": 0.059,
+    "top": 0.098
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_rubble_b2__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  },
+  {
+   "id": "rt_rubble_b3__omni",
+   "family": "kind",
+   "kind": "rubble",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "site_diff": "0.6:1",
+   "ladder": {
+    "quantity": "cell height",
+    "unit": "m",
+    "bottom": 0.098,
+    "top": 0.15
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "manifest": "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml",
+   "scenario": "rt_rubble_b3__omni",
+   "env_file": "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": {
+    "baseline": [
+     3
+    ],
+    "gate": [
+     1,
+     2
+    ]
+   },
+   "statistic": "success",
+   "rt_friction": null
+  }
+ ],
+ "retention_rows": [
+  {
+   "id": "R_field_hard",
+   "family": "field_hard",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_hard__omni",
+   "env_file": "experiments/2026-10-16_task4_pipeline/F19/envs/p3b.field_hard.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2,
+    3,
+    4
+   ],
+   "statistic": "completion",
+   "g1": "sel"
+  },
+  {
+   "id": "R_field_light",
+   "family": "field_light",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_light__omni",
+   "env_file": "experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L000_A__field_light.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "completion",
+   "g1": "T00_nominal_L000_A"
+  },
+  {
+   "id": "R_ring_obst",
+   "family": "ring_obst",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "ring_obst__omni",
+   "env_file": "experiments/2026-10-16_task4_pipeline/F19/envs/p3b.ring_obst.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "completion",
+   "g1": "sel"
+  },
+  {
+   "id": "R_field_turn",
+   "family": "field_turn",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_turn__omni",
+   "env_file": "experiments/2026-10-16_task4_pipeline/F19/envs/p3b.field_turn.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "completion",
+   "g1": "sel"
+  },
+  {
+   "id": "R_field_light_L090",
+   "family": "field_light",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_light__omni",
+   "env_file": "experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L090_A__field_light.env",
+   "level_file": "experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env",
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "completion",
+   "g1": "T00_nominal_L090_A"
+  },
+  {
+   "id": "R_field_light_L135",
+   "family": "field_light",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_light__omni",
+   "env_file": "experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L135_A__field_light.env",
+   "level_file": "experiments/2026-10-16_task4_pipeline/F19/envs/levels/L135.env",
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "completion",
+   "g1": "T00_nominal_L135_A"
+  },
+  {
+   "id": "R_x07_L090_field_light",
+   "family": "field_light",
+   "manifest": "experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+   "scenario": "field_light__omni",
+   "env_file": "experiments/2026-11-07_rod_speed_dr/envs/T01_rod_speed_0p7_L090__field_light.env",
+   "level_file": "experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env",
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "completion",
+   "g1": "T01_rod_speed_0p7_L090",
+   "stressed_resolution": 0.07
+  },
+  {
+   "id": "R_suite",
+   "family": "suite",
+   "manifest": "experiments/eval/scenarios_omni.yaml",
+   "scenario": "suite__omni",
+   "env_file": "experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L000_A__suite.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--trained-categories",
+    "stand,fwd,side,back,diag,turn,move_turn",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1,
+    2
+   ],
+   "statistic": "zero_kg_suite",
+   "g1": "T00_nominal_L000_A"
+  },
+  {
+   "id": "R_side22",
+   "family": "side22",
+   "manifest": "experiments/2026-09-28_side_bisect/scenarios_side_lr.yaml",
+   "scenario": "side22_25lr__omni",
+   "env_file": "experiments/2026-10-16_task4_pipeline/F19/envs/p3b.env",
+   "level_file": null,
+   "args": [
+    "--task",
+    "Isaac-Crab-Hex-Omni-Student-Play-v0",
+    "--policy-role",
+    "teacher"
+   ],
+   "env_seeds": [
+    1
+   ],
+   "statistic": "side22_class",
+   "g1": "sel"
+  }
+ ]
+}

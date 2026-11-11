@@ -85,6 +85,9 @@ __all__ = [
     # column kinds
     "SITE_KINDS", "SITE_SUBTERRAIN_KEYS", "POLICY_LEGACY", "POLICY_CROSS", "POLICY_VOID", "POLICY_BLOCKER",
     "SITE_KIND_POLICY",
+    # rough-terrain ladder (rt) pixel and column kinds
+    "KIND_SLOPE", "KIND_HILL", "KIND_GRAVEL", "RT_PIXEL_KIND_NAMES", "PIXEL_KIND_NAMES", "RT_EXTRA_KINDS",
+    "RT_EXTRA_SUBTERRAIN_KEYS", "RT_EXTRA_KIND_POLICY", "TILE_KINDS", "TILE_SUBTERRAIN_KEYS", "TILE_KIND_POLICY",
     # emission contract (§2.2)
     "LAYER_DTYPES", "LAYER_INIT", "TILE_INIT", "GENERATOR_ATTRS", "check_tile_layers",
     # assembly, cache, lookups (§2.3, §2.4)
@@ -117,6 +120,15 @@ KIND_NAMES = ("ground", "pit", "trench", "ledge", "terrace", "snag", "straddle",
 VOID_KINDS = (KIND_PIT, KIND_TRENCH)
 #: The blocked-path slack, the crash recorder and gate e.
 BLOCKER_KINDS = (KIND_BLOCKER_CHEST, KIND_BLOCKER_WALL)
+#: Rough-terrain ladder (``KRABBY_SITE_LADDER=rt``, experiments/2026-11-10_rough_terrain/PLAN.md step 2): the three
+#: pixel kinds the site table has no name for, numbered AFTER :data:`KIND_NAMES` (which stays the site's 16): the
+#: constant-gradient frustum's incline, the wave field and the gravel band. Riser-free (no vertical edge), never void
+#: or blocker. :data:`PIXEL_KIND_NAMES` is the full name table (index = pixel kind).
+KIND_SLOPE = 16
+KIND_HILL = 17
+KIND_GRAVEL = 18
+RT_PIXEL_KIND_NAMES = ("slope", "hill", "gravel")
+PIXEL_KIND_NAMES = KIND_NAMES + RT_PIXEL_KIND_NAMES
 
 # ============================================================================ column (tile) kinds
 SITE_KINDS = ("flat", "field_sparse", "field_dense", "pits", "trench", "ledge_down", "ledge_up", "terraces",
@@ -128,6 +140,16 @@ SITE_SUBTERRAIN_KEYS = ("parkour_flat", "site_field_sparse", "site_field_dense",
 POLICY_LEGACY, POLICY_CROSS, POLICY_VOID, POLICY_BLOCKER = 0, 1, 2, 3
 #: Promotion class per column kind (DESIGN §7.2), indexed like :data:`SITE_KINDS`.
 SITE_KIND_POLICY = (0, 0, 0, 2, 2, 1, 1, 1, 1, 1, 3, 3, 1, 1)
+#: Rough-terrain ladder (``KRABBY_SITE_LADDER=rt``): the column kinds the site table lacks and their sub-terrain keys
+#: (the rt generator, ``config/omni_site.py::OMNI_SITE_RT_TERRAINS_CFG``, reuses the site keys for flat / fields /
+#: ledges / pits / rubble). Appended AFTER :data:`SITE_KINDS`, so every site index is unchanged:
+#: :data:`TILE_KINDS` / :data:`TILE_SUBTERRAIN_KEYS` / :data:`TILE_KIND_POLICY` are what ``tile_kind`` indexes.
+RT_EXTRA_KINDS = ("slopes", "hills", "gravel")
+RT_EXTRA_SUBTERRAIN_KEYS = ("rt_slopes", "rt_hills", "rt_gravel")
+RT_EXTRA_KIND_POLICY = (1, 1, 1)
+TILE_KINDS = SITE_KINDS + RT_EXTRA_KINDS
+TILE_SUBTERRAIN_KEYS = SITE_SUBTERRAIN_KEYS + RT_EXTRA_SUBTERRAIN_KEYS
+TILE_KIND_POLICY = SITE_KIND_POLICY + RT_EXTRA_KIND_POLICY
 
 # ============================================================================ emission contract (§2.2)
 #: dtype of each per-pixel layer, in the body's dict and in the generator's ``(R, C, W, L)`` arrays.
@@ -206,7 +228,7 @@ class SiteLayers:
     material: torch.Tensor             # (R*W, C*L) int8 (phase 1: zeros)
     surface_m: torch.Tensor            # the omni_clearance global height field (metres, roughness included)
     support_m: torch.Tensor            # phase 1: THE SAME OBJECT as surface_m; phase 2: soft cells lowered
-    tile_kind: torch.Tensor            # (R, C) int8 index into SITE_KINDS, -1 if not a site key
+    tile_kind: torch.Tensor            # (R, C) int8 index into TILE_KINDS, -1 if not a site / rt key
     tile_cross_r: torch.Tensor         # (R, C) float32, NaN = no crossing
     tile_d: torch.Tensor               # (R, C) float32 site difficulty (NaN = the tile emitted none)
     tile_centre_level_m: torch.Tensor  # (R, C) float32
@@ -232,11 +254,12 @@ def _metres(per_tile, vs: float) -> torch.Tensor:
 
 def _tile_kind_from_names(terrain_names) -> np.ndarray:
     """The generator's ``terrain_names`` ``(R, C[, 1])`` -> ``(R, C)`` int8 index into
-    :data:`SITE_KINDS` (by :data:`SITE_SUBTERRAIN_KEYS`), -1 for any other name."""
+    :data:`TILE_KINDS` (by :data:`TILE_SUBTERRAIN_KEYS`: the site indices, then the rt extras), -1 for any other
+    name."""
     names = np.asarray(terrain_names)
     if names.ndim == 3:
         names = names[..., 0]
-    lut = {key: i for i, key in enumerate(SITE_SUBTERRAIN_KEYS)}
+    lut = {key: i for i, key in enumerate(TILE_SUBTERRAIN_KEYS)}
     out = np.full(names.shape, -1, dtype=np.int8)
     for idx, name in np.ndenumerate(names):
         out[idx] = lut.get(str(name), -1)
@@ -457,7 +480,7 @@ def world_pixel(x_w, y_w, frame: TileFrame, terrain_origins):
 
 # ============================================================================ CPU dump (§2.5)
 def _mix_string(tgc) -> str:
-    """The realised column mix ``name=count,...`` (non-zero kinds, :data:`SITE_KINDS` order), from
+    """The realised column mix ``name=count,...`` (non-zero kinds, :data:`TILE_KINDS` order), from
     the generator cfg's proportions x ``num_cols`` (the site applier writes ``count / total``)."""
     subs = dict(getattr(tgc, "sub_terrains", {}) or {})
     props = {k: float(getattr(s, "proportion", 0.0)) for k, s in subs.items()}
@@ -466,7 +489,7 @@ def _mix_string(tgc) -> str:
         return ""
     n_cols = int(tgc.num_cols)
     parts = []
-    for name, key in zip(SITE_KINDS, SITE_SUBTERRAIN_KEYS):
+    for name, key in zip(TILE_KINDS, TILE_SUBTERRAIN_KEYS):
         count = int(round(props.get(key, 0.0) / total * n_cols))
         if count:
             parts.append(f"{name}={count}")
