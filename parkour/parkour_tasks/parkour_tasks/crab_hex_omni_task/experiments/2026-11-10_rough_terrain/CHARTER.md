@@ -709,3 +709,36 @@ Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes no
     - Its own stamp walk and success vectors; 30 stamps, es1–2 only, no RTF/RTC opened.
   - **Seed-20 replication: no.** RT_s20s gained one of the two kinds at each length, never both, and its turning is far worse (z −24 / −34).
 - `selection.json` is committed with this entry. confirm-1 (`sconf1`) launches next: 12 rows, c1 at es5–6.
+
+### 2026-11-11 15:40 — Amendment A steps 7–8: confirm-1 done; G PASS on fresh seeds; suite fails 3 lines
+
+- **confirm-1** (`sconf1`): 12 rows (`RTC_6d1f29be_*`) for the pick c1, real seeds es5–6. Ran 14:38 → 15:36, fail=0.
+- **G read** (`readout_fresh --g1`, `results/short_arm/g1.json`). Pick c1 against TDR's RTF rows, which are read now for the first time; n = 200 per kind; 24 lookups, all at real es5–6. **G PASS.**
+
+  | Kind | c1 | TDR | Diff | CI lower | Result | Falls (c1 vs TDR) |
+  |---|---|---|---|---|---|---|
+  | slopes b2 | 0.920 | 0.790 | +0.130 | +0.065 | GAIN | 16 vs 42 |
+  | ledge_up b2 | 0.330 | 0.360 | −0.030 | — | no change | stuck 0.535 vs 0.555 |
+  | ledge_down b2 | 0.520 | 0.345 | +0.175 | +0.109 | GAIN | 96 vs 131 |
+  | pits b2 | 0.570 | 0.495 | +0.075 | −0.013 | no gain | — |
+  | rubble b3 | 0.825 | 0.735 | +0.090 | +0.013 | no gain | — |
+
+  - 2 kinds gain, none regresses, k = 2.
+- **Suite tracking** (v1.2, drift 0): **FAIL on 3 of 22 lines.**
+
+  | Line | Seed | Worse by | Margin |
+  |---|---|---|---|
+  | track_err back | es5 | 0.070 | 0.0617 |
+  | track_err back | es6 | 0.064 | 0.0617 |
+  | yaw_progress turn | es6 | 0.0070 | 0.0066 |
+
+  - yaw_progress turn passes on es5: worse by 0.0052.
+  - Back track_err is 0.081 / 0.080, against TDR's 0.011 / 0.016.
+  - move_turn passes, worse by 0.002 / 0.000. facing_closed and survival pass.
+  - fwd and side tracking are better than TDR's.
+- **Per step 8**, confirm-2 (21 rows) launched at once at 15:37. Its rows inform the decision, but R already fails on tracking, so the expected outcome is **G passes, R fails → HALT_R**, the user decides.
+- **Remedy by failing line** (pre-registered):
+  - back: priced overshoot (a code change; the pin moves);
+  - yaw: the env-only retention arm.
+  - Either is read on es9+ with fresh TDR rows.
+- **Housekeeping.** At 15:37 a mistyped shell command created an empty stray file, `experiments/2026-11-11_rough_terrain_placeholder` (0 bytes). It was removed at 15:45. It sits under the `experiments/20*` path the code_sha excludes, so no stamp's build or dirty flag moved; confirm-2's stamps are checked at read time anyway.
