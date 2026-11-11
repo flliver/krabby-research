@@ -243,3 +243,33 @@ floor. Pending; not needed before step 9.
     raw npz, 39 GB) before step 6.
 - **Launcher hazard fixed** (`rt_launch.sh` refuses before rotating while a queue holds the lock). A relaunch had
   rotated the live queue's log.
+
+### 2026-11-10 20:16–20:58 — step 5 DONE (all smokes pass)
+
+- **S.train50** (`RT5_smoke50b`, 50 real iterations from TDR) passes PF1–PF14:
+  - the child environ and PYTHONPATH as composed;
+  - checkpoint loaded and alg_state restored;
+  - first title 28991 / 29041;
+  - the rt knob lines and the `[rt_friction]` draw line;
+  - telemetry for all 10 kinds;
+  - **params diff vs TDR: 387 planned differences, 0 unplanned**;
+  - final `model_29040.pt`.
+- **Eval smoke: 21 / 21 rows pass** (4 episodes each; spawn height, no early termination, raycast mesh, realised
+  dose and band, slope eval-track assertions, gravel μ_eff). The first read failed 9 rows (ledges and rubble) only
+  on the probe-vs-harness surface tolerance: 0.0203–0.0242 m on single envs, with dpad ≤ 0.009 m and dxy 0. That
+  is the pad's 2 cm roughness, so the tolerance is now 0.04 m. The fallback it guards is caught by the
+  terrain-mesh check.
+- **TDR's 4-episode fall shares** (report only, n = 4 per row):
+
+  | Kind | b1 | b2 | b3 |
+  |---|---|---|---|
+  | slopes | 0 | 0.25 | 0.5 |
+  | hills | 0 | 0 | 0 |
+  | ledge_up | 0 | 0 | 0.5 |
+  | ledge_down | 0 | 0.5 | 1.0 |
+  | pits | 0 | 0.75 | 1.0 |
+  | gravel | 0 | 0 | 0 |
+  | rubble | 0 | 0 | 0 |
+
+- **Disk:** 28 GB free; the DDC cap stays at 100 GB. Step 6 starts now and will stop at the queue's 20 GB disk floor
+  (≈ 10 rows) unless the user frees space first. The rows are reversible, and the completed ones are reused.
