@@ -314,3 +314,35 @@ floor. Pending; not needed before step 9.
   - step 8 training launches now;
   - the plan's fable·high check of the gate bands and statistics runs in parallel on CPU (no new-teacher number
     exists before step 9). A thresholds problem it finds is fixed and re-frozen before step 9.
+
+### 2026-11-11 00:00 — step 7 fable·high check: CONFIRMED (`wf_27ef0fed-687`, model claude-fable-5-2)
+
+- **Re-derivation.** All 21 TDR es3 kind rows, recomputed from the raw stamps with independent code, equal
+  baseline.json and thresholds_rough_v1.json exactly (success, completion, stuck, crossed, r_max). The 9 retention
+  completions match. `make_thresholds.py --check` regenerates the file byte-identically (ce45e01b). Success is
+  insensitive to ±0.2 m on the radii.
+- **Rule application.**
+  - Above-envelope = the three b3 bands, from the ladder bottoms (0.188 / 0.218 / 0.222 m). The closest
+    in-envelope bottom is 0.126 m.
+  - Gate bands and solved R bands follow the rule; k = 2; proceed. The file's G and R constants equal the PLAN's.
+- **No blocking findings.** Six minor ones, all step-9 report items; no change to the frozen file.
+- **Pre-registered step-9 report lines** (before any new-teacher number; none changes a gate or decision rule):
+  1. **Completion beside success.** Per gated kind, the paired completion difference with its max(0.05, 2·SE)
+     margin is printed beside the G line. Any kind that gains on success while completion drops past that margin
+     is named in the verdict, e.g. ledge_up b2, where TDR is 41 success / 46 stuck / 13 fall.
+  2. **Rubble b3** (TDR es3 79 / 100, borderline; Wilson 0.70–0.86): TDR's es1–2 rubble b3 success is reported
+     beside the es3 pick. If G passes only because rubble is one of exactly two gaining kinds, the verdict says so.
+  3. **Steps and potholes split at 0.14 m.** Success on the ledge_up, ledge_down and pits gate bands is split at
+     0.14 m step height or depth, per episode from the pad level, for both teachers. 57–85 % of each band lies
+     above 0.14 m, and TDR's failures are almost all there: ledge_up b2 34 / 40 succeed below 0.14 m against 7 / 60
+     above. A gain there is read as above-0.14 m behaviour.
+  4. **Falls are tilt-limit tips.** On these rows a fall is a 0.5 rad tilt-limit termination at walking height, not
+     a collapse. The slopes up / down split is reported for both teachers: TDR's slope falls are mostly on the
+     down (raised-pad) variant, 25 / 50 against 5 / 50 at b2.
+  5. **Solved kinds' R rows sit at TDR 1.00.** hills b3 and gravel b3 are read as "≤ 10 failures in 200" (190 / 200
+     passes, 189 fails). If TDR drops below 1.00 on es1–2, the line moves with it.
+  6. **Hash checks**, confirmed by hand at step 9 and recorded in the verdict entry:
+     - rows_rt.json sha256 = 0b038f03…;
+     - each gated row's cross_r = the file's rule.cross_r;
+     - step-9 stamps at code_sha 89c1916b / eval_sha 9fe964d7;
+     - no change under tools/pipeline or the campaign manifests since c2054a8c.
