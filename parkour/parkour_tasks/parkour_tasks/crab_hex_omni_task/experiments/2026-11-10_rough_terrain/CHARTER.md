@@ -433,3 +433,154 @@ floor. Pending; not needed before step 9.
     - pre-registered report lines 1–5;
     - CPU mechanism diagnosis.
   - The results are recorded in the next entry, before the HALT question.
+
+### 2026-11-11 06:50 — step 9 checks done; verdict stands NOT ACCEPTED; HALT for the user
+
+Checks behind this entry: the fable·high independent re-derivation, the hash checks, pre-registered report lines 1–6 and the CPU diagnosis, all from workflow `wf_107a6868-957`. Nothing was edited or launched.
+
+- **Re-derivation** (claude-fable-5-2) reproduces every G and R value, flag and status in `results/step9/gates.json` to 1e-12.
+  - Method: its own code for G, R completion, R solved and the 22 suite lines. Its own bootstrap, paired on env_index (4000 draws, seed 20261016), agrees with the analytic SE. The repo's `zero_kg_check`, run on inputs it chose, gives 22 / 22 lines equal.
+  - Not re-derived independently: the side22 class and the survival lines' binomial-guard R. Neither is near a decision.
+  - Not binding: `readout.g_line` adds an "and not le_noise" clause (|diff| ≤ 0.04) that the frozen rule text does not have. It cannot bind here (gain floor 0.10, regress floor 0.05). Reconcile it before the readout is reused.
+
+- **G: FAIL** (success, es1–2, n = 200 per teacher, identical spawns).
+
+  | Kind / band | RT | TDR | Diff | Needed | Discordant (RT-only / TDR-only) | Read |
+  |---|---|---|---|---|---|---|
+  | slopes b2 | 0.895 | 0.745 | +0.150 | gain 0.100 | 36 / 6 | **GAIN** |
+  | ledge_up b2 | 0.445 | 0.430 | +0.015 | gain 0.108 | 27 / 24 | — |
+  | ledge_down b2 | 0.320 | 0.405 | −0.085 | regress margin 0.069 | 15 / 32 | **REGRESS** |
+  | pits b2 | 0.515 | 0.475 | +0.040 | gain 0.120 | 36 / 28 | — |
+  | rubble b3 | 0.840 | 0.825 | +0.015 | gain 0.102 | 24 / 21 | — |
+
+  - n_gain = 1 < k = 2, so G fails even without the regression.
+  - The ledge_down regression is the thinnest decisive call: 0.016 past its margin. Per seed it is es1 −0.12 and es2 −0.05; the exact sign test gives p ≈ 0.02.
+  - Moving the radii by ±0.2 m changes no call.
+
+- **R: FAIL.**
+  - Completion: 7 / 7 rows pass, every difference ≤ 0.015.
+  - Solved kinds: 2 / 2 pass.
+  - Tracking: 4 of 22 lines fail.
+
+    | Line | RT, es1 / es2 | TDR, es1 / es2 | Worse by, es1 / es2 | R |
+    |---|---|---|---|---|
+    | track_err back | 0.109 / 0.109 | 0.018 / 0.019 | 0.092 / 0.089 | 0.0617 |
+    | yaw_progress turn | 0.147 / 0.147 | 0.172 / 0.171 | 0.024 / 0.024 | 0.0066 |
+
+  - move_turn passes narrowly: worse by 0.034 / 0.033 against 0.0367.
+  - The reading with the 6000-iteration drift term fails the same 4 lines.
+
+- **Decision row:** "G fails: not accepted; CPU diagnosis; HALT, the user decides."
+  - TDR (03c3e472) stays teacher of record.
+  - RT_s19 `model_34990.pt` (d58ceb34) stays on disk as a run, not a policy.
+  - Nothing is re-distilled, re-paired, baked or pushed.
+
+- **Pre-registered report lines.**
+  1. **Completion beside success** (paired; margin max(0.05, 2·SE)).
+     - slopes: 0.895 vs 0.745 (+0.150).
+     - ledge_up: 0.940 vs 0.910 (+0.030, within margin 0.050); stuck 0.495 vs 0.48.
+     - ledge_down: 0.320 vs 0.405 (−0.085, past margin 0.069). Completion equals success here, since 0 episodes were stuck.
+     - pits: 0.525 vs 0.475 (+0.050, within margin 0.080).
+     - rubble: 0.920 vs 0.915 (+0.005).
+     - **No kind gains on success while its completion drops past the margin.**
+  2. **Rubble b3.**
+     - TDR on es1–2 reads 0.825 (83 / 82 per seed), against its es3 pick of 0.79 (inside the Wilson interval 0.70–0.86).
+     - RT reads 0.840 (80 / 88). The difference changes sign between seeds (−0.03 / +0.06).
+     - G did not pass, so the "passes only because of rubble" caveat does not arise.
+  3. **Split at 0.14 m** (success, RT / TDR).
+
+     | Kind | Share above 0.14 m | Below 0.14 m | Above 0.14 m |
+     |---|---|---|---|
+     | ledge_up | 113 / 200 | 67 / 71 of 87 | 22 / 15 of 113 |
+     | ledge_down | 162 / 200 | 23 / 38 of 38 | 41 / 43 of 162 |
+     | pits | 175 / 200 | 24 / 20 of 25 | 79 / 75 of 175 |
+
+     - ledge_up above 0.14 m: 83 stuck for each teacher; falls 8 vs 15.
+     - ledge_down: RT has 15 falls below 0.14 m on drops TDR clears 38 / 38. These account for −15 of the −17 regression.
+     - Pit depths are estimated per tile from the floor raycast samples.
+     - The pattern holds for cuts from 0.13 to 0.15 m.
+     - So no kind gained above 0.14 m, and the regression sits on easy drops.
+  4. **Falls are tilt-limit tips.**
+     - Every non-completer on the five gate rows (RT 280, TDR 310) ends as 'fall' at a last-sample tilt of 0.479–0.500 rad, with the root 0.85–1.31 m above the local terrain.
+     - Slopes, down (raised pad): TDR 54 / 100 succeed with 46 falls (43 in the seg-2 side hold); RT 81 / 100 with 19 falls (15 in seg 2, 4 in seg 1).
+     - Slopes, up: TDR 95 / 100, RT 98 / 100.
+     - 27 of the +30 slope successes come from the descent, and both seeds agree.
+  5. **Solved ceiling.**
+     - hills b3: TDR reads 0.98 (196 / 200) on es1–2, so the line moves to 0.93 (≥ 186 / 200). RT reads 0.995: PASS.
+     - gravel b3: TDR reads 1.00, line 0.95. RT reads 1.00: PASS.
+  6. **Hash checks: all pass.**
+     - rows_rt.json sha256 0b038f03… equals pin.json.
+     - Each gated row's cross_r equals rule.cross_r: slopes 3.0, the other gated kinds 3.2, the solved kinds 3.0.
+     - 47 / 47 RT9 stamps sit at code_sha 89c1916b and eval_sha 9fe964d7, with a clean tree and rc 0. The 40 RT6 stamps are at the same build.
+     - Nothing changed under tools/pipeline, the manifests, scripts/, envs/ or the thresholds since c2054a8c. c2054a8c..HEAD touches only CHARTER.md, results/runs/*.json and results/step9/gates.json.
+     - Stamp prefix equals the run_meta checkpoint sha on 47 / 47 (33 at d58ceb34, 14 at 03c3e472). Both checkpoints were re-hashed.
+     - The thresholds file is ce45e01b, and its recorded script shas equal the current scripts.
+
+- **Diagnosis** (CPU, report only; the mechanisms are supported, not proven).
+  - **The slopes gain** is a lower, more level stance while traversing across the downslope. In the seg-2 hold on the descent:
+
+    | Metric | RT | TDR |
+    |---|---|---|
+    | pitch (rad) | 0.119 | 0.146 |
+    | body height (m) | 1.073 | 1.106 |
+    | fall share | 9 % | 42 % |
+
+  - **The ledge_down regression** is a nose-down lean carried into the edge. The body tips while crossing the rim (root at r 1.6–1.9 m; pad edge at 1.7 m).
+    - Approach speed is equal: 0.311 vs 0.302 m/s.
+    - Pitch with the first foot over the drop: 0.10–0.12 vs 0.06 rad. At r = 1.0 m: 0.165 vs 0.127.
+    - The lean is general. On the flat suite, fwd pitch is +0.110 vs +0.063 and back −0.076 vs −0.033; it shows on the field rows too.
+    - RT's drop-tolerance curve sits 1–2 cm lower in the 0.12–0.16 m range. At 0.16 m and above, RT reads 12 / 117 and TDR 10 / 117.
+  - **Back overshoot.**
+    - Back speed is 1.109 vs 1.018 of command: 0.244 m/s at a 0.22 command, against a training back semi-axis of 0.25.
+    - Survival is 1.0, and it does not depend on load: 1.09–1.10 at 0, 90 and 135 kg.
+    - Field rows are over command in every category (fwd 1.07–1.11).
+    - RT's params confirm that the reward barely prices it. Progress (weight 0.6, absolute clamp 1.05 m/s) against L1 tracking (−2.0) nets about −1.4 per m/s.
+    - It has happened before:
+
+      | Run | Back speed / command |
+      |---|---|
+      | S1 s18 (phase 2) | 1.087 |
+      | Task-4 pilot PP_p3a | 1.162 |
+      | site p3b | 1.130 |
+      | RT | 1.109 |
+
+      The `back_overshoot` follow-up has been open and untested since 2026-10-08.
+  - **Turning.**
+    - Yaw rate at a saturated 0.3 rad/s command drops from 0.171 to 0.146; time to 90 % rises from 8.1 to 9.4 s.
+    - The turning steps cost more per radian:
+
+      | Per radian of turn | RT | TDR |
+      |---|---|---|
+      | swing apex | 0.143 | 0.125 |
+      | taps | 19.5 | 16.2 |
+      | work | 2290 | 2035 |
+
+    - PLAN item 19 predicted about 0.012 of continuation drift on this line; the observed loss is 0.024.
+  - **Exposure.**
+    - Main's ratio rule saturated the levels in about 500 iterations. On ledge_down, 87 % of episodes promoted while 78 % fell. As a result:
+      - about 30 % of each kind's ≈ 26 envs sat in b2, and about 40 % in b3, which is above the envelope for ledges and pits;
+      - training crossings stayed flat (ledge_down 0.135; ledge_up fell from 0.19 to 0.03).
+    - Flat and field shares each fell from 0.5 to 0.15. The orientation penalty applies only on `parkour_flat` tiles, so it now reaches 15 % of envs.
+    - Other drifts: foot_idle −0.17 → −0.46 (TDR −0.09); noise std 0.807 → 0.845; flat-tile fall share 0.135 → 0.255.
+    - Payload and friction match TDR.
+
+- **Honest reading.**
+  - The campaign bought one real terrain skill, slope descent (46 → 19 falls in 100), at the cost of an easy-terrain skill: 12–14 cm drops go from 38 / 38 to 23 / 38. It also failed two flat tracking lines.
+  - ledge_up, pits and rubble did not move. In their bands, the above-0.14 m mass is unchanged, and below 0.14 m both teachers are already near the ceiling. This is consistent with the literature review's blind envelope and with a curriculum that kept only about 30 % of each kind in the band.
+  - A blind fine-tune under these gates shows no route to a second gaining kind.
+  - The lean and the back overshoot point to the recipe. The overshoot has now appeared in four fine-tunes.
+
+
+- **Checked by the parent before recording.**
+  - `reward_orientation` (parkour_isaaclab/envs/mdp/rewards.py:391) zeroes on every tile not named `parkour_flat`, and RT's params/env.yaml uses that func.
+  - `KRABBY_ORIENT_ALL_TILES` / `KRABBY_ORIENT_W` exist in run_candidates.py.
+  - 61 checkpoints, every 100 its (model_29000 … model_34990), are on disk in this worktree.
+- **HALT: options put to the user** (recommendation: close as NOT ACCEPTED, plus a report-only checkpoint sweep while the close is written):
+  - **Close as NOT ACCEPTED (step 10)** (≈ 0.5–1 (0 GPU) h wall-clock): Write the REPORT, CHANGELOG, LOG and memory from the CHARTER and gates.json, then make a local commit; no push. TDR stays teacher of record. RT_s19 (61 checkpoints, in this worktree's logs/) is kept on disk as a run. Record the lessons: the lean, back_overshoot now seen four times, curriculum saturation, and gate bands that sit mostly above 0.14 m.
+  - **Checkpoint sweep, report-only appendix** (≈ 1.3 (≈ 1.0 GPU at ≈ 4 min/row, plus about 0.3 to set up and read on CPU) h wall-clock): Run model_30000, model_31500 and model_33000 (model_34990 is already done) on suite es1, slopes b2 es1–2 and ledge_down b2 es1–2: 15 rows at the pinned build, reusing TDR's existing stamps. It shows whether the lean, the back overshoot and the turning loss grow with iterations or appear early, and whether the slopes gain comes before the ledge_down loss. It does not change the verdict. Launch it without editing the three scripts whose hashes the thresholds file records (make_thresholds.py, readout.py, rt_spec.py).
+  - **Env-only follow-on arm (tilt guard, retention share, turn dose)** (≈ 7–8 (plan and audit ≈ 1–1.5, CPU replay gate ≈ 0.5, smoke ≈ 0.3, training 3.6, 33 new-teacher rows ≈ 2.2) h wall-clock): A new pre-registered arm from TDR on the same frozen thresholds_rough_v1, with TDR's stamps reused. It changes three things, all through existing knobs: `KRABBY_ORIENT_ALL_TILES=1` with a replay-gated `KRABBY_ORIENT_W`; flat + field ≈ 0.4 of the mix; a turn dose (`KRABBY_YAW_W` or the CMD_POOL turn share). It targets the lean, ledge_down and both R lines, but no second gaining kind is in view, so under k = 2 it most likely ends NOT ACCEPTED again.
+  - **Code follow-on: targeted curriculum and priced overshoot** (≈ 11–15 (code, tests and review 3–5; neutrality smoke 0.7; TDR's 33 rows at the new build ≈ 2.2, unless a bitwise neutrality row covers reuse; arm ≈ 6) h wall-clock): The option-3 levers, plus code: a per-kind ladder clamp (d ≤ 0.6 for ledges and pits) or promote on crossing and demote on hazard falls (`KRABBY_SITE_PROMOTE` is unported), and a relative progress clamp (≤ 1.0 × |cmd|) or a one-sided overshoot term. This is the best blind attempt at a second gaining kind; the code change moves the pin.
+  - **P3 perception for the above-0.14 m mass** (≈ 20–30 over several days (port 4–8 agent hours, v2 surgery and training ≥ 6–10 GPU hours, eval and twin rows ≥ 3) h wall-clock): The set-aside P3 set: scan-ablation port, `_flat` twins and recorder, then a v2 scan by zero-init surgery or a v2 student, aimed at ledge_up, ledge_down and pits above 0.14 m. Cross-campaign hint, not isolated: the site teacher (v2 scan, edge and void terms) gained +0.30 on a similar ledge_down band where RT regressed.
+  - **P4 lost-foothold levers** (≈ 11–15 (code and neutrality plus one arm) h wall-clock): A looser pitch termination in training only, ≥ 4 loaded feet, and slowing stance near drops. All 590 non-completions on the gate rows are tilt-limit tips at walking height. Eval keeps the 0.5 rad termination, so recovery past 0.5 rad earns no credit there.
+  - **Partial use of the slopes skill** (0 for (a); as option 3 or 4 for (b) and (c), plus ≈ 1 for fresh TDR seeds in (c) h wall-clock): RT_s19 has no route to acceptance: it fails R as well as G. Realistic uses: (a) keep it as the slope-descent reference run; (b) warm-start option 3 or 4 from it; (c) a slopes-only teacher as a new campaign with G set before any number exists, read on fresh seeds.
+
