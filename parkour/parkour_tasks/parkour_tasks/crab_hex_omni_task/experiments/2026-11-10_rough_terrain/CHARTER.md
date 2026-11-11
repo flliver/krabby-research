@@ -660,3 +660,26 @@ Report only. The step-9 verdict NOT ACCEPTED is frozen and this entry changes no
   - Deferred findings are listed in ARM.md under "Left for implementation".
 - **Pre-run.** TDR's 33 rows at es+4 (`RTF_03c3e472_*`, scratch driver `rt_tdr_fresh.py`) started 09:51 under the never-idle rule. They are unread, and stay so until `selection.json` is committed.
 - **Odds** (stated before any number): ACCEPT ≈ 8 %, G pass ≈ 0.45, HALT_R ≈ 0.35. c1 sits on both the yaw and the back line.
+
+### 2026-11-11 11:50 — Amendment A steps 2–3: scripts built, CPU checks pass
+
+- **Workflow** `wf_72a409ad-c6b`:
+  - Builders: sonnet·high (`rt_short_train.py`, `rt_short.py`, `rt_short_launch.sh`) and opus·high (`readout_fresh.py`, `select.py`).
+  - Reviews: fable·high on the decisive reader, opus·high on the queue. Neither found a blocking issue.
+  - Checks: sonnet·high.
+- **Step-3 checks: 8 of 8 pass.**
+  - Build check OK at 89c1916b / 9fe964d7, clean.
+  - Thresholds regenerate byte-equal.
+  - `readout_fresh --identity-check` reproduces step-9 gates.json: 1214 numbers, 0 differences, same verdict.
+  - 62 / 62 fail-closed tests pass.
+  - `select.py --check` reproduces the sweep's 29500 row (24 / 24) and step 9's 22 suite lines exactly. c1's es1-only z is −0.398, bound by yaw.
+  - Dry passes give 1 train step and 19 / 12 / 21 slots, with no collisions.
+  - Trainer preflight: RT_s20s, 1010 its, seed 20, final model_30000.pt, PF1–PF7 pass.
+  - No code path opens an RTF outcome before the guard.
+- **Naming.** Selection rows are `RTA_<sha8>_*` and confirm rows `RTC_<sha8>_*`. Readers key on the run_meta sha and seed, not on the name.
+- **Parent edit after the checks:** `select.py` refuses a non-finite suite line (NaN would make `min()` order-dependent). `--check` was re-run and passes.
+- **Minor review items not applied, handled by procedure:**
+  - confirm-2 launches only after `g1.json` reads G PASS;
+  - match the `G=PASS` sentinel, never the exit code;
+  - keep `RT_TP_OUT` unset;
+  - the step-10 hash line carries rows_rt 0b038f03 and the cross_r check.
