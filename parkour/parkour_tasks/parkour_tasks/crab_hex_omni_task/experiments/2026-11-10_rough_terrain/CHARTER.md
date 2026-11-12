@@ -978,3 +978,47 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
     scaling [84].
   - Measure with a per-foot slip ratio logged per terrain and friction bin (review rec. 8). The depth student's
     behaviour on these tiles is part of the read.
+
+### 2026-11-12 — P2 pre-registered (`p2/P2.md`); audit passes 1–2 applied, pass 3 running; step-2 code built
+
+- **User (2026-11-12):** "accept the defaults and audit", so the 7 P2 defaults are settled (P2.md settled 6). The
+  answers to pass 1's four questions all took the recommendation (settled 7):
+  - Q1: the selection terrain rows are WATCH only.
+  - Q2: the read adds ledge_up, pits and rubble as decisive no-regress lines, and hills and gravel as report-only.
+  - Q3: c31000 is read on slopes and ledge_down at es1–2 before the distill (a d' trigger); the c1 and TDR T-kind
+    rows at es9–10 always run.
+  - Q4: the T rows and the ×0.7 L090 rows launch twice up front.
+  - At the 2-pass cap the user approved one more pass (pass 3).
+- **Audit.** The trail is in P2.md.
+  - Pass 1: 4 whole-document auditors (fable·high among them), a haiku inventory, 6 sonnet probes and an opus number
+    check.
+  - Pass 2: opus·xhigh and fable·high, which found 4 blocking issues, all fixed.
+  - Pass 3 was running when this was committed. Any blocking fix it finds is committed as a dated amendment before
+    the first selection row.
+  - The plan grew from 1887 to ≈ 2980 words. Most of the growth comes from the user's defaults and Q1–Q4 answers;
+    ≈ 30 % comes from blocking fixes.
+  - Budget to the bake proposal: ≈ 34 h nominal, ≈ 39 h worst.
+- **Built** (workflow `wf_d18bf0ba-4e8`: 2 opus·high builders, a fable·high reviewer for each, then fixers; new files
+  only):
+  - `envs/P2_distill.env` (c39971d5): its KRABBY_* set equals RT_train.env's (37 keys).
+  - `p2/p2_distill.sh`, `p2/p2_distill_check.py`, `p2/p2_curriculum.py`, `p2/p2_step3.py` and `p2/p2_queue.sh`.
+  - Self-tests:
+    - D1–D7 reference on RT_s19: PASS. The predictor reproduces RT_s19's [rt_friction] line verbatim and predicts
+      20 gravel envs of 192 for the student.
+    - D5's windowed tail on its 29301–29500: ep_len 1401.9, crab_failure 0.431.
+    - The curriculum self-test reads RT_s19 at +1000 at levels 6.45 / 4.76, and RSD's loss ratio at 0.643, so no
+      trigger fires.
+    - Every block's dry run passes, and the negative checks refuse as they should.
+  - The fable reviewers found 4 blocking bugs, all fixed:
+    - the curriculum code still used the superseded pass-1 rule;
+    - D6 could kill after +250;
+    - a step-3 preflight refusal still started the distill;
+    - the ×0.7 bridge fingerprint was vacuous.
+- **Notes.**
+  - `envs/P2_distill.env` matches `rt_machinery.FROZEN_GLOBS` (`envs/*.env`). RT's own `build_check` against
+    `results/pin.json` therefore now reads BAD, so any RT block would refuse; none is planned. P2 checks against
+    `results/p2/pin.json`.
+  - Step 2's hardlink of c1 into MAIN logs is deferred to the stand fork. The distill loads c1 from the worktree path,
+    and D3 compares that path.
+- **Next.** Write `results/p2/pin.json` on the clean tree. Then move the Kit DerivedDataCache aside: it is renamed,
+  never deleted (settled 6d). Then launch the step-3 → distill chain.
