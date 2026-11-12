@@ -1142,3 +1142,19 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
      The stand pre-flight is read for it.
 - **Queued.** `p2_sel_queue.sh` was launched detached. It waits for `TPDISTILL END RT_ST_s19 rc=0` and the chain lock,
   then runs teacher → prescreen → rank → full → decide → onnx.
+
+### 2026-11-12 ≈ 17:50 — P2 curriculum read at +1000: trigger NONE
+
+- **Read** at iteration 30500, 21-iteration window means (tb and log agree to 5e-5):
+
+  | Signal | RT_ST_s19 at +1000 | Comparison |
+  |---|---|---|
+  | slopes level | 6.93 | RT teacher at +1000: 6.45 |
+  | ledge_down level | 4.70 | RT teacher at +1000: 4.76 |
+  | terrain_levels | 5.66 | — |
+  | depth_actor_loss | 0.665 | +50 value 1.010, ratio 0.659; field precedents 0.64–0.68 |
+
+- **Trigger: NONE.** Both levels are ≥ 3.0, and the loss is ≤ 0.80× its +50 value.
+- **What this shows.** The student keeps pace with the teacher's own curriculum on the hazard kinds, so DAgger is
+  labelling b2-band states, which the design rests on. The loss falls like a healthy field distill.
+- **Next.** No further mid-distill read is planned. The selection chain is queued for the distill's end (≈ 04:45).
