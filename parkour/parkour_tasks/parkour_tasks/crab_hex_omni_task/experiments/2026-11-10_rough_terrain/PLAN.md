@@ -299,6 +299,9 @@ lines use only their own v1.2 margins.
   v2 by zero-init surgery, or a v2 student, if scan-limited rows show.
 - **P4. Lost-foothold levers.** Looser pitch termination, ≥ 4 loaded feet, stance slowing, for the above-envelope
   bands.
+- **P5. Loose ground** (user, 2026-11-12; not scoped). The gravel here is rigid low-μ rough ground. Candidate levers:
+  support-failure or sinkage events, step-to-step and load-dependent footing, ground compliance DR, an RFT force
+  hook. Details in CHARTER, 2026-11-12.
 
 ## Verification
 

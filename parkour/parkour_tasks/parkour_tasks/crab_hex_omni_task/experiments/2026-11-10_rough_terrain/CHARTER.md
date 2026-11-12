@@ -957,3 +957,24 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
   - The final accept-or-overrule decision is made at the bake proposal, with the student's own numbers in hand.
   - TDR + c31000 + SH_RSD_TDR / SN_RSD_TDR stay the omni policy of record until a bake yes.
 - **Next.** The P2 plan is designed, then shown to the user for review and audit before any GPU work.
+
+### 2026-11-12 — User: loose ground noted as a follow-on (P5; not scoped, not in P2)
+
+- **What the gravel is.** Rigid, not loose. `rt_gravel` (`parkour_isaaclab/terrains/omni/site_terrains.py`,
+  `_layout_rt_gravel`) is a fixed height field: a smooth random field of ±0.02 → 0.05 m by ladder level, with
+  μ_eff ~ U(0.2, 0.5) fixed per env for the episode (the friction contract). Rubble is rigid too: 0.32 m cells of
+  U(0, h_max). Nothing sinks, shifts or rolls, and the slip is the same on every step.
+  - So c1's gravel result means "slippery, uneven ground", not "loose ground". This is a likely sim-to-real gap.
+  - Literature review §8 precedent: GM-Loco's rigid-trained humanoid scored 98 % on basalt and 0 % on sand in MPM
+    evaluation; its RFT-trained policy scored 100 % on all three media [83].
+- **User:** note loose-ground training as a follow-on task. Recorded as **P5. Loose ground** in PLAN.md's later
+  phases. It has no plan or budget yet. Candidate levers, cheapest first:
+  - per-foot support-failure / sinkage events: a stance foot's support gives way or sinks by a random depth
+    (review §8 and rec. 8). No particles needed, and it also trains the lost-foothold response (P4).
+  - footing that changes step to step and with load: per-step stochastic friction or a per-foot wrench perturbation;
+  - randomized ground compliance (contact stiffness and damping per tile);
+  - a per-foot granular force model (RFT computed in Warp, as in GM-Loco [83]), if deep loose fill matters;
+  - free-moving rigid stones or particle (PBD) gravel. Costly: the review found PBD gravel CPU-bound and not
+    scaling [84].
+  - Measure with a per-foot slip ratio logged per terrain and friction bin (review rec. 8). The depth student's
+    behaviour on these tiles is part of the read.
