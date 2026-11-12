@@ -1022,3 +1022,25 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
     and D3 compares that path.
 - **Next.** Write `results/p2/pin.json` on the clean tree. Then move the Kit DerivedDataCache aside: it is renamed,
   never deleted (settled 6d). Then launch the step-3 → distill chain.
+
+### 2026-11-12 14:40 — P2 audit pass 3 done; amendment 1 (before any C1S number); step 3 under way
+
+- **Pass 3** was the extra pass the user approved (workflow `wf_4dd5edcb-13d`: opus·xhigh, fable·high and an
+  opus·medium number check). It read the plan while step 3 ran.
+  - fable found nothing blocking.
+  - opus found one blocking issue, in pass-2 text: the "a diag-only Tr fail is c1's predicted cost" label had no
+    bound.
+- **Amendment 1**, edited in `p2/P2.md`:
+  - The diag label is bounded: worse_by ≤ 0.035, which is c1's ≈ 0.025 plus the largest recorded student offset,
+    0.009. Beyond that the fail is presented as a student loss, beside selection's tracking_watch value.
+  - The stand budget had double-counted REFS (0.6 h) and the lazy R_h (≈ 0.37 h): RSD's 6.8 h already includes both.
+    Pass 1's premise was wrong. The stand line is back to ≈ 7.0 h, and the totals are ≈ 33 h nominal and ≈ 38 h
+    worst.
+  - The D7 line is 10.5 s/it in-loop, matching the built check.
+  - Eight implementation checks were added (items 19 and 21–25).
+  - The amendment's own fix was not re-audited. It touches only how a Tr fail is labelled at the proposal; no gate
+    line moved.
+- **Step 3.** The chain started 14:11:20.
+  - smoke 14:11–14:22: rc 0, **P2_SMOKE PASS**. Both kinds' twin launches show the class signature (CLASS-FLIP),
+    so the §4 pair check has been exercised before the read.
+  - The d' rows started 14:22.
