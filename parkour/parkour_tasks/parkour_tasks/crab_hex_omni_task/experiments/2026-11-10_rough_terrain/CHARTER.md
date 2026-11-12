@@ -942,3 +942,18 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
   - **(C) Env-only remedy arm** (≈ 9–10 h; ACCEPT ≈ 10 %): retention plus a higher KRABBY_ACTION_BOUND_LOSS; from TDR, or warm-started from c1.
   - **(D) Close as NOT ACCEPTED** (≈ 0.5–1 h CPU): TDR stays of record, and c1 is kept as the slope- and drop-reference run.
   - **Not available:** re-reading c1 on es9+, pooling seeds, neighbouring checkpoints on es5–8, or the drift re-read. ARM's "Never" list forbids these, or they do not apply.
+
+### 2026-11-11 17:25 — User decision at the HALT_R: "A" (accept c1 by a disclosed overrule of R tracking, then P2, staged)
+
+- **Decision.** The user picked option A from the 17:10 HALT entry.
+  - c1 (RT_s19 `model_29500`, 6d1f29be) goes forward to P2 by a **disclosed user overrule** of the R tracking lines.
+  - The frozen verdict stays **HALT_R**. The overrule does not re-read any gate.
+  - Disclosed costs:
+    - back-hold overshoot 1.08× against TDR's 1.01–1.02× (0.238 vs 0.222 m/s at a 0.22 m/s command);
+    - in-place yaw rate −3.5 % (0.165 vs 0.171 rad/s);
+    - the recipe is not seed-replicated.
+- **Staged.**
+  - Steps: re-distil the depth student from c1, a new pre-registered student read on es9+ against c31000, stand re-pair, bake videos, then a bake proposal.
+  - The final accept-or-overrule decision is made at the bake proposal, with the student's own numbers in hand.
+  - TDR + c31000 + SH_RSD_TDR / SN_RSD_TDR stay the omni policy of record until a bake yes.
+- **Next.** The P2 plan is designed, then shown to the user for review and audit before any GPU work.
