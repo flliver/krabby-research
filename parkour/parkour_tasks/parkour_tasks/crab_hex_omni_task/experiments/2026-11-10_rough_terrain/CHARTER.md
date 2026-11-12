@@ -1099,3 +1099,46 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
     under the 10.5 s/it re-notify line. The distill should end ≈ 2026-11-13 04:45.
 - **Next.** The curriculum reads run at +300 and +1000. The step-5 CPU forks (selection, read, stand, video, ONNX) are
   built during the distill.
+
+### 2026-11-12 — P2 step 5 code built (CPU, during the distill); +300 curriculum read healthy; selection queued
+
+- **+300 curriculum read** (21-iteration window means, tb and log agree to 5e-5): slopes level 6.67, ledge_down
+  4.89, terrain_levels 6.06, depth_actor_loss 0.728. That is already at the RT teacher's +1000 levels (6.45 / 4.76).
+  No trigger is evaluated before +1000.
+- **Built** (workflow `wf_24c1eb54-12b`: 3 opus·high builders, a fable·high reviewer and fixer per piece, then a
+  fable·high integration review; new files only, no GPU):
+  - **Selection + ONNX:** `p2/p2_select.py`, `p2_sel_queue.sh` and `p2_onnx.py`.
+    - Fork check: with RSD's constants restored, it reproduces RSD's `sel.json` exactly (781 numbers, max |diff| 0,
+      same pick c31000 155b5981).
+    - The WATCH read on c31000's P2D rows reproduces step3.json's d'.
+    - c1's suite es1/es2 stamps are proven reusable, so 8 teacher rows run.
+    - An ONNX re-export of c31000 is byte-equal to the bundled graphs, with parity 1.2e-6.
+    - The candidate grid projects to 30500 / 31500 / 32400 / 33400 / 34499. Saves are every 200 its after +2500, so
+      the 32500 and 33500 targets tie and select_student's unchanged rule takes the earlier save. Disclosed.
+    - Review: 0 blocking findings.
+  - **es9+ read:** `p2/p2_read.py`, `p2_read_check.py` and `p2_read_queue.sh`.
+    - The pooled statistic follows P2.md: per-key means, paired_completion_se on fractional dicts, and g_line's
+      clauses, never routed through readout's bool casts.
+    - The synthetic two-launch check and the gates_fresh identity reproduction both pass.
+    - Review: 1 blocking finding, fixed: the diag label's tracking_watch lookup pointed at the wrong sel.json key.
+  - **Stand + videos:** `p2/p2_stand.py`, `p2_stand_queue.sh` and `p2_bake_videos.sh`.
+    - It is the STAND_REPAIR recipe with c1 as walker, K4 run as RSD's two-sided test, the body-height pre-flight
+      line, and no MAIN hardlink needed for c1.
+    - Review: 1 blocking finding, fixed: `--launch` could never pass its source check.
+- **Integration review.** It found one blocking seam: the stand queue could take the GPU in a gap between the
+  selection or read chains' blocks. It also found 5 minor ones. They are handled by orchestration, not code; these
+  rules are binding for P2:
+  1. Queue order is selection, then read, then stand, one chain at a time. The read queue is launched only after:
+     - `P2SQ PICK`;
+     - the independent recompute of the pick;
+     - `sel.json` is committed;
+     - `onnx_PICK.json` reads ok (parity, io_equal_c31000, the pick's sha).
+  2. The stand queue is launched only after the read chain is DONE and `read.json`'s verdict has been read (not
+     HALT, INCOMPLETE or PENDING), and after the step-9 DDC move.
+  3. `p2_select.py --decide` is never re-run non-dry after the read starts, because it rewrites sel.json and would
+     refuse the read.
+  4. The live build is checked against `results/p2/pin.json` before the ONNX export and before the videos.
+  5. A module-name shadow (`p2_read`, the stand's phase-2 reader versus the es9+ driver) resolves correctly today.
+     The stand pre-flight is read for it.
+- **Queued.** `p2_sel_queue.sh` was launched detached. It waits for `TPDISTILL END RT_ST_s19 rc=0` and the chain lock,
+  then runs teacher → prescreen → rank → full → decide → onnx.
