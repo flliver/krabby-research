@@ -1,0 +1,35 @@
+{
+ "schema": "rt_pin_v1",
+ "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+ "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+ "head": "bb183e05c9e6001efd5b1e0f22e36e10e6d8d056",
+ "repo": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain",
+ "pinned_at": "2026-11-12T14:10:52",
+ "frozen_files": {
+  "manifests/rows_rt.json": "0b038f035022a2469da2487df27aec9b73402c05e7b91212f79488227e370c3d",
+  "manifests/rt_kinds.spec.yaml": "f3d02e6efd5d0c0318900a51d1aa1896185796029eeee82c4135f7406614959b",
+  "manifests/scenarios_rt.yaml": "4c6c6249c60daa1165720fa2b3b09caf76674a61b8ce6be125416edd717dcdba",
+  "manifests/envs/rt_kind_eval.env": "857f3bf951e3552de271c3731bc6efc06a1fbffba25503c0e3288a8da82e5b53",
+  "envs/P2_distill.env": "c39971d5dd43b1f7c06e729844ee1fc1b44a1aef048c3d0295b2c6211fd33318",
+  "envs/RT_smoke_ref.env": "ee62f5fc824db406493b6cc386d77355a19311a4c18406431c73f02daec8fe9a",
+  "envs/RT_smoke_train.env": "718098456626247f71ea5339c01d00547fa4506a10fa288979fac5e6b930c0fd",
+  "envs/RT_train.env": "26a0461ede51acee0ed4409062f10ff63367eb872309a7fd3cbe165217dc6eaf"
+ },
+ "reported_files": {
+  "scripts/build_check.py": "54f7b1b3899012348f3f706ec78b51ea79e2c633502165376351a6ac0154b694",
+  "scripts/make_manifest.py": "e1d6729402e60265d980ea16a4bb922f1c688fb8303fc0a73bdb8d4a6922b95a",
+  "scripts/make_thresholds.py": "8c67532f4164ca590776eb4f21de4884a99f5f03bbfce4681c02404969762a86",
+  "scripts/readout.py": "14e8717c8371a9e45ecd4aebb812d5d6b458be685459a7f159f9b1af9975a46f",
+  "scripts/rt_kit_eval_probe.py": "f591b98feec446670d2e3e23e803ffa0a48f5c38e982de9882afe1d7c2fbd5eb",
+  "scripts/rt_kit_train_smoke.py": "a165f25ab9cf918bf5cdc9e8e27258355ff030e54e68f26d522c1d17f6aa72aa",
+  "scripts/rt_machinery.py": "8e22263515828bd1e7620bf8aeb9979cd6b3752dc3f9b08e1d18ca720d2b4929",
+  "scripts/rt_queue.py": "f88a417e9e2c974084e5679fe260fbdc715aeddc2c2352e0d267ef5c16dd50c1",
+  "scripts/rt_smoke_check.py": "7f20807721f1286c5dbeb1fbaa1d781300cde41ddb43437f82e584834b5e61de",
+  "scripts/rt_spec.py": "6716d9994d000c6517ddf6bcd730c9a4b91b9f29e30224e62c20c178aa2db99d",
+  "scripts/rt_train.py": "a0d8b00e010772d7b2936a8a611c199bbb6106998e58b80859be371cf4dae091",
+  "scripts/rt_kit_run.sh": "06fcfc85b7d12366c0a6eb240bb0d814f6444da863a7a7e55f64c5b5fdc5385a",
+  "scripts/rt_launch.sh": "11b138b02b0cfffb79704add3cd0ec4cc2c8a8a1597ee43b645b5a97dcf5ae55",
+  "scripts/rt_wait.sh": "50e36f64c58868b90ffdc570fb7caf1f9fbb8d68a557c4175d069fbd9bea145a"
+ },
+ "rule": "code_sha / eval_sha frozen from step 5 through step 9 (PLAN step 5); a stage refuses a live build that differs, a dirty code/eval tree, or a changed frozen campaign file"
+}
