@@ -1084,3 +1084,18 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
 - **Step 4.** The distill RT_ST_s19 started at 15:07:48, through `p2_distill.sh` (train.py from this worktree).
   - The +10-it checks run from a background waiter. A D1–D5 miss → `p2_distill_check.py stop`.
   - The curriculum reads follow at +300 and +1000.
+
+### 2026-11-12 15:10 — P2 step 4: the +10-it checks PASS (RT_ST_s19)
+
+- Command: `p2_distill_check.py check --name RT_ST_s19 --teacher <c1>`, rc 0, log at +11.
+  - **D1 PASS.** The 10 knob lines equal RT_s19's minus the stripped-key lines, and both site-geometry sync lines are
+    present. The `[rt_friction]` line equals the prediction: 20 gravel envs of 192.
+  - **D2 PASS.** The [DR] draw is as predicted.
+  - **D3 PASS.** The teacher sha is c1's, 6d1f29be.
+  - **D4 PASS.** The first iteration is 29500, and the log reached 29511.
+  - **D5 PASS**, recorded only. The windowed c1 tail over its 29301–29500 reads ep_len 1401.9 and crab_failure 0.431.
+  - **D6 N/A.** The live rules are not applied (P2.md step 4).
+  - **D7 COST.** The pace is 9.77 s/it, so 5000 its take ≈ 13.6 h. That sits inside the pre-registered 10.2–14.7 h,
+    under the 10.5 s/it re-notify line. The distill should end ≈ 2026-11-13 04:45.
+- **Next.** The curriculum reads run at +300 and +1000. The step-5 CPU forks (selection, read, stand, video, ONNX) are
+  built during the distill.
