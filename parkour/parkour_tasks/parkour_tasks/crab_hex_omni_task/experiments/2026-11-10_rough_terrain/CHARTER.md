@@ -1069,3 +1069,18 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
   - slopes: +0.09 to +0.135, against a hurdle of ≈ 0.105–0.118. That is marginal even for a lossless student.
   - ledge_down: ≈ +0.2, which leaves room for a distill loss of ≈ 0.1.
   - The likely T outcome is therefore PARTIAL (ledge_down), which routes to "you decide" at the proposal.
+
+### 2026-11-12 15:08 — P2 step 3 DONE (smoke PASS, d' NONE, bridge PASS); step 4 distill RT_ST_s19 launched
+
+- **Chain** `p2_queue.sh`, 14:11:20 → 15:07:48. Every block returned rc 0, and step 3 took 0.94 h.
+  - **smoke** (es90, twin launches): PASS. Both kinds show the class signature.
+  - **d'**: trigger NONE (see the 14:41 entry).
+  - **bridge**, c31000 at es1 against the recorded RSD stamps, cross-pin, with path keys normalised:
+    - L090 field_light and suite: PASS, a bitwise match on the first launch.
+    - ×0.7 L090 field_light: RELAUNCH, then PASS on R1 (`P2B_155b5981_x07_L090_R1`). This is the case the pass-1
+      fix was written for.
+    - ×0.7 L090 suite: PASS.
+  - The result is in `results/p2/step3.json`.
+- **Step 4.** The distill RT_ST_s19 started at 15:07:48, through `p2_distill.sh` (train.py from this worktree).
+  - The +10-it checks run from a background waiter. A D1–D5 miss → `p2_distill_check.py stop`.
+  - The curriculum reads follow at +300 and +1000.
