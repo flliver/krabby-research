@@ -57,11 +57,20 @@ def main() -> None:
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    power_daemon = None
     hal_server = None
     collector_stop = collector_thread = None
 
     try:
         hal_server = create_hal_server(robot_definition, observation_bind, command_bind)
+        if hal_server._mcusdk is not None:
+            from hal.server.jetson.power_daemon import OrinPowerDaemon, build_host_poweroff_requester
+            power_daemon = OrinPowerDaemon(
+                hal_server._mcusdk.firmware_sdk,
+                request_poweroff=build_host_poweroff_requester(),
+            )
+            power_daemon.start()
+
         warn_if_mcu_missing(hal_server)
         logger.info("HAL server initialized")
         logger.info(
@@ -83,6 +92,8 @@ def main() -> None:
         sys.exit(1)
 
     finally:
+        if power_daemon is not None:
+            power_daemon.stop()
         stop_thread(collector_stop, collector_thread, "HalDataCollector")
         if hal_server:
             hal_server.close()

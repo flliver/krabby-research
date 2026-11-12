@@ -253,6 +253,7 @@ class TestBootService:
         assert "Requires=docker.service" in u
         assert "krabby-agent.service" in u
         assert "Restart=always" in u
+        assert "Requires=docker.service krabby-poweroff.path" in u
 
     def test_enable_writes_unit_and_enables(self, tmp_path, monkeypatch):
         import krabby._host as h
@@ -297,6 +298,74 @@ class TestBootService:
         import krabby._host as h
         monkeypatch.setattr(h.shutil, "which", lambda n: None)
         assert h._ensure_boot_service(True) is True  # graceful no-op on non-systemd hosts
+
+
+class TestPoweroffBridge:
+    def _paths(self, tmp_path, monkeypatch):
+        import krabby._host as h
+        runtime = tmp_path / "run" / "krabby"
+        runtime.mkdir(parents=True)
+        monkeypatch.setattr(h, "_POWER_BRIDGE_DIR", runtime)
+        monkeypatch.setattr(h, "_POWER_REQUEST_PATH", runtime / "poweroff.request")
+        monkeypatch.setattr(h, "_POWER_READY_PATH", runtime / "poweroff.ready")
+        monkeypatch.setattr(h, "_POWER_PATH_UNIT_PATH", tmp_path / "krabby-poweroff.path")
+        monkeypatch.setattr(h, "_POWER_SERVICE_UNIT_PATH", tmp_path / "krabby-poweroff.service")
+        monkeypatch.setattr(h, "_POWER_TMPFILES_PATH", tmp_path / "krabby-poweroff.conf")
+        return h
+
+    def test_installs_and_enables_the_path_unit(self, tmp_path, monkeypatch):
+        h = self._paths(tmp_path, monkeypatch)
+        calls = []
+        monkeypatch.setattr(h.shutil, "which", lambda name: "/usr/bin/systemctl")
+        monkeypatch.setattr(h, "_run", lambda cmd: calls.append(cmd) or 0)
+
+        assert h._ensure_poweroff_bridge() is True
+
+        assert f"PathExists={h._POWER_REQUEST_PATH}" in h._POWER_PATH_UNIT_PATH.read_text()
+        service = h._POWER_SERVICE_UNIT_PATH.read_text()
+        assert "ExecStart=/usr/bin/sleep 2" in service
+        assert "ExecStart=/usr/bin/systemctl --no-block poweroff" in service
+        assert str(h._POWER_READY_PATH) in h._POWER_TMPFILES_PATH.read_text()
+        assert ["systemctl", "enable", "--now", "krabby-poweroff.path"] in calls
+
+    def test_removes_a_stale_request_before_enabling(self, tmp_path, monkeypatch):
+        h = self._paths(tmp_path, monkeypatch)
+        h._POWER_REQUEST_PATH.write_text("stale\n")
+        monkeypatch.setattr(h.shutil, "which", lambda name: "/usr/bin/systemctl")
+        monkeypatch.setattr(h, "_run", lambda cmd: 0)
+
+        assert h._ensure_poweroff_bridge() is True
+        assert not h._POWER_REQUEST_PATH.exists()
+
+    def test_skips_without_systemd(self, monkeypatch):
+        import krabby._host as h
+        monkeypatch.setattr(h.shutil, "which", lambda name: None)
+
+        assert h._ensure_poweroff_bridge() is True
+
+    def test_bridge_install_is_independent_of_autostart(self, monkeypatch):
+        import krabby._host as h
+        calls = []
+        for name in (
+            "_ensure_udev_rule",
+            "_ensure_pro_controller_udev",
+            "_ensure_pro_controller_led_udev",
+            "_ensure_hid_nintendo",
+            "_ensure_bt_input_conf",
+        ):
+            monkeypatch.setattr(h, name, lambda: True)
+        monkeypatch.setattr(
+            h, "_ensure_poweroff_bridge", lambda: calls.append("bridge") or True)
+        monkeypatch.setattr(
+            h,
+            "_ensure_boot_service",
+            lambda enabled: calls.append(("autostart", enabled)) or True,
+        )
+        monkeypatch.setattr(h, "_ensure_dialout", lambda: None)
+
+        h.run_host_setup(launch_on_startup=False)
+
+        assert calls == ["bridge", ("autostart", False)]
 
 
 class TestDkmsEnsureInstalled:
@@ -471,6 +540,7 @@ class TestRunCmd:
         assert "--privileged" in cmd
         assert "-v" in cmd
         assert "/dev:/dev" in cmd
+        assert "/run/krabby:/run/krabby" in cmd
 
     def test_contains_gpu_flags(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
@@ -562,6 +632,7 @@ class TestGamepadCmd:
         cmd = gamepad_cmd("myimage:tag", [])
         assert "--privileged" in cmd
         assert "/dev:/dev" in cmd
+        assert "/run/krabby:/run/krabby" in cmd
 
     def test_gpu_flags_included(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")

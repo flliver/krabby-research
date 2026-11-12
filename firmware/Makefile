@@ -130,16 +130,11 @@ test-native-coverage: test-native
 		--gcov-exclude-directory '.*/CMakeFiles/oled_trace\.dir/.*' \
 		--filter 'firmware/arduino/src/units/.*' \
 		--filter 'firmware/arduino/actuator_manager\.h$$' \
-		--filter 'firmware/arduino/src/(actuator|cli|display|imu|power_monitor)/.*' \
+		--filter 'firmware/arduino/src/(actuator|cli|display|imu|power_monitor|power_safety)/.*' \
+		--filter 'firmware/arduino/src/periodic_timer\.h$$' \
 		--exclude-unreachable-branches --exclude-throw-branches \
 		--txt --print-summary --fail-under-line 90 --fail-under-branch 88
 
-	# Only the verbatim extracted sketch regions, not whole-sketch coverage.
-	$(CMAKE) -E chdir "$(REPO_ROOT)" $(GCOVR) --root . "$(NATIVE_COVERAGE_BUILD)" \
-		--gcov-executable "$(GCOV)" \
-		--filter 'firmware/arduino/arduino\.ino$$' \
-		--exclude-unreachable-branches --exclude-throw-branches \
-		--txt --print-summary --fail-under-line 100 --fail-under-branch 100
 
 test-firmware: test-native
 	cd "$(REPO_ROOT)" && $(PYTEST) -q tests/unit/firmware

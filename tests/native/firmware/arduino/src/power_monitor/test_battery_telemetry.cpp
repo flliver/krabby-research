@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "src/telemetry.h"
+#include "src/power_monitor/voltage_validity.h"
 #include "unity.h"
 
 
@@ -330,9 +331,37 @@ static void test_a_dead_midpoint_still_carries_the_pack_fields()
         ";BATT 26.55 -12.34 327.6 1450.2 13.35 13.20 0 0 1 0", out.text().c_str());
 }
 
+static void test_battery_divergence_preserves_strict_threshold_and_symmetry()
+{
+    const struct { float a, b; bool diverged; } cases[] = {
+        {13.0f, 13.0f, false},
+        {13.0f, 13.25f, false},
+        {13.0f, 13.5f, false},
+        {13.0f, 13.5009765625f, true},
+        // Finite but implausible voltages are handled by separate range checks.
+        {-1.0f, -1.0f, false},
+        {25.0f, 25.25f, false},
+    };
+    for (const auto &sample : cases)
+    {
+        TEST_ASSERT_EQUAL(sample.diverged,
+            areBatteryVoltagesDiverged(Volts(sample.a), Volts(sample.b)));
+        TEST_ASSERT_EQUAL(sample.diverged,
+            areBatteryVoltagesDiverged(Volts(sample.b), Volts(sample.a)));
+    }
+    const float invalid[] = {NAN, INFINITY, -INFINITY};
+    for (float value : invalid)
+    {
+        TEST_ASSERT_TRUE(areBatteryVoltagesDiverged(Volts(value), Volts(13.0f)));
+        TEST_ASSERT_TRUE(areBatteryVoltagesDiverged(Volts(13.0f), Volts(value)));
+        TEST_ASSERT_TRUE(areBatteryVoltagesDiverged(Volts(value), Volts(value)));
+    }
+}
+
 int main()
 {
     UNITY_BEGIN();
+    RUN_TEST(test_battery_divergence_preserves_strict_threshold_and_symmetry);
     RUN_TEST(test_serializes_exact_tag_delimiters_order_units_and_precision);
     RUN_TEST(test_serializes_divergence_and_full_byte_state_fields);
     RUN_TEST(test_serializes_positive_zero_and_negative_pack_current_without_sign_change);

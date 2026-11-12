@@ -1,6 +1,7 @@
 #include "unity.h"
 
 #include "EEPROM.h"
+#include "eeprom_storage.h"
 #include "actuator_manager.h"
 #include "sim_clock.hpp"
 #include "src/controller/board_role.h"
@@ -29,6 +30,31 @@ static void test_eeprom_read_write_update_round_trip_bytes()
     EEPROM.update(10, 0x34);
     TEST_ASSERT_EQUAL_HEX8(0x34, EEPROM.read(10));
     TEST_ASSERT_EQUAL_UINT(2, EEPROM.writes);
+}
+
+static void test_record_storage_isolates_addresses_and_commits_only_magic()
+{
+    struct Record
+    {
+        uint8_t schema;
+        uint8_t magic;
+        uint8_t value;
+    };
+    EepromStorage<Record, 100> first;
+    EepromStorage<Record, 200> second;
+    first.writeRecord({1, 0, 42});
+    second.writeRecord({2, 0xBC, 99});
+    first.updateMagic(0xAB);
+
+    Record loaded{};
+    first.load(loaded);
+    TEST_ASSERT_EQUAL_UINT8(1, loaded.schema);
+    TEST_ASSERT_EQUAL_HEX8(0xAB, loaded.magic);
+    TEST_ASSERT_EQUAL_UINT8(42, loaded.value);
+    second.load(loaded);
+    TEST_ASSERT_EQUAL_UINT8(2, loaded.schema);
+    TEST_ASSERT_EQUAL_HEX8(0xBC, loaded.magic);
+    TEST_ASSERT_EQUAL_UINT8(99, loaded.value);
 }
 
 static void test_role_magic_round_trip_at_bytes_32_33()
@@ -99,6 +125,7 @@ int main()
 {
     UNITY_BEGIN();
     RUN_TEST(test_eeprom_read_write_update_round_trip_bytes);
+    RUN_TEST(test_record_storage_isolates_addresses_and_commits_only_magic);
     RUN_TEST(test_role_magic_round_trip_at_bytes_32_33);
     RUN_TEST(test_cal_data_put_get_round_trip_deadbeef_magic);
     RUN_TEST(test_actuator_manager_save_and_load_calibration);

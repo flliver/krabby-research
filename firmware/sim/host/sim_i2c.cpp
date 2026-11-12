@@ -2,6 +2,7 @@
 
 #include "sim_imu_model.hpp"
 #include "sim_ssd1306.hpp"
+#include "src/power_monitor/power_monitor_constants.h"
 
 namespace krabby {
 namespace sim {
@@ -19,6 +20,10 @@ void setDefaultPresent(SimI2cBus &bus, uint8_t address, bool present)
 
 void SimI2cBus::reset()
 {
+    packIna228_ = ina228_native::Device(PACK_SHUNT_RESISTANCE_OHMS);
+    midpointIna228_ = ina228_native::Device();
+    packIna228_.recordOperations = false;
+    midpointIna228_.recordOperations = false;
     txAddress_ = 0;
     txBuffer_.clear();
     rxQueue_.clear();
@@ -42,14 +47,16 @@ void SimI2cBus::ensureDefaultDevices()
 
 void SimI2cBus::setDevicePresent(uint8_t address, bool present)
 {
+    if (address >= 128) return;
     devices_[address].present = present;
+    if (auto *device = ina228ForAddress(address)) device->present = present;
     devices_[address].registerPointer = 0;
     devices_[address].writeLog.clear();
 }
 
 bool SimI2cBus::devicePresent(uint8_t address) const
 {
-    return devices_[address].present;
+    return address < 128 && devices_[address].present;
 }
 
 SimI2cBus::DeviceState *SimI2cBus::deviceForAddress(uint8_t address)
@@ -60,6 +67,13 @@ SimI2cBus::DeviceState *SimI2cBus::deviceForAddress(uint8_t address)
 const SimI2cBus::DeviceState *SimI2cBus::deviceForAddress(uint8_t address) const
 {
     return &devices_[address];
+}
+
+ina228_native::Device *SimI2cBus::ina228ForAddress(uint8_t address)
+{
+    if (address == kI2cAddrIna228Pack) return &packIna228_;
+    if (address == kI2cAddrIna228Midpoint) return &midpointIna228_;
+    return nullptr;
 }
 
 void SimI2cBus::beginTransmission(uint8_t address)
@@ -86,6 +100,13 @@ uint8_t SimI2cBus::endTransmission(bool /*sendStop*/)
     if (!devicePresent(txAddress_))
     {
         return kI2cNackAddress;
+    }
+
+    if (auto *ina = ina228ForAddress(txAddress_))
+    {
+        const uint8_t status = ina->transmit(txBuffer_);
+        txBuffer_.clear();
+        return status;
     }
 
     DeviceState *device = deviceForAddress(txAddress_);
@@ -134,11 +155,18 @@ void SimI2cBus::pushReadBytes(uint8_t address, uint8_t quantity)
 
 uint8_t SimI2cBus::requestFrom(uint8_t address, uint8_t quantity, bool /*sendStop*/)
 {
+    rxQueue_.clear();
     if (!devicePresent(address) || quantity == 0)
     {
         return 0;
     }
 
+    if (auto *ina = ina228ForAddress(address))
+    {
+        const auto bytes = ina->receive(quantity);
+        rxQueue_.insert(rxQueue_.end(), bytes.begin(), bytes.end());
+        return static_cast<uint8_t>(bytes.size());
+    }
     pushReadBytes(address, quantity);
     return quantity;
 }

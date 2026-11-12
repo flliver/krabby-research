@@ -3,6 +3,7 @@
 Keep addresses in sync with:
 - ``firmware/arduino/src/imu/imu_constants.h``
 - ``firmware/arduino/src/display/display_constants.h``
+- ``firmware/arduino/src/power_monitor/power_monitor_constants.h``
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
             "firmware/arduino/src/power_monitor/ina228_adapter.h",
             "firmware/arduino/arduino.ino (powerMonitorSetup, appendBatteryTelemetry)",
         ),
-        notes="Pack shunt monitor; 0.000375 ohm, 200 A external shunt with persisted calibration.",
+        notes="Pack shunt monitor; 0.000375 ohm, 200 A external shunt with persisted calibration; runtime uses the real driver and shared register model.",
         telemetry_segment=";BATT <pack_v> <pack_i> <pack_w> <pack_charge> <batt_a_v> <batt_b_v> <div> <pwr> <pack_valid> <midpoint_valid>",
     ),
     I2cDeviceScope(
@@ -82,7 +83,7 @@ SHIPPING_I2C_DEVICES: tuple[I2cDeviceScope, ...] = (
         status=I2cSimStatus.SHIPPING,
         firmware_sources=(
             "firmware/arduino/src/power_monitor/ina228_adapter.h",
-            "firmware/arduino/src/power/ina228_constants.h",
+            "firmware/arduino/src/power_monitor/power_monitor_constants.h",
         ),
         notes="Midpoint VBUS for per-cell voltage; batt_b = pack_v - batt_a_v.",
         telemetry_segment=None,

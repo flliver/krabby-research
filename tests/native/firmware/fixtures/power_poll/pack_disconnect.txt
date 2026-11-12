@@ -1,5 +1,5 @@
 [healthy]
-;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=26.5,-12.5,331.25,1200
@@ -25,7 +25,7 @@ fill 77 12 14 5 1
 text 98 11 13.3V
 
 [pack-read-failed-midpoint-changed]
-;BATT nan nan nan nan 12.75 nan 1 0 0 1
+;BATT nan nan nan nan 12.75 nan 1 0 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | millis=1050 | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1050
 measurement.pack=nan,nan,nan,nan
@@ -50,7 +50,7 @@ fill 94 13 2 3 1
 text 98 11 --.-V
 
 [pack-second-failed-sample]
-;BATT nan nan nan nan 12.75 nan 1 0 0 1
+;BATT nan nan nan nan 12.75 nan 1 0 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | millis=1100 | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1100
 measurement.pack=nan,nan,nan,nan
@@ -61,7 +61,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [pack-restart-failed]
-;BATT nan nan nan nan 12.75 nan 1 0 0 1
+;BATT nan nan nan nan 12.75 nan 1 0 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | millis=1150 | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1150
 measurement.pack=nan,nan,nan,nan
@@ -72,7 +72,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [retry-count-one]
-;BATT nan nan nan nan 12.50 nan 1 0 0 1
+;BATT nan nan nan nan 12.50 nan 1 0 1 0 0
 events=millis=2949 | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=2949
 measurement.pack=nan,nan,nan,nan
@@ -90,7 +90,7 @@ fill 13 12 6 5 1
 text 34 11 12.5V
 
 [retry-count-two]
-;BATT nan nan nan nan 12.50 nan 1 0 0 1
+;BATT nan nan nan nan 12.50 nan 1 0 1 0 0
 events=millis=3049 | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=3049
 measurement.pack=nan,nan,nan,nan
@@ -101,7 +101,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [reconnected-before-deadline]
-;BATT nan nan nan nan 12.50 nan 1 0 0 1
+;BATT nan nan nan nan 12.50 nan 1 0 1 0 0
 events=millis=3149 | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=3149
 measurement.pack=nan,nan,nan,nan
@@ -112,7 +112,7 @@ mid.up/bad/begins/shunts/resets=1,0,1,0,0
 draw=0
 
 [recovery-publishes-current-sample]
-;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 0 1 1
+;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 1 1 0 0
 events=millis=3150 | pack.begin | pack.calibrate | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=3150
 measurement.pack=26,-12.5,325,1200
@@ -132,7 +132,7 @@ fill 77 12 16 5 1
 text 98 11 13.5V
 
 [new-pack-reading-next-tick]
-;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 0 1 1
+;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=3200
 measurement.pack=26,-12.5,325,1200

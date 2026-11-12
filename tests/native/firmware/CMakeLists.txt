@@ -90,6 +90,11 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/power_monitor/test_power_monitor_constants
     arduino/src/telemetry/test_telemetry_poll
     arduino/test_eeprom_layout
+    arduino/src/test_periodic_timer
+    arduino/src/power_safety/test_power_safety_latch
+    arduino/src/power_safety/test_power_message
+    arduino/src/power_safety/test_power_safety_policy
+    arduino/src/power_safety/test_power_safety_controller
     arduino/test_power_poll
 )
 
@@ -202,7 +207,14 @@ else()
     target_compile_options(oled_trace PRIVATE -Wall -Wextra -Werror)
 endif()
 
-include(cmake/power_poll_characterization.cmake)
+target_include_directories(test_power_poll PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/fakes/power_poll"
+    "${KRABBY_OLED_SIM_DIR}")
+target_compile_definitions(test_power_poll PRIVATE
+    KRABBY_POWER_POLL_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/power_poll")
+target_sources(test_power_poll PRIVATE
+    "${KRABBY_ARDUINO_DIR}/src/display/display_frame_model.cpp"
+    "${KRABBY_ARDUINO_DIR}/src/telemetry.cpp")
 
 # The transport fake has no dependency on Unity or any device driver.
 add_library(wire_native_support STATIC fakes/wire/Wire.cpp)
@@ -212,18 +224,10 @@ if(MSVC)
 else()
     target_compile_options(wire_native_support PRIVATE -Wall -Wextra -Werror)
 endif()
+target_include_directories(wire_native_support PUBLIC "${KRABBY_ARDUINO_DIR}/../sim/devices")
 target_link_libraries(test_wire PRIVATE wire_native_support)
 
 include(cmake/sparkfun_libraries.cmake)
 
-# Register-level device fakes that answer the real SparkFun drivers over the TwoWire fake.
-add_library(ina228_native_device STATIC fakes/devices/ina228.cpp)
-target_include_directories(ina228_native_device PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/fakes/devices")
-target_link_libraries(ina228_native_device PUBLIC wire_native_support)
-if(MSVC)
-    target_compile_options(ina228_native_device PRIVATE /W4 /WX)
-else()
-    target_compile_options(ina228_native_device PRIVATE -Wall -Wextra -Werror)
-endif()
 target_link_libraries(test_ina228_adapter PRIVATE ina228_native_device sparkfun_ina2xx_native)
 target_link_libraries(test_power_poll PRIVATE ina228_native_device sparkfun_ina2xx_native)

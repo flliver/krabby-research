@@ -38,9 +38,9 @@ void resetHostSim()
     resetHostFrontImuPresence();
     resetHostSerial();
     resetSimSsd1306();
-    resetSimBatteryModel();
     resetSimImuModel();
     resetSimI2c();
+    resetSimBatteryModel();
     wireDefaultThreeBoardSerialLinks();
 }
 

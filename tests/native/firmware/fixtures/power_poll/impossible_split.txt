@@ -1,5 +1,5 @@
 [healthy]
-;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 0 1 1
+;BATT 26.50 -12.50 331.2 1200.0 13.25 13.25 0 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=26.5,-12.5,331.25,1200
@@ -25,7 +25,7 @@ fill 77 12 14 5 1
 text 98 11 13.3V
 
 [both-monitors-valid-but-negative-battery-B]
-;BATT 10.00 -12.50 125.0 1200.0 12.00 -2.00 1 0 1 1
+;BATT 10.00 -12.50 125.0 1200.0 12.00 -2.00 1 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1050
 measurement.pack=10,-12.5,125,1200
@@ -49,7 +49,7 @@ fill 94 13 2 3 1
 text 98 11 --.-V
 
 [both-monitors-valid-but-battery-B-above-20V]
-;BATT 40.00 -12.50 500.0 1200.0 10.00 30.00 1 0 1 1
+;BATT 40.00 -12.50 500.0 1200.0 10.00 30.00 1 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1100
 measurement.pack=40,-12.5,500,1200
@@ -74,7 +74,7 @@ fill 77 12 16 5 1
 text 98 11 30.0V
 
 [consistent-again]
-;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 0 1 1
+;BATT 26.00 -12.50 325.0 1200.0 13.00 13.00 0 1 1 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1150
 measurement.pack=26,-12.5,325,1200

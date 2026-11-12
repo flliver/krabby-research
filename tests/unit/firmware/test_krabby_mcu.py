@@ -58,6 +58,7 @@ class TestReadVersion:
         """KrabbyMCUSDK instance with a mock serial, no reader thread."""
         sdk = object.__new__(KrabbyMCUSDK)
         sdk._last_ver_line = None
+        sdk._write_lock = threading.Lock()
         sdk.ser = Mock()
         sdk.ser.is_open = True
         return sdk

@@ -4,7 +4,7 @@
 #include "display_constants.h"
 
 DisplayFrame::DisplayFrame()
-    : role(ROLE_UNKNOWN), controllers{}, actuators{},
+    : screen(DisplayScreen::Status), role(ROLE_UNKNOWN), controllers{}, actuators{},
       batteryLevel{0.0f, 0.0f},
       batteryDecivolts{BATTERY_DECIVOLTS_NO_SIGNAL, BATTERY_DECIVOLTS_NO_SIGNAL},
       packVoltage(-1.0f), roll(), pitch()
@@ -83,7 +83,7 @@ ActuatorGlyph selectActuatorGlyph(
 
 bool displayFramesEqual(const DisplayFrame &left, const DisplayFrame &right)
 {
-    if (left.role != right.role ||
+    if (left.screen != right.screen || left.role != right.role ||
         displayPackDecivolts(left.packVoltage) != displayPackDecivolts(right.packVoltage) ||
         left.roll.value() != right.roll.value() ||
         left.pitch.value() != right.pitch.value())

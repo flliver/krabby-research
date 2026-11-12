@@ -1,5 +1,5 @@
 [diverged]
-;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 0 1 1
+;BATT 26.00 -12.50 325.0 1200.0 12.50 13.50 1 1 1 0 0
 events=pack.begin | pack.reset | pack.calibrate | pack.reset-charge | mid.begin | mid.reset | pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | telemetry.begin
 clock-after=1000
 measurement.pack=26,-12.5,325,1200
@@ -25,7 +25,7 @@ fill 77 12 16 5 1
 text 98 11 13.5V
 
 [midpoint-fails-pack-remains-valid]
-;BATT 26.00 -12.50 325.0 1200.0 nan nan 1 0 1 0
+;BATT 26.00 -12.50 325.0 1200.0 nan nan 1 1 0 0 0
 events=pack.voltage | pack.current | pack.power | pack.charge | mid.voltage | mid.current | mid.power | mid.charge | millis=1050 | telemetry.begin
 clock-after=1050
 measurement.pack=26,-12.5,325,1200

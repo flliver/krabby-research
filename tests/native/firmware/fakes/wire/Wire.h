@@ -1,5 +1,7 @@
 #pragma once
 
+#include "i2c_device.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <deque>
@@ -30,13 +32,7 @@ struct Transfer
 // the bytes written since beginTransmission and returns the endTransmission status
 // (5 also sets the timeout flag); receive returns the bytes for a read, and fewer
 // than requested is a short read.
-class Device
-{
-public:
-    virtual ~Device() {}
-    virtual uint8_t transmit(const std::vector<uint8_t> &bytes) = 0;
-    virtual std::vector<uint8_t> receive(uint8_t count) = 0;
-};
+using Device = krabby::sim::I2cDevice;
 
 struct State
 {

@@ -27,6 +27,8 @@
 inline int abs(int j) { return j < 0 ? -j : j; }
 #endif
 
+inline void delay(unsigned long milliseconds) { krabby::sim::simClock().advance(milliseconds); }
+
 inline unsigned long millis() { return krabby::sim::simClock().nowMs(); }
 
 inline void pinMode(int pin, int mode) { krabby::sim::pinState().pinMode(pin, mode); }

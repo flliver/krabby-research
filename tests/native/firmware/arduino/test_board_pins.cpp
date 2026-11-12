@@ -14,7 +14,7 @@ static const int drivenPins[] = {
     PIN_S4_PWMR, PIN_S4_PWML, PIN_S5_PWMR, PIN_S5_PWML,
     PIN_S0_EN,   PIN_S1_EN,   PIN_S2_EN,
     PIN_S3_EN,   PIN_S4_EN,   PIN_S5_EN,
-    STATUS_LED_PIN,
+    STATUS_LED_PIN, ORIN_PWR_PIN,
 };
 
 // This translation unit checks the selected pin revision.

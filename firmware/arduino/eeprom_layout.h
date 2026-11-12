@@ -24,8 +24,14 @@ static constexpr uint16_t EEPROM_POWER_CAL_SIZE = 14;
 static constexpr uint16_t EEPROM_POWER_CAL_NEXT_ADDR =
     EEPROM_POWER_CAL_ADDR + EEPROM_POWER_CAL_SIZE;
 
-static constexpr uint16_t EEPROM_NEXT_AVAILABLE_ADDR =
+static constexpr uint16_t EEPROM_POWER_SAFETY_ADDR =
     EEPROM_POWER_CAL_NEXT_ADDR;
+static constexpr uint16_t EEPROM_POWER_SAFETY_SIZE = 3;
+static constexpr uint16_t EEPROM_POWER_SAFETY_NEXT_ADDR =
+    EEPROM_POWER_SAFETY_ADDR + EEPROM_POWER_SAFETY_SIZE;
+
+static constexpr uint16_t EEPROM_NEXT_AVAILABLE_ADDR =
+    EEPROM_POWER_SAFETY_NEXT_ADDR;
 
 static_assert(EEPROM_ACTUATOR_CAL_NEXT_ADDR <= EEPROM_ROLE_ADDR,
               "actuator calibration overlaps role data");
@@ -33,5 +39,7 @@ static_assert(EEPROM_ROLE_NEXT_ADDR <= EEPROM_IMU_CAL_ADDR,
               "role data overlaps IMU calibration");
 static_assert(EEPROM_IMU_CAL_NEXT_ADDR <= EEPROM_POWER_CAL_ADDR,
               "IMU calibration overlaps power calibration");
+static_assert(EEPROM_POWER_CAL_NEXT_ADDR <= EEPROM_POWER_SAFETY_ADDR,
+              "power calibration overlaps power safety");
 static_assert(EEPROM_NEXT_AVAILABLE_ADDR <= EEPROM_CAPACITY_BYTES,
               "EEPROM layout exceeds device capacity");
