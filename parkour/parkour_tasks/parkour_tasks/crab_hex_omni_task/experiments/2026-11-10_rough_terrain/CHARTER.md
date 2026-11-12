@@ -1044,3 +1044,28 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
   - smoke 14:11–14:22: rc 0, **P2_SMOKE PASS**. Both kinds' twin launches show the class signature (CLASS-FLIP),
     so the §4 pair check has been exercised before the read.
   - The d' rows started 14:22.
+
+### 2026-11-12 — User: "Accept as is" (no fourth audit pass)
+
+- The P2 audit ends after 3 passes. Amendment 1 stands unaudited, as disclosed in the 14:40 entry. `p2/P2.md` at
+  2059235a is the plan of record for P2.
+
+### 2026-11-12 14:41 — P2 step 3: d' rows read (Q3); trigger NONE
+
+- **Rows.** `P2D_155b5981_rt_{slopes,ledge_down}_b2`: c31000 in the student role at es1–2, 14:22–14:40, rc 0. They were
+  read on CPU (`p2_step3.py --read`) while the bridge ran. The read is paired on (es, env_index) against c1's RTSW rows
+  and TDR's RT9 rows, using success (complete ∧ crossed), n = 200.
+
+  | Kind | c1 | TDR | c31000 | c1 − c31000 (SE) | TDR − c31000 (SE) |
+  |---|---|---|---|---|---|
+  | slopes b2 | 0.935 | 0.745 | 0.785 | +0.150 (0.031) | −0.040 (0.030) |
+  | ledge_down b2 | 0.590 | 0.405 | 0.360 | +0.230 (0.037) | +0.045 (0.030) |
+
+- **Trigger: NONE.** c31000 is below c1 − 0.10 on both kinds, so neither kind is out of reach.
+- **d' is small on both kinds.** c31000 sits within about 1.5 SE of TDR, so the Q3 confound is small and a T gain
+  would mostly be c1's.
+- **Projection, report only, not a gate.** c1's es1–2 values are inflated (it was picked on them): on fresh es5–6, c1
+  read 0.920 / 0.520 and TDR read 0.790 / 0.345. So the fresh c1 − c31000 is roughly:
+  - slopes: +0.09 to +0.135, against a hurdle of ≈ 0.105–0.118. That is marginal even for a lossless student.
+  - ledge_down: ≈ +0.2, which leaves room for a distill loss of ≈ 0.1.
+  - The likely T outcome is therefore PARTIAL (ledge_down), which routes to "you decide" at the proposal.
