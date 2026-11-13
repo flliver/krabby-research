@@ -1211,3 +1211,61 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
 - **Read.** `p2_read_queue.sh` launched at 09:36:28. Preflight is OK: the build matches the pin, the pick is
   6b48ef33, and the DDC is 14 GB. The order is front 5 rows → 84 rows → near-miss read → one-sided relaunches →
   verdict. ≈ 7.6 h.
+
+### 2026-11-13 16:00 — P2 step 8: es9+ read COMPUTED, route USER_DECIDES; two independent re-derivations agree exactly
+
+- **Chain** (`p2_read_queue.sh`, 09:36 → 16:00, fail 0): front 5 rows → 84 rows → near-miss read (DUE: ledge_up, 4 rows)
+  → one ledge_up relaunch `_R1` on both students → verdict. 88 stamps (84 + 4), all at the pin. Commit 48c841b4.
+- **Verdict** (C1S = RT_ST_s19 model_34499 6b48ef33 vs c31000 155b5981; pooled per P2.md Class handling):
+
+  | Gate | Read | Numbers |
+  |---|---|---|
+  | T (es9–12, 400, double-launched) | **PARTIAL** | ledge_down 0.5625 vs 0.39125, **+0.171** (SE 0.023, CI lower 0.125): GAIN. slopes 0.8875 vs 0.79375, **+0.094** (SE 0.021, CI lower 0.052): misses the 0.10 floor by 0.006. No regress |
+  | T-reg (es9–10, 200) | **FAIL** | ledge_up 0.335 vs 0.39, **−0.055** (SE 0.024, margin 0.05): regress by 0.005. pits +0.07, rubble +0.035: no regress |
+  | N | PASS | field_hard 0.960 vs 0.9425 (line 0.8925); L000 0.99 vs 1.00 (line 0.95); ×0.7 L090 0.92 vs 0.9325 (line 0.8825) |
+  | Tr (18 lines) | **FAIL, 1 line** | track_err diag es9: worse by 0.02982 vs R 0.02907 (over by 0.00076). es10: 0.02762 (passes). The other 16 lines pass |
+  | E | none | back worse by 0.044 / 0.053 (flag 0.132); yaw 0.0069 / 0.0081 (flag 0.0136) |
+
+  - **Route: USER_DECIDES** (Decision rules: T PARTIAL, a T-reg fail, a Tr fail). Stand and videos run; the proposal
+    presents the numbers; the user decides.
+  - **Diag label: predicted cost of c1.** The fail is diag-only and worse_by 0.0298 ≤ 0.035. The selection's
+    tracking_watch against c1 is worse by 0.005 (es1) / 0.0047 (es2). c1's diag ratio is 0.973–0.976 against
+    c31000's ≈ 1.0.
+- **Where the verdicts sit** (disclosed; the pooled pre-registered rules were applied as written):
+  - Slopes: on c31000's first launch alone the diff is 0.1000 and the gain clause passes (T would read KEEPS); on its
+    second launch it is 0.0875. C1S's two launches give the same share; pooling c31000's class flip (47 fractional
+    keys) moved the diff to 0.094.
+  - ledge_up: the first launch reads −0.08, the relaunch −0.03, pooled −0.055. The rule allows one relaunch only.
+  - c1 itself was −0.030 vs TDR on ledge_up at es5–6 (confirm-1); the read has no c1 / TDR ledge_up rows at es9–10,
+    so the student's own share of the ledge_up loss is not measured.
+- **Report only.**
+  - Q3 split at es9–10 (identity exact):
+
+    | Kind | C1S − c31000 | C1S − c1 | c1 − TDR | TDR − c31000 |
+    |---|---|---|---|---|
+    | slopes | +0.0775 | **−0.055** (CI −0.098 … −0.012) | +0.160 | −0.0275 |
+    | ledge_down | +0.1925 | 0.000 | +0.170 | +0.0225 |
+
+    The student keeps all of c1's ledge_down gain and gives back about a third of its slopes gain.
+  - Slopes up / down (es9–12): down 0.8875 vs 0.625 (+0.2625), up 0.8875 vs 0.9625 (−0.075). The equal C1S values
+    are a real coincidence (177.5 / 200 each from different per-seed counts), confirmed by both re-derivations.
+  - 0.14 m split, ledge_down: below 0.969 vs 0.892 (n 97); at or above 0.432 vs 0.231 (n 303). ledge_up: below
+    0.607 vs 0.699 (n 98); at or above 0.074 vs 0.093 (n 102).
+  - hills b3 and gravel b3: 1.00 vs 1.00 (ceilinged; no information).
+  - Pairs: 24 same-row launch pairs, 12 BITWISE-EQUAL and 12 CLASS-FLIP (step-0 actions only), none beyond a class
+    signature. In 5 class-flip pairs some episodes later diverge in state and action together (e.g. C1S ledge_up R1
+    at step 52); the registered rule judges the earliest step, so these stay CLASS-FLIP.
+- **Re-derivation** (workflow `wf_f8958c15-268`; fable·high per the plan, plus opus·high for independence; CPU
+  only, raw stamps, own readers and own directory walk):
+
+  | Agent | Numbers compared | Max \|diff\| | Verdict |
+  |---|---|---|---|
+  | fable | 328 (+ 38 booleans, 24 pair verdicts) | 0 | agrees |
+  | opus | 271 (+ 24 pair verdicts) | 0 | agrees |
+
+  - Both confirm: 88 stamps, none missing or duplicated, all at code 89c1916b / eval 9fe964d7, dirty False, rc 0,
+    with the right sha, role and seed. Four checkpoints were re-hashed. sel.json was committed before the first es9+
+    stamp. The ledge_up relaunch was due, was run once on both students, and no other relaunch was due.
+- **Next.** Stand re-pair (`p2_stand_queue.sh`) launched at 16:02 after the DDC move (renamed
+  `DerivedDataCache.moved-2026-11-13_P2step9`, 34 GB; not deleted). ≈ 6.7 h. Then the build check, videos and the
+  bake proposal (HALT for the user).
