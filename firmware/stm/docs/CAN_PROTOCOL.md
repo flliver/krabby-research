@@ -74,6 +74,7 @@ Joint **1/2/3** = **Y/H/K** on every node (`IDENTITY.md`). Message **`+ leg_inde
 | `LegTelemetry` | `0x0C000100 + index` | leg → host | 100 Hz | position, current, status per joint |
 | `NodeStatus` | `0x0C000200 + index` | leg → host | 1 Hz + on boot | leg ID, firmware identity, app/boot mode |
 | `QwiicImu` | `0x0C000400 + index` | leg → host | 100 Hz when present | Optional Qwiic IMU on **this** board only (`valid`); silent when unwired |
+| `QwiicBattery` | `0x0C000500 + index` | leg → host | planned ~10–20 Hz | **Reserved** — Qwiic INA228 cluster; see `PACK_MONITOR.md` (not in DBC until implemented) |
 | `DiscoveryRequest` | `0x0C0007F0` | host → all | on demand | prompt all nodes to emit `NodeStatus` |
 
 Examples: `LegCommand` for **FL** = `0x0C000000`; for **RR** = `0x0C000005`. Flash/bootloader frames (see `FLASH.md`) use the **`0x0C000300`–`0x0C0003FF`** range (defined in `FLASH.md`).

@@ -8,7 +8,7 @@ Optional **SparkFun Qwiic OLED** (SSD1306) on **one** leg PCB shows the same ope
 
 - **Panel:** Qwiic **1.3″ SSD1306** — default I2C **`0x3D`** (jumper **`0x3C`**), same as [`firmware/arduino/src/display/`](../../arduino/src/display/) and [`firmware/oled_sim/`](../../oled_sim/)
 - **Bus:** **I2C1** with **DAC7574** (`0x4C`) and optional **Qwiic IMU** (`ROBOT_SENSORS.md`) — Qwiic daisy chain allowed
-- **CAN mirror:** `can_handler` decodes in-bound **`LegCommand`**, **`LegTelemetry`**, **`NodeStatus`**, and **`QwiicImu`** into a RAM **bus state table** (all leg indices heard on this segment)
+- **CAN mirror:** `can_handler` decodes in-bound **`LegCommand`**, **`LegTelemetry`**, **`NodeStatus`**, **`QwiicImu`**, and (when shipped) **`QwiicBattery`** into a RAM **bus state table** (all leg indices heard on this segment)
 - **UI:** port **`DisplayRenderer`** + **`buildDisplayFrame()`** semantics from Arduino; layout constants in `display_constants.h`
 
 ## Critical points
@@ -19,7 +19,7 @@ Optional **SparkFun Qwiic OLED** (SSD1306) on **one** leg PCB shows the same ope
 - **Cross-bus limit:** a leg on **`can0`** does **not** hear **`can1`** frames. The UI shows **every node on this physical bus**; legs on the other bus appear **stale / absent** until a future dual-bus feed is defined. Prefer mounting the OLED on a board that matches operator visibility needs (e.g. mid leg on the side that should look “complete”).
 - **Refresh rate:** target **~4 Hz** redraw (**250 ms**), matching Mega `OLED_REDRAW_INTERVAL_MILLISECONDS`. Batch I2C transfers after the control loop; a long draw must not block **1 kHz** joint control or FDCAN TX slots.
 - **IMU header on panel:** if this board also has a **Qwiic IMU**, use live samples for tilt/roll header. Else if the mirror holds a recent **`QwiicImu`** from another node, optional use — otherwise show **`---`** / omit tilt (do not invent values).
-- **Pack / battery bars:** leg PCBs have **no** pack INA228. Omit battery chrome unless a **`BATT`**-equivalent stream later appears on CAN (`ROBOT_SENSORS.md`). Do not show fabricated pack voltage.
+- **Pack / battery bars:** soak **`QwiicBattery`** from the bus mirror when present (`PACK_MONITOR.md`); use local INA reads when this board hosts the Qwiic shunt. Omit battery chrome when no valid pack stream — never fabricate voltage.
 - **Glyphs:** map each mirrored joint’s latest **`LegTelemetry`** + command knowledge into **`ActuatorGlyph`** (hold / extend / retract / disconnected) using the same thresholds as `selectActuatorGlyph()` / connection bits in `LEG_BOARD_CONTROL.md`.
 - **Failure isolation:** OLED I2C errors are logged/dropped; they **must not** fault the motor path or DAC.
 

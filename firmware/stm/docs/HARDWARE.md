@@ -43,6 +43,7 @@ Electrical and interconnect contract for one leg controller PCB driving three jo
 | Leg identity | **`NODE_ID0`–`NODE_ID2`** (`PC13`, `PB4`, `PB5`) | Closed switch = logic **1** (bit weight `NODE_ID0` = LSB); encodes leg **1–6** at boot (`PROVISIONING.md`) |
 | Qwiic IMU (optional) | **I2C1** Qwiic port | Off-board **Qwiic** 6-DOF module; **0 or 1** per robot (`ROBOT_SENSORS.md`) |
 | Krabby screen (optional) | **I2C1** Qwiic port | **SparkFun Qwiic OLED** (SSD1306 **`0x3D`**); **0 or 1** per robot; UI from CAN mirror (`DISPLAY.md`) |
+| Pack monitor (optional) | **I2C1** Qwiic port | **INA228** pack **`0x40`**, midpoint **`0x41`**; **0 or 1** per robot; **`QwiicBattery`** on CAN (`PACK_MONITOR.md`) |
 
 - **Analog scaling:** pot and current signals route to **12-bit ADC** inputs named in schematic **`M#_POT_ADC`**; scaling constants live in firmware `board_hw.c` derived from **`SCH-001`** divider values.
 - **Pot divider:** **1 kΩ** + **15 kΩ** series from **5 V**, **22 kΩ** to ground at ADC — full travel ≈ **3590** of **4095** counts (send raw ADC in telemetry).

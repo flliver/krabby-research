@@ -51,13 +51,18 @@ def test_leg_can_message_ids_no_collisions() -> None:
     tel = {ids.leg_telemetry_can_id(i) for i in range(6)}
     stat = {ids.node_status_can_id(i) for i in range(6)}
     qimu = {ids.qwiic_imu_can_id(i) for i in range(6)}
-    assert len(cmd) == len(tel) == len(stat) == len(qimu) == 6
+    qbatt = {ids.qwiic_battery_can_id(i) for i in range(6)}
+    assert len(cmd) == len(tel) == len(stat) == len(qimu) == len(qbatt) == 6
     assert cmd.isdisjoint(tel)
     assert cmd.isdisjoint(stat)
     assert cmd.isdisjoint(qimu)
+    assert cmd.isdisjoint(qbatt)
     assert tel.isdisjoint(stat)
     assert tel.isdisjoint(qimu)
+    assert tel.isdisjoint(qbatt)
     assert stat.isdisjoint(qimu)
+    assert stat.isdisjoint(qbatt)
+    assert qimu.isdisjoint(qbatt)
 
 
 def test_leg_can_ids_match_dbc() -> None:

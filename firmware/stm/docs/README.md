@@ -24,6 +24,7 @@ Condensed specs for six CAN-FD leg controller boards, host tools, simulation, an
 | [HARDWARE.md](./HARDWARE.md) | Leg controller PCB: DRV8262, DAC7574, FDCAN2, switches, schematic pin map |
 | [ROBOT_SENSORS.md](./ROBOT_SENSORS.md) | Robot streams: joints on CAN, Orin vision/IMU, deferred pack power |
 | [DISPLAY.md](./DISPLAY.md) | Optional Qwiic Krabby OLED: auto-detect, CAN bus mirror, render |
+| [PACK_MONITOR.md](./PACK_MONITOR.md) | Planned Qwiic INA228: auto-detect, **`QwiicBattery`** on CAN (STM port later) |
 | [PROVISIONING.md](./PROVISIONING.md) | Node ID switch 1–6, NV fallback, CAN indices, show/provision CLI |
 | [HOST_INTEGRATION.md](./HOST_INTEGRATION.md) | `krabby-firmware --stm` package layout, CLI, update, fleet/GUI hooks |
 | [HAL_MCU_LAYER.md](./HAL_MCU_LAYER.md) | HAL ↔ firmware MCU facade, backends, Jetson/Isaac/GUI |

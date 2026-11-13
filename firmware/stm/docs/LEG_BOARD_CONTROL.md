@@ -36,6 +36,7 @@ Per-leg STM32 firmware closes the loop on three linear joints and exposes their 
 - **Host-facing telemetry (each joint, `LegTelemetry`):** `position_norm` (0–1 when pot valid; invalid sentinel when pot invalid), `pot_raw`, `current_raw`, `en_active`, `pwm_retract`, `pwm_extend`, `hall_edges`, `connection_state` (`Unknown` = 0, `Connected` = 1, `Disconnected` = 2), `faults` (bitmask above). Node aggregates three joints in DBC layout consistent with HAL order in `CAN_PROTOCOL.md`.
 - **Qwiic IMU (optional, per board):** after **DAC7574** init on **I2C1**, firmware **probes** the Qwiic address list (build-time table for supported breakouts — e.g. common 6-axis parts). If ACK: read at **100 Hz**, pack **`QwiicImu`** (`accel` m/s², `gyro` rad/s, `temp_c`, `valid`). If probe fails or reads fail: **do not** emit **`QwiicImu`** (no periodic invalid frames). I2C errors on the IMU must not block joint control or DAC.
 - **Qwiic Krabby screen (optional, per board):** probe **SSD1306** (`0x3D` / `0x3C`) on the same **I2C1** bus. If present, maintain a **CAN bus mirror** on every RX frame (`LegCommand` / `LegTelemetry` / `NodeStatus` / `QwiicImu` per `CAN_PROTOCOL.md`) and refresh the OLED ~**4 Hz** from that mirror (`DISPLAY.md`). **No** display state is transmitted on CAN.
+- **Qwiic pack monitor (optional, later):** probe **INA228** **`0x40`/`0x41`**, integrate like Arduino `power_monitor`, emit **`QwiicBattery`** on CAN (`PACK_MONITOR.md`) — not in initial leg-firmware scope.
 
 ## Reference
 

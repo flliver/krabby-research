@@ -14,7 +14,7 @@ Maps every robot-level measurement stream to its physical source and to what the
 
 ## Critical points
 
-- **Architecture split:** joint actuation and joint-local sensing move to **six identical leg boards** on **CAN-FD**. **IMU #1** (policy base attitude) comes from the **primary ZED** on the Orin (`zed_imu.py`, `JETSON_SENSOR_CATALOG`). Optional **Qwiic** accessories on **I2C1** (`HARDWARE.md`), **at most one each per robot:** **Qwiic IMU** → **`QwiicImu`** CAN TX from the hosting leg; **Krabby OLED** → **no** CAN TX — that board **soaks** leg-bus frames and renders locally (`DISPLAY.md`). Pack monitoring stays off the leg bus unless added later.
+- **Architecture split:** joint actuation and joint-local sensing move to **six identical leg boards** on **CAN-FD**. **IMU #1** (policy base attitude) comes from the **primary ZED** on the Orin (`zed_imu.py`, `JETSON_SENSOR_CATALOG`). Optional **Qwiic** on **I2C1** (`HARDWARE.md`), **at most one install each per robot:** **IMU** → **`QwiicImu`** CAN; **OLED** → local display, soaks the bus (`DISPLAY.md`); **INA228 pack/midpoint** → planned **`QwiicBattery`** CAN (Arduino behavior today — STM port **later**, `PACK_MONITOR.md`).
 - **Normative joint source (CAN robot):** measured **`position_norm`** (and connection/fault bits) from **`LegTelemetry`** per `CAN_PROTOCOL.md`, keyed by **`(leg_id, joint_id)`** in the SDK; HAL **`mcu_joints`** strings only when filling policy observations (`hal_joint_names.py`).
 - **HAL joint observation (target):** `HardwareObservations.joint_positions` in **radians** uses **measured** leg positions when CAN telemetry is healthy; **command echo is fallback only** during bring-up (`hal/server/jetson/hal_server.py` placeholder path). **`joint_velocities`** remain **derived on the host** (finite difference of measured positions) until leg firmware publishes explicit joint rates.
 - **Policy-critical on hardware today:** primary **RGB-D** + **scan_features**, **`base_quat_w`**, **`base_ang_vel_b`** (ZED IMU when enabled), **`joint_positions`** (18). **`privileged_latent`** is simulation-only (`None` on hardware). **`contact_forces`** stay **zero-filled** on Jetson until a foot sensor stream exists.
@@ -36,22 +36,21 @@ Maps every robot-level measurement stream to its physical source and to what the
 | `krabby_oled` (operator UI) | 0–1 | **Optional:** **Qwiic OLED** on **one** leg PCB; feed from **CAN RX mirror** | On-robot display only | **Not** a host stream — see `DISPLAY.md` |
 | `base_lin_vel_b` | 1 | **Orin:** ZED visual odometry when tracking enabled | HAL velocity | **Optional** — feature-flagged on ZED |
 | `camera_rgb_depth` | N | **Orin:** catalog cameras | Policy scan, collision, GUI | **Orin** — not on leg CAN |
-| `pack_voltage_current` | 1 | **Deferred:** **INA228** on robot power board (not on leg PCB) | `BatteryTelemetry`, power UI | **Unavailable** on CAN-only leg path |
-| `pack_charge_coulombs` | 1 | **Deferred:** same as pack shunt | Fuel-gauge style logging | **Unavailable** |
-| `battery_a_voltage` | 1 | **Deferred:** midpoint monitor on robot power board | Divergence checks | **Unavailable** |
-| `battery_b_voltage` | 1 | **Deferred:** inferred second pack tap | Divergence checks | **Unavailable** |
-| `pack_voltage_region` | 1 | **Deferred:** firmware policy region enum | Soft/hard cut logic | **Unavailable** |
+| `qwiic_battery` | 0–1 | **Planned:** Qwiic **INA228** on **one** leg PCB → **`QwiicBattery`** CAN | `BatteryTelemetry`, OLED, CLI | **Planned** — see `PACK_MONITOR.md` |
+| `pack_voltage_current` | 1 | Same stream as `qwiic_battery` (pack fields) | `BatteryTelemetry`, power UI | **Unavailable** until `QwiicBattery` ships |
+| `pack_charge_coulombs` | 1 | Same | Fuel-gauge logging | **Unavailable** until shipped |
+| `battery_a_voltage` | 1 | Same (midpoint INA) | Divergence checks | **Unavailable** until shipped |
+| `battery_b_voltage` | 1 | Same | Divergence checks | **Unavailable** until shipped |
+| `pack_voltage_region` | 1 | Same | Soft/hard cut logic | **Unavailable** until shipped |
 | `mcu_imu_segment` | 1 | **Unavailable:** was Mega leader **LSM6DSO** serial `IMU` tag | `KrabbyMCUSDK.imu`, serial CLI | **Replaced by ZED path on Orin** |
 | `joint_velocity` | 18 | Host derivative of `joint_position` | HAL `joint_velocities` | **Synthesized** on Orin |
 | `contact_force` | 5 | No hardware stream | HAL placeholder | **Unavailable** (zeros) |
 
 - **Three-board serial trunk:** one elected **leader** Mega emits **`IMU`** + **`BATT`** once per telemetry tick; all three Megas share one USB serial link to the host. That wire format is **not** carried on the CAN leg bus.
-- **Power on the leg PCB:** **`VM`** feed and per-joint **`VM_FUSED_M#`** (`HARDWARE.md`) are **actuator supply only** — no pack current/voltage measurement on the leg controller schematic.
-- **Host HAL integration:** CAN transport populates the **joint** cache before `JetsonHalServer.set_observation()`. **IMU #1** stays on the **ZED** publisher. **`QwiicImu`** is decoded in `mcu_can` for CLI/diagnostics; it does **not** replace **`base_quat_w`** unless a future HAL policy wires it in. Pack fields stay **out of** `mcu_can` until a power-board stream exists (do not fake BATT on CAN).
-- **Single Qwiic install:** the robot carries **at most one** Qwiic IMU. Host treats **>1** leg with `QwiicImu.valid=1` as a **configuration error** (`show` / telemetry warning).
+- **Power on the leg PCB:** **`VM`** / **`VM_FUSED_M#`** are **actuator supply only** (`HARDWARE.md`). Pack measurement is the optional **Qwiic INA228** cluster, not the leg PCB copper (`PACK_MONITOR.md`).
+- **Host HAL integration:** CAN transport populates the **joint** cache before `JetsonHalServer.set_observation()`. **IMU #1** stays on the **ZED** publisher. **`QwiicImu`** is decoded in `mcu_can` for CLI/diagnostics; it does **not** replace **`base_quat_w`** unless a future HAL policy wires it in. **`QwiicBattery`** will decode to **`BatteryTelemetry`** when implemented — do not fake BATT until then.
+- **Single Qwiic accessory instances:** at most **one** leg with a live **`QwiicImu`** and at most **one** with **`QwiicBattery`**; host flags duplicates on `show` / telemetry.
 - **Simulation (`VIRTUAL_CAN.md`):** virtual leg nodes emit **`LegTelemetry`** only. **Base IMU** uses the Isaac HAL stub. Pack streams stay **absent** unless a test fixture injects them.
-- **Future pack stream:** add a new row in this inventory when one of these is specified: **power CAN node**, **Orin I2C monitor service**, **GPIO estop-only** — HAL must not treat pack data as authoritative until then.
-
 ## Reference
 
 ### Joint stream keys
