@@ -1191,3 +1191,23 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
 - `sel.json` and `onnx_PICK.json` are committed here, before any es9+ stamp. The independent recompute of the pick
   (step-6 check: sonnet·high plus fable·high, from raw stamps) is running. The read launches only after it agrees.
 - DDC: 14 GB. Disk: 486 GB free.
+
+### 2026-11-13 09:36 — P2 step 6 check: the pick recompute AGREES; step 7 read launched
+
+- **Recompute** (workflow `wf_80a3055a-4c1`: two independent agents, sonnet·high and fable·high). Both worked from the
+  raw stamps with their own readers, then compared with sel.json:
+
+  | Agent | Numbers compared | Max \|diff\| | Pick |
+  |---|---|---|---|
+  | sonnet | 233 | 0 | 6b48ef33_it34499 |
+  | fable | 309 | 0 | 6b48ef33_it34499 |
+
+  - Both agree on the rank, on the full block (21/21 decisive lines PASS, side22 FAST/FAST, the 35 90-kg WATCH lines
+    PASS, 0 tracking flags against c1) and on the WATCH terrain values.
+  - All 53 stamps sit at the pin, with the right role, es and checkpoint sha. Five candidate checkpoints and c1 were
+    re-hashed.
+  - Disclosed: the rank leans on one episode of 200 (field_hard 0.980 vs 0.975 for 31500). The student's diag ratio
+    reads 0.9705 / 0.9691 against c1's 0.9759 / 0.9739.
+- **Read.** `p2_read_queue.sh` launched at 09:36:28. Preflight is OK: the build matches the pin, the pick is
+  6b48ef33, and the DDC is 14 GB. The order is front 5 rows → 84 rows → near-miss read → one-sided relaunches →
+  verdict. ≈ 7.6 h.
