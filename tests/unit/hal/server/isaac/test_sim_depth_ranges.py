@@ -26,7 +26,6 @@ def test_tof_depth_bands_match_sen0581_range() -> None:
     assert ISAAC_TOF_DEPTH_CLIP_M == (0.15, 1.5)
     assert ISAAC_TOF_DEPTH_PREVIEW_M == ISAAC_TOF_DEPTH_CLIP_M
     assert ISAAC_TOF_DEPTH_POSINF_CLIP_M == ISAAC_TOF_DEPTH_CLIP_M[1]
-    # Jetson MaixSense side rows still use the same quant band as ToF (0.15–1.5 m).
-    for cid in ("side_right_rgbd", "side_left_rgbd"):
+    for cid in ("belly_right_tof", "belly_left_tof", "rear_tof"):
         row = JETSON_SENSOR_CATALOG_BY_ID[cid]
         assert row.gst_depth_quant_range_m == ISAAC_TOF_DEPTH_PREVIEW_M

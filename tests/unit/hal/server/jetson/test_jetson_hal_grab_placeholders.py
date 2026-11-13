@@ -158,5 +158,34 @@ def test_shape_mismatch_raises(jetson_server):
     jetson_server.initialize()
     jetson_server._build_state_vector = lambda: _state_12dof()
 
-    with pytest.raises(RuntimeError, match="frame shape mismatch"):
+    with pytest.raises(RuntimeError, match="rgb shape"):
         jetson_server.set_observation()
+
+
+def test_depth_only_catalog_emits_depth_channel_without_rgb(jetson_server):
+    """SEN0581-style depth-only rows must not invent an RGB channel."""
+    front = MagicMock(spec=ZedCamera)
+    h, w = jetson_server.camera_resolution[1], jetson_server.camera_resolution[0]
+    front.get_camera_frames.return_value = (
+        np.zeros((h, w, 3), dtype=np.uint8),
+        np.zeros((h, w), dtype=np.float32),
+    )
+    tof = MagicMock()
+    depth = np.full((100, 100), 0.4, dtype=np.float32)
+    tof.get_camera_frames.return_value = (None, depth)
+    jetson_server._hal_rgbd_cameras = {
+        "front_rgbd": front,
+        "belly_right_tof": tof,
+    }
+    jetson_server.initialize()
+    jetson_server._build_state_vector = lambda: _state_12dof()
+
+    with patch.object(HalServerBase, "set_observation") as pub:
+        jetson_server.set_observation()
+
+    hw_obs = pub.call_args.args[0]
+    assert hw_obs.rgbd_by_catalog_id is not None
+    tof_obs = hw_obs.rgbd_by_catalog_id["belly_right_tof"]
+    assert set(tof_obs.channels) == {"depth"}
+    assert tof_obs.channels["depth"].shape == (100, 100)
+    np.testing.assert_allclose(tof_obs.channels["depth"], depth)

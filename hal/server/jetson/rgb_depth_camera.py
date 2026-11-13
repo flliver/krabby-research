@@ -2,7 +2,9 @@
 
 Policy scan vectors are derived from depth in :class:`~hal.server.jetson.hal_server.JetsonHalServer`
 via :mod:`hal.server.jetson.depth_scan_features`. Implementations:
-:class:`~hal.server.jetson.zed_camera.ZedCamera`, :class:`~hal.server.jetson.maixsense_rgb_depth_camera.MaixSenseA075VRgbDepthCamera`.
+:class:`~hal.server.jetson.zed_camera.ZedCamera`,
+:class:`~hal.server.jetson.maixsense_rgb_depth_camera.MaixSenseA075VRgbDepthCamera`,
+:class:`~hal.server.jetson.sen0581_tof_camera.Sen0581TofCamera` (depth-only: RGB is ``None``).
 """
 
 from __future__ import annotations

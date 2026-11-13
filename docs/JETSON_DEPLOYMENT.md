@@ -287,14 +287,16 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 Unplug and replug the ZED, then retry.
 
-**Front + side RGB-D:** the repo catalog uses **`front_rgbd`** (primary ZED), **`side_right_rgbd`** (right MaixSense, `policy_scan_slot="side"`), and **`side_left_rgbd`** (left MaixSense). Set optional **`zed_usb_serial`** on a ZED row when deterministic camera selection is needed (otherwise HAL opens the first detected ZED). MaixSense host bring-up: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md).
+**Front + ToF cameras:** the repo catalog uses **`front_rgbd`** (primary ZED) plus **`belly_right_tof`**, **`belly_left_tof`**, and **`rear_tof`** (SEN0581 depth-only). Set optional **`zed_usb_serial`** on a ZED row when deterministic camera selection is needed (otherwise HAL opens the first detected ZED). SEN0581 host bring-up: [SEN0581_SETUP.md](SEN0581_SETUP.md).
 
-**Container requirements for ZED on Jetson:** ZED uses USB/libusb access, so run the locomotion container with `-v /dev:/dev` and `--privileged` (using only `--device /dev/video0` is insufficient).
+**Container requirements for ZED on Jetson:** ZED uses USB/libusb access, so run the locomotion container with `-v /dev:/dev` and `--privileged` (using only `--device /dev/video0` is insufficient). SEN0581 udev symlinks are also passed via `--device /dev/krabby-tof-*` when present.
 
-**MaixSense-A075V:** Optional RGB-D over HTTP (no ZED SDK). Host bring-up, dual side modules, and persistent routing: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md). Complete that setup before starting the locomotion container with MaixSense rows.
+**SEN0581 ToF:** USB-serial depth cameras. On every new Orin, plug the three units and run **`sudo krabby install`** — it writes per-robot `/etc/krabby/sen0581.json` (serial → mount role) and generates `/etc/udev/rules.d/99-krabby-sen0581.rules` so `/dev/krabby-tof-*` exist. HAL catalog paths are the same on all robots; only the JSON is robot-local. Details: [SEN0581_SETUP.md](SEN0581_SETUP.md).
+
+**MaixSense-A075V:** Optional RGB-D over HTTP (no ZED SDK); driver remains available for lab/front swaps. Host bring-up: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md).
 
 **HAL front camera (camera_rgb / camera_depth)**  
-The Jetson HAL fills `HardwareObservations.camera_rgb` and `camera_depth` from the **front RGB-D observation camera** defined in **`JETSON_SENSOR_CATALOG`**: the row with **`id="front_rgbd"`** and **`is_primary=True`** sets **`camera_driver`** (e.g. **`zed`** or **`maixsense_a075v`**), **resolution**, **depth_resolution**, **fps**, and **depth_mode**. **`depth_mode`** applies to **ZED** only. **Policy scan** (`scan_features`, optional **`side_*`**) comes from the configured depth streams; **every opened RGB-D row** also appears under **`rgbd_by_catalog_id`**. GStreamer IDs and ZED install: **SENSOR_INTERFACE.md** and ZED section above. MaixSense: [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md). Wire format: **HAL_GUIDE.md** and `hal/client/data_structures/hardware.py`.
+The Jetson HAL fills `HardwareObservations.camera_rgb` and `camera_depth` from the **front RGB-D observation camera** defined in **`JETSON_SENSOR_CATALOG`**: the row with **`id="front_rgbd"`** and **`is_primary=True`** sets **`camera_driver`** (e.g. **`zed`** or **`maixsense_a075v`**), **resolution**, **depth_resolution**, **fps**, and **depth_mode**. **`depth_mode`** applies to **ZED** only. **Policy scan** (`scan_features`) comes from the primary depth stream; **every opened camera row** also appears under **`rgbd_by_catalog_id`** (ToF rows emit depth-only channels). GStreamer IDs and ZED install: **SENSOR_INTERFACE.md** and ZED section above. SEN0581: [SEN0581_SETUP.md](SEN0581_SETUP.md). Wire format: **HAL_GUIDE.md** and `hal/client/data_structures/hardware.py`.
 
 ## Obtaining the Docker Image
 

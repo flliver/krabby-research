@@ -1,6 +1,7 @@
 """One-time host setup: udev rule and dialout group membership."""
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -65,6 +66,89 @@ def _ensure_udev_rule() -> bool:
         return True
     except PermissionError:
         print(f"[err] cannot write {UDEV_RULE_PATH} — run with sudo", file=sys.stderr)
+        return False
+
+
+def _ensure_sen0581_udev() -> bool:
+    """Install SEN0581 → /dev/krabby-tof-* from per-robot ``/etc/krabby/sen0581.json``.
+
+    Every Orin keeps its own USB serial → mount-role map. ``krabby install`` seeds
+    that JSON from plugged cameras when missing, then always regenerates the udev
+    rule from it. HAL catalog paths stay portable (no robot serials in the repo).
+    """
+    from krabby._sen0581_udev import (
+        SEN0581_CONFIG_PATH,
+        SEN0581_UDEV_PATH,
+        detect_sen0581_serials,
+        draft_role_map_from_serials,
+        load_sen0581_role_map,
+        render_sen0581_udev_rules,
+    )
+
+    try:
+        SEN0581_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        print(
+            f"[err] cannot create {SEN0581_CONFIG_PATH.parent} — run with sudo",
+            file=sys.stderr,
+        )
+        return False
+
+    role_map: dict[str, str] | None = None
+    if SEN0581_CONFIG_PATH.is_file():
+        try:
+            role_map = load_sen0581_role_map(SEN0581_CONFIG_PATH)
+            print(f"[ok]  SEN0581 role map present: {SEN0581_CONFIG_PATH}")
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            print(f"[err] invalid {SEN0581_CONFIG_PATH}: {e}", file=sys.stderr)
+            return False
+    else:
+        detected = detect_sen0581_serials()
+        if len(detected) == 3:
+            role_map = draft_role_map_from_serials(detected)
+            print(
+                f"[+]   seeding {SEN0581_CONFIG_PATH} from {len(detected)} plugged "
+                f"SEN0581 serials (sorted → belly_right, belly_left, rear)"
+            )
+            print(
+                "      Verify LCD mounts match those roles; edit the JSON and "
+                "re-run `sudo krabby install` if you swap cameras."
+            )
+        else:
+            print(
+                f"[ok]  skipping SEN0581 udev ({SEN0581_CONFIG_PATH} missing; "
+                f"found {len(detected)} plugged unit(s), need 3). "
+                f"Plug the three cameras and re-run `sudo krabby install`, or write "
+                f"{SEN0581_CONFIG_PATH} from "
+                f"hal/server/jetson/udev/sen0581.json.example then re-run install.",
+            )
+            return True
+
+        try:
+            SEN0581_CONFIG_PATH.write_text(
+                json.dumps(role_map, indent=2, sort_keys=True) + "\n"
+            )
+        except PermissionError:
+            print(
+                f"[err] cannot write {SEN0581_CONFIG_PATH} — run with sudo",
+                file=sys.stderr,
+            )
+            return False
+        print(f"[+]   wrote SEN0581 role map: {SEN0581_CONFIG_PATH}")
+
+    assert role_map is not None
+    wanted = render_sen0581_udev_rules(role_map)
+    if SEN0581_UDEV_PATH.exists() and SEN0581_UDEV_PATH.read_text() == wanted:
+        print(f"[ok]  SEN0581 udev rule already in place: {SEN0581_UDEV_PATH}")
+        return True
+    try:
+        SEN0581_UDEV_PATH.write_text(wanted)
+        _run(["udevadm", "control", "--reload-rules"])
+        _run(["udevadm", "trigger", "--subsystem-match=tty"])
+        print(f"[+]   wrote SEN0581 udev rule: {SEN0581_UDEV_PATH}")
+        return True
+    except PermissionError:
+        print(f"[err] cannot write {SEN0581_UDEV_PATH} — run with sudo", file=sys.stderr)
         return False
 
 
@@ -338,6 +422,7 @@ def _ensure_boot_service(launch_on_startup: bool) -> bool:
 
 def run_host_setup(launch_on_startup: bool = True) -> None:
     ok = _ensure_udev_rule()
+    ok &= _ensure_sen0581_udev()
     ok &= _ensure_pro_controller_udev()
     ok &= _ensure_pro_controller_led_udev()
     ok &= _ensure_hid_nintendo()
@@ -345,7 +430,10 @@ def run_host_setup(launch_on_startup: bool = True) -> None:
     ok &= _ensure_boot_service(launch_on_startup)
     _ensure_dialout()
     if ok:
-        print("\nHost setup complete. Replug your Mega boards.")
+        print(
+            "\nHost setup complete. Replug Mega boards if needed. "
+            "SEN0581 roles: /etc/krabby/sen0581.json → /dev/krabby-tof-*."
+        )
     else:
         print("\nHost setup incomplete — fix errors above and re-run.", file=sys.stderr)
         sys.exit(1)

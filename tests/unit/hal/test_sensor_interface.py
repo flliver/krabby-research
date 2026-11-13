@@ -31,11 +31,23 @@ def test_front_observation_camera_catalog_entry():
     assert e.camera_driver in FRONT_RGB_DEPTH_CAMERA_FACTORIES
 
 
-def test_jetson_catalog_has_front_and_side_rgbd_rows():
+def test_jetson_catalog_has_front_and_tof_rows():
     ids = {e.id for e in JETSON_SENSOR_CATALOG}
-    assert ids == {"front_rgbd", "side_right_rgbd", "side_left_rgbd"}
+    assert ids == {
+        "front_rgbd",
+        "belly_right_tof",
+        "belly_left_tof",
+        "rear_tof",
+    }
     assert all(e.type == "rgbd" for e in JETSON_SENSOR_CATALOG)
     assert not any(e.type == "radar" for e in JETSON_SENSOR_CATALOG)
+    tof = [e for e in JETSON_SENSOR_CATALOG if e.id.endswith("_tof")]
+    assert len(tof) == 3
+    assert all(e.modality == "depth" for e in tof)
+    assert all(e.camera_driver == "sen0581" for e in tof)
+    assert all(e.sen0581_device for e in tof)
+    assert all(e.policy_scan_slot is None for e in tof)
+    assert all(not e.is_primary for e in tof)
 
 
 def test_jetson_list_sensors_matches_catalog():
@@ -147,13 +159,17 @@ def test_jetson_depth_gray16_handle_and_sw_pipeline_shape():
 
 def test_jetson_depth_gray16_nvenc_pipeline_shape():
     iface = JetsonSensorInterface(use_nvenc=True)
-    depth = next(s for s in iface.list_sensors() if s.id == "side_right_rgbd_gray16_depth")
+    depth = next(
+        s for s in iface.list_sensors() if s.id == "belly_right_tof_gray16_depth"
+    )
     handle = iface.get_gstreamer_handle(depth)
     pipe = iface.build_pipeline(handle, encoding="h264", output_element="fakesink")
     assert "format=GRAY16_LE" in pipe
     assert "videoconvert" in pipe
     assert "nvvidconv" in pipe
     assert "nvv4l2h264enc" in pipe
+    assert handle.resolution == (100, 100)
+    assert handle.depth_range_m == (0.15, 1.5)
 
 
 def test_isaac_scene_introspection_front_and_tof_ids():

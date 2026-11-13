@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import glob
+import os
 import platform
 import subprocess
 import sys
@@ -49,6 +50,23 @@ def serial_device_flags() -> list[str]:
     return flags
 
 
+def sen0581_device_flags() -> list[str]:
+    """``--device`` for each configured SEN0581 udev symlink present on the host.
+
+    Paths match ``krabby._sen0581_udev.sen0581_device_paths()`` (same as HAL catalog
+    ``sen0581_device``). Locomotion already mounts ``/dev`` privileged; explicit
+    ``--device`` keeps the symlink paths available even when container tooling
+    filters device nodes.
+    """
+    from krabby._sen0581_udev import sen0581_device_paths
+
+    flags: list[str] = []
+    for path in sen0581_device_paths():
+        if os.path.exists(path):
+            flags += ["--device", path]
+    return flags
+
+
 def pull(image_ref: str) -> str:
     """Pull image and return its digest. Raises SystemExit on failure."""
     result = subprocess.run(
@@ -79,6 +97,7 @@ def run_cmd(image_ref: str, extra_args: list[str], entrypoint: str | None = None
         *gpu_flags(),
         *ep,
         "-v", "/dev:/dev",
+        *sen0581_device_flags(),
         *mounts,
         *network_flags(),
         image_ref,
@@ -119,6 +138,7 @@ def fleet_hal_cmd(
         "--privileged",
         *gpu_flags(),
         "-v", "/dev:/dev",
+        *sen0581_device_flags(),
         *mounts,
         *network_flags(),
         *_teleop_turn_env_forward(),
