@@ -34,6 +34,7 @@ typedef enum {
 #define KRABBY_CAN_ID_LEG_COMMAND_BASE 0x0C000000u
 #define KRABBY_CAN_ID_LEG_TELEMETRY_BASE 0x0C000100u
 #define KRABBY_CAN_ID_NODE_STATUS_BASE 0x0C000200u
+#define KRABBY_CAN_ID_QWIIC_IMU_BASE 0x0C000400u
 #define KRABBY_CAN_ID_DISCOVERY_REQUEST 0x0C0007F0u
 #define KRABBY_CAN_ID_PROVISION_SET 0x0C0007E0u
 
@@ -47,6 +48,10 @@ static inline uint32_t krabby_can_leg_telemetry_id(krabby_leg_index_t leg) {
 
 static inline uint32_t krabby_can_node_status_id(krabby_leg_index_t leg) {
     return KRABBY_CAN_ID_NODE_STATUS_BASE + (uint32_t)leg;
+}
+
+static inline uint32_t krabby_can_qwiic_imu_id(krabby_leg_index_t leg) {
+    return KRABBY_CAN_ID_QWIIC_IMU_BASE + (uint32_t)leg;
 }
 
 /** Robot SocketCAN interface for a provisioned leg index (can0 = FL/ML/RL, can1 = FR/MR/RR). */

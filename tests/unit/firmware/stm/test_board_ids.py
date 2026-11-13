@@ -62,10 +62,14 @@ def test_leg_can_message_ids_no_collisions() -> None:
     cmd = {ids.leg_command_can_id(i) for i in range(6)}
     tel = {ids.leg_telemetry_can_id(i) for i in range(6)}
     stat = {ids.node_status_can_id(i) for i in range(6)}
-    assert len(cmd) == len(tel) == len(stat) == 6
+    qimu = {ids.qwiic_imu_can_id(i) for i in range(6)}
+    assert len(cmd) == len(tel) == len(stat) == len(qimu) == 6
     assert cmd.isdisjoint(tel)
     assert cmd.isdisjoint(stat)
+    assert cmd.isdisjoint(qimu)
     assert tel.isdisjoint(stat)
+    assert tel.isdisjoint(qimu)
+    assert stat.isdisjoint(qimu)
 
 
 def test_leg_can_ids_match_dbc() -> None:
@@ -73,6 +77,7 @@ def test_leg_can_ids_match_dbc() -> None:
         assert ids.leg_command_can_id(i) == (EXPECTED_FRAME_IDS[f"LegCommand_{leg}"] & 0x1FFFFFFF)
         assert ids.leg_telemetry_can_id(i) == (EXPECTED_FRAME_IDS[f"LegTelemetry_{leg}"] & 0x1FFFFFFF)
         assert ids.node_status_can_id(i) == (EXPECTED_FRAME_IDS[f"NodeStatus_{leg}"] & 0x1FFFFFFF)
+        assert ids.qwiic_imu_can_id(i) == (EXPECTED_FRAME_IDS[f"QwiicImu_{leg}"] & 0x1FFFFFFF)
 
 
 def test_provisioning_leg_code_table() -> None:

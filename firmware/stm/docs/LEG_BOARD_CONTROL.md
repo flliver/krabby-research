@@ -34,6 +34,7 @@ Per-leg STM32 firmware closes the loop on three linear joints and exposes their 
 - **Autocal (optional):** host raises **`autocal_start`** in `LegCommand` when the firmware build enables it; stall-based min/max per joint, NV write, **`CAL_IDLE`**. Early application images may ship **jog-only**; autocal may run from Orin policy or a later firmware enable.
 - **Manual cal:** host sets `minStop`/`maxStop` via provisioning/CLI when position mode is active (`PROVISIONING.md`).
 - **Host-facing telemetry (each joint, `LegTelemetry`):** `position_norm` (0–1 when pot valid; invalid sentinel when pot invalid), `pot_raw`, `current_raw`, `en_active`, `pwm_retract`, `pwm_extend`, `hall_edges`, `connection_state` (`Unknown` = 0, `Connected` = 1, `Disconnected` = 2), `faults` (bitmask above). Node aggregates three joints in DBC layout consistent with HAL order in `CAN_PROTOCOL.md`.
+- **Qwiic IMU (optional, per board):** after **DAC7574** init on **I2C1**, firmware **probes** the Qwiic address list (build-time table for supported breakouts — e.g. common 6-axis parts). If ACK: read at **100 Hz**, pack **`QwiicImu`** (`accel` m/s², `gyro` rad/s, `temp_c`, `valid`). If probe fails or reads fail: **do not** emit **`QwiicImu`** (no periodic invalid frames). I2C errors on the IMU must not block joint control or DAC.
 
 ## Reference
 

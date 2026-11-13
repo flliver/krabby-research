@@ -501,6 +501,78 @@ BO_ 2348811205 FlashProgress_RR: 4 LEG_NODE
  SG_ percent : 0|8@1+ (1,0) [0|100] "" KRABBY_HOST
  SG_ error_code : 8|8@1+ (1,0) [0|255] "" KRABBY_HOST
 
+BO_ 2348811264 QwiicImu_FL: 32 LEG_NODE
+ SG_ valid : 0|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ i2c_addr_7bit : 8|8@1+ (1,0) [0|127] "" KRABBY_HOST
+ SG_ device_id : 16|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ accel_x_mps2 : 24|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_y_mps2 : 56|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_z_mps2 : 88|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_x_rps : 120|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_y_rps : 152|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_z_rps : 184|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ temp_c : 216|32@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811265 QwiicImu_FR: 32 LEG_NODE
+ SG_ valid : 0|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ i2c_addr_7bit : 8|8@1+ (1,0) [0|127] "" KRABBY_HOST
+ SG_ device_id : 16|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ accel_x_mps2 : 24|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_y_mps2 : 56|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_z_mps2 : 88|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_x_rps : 120|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_y_rps : 152|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_z_rps : 184|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ temp_c : 216|32@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811266 QwiicImu_ML: 32 LEG_NODE
+ SG_ valid : 0|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ i2c_addr_7bit : 8|8@1+ (1,0) [0|127] "" KRABBY_HOST
+ SG_ device_id : 16|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ accel_x_mps2 : 24|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_y_mps2 : 56|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_z_mps2 : 88|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_x_rps : 120|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_y_rps : 152|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_z_rps : 184|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ temp_c : 216|32@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811267 QwiicImu_MR: 32 LEG_NODE
+ SG_ valid : 0|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ i2c_addr_7bit : 8|8@1+ (1,0) [0|127] "" KRABBY_HOST
+ SG_ device_id : 16|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ accel_x_mps2 : 24|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_y_mps2 : 56|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_z_mps2 : 88|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_x_rps : 120|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_y_rps : 152|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_z_rps : 184|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ temp_c : 216|32@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811268 QwiicImu_RL: 32 LEG_NODE
+ SG_ valid : 0|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ i2c_addr_7bit : 8|8@1+ (1,0) [0|127] "" KRABBY_HOST
+ SG_ device_id : 16|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ accel_x_mps2 : 24|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_y_mps2 : 56|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_z_mps2 : 88|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_x_rps : 120|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_y_rps : 152|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_z_rps : 184|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ temp_c : 216|32@1+ (1,0) [0|0] "" KRABBY_HOST
+
+BO_ 2348811269 QwiicImu_RR: 32 LEG_NODE
+ SG_ valid : 0|8@1+ (1,0) [0|1] "" KRABBY_HOST
+ SG_ i2c_addr_7bit : 8|8@1+ (1,0) [0|127] "" KRABBY_HOST
+ SG_ device_id : 16|8@1+ (1,0) [0|255] "" KRABBY_HOST
+ SG_ accel_x_mps2 : 24|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_y_mps2 : 56|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ accel_z_mps2 : 88|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_x_rps : 120|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_y_rps : 152|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ gyro_z_rps : 184|32@1+ (1,0) [0|0] "" KRABBY_HOST
+ SG_ temp_c : 216|32@1+ (1,0) [0|0] "" KRABBY_HOST
+
 VAL_ 0 run_mode 0 "application" 1 "bootloader" ;
 CM_ BO_ 2348812272 "Prompt all nodes to emit NodeStatus";
 CM_ "Krabby leg bus schema 1.0.0; IDs per CAN_PROTOCOL.md";

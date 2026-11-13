@@ -29,6 +29,7 @@ EXPECTED_FRAME_IDS = {
     **{f"LegCommand_{leg}": _ext(0x0C000000 + i) for i, leg in enumerate(LEGS)},
     **{f"LegTelemetry_{leg}": _ext(0x0C000100 + i) for i, leg in enumerate(LEGS)},
     **{f"NodeStatus_{leg}": _ext(0x0C000200 + i) for i, leg in enumerate(LEGS)},
+    **{f"QwiicImu_{leg}": _ext(0x0C000400 + i) for i, leg in enumerate(LEGS)},
     "DiscoveryRequest": _ext(0x0C0007F0),
     "ProvisionSet": _ext(0x0C0007E0),
     "FlashSessionOpen": _ext(0x0C0007F1),

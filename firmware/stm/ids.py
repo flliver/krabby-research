@@ -26,6 +26,7 @@ LEG_BUS: Final = {
 CAN_ID_LEG_COMMAND_BASE: Final = 0x0C000000
 CAN_ID_LEG_TELEMETRY_BASE: Final = 0x0C000100
 CAN_ID_NODE_STATUS_BASE: Final = 0x0C000200
+CAN_ID_QWIIC_IMU_BASE: Final = 0x0C000400
 CAN_ID_DISCOVERY_REQUEST: Final = 0x0C0007F0
 CAN_ID_PROVISION_SET: Final = 0x0C0007E0
 
@@ -44,6 +45,10 @@ def leg_telemetry_can_id(leg_index: int) -> int:
 
 def node_status_can_id(leg_index: int) -> int:
     return CAN_ID_NODE_STATUS_BASE + leg_index
+
+
+def qwiic_imu_can_id(leg_index: int) -> int:
+    return CAN_ID_QWIIC_IMU_BASE + leg_index
 
 
 def parse_mcu_joint_name(name: str) -> tuple[str, int]:

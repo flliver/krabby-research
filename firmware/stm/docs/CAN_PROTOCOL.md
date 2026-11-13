@@ -71,6 +71,7 @@ On Jetson Orin, **`can0`** and **`can1`** are SocketCAN names for the on-SoC **M
 | `LegCommand` | `0x0C000000 + index` | host → leg | ≤50 Hz | jog / position for 3 joints on that leg |
 | `LegTelemetry` | `0x0C000100 + index` | leg → host | 100 Hz | position, current, status per joint |
 | `NodeStatus` | `0x0C000200 + index` | leg → host | 1 Hz + on boot | leg ID, firmware identity, app/boot mode |
+| `QwiicImu` | `0x0C000400 + index` | leg → host | 100 Hz when present | Optional Qwiic IMU on **this** board only (`valid`); silent when unwired |
 | `DiscoveryRequest` | `0x0C0007F0` | host → all | on demand | prompt all nodes to emit `NodeStatus` |
 
 Examples: `LegCommand` for **FL** = `0x0C000000`; for **RR** = `0x0C000005`. Flash/bootloader frames (see `FLASH.md`) use the **`0x0C000300`–`0x0C0003FF`** range (defined in `FLASH.md`).
