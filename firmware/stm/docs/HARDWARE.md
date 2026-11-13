@@ -41,7 +41,8 @@ Electrical and interconnect contract for one leg controller PCB driving three jo
 | CAN | Transceiver + connectors **`U8`**, **`U9`** | Daisy to Orin host and adjacent leg boards |
 | PCB temperature | **`PCB_TEMP_ADC`** | — |
 | Leg identity | **`NODE_ID0`–`NODE_ID2`** (`PC13`, `PB4`, `PB5`) | Closed switch = logic **1** (bit weight `NODE_ID0` = LSB); encodes leg **1–6** at boot (`PROVISIONING.md`) |
-| Qwiic IMU (optional) | **I2C1** Qwiic port | Off-board **Qwiic** 6-DOF (or fusion) module; **0 or 1** per robot (`ROBOT_SENSORS.md`) |
+| Qwiic IMU (optional) | **I2C1** Qwiic port | Off-board **Qwiic** 6-DOF module; **0 or 1** per robot (`ROBOT_SENSORS.md`) |
+| Krabby screen (optional) | **I2C1** Qwiic port | **SparkFun Qwiic OLED** (SSD1306 **`0x3D`**); **0 or 1** per robot; UI from CAN mirror (`DISPLAY.md`) |
 
 - **Analog scaling:** pot and current signals route to **12-bit ADC** inputs named in schematic **`M#_POT_ADC`**; scaling constants live in firmware `board_hw.c` derived from **`SCH-001`** divider values.
 - **Pot divider:** **1 kΩ** + **15 kΩ** series from **5 V**, **22 kΩ** to ground at ADC — full travel ≈ **3590** of **4095** counts (send raw ADC in telemetry).
@@ -108,4 +109,4 @@ Per joint **`#` ∈ {1, 2, 3}** (schematic motor index):
 | Hall B | `PB3` | `PC6` | `PC12` | **TIM2** CH2 / **TIM3** CH1 / **TIM5** CH2 encoder |
 | CAN | `PB12` RX, `PB13` TX | — | — | **FDCAN2** |
 | Node ID | `PC13`, `PB4`, `PB5` | — | — | Switches, see `PROVISIONING.md` |
-| I2C (DAC + Qwiic) | `PA15` SCL, `PB7` SDA | — | — | **I2C1** — **DAC7574** `0x4C`; **Qwiic** accessory port (same bus, `3V3`/GND) |
+| I2C (DAC + Qwiic) | `PA15` SCL, `PB7` SDA | — | — | **I2C1** — **DAC7574** `0x4C`; **Qwiic** chain: IMU, OLED, other (`DISPLAY.md`, `ROBOT_SENSORS.md`) |

@@ -14,7 +14,7 @@ Maps every robot-level measurement stream to its physical source and to what the
 
 ## Critical points
 
-- **Architecture split:** joint actuation and joint-local sensing move to **six identical leg boards** on **CAN-FD**. **IMU #1** (policy base attitude) comes from the **primary ZED** on the Orin (`zed_imu.py`, `JETSON_SENSOR_CATALOG`). A **Qwiic IMU** may plug into **one** leg board on **I2C1** (`HARDWARE.md`); that board **probes at boot**, and when present **forwards samples on CAN** as **`QwiicImu`** (`CAN_PROTOCOL.md`). Boards without a module **do not** transmit that frame. Pack monitoring stays off the leg bus unless added later.
+- **Architecture split:** joint actuation and joint-local sensing move to **six identical leg boards** on **CAN-FD**. **IMU #1** (policy base attitude) comes from the **primary ZED** on the Orin (`zed_imu.py`, `JETSON_SENSOR_CATALOG`). Optional **Qwiic** accessories on **I2C1** (`HARDWARE.md`), **at most one each per robot:** **Qwiic IMU** → **`QwiicImu`** CAN TX from the hosting leg; **Krabby OLED** → **no** CAN TX — that board **soaks** leg-bus frames and renders locally (`DISPLAY.md`). Pack monitoring stays off the leg bus unless added later.
 - **Normative joint source (CAN robot):** measured **`position_norm`** (and connection/fault bits) from **`LegTelemetry`** per `CAN_PROTOCOL.md`, aggregated in host `firmware/stm/mcu_can.py` into the same shape as `firmware.interfaces.joint_telemetry.JointTelemetry` keyed by HAL **`mcu_joints`** names (`FL_hip_yaw` … `RR_knee`).
 - **HAL joint observation (target):** `HardwareObservations.joint_positions` in **radians** uses **measured** leg positions when CAN telemetry is healthy; **command echo is fallback only** during bring-up (`hal/server/jetson/hal_server.py` placeholder path). **`joint_velocities`** remain **derived on the host** (finite difference of measured positions) until leg firmware publishes explicit joint rates.
 - **Policy-critical on hardware today:** primary **RGB-D** + **scan_features**, **`base_quat_w`**, **`base_ang_vel_b`** (ZED IMU when enabled), **`joint_positions`** (18). **`privileged_latent`** is simulation-only (`None` on hardware). **`contact_forces`** stay **zero-filled** on Jetson until a foot sensor stream exists.
@@ -32,7 +32,8 @@ Maps every robot-level measurement stream to its physical source and to what the
 | `node_status` | 6 | Leg board `NodeStatus` | Discovery, `show`, flash | **Required** — CAN |
 | `pcb_temperature` | 6 | Leg board `PCB_TEMP_ADC` (`HARDWARE.md`) | Thermal logging | **Bench** — DBC field TBD (`LegTelemetry` vs `NodeStatus`) |
 | `base_imu_accel_gyro` (**IMU #1**) | 1 | **Orin:** primary **ZED** onboard IMU (not CAN) | `base_quat_w`, `base_ang_vel_b` in HAL | **Required** when ZED IMU enabled |
-| `qwiic_imu` (aux body IMU) | 0–1 | **Optional:** **Qwiic** on **one** leg PCB → **`QwiicImu`** CAN | Diagnostics, future HAL fusion, CLI | **Optional** — `valid=0` / no frame when unwired |
+| `qwiic_imu` (aux body IMU) | 0–1 | **Optional:** **Qwiic** on **one** leg PCB → **`QwiicImu`** CAN | Diagnostics, future HAL fusion, CLI | **Optional** — no frame when unwired |
+| `krabby_oled` (operator UI) | 0–1 | **Optional:** **Qwiic OLED** on **one** leg PCB; feed from **CAN RX mirror** | On-robot display only | **Not** a host stream — see `DISPLAY.md` |
 | `base_lin_vel_b` | 1 | **Orin:** ZED visual odometry when tracking enabled | HAL velocity | **Optional** — feature-flagged on ZED |
 | `camera_rgb_depth` | N | **Orin:** catalog cameras | Policy scan, collision, GUI | **Orin** — not on leg CAN |
 | `pack_voltage_current` | 1 | **Deferred:** **INA228** on robot power board (not on leg PCB) | `BatteryTelemetry`, power UI | **Unavailable** on CAN-only leg path |
