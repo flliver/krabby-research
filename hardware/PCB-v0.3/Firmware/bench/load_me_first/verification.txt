@@ -1,0 +1,2 @@
+PASS: HEX checksums and non-overlapping addresses; bootloader equality; S-record loading/application equality; OpenBLT vector signature; configuration excluded.
+Build only: no programming or physical LED test performed.

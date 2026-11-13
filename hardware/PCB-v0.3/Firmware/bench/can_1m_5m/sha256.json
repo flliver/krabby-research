@@ -1,0 +1,10 @@
+{
+  "bench/can_1m_5m/krabby_v03_bringup.elf": "114f155a97b4d86d4a2ebddbfe7049fd15ce60b281f87ba1c9fbc985f7134293",
+  "bench/can_1m_5m/krabby_v03_bringup.ioc": "8608ca9ada5e358113838e85a8e1e6cc3c8bfcbc64fe6396796264a4677c4e50",
+  "bench/can_1m_5m/test.log": "87907abd34476afa30b273f271a5e8f48057d9d5a86ce8c67b147063855d223a",
+  "Src/main.c": "1d413f4b74c905053846325c894f2af0d4f17b35d96392b4bbe6f99e14615d32",
+  "App/Src/can_bridge.c": "a32e08980c45415b710ea35c48ca95546a3601736a1a02d1fdcb56c66eb3ab51",
+  "App/Inc/can_bridge.h": "9bd4075058d633c53d6b679f16c779394088ee522b0570d5d0f0fbff9b6e3b0f",
+  "Src/usbd_cdc_if.c": "470c51e6cf9a339850c7c9d2f4f4a03cd726d40b2bb27910a9eece22d7367a76",
+  "tools/test_can_bridge.py": "c59cebb74beab0554a3114ae2d62e92de02d61b7885e9b2dffa46a49227ce234"
+}

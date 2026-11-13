@@ -1,0 +1,20 @@
+# Normalize source/text records while retaining exact binary artifacts.
+* text=auto
+*.c text eol=lf
+*.h text eol=lf
+*.s text eol=lf
+*.py text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.ioc text eol=lf
+*.ld text eol=lf
+*.srec text eol=lf
+*.hex text eol=lf
+*.bin binary
+*.elf binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.pdf binary

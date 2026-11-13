@@ -1,0 +1,67 @@
+{
+  "date": "2026-11-12",
+  "hardware_accessed": false,
+  "offline_tests_preserve_bench_evidence": true,
+  "checks": [
+    {
+      "command": "python tools/check_artifacts.py",
+      "result": "PASS",
+      "output": "PASS offline firmware artifacts: {\"srecords\": 15, \"binaries\": 3, \"hex_files\": 1, \"manifests\": 1}"
+    },
+    {
+      "command": "python tools/krabby_debug_gui.py --smoke-test",
+      "result": "PASS",
+      "output": "PASS: GUI widgets and sensor/configuration rendering (synthetic data only)"
+    },
+    {
+      "command": "python tools/test_control_gui.py",
+      "result": "PASS",
+      "output": "{'synthetic': 'PASS', 'features': ['period selection', 'ARM neutral repeat', 'signed commands', 'field/page writes', 'per-motor polarity/units atomic writes', 'schema 2/3 JSON migration', 'save/load/defaults', 'reboot stages', 'raw packets', 'deadline detection', 'priority stop', 'worker close', 'GUI staged edits']}"
+    },
+    {
+      "command": "python tools/test_jog_gui.py",
+      "result": "PASS",
+      "output": "{'synthetic': 'PASS', 'cases': ['all six directions', 'signed magnitude', 'hold repeats', 'release zeros/disarms', 'no restart', 'release before ARM', 'release during ARM', 'zero-before-DISARM wire order', 'Jog tab widgets', 'close while held', 'ARM rejection cancels hold']}"
+    },
+    {
+      "command": "python tools/test_position_gui.py",
+      "result": "PASS",
+      "output": "{'synthetic': 'PASS', 'tests': ['native pot/encoder normalization', 'signed P control', 'deadband', 'speed caps', 'firmware owns direction polarity', 'enable neutral until target moved', 'two-motor simulated plant convergence', 'disable zeros/disarms', 'cancel during ARM', 'ADC rail inhibits', 'GUI normalized/current readouts']}"
+    },
+    {
+      "command": "python -m compileall -q tools",
+      "result": "PASS",
+      "output": ""
+    },
+    {
+      "command": "python tools/test_application.py",
+      "result": "PASS: refuses to run without --hardware"
+    },
+    {
+      "command": "python tools/test_application_stress.py",
+      "result": "PASS: refuses to run without --hardware"
+    },
+    {
+      "command": "python tools/test_openblt.py",
+      "result": "PASS: refuses to run without --hardware"
+    },
+    {
+      "clean_build": "application",
+      "bytes": 85512,
+      "matches_existing_binary": true,
+      "sha256": "f89a96afc26a29a6c98d245eaf496640328e55fdf8b7fca2aaf3abc5c25dd927"
+    },
+    {
+      "clean_build": "bootloader",
+      "bytes": 12000,
+      "matches_existing_binary": true,
+      "sha256": "37e4ce0b287b7d9c7f2a2aef1dbf770607595f66b9396a17a90187b2dcd9f058"
+    },
+    {
+      "clean_build": "LoadMeFirst",
+      "bytes": 35972,
+      "matches_existing_binary": true,
+      "sha256": "44b4a3a5d9013741fd6afd303486163bbc5eeafc599339919d0455a3c2970e89"
+    }
+  ]
+}

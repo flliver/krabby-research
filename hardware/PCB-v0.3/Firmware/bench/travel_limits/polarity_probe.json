@@ -1,0 +1,74 @@
+[
+  {
+    "motor": 1,
+    "before": 418,
+    "after": 3249,
+    "delta": 2831,
+    "status": {
+      "uptime": 27864,
+      "node": 7,
+      "node_status": 1,
+      "motor_status": [
+        65,
+        65,
+        65
+      ],
+      "commands": [
+        0,
+        0,
+        0
+      ],
+      "samples": 27855,
+      "adc_errors": 0,
+      "drops": 0
+    }
+  },
+  {
+    "motor": 2,
+    "before": 1136,
+    "after": 1061,
+    "delta": -75,
+    "status": {
+      "uptime": 28362,
+      "node": 7,
+      "node_status": 1,
+      "motor_status": [
+        65,
+        65,
+        65
+      ],
+      "commands": [
+        0,
+        0,
+        0
+      ],
+      "samples": 28351,
+      "adc_errors": 0,
+      "drops": 0
+    }
+  },
+  {
+    "motor": 3,
+    "before": 0,
+    "after": 150,
+    "delta": 150,
+    "status": {
+      "uptime": 28867,
+      "node": 7,
+      "node_status": 1,
+      "motor_status": [
+        65,
+        65,
+        65
+      ],
+      "commands": [
+        0,
+        0,
+        0
+      ],
+      "samples": 28855,
+      "adc_errors": 0,
+      "drops": 0
+    }
+  }
+]

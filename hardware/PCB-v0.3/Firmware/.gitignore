@@ -1,0 +1,16 @@
+build
+mx.scratch
+# Local caches and editor state (bench evidence is deliberately retained).
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.vscode/
+.settings/
+# Upstream Windows executables are local dependencies, not source releases.
+# See THIRD_PARTY.md for source/provenance and README.md for installation.
+/vendor/openblt/Host/libopenblt.dll
+/vendor/openblt/Host/BootCommander.exe
+
+# Keep intentional bench transcripts despite the parent repository *.log rule.
+!/bench/**/*.log

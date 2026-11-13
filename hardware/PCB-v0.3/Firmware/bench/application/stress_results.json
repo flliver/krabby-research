@@ -1,0 +1,30 @@
+{
+  "result": "PASS",
+  "diagnostic_frames": 400,
+  "can_status_queries": 500,
+  "cross_transport_page_comparisons": 100,
+  "max_query_ms": 1.3219999964348972,
+  "bridge_diagnostics": "irq=1136 rx=1136 fifo=0 queued=0 dropped=139 hwloss=0 rxerr=0 RXpin=1",
+  "human_usb_commands": 3,
+  "emulated_request_addresses": 6,
+  "physical_nodes": 1,
+  "motor_cycles_50Hz": 50,
+  "final_status": {
+    "uptime": 4346,
+    "node": 0,
+    "node_status": 1,
+    "motor_status": [
+      65,
+      65,
+      65
+    ],
+    "commands": [
+      0,
+      0,
+      0
+    ],
+    "samples": 4318,
+    "adc_errors": 0,
+    "drops": 0
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "synthetic": "PASS",
+  "cases": [
+    "all six directions",
+    "signed magnitude",
+    "hold repeats",
+    "release zeros/disarms",
+    "no restart",
+    "release before ARM",
+    "release during ARM",
+    "zero-before-DISARM wire order",
+    "Jog tab widgets",
+    "close while held",
+    "ARM rejection cancels hold"
+  ],
+  "physical_runs": [
+    {
+      "interface": "CAN",
+      "port": "COM7",
+      "node": 7,
+      "zero_only_runs": [
+        {
+          "motor": 1,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 1,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": 1,
+          "drive": 0
+        }
+      ],
+      "final_status": {
+        "uptime": 1153928,
+        "node": 7,
+        "node_status": 1,
+        "motor_status": [
+          65,
+          65,
+          65
+        ],
+        "commands": [
+          0,
+          0,
+          0
+        ],
+        "samples": 1153914,
+        "adc_errors": 0,
+        "drops": 0
+      },
+      "configuration_unchanged": true
+    },
+    {
+      "interface": "USB",
+      "port": "COM3",
+      "node": 7,
+      "zero_only_runs": [
+        {
+          "motor": 1,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 1,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": 1,
+          "drive": 0
+        }
+      ],
+      "final_status": {
+        "uptime": 1155704,
+        "node": 7,
+        "node_status": 1,
+        "motor_status": [
+          65,
+          65,
+          65
+        ],
+        "commands": [
+          0,
+          0,
+          0
+        ],
+        "samples": 1155680,
+        "adc_errors": 0,
+        "drops": 0
+      },
+      "configuration_unchanged": true
+    },
+    {
+      "interface": "CAN",
+      "port": "COM7",
+      "node": 7,
+      "zero_only_runs": [
+        {
+          "motor": 1,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 1,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": 1,
+          "drive": 0
+        }
+      ],
+      "final_status": {
+        "uptime": 1315493,
+        "node": 7,
+        "node_status": 1,
+        "motor_status": [
+          65,
+          65,
+          65
+        ],
+        "commands": [
+          0,
+          0,
+          0
+        ],
+        "samples": 1315458,
+        "adc_errors": 0,
+        "drops": 0
+      },
+      "configuration_unchanged": true
+    },
+    {
+      "interface": "USB",
+      "port": "COM3",
+      "node": 7,
+      "zero_only_runs": [
+        {
+          "motor": 1,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 1,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 2,
+          "direction": 1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": -1,
+          "drive": 0
+        },
+        {
+          "motor": 3,
+          "direction": 1,
+          "drive": 0
+        }
+      ],
+      "final_status": {
+        "uptime": 1317265,
+        "node": 7,
+        "node_status": 1,
+        "motor_status": [
+          65,
+          65,
+          65
+        ],
+        "commands": [
+          0,
+          0,
+          0
+        ],
+        "samples": 1317219,
+        "adc_errors": 0,
+        "drops": 0
+      },
+      "configuration_unchanged": true
+    }
+  ]
+}

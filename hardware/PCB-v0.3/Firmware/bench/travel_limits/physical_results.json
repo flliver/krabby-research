@@ -1,0 +1,384 @@
+{
+  "success": true,
+  "records": [
+    {
+      "test": "electrical polarity",
+      "motor": 1,
+      "before": 3347,
+      "after": 3248,
+      "delta": -99
+    },
+    {
+      "test": "electrical polarity",
+      "motor": 2,
+      "before": 1057,
+      "after": 983,
+      "delta": -74
+    },
+    {
+      "test": "electrical polarity",
+      "motor": 3,
+      "before": 0,
+      "after": 152,
+      "delta": 152
+    },
+    {
+      "test": "logical positive motion",
+      "motor": 1,
+      "before": 3237,
+      "after": 3295
+    },
+    {
+      "test": "logical positive motion",
+      "motor": 2,
+      "before": 977,
+      "after": 1020
+    },
+    {
+      "test": "logical positive motion",
+      "motor": 3,
+      "before": 163,
+      "after": 261
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": false,
+      "reversed": false,
+      "boundary": "lower"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": false,
+      "reversed": false,
+      "boundary": "upper"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": false,
+      "reversed": true,
+      "boundary": "lower"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 1,
+      "normalized": false,
+      "boundary": "lower",
+      "before": 3310,
+      "after": 3341
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": false,
+      "reversed": true,
+      "boundary": "upper"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 1,
+      "normalized": false,
+      "boundary": "upper",
+      "before": 3340,
+      "after": 3305
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": true,
+      "reversed": false,
+      "boundary": "lower"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": true,
+      "reversed": false,
+      "boundary": "upper"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": true,
+      "reversed": true,
+      "boundary": "lower"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 1,
+      "normalized": true,
+      "boundary": "lower",
+      "before": 3302,
+      "after": 3335
+    },
+    {
+      "test": "blocked outward",
+      "motor": 1,
+      "normalized": true,
+      "reversed": true,
+      "boundary": "upper"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 1,
+      "normalized": true,
+      "boundary": "upper",
+      "before": 3343,
+      "after": 3309
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": false,
+      "reversed": false,
+      "boundary": "lower"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": false,
+      "reversed": false,
+      "boundary": "upper"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": false,
+      "reversed": true,
+      "boundary": "lower"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 2,
+      "normalized": false,
+      "boundary": "lower",
+      "before": 1025,
+      "after": 1059
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": false,
+      "reversed": true,
+      "boundary": "upper"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 2,
+      "normalized": false,
+      "boundary": "upper",
+      "before": 1062,
+      "after": 1031
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": true,
+      "reversed": false,
+      "boundary": "lower"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": true,
+      "reversed": false,
+      "boundary": "upper"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": true,
+      "reversed": true,
+      "boundary": "lower"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 2,
+      "normalized": true,
+      "boundary": "lower",
+      "before": 1027,
+      "after": 1056
+    },
+    {
+      "test": "blocked outward",
+      "motor": 2,
+      "normalized": true,
+      "reversed": true,
+      "boundary": "upper"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 2,
+      "normalized": true,
+      "boundary": "upper",
+      "before": 1060,
+      "after": 1031
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": false,
+      "reversed": false,
+      "boundary": "lower"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 3,
+      "normalized": false,
+      "boundary": "lower",
+      "before": 271,
+      "after": 337
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": false,
+      "reversed": false,
+      "boundary": "upper"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 3,
+      "normalized": false,
+      "boundary": "upper",
+      "before": 342,
+      "after": 280
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": false,
+      "reversed": true,
+      "boundary": "lower"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": false,
+      "reversed": true,
+      "boundary": "upper"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": true,
+      "reversed": false,
+      "boundary": "lower"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 3,
+      "normalized": true,
+      "boundary": "lower",
+      "before": 276,
+      "after": 345
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": true,
+      "reversed": false,
+      "boundary": "upper"
+    },
+    {
+      "test": "physical retreat",
+      "motor": 3,
+      "normalized": true,
+      "boundary": "upper",
+      "before": 350,
+      "after": 286
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": true,
+      "reversed": true,
+      "boundary": "lower"
+    },
+    {
+      "test": "blocked outward",
+      "motor": 3,
+      "normalized": true,
+      "reversed": true,
+      "boundary": "upper"
+    }
+  ],
+  "final_pages": [
+    [
+      0,
+      25,
+      0,
+      3,
+      3380,
+      9587,
+      10000,
+      25000,
+      3,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      500,
+      100,
+      1000,
+      490,
+      3350,
+      3,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      500,
+      0,
+      4095,
+      440,
+      3320,
+      3,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      100,
+      0,
+      4095,
+      -2000,
+      2000,
+      3,
+      1,
+      0
+    ]
+  ],
+  "final_status": {
+    "uptime": 71487,
+    "node": 7,
+    "node_status": 1,
+    "motor_status": [
+      73,
+      65,
+      65
+    ],
+    "commands": [
+      0,
+      0,
+      0
+    ],
+    "samples": 71244,
+    "adc_errors": 0,
+    "drops": 0
+  }
+}

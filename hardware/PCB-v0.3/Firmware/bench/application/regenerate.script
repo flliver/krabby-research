@@ -1,0 +1,3 @@
+config load krabby_v03_bringup.ioc
+project generate
+exit
