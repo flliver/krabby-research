@@ -15,7 +15,7 @@ Maps every robot-level measurement stream to its physical source and to what the
 ## Critical points
 
 - **Architecture split:** joint actuation and joint-local sensing move to **six identical leg boards** on **CAN-FD**. **IMU #1** (policy base attitude) comes from the **primary ZED** on the Orin (`zed_imu.py`, `JETSON_SENSOR_CATALOG`). Optional **Qwiic** accessories on **I2C1** (`HARDWARE.md`), **at most one each per robot:** **Qwiic IMU** → **`QwiicImu`** CAN TX from the hosting leg; **Krabby OLED** → **no** CAN TX — that board **soaks** leg-bus frames and renders locally (`DISPLAY.md`). Pack monitoring stays off the leg bus unless added later.
-- **Normative joint source (CAN robot):** measured **`position_norm`** (and connection/fault bits) from **`LegTelemetry`** per `CAN_PROTOCOL.md`, aggregated in host `firmware/stm/mcu_can.py` into the same shape as `firmware.interfaces.joint_telemetry.JointTelemetry` keyed by HAL **`mcu_joints`** names (`FL_hip_yaw` … `RR_knee`).
+- **Normative joint source (CAN robot):** measured **`position_norm`** (and connection/fault bits) from **`LegTelemetry`** per `CAN_PROTOCOL.md`, keyed by **`(leg_id, joint_id)`** in the SDK; HAL **`mcu_joints`** strings only when filling policy observations (`hal_joint_names.py`).
 - **HAL joint observation (target):** `HardwareObservations.joint_positions` in **radians** uses **measured** leg positions when CAN telemetry is healthy; **command echo is fallback only** during bring-up (`hal/server/jetson/hal_server.py` placeholder path). **`joint_velocities`** remain **derived on the host** (finite difference of measured positions) until leg firmware publishes explicit joint rates.
 - **Policy-critical on hardware today:** primary **RGB-D** + **scan_features**, **`base_quat_w`**, **`base_ang_vel_b`** (ZED IMU when enabled), **`joint_positions`** (18). **`privileged_latent`** is simulation-only (`None` on hardware). **`contact_forces`** stay **zero-filled** on Jetson until a foot sensor stream exists.
 - **CLI / operator:** `krabby-firmware --stm telemetry` covers **leg CAN** fields plus **`NodeStatus`**. It does **not** surface **IMU #1** (that is the ZED / HAL path, not MCU CLI telemetry). Pack lines stay absent on the CAN-only leg path until a power-board stream exists (below).
@@ -54,16 +54,13 @@ Maps every robot-level measurement stream to its physical source and to what the
 
 ## Reference
 
-### HAL `mcu_joints` (joint position stream keys)
+### Joint stream keys
 
-| Leg | Names (each has `joint_position` + diagnostics) |
-|-----|--------------------------------------------------|
-| FL | `FL_hip_yaw`, `FL_hip_pitch`, `FL_knee` |
-| FR | `FR_hip_yaw`, `FR_hip_pitch`, `FR_knee` |
-| ML | `ML_hip_yaw`, `ML_hip_pitch`, `ML_knee` |
-| MR | `MR_hip_yaw`, `MR_hip_pitch`, `MR_knee` |
-| RL | `RL_hip_yaw`, `RL_hip_pitch`, `RL_knee` |
-| RR | `RR_hip_yaw`, `RR_hip_pitch`, `RR_knee` |
+| Layer | Key |
+|-------|-----|
+| Leg bus / firmware | **`leg_id` 1…6**, **`joint_id` 1…3** (`IDENTITY.md`) |
+| Policy / HAL | `RobotDefinition.mcu_joints` via **`hal_joint_names.mcu_joint_name()`** |
+| GUI | Human labels (corner + joint name) |
 
 ### Serial `BATT` segment fields (robot power board / leader Mega; not on CAN leg bus)
 

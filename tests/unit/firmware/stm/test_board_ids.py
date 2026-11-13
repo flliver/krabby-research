@@ -6,56 +6,44 @@ from pathlib import Path
 
 import pytest
 
-from firmware.stm import ids
+from firmware.stm import hal_joint_names, ids
 from tests.unit.firmware.stm.test_krabby_leg_dbc import EXPECTED_FRAME_IDS, LEGS
-
-# Keep in sync with ``KRABBY_HEX_DEFINITION.mcu_joints`` (hal/server/robot_definition_krabby_hex.py).
-EXPECTED_MCU_JOINTS: tuple[str, ...] = (
-    "FL_hip_yaw",
-    "FL_hip_pitch",
-    "FL_knee",
-    "FR_hip_yaw",
-    "FR_hip_pitch",
-    "FR_knee",
-    "ML_hip_yaw",
-    "ML_hip_pitch",
-    "ML_knee",
-    "MR_hip_yaw",
-    "MR_hip_pitch",
-    "MR_knee",
-    "RL_hip_yaw",
-    "RL_hip_pitch",
-    "RL_knee",
-    "RR_hip_yaw",
-    "RR_hip_pitch",
-    "RR_knee",
-)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 BOARD_IDS_H = REPO_ROOT / "firmware" / "stm" / "include" / "krabby" / "board_ids.h"
 
 
-def test_mcu_joint_count_six_by_three() -> None:
-    assert len(ids.LEG_CODES) == 6
-    assert len(ids.JOINT_SUFFIXES) == 3
-    assert len(ids.MCU_JOINTS) == 18
+def test_leg_and_joint_id_ranges() -> None:
+    assert ids.LEG_IDS == (1, 2, 3, 4, 5, 6)
+    assert ids.LEG_IDS_LEFT == (1, 3, 5)
+    assert ids.LEG_IDS_RIGHT == (2, 4, 6)
+    assert ids.JOINT_IDS == (1, 2, 3)
+    assert ids.JOINT_LETTERS == "YHK"
 
 
-def test_mcu_joints_match_robot_definition() -> None:
-    assert ids.MCU_JOINTS == EXPECTED_MCU_JOINTS
+def test_leg_id_index_round_trip() -> None:
+    for leg_id in ids.LEG_IDS:
+        assert ids.leg_index_to_id(ids.leg_id_to_index(leg_id)) == leg_id
 
 
-def test_joint_names_unique() -> None:
-    assert len(set(ids.MCU_JOINTS)) == 18
+def test_joint_id_index_round_trip() -> None:
+    for joint_id in ids.JOINT_IDS:
+        assert ids.joint_index_to_id(ids.joint_id_to_index(joint_id)) == joint_id
 
 
-@pytest.mark.parametrize("name", ids.MCU_JOINTS)
-def test_joint_to_leg_bus_index_round_trip(name: str) -> None:
-    leg, joint_index = ids.parse_mcu_joint_name(name)
-    bus, leg_index, ji = ids.joint_to_leg_bus_index(name)
-    assert ji == joint_index
-    assert leg_index == ids.LEG_CODE_BY_NAME[leg]
-    assert bus == ids.LEG_BUS[leg]
+def test_hal_joint_names_match_robot_definition() -> None:
+    assert len(hal_joint_names.MCU_JOINTS) == 18
+
+
+@pytest.mark.parametrize("leg_id", ids.LEG_IDS)
+@pytest.mark.parametrize("joint_id", ids.JOINT_IDS)
+def test_hal_name_round_trip(leg_id: int, joint_id: int) -> None:
+    name = hal_joint_names.mcu_joint_name(leg_id, joint_id)
+    assert hal_joint_names.parse_mcu_joint_name(name) == (leg_id, joint_id)
+    bus, leg_index, joint_index = hal_joint_names.joint_to_leg_bus(leg_id, joint_id)
+    assert leg_index == ids.leg_id_to_index(leg_id)
+    assert joint_index == ids.joint_id_to_index(joint_id)
+    assert bus == ids.LEG_BUS_BY_ID[leg_id]
 
 
 def test_leg_can_message_ids_no_collisions() -> None:
@@ -74,15 +62,25 @@ def test_leg_can_message_ids_no_collisions() -> None:
 
 def test_leg_can_ids_match_dbc() -> None:
     for i, leg in enumerate(LEGS):
-        assert ids.leg_command_can_id(i) == (EXPECTED_FRAME_IDS[f"LegCommand_{leg}"] & 0x1FFFFFFF)
-        assert ids.leg_telemetry_can_id(i) == (EXPECTED_FRAME_IDS[f"LegTelemetry_{leg}"] & 0x1FFFFFFF)
-        assert ids.node_status_can_id(i) == (EXPECTED_FRAME_IDS[f"NodeStatus_{leg}"] & 0x1FFFFFFF)
-        assert ids.qwiic_imu_can_id(i) == (EXPECTED_FRAME_IDS[f"QwiicImu_{leg}"] & 0x1FFFFFFF)
+        leg_id = ids.LEG_ID_BY_DBC_SUFFIX[leg]
+        assert ids.leg_id_to_index(leg_id) == i
+        assert ids.leg_command_can_id_for_leg(leg_id) == (
+            EXPECTED_FRAME_IDS[f"LegCommand_{leg}"] & 0x1FFFFFFF
+        )
+        assert ids.leg_telemetry_can_id_for_leg(leg_id) == (
+            EXPECTED_FRAME_IDS[f"LegTelemetry_{leg}"] & 0x1FFFFFFF
+        )
+        assert ids.node_status_can_id_for_leg(leg_id) == (
+            EXPECTED_FRAME_IDS[f"NodeStatus_{leg}"] & 0x1FFFFFFF
+        )
+        assert ids.qwiic_imu_can_id_for_leg(leg_id) == (
+            EXPECTED_FRAME_IDS[f"QwiicImu_{leg}"] & 0x1FFFFFFF
+        )
 
 
-def test_provisioning_leg_code_table() -> None:
-    assert ids.LEG_CODE_BY_NAME["FL"] == 0
-    assert ids.LEG_CODE_BY_NAME["RR"] == 5
+def test_provisioning_switch_equals_leg_id() -> None:
+    for leg_id in ids.LEG_IDS:
+        assert ids.leg_index_to_id(ids.leg_id_to_index(leg_id)) == leg_id
     assert ids.LEG_INDEX_UNASSIGNED == 6
     assert ids.LEG_CODE_UNASSIGNED == 255
 

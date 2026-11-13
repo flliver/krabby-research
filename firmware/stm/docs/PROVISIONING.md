@@ -22,14 +22,14 @@ Assigns each identical leg controller PCB a stable leg identity (`FL` … `RR`) 
   3. Else **`LEG_UNASSIGNED`** (**255** / **`UNK`** / index **6**).
 - Firmware copies resolved identity into runtime config; CAN **`NodeStatus`** and **`LegCommand` / `LegTelemetry`** IDs use **leg index** (`CAN_PROTOCOL.md`).
 
-| Leg code | Switch value | `leg_code` byte | Leg index | Robot bus |
-|----------|---------------|-----------------|-----------|-----------|
-| `FL` | 1 | 0 | 0 | `can0` |
-| `FR` | 2 | 1 | 1 | `can1` |
-| `ML` | 3 | 2 | 2 | `can0` |
-| `MR` | 4 | 3 | 3 | `can1` |
-| `RL` | 5 | 4 | 4 | `can0` |
-| `RR` | 6 | 5 | 5 | `can1` |
+| `leg_id` | Switch | `leg_code` byte | `leg_index` | Bus | GUI label (not on bus) |
+|--------|--------|-----------------|-------------|-----|----------------------|
+| 1 | 1 | 0 | 0 | `can0` | FL |
+| 2 | 2 | 1 | 1 | `can1` | FR |
+| 3 | 3 | 2 | 2 | `can0` | ML |
+| 4 | 4 | 3 | 3 | `can1` | MR |
+| 5 | 5 | 4 | 4 | `can0` | RL |
+| 6 | 6 | 5 | 5 | `can1` | RR |
 
 - **Switch encoding:** each closed switch pulls its line so the pin reads **1**; **`NODE_ID0`** is bit 0 (LSB). Value **0** or **7** (invalid encoding) ⇒ treat as unassigned — rapid **`STATUS_LED`** blink, motors stay asleep until identity is valid.
 

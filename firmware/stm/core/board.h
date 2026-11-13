@@ -5,14 +5,14 @@
 
 /**
  * Per-leg runtime state. Firmware uses one instance; the host sim creates six.
- * Leg index 0–5 maps to FL … RR (PROVISIONING.md).
+ * Leg index 0–5 maps to leg_id 1–6 (FL … RR on DBC suffixes).
  */
 typedef struct leg {
     uint8_t leg_index;
     uint8_t joint_count; /* always 3: hip_yaw, hip_pitch, knee */
 } leg_t;
 
-/* Motor index 0 = hip_yaw, 1 = hip_pitch, 2 = knee (LEG_BOARD_CONTROL.md). */
+/* Motor index 0 = hip_yaw, 1 = hip_pitch, 2 = knee. */
 void send_pwm(leg_t *leg, int motor, bool direction, int power_0_to_1000);
 uint16_t read_pot(leg_t *leg, int motor);
 int32_t read_hall(leg_t *leg, int motor);

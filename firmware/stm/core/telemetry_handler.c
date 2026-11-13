@@ -12,5 +12,5 @@ void telemetry_handler_tick(leg_t *leg, uint32_t now_ms) {
     (void)leg;
     (void)now_ms;
     /* TX: krabby_can_leg_telemetry_id(leg_index) — one frame, three joints packed. */
-    /* TX: krabby_can_node_status_id(leg_index) — separate 1 Hz schedule (CAN_PROTOCOL.md). */
+    /* TX: krabby_can_node_status_id(leg_index) — NodeStatus at 1 Hz, separate from LegTelemetry. */
 }

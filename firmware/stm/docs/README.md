@@ -18,6 +18,7 @@ Condensed specs for six CAN-FD leg controller boards, host tools, simulation, an
 
 | Path | Scope |
 |------|--------|
+| [IDENTITY.md](./IDENTITY.md) | Leg **1–6**, joint **1–3** (Y/H/K); HAL names only at host edge |
 | [CAN_PROTOCOL.md](./CAN_PROTOCOL.md) | CAN-FD, two buses, timing, discovery, leg-drop, Orin interfaces |
 | [LEG_BOARD_CONTROL.md](./LEG_BOARD_CONTROL.md) | Three joints per board, jog/position, safe state, faults, NV, telemetry |
 | [HARDWARE.md](./HARDWARE.md) | Leg controller PCB: DRV8262, DAC7574, FDCAN2, switches, schematic pin map |

@@ -6,7 +6,7 @@ Per-leg STM32 firmware closes the loop on three linear joints and exposes their 
 
 ## Components
 
-- Three joint channels per PCB: **`hip_yaw`**, **`hip_pitch`**, **`knee`** (HAL names prefixed by provisioned leg code)
+- Three joint channels per PCB: **`joint_id` 1/2/3** (**Y/H/K**) — motor **M1/M2/M3** (`IDENTITY.md`)
 - Motor bridges: **profile B (DRV8262)** — **`M#_PWM`** (EN), **`M#_DIR`** (PH), **`M#_SLEEP`**; **profile A (STSPIN9P2x)** dual PWM + EN when that silicon is populated (`HARDWARE.md`)
 - **DAC7574** programs per-channel current limit before **`M#_SLEEP`** high
 - Position feedback: potentiometer ADC per joint; optional Hall edge counter per joint when routed on the PCB (`HARDWARE.md`)
@@ -17,7 +17,7 @@ Per-leg STM32 firmware closes the loop on three linear joints and exposes their 
 
 ## Critical points
 
-- **Joint set:** fixed order on the board — **`hip_yaw`** (index 0), **`hip_pitch`** (index 1), **`knee`** (index 2). HAL names are `{leg}_hip_yaw`, `{leg}_hip_pitch`, `{leg}_knee` with `{leg}` ∈ **`FL`, `FR`, `ML`, `MR`, `RL`, `RR`** from provisioning.
+- **Joint set:** fixed order — **`joint_id` 1 = Y**, **2 = H**, **3 = K** (`joint_index` 0…2). Host policy may map to HAL strings in **`hal_joint_names.py`** only.
 - **Control loop:** run joint `update()` at **1 kHz** (sensor filtering, position loop, ramping). CAN RX and command freshness run in the same loop. Publish **`LegTelemetry`** at **100 Hz** per `CAN_PROTOCOL.md`.
 - **Position command:** normalized setpoint **0.0–1.0** maps linearly between stored **`minStop`** and **`maxStop`** raw pot limits for that joint. Activates position hold (`hasTarget = true`) on the joint. P gain, PWM ramp, and deadbands match the ported `ControlConfig` defaults unless tuned in firmware constants.
 - **Jog command:** signed PWM **−255…255** per joint (`manualDrive`). Non-zero jog drives the bridge immediately (jog deadband bypass). Jog **0** stops motion on that joint but does **not** clear an active position target.
@@ -39,13 +39,13 @@ Per-leg STM32 firmware closes the loop on three linear joints and exposes their 
 
 ## Reference
 
-### Board joint index
+### Board joints
 
-| Index | Joint on leg | Example HAL name (leg FL) |
-|-------|----------------|---------------------------|
-| 0 | `hip_yaw` | `FL_hip_yaw` |
-| 1 | `hip_pitch` | `FL_hip_pitch` |
-| 2 | `knee` | `FL_knee` |
+| `joint_id` | Letter | `joint_index` | Motor |
+|-----------|--------|---------------|-------|
+| 1 | Y | 0 | M1 |
+| 2 | H | 1 | M2 |
+| 3 | K | 2 | M3 |
 
 ### Default control tuning (initial port)
 

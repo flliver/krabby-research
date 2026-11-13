@@ -62,7 +62,7 @@ def test_dbc_files_exist() -> None:
 def test_dbc_sha256_pin() -> None:
     digest = hashlib.sha256(DBC_PATH.read_bytes()).hexdigest()
     pinned = SHA_PATH.read_text().strip()
-    assert digest == pinned, "krabby_leg.sha256 out of date; refresh per firmware/stm/dbc/README.md"
+    assert digest == pinned, "krabby_leg.sha256 out of date; run make stm-dbc from firmware/"
 
 
 def test_dbc_generated_c_sources_committed() -> None:

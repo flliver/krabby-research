@@ -62,8 +62,8 @@ create_mcu_sdk(mcu_joints, target=None, baud=DEFAULT_BAUD, auto_connect=True) ->
 
 **Encoding split (important):**
 
-- **Serial `serial_mega`:** keeps Mega short names (`FLHY`, …) inside `krabby_mcu` via `hal/server/jetson/krabby_mcusdk.py` `_hal_to_firmware_name` mapping.
-- **CAN `can_legs`:** uses full **`mcu_joints`** strings end-to-end (`HOST_INTEGRATION.md`); no Mega abbreviations on the bus.
+- **Serial `serial_mega`:** keeps Mega short names (`FLHY`, …) inside `krabby_mcu` via `hal/server/jetson/krabby_mcusdk.py` `_hal_to_firmware_name` mapping (Mega path only).
+- **CAN `can_legs`:** leg firmware and DBC use **`leg_id` 1…6** / **`joint_id` 1…3** only (`IDENTITY.md`). Policy radians stay keyed by HAL **`mcu_joints`** strings; translate in **`firmware/stm/hal_joint_names.py`** (GUI adapter, `KrabbyMCUCANSDK`) — not on the wire.
 
 Shared math (`JOINT_LIMIT_RAD`, `JOINT_NEUTRAL`, rad→PWM) moves to **`firmware/joint_command_codec.py`** so Jetson facade and CAN encoder stay aligned.
 
@@ -102,7 +102,7 @@ Implementation adds **`CanCommandLoop`** parallel to **`SerialSdkCommandLoop`**;
 Inside **`KrabbyMCUCANSDK.apply_command`:**
 
 1. Split `command.to_positions_dict()` to entries whose names ∈ `mcu_joints`.
-2. For each name, `ids.joint_to_leg_bus_index(name)` → `(iface, leg_index, joint_index)`.
+2. For each HAL name, `hal_joint_names.parse_mcu_joint_name(name)` → `(leg_id, joint_id)`; route with `ids.LEG_BUS_BY_ID` and `ids.leg_id_to_index`.
 3. Batch per leg into one DBC `LegCommand` frame per node per tick.
 4. Transmit on **`can0`** legs **`FL`, `ML`, `RL`**; on **`can1`** legs **`FR`, `MR`, `RR`** (`CAN_PROTOCOL.md`).
 5. Reader thread demuxes **`LegTelemetry`** into `self.joints[name]`.

@@ -27,7 +27,8 @@ def test_stm_scaffold_paths_exist(path: Path) -> None:
 
 def test_firmware_stm_package_imports() -> None:
     from firmware.stm import __version__ as v
-    from firmware.stm import ids
+    from firmware.stm import hal_joint_names, ids
 
     assert v
-    assert len(ids.MCU_JOINTS) == 18
+    assert len(ids.LEG_IDS) == 6 and len(ids.JOINT_IDS) == 3
+    assert len(hal_joint_names.MCU_JOINTS) == 18

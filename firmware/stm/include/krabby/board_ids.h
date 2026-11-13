@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-/** Six provisioned legs on the robot (PROVISIONING.md, CAN_PROTOCOL.md). */
+/** Six provisioned legs on the robot (leg_index 0–5, leg_id 1–6). */
 #define KRABBY_LEG_COUNT 6u
 #define KRABBY_JOINTS_PER_LEG 3u
 #define KRABBY_MCU_JOINT_COUNT (KRABBY_LEG_COUNT * KRABBY_JOINTS_PER_LEG)
@@ -13,7 +13,7 @@
 /** Host discovery index for unassigned nodes (no LegCommand / LegTelemetry band). */
 #define KRABBY_LEG_INDEX_UNASSIGNED 6u
 
-/** Leg index 0–5 and matching NV leg_code byte (identical numbering). */
+/** Runtime leg_index 0–5; operator leg_id = index + 1. NV leg_code byte 0–5 matches index. */
 typedef enum {
     KRABBY_LEG_FL = 0,
     KRABBY_LEG_FR = 1,
@@ -23,7 +23,7 @@ typedef enum {
     KRABBY_LEG_RR = 5,
 } krabby_leg_index_t;
 
-/** Per-board joint order (LEG_BOARD_CONTROL.md). */
+/** Per-board joint order: hip_yaw (0), hip_pitch (1), knee (2). */
 typedef enum {
     KRABBY_JOINT_HIP_YAW = 0,
     KRABBY_JOINT_HIP_PITCH = 1,

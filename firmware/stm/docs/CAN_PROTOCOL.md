@@ -18,11 +18,11 @@ CAN-FD link between the Orin host and six leg controller nodes (three joints eac
 - **Bit timing:** **500 kbit/s** arbitration phase; **2 Mbit/s** data phase (nominal — match transceiver and STM32 clock config).
 - **IDs:** **29-bit extended** CAN identifiers. **Allocation below is normative;** `../dbc/krabby_leg.dbc` must use the same numeric IDs.
 - **Topology:** **Two buses** on the robot; **three leg boards** daisy-chained per bus; **120 Ω** termination at each bus end; host at one end of each chain.
-- **Bus assignment:** `can0` → legs **FL, ML, RL**; `can1` → legs **FR, MR, RR** (leg prefix = HAL `RobotDefinition.legs`).
+- **Bus assignment:** `can0` → **`leg_id` 1, 3, 5**; `can1` → **2, 4, 6** (`IDENTITY.md`). DBC suffixes **`_FL`…`_RR`** map to those ids; firmware does not use corner strings.
 - **Robot:** two SocketCAN devices — **`can0`** and **`can1`** (leg assignment in bus table below).
 - **Bench (hardware):** one physical CAN interface, default name **`can0`**; one or more leg nodes on a single chain; same DBC as the robot.
 - **Bench (sim/CI):** one virtual interface **`vcan0`** (`VIRTUAL_CAN.md`); same DBC; host treats it as a single bus (map all logical legs onto that interface per sim doc).
-- **Nodes:** six logical nodes **`FL`, `FR`, `ML`, `MR`, `RL`, `RR`**; each node drives **`hip_yaw`, `hip_pitch`, `knee`** for that leg (full HAL names in Reference).
+- **Nodes:** six logical nodes **`leg_id` 1…6**; each node drives **`joint_id` 1…3** (Y/H/K) for that leg (`IDENTITY.md`).
 - **Commands:** host sends per-joint **jog PWM** and **normalized position** signals (DBC fields per joint) addressed by leg + joint; typical HAL command period **50 Hz**; boards treat commands older than **100 ms** as stale and enter safe state per `LEG_BOARD_CONTROL.md`.
 - **Telemetry:** each node publishes joint telemetry at **100 Hz** (aggregated in DBC); host may poll additional status via discovery frames.
 - **Discovery:** on boot and on request, each node emits a **NodeStatus** frame: leg ID, firmware build identity string, bootloader vs application mode (identity encoding in Reference).
@@ -53,16 +53,18 @@ On Jetson Orin, **`can0`** and **`can1`** are SocketCAN names for the on-SoC **M
 | reComputer Robotics J401/J4012: `can0`/`can1` wiring, GPIO STBY, CAN-FD setup | [Seeed Wiki — J401 getting started (CAN)](https://wiki.seeedstudio.com/recomputer_jetson_robotics_j401_getting_started/) |
 | reComputer Robotics user manual (connectors, CAN modes) | [Seeed/DigiKey PDF — reComputer Robotics User Manual](https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/8884/100001302.pdf) |
 
-### Leg index (for ID arithmetic)
+### Leg identity (CAN ID arithmetic)
 
-| Leg | Index | Bus |
-|-----|-------|-----|
-| FL | 0 | can0 |
-| FR | 1 | can1 |
-| ML | 2 | can0 |
-| MR | 3 | can1 |
-| RL | 4 | can0 |
-| RR | 5 | can1 |
+| `leg_id` | `leg_index` | Bus | DBC suffix |
+|--------|-------------|-----|------------|
+| 1 | 0 | can0 | FL |
+| 2 | 1 | can1 | FR |
+| 3 | 2 | can0 | ML |
+| 4 | 3 | can1 | MR |
+| 5 | 4 | can0 | RL |
+| 6 | 5 | can1 | RR |
+
+Joint **1/2/3** = **Y/H/K** on every node (`IDENTITY.md`). Message **`+ leg_index`** uses the index column, not `leg_id`.
 
 ### Message IDs (extended, hex)
 
@@ -83,13 +85,6 @@ Examples: `LegCommand` for **FL** = `0x0C000000`; for **RR** = `0x0C000005`. Fla
 | Release build (tagged) | Semantic version, e.g. `1.2.3` |
 | Otherwise | Full git SHA (40 hex chars) |
 
-### HAL `mcu_joints` (command / telemetry order)
+### Policy joint order (HAL edge only)
 
-| Leg | `hip_yaw` | `hip_pitch` | `knee` |
-|-----|-----------|-------------|--------|
-| FL | `FL_hip_yaw` | `FL_hip_pitch` | `FL_knee` |
-| FR | `FR_hip_yaw` | `FR_hip_pitch` | `FR_knee` |
-| ML | `ML_hip_yaw` | `ML_hip_pitch` | `ML_knee` |
-| MR | `MR_hip_yaw` | `MR_hip_pitch` | `MR_knee` |
-| RL | `RL_hip_yaw` | `RL_hip_pitch` | `RL_knee` |
-| RR | `RR_hip_yaw` | `RR_hip_pitch` | `RR_knee` |
+HAL **`mcu_joints`** strings and radians layout are defined in **`hal/server/robot_definition`**. Numeric order on the bus is **`(leg_id 1…6, joint_id 1…3)`** — map at the host with **`hal_joint_names.py`**, not in leg firmware.

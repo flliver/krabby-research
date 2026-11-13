@@ -1,6 +1,6 @@
 /**
  * Leg-board application entry (stub).
- * Replace with STM32G474 bring-up per docs/LEG_BOARD_CONTROL.md and docs/HARDWARE.md.
+ * Replace with STM32G474 bring-up (FDCAN, bridges, I2C, joint control loop).
  */
 #include "krabby/version.h"
 
