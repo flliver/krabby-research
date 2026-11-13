@@ -1158,3 +1158,36 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
 - **What this shows.** The student keeps pace with the teacher's own curriculum on the hazard kinds, so DAgger is
   labelling b2-band states, which the design rests on. The loss falls like a healthy field distill.
 - **Next.** No further mid-distill read is planned. The selection chain is queued for the distill's end (≈ 04:45).
+
+### 2026-11-13 09:23 — P2 steps 4–6 done: distill END rc 0; selection PICK 6b48ef33 (model_34499); ONNX ok
+
+- **Distill RT_ST_s19:** 2026-11-12 15:07 → 2026-11-13 ≈ 05:43, END rc 0. That is ≈ 14.6 h wall, at the top of the
+  10.2–14.7 h estimate. The D7 pace of 9.77 s/it, measured at +10, under-read the overall rate.
+- **Selection** (`p2_sel_queue.sh`, 05:43 → 09:22, fail 0):
+  - c1 teacher rows: 8 run, plus the 2 reused suite stamps.
+  - Prescreen: 25 rows. Every candidate has 0 floor misses.
+  - Rank (floor misses, then field_hard, then mean |ratio−1|):
+
+    | Rank | Save | sha | field_hard | mean \|ratio−1\| |
+    |---|---|---|---|---|
+    | 1 | it34499 | 6b48ef33 | 0.980 | 0.0265 |
+    | 2 | it31500 | 75a85390 | 0.975 | 0.0256 |
+    | 3 | it32400 | 5fdae7dc | 0.975 | 0.0260 |
+    | 4 | it30500 | 343ab864 | 0.970 | 0.0336 |
+    | 5 | it33400 | b7736eb5 | 0.950 | 0.0266 |
+
+  - Full block 1 (19 rows) on 6b48ef33: **PASS → PICK** `6b48ef33_it34499`, `model_34499.pt`, sha 6b48ef33d26b….
+- **WATCH terrain rows**, es1–2, student vs c1, report only:
+
+  | Kind | Student | c1 | Diff | Line |
+  |---|---|---|---|---|
+  | slopes b2 | 0.920 | 0.935 | −0.015 | 0.885 |
+  | ledge_down b2 | 0.555 | 0.590 | −0.035 | 0.518 |
+
+  The student keeps most of c1's terrain skill on the seeds c1 was picked on.
+- **ONNX:** `results/p2/onnx_PICK.json` reads ok. Parity act_err is 1.2e-6 and lat_err 2.2e-7, the I/O json equals
+  c31000's, policy.onnx is 86d1c801 and depth_latest.onnx is cca6952d. The export sits in a P2 output dir, not
+  policy/.
+- `sel.json` and `onnx_PICK.json` are committed here, before any es9+ stamp. The independent recompute of the pick
+  (step-6 check: sonnet·high plus fable·high, from raw stamps) is running. The read launches only after it agrees.
+- DDC: 14 GB. Disk: 486 GB free.
