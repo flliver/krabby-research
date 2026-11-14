@@ -45,7 +45,7 @@ Electrical and interconnect contract for one leg controller PCB driving three jo
 | Krabby screen (optional) | **I2C1** Qwiic port | **SparkFun Qwiic OLED** (SSD1306 **`0x3D`**); **0 or 1** per robot; UI from CAN mirror (`DISPLAY.md`) |
 | Pack monitor (optional) | **I2C1** Qwiic port | **INA228** pack **`0x40`**, midpoint **`0x41`**; **0 or 1** per robot; **`QwiicBattery`** on CAN (`PACK_MONITOR.md`) |
 
-- **Analog scaling:** pot and current signals route to **12-bit ADC** inputs named in schematic **`M#_POT_ADC`**; scaling constants live in firmware `board_hw.c` derived from **`SCH-001`** divider values.
+- **Analog scaling:** pot and current signals route to **12-bit ADC** inputs named in schematic **`M#_POT_ADC`**; scaling constants live in `board/board_pins_stm32.c` derived from **`SCH-001`** divider values.
 - **Pot divider:** **1 kΩ** + **15 kΩ** series from **5 V**, **22 kΩ** to ground at ADC — full travel ≈ **3590** of **4095** counts (send raw ADC in telemetry).
 - **Firmware pin map:** generate **`firmware/stm/board_pins.h`** from **`SCH-001`** pinout in **`hardware/`**; table below matches current schematic nets — reconcile PDF if the spin edits labels.
 

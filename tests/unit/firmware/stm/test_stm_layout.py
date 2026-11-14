@@ -11,8 +11,13 @@ STM = REPO_ROOT / "firmware" / "stm"
 
 REQUIRED_PATHS = (
     STM / "core" / "board.h",
-    STM / "board" / "board_hw.c",
-    STM / "sim" / "board_sim.c",
+    STM / "core" / "board_pins.h",
+    STM / "core" / "app.c",
+    STM / "board" / "board_pins_stm32.c",
+    STM / "board" / "can_stm32.c",
+    STM / "board" / "main.c",
+    STM / "sim" / "board_pins_isaac.c",
+    STM / "sim" / "can_sim.c",
     STM / "cli" / "__init__.py",
     STM / "codec.py",
     STM / "mcu_can.py",

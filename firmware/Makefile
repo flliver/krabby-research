@@ -84,14 +84,18 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac stm-dbc stm-firmware host-stm
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac stm-dbc stm-build stm-firmware host-stm
 
-# Leg-board CMake tree (default: stub; KRABBY_STM_BUILD_FIRMWARE=ON for MCU app link).
-stm-firmware:
-	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=OFF
-	$(CMAKE) --build "$(STM_FW_BUILD)"
+# MCU leg firmware (KRABBY_STM_BUILD_FIRMWARE=ON). App link base must stay aligned with
+# OpenBLT layout in hardware/PCB-v0.3/Firmware/ (see firmware/stm/docs/FLASH.md).
+stm-build:
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=ON
+	$(CMAKE) --build "$(STM_FW_BUILD)" --target krabby_leg_app
 
-# Host shared library: core handlers + sim board port (Isaac / native tests).
+# Deprecated alias — use stm-build.
+stm-firmware: stm-build
+
+# Host shared library: core + Isaac/CAN sim → firmware/build/stm-host/libkrabby_stm_host.so
 host-stm:
 	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_HOST_BUILD)" -DKRABBY_STM_HOST_LIBRARY=ON
 	$(CMAKE) --build "$(STM_HOST_BUILD)" --target krabby_stm_host

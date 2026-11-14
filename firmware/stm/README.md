@@ -22,8 +22,8 @@ MCU application, host Python, and **`krabby.dbc`** for six leg boards.
 
 ```bash
 make -C firmware stm-dbc
-make -C firmware stm-firmware    # STM32 (scaffold)
-make -C firmware host-stm        # krabby_stm_host for sim/tests
+make -C firmware stm-build       # MCU leg app (OpenBLT layout from hardware/PCB-v0.3/Firmware/)
+make -C firmware host-stm        # libkrabby_stm_host for sim/tests
 ```
 
 ## Host

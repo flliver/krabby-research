@@ -17,8 +17,10 @@ target_include_directories(krabby_leg_version INTERFACE
 )
 
 set(KRABBY_STM_CORE_SOURCES
+    ${KRABBY_STM_CORE_DIR}/app.c
     ${KRABBY_STM_CORE_DIR}/calibration.c
     ${KRABBY_STM_CORE_DIR}/can_handler.c
+    ${KRABBY_STM_CORE_DIR}/leg_access.c
     ${KRABBY_STM_CORE_DIR}/telemetry_handler.c
 )
 
@@ -26,7 +28,8 @@ if(KRABBY_STM_HOST_LIBRARY)
     add_library(krabby_stm_host SHARED
         ${KRABBY_STM_CORE_SOURCES}
         ${KRABBY_STM_DBC_GEN_DIR}/krabby.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/sim/board_sim.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/sim/board_pins_isaac.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/sim/can_sim.c
     )
     target_include_directories(krabby_stm_host PUBLIC
         ${KRABBY_STM_CORE_DIR}
@@ -51,11 +54,26 @@ if(KRABBY_STM_BUILD_FIRMWARE)
         ${KRABBY_STM_DBC_GEN_DIR}
     )
     add_library(krabby_leg_board_hw STATIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/board/board_hw.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/board/board_pins_stm32.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/board/can_stm32.c
     )
-    target_include_directories(krabby_leg_board_hw PUBLIC ${KRABBY_STM_CORE_DIR})
+    target_include_directories(krabby_leg_board_hw PUBLIC
+        ${KRABBY_STM_CORE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/board
+    )
     target_link_libraries(krabby_leg_board_hw PUBLIC krabby_leg_core)
-    add_subdirectory(app)
+
+    add_executable(krabby_leg_app ${CMAKE_CURRENT_SOURCE_DIR}/board/main.c)
+    target_include_directories(krabby_leg_app PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${KRABBY_STM_CORE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/board
+    )
+    target_compile_definitions(krabby_leg_app PRIVATE
+        KRABBY_LEG_FW_VERSION="${KRABBY_LEG_FW_VERSION}"
+        KRABBY_LEG_FW_GIT_SHA="${KRABBY_LEG_FW_GIT_SHA}"
+    )
+    target_link_libraries(krabby_leg_app PRIVATE krabby_leg_core krabby_leg_board_hw krabby_leg_version)
 else()
     if(NOT KRABBY_STM_HOST_LIBRARY)
         add_custom_target(krabby_leg_stub ALL

@@ -18,6 +18,12 @@ static int16_t raw_duty_at(const struct krabby_set_duty_t *msg, uint8_t leg_inde
 
 static void apply_duty(leg_t *leg, int motor, int16_t raw) {
     const double duty = (double)raw * 0.001;
+    if (calibration_blocks_duty(leg, motor)) {
+        if (duty != 0.0) {
+            calibration_abort(leg);
+        }
+        return;
+    }
     if (duty == 0.0 && read_fault(leg, motor)) {
         clear_fault(leg, motor);
     }

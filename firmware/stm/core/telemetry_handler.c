@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "board_can.h"
 #include "calibration.h"
 #include "krabby.h"
 #include "krabby/board_ids.h"
