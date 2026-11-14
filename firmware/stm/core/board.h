@@ -14,6 +14,8 @@ typedef struct leg {
 
 /* Motor index 0 = hip_yaw, 1 = hip_pitch, 2 = knee. */
 void send_pwm(leg_t *leg, int motor, bool direction, int power_0_to_1000);
+/** Last duty commanded on the joint (−1…1), for telemetry. */
+float read_applied_duty(leg_t *leg, int motor);
 uint16_t read_pot(leg_t *leg, int motor);
 int32_t read_hall(leg_t *leg, int motor);
 bool read_fault(leg_t *leg, int motor);

@@ -17,6 +17,7 @@ target_include_directories(krabby_leg_version INTERFACE
 )
 
 set(KRABBY_STM_CORE_SOURCES
+    ${KRABBY_STM_CORE_DIR}/calibration.c
     ${KRABBY_STM_CORE_DIR}/can_handler.c
     ${KRABBY_STM_CORE_DIR}/telemetry_handler.c
 )
@@ -24,6 +25,7 @@ set(KRABBY_STM_CORE_SOURCES
 if(KRABBY_STM_HOST_LIBRARY)
     add_library(krabby_stm_host SHARED
         ${KRABBY_STM_CORE_SOURCES}
+        ${KRABBY_STM_DBC_GEN_DIR}/krabby.c
         ${CMAKE_CURRENT_SOURCE_DIR}/sim/board_sim.c
     )
     target_include_directories(krabby_stm_host PUBLIC
@@ -39,7 +41,10 @@ if(KRABBY_STM_HOST_LIBRARY)
 endif()
 
 if(KRABBY_STM_BUILD_FIRMWARE)
-    add_library(krabby_leg_core STATIC ${KRABBY_STM_CORE_SOURCES})
+    add_library(krabby_leg_core STATIC
+        ${KRABBY_STM_CORE_SOURCES}
+        ${KRABBY_STM_DBC_GEN_DIR}/krabby.c
+    )
     target_include_directories(krabby_leg_core PUBLIC
         ${KRABBY_STM_CORE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/include

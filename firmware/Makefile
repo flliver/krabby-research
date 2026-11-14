@@ -100,8 +100,8 @@ host-stm:
 stm-dbc:
 	@test -x "$(VENV_PYTHON)" || { echo "ERROR: $(VENV_PYTHON) not found; create repo .venv and pip install cantools"; exit 1; }
 	"$(VENV_PYTHON)" "$(STM_DBC_DIR)/regenerate_c.py" --python "$(VENV_PYTHON)"
-	sha256sum "$(STM_DBC_DIR)/krabby_leg.dbc" | awk '{print $$1}' > "$(STM_DBC_DIR)/krabby_leg.sha256"
-	@echo "Regenerated $(STM_DBC_GEN)/krabby_leg.{c,h} and refreshed krabby_leg.sha256"
+	sha256sum "$(STM_DBC_DIR)/krabby.dbc" | awk '{print $$1}' > "$(STM_DBC_DIR)/krabby.sha256"
+	@echo "Regenerated $(STM_DBC_GEN)/krabby.{c,h} and refreshed krabby.sha256"
 
 host-actuator:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"

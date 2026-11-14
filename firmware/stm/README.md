@@ -1,40 +1,34 @@
 # Leg controller firmware (STM32)
 
-MCU application, OpenBLT bootloader, host Python, and CAN schema for six identical leg boards.
+MCU application, host Python, and **`krabby.dbc`** for six leg boards.
 
 ## Specifications
 
-[`docs/README.md`](docs/README.md) · [`dbc/krabby_leg.dbc`](dbc/krabby_leg.dbc)
+[`docs/README.md`](docs/README.md) · [`dbc/krabby.dbc`](dbc/krabby.dbc)
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `core/` | `board.h`, `can_handler`, `telemetry_handler`, `version.h` |
-| `board/` | MCU `board_hw.c` (pins / drivers) |
-| `sim/` | Host `board_sim.c` for `libkrabby_stm_host` |
-| `cli/` | Optional `krabby-firmware-stm` entry (primary UX: `krabby-firmware --stm`) |
-| `codec.py`, `mcu_can.py`, `can_transport.py`, `cli_stm.py` | Host CAN stack (stubs until CLI/SDK wired) |
-| `ids.py`, `board_ids.h`, `include/krabby/` | Identity + version |
-| `dbc/` | `krabby_leg.dbc`, `generated/`, `make stm-dbc` |
-| `app/` | STM32 application (CubeMX / main) |
-| `bootloader/` | OpenBLT (`docs/FLASH.md`) |
-| `scripts/` | Orin CAN setup, joint sweep |
+| `core/` | `can_handler`, `telemetry_handler`, `calibration` (target) |
+| `board/` | `board_pins_stm32`, `can_stm32`, `main` (target) |
+| `sim/` | `board_pins_isaac`, `can_sim` (target) |
+| `cli/` | `krabby-firmware-stm` |
+| `codec.py`, `ids.py`, `can_transport.py` | Host CAN stack |
+| `dbc/` | `krabby.dbc`, `generated/`, `make stm-dbc` |
+| `bootloader/` | OpenBLT layout from `hardware/PCB-v0.3/Firmware/` (preserve linker regions) |
 
 ## Build
 
 ```bash
-make -C firmware stm-dbc          # regen DBC C (repo .venv + cantools)
-make -C firmware stm-firmware     # CMake scaffold (stub target by default)
-make -C firmware host-stm         # libkrabby_stm_host.so for sim/tests
+make -C firmware stm-dbc
+make -C firmware stm-firmware    # STM32 (scaffold)
+make -C firmware host-stm        # krabby_stm_host for sim/tests
 ```
 
-MCU image: `KRABBY_STM_BUILD_FIRMWARE=ON` + ARM toolchain → `firmware/build/stm-leg/`.
-
-## Host Python
+## Host
 
 ```bash
-pip install -e 'firmware[stm]'    # python-can, cantools
-krabby-firmware --stm …           # normative CLI (HOST_INTEGRATION.md)
-krabby-firmware-stm help          # alias; prefer krabby-firmware --stm
+pip install -e "firmware[stm]"
+pytest tests/unit/firmware/stm/
 ```

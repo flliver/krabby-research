@@ -1,10 +1,10 @@
-"""Leg/joint numbers and CAN extended-ID helpers for the leg bus."""
+"""Leg/joint numbers and krabby.dbc CAN ID helpers (11-bit)."""
 
 from __future__ import annotations
 
 from typing import Final
 
-# --- Normative operator / firmware identity (1-based) ---
+# --- Leg / joint IDs (1-based on the wire and in the CLI) ---
 
 LEG_IDS: Final = (1, 2, 3, 4, 5, 6)
 LEG_IDS_LEFT: Final = (1, 3, 5)
@@ -28,7 +28,6 @@ LEG_BUS_BY_ID: Final = {
     6: "can1",
 }
 
-# DBC message suffix → leg_id (1–6). HAL corner names are host-only.
 LEG_ID_BY_DBC_SUFFIX: Final = {
     "FL": 1,
     "FR": 2,
@@ -38,13 +37,11 @@ LEG_ID_BY_DBC_SUFFIX: Final = {
     "RR": 6,
 }
 
-CAN_ID_LEG_COMMAND_BASE: Final = 0x0C000000
-CAN_ID_LEG_TELEMETRY_BASE: Final = 0x0C000100
-CAN_ID_NODE_STATUS_BASE: Final = 0x0C000200
-CAN_ID_QWIIC_IMU_BASE: Final = 0x0C000400
-CAN_ID_QWIIC_BATTERY_BASE: Final = 0x0C000500  # QwiicBattery; not in DBC until implemented
-CAN_ID_DISCOVERY_REQUEST: Final = 0x0C0007F0
-CAN_ID_PROVISION_SET: Final = 0x0C0007E0
+# krabby.dbc message IDs
+CAN_ID_SET_DUTY: Final = 0x100
+CAN_ID_CALIBRATE_BASE: Final = 0x180
+CAN_ID_TELEMETRY_BASE: Final = 0x200
+CAN_ID_BOARD_INFO_BASE: Final = 0x300
 
 
 def leg_id_to_index(leg_id: int) -> int:
@@ -71,44 +68,38 @@ def joint_index_to_id(joint_index: int) -> int:
     return joint_index + 1
 
 
-def leg_command_can_id(leg_index: int) -> int:
-    return CAN_ID_LEG_COMMAND_BASE + leg_index
+def set_duty_can_id() -> int:
+    return CAN_ID_SET_DUTY
 
 
-def leg_command_can_id_for_leg(leg_id: int) -> int:
-    return leg_command_can_id(leg_id_to_index(leg_id))
+def calibrate_can_id(leg_id: int) -> int:
+    if leg_id not in LEG_IDS:
+        raise ValueError(f"leg_id out of range: {leg_id!r}")
+    return CAN_ID_CALIBRATE_BASE + leg_id
 
 
-def leg_telemetry_can_id(leg_index: int) -> int:
-    return CAN_ID_LEG_TELEMETRY_BASE + leg_index
+def calibrate_can_id_for_index(leg_index: int) -> int:
+    return calibrate_can_id(leg_index_to_id(leg_index))
 
 
-def leg_telemetry_can_id_for_leg(leg_id: int) -> int:
-    return leg_telemetry_can_id(leg_id_to_index(leg_id))
+def telemetry_can_id(leg_id: int) -> int:
+    if leg_id not in LEG_IDS:
+        raise ValueError(f"leg_id out of range: {leg_id!r}")
+    return CAN_ID_TELEMETRY_BASE + leg_id
 
 
-def node_status_can_id(leg_index: int) -> int:
-    return CAN_ID_NODE_STATUS_BASE + leg_index
+def telemetry_can_id_for_index(leg_index: int) -> int:
+    return telemetry_can_id(leg_index_to_id(leg_index))
 
 
-def node_status_can_id_for_leg(leg_id: int) -> int:
-    return node_status_can_id(leg_id_to_index(leg_id))
+def board_info_can_id(leg_id: int) -> int:
+    if leg_id not in LEG_IDS:
+        raise ValueError(f"leg_id out of range: {leg_id!r}")
+    return CAN_ID_BOARD_INFO_BASE + leg_id
 
 
-def qwiic_imu_can_id(leg_index: int) -> int:
-    return CAN_ID_QWIIC_IMU_BASE + leg_index
-
-
-def qwiic_imu_can_id_for_leg(leg_id: int) -> int:
-    return qwiic_imu_can_id(leg_id_to_index(leg_id))
-
-
-def qwiic_battery_can_id(leg_index: int) -> int:
-    return CAN_ID_QWIIC_BATTERY_BASE + leg_index
-
-
-def qwiic_battery_can_id_for_leg(leg_id: int) -> int:
-    return qwiic_battery_can_id(leg_id_to_index(leg_id))
+def board_info_can_id_for_index(leg_index: int) -> int:
+    return board_info_can_id(leg_index_to_id(leg_index))
 
 
 def leg_bus(leg_id: int) -> str:

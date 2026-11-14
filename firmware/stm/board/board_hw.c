@@ -1,5 +1,11 @@
 #include "board.h"
 
+float read_applied_duty(leg_t *leg, int motor) {
+    (void)leg;
+    (void)motor;
+    return 0.0f;
+}
+
 void send_pwm(leg_t *leg, int motor, bool direction, int power_0_to_1000) {
     (void)leg;
     (void)motor;

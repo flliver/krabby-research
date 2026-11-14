@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from firmware.stm import hal_joint_names, ids
-from tests.unit.firmware.stm.test_krabby_leg_dbc import EXPECTED_FRAME_IDS, LEGS
+from tests.unit.firmware.stm.test_krabby_dbc import EXPECTED_FRAME_IDS
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 BOARD_IDS_H = REPO_ROOT / "firmware" / "stm" / "include" / "krabby" / "board_ids.h"
@@ -46,41 +46,21 @@ def test_hal_name_round_trip(leg_id: int, joint_id: int) -> None:
     assert bus == ids.LEG_BUS_BY_ID[leg_id]
 
 
-def test_leg_can_message_ids_no_collisions() -> None:
-    cmd = {ids.leg_command_can_id(i) for i in range(6)}
-    tel = {ids.leg_telemetry_can_id(i) for i in range(6)}
-    stat = {ids.node_status_can_id(i) for i in range(6)}
-    qimu = {ids.qwiic_imu_can_id(i) for i in range(6)}
-    qbatt = {ids.qwiic_battery_can_id(i) for i in range(6)}
-    assert len(cmd) == len(tel) == len(stat) == len(qimu) == len(qbatt) == 6
-    assert cmd.isdisjoint(tel)
-    assert cmd.isdisjoint(stat)
-    assert cmd.isdisjoint(qimu)
-    assert cmd.isdisjoint(qbatt)
-    assert tel.isdisjoint(stat)
-    assert tel.isdisjoint(qimu)
-    assert tel.isdisjoint(qbatt)
-    assert stat.isdisjoint(qimu)
-    assert stat.isdisjoint(qbatt)
-    assert qimu.isdisjoint(qbatt)
+def test_grant_can_message_ids_unique() -> None:
+    frames = {ids.set_duty_can_id()}
+    for leg_id in ids.LEG_IDS:
+        frames.add(ids.calibrate_can_id(leg_id))
+        frames.add(ids.telemetry_can_id(leg_id))
+        frames.add(ids.board_info_can_id(leg_id))
+    assert len(frames) == 1 + 6 * 3
 
 
-def test_leg_can_ids_match_dbc() -> None:
-    for i, leg in enumerate(LEGS):
-        leg_id = ids.LEG_ID_BY_DBC_SUFFIX[leg]
-        assert ids.leg_id_to_index(leg_id) == i
-        assert ids.leg_command_can_id_for_leg(leg_id) == (
-            EXPECTED_FRAME_IDS[f"LegCommand_{leg}"] & 0x1FFFFFFF
-        )
-        assert ids.leg_telemetry_can_id_for_leg(leg_id) == (
-            EXPECTED_FRAME_IDS[f"LegTelemetry_{leg}"] & 0x1FFFFFFF
-        )
-        assert ids.node_status_can_id_for_leg(leg_id) == (
-            EXPECTED_FRAME_IDS[f"NodeStatus_{leg}"] & 0x1FFFFFFF
-        )
-        assert ids.qwiic_imu_can_id_for_leg(leg_id) == (
-            EXPECTED_FRAME_IDS[f"QwiicImu_{leg}"] & 0x1FFFFFFF
-        )
+def test_ids_match_krabby_dbc() -> None:
+    assert ids.set_duty_can_id() == EXPECTED_FRAME_IDS["SET_DUTY"]
+    for leg_id in ids.LEG_IDS:
+        assert ids.calibrate_can_id(leg_id) == EXPECTED_FRAME_IDS[f"CALIBRATE_{leg_id}"]
+        assert ids.telemetry_can_id(leg_id) == EXPECTED_FRAME_IDS[f"TELEMETRY_{leg_id}"]
+        assert ids.board_info_can_id(leg_id) == EXPECTED_FRAME_IDS[f"BOARD_INFO_{leg_id}"]
 
 
 def test_provisioning_switch_equals_leg_id() -> None:
@@ -93,6 +73,7 @@ def test_provisioning_switch_equals_leg_id() -> None:
 def test_board_ids_header_defines_match_python() -> None:
     text = BOARD_IDS_H.read_text(encoding="utf-8")
     assert "KRABBY_LEG_COUNT 6" in text
-    assert "KRABBY_LEG_CODE_UNASSIGNED 255" in text
-    assert "KRABBY_CAN_ID_LEG_COMMAND_BASE 0x0C000000" in text
-    assert "KRABBY_CAN_ID_PROVISION_SET 0x0C0007E0" in text
+    assert "KRABBY_CAN_ID_SET_DUTY 0x100" in text
+    assert "KRABBY_CAN_ID_CALIBRATE_BASE 0x180" in text
+    assert "KRABBY_CAN_ID_TELEMETRY_BASE 0x200" in text
+    assert "KRABBY_CAN_ID_BOARD_INFO_BASE 0x300" in text

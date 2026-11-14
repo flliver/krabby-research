@@ -8,8 +8,6 @@ from typing import Final
 _LEG_CORNER: Final = ("FL", "FR", "ML", "MR", "RL", "RR")
 _JOINT_HAL_SUFFIX: Final = ("hip_yaw", "hip_pitch", "knee")
 
-LEG_CODES: Final = _LEG_CORNER  # deprecated alias for GUI/tests importing legacy shape
-
 MCU_JOINTS: Final = tuple(
     f"{leg}_{joint}" for leg in _LEG_CORNER for joint in _JOINT_HAL_SUFFIX
 )
