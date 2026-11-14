@@ -56,6 +56,8 @@ STM_DBC_GEN   := $(STM_DBC_DIR)/generated
 STM_SRC_DIR   := $(CURDIR)/stm
 STM_FW_BUILD  := $(BUILD_DIR)/stm-leg
 STM_HOST_BUILD := $(BUILD_DIR)/stm-host
+KRABBY_HW_FIRMWARE := $(REPO_ROOT)/hardware/PCB-v0.3/Firmware
+ARM_NONE_EABI_GCC := $(shell command -v arm-none-eabi-gcc 2>/dev/null)
 
 # Always bake in the 256-byte serial RX buffer. The leader forwards ~200-byte
 # follower telemetry lines from Serial1/Serial2; the AVR core's 64-byte default
@@ -89,8 +91,16 @@ endif
 # MCU leg firmware (KRABBY_STM_BUILD_FIRMWARE=ON). App link base must stay aligned with
 # OpenBLT layout in hardware/PCB-v0.3/Firmware/ (see firmware/stm/docs/FLASH.md).
 stm-build:
+ifdef ARM_NONE_EABI_GCC
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=ON \
+		-DCMAKE_TOOLCHAIN_FILE="$(STM_SRC_DIR)/cmake/gcc-arm-none-eabi.cmake" \
+		-DKRABBY_HW_FIRMWARE="$(KRABBY_HW_FIRMWARE)"
+	$(CMAKE) --build "$(STM_FW_BUILD)" --target krabby_leg_app
+else
+	@echo "arm-none-eabi-gcc not on PATH; stm-build uses host compiler (smoke link only)" >&2
 	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=ON
 	$(CMAKE) --build "$(STM_FW_BUILD)" --target krabby_leg_app
+endif
 
 # Deprecated alias — use stm-build.
 stm-firmware: stm-build

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 
+if(CMAKE_CROSSCOMPILING)
+    enable_language(ASM)
+endif()
+
 project(krabby_leg_board LANGUAGES C)
 
 set(KRABBY_LEG_FW_VERSION "0.1.0-dev" CACHE STRING "Leg firmware version string")
@@ -44,6 +48,14 @@ if(KRABBY_STM_HOST_LIBRARY)
 endif()
 
 if(KRABBY_STM_BUILD_FIRMWARE)
+    if(CMAKE_CROSSCOMPILING)
+        if(NOT KRABBY_HW_FIRMWARE)
+            set(KRABBY_HW_FIRMWARE "${CMAKE_CURRENT_SOURCE_DIR}/../../hardware/PCB-v0.3/Firmware" CACHE PATH
+                "Reference CubeMX tree (linker + startup + HAL)")
+        endif()
+        include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cubemx_from_hw.cmake)
+    endif()
+
     add_library(krabby_leg_core STATIC
         ${KRABBY_STM_CORE_SOURCES}
         ${KRABBY_STM_DBC_GEN_DIR}/krabby.c
@@ -53,15 +65,23 @@ if(KRABBY_STM_BUILD_FIRMWARE)
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${KRABBY_STM_DBC_GEN_DIR}
     )
-    add_library(krabby_leg_board_hw STATIC
+    set(KRABBY_LEG_BOARD_HW_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/board/board_pins_stm32.c
         ${CMAKE_CURRENT_SOURCE_DIR}/board/can_stm32.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/board/stm32_bringup.c
     )
+    if(CMAKE_CROSSCOMPILING)
+        list(APPEND KRABBY_LEG_BOARD_HW_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/board/stm32_cubemx_init.c)
+    endif()
+    add_library(krabby_leg_board_hw STATIC ${KRABBY_LEG_BOARD_HW_SOURCES})
     target_include_directories(krabby_leg_board_hw PUBLIC
         ${KRABBY_STM_CORE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/board
     )
     target_link_libraries(krabby_leg_board_hw PUBLIC krabby_leg_core)
+    if(CMAKE_CROSSCOMPILING)
+        target_link_libraries(krabby_leg_board_hw PUBLIC krabby_cubemx_config)
+    endif()
 
     add_executable(krabby_leg_app ${CMAKE_CURRENT_SOURCE_DIR}/board/main.c)
     target_include_directories(krabby_leg_app PRIVATE
@@ -74,6 +94,11 @@ if(KRABBY_STM_BUILD_FIRMWARE)
         KRABBY_LEG_FW_GIT_SHA="${KRABBY_LEG_FW_GIT_SHA}"
     )
     target_link_libraries(krabby_leg_app PRIVATE krabby_leg_core krabby_leg_board_hw krabby_leg_version)
+
+    if(CMAKE_CROSSCOMPILING)
+        target_link_libraries(krabby_leg_app PRIVATE krabby_cubemx_config)
+        krabby_stm_link_cubemx(krabby_leg_app)
+    endif()
 else()
     if(NOT KRABBY_STM_HOST_LIBRARY)
         add_custom_target(krabby_leg_stub ALL

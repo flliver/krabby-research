@@ -15,6 +15,8 @@ REQUIRED_PATHS = (
     STM / "core" / "app.c",
     STM / "board" / "board_pins_stm32.c",
     STM / "board" / "can_stm32.c",
+    STM / "board" / "stm32_bringup.c",
+    STM / "board" / "stm32_cubemx_init.c",
     STM / "board" / "main.c",
     STM / "sim" / "board_pins_isaac.c",
     STM / "sim" / "can_sim.c",

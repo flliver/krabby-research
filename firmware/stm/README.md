@@ -4,7 +4,7 @@ MCU application, host Python, and **`krabby.dbc`** for six leg boards.
 
 ## Specifications
 
-[`docs/README.md`](docs/README.md) · [`dbc/krabby.dbc`](dbc/krabby.dbc)
+[`docs/README.md`](docs/README.md) · [`docs/MCU_BUILD.md`](docs/MCU_BUILD.md) · [`dbc/krabby.dbc`](dbc/krabby.dbc)
 
 ## Layout
 
@@ -22,9 +22,11 @@ MCU application, host Python, and **`krabby.dbc`** for six leg boards.
 
 ```bash
 make -C firmware stm-dbc
-make -C firmware stm-build       # MCU leg app (OpenBLT layout from hardware/PCB-v0.3/Firmware/)
+make -C firmware stm-build       # MCU leg app; cross-build uses hardware/PCB-v0.3/Firmware (KRABBY_HW_FIRMWARE)
 make -C firmware host-stm        # libkrabby_stm_host for sim/tests
 ```
+
+Cross-build pulls linker, startup, and HAL from **`hardware/PCB-v0.3/Firmware/`** by default. If that CubeMX tree moves, set **`KRABBY_HW_FIRMWARE`** and update `firmware/stm/cmake/gcc-arm-none-eabi.cmake`, `cubemx_from_hw.cmake`, and `firmware/Makefile` `stm-build`.
 
 ## Host
 
