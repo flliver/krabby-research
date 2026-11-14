@@ -30,6 +30,7 @@ class KrabbyMCUCANSDK:
         self._virtual = virtual
         self._interfaces = interfaces
         self._buses: list[Any] = []
+        self._buses_by_channel: dict[str, Any] = {}
         self._notifiers: list[Any] = []
         self._lock = threading.Lock()
         self._duty: DutyGrid = [[0.0, 0.0, 0.0] for _ in range(6)]
@@ -59,6 +60,7 @@ class KrabbyMCUCANSDK:
         for channel in ifaces:
             bus = can_transport.open_socketcan_fd(channel)
             self._buses.append(bus)
+            self._buses_by_channel[channel] = bus
             self._notifiers.append(can.Notifier(bus, [self._on_message]))
         self._connected = True
 
@@ -69,7 +71,16 @@ class KrabbyMCUCANSDK:
             bus.shutdown()
         self._notifiers.clear()
         self._buses.clear()
+        self._buses_by_channel.clear()
         self._connected = False
+
+    def send_calibration(self, leg_id: int, joint_id: int) -> None:
+        if leg_id not in ids.LEG_IDS:
+            raise ValueError(f"leg_id out of range: {leg_id!r}")
+        if joint_id not in (2, 3):
+            raise ValueError(f"joint_id must be 2 or 3, got {joint_id!r}")
+        frame_id, data = codec.encode_calibrate(leg_id, joint_id)
+        self._send_on_leg_bus(leg_id, frame_id, data)
 
     def set_duty(self, leg_id: int, j1: float, j2: float, j3: float) -> None:
         if leg_id not in ids.LEG_IDS:
@@ -88,6 +99,15 @@ class KrabbyMCUCANSDK:
                     _clamp_duty(payload[f"L{leg_id}_J{j}"]) for j in ids.JOINT_IDS
                 ]
             self._transmit_set_duty_locked()
+
+    def _send_on_leg_bus(self, leg_id: int, frame_id: int, data: bytes) -> None:
+        channel = ids.leg_bus(leg_id)
+        bus = self._buses_by_channel.get(channel)
+        if bus is None and self._buses:
+            bus = self._buses[0]
+        if bus is None:
+            return
+        can_transport.send_fd_frame(bus, frame_id, data)
 
     def _transmit_set_duty_locked(self) -> None:
         if not self._buses:

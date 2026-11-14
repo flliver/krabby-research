@@ -78,6 +78,15 @@ def decode_telemetry(leg_id: int, data: bytes) -> dict[str, Any]:
     return msg.decode(data)
 
 
+def encode_calibrate(leg_id: int, joint_id: int) -> tuple[int, bytes]:
+    if leg_id not in ids.LEG_IDS:
+        raise ValueError(f"leg_id out of range: {leg_id!r}")
+    db = load_database()
+    message = db.get_message_by_name(f"CALIBRATE_{leg_id}")
+    data = message.encode({"joint": joint_id})
+    return message.frame_id, data
+
+
 def decode_board_info(leg_id: int, data: bytes) -> dict[str, Any]:
     name = f"BOARD_INFO_{leg_id}"
     db = load_database()
