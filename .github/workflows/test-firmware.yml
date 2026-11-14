@@ -47,6 +47,9 @@ jobs:
       - name: Run native firmware tests and coverage gate
         run: make -C firmware test-native-coverage
 
+      - name: Build STM host sim library
+        run: make -C firmware host-stm
+
       - name: Run Python firmware tests
         if: ${{ !cancelled() }}
         run: python -m pytest -q tests/unit/firmware --timeout=60 --timeout-method=thread

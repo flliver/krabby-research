@@ -2,28 +2,18 @@
 
 from __future__ import annotations
 
-import subprocess
-from pathlib import Path
 from unittest import mock
 
 import pytest
 
-from firmware.sim.can_board_bridge import Leg, StmBoardBridge, find_stm_host_library
+from firmware.sim.can_board_bridge import Leg, StmBoardBridge
 from firmware.sim.can_robot_core import leg_motor_from_actuator_id, route_rx_to_legs
 from firmware.stm import codec, ids
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 @pytest.fixture(scope="module")
 def stm_bridge() -> StmBoardBridge:
-    lib_path = find_stm_host_library()
-    if not lib_path.is_file():
-        subprocess.run(
-            ["make", "-C", str(REPO_ROOT / "firmware"), "host-stm"],
-            check=True,
-        )
-    return StmBoardBridge(lib_path=lib_path)
+    return StmBoardBridge()
 
 
 def test_leg_motor_from_actuator_id() -> None:

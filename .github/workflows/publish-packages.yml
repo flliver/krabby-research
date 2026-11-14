@@ -183,6 +183,7 @@ jobs:
         run: |
           if [[ "${{ steps.pkg.outputs.pkg_key }}" == "firmware" ]]; then
             make -C firmware test-native
+            make -C firmware host-stm
           fi
           pytest ${{ steps.pkg.outputs.test_path }} -v --timeout=60 --timeout-method=thread
 

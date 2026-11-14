@@ -54,8 +54,12 @@ class StmBoardBridge:
     """One krabby_stm_host process: six legs, shared sim clock, per-leg CAN queues."""
 
     def __init__(self, lib_path: Path | None = None) -> None:
-        path = lib_path or find_stm_host_library()
+        path = lib_path or stm_host_library_candidates()[0]
         _ensure_built(path)
+        if not path.is_file():
+            raise StmHostLibraryNotBuiltError(
+                "libkrabby_stm_host not found; build with: make -C firmware host-stm"
+            )
         self._lib = ctypes.CDLL(str(path))
         self._bind()
 
