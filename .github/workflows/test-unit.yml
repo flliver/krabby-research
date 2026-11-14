@@ -67,7 +67,9 @@ jobs:
             (cd "$ROOT/$1" && python -m build --wheel --no-isolation && pip install dist/*.whl)
           }
           # Order matches publish-packages dependency graph (hal-client before consumers).
-          build_install firmware
+          echo "Building and installing firmware (stm extra for tests/unit/firmware/stm/)..."
+          (cd "$ROOT/firmware" && python -m build --wheel --no-isolation \
+            && pip install "$(ls dist/*.whl | head -1)[stm]")
           build_install hal/server
           build_install hal/client
           build_install compute/parkour
