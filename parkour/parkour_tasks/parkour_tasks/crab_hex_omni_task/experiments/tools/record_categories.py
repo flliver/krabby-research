@@ -114,6 +114,21 @@ writer), stills ``stills/<prefix>_sequence_<NN>_<hold>_{mid,end}.png`` and
 commanded vs applied, achieved displacement and heading change inside the segment up to its first
 fall, falls in it) plus the run meta (checkpoint / harness sha256, env, row id, hold lengths, dt,
 fps, trace sha256). ``--episode-s``, ``--categories`` and ``--hands`` are suite-mode only.
+
+TASK OVERRIDE AND POLICY ROLE (``--task`` / ``--policy-role``, 2026-11-14; both default off)
+
+For a reference eval the row runner launched with ``--task`` and ``--policy-role`` (the p3b teachers' and the depth
+students' rows on ``Isaac-Crab-Hex-Omni-Student-Play-v0``). ``--task`` applies the harness's own CLI rule
+(``scenario.task = args_cli.task`` on every row) before the task-equals-run_meta checks. ``--policy-role teacher``
+is the harness's forced teacher on a distillation runner (privileged actor + estimator, the loop body above);
+``--policy-role student`` is its omni depth-student branch: ``_omni_student_route`` (extracted from the harness)
+decided before the runner is built, ``get_inference_depth_policy`` / ``get_depth_encoder_inference_policy`` /
+``get_estimator_inference_policy`` (eval mode), then ``OmniStudentStep.from_runner``; each step
+``omni_step.act(obs, extras["observations"], common_step_counter)`` on the previous step's extras, and
+``omni_step.reset()`` at each episode start / ``omni_step.reset(dones)`` after each step. A reference run that
+records a role must agree with ``--policy-role``; a student reference without it is refused. The harness's gate-0
+student-runner knob check is not repeated: the environment is the reference eval's own, which passed it. Unset,
+both reproduce the earlier recorder exactly (a distillation runner is still refused on the default path).
 """
 
 from __future__ import annotations
@@ -210,6 +225,21 @@ parser.add_argument(
     help="Sequence mode: record even if the (subset/retargeted) row fails the harness validator "
          "(default: abort, e.g. a --sequence-hold-s too short to finish a turn).",
 )
+parser.add_argument(
+    "--task", type=str, default=None,
+    help="Override every manifest row's task, exactly as the harness's own --task does (scenario.task = TASK), "
+         "for a reference eval launched with --task (e.g. a p3b teacher or the depth student on "
+         "Isaac-Crab-Hex-Omni-Student-Play-v0). The task must still equal the reference run_meta's task. "
+         "Default: each row's own task (unchanged).",
+)
+parser.add_argument(
+    "--policy-role", choices=("teacher", "student"), default=None,
+    help="Unset (default): the teacher path, refusing a distillation runner (unchanged). 'teacher': the "
+         "harness's forced teacher (privileged actor + estimator) even on a student task, as its "
+         "--policy-role teacher. 'student': the omni depth student through the harness's shared "
+         "OmniStudentStep (its _omni_student_route rule; the student task only). When the reference run_meta "
+         "records a role, it must equal this one.",
+)
 parser.add_argument("--label", type=str, default="C1d head (seed3 X08 c6) model_7996", help="Caption title.")
 # The task viewer (eye -4,0.5,1.55 / lookat 0,0,0.35) crops the feet: the root rides ~1.08 m above the
 # ground and the feet sit ~1.2 m out to each side, so the default here is a rear-right 3/4 view from
@@ -272,6 +302,15 @@ def _cgroup_peak_gb() -> float | None:
 # Writing KRABBY_* AFTER Kit has started is a known way to flip a same-seed eval between two
 # repeatable outcomes, so the whole replacement happens here, before AppLauncher.
 RUN_META = json.loads(RUN_META_PATH.read_text())
+#: --policy-role (None = the default teacher path); a reference run that records its role must agree
+ROLE = args_cli.policy_role
+if RUN_META.get("role") not in (None, "teacher", "student"):
+    raise SystemExit(f"the reference eval ({RUN_META_PATH}) ran role {RUN_META['role']!r} (e.g. --zero-actions); "
+                     "this recorder replays a policy only")
+if ROLE is not None and RUN_META.get("role") not in (None, ROLE):
+    raise SystemExit(f"--policy-role {ROLE} but the reference eval ({RUN_META_PATH}) ran role {RUN_META['role']!r}")
+if ROLE is None and RUN_META.get("role") == "student":
+    raise SystemExit(f"the reference eval ({RUN_META_PATH}) ran the depth student; pass --policy-role student")
 WANT_ENV = {k: str(v) for k, v in RUN_META["env_vars"].items()}
 _dropped = sorted(k for k in os.environ if k.startswith("KRABBY_") and os.environ[k] != WANT_ENV.get(k))
 for _k in [k for k in os.environ if k.startswith("KRABBY_")]:
@@ -314,6 +353,7 @@ from isaaclab_tasks.utils import parse_env_cfg  # noqa: E402
 from parkour_isaaclab.envs.mdp.parkour_commands.uniform_parkour_command import (  # noqa: E402
     UniformParkourCommand,
 )
+from scripts.rsl_rl.modules.omni_student_step import OmniStudentStep, is_omni_student  # noqa: E402
 from scripts.rsl_rl.runner_factory import agent_cfg_to_train_dict, make_on_policy_runner  # noqa: E402
 from scripts.rsl_rl.vecenv_wrapper import ParkourRslRlVecEnvWrapper  # noqa: E402
 
@@ -328,7 +368,9 @@ def _sha256(path: Path) -> str:
 
 def _load_harness_functions() -> dict:
     """Execute the harness's OWN definitions (not copies) of the env-override / command-pin code."""
-    want_funcs = ("_wrap_to_pi", "_observed_command_slots", "_apply_env_overrides", "_install_schedule_override_world")
+    want_funcs = ("_wrap_to_pi", "_observed_command_slots", "_apply_env_overrides", "_install_schedule_override_world",
+                  # --policy-role student: the harness's own omni student route rule
+                  "_checkpoint_agent_yaml", "_load_agent_params", "_omni_student_route")
     want_consts = ("OBS_IDX_CMD_VX", "DEFAULT_OBSERVED_COMMAND_SLOTS")
     tree = ast.parse(HARNESS.read_text(), filename=str(HARNESS))
     body, found = [], set()
@@ -346,7 +388,7 @@ def _load_harness_functions() -> dict:
         raise SystemExit(f"harness {HARNESS} no longer defines {missing}; update this recorder")
     mod = ast.fix_missing_locations(ast.Module(body=body, type_ignores=[]))
     code = compile(mod, str(HARNESS), "exec", flags=_future.annotations.compiler_flag, dont_inherit=True)
-    ns = {"S": S, "torch": torch, "types": types, "UniformParkourCommand": UniformParkourCommand,
+    ns = {"S": S, "torch": torch, "types": types, "UniformParkourCommand": UniformParkourCommand, "Path": Path,
           "__name__": "eval_crab_hex_gait_extract"}
     exec(code, ns)  # noqa: S102 - the repo's own harness source
     return ns
@@ -580,6 +622,13 @@ def main() -> None:
     # ---- the scenario row, checked against what the reference eval actually ran
     manifest = Path(args_cli.manifest)
     scenarios, _ = S.load_manifest(manifest)
+    if args_cli.task:
+        # The harness's own CLI rule ("CLI overrides win over the manifest": scenario.task = args_cli.task); the
+        # task-equals-run_meta checks below then compare the overridden task.
+        for _s in scenarios:
+            _s.task = args_cli.task
+        print(f"[REC] --task {args_cli.task}: every row of {manifest} runs this task (the harness's --task rule)",
+              flush=True)
     if SEQUENCE_MODE:
         # Sequence mode: a schedule row, built as the harness's single pass builds it (see the
         # module docstring); the suite-only checks below do not apply to it.
@@ -699,19 +748,51 @@ def main() -> None:
               f"sha {RUN_META['checkpoint_sha256'][:16]}...)", flush=True)
     print(f"[REC] checkpoint {resume_path} sha256 {ckpt_sha[:16]}... "
           f"({'==' if ckpt_sha == RUN_META['checkpoint_sha256'] else '!='} reference)", flush=True)
+    is_distill = agent_cfg.algorithm.class_name == "DistillationWithExtractor"
+    if ROLE is None and is_distill:
+        raise SystemExit("the default path is the teacher's and the agent cfg is a distillation runner; pass "
+                         "--policy-role teacher (the harness's forced teacher) or --policy-role student")
+    omni_student_settings = None
+    if ROLE == "student":
+        # The harness's order: the route is decided BEFORE the runner is built, so a zeroed-depth checkpoint's
+        # flag reaches the runner cfg as its training run put it there (OmniStudentStep reads runner.cfg).
+        if not is_distill:
+            raise SystemExit(f"--policy-role student: the task {scenario.task} binds no distillation runner")
+        _ckpt_yaml = H["_checkpoint_agent_yaml"](resume_path)
+        omni_student_settings = H["_omni_student_route"](
+            role_student=True, task_flag=is_omni_student(agent_cfg),
+            ckpt_params=(H["_load_agent_params"](_ckpt_yaml) if _ckpt_yaml is not None else None),
+            ckpt_yaml=_ckpt_yaml)
+        if omni_student_settings is None:
+            raise SystemExit(f"--policy-role student: {scenario.task}'s runner cfg is not the omni depth student "
+                             "(this recorder drives the omni student step only)")
+        if omni_student_settings["zero_depth"]:
+            agent_cfg.depth_encoder.zero_depth = True
     runner = make_on_policy_runner(env, agent_cfg_to_train_dict(agent_cfg), log_dir=None, device=device)
     runner.load(resume_path)
     estimator_paras = agent_cfg.to_dict()["estimator"]
     num_prop = int(estimator_paras["num_prop"])
     num_scan = int(estimator_paras["num_scan"])
     num_priv_explicit = int(estimator_paras["num_priv_explicit"])
-    if agent_cfg.algorithm.class_name == "DistillationWithExtractor":
-        raise SystemExit("this recorder runs the teacher path only; the agent cfg is a distillation runner")
-    policy = runner.get_inference_policy(device=device)
-    estimator = runner.get_estimator_inference_policy(device=device)
-    print(f"[REC] policy: teacher, hist_encoding=True, clip_actions={agent_cfg.clip_actions}, "
-          f"num_prop={num_prop} num_scan={num_scan} num_priv_explicit={num_priv_explicit} "
-          f"(estimator -> obs[{num_prop + num_scan}:{num_prop + num_scan + num_priv_explicit}])", flush=True)
+    omni_step = None
+    if ROLE == "student":
+        # eval_crab_hex_gait.py's student branch: every network in eval mode (the estimator too, whose output
+        # the step writes on its own copy of obs), then the ONE shared omni student step.
+        policy = runner.get_inference_depth_policy(device=device)
+        runner.get_depth_encoder_inference_policy(device=device)
+        runner.get_estimator_inference_policy(device=device)
+        omni_step = OmniStudentStep.from_runner(runner, device=device)
+        estimator = None
+        print(f"[REC] policy: OMNI DEPTH STUDENT (OmniStudentStep: groups {list(omni_step.groups)}, encode every "
+              f"{int(omni_step.period)} steps, zero_depth {bool(omni_step.zero_depth)}; route "
+              f"{omni_student_settings['zero_depth_source']}), clip_actions={agent_cfg.clip_actions}", flush=True)
+    else:
+        policy = runner.get_inference_policy(device=device)
+        estimator = runner.get_estimator_inference_policy(device=device)
+        print(f"[REC] policy: teacher{' (forced on a distillation runner, --policy-role teacher)' if is_distill else ''}, "
+              f"hist_encoding=True, clip_actions={agent_cfg.clip_actions}, "
+              f"num_prop={num_prop} num_scan={num_scan} num_priv_explicit={num_priv_explicit} "
+              f"(estimator -> obs[{num_prop + num_scan}:{num_prop + num_scan + num_priv_explicit}])", flush=True)
 
     cmd_term = unwrapped.command_manager.get_term("base_velocity")
     if not isinstance(cmd_term, UniformParkourCommand):
@@ -776,6 +857,9 @@ def main() -> None:
         render=_render, combined=combined, combined_path=combined_path, stills_dir=stills_dir, out_dir=out_dir,
         env_cfg=env_cfg, applied_overrides=applied_overrides, resume_path=resume_path, ckpt_sha=ckpt_sha,
         harness_sha=harness_sha,
+        # --policy-role student: the shared step, and the extras of the latest observation (its depth groups)
+        omni_step=omni_step, extras=None,
+        policy_role=(ROLE or "teacher (default path)"),
     )
     if SEQUENCE_MODE:
         _run_sequence(ctx, scenario, seq_info)
@@ -802,6 +886,9 @@ def main() -> None:
                 obs, extras = env.get_observations()
                 override_state["apply"](0)
                 obs, extras = env.get_observations()
+            ctx.extras = extras
+            if ctx.omni_step is not None:
+                ctx.omni_step.reset()  # the harness: every wave starts with no GRU state and no held latent
             seg = compiled.segment_id[:, 0]
             hold_start = int(np.argmax(seg == hold_seg))
             start_state = {
@@ -912,6 +999,7 @@ def main() -> None:
         "checkpoint": str(resume_path), "checkpoint_sha256": ckpt_sha,
         "reference_run_meta": str(RUN_META_PATH), "task": scenario.task, "scenario_id": scenario.id,
         "env_vars": WANT_ENV, "env_overrides": applied_overrides, "harness": str(HARNESS), "harness_sha256": harness_sha,
+        "policy_role": ctx.policy_role, "task_override": args_cli.task,
         "episode_s": episode_s, "prologue_s": prologue_s, "settle_s": float(suite.settle_hold_s), "hold_s": hold_s,
         "episode_length_s": scenario.episode_length_s, "dt": dt, "fps": fps,
         "hands": args_cli.hands, "categories_arg": args_cli.categories, "waves": waves,
@@ -962,8 +1050,13 @@ def _harness_step(ctx, override_state: dict, obs, t: int, trace):
     cmd_dev = 0.0
     for _slot, _channel in ctx.observed_slots.items():
         cmd_dev = max(cmd_dev, (obs[:, _slot] - obs_reflects_cmd[:, _channel]).abs().max().item())
-    obs[:, ctx.priv_lo: ctx.priv_hi] = ctx.estimator.inference(obs[:, :ctx.num_prop])
-    actions = ctx.policy(obs, hist_encoding=True)
+    if ctx.omni_step is not None:
+        # --policy-role student, the harness's student branch: the shared omni step (its own copy of obs gets
+        # the estimator write; encode every period-th step; the depth actor). ``obs`` itself is never written.
+        actions = ctx.omni_step.act(obs, ctx.extras["observations"], ctx.unwrapped.common_step_counter)
+    else:
+        obs[:, ctx.priv_lo: ctx.priv_hi] = ctx.estimator.inference(obs[:, :ctx.num_prop])
+        actions = ctx.policy(obs, hist_encoding=True)
     trace.update(obs.detach().cpu().numpy().tobytes())
     trace.update(actions.detach().cpu().numpy().tobytes())
 
@@ -972,6 +1065,9 @@ def _harness_step(ctx, override_state: dict, obs, t: int, trace):
         cmd_term.vel_command_b[0, :3], robot.data.heading_w[:1], robot.data.root_pos_w[0, :2],
     ]).double().cpu().numpy()
     obs, _, dones, _extras = ctx.env.step(actions)
+    ctx.extras = _extras
+    if ctx.omni_step is not None:
+        ctx.omni_step.reset(dones)  # the GRU state of an env the step just reset (the harness's / play.py's call)
     try:
         failed = bool(ctx.unwrapped.termination_manager.get_term("crab_failure")[0].item())
     except (KeyError, AttributeError):
@@ -1155,6 +1251,9 @@ def _run_sequence(ctx, scenario, seq_info: dict) -> None:
     obs, _extras = env.get_observations()
     override_state["apply"](0)
     obs, _extras = env.get_observations()
+    ctx.extras = _extras
+    if ctx.omni_step is not None:
+        ctx.omni_step.reset()  # the harness's single pass starts with no GRU state and no held latent
     start_state = {
         "x": float(robot.data.root_pos_w[0, 0].item()), "y": float(robot.data.root_pos_w[0, 1].item()),
         "z": float(robot.data.root_pos_w[0, 2].item()),
@@ -1220,7 +1319,8 @@ def _run_sequence(ctx, scenario, seq_info: dict) -> None:
                         nxt_line = (f"LAST hold -- sequence ends at t={T * dt:.1f} s", CYAN)
                     lines = [head, cmd_line, nxt_line,
                              (f"t = {t_s:6.2f} / {T * dt:.1f} s    heading {_deg(post[2]):+6.1f} deg    "
-                              f"|v| {math.hypot(post[3], post[4]):.2f} m/s", WHITE)]
+                              f"|v| {math.hypot(post[3], post[4]):.2f} m/s    body height "
+                              f"{float(robot.data.root_pos_w[0, 2].item()) - start_state['z']:+.2f} m vs start", WHITE)]
                     if args_cli.arrows:
                         lines.append((ARROW_LEGEND, CYAN))
                     if falls:
@@ -1265,6 +1365,7 @@ def _run_sequence(ctx, scenario, seq_info: dict) -> None:
         "task": scenario.task, **seq_info,
         "env_vars": WANT_ENV, "env_overrides": ctx.applied_overrides,
         "harness": str(HARNESS), "harness_sha256": ctx.harness_sha,
+        "policy_role": ctx.policy_role, "task_override": args_cli.task,
         "env_seed": scenario.env_seed, "env_seed_note": "env_cfg.seed only (the harness's single pass): no env.seed() "
                                                         "call, no forced reset",
         "spawn_yaw_pin": ctx.applied_overrides.get("spawn_yaw_pin"),

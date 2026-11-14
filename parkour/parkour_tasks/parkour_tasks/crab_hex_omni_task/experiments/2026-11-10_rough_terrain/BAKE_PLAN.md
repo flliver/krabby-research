@@ -37,8 +37,11 @@ P2 step 9"): SN and SH are both HALT on lines that re-anchor under the pre-regis
 - **Main since this branch's base (3f944c4b):** 11 commits and 439 files: firmware, the hardware layer (HAL), docs and
   tests. None of them is under `parkour/`, and main's code_sha is still de3772e2. `docs/JETSON_DEPLOYMENT.md` changed
   on both sides, but in different hunks (main at lines 287–302, the bake near line 357). Check it at the PR.
-- **This branch's own code (disclosed; not touched by the bake).** The branch changes 140 files against 3f944c4b:
-  109 in the campaign dir and 31 outside it (commits 6588f1c3 and 82946834, all default-off). 16 of the 31 are under
+- **This branch's own code (disclosed; not touched by the bake).** The branch changes 167 files against 3f944c4b
+  (recounted 2026-11-14 with the terrain-video commit): 135 in the campaign dir and 32 outside it. 31 of the 32 come
+  from commits 6588f1c3 and 82946834, all default-off. The 32nd is `experiments/tools/record_categories.py`, the
+  terrain-video recorder's `--task` / `--policy-role` options: default-off, under neither hash, not Task 4-locked.
+  16 of the 31 are under
   the code pathspecs (the site terrains, `rt_friction.py`, the omni knobs, `observations.py`). One is the Task 4-locked
   `experiments/tools/run_candidates.py` (+138 / −7). So **merging** this branch moves main's code_sha from de3772e2 to
   89c1916b and needs a Task 4 relock plus a CI-faithful simulation first, as P2.md "Out of scope" says. The bake

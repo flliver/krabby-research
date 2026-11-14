@@ -1354,3 +1354,58 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
     `parkour/outputs/omni_plan/rough_terrain_p2/videos/`.
 - **Next.** P2 step 11: the bake proposal (`BAKE_PLAN.md` + `REPORT.md`). HALT for the user; nothing is baked, pushed
   or merged without an explicit yes.
+
+### 2026-11-14 10:40 — P2 add-on: rough-terrain videos (user request), report only; the bake decision is still pending
+
+- **Ask.** The user asked for "a video with the various new terrain types" while the bake decision is pending.
+  Step 10's clips were on the wall field and the flat ring only.
+- **Correction.** The 2026-11-13 proposal message said a clip on the rough-terrain geometry "needs the site recorder
+  you set aside for P3". That was wrong. The P3 set-aside "recorder" (settled 5) is the site campaign's data recorder,
+  not a video tool. The existing `experiments/tools/record_categories.py --sequence` replays a kind row once it can
+  take the row runner's `--task` and `--policy-role`.
+- **Recorder change** (`record_categories.py`, outside code_sha / eval_sha, so no pin moves). Both options are
+  default-off.
+  - `--task` applies the harness's own CLI rule (`scenario.task = args_cli.task` on every row) before the
+    task-equals-run_meta checks.
+  - `--policy-role teacher` is the harness's forced teacher on a distillation runner.
+  - `--policy-role student` is its omni depth-student branch:
+    - the route comes from `_omni_student_route`, extracted from the harness with `_checkpoint_agent_yaml` /
+      `_load_agent_params`;
+    - then `OmniStudentStep.from_runner`;
+    - each step calls `act(obs, extras["observations"], common_step_counter)`;
+    - `reset()` runs at episode start and `reset(dones)` after each step.
+  - A reference run_meta's role must agree with `--policy-role`. A student reference without it is refused, and so
+    is a non-policy role.
+  - The sequence HUD gains "body height … vs start" (root z minus its start).
+  - Review: workflow `wf_f7b22202-a45` (opus · high ×2, read-only; harness-fidelity and regression/launcher lenses).
+    It found no blocking defect. Both minor findings were applied: the non-policy-role refusal and shorter captions.
+  - Video unit tests and the layout test: 124 passed, 7 skipped.
+- **Launcher** `p2/p2_terrain_videos.sh`. Sources are SHA-checked: c1 6d1f29be, C1S 6b48ef33 (its
+  `params/agent.yaml`), and per row a reference run_meta whose checkpoint sha, scenario_id, role and task match:
+  - c1: the RTC es5 stamps;
+  - C1S: the P2R es9 stamps.
+  - Rows are the read's bands: slopes / ledge_up / ledge_down / pits b2, hills / gravel / rubble b3.
+  - Holds are fwd, lat_l, diag, back (8 s each after the 1.5 s prologue, so 33.5 s per clip). Stand and the turns are
+    left out.
+  - Memory cap 40G, SIGTERM timeout, `.isaac.lock` held, busy patterns waited out.
+- **Smoke and camera probes** (09:44–10:03; moved to `videos/terrain/probes/`, nothing deleted):
+  - The c1 and C1S slopes clips were rc 0 with no terminations, so both policy paths run.
+  - On the default 3/4 follow-cam the slope relief does not show.
+  - Probe A, a high 3/4 view: no relief either.
+  - Probe B, a low side view: ledge rims and distant mounds show. It is the default now (`--cam-eye=1.0,-6.5,0.5
+    --cam-lookat=1.0,0.0,-0.5`).
+  - One probe-A launch failed on argparse (a negative offset read as a flag; fixed with the `=` form). A queued copy
+    died on a bash syntax error because the launcher was rewritten in place while it waited for the lock. No Isaac
+    process had started.
+- **Run** 10:06:53 → 10:32:27, END rc 0, 14 / 14 clips rc 0, **0 falls** (`results/p2/terrain_videos.json`).
+  - Every clip reaches 4.1–5.1 m from its spawn, past each kind's crossing radius (≤ 3.2 m).
+  - The tours are each policy's 7 clips concatenated (3:54.5).
+  - The phone copies `tour_{C1S_6b48ef33,c1_6d1f29be}_phone.mp4` were sent to the user. Files are in the main
+    checkout under `parkour/outputs/omni_plan/rough_terrain_p2/videos/terrain/`.
+- **Caveats.**
+  - Each clip is one episode on one tile (env_seed 1) with 4 of the row's 8 holds. It is a sample, not the scored
+    eval and not a rate. The depth student's per-launch outcome class applies.
+  - Slopes and hills read faintly on the white ground; the body-height line carries them (e.g. +0.34 m on c1's slope
+    climb).
+  - The gravel is rigid (P5).
+- **Next.** The bake decision is unchanged and still the user's.

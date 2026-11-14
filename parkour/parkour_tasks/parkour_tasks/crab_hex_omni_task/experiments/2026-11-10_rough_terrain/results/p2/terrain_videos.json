@@ -1,0 +1,229 @@
+{
+ "schema": "p2_terrain_videos_v1",
+ "what": "report-only video of the seven rough-terrain kinds for walker c1 and depth student C1S (user request 2026-11-14); read by no gate",
+ "launcher": "p2/p2_terrain_videos.sh --launch (2026-11-14 10:06:53 -> 10:32:27, END rc 0, 14 / 14 clips rc 0)",
+ "recorder": "experiments/tools/record_categories.py --sequence <row> --task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role teacher|student --sequence-holds fwd,lat_l,diag,back --cam-eye=1.0,-6.5,0.5 --cam-lookat=1.0,0.0,-0.5",
+ "rows": "manifests/scenarios_rt.yaml: slopes / ledge_up / ledge_down / pits b2, hills / gravel / rubble b3 (the P2 read's bands)",
+ "references": "c1: RTC_6d1f29be_rt_<row> seed005 run_meta (confirm-1 es5); C1S: P2R_6b48ef33_rt_<row> seed009 run_meta (P2 read es9)",
+ "out_dir": "main checkout parkour/outputs/omni_plan/rough_terrain_p2/videos/terrain/",
+ "tours": {
+  "c1": "tour_c1_6d1f29be.mp4 (+ _phone.mp4, sent)",
+  "C1S": "tour_C1S_6b48ef33.mp4 (+ _phone.mp4, sent)",
+  "length_s": 234.5,
+  "per_kind_s": 33.5
+ },
+ "clips": {
+  "C1S_gravel_b3": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    2.01,
+    3.2
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.69,
+   "reach_m": 4.94,
+   "role": "student",
+   "row": "rt_gravel_b3__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "98fe64f65f10"
+  },
+  "C1S_hills_b3": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    2.22,
+    3.06
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.85,
+   "reach_m": 5.01,
+   "role": "student",
+   "row": "rt_hills_b3__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "6a5897b896fb"
+  },
+  "C1S_ledge_down_b2": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    1.84,
+    3.3
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.73,
+   "reach_m": 4.84,
+   "role": "student",
+   "row": "rt_ledge_down_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "9a10187adb11"
+  },
+  "C1S_ledge_up_b2": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    1.93,
+    3.11
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.66,
+   "reach_m": 4.88,
+   "role": "student",
+   "row": "rt_ledge_up_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "e1ca2d5cdd9f"
+  },
+  "C1S_pits_b2": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    1.7,
+    2.48
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 6.83,
+   "reach_m": 4.18,
+   "role": "student",
+   "row": "rt_pits_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "bcae7ccb51d4"
+  },
+  "C1S_rubble_b3": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    2.34,
+    2.64
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.27,
+   "reach_m": 4.79,
+   "role": "student",
+   "row": "rt_rubble_b3__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "8a275a505ae1"
+  },
+  "C1S_slopes_b2": {
+   "ckpt": "6b48ef33",
+   "end_xy": [
+    1.24,
+    2.63
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.3,
+   "reach_m": 4.14,
+   "role": "student",
+   "row": "rt_slopes_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "d08b66baac73"
+  },
+  "c1_gravel_b3": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    2.33,
+    3.22
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.87,
+   "reach_m": 5.13,
+   "role": "teacher",
+   "row": "rt_gravel_b3__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "aba884c29174"
+  },
+  "c1_hills_b3": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    2.23,
+    3.2
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.86,
+   "reach_m": 5.06,
+   "role": "teacher",
+   "row": "rt_hills_b3__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "8faaa45aa5d1"
+  },
+  "c1_ledge_down_b2": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    2.07,
+    3.15
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.73,
+   "reach_m": 4.93,
+   "role": "teacher",
+   "row": "rt_ledge_down_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "9b8e36632af9"
+  },
+  "c1_ledge_up_b2": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    1.57,
+    3.0
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.33,
+   "reach_m": 4.46,
+   "role": "teacher",
+   "row": "rt_ledge_up_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "313933049756"
+  },
+  "c1_pits_b2": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    1.75,
+    2.63
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 6.97,
+   "reach_m": 4.33,
+   "role": "teacher",
+   "row": "rt_pits_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "e3e68260f757"
+  },
+  "c1_rubble_b3": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    2.16,
+    2.82
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.46,
+   "reach_m": 4.77,
+   "role": "teacher",
+   "row": "rt_rubble_b3__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "18589c65787d"
+  },
+  "c1_slopes_b2": {
+   "ckpt": "6d1f29be",
+   "end_xy": [
+    1.16,
+    2.53
+   ],
+   "fall_holds": [],
+   "falls": 0,
+   "path_m": 7.37,
+   "reach_m": 4.08,
+   "role": "teacher",
+   "row": "rt_slopes_b2__omni",
+   "task": "Isaac-Crab-Hex-Omni-Student-Play-v0",
+   "trace": "fffee786e877"
+  }
+ },
+ "falls_total": 0,
+ "caveat": "one episode per kind and policy (env_seed 1, one tile, 4 of the row's 8 holds): a sample, not a replay of the scored eval and not a rate; the depth student's per-launch outcome class applies"
+}
