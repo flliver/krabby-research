@@ -1,0 +1,137 @@
+{
+ "spec": {
+  "S1_CKPT": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_29500.pt",
+  "S1_SHA256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+  "S1_AGENT_YAML": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/params/agent.yaml",
+  "REFS_ENV_STAMP": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/suite__omni/seed001/2026-11-13_21-02-53",
+  "CANDIDATES": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/candidates.yaml",
+  "OVERLAY_CHAIN": "F19_p2a",
+  "S1_OVERLAY": {
+   "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+   "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+   "KRABBY_OMNI_DIR_BAND": "",
+   "KRABBY_OMNI_FACING": "0.2:1.2",
+   "KRABBY_YAW_W": "0.2",
+   "KRABBY_CLOCK_W": "0.001",
+   "KRABBY_APEX_W": "0.001",
+   "KRABBY_OMNI_CLOCK_HIDE": "1",
+   "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+   "KRABBY_RSI_FRAC": "0",
+   "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+   "KRABBY_ACTION_BOUND_LOSS": "0.001",
+   "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+   "KRABBY_ACTION_BOUND": "1.1",
+   "KRABBY_STD_PARAM": "soft",
+   "KRABBY_INIT_STD": "0.8",
+   "KRABBY_ENTROPY_COEF": "0.0025",
+   "KRABBY_ACTION_RATE_W": "-0.05",
+   "KRABBY_PPO_HAND_DIAG": "1",
+   "KRABBY_PHASEOUT": "",
+   "KRABBY_FLAT_TERRAIN_GEOM": "field",
+   "KRABBY_FIELD_PAD_R": "1.7",
+   "KRABBY_FIELD_BLOCKS": "14:28",
+   "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+   "KRABBY_FIELD_EDGES": "wall",
+   "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+   "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"
+  },
+  "REFS_NAME": "REFS_RT_6d1f29be"
+ },
+ "refs_stamps": {
+  "suite__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/suite__omni/seed001/2026-11-13_21-02-53",
+  "suite__omni@2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/suite__omni/seed002/2026-11-13_21-10-09",
+  "walkstop__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/walkstop__omni/seed001/2026-11-13_21-17-23",
+  "walkstop__omni@2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/walkstop__omni/seed002/2026-11-13_21-20-00",
+  "field_hard__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/field_hard__omni/seed001/2026-11-13_21-22-34",
+  "field_hard__omni@2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/field_hard__omni/seed002/2026-11-13_21-26-22",
+  "field_hard__omni@3": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/field_hard__omni/seed003/2026-11-13_21-30-08",
+  "field_hard__omni@4": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/field_hard__omni/seed004/2026-11-13_21-33-54",
+  "field_turn__omni@1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/field_turn__omni/seed001/2026-11-13_21-37-39"
+ },
+ "code_state": {
+  "suite__omni@1": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:09:58",
+   "writer": "phase2 run_arm.sh"
+  },
+  "suite__omni@2": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:17:12",
+   "writer": "phase2 run_arm.sh"
+  },
+  "walkstop__omni@1": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:19:50",
+   "writer": "phase2 run_arm.sh"
+  },
+  "walkstop__omni@2": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:22:24",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@1": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:26:12",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@2": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:29:58",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@3": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:33:44",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_hard__omni@4": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:37:29",
+   "writer": "phase2 run_arm.sh"
+  },
+  "field_turn__omni@1": {
+   "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+   "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+   "dirty": false,
+   "dirty_paths": [],
+   "written_at": "2026-11-13T16:39:50",
+   "writer": "phase2 run_arm.sh"
+  }
+ },
+ "walker": {
+  "name": "c1 (RT_s19 model_29500)",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_29500.pt",
+  "sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1",
+  "main_copy": {
+   "exists": false,
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_23-43-01_RT_s19/model_29500.pt",
+   "needed": false
+  }
+ },
+ "note": "c1 has no Task 4 driver stamp; REFS(c1) suite@1 (Walk-Play, c1, 0 kg, the driver env) stands in, as REFS(TDR) did for TDR (STAND_REPAIR.md section 3)",
+ "written_at": "2026-11-13T16:39:50"
+}

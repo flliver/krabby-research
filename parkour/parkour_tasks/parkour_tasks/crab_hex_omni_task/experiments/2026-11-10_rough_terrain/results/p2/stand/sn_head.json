@@ -1,0 +1,42 @@
+{
+ "stage": "sn",
+ "name": "SN_RT_6d1f29be_sn_s19",
+ "ckpt": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_4000.pt",
+ "sha256": "5bedc50efb8f2364db024b0e8134af7edd31595224acc530468f2688e19cd6a3",
+ "train_log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/train_log.jsonl",
+ "krabby_env_sha256": "6c0d79cebfd6c340d86c8b5578112a388ca072aa33f226e2f6af54a44f8347f6",
+ "krabby_env_vs_f19": "equal except the worktree RSI bank path (bytes identical)",
+ "status": {
+  "arm": "mask",
+  "checkpoints": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_1000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_1500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_2000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_2500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_3000.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_3500.pt",
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_4000.pt"
+  ],
+  "final_checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_4000.pt",
+  "iterations_run": 4000,
+  "iterations_schedule": 4000,
+  "mode": "dagger",
+  "opt_steps": 64000,
+  "s_per_iter": 1.4933025781512261,
+  "status": "done",
+  "student_forwards": 96000,
+  "wall_s": 5973.210312128067
+ },
+ "args": [
+  "--mode",
+  "dagger",
+  "--arm",
+  "mask",
+  "--seed",
+  "19",
+  "--iterations",
+  "4000"
+ ],
+ "recorded_at": "2026-11-13T18:19:53"
+}

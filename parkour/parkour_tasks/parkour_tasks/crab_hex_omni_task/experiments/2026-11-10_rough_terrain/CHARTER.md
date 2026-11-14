@@ -1269,3 +1269,88 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
 - **Next.** Stand re-pair (`p2_stand_queue.sh`) launched at 16:02 after the DDC move (renamed
   `DerivedDataCache.moved-2026-11-13_P2step9`, 34 GB; not deleted). ≈ 6.7 h. Then the build check, videos and the
   bake proposal (HALT for the user).
+
+### 2026-11-13 23:30 — P2 step 9 DONE (stand re-pair: SN and SH re-anchored, nothing remaining); step 10 videos DONE
+
+- **Chain.** `p2_stand_queue.sh`, 16:02 → 22:58 (6.9 h against the ≈ 7.0 budget), every stage rc 0. Queue log:
+  main checkout `parkour/outputs/omni_plan/rough_terrain_p2/stand/queue.log`.
+- **SN** = `SN_RT_6d1f29be_sn_s19` model_4000 (sha 5bedc50e…d6a3, 6,097,610 B; 4000 its in 5973 s; walker c1).
+  - The bridge passes on suite, field_hard and walkstop (`results/p2/stand/sn_bridge.json`).
+  - Gate HALT (`gates/sn.json`): 31 / 35 decisive pass, 8 / 8 WATCH. The 4 failed lines are the G5 body-height lines
+    at 0.0416 / 0.0450 / 0.0420 / 0.0454 against 0.03.
+  - Re-anchored on R and HOLD under the 11:53 rule (settled 6e; `gates/sn_reanchor.json`, remaining []). Both controls
+    fail the same line against the same REFS(c1). The head is within 0.00375 m of each.
+  - Calibration reader rc 4 with 14 "listed cell cannot be read" mismatches: the same class, cell for cell, as RSD's
+    accepted SN read (STAND_REPAIR.md:352).
+- **SH** = `SH_RT_6d1f29be_sh_s19` model_5000 (sha 6f8b558e…4e4c, 6,102,474 B; DAgger 5000 its in 8651 s, deadband
+  0.25, trim branch, warm start SN 5bedc50e).
+  - Table test, 4 height rows, 9 K5 rows and the 4 lazy R_h rows beside c1: every queue stage rc 0 (the readers'
+    own rc 4 is below). Read 22:55.
+  - Gate HALT (`gates/sh.json`): 94 / 101 decisive pass. The 7 failed lines:
+    - the 4 K5.G5 body-height lines, re-anchored on R and HOLD (head − control ≤ 0.0025 m);
+    - 3 K6 lines: homed share bin 1 at es1 (0.84 against 0.8407) and es2 (0.88 against 0.8966), and settled share
+      bin 1 at es2 (0.90 against 0.9010). The lazy R_h beside c1 fails the same lines (0.62 / 0.72 / 0.72, n 100), so
+      they re-anchor on it under Task 4 DESIGN §3.6 (lines 0.498 / 0.609 / 0.612).
+  - **No K4 line fails**: restore misses 1 and 2 against the fixed thresholds-v1.2 line 3 (D9). The stand reader's own
+    K4 column uses this read's S1-era R_h (1 miss) as its line, so it marks es2's 2 as over; beside c1 the lazy R_h
+    misses 5 and 6. The K4 chance rule (settled 6f) was not invoked, and no `sh_decision.json` was written.
+  - `gates/sh_reanchor.json`: remaining []. Reader rc 4, the same G2–G4 INVALID notes and the same R_h stand-up premise
+    MISS (es1 table_0p635, reported only) as RSD's accepted SH read.
+- **Against the baked RSD stand.** SH's 7 failed lines are a strict subset of RSD's 12, and SH is closer on each (K6
+  bin 1 0.84 / 0.88 / 0.90 against 0.74 / 0.81 / 0.82; body-height gap 0.041–0.044 m against 0.055–0.057; K4 1 / 2
+  against 5 / 6). **Some passing lines are worse:**
+  - walk-stop median settle: SN 3.80 / 3.89 s and SH 3.74 / 3.64 s against lines 3.92 / 3.96 and RSD's 2.70 / 2.80
+    (SN) and 2.86 / 3.00 (SH), margins 0.12 / 0.07 s and 0.18 / 0.32 s;
+  - SN field_turn stand-fall 0.01 (line 0.020; RSD 0);
+  - SH bin-2 homed and settled share at es1, 0.97 (line 0.93; RSD 1.00);
+  - SH K6 stillness taps/s 0.207 / 0.167 (line 1.0; RSD 0.139 / 0.148);
+  - SN walk-stop homed 0.98 / 0.98 (line 0.90; RSD 0.997 / 1.00) and SN WATCH post-settle taps/s 0.818 / 0.815
+    (line 1.0; RSD 0.807 / 0.704).
+- **HALT verify** (P2.md step 9: opus · high; workflow `wf_818bb4da-39e`, one agent per stage, CPU only, read-only):
+  **both COVERED.**
+  - SN: all 16 G5 heights were recomputed from the raw episode npz files with the verifier's own numpy script and match
+    `sn_calib.json` to the 5th decimal. The checkpoint shas were re-hashed.
+  - SH: all 101 gate values trace to `sh_read.json` / `sh_k5_calib.json` with 0 mismatches. The K6 re-anchored lines
+    were recomputed (two-sample SE, as the original line uses) and the walker of every head stamp is c1.
+  - Disclosures they raised:
+    - The R and HOLD body-height controls are the S1-era rows (walker 968cc550) that RSD used, not rows run beside c1.
+      The 11:53 rule names those rows. Their spare beyond the 0.03 line is 0.011 m, against RSD's 0.025 m.
+    - The K4 pass rests on the fixed line 3, not on `max(1, R_h's)` as the line id reads. Had the K4 chance rule
+      been invoked, the pooled test against the lazy R_h (3 of 14 misses) reads p ≈ 0.035 with the head the
+      better one, a HALT under the literal rule; it was not invoked, because K4 passes the fixed line.
+    - The K6 shares and body heights in SH were traced to the read files, not re-derived from per-episode data.
+- **Settle diagnostic** (report only, CPU, read-only; workflow `wf_acdfce51-c27`: an opus·high analyst, then an
+  opus·high recompute with its own script, which agrees on every number and supports "mixed").
+  - The definition is `2026-10-07_omni_phase2/scripts/p2s_stand.py` `stand_z2_metrics` (L568–616). The clock starts at
+    the first stand row, which is also the hand-over (p2r_stand_mode latches there in 300 / 300 stands). It ends when
+    all six cams hold ≤ 0.10 rad of home for 0.5 s. The head value is the median over the settled stands of the three
+    stands per episode. The raw npz reproduce the gate values exactly.
+  - The gap by stand, seeds pooled (median shift, RT − RSD):
+
+    | Stand | SN | SH |
+    |---|---|---|
+    | 0, after fwd | +0.51 s | +0.27 s |
+    | 1, after lat_l | +0.04 s | −0.26 s |
+    | 2, after back | +1.42 s | +1.35 s |
+
+    The pooled median of this two-mode mix reads the gap as about 1 s.
+  - **Stand 2.** c1 hands over with the cams about twice as far from home as TDR: summed 5.7 against 2.6 rad, max
+    1.43 against 0.76, hip yaw 14.9° against 7.2°. Most of the extra time is extra lifted homing (+1.0 to +1.1 s). The
+    RT nets drive the cams as fast as the RSD nets in the air and track the re-stance expert as closely.
+  - **Residual.** At stand 0, c1's deficit is the smaller one (4.87 against 6.05 rad), yet RT is +0.51 s (SN) / +0.27
+    s (SH). At matched hand-over deficit RT is slower by about 0.5 s or more. A within-stand fit on RSD gives the state
+    roughly +0.1 s and the residual roughly +0.6 s averaged over stands (the recompute's reading). So the residual is
+    about half the gap and may come from the RT nets or from unmeasured hand-over features (c1's cams turn faster at
+    hand-over, 1.1 against 0.8 rad/s).
+  - **Not settled.** It would take a walker {TDR, c1} × stand net {RSD, RT} walkstop cross-pairing (GPU, not run).
+    Jittered walk durations would test the phase-locked stop: every env stops at about the same gait phase, so the
+    stand-2 deficit may partly be a schedule artefact. Both are listed as follow-ups in REPORT §7.
+- **Build check.** `scripts/build_check.py check --pin-path results/p2/pin.json`: OK, dirty False.
+- **Step 10 videos.** `p2/p2_bake_videos.sh --launch`, 22:59 → 23:19, rc 0 on all three steps:
+  - walker c1 + SH mixes, seed 1514, field_medium and field_max (180 s each). Both show falls [], 4 / 4 stands arrived
+    and homed, and 4 / 4 restores completed;
+  - student C1S on `F19/envs/p3b.env`, 3000 steps, with no reset before step 3000.
+  - The phone copies were sent to the user. Files are under the main checkout's
+    `parkour/outputs/omni_plan/rough_terrain_p2/videos/`.
+- **Next.** P2 step 11: the bake proposal (`BAKE_PLAN.md` + `REPORT.md`). HALT for the user; nothing is baked, pushed
+  or merged without an explicit yes.
