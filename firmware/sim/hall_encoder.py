@@ -10,6 +10,7 @@ from typing import Any
 
 _SCALE_JSON = Path(__file__).with_name("hall_encoder_scale.json")
 _FALLBACK_EDGES_PER_FULL_TRAVEL = 3200
+_FALLBACK_STM_COUNTS_PER_FULL_TRAVEL = 6400
 
 
 @lru_cache(maxsize=1)
@@ -35,6 +36,20 @@ def resolve_hall_edges_per_full_travel(*, scale_path: Path | None = None) -> int
 
 
 DEFAULT_HALL_EDGES_PER_FULL_TRAVEL = resolve_hall_edges_per_full_travel()
+
+
+def resolve_stm_counts_per_full_travel(*, scale_path: Path | None = None) -> int:
+    """Signed hall tick scale for STM Isaac CAN readback (stop-to-stop)."""
+    override = os.environ.get("KRABBY_STM_COUNTS_PER_FULL_TRAVEL", "").strip()
+    if override:
+        return int(override)
+    try:
+        return int(load_hall_encoder_scale(scale_path)["stm_counts_per_full_travel"])
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return _FALLBACK_STM_COUNTS_PER_FULL_TRAVEL
+
+
+DEFAULT_STM_COUNTS_PER_FULL_TRAVEL = resolve_stm_counts_per_full_travel()
 
 
 def edges_for_angle_delta(

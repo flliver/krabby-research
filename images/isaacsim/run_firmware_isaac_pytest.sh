@@ -42,6 +42,7 @@ docker run --rm --gpus all \
   -v "$REPO_ROOT/assets:/workspace/assets:ro" \
   -v "$REPO_ROOT/parkour:/workspace/parkour" \
   -v "$REPO_ROOT/build/native-firmware-tests:/workspace/build/native-firmware-tests:ro" \
+  -v "$REPO_ROOT/firmware/build/stm-host:/workspace/firmware/build/stm-host:ro" \
   -v "$RESULTS_DIR:/results:rw" \
   -e RUN_FIRMWARE_ISAAC=1 \
   -e FIRMWARE_ISAAC_RESULTS_DIR=/results \

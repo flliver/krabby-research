@@ -150,7 +150,7 @@ test-firmware: test-native
 
 # Isaac Sim smoke / integration (krabby-isaacsim image; see images/isaacsim/README.md).
 # host-actuator first: the loop test loads libkrabby_host from the mounted build dir.
-test-firmware-isaac: host-actuator
+test-firmware-isaac: host-actuator host-stm
 	"$(REPO_ROOT)/images/isaacsim/run_firmware_isaac_pytest.sh"
 
 # Pinned to the core version the bench-verified hex was built with; bump

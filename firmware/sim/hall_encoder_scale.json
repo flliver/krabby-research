@@ -1,8 +1,9 @@
 {
   "schema_version": 1,
   "edges_per_full_travel": 3200,
+  "stm_counts_per_full_travel": 6400,
   "source": "placeholder",
-  "notes": "Replace edges_per_full_travel after a physical stop-to-stop saf measurement on rev-3 hardware (drive one joint min to max, record telemetry saf delta). Keep hall_encoder_scale.json and host/hall_encoder_scale.hpp in sync.",
+  "notes": "Mega sim: edges_per_full_travel (sync host/hall_encoder_scale.hpp). STM CAN sim: signed hall counts per stop-to-stop travel in can_robot_core (placeholder 6400 until measured on v0.3 boards).",
   "measured_at": null,
   "robot_id": null,
   "joint_samples": []
