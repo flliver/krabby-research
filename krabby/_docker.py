@@ -188,7 +188,7 @@ def _opt_value(args: list[str], name: str) -> str | None:
 _XDG_RUNTIME_DIR = "/tmp/runtime-krabby"
 
 
-def _gamepad_launch_script(server_robot: str) -> str:
+def _gamepad_launch_script(server_robot: str, *, server_stm: bool = False) -> str:
     """bash that brings up the HAL server + krabby-uno client/controller together.
 
     Mirrors controller/scripts/jetson/helper/run_server_and_client_in_container.sh so
@@ -210,7 +210,10 @@ def _gamepad_launch_script(server_robot: str) -> str:
         'if [ -d /opt/krabby-research/controller ]; then '
         'export PYTHONPATH="/opt/krabby-research${PYTHONPATH:+:$PYTHONPATH}"; '
         'echo "info: using host controller from /opt/krabby-research (PYTHONPATH)"; fi; '
-        'krabby-hal-server-jetson --control-source gamepad' + server_robot + ' '
+        'krabby-hal-server-jetson --control-source gamepad'
+        + server_robot
+        + (' --stm' if server_stm else '')
+        + ' '
         '--observation-bind "tcp://*:6001" --command-bind "tcp://*:6002" & '
         'server_pid=$!; '
         'trap "kill $server_pid ${client_pid:-} 2>/dev/null; wait 2>/dev/null; exit 130" TERM INT; '
@@ -233,6 +236,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
     """
     robot = _opt_value(extra_args, "--robot")
     server_robot = f" --robot {robot}" if robot in _GAMEPAD_ROBOTS else ""
+    server_stm = "--stm" in extra_args
     mounts: list[str] = []
     for m in (extra_mounts or []):
         mounts += ["-v", m]
@@ -252,7 +256,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
         "-e", f"XDG_RUNTIME_DIR={_XDG_RUNTIME_DIR}",
         "--entrypoint", "bash",
         image_ref,
-        "-c", _gamepad_launch_script(server_robot),
+        "-c", _gamepad_launch_script(server_robot, server_stm=server_stm),
         "bash",          # becomes $0; krabby-uno args follow as "$@"
         *extra_args,
     ]
