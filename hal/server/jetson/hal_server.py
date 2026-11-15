@@ -140,6 +140,8 @@ class JetsonHalServer(HalServerBase):
         mcu_target: McuSerialTarget | None = None,
         mcu_baud: int = DEFAULT_BAUD,
         mcu_auto_connect: bool = True,
+        stm: bool = False,
+        stm_virtual: bool = False,
     ):
         """Initialize Jetson HAL server.
 
@@ -153,6 +155,8 @@ class JetsonHalServer(HalServerBase):
             mcu_target: MCU serial endpoint. If None, uses :func:`firmware.mcu_port.default_target`.
             mcu_baud: Baud rate for MCU serial communication.
             mcu_auto_connect: If True, automatically connect to MCU on initialization.
+            stm: If True, use STM CAN ``KrabbyStmMCUSDK`` instead of serial Mega SDK.
+            stm_virtual: When ``stm`` is True, pass ``virtual=True`` to the CAN SDK (vcan sim).
         """
         super().__init__(config)
         self.observation_dimensions = observation_dimensions
@@ -188,27 +192,41 @@ class JetsonHalServer(HalServerBase):
         # GStreamer multi-sensor interface (optional)
         self._sensor_interface: Optional[SensorInterface] = None
 
-        # Initialize Krabby MCU SDK when robot definition has MCU joints
+        # Initialize MCU SDK when robot definition has MCU joints (serial Mega or STM CAN).
         self._mcusdk: Optional[KrabbyMCUSDK] = None
         mcu_joints = self.robot_definition.get_mcu_joints()
         if mcu_joints:
+            sdk_label = "KrabbyStmMCUSDK" if stm else "KrabbyMCUSDK"
             try:
-                self._mcusdk = KrabbyMCUSDK(
-                    mcu_joints=mcu_joints,
-                    target=mcu_target,
-                    baud=mcu_baud,
-                    auto_connect=mcu_auto_connect,
-                )
-                logger.info("KrabbyMCUSDK initialized for JetsonHalServer")
+                if stm:
+                    from hal.server.jetson.krabby_stm_mcusdk import KrabbyStmMCUSDK
+
+                    self._mcusdk = KrabbyStmMCUSDK(
+                        mcu_joints=mcu_joints,
+                        virtual=stm_virtual,
+                        auto_connect=mcu_auto_connect,
+                    )
+                else:
+                    self._mcusdk = KrabbyMCUSDK(
+                        mcu_joints=mcu_joints,
+                        target=mcu_target,
+                        baud=mcu_baud,
+                        auto_connect=mcu_auto_connect,
+                    )
+                logger.info("%s initialized for JetsonHalServer", sdk_label)
             except (ImportError, RuntimeError, ValueError) as e:
                 logger.warning(
-                    f"KrabbyMCUSDK not available: {e}. "
-                    "MCU commands will not be sent. Install firmware package and use a robot definition with mcu_joints."
+                    "%s not available: %s. "
+                    "MCU commands will not be sent. Install firmware package and use a robot definition with mcu_joints.",
+                    sdk_label,
+                    e,
                 )
             except Exception as e:
                 logger.warning(
-                    f"Failed to initialize KrabbyMCUSDK: {e}. "
+                    "Failed to initialize %s: %s. "
                     "MCU commands will not be sent. Check MCU connection and configuration.",
+                    sdk_label,
+                    e,
                     exc_info=True,
                 )
 

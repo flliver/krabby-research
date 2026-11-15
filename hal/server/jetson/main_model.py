@@ -108,7 +108,12 @@ def main() -> None:
     teleop_thread: threading.Thread | None = None
 
     try:
-        hal_server = create_hal_server(robot_definition, observation_bind, command_bind)
+        hal_server = create_hal_server(
+            robot_definition,
+            observation_bind,
+            command_bind,
+            stm=args.stm,
+        )
         # Cameras feed RGB-D observations (inference) and teleop video.
         hal_server.initialize_cameras()
         warn_if_mcu_missing(hal_server)
