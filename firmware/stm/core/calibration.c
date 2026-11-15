@@ -1,5 +1,6 @@
 #include "calibration.h"
 
+#include <math.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -79,6 +80,20 @@ static bool joint_cal_usable(const joint_cal_t *cal) {
         hall_span = -hall_span;
     }
     return hall_span > KRABBY_CAL_HALL_MOVE_THRESHOLD;
+}
+
+static double clamp01(double value) {
+    if (value < 0.0) {
+        return 0.0;
+    }
+    if (value > 1.0) {
+        return 1.0;
+    }
+    return value;
+}
+
+static int32_t abs_i32(int32_t v) {
+    return v < 0 ? -v : v;
 }
 
 void calibration_init(leg_t *leg) {
@@ -175,6 +190,36 @@ bool calibration_joint_calibrated(leg_t *leg, uint8_t joint_id) {
         return false;
     }
     return joint_cal_usable(&cal);
+}
+
+double calibration_joint_position(leg_t *leg, uint8_t joint_id) {
+    if (leg == NULL || joint_id < 1u || joint_id > 3u || joint_id == 1u) {
+        return (double)NAN;
+    }
+    const int motor = motor_index(joint_id);
+    joint_cal_t cal;
+    if (!load_joint_calibration(leg, motor, &cal) || !joint_cal_usable(&cal)) {
+        return (double)NAN;
+    }
+    const int32_t pot_span = abs_i32((int32_t)cal.pot_extended - (int32_t)cal.pot_retracted);
+    if (pot_span >= KRABBY_CAL_MIN_POT_SPAN) {
+        const double retracted = (double)cal.pot_retracted;
+        const double extended = (double)cal.pot_extended;
+        const double denom = extended - retracted;
+        if (denom == 0.0) {
+            return (double)NAN;
+        }
+        const double sample = (double)read_pot(leg, motor);
+        return clamp01((sample - retracted) / denom);
+    }
+    const double hall_retracted = (double)cal.hall_retracted;
+    const double hall_extended = (double)cal.hall_extended;
+    const double hall_denom = hall_extended - hall_retracted;
+    if (hall_denom == 0.0) {
+        return (double)NAN;
+    }
+    const double hall_sample = (double)read_hall(leg, motor);
+    return clamp01((hall_sample - hall_retracted) / hall_denom);
 }
 
 bool calibration_blocks_duty(leg_t *leg, int motor) {

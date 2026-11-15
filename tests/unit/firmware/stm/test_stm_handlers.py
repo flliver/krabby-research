@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ctypes
+import math
+import struct
 import subprocess
 from pathlib import Path
 
@@ -12,6 +14,13 @@ from firmware.stm import codec, ids
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 LIB_PATH = REPO_ROOT / "firmware" / "build" / "stm-host" / "libkrabby_stm_host.so"
+
+
+def _dbc_float64(value: object) -> float:
+    """cantools may decode IEEE float64 signals as unsigned integer bit patterns."""
+    if isinstance(value, int):
+        return struct.unpack("<d", struct.pack("<Q", value))[0]
+    return float(value)
 
 
 class Leg(ctypes.Structure):
@@ -171,12 +180,42 @@ def test_calibrate_joint_three_stall_finishes_on_host(stm_host_lib) -> None:
     _run_stall_cal_host(stm_host_lib, leg, 3, 2)
 
 
+def test_telemetry_joint_position_at_calibration_stops(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 0)
+    assert math.isnan(_dbc_float64(decoded["J2_POSITION"]))
+    assert decoded["J2_CALIBRATED"] == 0
+
+    _run_stall_cal_host(stm_host_lib, leg, 2, 1)
+
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 100)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 400)
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 650)
+    assert _dbc_float64(decoded["J2_POSITION"]) == pytest.approx(0.0)
+    assert decoded["J2_CALIBRATED"] == 1
+    assert math.isnan(_dbc_float64(decoded["J1_POSITION"]))
+    assert decoded["J1_CALIBRATED"] == 0
+
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 500)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 3000)
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 700)
+    assert _dbc_float64(decoded["J2_POSITION"]) == pytest.approx(1.0)
+
+
 def test_calibrate_id_for_other_leg_is_ignored(stm_host_lib) -> None:
     leg = _leg_for_node(stm_host_lib, 1)
     cal_id = ids.calibrate_can_id(2)
     buf = (ctypes.c_uint8 * 1)(2)
     stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
     assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+
+
+def _decode_telemetry_at(stm_host_lib, leg: Leg, now_ms: int) -> dict[str, object]:
+    stm_host_lib.telemetry_handler_tick(ctypes.byref(leg), now_ms)
+    last_id, payload = _last_tx(stm_host_lib, leg)
+    assert last_id == ids.telemetry_can_id(1)
+    return codec.decode_telemetry(1, payload)
 
 
 def _last_tx(stm_host_lib, leg: Leg) -> tuple[int, bytes]:

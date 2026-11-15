@@ -55,8 +55,7 @@ static double joint_position(leg_t *leg, int motor) {
     if (motor == 0) {
         return (double)NAN;
     }
-    (void)leg;
-    return 0.0;
+    return calibration_joint_position(leg, (uint8_t)(motor + 1));
 }
 
 static void fill_joint(
