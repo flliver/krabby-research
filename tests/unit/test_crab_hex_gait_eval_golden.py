@@ -23,6 +23,11 @@ values the failing CI job reported); and it differs from the previous fixture on
 (<= 2 ulp, |rel| <= 3.1e-16). That fixed a CPU dependence, it did not change what the rows score. It licenses
 nothing else: the rule above stands. :func:`test_scoring_is_identical_under_every_openblas_kernel` keeps the
 dependence from coming back.
+
+Second deliberate regeneration, 2026-11-14: ``_signed_min_edge_margin`` used ``np.hypot`` (libm), so
+``support_polygon.walking.min_edge_margin_m`` p50/p90 differed by 1 ulp between GitHub's runners and the
+fixture (written with a different libm). Those distances now use :func:`_norm`; the fixture was regenerated
+once from the unchanged generator. Same rules apply as the 2026-10-26 regen.
 """
 
 import json
