@@ -1535,3 +1535,48 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
   - the student clip `student_6b48ef33_p3b.mp4`;
   - the rough-terrain tours `terrain/tour_{c1_6d1f29be,C1S_6b48ef33}.mp4`.
 - **Nothing is pushed or merged.** You publish through your PR.
+
+### 2026-11-15 02:35 — CI test fixes (user: "Fix them"; local commit C; nothing is pushed)
+
+- **Ask.** The BAKE DONE entry flagged two pre-existing `test_rt_machinery.py` failures that would turn real CI red at
+  the PR. The user answered "Fix them".
+- **`test_eval_spawn_check_refuses_the_root_offset_fallback_and_a_surface_mismatch`** had failed everywhere since
+  4f9ae5fb.
+  - The test was stale; the code was right. 4f9ae5fb raised `rt_smoke_check.PROBE_SURFACE_TOL_M` from 0.02 to
+    0.04 m (the step-5 entry above): the pad's 2 cm roughness put correct builds at 0.0203–0.0242 m.
+    `results/step5/eval_smoke.json` reads 21 / 21, with 9 rows above 0.02. The test still asserted that a 0.03 m gap
+    fails.
+  - The cases now derive from the constant:
+    - a gap of tol + 0.002 m, above or below the pad, fails `probe_matches_harness` and no other check;
+    - tol − 0.002 m and the smoke's measured 0.0242 m pass.
+  - The constant is pinned at 0.04, with a pointer to this CHARTER.
+- **`test_rt_train_env_is_tdrs_with_exactly_the_planned_changes`** failed on every checkout but this worktree: on CI,
+  and in the main checkout too.
+  - `envs/RT_train.env` records the PYTHONPATH of the worktree it trained in, while `rt_machinery.ADDED_ENV` builds
+    the PYTHONPATH from the checkout's own root.
+  - The content check now runs on a copy of the file re-rooted at the checkout. Two more asserts:
+    - the recorded root must be exactly `<main>/.claude/worktrees/rough-terrain`, appearing twice;
+    - the recorded file must differ from the re-rooted copy in that one line only. In this worktree it must differ
+      in nothing, which is the old check.
+- **No code changed.** `rt_smoke_check.py` and `rt_machinery.py` ran the gate rows and stay as recorded. Only
+  `tests/unit/test_rt_machinery.py` changed. It is outside both hashes: code_sha 89c1916b and eval_sha 9fe964d7 are
+  unchanged.
+- **Review** by workflow `rt-ci-test-fix-review` (wf_df631332-a5b): a fable·high adversarial reader and an opus·high
+  mutation tester.
+  - Both diagnoses were confirmed.
+  - Before the fix, both tests fail at a foreign root and in a main-checkout sandbox. After it, they pass in this
+    worktree, in a CI-faithful sandbox and in a main-checkout sandbox.
+  - Every listed mutation is caught: the tolerance back at 0.02; `dsurf` ignored; a one-sided comparison; a changed
+    planned key; PYTHONPATH at main, at another worktree, or with its entries swapped; an extra non-KRABBY line.
+  - Two survivors were closed: a suffix-only root pin (now exact), and margins too loose to catch a comparison drifting
+    to 0.045 m (now ±0.002 m).
+  - Not covered, and not a regression (the old test never covered them): a missing `surface_under_root_reset`, and
+    `<` vs `<=` at the exact boundary.
+- **Tests:**
+  - `test_rt_machinery.py` passes 51 / 51 locally.
+  - The full local unit suite fails 51 ids: the 52-id baseline minus `test_eval_spawn_check_…`, with nothing new.
+  - CI-faithful simulation of commit B plus this file, merged with main e662191a: 72 ids, the bake's 74 minus exactly
+    these two. Every remaining failure is an import gap of the stand-in venv (`cantools`, `can`, `zmq`, `serial`,
+    `tkinter`, `aiortc`). Real CI's environment has those modules: Unit tests passed on main e662191a.
+  - CI is not called green before a real run.
+- **Nothing is pushed.**

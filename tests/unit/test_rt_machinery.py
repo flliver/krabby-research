@@ -69,9 +69,31 @@ def test_compose_child_env_refusals(tmp_path):
     assert any("already set" in p for p in probs)
 
 
+def _recorded_root(text: str) -> str:
+    """The checkout root an env file was written in: its one PYTHONPATH line has PYTHONPATH_W's shape at that root."""
+    (pp,) = [ln.split("=", 1)[1] for ln in text.splitlines() if ln.startswith("PYTHONPATH=")]
+    first, second = pp.split(":")
+    root = first[: -len("/parkour/parkour_tasks")]
+    assert first == f"{root}/parkour/parkour_tasks" and second == f"{root}/parkour", pp
+    return root
+
+
 def test_rt_train_env_is_tdrs_with_exactly_the_planned_changes(tmp_path):
-    assert M.train_env_problems() == []
+    """RT_train.env records the absolute PYTHONPATH of the campaign worktree it trained in, so another checkout (a CI
+    runner's /home/runner/work/...) cannot reproduce that line. The content check therefore runs on a copy re-rooted
+    at this checkout, and the recorded file itself must differ from it in that line only (in the campaign worktree,
+    in nothing)."""
     text = M.RT_TRAIN_ENV.read_text()
+    recorded = _recorded_root(text)
+    assert recorded == str(M.MAIN / ".claude" / "worktrees" / "rough-terrain") and text.count(recorded) == 2, recorded
+    here = _write(tmp_path / "here.env", text.replace(recorded, str(M.W)))
+    assert M.train_env_problems(here) == []
+    probs = M.train_env_problems()
+    if recorded == str(M.W):
+        assert probs == []
+    else:
+        assert len(probs) == 1 and probs[0].startswith("non-KRABBY lines") and recorded in probs[0], probs
+    text = here.read_text()
     bad = _write(tmp_path / "x.env", text.replace("KRABBY_DR_ROD_SPEED=0.6:1.35\n", "KRABBY_DR_ROD_SPEED=0.6:1.35:12000\n"))
     assert any("KRABBY_DR_ROD_SPEED" in p for p in M.train_env_problems(bad))
     bad = _write(tmp_path / "y.env", text.replace("KRABBY_RT_FRICTION=gravel:0.2:0.5\n", ""))
@@ -631,7 +653,11 @@ def test_eval_row_on_a_synthetic_stamp_and_probe(tmp_path):
 
 def test_eval_spawn_check_refuses_the_root_offset_fallback_and_a_surface_mismatch(tmp_path):
     """The harness's no-mesh fallback (terrain_z = root_z - 1.05, inside 1.085 +- 0.05 by construction) must not
-    pass the spawn check; nor may a stamp whose pad disagrees with the probe's surface under the root at reset."""
+    pass the spawn check; nor may a stamp whose pad disagrees with the probe's surface under the root at reset by more
+    than PROBE_SURFACE_TOL_M. That tolerance is 0.04 m since 4f9ae5fb (CHARTER 2026-11-10 step-5 smoke: the pad's 2 cm
+    roughness put correct builds at 0.0203-0.0242 m), so the mismatch cases straddle it, not the old 0.02 m."""
+    tol = C.PROBE_SURFACE_TOL_M
+    assert tol == 0.04, "the recorded step-5 tolerance (CHARTER 2026-11-10); change it only with a CHARTER entry"
     d = 0.45
     pad = -(0.02 + (0.30 - 0.02) * d)
     row, st, pj = _fake_eval(tmp_path / "ok", pad=pad, d=d)
@@ -645,13 +671,19 @@ def test_eval_spawn_check_refuses_the_root_offset_fallback_and_a_surface_mismatc
     # an older stamp with no terrain_source at all is not a measured surface either
     row, st, pj = _fake_eval(tmp_path / "none", pad=pad, d=d, terrain_source=None)
     assert not C.eval_row(row["id"], row, st, pj, pin=_pin())["checks"]["terrain_mesh"]["pass"]
-    # the probe's own surface under the root at reset disagrees with the stamp's pad by > 0.02 m
-    row, st, pj = _fake_eval(tmp_path / "surf", pad=pad, d=d, surface=pad + 0.03)
+    # the probe's own surface under the root at reset disagrees with the stamp's pad by more than the tolerance ...
+    row, st, pj = _fake_eval(tmp_path / "surf", pad=pad, d=d, surface=pad + tol + 0.002)
     res = C.eval_row(row["id"], row, st, pj, pin=_pin())
     assert not res["pass"] and not res["checks"]["probe_matches_harness"]["pass"]
-    assert abs(res["checks"]["probe_matches_harness"]["envs"][0]["dsurf"] - 0.03) < 1e-9
-    row, st, pj = _fake_eval(tmp_path / "surf_ok", pad=pad, d=d, surface=pad + 0.015)
-    assert C.eval_row(row["id"], row, st, pj, pin=_pin())["pass"]
+    assert abs(res["checks"]["probe_matches_harness"]["envs"][0]["dsurf"] - (tol + 0.002)) < 1e-9
+    assert {k for k, v in res["checks"].items() if not v["pass"]} == {"probe_matches_harness"}
+    # ... in either direction, while a gap inside it (the smoke's measured 0.024 m included) passes; the +-0.002 m
+    # margins also catch the comparison drifting off the pinned constant
+    row, st, pj = _fake_eval(tmp_path / "surf_lo", pad=pad, d=d, surface=pad - tol - 0.002)
+    assert not C.eval_row(row["id"], row, st, pj, pin=_pin())["checks"]["probe_matches_harness"]["pass"]
+    for name, gap in (("surf_ok", tol - 0.002), ("surf_smoke", 0.0242)):
+        row, st, pj = _fake_eval(tmp_path / name, pad=pad, d=d, surface=pad + gap)
+        assert C.eval_row(row["id"], row, st, pj, pin=_pin())["pass"], gap
 
 
 def test_eval_probe_records_the_live_build_before_kit_without_leaking_imports():
