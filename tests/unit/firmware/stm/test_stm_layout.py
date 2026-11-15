@@ -1,0 +1,41 @@
+"""STM tree layout and package surface."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[4]
+STM = REPO_ROOT / "firmware" / "stm"
+
+REQUIRED_PATHS = (
+    STM / "core" / "board.h",
+    STM / "core" / "board_pins.h",
+    STM / "core" / "app.c",
+    STM / "board" / "board_pins_stm32.c",
+    STM / "board" / "can_stm32.c",
+    STM / "board" / "stm32_bringup.c",
+    STM / "board" / "stm32_cubemx_init.c",
+    STM / "board" / "main.c",
+    STM / "sim" / "board_pins_isaac.c",
+    STM / "sim" / "can_sim.c",
+    STM / "cli" / "__init__.py",
+    STM / "codec.py",
+    STM / "mcu_can.py",
+    STM / "scripts",
+)
+
+
+@pytest.mark.parametrize("path", REQUIRED_PATHS, ids=lambda p: p.relative_to(REPO_ROOT).as_posix())
+def test_stm_scaffold_paths_exist(path: Path) -> None:
+    assert path.exists(), path
+
+
+def test_firmware_stm_package_imports() -> None:
+    from firmware.stm import __version__ as v
+    from firmware.stm import hal_joint_names, ids
+
+    assert v
+    assert len(ids.LEG_IDS) == 6 and len(ids.JOINT_IDS) == 3
+    assert len(hal_joint_names.MCU_JOINTS) == 18

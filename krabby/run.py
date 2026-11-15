@@ -15,7 +15,13 @@ import sys
 from typing import Optional
 
 from krabby._docker import fleet_hal_cmd, gamepad_cmd, run_cmd
-from krabby._locomotion_config import build_hal_argv, fleet_enrolled, fleet_volume_mounts, load_config
+from krabby._locomotion_config import (
+    build_gamepad_client_argv,
+    build_hal_argv,
+    fleet_enrolled,
+    fleet_volume_mounts,
+    load_config,
+)
 from krabby._state import installed_image, resolve_image_ref
 
 # Fixed docker --name for every locomotion path (gamepad / fleet / inference).
@@ -68,7 +74,7 @@ def cmd_run(
     enrolled = fleet_enrolled()
 
     if gamepad_only:
-        cmd = gamepad_cmd(ref, extra_args, extra_mounts=extra_mounts)
+        cmd = gamepad_cmd(ref, build_gamepad_client_argv(extra_args), extra_mounts=extra_mounts)
     # Fleet-enrolled (`/etc/krabby/iot/`): HAL + `--teleop-ip` from locomotion.json.
     elif enrolled:
         cfg = load_config()
@@ -78,7 +84,7 @@ def cmd_run(
     elif inference_explicit:
         cmd = run_cmd(ref, extra_args, entrypoint=entrypoint, extra_mounts=extra_mounts)
     else:
-        cmd = gamepad_cmd(ref, extra_args, extra_mounts=extra_mounts)
+        cmd = gamepad_cmd(ref, build_gamepad_client_argv(extra_args), extra_mounts=extra_mounts)
 
     _clear_krabby_container()
     result = subprocess.run(cmd)

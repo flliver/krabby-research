@@ -608,6 +608,13 @@ class TestGamepadCmd:
         assert "--control-source gamepad --robot go2" in script  # server matched to client
         assert cmd[-2:] == ["--robot", "go2"]                    # still forwarded to client via $@
 
+    def test_stm_in_server_and_client_argv(self, monkeypatch):
+        monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
+        cmd = gamepad_cmd("myimage:tag", ["--stm"])
+        script = " ".join(cmd)
+        assert "--control-source gamepad --stm " in script or "--control-source gamepad --stm --observation-bind" in script
+        assert cmd[-1] == "--stm"
+
     def test_no_robot_leaves_server_default(self, monkeypatch):
         monkeypatch.setattr("krabby._docker.platform.machine", lambda: "aarch64")
         assert "--robot" not in " ".join(gamepad_cmd("myimage:tag", []))
@@ -750,6 +757,95 @@ class TestCmdRun:
         )
         assert captured["mode"] == "fleet"
 
+    def test_fleet_enrolled_hal_argv_stm_from_locomotion_config(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+
+        captured: dict[str, object] = {}
+
+        def fake_fleet_hal_cmd(ref, hal_argv, flat_mounts=None, extra_mounts=None):
+            captured.update(mode="fleet", hal_argv=hal_argv)
+
+        def fake_subprocess_run(cmd, **_kwargs):
+            return type("R", (), {"returncode": 0})()
+
+        monkeypatch.setattr("krabby.run.fleet_hal_cmd", fake_fleet_hal_cmd)
+        monkeypatch.setattr("krabby.run.fleet_enrolled", lambda: True)
+        monkeypatch.setattr("krabby.run.gamepad_cmd", lambda *a, **k: ["docker"])
+        monkeypatch.setattr("krabby.run.run_cmd", lambda *a, **k: ["docker"])
+        monkeypatch.setattr("krabby.run.subprocess.run", fake_subprocess_run)
+        monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
+
+        cmd_run(image_ref="img:tag")
+        assert captured["mode"] == "fleet"
+        hal_argv = captured["hal_argv"]
+        assert isinstance(hal_argv, list)
+        assert "--stm" in hal_argv
+
+    def test_fleet_hal_cmd_docker_argv_includes_stm_hal_flag(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+        hal_argv = lc.build_hal_argv([])
+        cmd = fleet_hal_cmd("img:stm", hal_argv)
+        assert "--stm" in cmd
+        assert cmd[-1] == "--stm" or "--stm" in cmd[cmd.index("img:stm") + 1 :]
+
+    def test_gamepad_run_client_argv_stm_from_locomotion_config(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+
+        captured: dict[str, object] = {}
+
+        def fake_gamepad_cmd(ref, extra_args, extra_mounts=None):
+            captured.update(mode="gamepad", extra_args=extra_args)
+
+        def fake_subprocess_run(cmd, **_kwargs):
+            return type("R", (), {"returncode": 0})()
+
+        monkeypatch.setattr("krabby.run.gamepad_cmd", fake_gamepad_cmd)
+        monkeypatch.setattr("krabby.run.fleet_enrolled", lambda: False)
+        monkeypatch.setattr("krabby.run.run_cmd", lambda *a, **k: ["docker"])
+        monkeypatch.setattr("krabby.run.subprocess.run", fake_subprocess_run)
+        monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
+
+        cmd_run(image_ref="img:tag")
+        assert captured["mode"] == "gamepad"
+        assert "--stm" in captured["extra_args"]
+
+    def test_gamepad_only_on_enrolled_host_still_passes_stm_to_client(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+
+        captured: dict[str, object] = {}
+
+        def fake_gamepad_cmd(ref, extra_args, extra_mounts=None):
+            captured.update(extra_args=extra_args)
+
+        monkeypatch.setattr("krabby.run.gamepad_cmd", fake_gamepad_cmd)
+        monkeypatch.setattr("krabby.run.fleet_enrolled", lambda: True)
+        monkeypatch.setattr("krabby.run.fleet_hal_cmd", lambda *a, **k: ["docker"])
+        monkeypatch.setattr("krabby.run.subprocess.run", lambda *a, **k: type("R", (), {"returncode": 0})())
+        monkeypatch.setattr("krabby.run.sys.exit", lambda _code: None)
+
+        cmd_run(image_ref="img:tag", gamepad_only=True)
+        assert "--stm" in captured["extra_args"]
+
 
 class TestFleetHalCmd:
     def test_fleet_hal_cmd_includes_argv(self):
@@ -788,6 +884,55 @@ class TestLocomotionConfig:
         lc.write_config(cfg)
         argv = lc.build_hal_argv(["--teleop-control-echo"])
         assert argv.count("--teleop-control-echo") == 1
+
+    def test_build_hal_argv_stm_from_config(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+        argv = lc.build_hal_argv([])
+        assert argv.count("--stm") == 1
+
+    def test_build_hal_argv_stm_cli_without_duplicate(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+        argv = lc.build_hal_argv(["--stm"])
+        assert argv.count("--stm") == 1
+
+    def test_build_hal_argv_stm_default_off(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        lc.write_config(lc.default_config())
+        argv = lc.build_hal_argv([])
+        assert "--stm" not in argv
+        assert lc.default_config()["stm"] is False
+
+    def test_build_gamepad_client_argv_stm_from_config(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+        argv = lc.build_gamepad_client_argv(["--device-id", "0"])
+        assert argv == ["--device-id", "0", "--stm"]
+
+    def test_build_gamepad_client_argv_stm_cli_without_duplicate(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["stm"] = True
+        lc.write_config(cfg)
+        argv = lc.build_gamepad_client_argv(["--stm", "--device-id", "0"])
+        assert argv.count("--stm") == 1
 
     def test_fleet_enrolled_via_locomotion_json(self, tmp_path, monkeypatch):
         import krabby._locomotion_config as lc

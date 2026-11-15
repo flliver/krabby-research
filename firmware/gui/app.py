@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox, simpledialog, ttk
 import threading
 import time
 from typing import Dict, Optional
@@ -281,18 +281,38 @@ class BattRow:
             self._lbl[name].configure(foreground=colour)
 
 
+def create_mcu_sdk(
+    *,
+    stm: bool = False,
+    virtual: bool = False,
+    target: McuSerialTarget | None = None,
+    baud: int = DEFAULT_BAUD,
+):
+    if stm:
+        from firmware.gui.stm_adapter import KrabbyStmGuiAdapter
+
+        return KrabbyStmGuiAdapter(virtual=virtual)
+    return KrabbyMCUSDK(target=target, baud=baud)
+
+
 class KrabbyTestGUI(tk.Tk):
     def __init__(
         self,
         target: McuSerialTarget | None = None,
         baud: int = DEFAULT_BAUD,
+        *,
+        stm: bool = False,
+        virtual: bool = False,
     ):
         super().__init__()
         self.title("Krabby MCU Test")
         self.resizable(True, True)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self._mcu = KrabbyMCUSDK(target=target, baud=baud)
+        self._stm = stm
+        self._mcu = create_mcu_sdk(
+            stm=stm, virtual=virtual, target=target, baud=baud
+        )
         self._joint_rows: Dict[str, JointRow] = {}
         self._connected = False
 
@@ -317,9 +337,10 @@ class KrabbyTestGUI(tk.Tk):
         ttk.Button(btn_frame, text="Hold All", command=self._hold_all).pack(
             side="left", padx=4
         )
-        ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(
-            side="left", padx=4
-        )
+        if not self._stm:
+            ttk.Button(btn_frame, text="Neutral (0.5)", command=self._neutral).pack(
+                side="left", padx=4
+            )
         ttk.Button(btn_frame, text="Calibrate", command=self._calibrate).pack(
             side="left", padx=4
         )
@@ -394,16 +415,19 @@ class KrabbyTestGUI(tk.Tk):
         self._imu_row.update(self._mcu.imu)
         self._batt_row.update(self._mcu.battery, now)
 
-        now = time.time()
-        fresh = {
-            role
-            for role, ts in self._mcu.role_last_seen.items()
-            if now - ts < ROLE_STALE_S
-        }
-        leader = next((r for r in ("FRONT", "UNKWN") if r in fresh), "---")
-        self._role_var.set(
-            f"Role: {leader}  left={'LEFT' in fresh}  right={'RIGHT' in fresh}"
-        )
+        if self._stm:
+            self._role_var.set("Role: STM CAN (6 legs)")
+        else:
+            now = time.time()
+            fresh = {
+                role
+                for role, ts in self._mcu.role_last_seen.items()
+                if now - ts < ROLE_STALE_S
+            }
+            leader = next((r for r in ("FRONT", "UNKWN") if r in fresh), "---")
+            self._role_var.set(
+                f"Role: {leader}  left={'LEFT' in fresh}  right={'RIGHT' in fresh}"
+            )
 
         if self._mcu.last_error:
             self._status_var.set(f"Error: {self._mcu.last_error}")
@@ -438,6 +462,33 @@ class KrabbyTestGUI(tk.Tk):
 
     def _calibrate(self):
         if not self._connected:
+            return
+        if self._stm:
+            joint_name = simpledialog.askstring(
+                "Calibrate",
+                "Joint name (e.g. FLHL for hip pitch, FLKL for knee):",
+                parent=self,
+            )
+            if not joint_name:
+                return
+            joint_name = joint_name.strip().upper()
+            if joint_name not in self._joint_rows:
+                messagebox.showerror(
+                    "Calibrate",
+                    f"Unknown joint {joint_name!r}. Use names like FLHY, FLHL, FLKL.",
+                    parent=self,
+                )
+                return
+            try:
+                self._mcu.send_calibration_for_joint(joint_name)
+            except ValueError as exc:
+                messagebox.showerror("Calibrate", str(exc), parent=self)
+                return
+            messagebox.showinfo(
+                "Calibrate",
+                f"Sent calibrate for {joint_name} (stall on joints 2-3 only).",
+                parent=self,
+            )
             return
         if messagebox.askyesno(
             "Calibrate", "This will move ALL limbs to find limits. Continue?"

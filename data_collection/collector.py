@@ -25,7 +25,9 @@ from data_collection.serialization import (
 )
 from hal.client.client import HalClient
 from hal.client.config import HalClientConfig
-from hal.server.rgbd_recording_catalog import hal_rgbd_catalog_ids_for_recording
+from hal.server.rgbd_recording_catalog import (
+    hal_rgbd_catalog_channels_for_recording,
+)
 
 _STATE_TOPICS = frozenset(
     {JOINTS_STATE_TOPIC, JOINTS_COMMAND_TOPIC, IMU_TOPIC, BASE_TWIST_TOPIC}
@@ -37,12 +39,12 @@ logger = logging.getLogger(__name__)
 def _topic_msgtype_catalog(cfg: DataCollectorConfig) -> list[tuple[str, str]]:
     """Static (topic, msgtype) pairs registered at bag open.
 
-    Catalog camera names come from ``hal_rgbd_catalog_ids_for_recording()``; per-observation
-    writes still only emit keys present in ``rgbd_by_catalog_id``.
+    Catalog camera channels come from ``hal_rgbd_catalog_channels_for_recording()``;
+    per-observation writes still only emit keys present in ``rgbd_by_catalog_id``.
     """
     t = cfg.topics
     pairs: list[tuple[str, str]] = list(
-        catalog_camera_topic_msgtypes(hal_rgbd_catalog_ids_for_recording())
+        catalog_camera_topic_msgtypes(hal_rgbd_catalog_channels_for_recording())
     )
     if t.joints_state:
         pairs.append((JOINTS_STATE_TOPIC, JOINT_STATE_MSGTYPE))

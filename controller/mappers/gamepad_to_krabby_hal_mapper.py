@@ -42,10 +42,12 @@ LEG_TO_JOINT_INDICES: Dict[LegIdentifier, tuple[int, int, int]] = _leg_joint_ind
     KRABBY_HEX_DEFINITION
 )
 
-# Output at full stick. The HAL MCU layer jogs at PWM = rad * 255 / 0.5, so 0.5 is full power.
+# Output at full stick. Mega serial HAL jogs at PWM = rad * 255 / 0.5, so 0.5 is full power.
+# STM CAN HAL expects duty in [-1, 1]; use stm=True for 1.0 at full stick.
 DEFAULT_HIP_UP_DOWN_SCALE = 0.5
 DEFAULT_KNEE_OUT_IN_SCALE = 0.5
 DEFAULT_HIP_YAW_SCALE = 0.5
+STM_DUTY_SCALE = 1.0
 # 1 = linear. Higher keeps joints slow over more of the stick travel; full stick is unchanged.
 DEFAULT_STICK_CURVE_EXPONENT = 4.0
 
@@ -66,7 +68,18 @@ class GamepadToKrabbyHALMapper:
         *,
         stick_curve_exponent: float = DEFAULT_STICK_CURVE_EXPONENT,
         robot_definition: Optional[RobotDefinition] = None,
+        stm: bool = False,
     ):
+        if stm:
+            if hip_up_down_scale == DEFAULT_HIP_UP_DOWN_SCALE:
+                hip_up_down_scale = STM_DUTY_SCALE
+            if knee_out_in_scale == DEFAULT_KNEE_OUT_IN_SCALE:
+                knee_out_in_scale = STM_DUTY_SCALE
+            if hip_yaw_scale == DEFAULT_HIP_YAW_SCALE:
+                hip_yaw_scale = STM_DUTY_SCALE
+            # Mega path uses a strong stick curve for fine rad control; STM duty should track stick linearly.
+            if stick_curve_exponent == DEFAULT_STICK_CURVE_EXPONENT:
+                stick_curve_exponent = 1.0
         self.hip_up_down_scale = hip_up_down_scale
         self.knee_out_in_scale = knee_out_in_scale
         self.hip_yaw_scale = hip_yaw_scale

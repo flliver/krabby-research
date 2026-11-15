@@ -1,0 +1,72 @@
+{
+  "PWM": {
+    "timer": "TIM1",
+    "channels": {
+      "M1": "CH1 PA8 AF6",
+      "M2": "CH2 PA9 AF6",
+      "M3": "CH3 PA10 AF6"
+    },
+    "startup": "MOE=0 / output disabled; CCR=0; nSLEEP=0",
+    "driver_interface": "DRV8262 single-bridge PH/EN; IN1 pin41=EN (PWM), IN2 pin40=PH (direction). PWM=0 while awake commands brake, not coast. nSLEEP=0 makes H-bridge Hi-Z."
+  },
+  "encoders": {
+    "M1": {
+      "timer": "TIM2",
+      "A": "CH1 PA5 AF1",
+      "B": "CH2 PB3 AF1"
+    },
+    "M2": {
+      "timer": "TIM8",
+      "A": "CH2 PC7 AF4",
+      "B": "CH1 PC6 AF4",
+      "note": "A/B swapped compared with CH1/CH2"
+    },
+    "M3": {
+      "timer": "TIM5",
+      "A": "CH1 PB2 AF2",
+      "B": "CH2 PC12 AF1"
+    }
+  },
+  "ADC": {
+    "ADC1": {
+      "PC0": "IN6 board NTC",
+      "PA0": "IN1 M1 IPROPI",
+      "PA1": "IN2 M2 IPROPI",
+      "PA2": "IN3 M3 IPROPI"
+    },
+    "ADC2": {
+      "PA6": "IN3 USB VBUS monitor",
+      "PA7": "IN4 M1 pot",
+      "PC4": "IN5 M2 pot",
+      "PC5": "IN11 M3 pot"
+    }
+  },
+  "FDCAN2": {
+    "RX": "PB12 AF9",
+    "TX": "PB13 AF9"
+  },
+  "I2C1": {
+    "SCL": "PA15 AF4",
+    "SDA": "PB7 AF4",
+    "device": "U13 DAC7574",
+    "DAC7574_7bit_address": "0x4C (A1=A0=GND)",
+    "DAC7574_outputs": {
+      "A": "M1_VREF_DAC",
+      "B": "M2_VREF_DAC",
+      "C": "M3_VREF_DAC",
+      "D": "unconnected"
+    }
+  },
+  "USB_FS": {
+    "DM": "PA11",
+    "DP": "PA12",
+    "clock": "48MHz USB clock must be generated / validated"
+  },
+  "HSE": {
+    "frequency_Hz": 8000000,
+    "pins": [
+      "PF0",
+      "PF1"
+    ]
+  }
+}

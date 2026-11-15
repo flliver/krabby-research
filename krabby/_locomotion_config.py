@@ -55,6 +55,7 @@ def default_config() -> dict[str, Any]:
         "checkpoint_host_dir": None,
         "zed_resources_host": None,
         "zed_settings_host": None,
+        "stm": False,
     }
 
 
@@ -158,17 +159,31 @@ def build_hal_argv(extra_args: list[str]) -> list[str]:
     if _has_flag(extra_args, echo_flag) or bool(cfg.get("teleop_control_echo")):
         argv.append(echo_flag)
 
-    skip = {"--control-source", "--robot", "--checkpoint", "--teleop-ip", echo_flag}
+    stm_flag = "--stm"
+    if _has_flag(extra_args, stm_flag) or bool(cfg.get("stm")):
+        argv.append(stm_flag)
+
+    skip = {"--control-source", "--robot", "--checkpoint", "--teleop-ip", echo_flag, stm_flag}
     passthrough: list[str] = []
     i = 0
     while i < len(extra_args):
         a = extra_args[i]
         if a in skip:
-            i += 2 if a != echo_flag else 1
+            i += 2 if a not in (echo_flag, stm_flag) else 1
             continue
         passthrough.append(a)
         i += 1
     return argv + passthrough
+
+
+def build_gamepad_client_argv(extra_args: list[str]) -> list[str]:
+    """Argv for krabby-uno in the gamepad docker stack (locomotion.json + CLI)."""
+    cfg = load_config()
+    stm_flag = "--stm"
+    argv = list(extra_args)
+    if (_has_flag(extra_args, stm_flag) or bool(cfg.get("stm"))) and not _has_flag(argv, stm_flag):
+        argv.append(stm_flag)
+    return argv
 
 
 def fleet_volume_mounts(cfg: dict[str, Any] | None = None) -> list[str]:

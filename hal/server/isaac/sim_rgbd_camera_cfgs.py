@@ -1,21 +1,21 @@
-"""Simulated ZED (front) + MaixSense-style side RGB-D cameras on a robot link.
+"""Simulated front RGB-D + SEN0581-spec ToF depth cameras on a robot link.
 
 Used by ``hal.server.isaac.main`` to attach sensors to an env scene cfg **without** modifying
 task packages under ``parkour/``. Imports ``quat_from_euler_xyz_tuple`` from
 ``parkour_tasks.default_cfg`` only (pose convention matches parkour).
 
-Scene sensor names match Jetson catalog ids: ``side_right_*`` / ``side_left_*`` →
-``side_right_rgbd`` / ``side_left_rgbd`` in ``IsaacSensorInterface``.
+Scene sensor names match catalog ids: ``front_rgb`` / ``front_camera`` → ``front_rgbd``;
+``belly_left_tof`` / ``belly_right_tof`` / ``rear_tof`` → depth-only rows in
+``IsaacSensorInterface``.
 
 Depth uses Isaac Lab **pinhole** ``CameraCfg`` (Replicator / RTX), not ``RayCasterCameraCfg``.
 Ray-cast depth only intersects static ``mesh_prim_paths`` (parkour uses ``/World/ground`` alone),
-which does not match pinhole RGB scene content (robot, props, full terrain).
+which does not show the robot body; ToF cameras exist to watch the legs, so they render.
 """
 
 from __future__ import annotations
 
 import math
-
 import numpy as np
 import torch
 
@@ -25,9 +25,9 @@ from isaaclab.sensors import CameraCfg
 from hal.server.isaac.sim_depth_ranges import (
     ISAAC_FRONT_DEPTH_CLIP_M,
     ISAAC_FRONT_RGB_CLIP_M,
-    ISAAC_SIDE_DEPTH_CLIP_M,
-    ISAAC_SIDE_RGB_CLIP_M,
+    ISAAC_TOF_DEPTH_CLIP_M,
 )
+from hal.server.isaac.sim_hal_camera_entries import SIM_HAL_CAMERA_ENTRIES
 from parkour_tasks.default_cfg import quat_from_euler_xyz_tuple
 
 _FRONT_POS = (0.33, 0.0, 0.08)
@@ -40,6 +40,45 @@ _FRONT_RGB_HEIGHT = 480
 _FRONT_RGB_WIDTH = 640
 _FRONT_RGB_FOCAL_LENGTH = 24.0
 _FRONT_RGB_HORIZONTAL_APERTURE = 20.955
+
+# SEN0581: 100x100, 20 fps, 70° H x 60° V, depth 0.15–1.5 m.
+_TOF_HEIGHT = 100
+_TOF_WIDTH = 100
+_TOF_FOCAL_LENGTH = 24.0
+# aperture = 2 * f * tan(FOV/2); set H and V explicitly (pixel grid is square, FOV is not).
+_TOF_HORIZONTAL_APERTURE = 2.0 * _TOF_FOCAL_LENGTH * math.tan(math.radians(70.0) / 2.0)
+_TOF_VERTICAL_APERTURE = 2.0 * _TOF_FOCAL_LENGTH * math.tan(math.radians(60.0) / 2.0)
+
+# --- Belly / rear ToF poses (body frame; ROS base_link: +X forward, +Y left, +Z up) ---
+# Hex mounts (canonical / ``sim_hal_camera_entries``): wide belly plates from crab_hex_dimensions.
+_HEX_BELLY_RIGHT_POS = (-0.14605, -0.5496, -0.19375)
+_HEX_BELLY_LEFT_POS = (-0.14605, 0.5496, -0.19375)
+_HEX_REAR_TOF_POS = (-0.3556, 0.0, -0.15875)
+# Go2 smoke mounts: hex Y/Z hang outside a narrow Go2 and sit so close to the ground that
+# left FOV often clips to 1.5 m (empty / under SEN0581 near range) on parkour terrain.
+_GO2_BELLY_RIGHT_POS = (-0.05, -0.12, -0.05)
+_GO2_BELLY_LEFT_POS = (-0.05, 0.12, -0.05)
+_GO2_REAR_TOF_POS = (-0.22, 0.0, -0.05)
+# Keep aliases for callers/tests that imported the hex names.
+_BELLY_RIGHT_POS = _HEX_BELLY_RIGHT_POS
+_BELLY_LEFT_POS = _HEX_BELLY_LEFT_POS
+_REAR_TOF_POS = _HEX_REAR_TOF_POS
+# Aim: 55° down, yaw 15° toward front (+X), facing outward (±Y).
+_BELLY_PITCH_DOWN_DEG = 55.0
+_BELLY_YAW_TOWARD_FRONT_DEG = 15.0
+_REAR_PITCH_DOWN_DEG = 45.0
+
+
+def _tof_mount_positions(link_name: str) -> tuple[
+    tuple[float, float, float],
+    tuple[float, float, float],
+    tuple[float, float, float],
+]:
+    """Return ``(belly_right, belly_left, rear)`` body-frame mounts for ``link_name``."""
+
+    if link_name in ("base", "trunk"):
+        return _GO2_BELLY_RIGHT_POS, _GO2_BELLY_LEFT_POS, _GO2_REAR_TOF_POS
+    return _HEX_BELLY_RIGHT_POS, _HEX_BELLY_LEFT_POS, _HEX_REAR_TOF_POS
 
 
 def front_raycast_pattern_matching_rgb():
@@ -61,16 +100,9 @@ def front_raycast_pattern_matching_rgb():
 
 
 def side_raycast_pattern_matching_rgb():
-    """Same pinhole intrinsics/resolution as front RGB for side flank cameras."""
+    """Legacy alias: same pinhole intrinsics/resolution as front RGB."""
 
     return front_raycast_pattern_matching_rgb()
-
-# Right flank (~ body −Y, ROS base_link: X forward, Y left). Left flank mirrors across Y at +0.08 m.
-# Side optical axis matches the front camera tilt, then yaws ±90° about body +Z (right: +X → −Y;
-# left: +X → +Y). Front Euler (180°, pitch ≈70°, ψ) is near gimbal lock, so ψ barely moves the
-# optic axis; compose a fixed body yaw with the front rotation matrix instead of a second Euler triple.
-_SIDE_RIGHT_POS = (0.0, -0.08, 0.12)
-_SIDE_LEFT_POS = (0.0, 0.08, 0.12)
 
 
 def _ros_offset_rot_from_euler_deg(euler_deg: tuple[float, float, float]) -> tuple[float, ...]:
@@ -127,23 +159,57 @@ def _quat_ros_wxyz_from_rotmat(R: np.ndarray) -> tuple[float, float, float, floa
     return (float(q[0]), float(q[1]), float(q[2]), float(q[3]))
 
 
-def _side_ros_offset_rot_from_front(*, yaw_deg: float) -> tuple[float, ...]:
-    q_front = _ros_offset_rot_from_euler_deg(_FRONT_EULER_DEG)
-    r_front = _rotmat_camera_from_quat_ros_wxyz(q_front)
+def _yaw_about_body_z(r_cam: np.ndarray, yaw_deg: float) -> np.ndarray:
     yaw = math.radians(yaw_deg)
     c, s = math.cos(yaw), math.sin(yaw)
     rz = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]], dtype=np.float64)
-    r_side = rz @ r_front
-    return _quat_ros_wxyz_from_rotmat(r_side)
+    return rz @ r_cam
 
 
-def _pinhole_spawn_cfg(*, clipping_range: tuple[float, float]) -> sim_utils.PinholeCameraCfg:
-    return sim_utils.PinholeCameraCfg(
-        focal_length=_FRONT_RGB_FOCAL_LENGTH,
-        focus_distance=400.0,
-        horizontal_aperture=_FRONT_RGB_HORIZONTAL_APERTURE,
-        clipping_range=clipping_range,
+def _belly_tof_rot(*, outward_yaw_deg: float) -> tuple[float, ...]:
+    """Belly ToF: face outward (±Y), pitch down, yaw slightly toward front (+X).
+
+    ``outward_yaw_deg`` is body yaw of the optical axis from +X: −90° for right (−Y),
+    +90° for left (+Y). Then apply pitch-down via the front-like Euler base and an
+    additional yaw toward +X (front) of ``_BELLY_YAW_TOWARD_FRONT_DEG``.
+    """
+    # Base: look along +X with pitch down (reuse front optical tilt family), then yaw.
+    # Front Euler (180, pitch, −90) maps roughly forward-down; compose body yaw for outward.
+    pitch = 90.0 - _BELLY_PITCH_DOWN_DEG  # 55° down → pitch ≈ 35° in front-style Euler
+    q_base = _ros_offset_rot_from_euler_deg((180.0, pitch, -90.0))
+    r_base = _rotmat_camera_from_quat_ros_wxyz(q_base)
+    # Yaw outward (±90), then 15° toward front (+X) on both sides:
+    # right −90 → −75; left +90 → +75. (Old left path used +105 = rearward.)
+    yaw = outward_yaw_deg - math.copysign(
+        _BELLY_YAW_TOWARD_FRONT_DEG, outward_yaw_deg
     )
+    return _quat_ros_wxyz_from_rotmat(_yaw_about_body_z(r_base, yaw))
+
+
+def _rear_tof_rot() -> tuple[float, ...]:
+    """Rear ToF: optical axis rearward (−X), pitched ``_REAR_PITCH_DOWN_DEG`` down."""
+    pitch = 90.0 - _REAR_PITCH_DOWN_DEG
+    q_base = _ros_offset_rot_from_euler_deg((180.0, pitch, -90.0))
+    r_base = _rotmat_camera_from_quat_ros_wxyz(q_base)
+    return _quat_ros_wxyz_from_rotmat(_yaw_about_body_z(r_base, 180.0))
+
+
+def _pinhole_spawn_cfg(
+    *,
+    clipping_range: tuple[float, float],
+    focal_length: float = _FRONT_RGB_FOCAL_LENGTH,
+    horizontal_aperture: float = _FRONT_RGB_HORIZONTAL_APERTURE,
+    vertical_aperture: float | None = None,
+) -> sim_utils.PinholeCameraCfg:
+    kwargs: dict = {
+        "focal_length": focal_length,
+        "focus_distance": 400.0,
+        "horizontal_aperture": horizontal_aperture,
+        "clipping_range": clipping_range,
+    }
+    if vertical_aperture is not None:
+        kwargs["vertical_aperture"] = vertical_aperture
+    return sim_utils.PinholeCameraCfg(**kwargs)
 
 
 def _pinhole_rgb_cfg(
@@ -178,15 +244,25 @@ def _pinhole_depth_cfg(
     pos: tuple[float, float, float],
     rot: tuple[float, ...],
     clipping_range: tuple[float, float],
+    height: int = _FRONT_RGB_HEIGHT,
+    width: int = _FRONT_RGB_WIDTH,
+    focal_length: float = _FRONT_RGB_FOCAL_LENGTH,
+    horizontal_aperture: float = _FRONT_RGB_HORIZONTAL_APERTURE,
+    vertical_aperture: float | None = None,
 ) -> CameraCfg:
-    """RTX depth at the same pose/intrinsics as the matching ``*_rgb`` pinhole."""
+    """RTX depth pinhole (front uses RGB-matched intrinsics; ToF uses SEN0581 FOV)."""
 
     return CameraCfg(
         prim_path=f"{base}/{prim_suffix}",
-        height=_FRONT_RGB_HEIGHT,
-        width=_FRONT_RGB_WIDTH,
+        height=height,
+        width=width,
         data_types=["distance_to_camera"],
-        spawn=_pinhole_spawn_cfg(clipping_range=clipping_range),
+        spawn=_pinhole_spawn_cfg(
+            clipping_range=clipping_range,
+            focal_length=focal_length,
+            horizontal_aperture=horizontal_aperture,
+            vertical_aperture=vertical_aperture,
+        ),
         offset=CameraCfg.OffsetCfg(
             pos=pos,
             rot=rot,
@@ -198,99 +274,93 @@ def _pinhole_depth_cfg(
     )
 
 
-def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> tuple[
-    CameraCfg,
-    CameraCfg,
-    CameraCfg,
-    CameraCfg,
-    CameraCfg,
-    CameraCfg,
-]:
-    """Return front + side-right + side-left RGB-D configs for HAL catalog wiring.
+def _tof_depth_cfg(
+    *,
+    base: str,
+    prim_suffix: str,
+    pos: tuple[float, float, float],
+    rot: tuple[float, ...],
+) -> CameraCfg:
+    return _pinhole_depth_cfg(
+        base=base,
+        prim_suffix=prim_suffix,
+        pos=pos,
+        rot=rot,
+        clipping_range=ISAAC_TOF_DEPTH_CLIP_M,
+        height=_TOF_HEIGHT,
+        width=_TOF_WIDTH,
+        focal_length=_TOF_FOCAL_LENGTH,
+        horizontal_aperture=_TOF_HORIZONTAL_APERTURE,
+        vertical_aperture=_TOF_VERTICAL_APERTURE,
+    )
 
-    Order: ``front_camera``, ``front_rgb``, ``side_right_camera``, ``side_right_rgb``,
-    ``side_left_camera``, ``side_left_rgb``.
 
-    ``*_camera`` sensors are pinhole depth; ``*_rgb`` are pinhole RGB. Pairs share pose and
-    intrinsics so teleop depth matches the RGB render (same scene, same FOV).
-    """
+def sim_hal_camera_cfgs_for_robot_link(link_name: str) -> dict[str, CameraCfg]:
+    """Return scene attribute name → ``CameraCfg`` for all ``SIM_HAL_CAMERA_ENTRIES``."""
 
     base = f"{{ENV_REGEX_NS}}/Robot/{link_name}"
-
     front_rot = _ros_offset_rot_from_euler_deg(_FRONT_EULER_DEG)
+    belly_right_pos, belly_left_pos, rear_pos = _tof_mount_positions(link_name)
+    cfgs: dict[str, CameraCfg] = {
+        "front_camera": _pinhole_depth_cfg(
+            base=base,
+            prim_suffix="front_camera",
+            pos=_FRONT_POS,
+            rot=front_rot,
+            clipping_range=ISAAC_FRONT_DEPTH_CLIP_M,
+        ),
+        "front_rgb": _pinhole_rgb_cfg(
+            base=base,
+            prim_suffix="front_rgb",
+            pos=_FRONT_POS,
+            rot=front_rot,
+            clipping_range=ISAAC_FRONT_RGB_CLIP_M,
+        ),
+        "belly_right_tof": _tof_depth_cfg(
+            base=base,
+            prim_suffix="belly_right_tof",
+            pos=belly_right_pos,
+            rot=_belly_tof_rot(outward_yaw_deg=-90.0),
+        ),
+        "belly_left_tof": _tof_depth_cfg(
+            base=base,
+            prim_suffix="belly_left_tof",
+            pos=belly_left_pos,
+            rot=_belly_tof_rot(outward_yaw_deg=90.0),
+        ),
+        "rear_tof": _tof_depth_cfg(
+            base=base,
+            prim_suffix="rear_tof",
+            pos=rear_pos,
+            rot=_rear_tof_rot(),
+        ),
+    }
+    return cfgs
 
-    front_camera = _pinhole_depth_cfg(
-        base=base,
-        prim_suffix="front_camera",
-        pos=_FRONT_POS,
-        rot=front_rot,
-        clipping_range=ISAAC_FRONT_DEPTH_CLIP_M,
-    )
 
-    front_rgb = _pinhole_rgb_cfg(
-        base=base,
-        prim_suffix="front_rgb",
-        pos=_FRONT_POS,
-        rot=front_rot,
-        clipping_range=ISAAC_FRONT_RGB_CLIP_M,
-    )
+def sim_rgbd_camera_cfgs_for_robot_link(link_name: str) -> dict[str, CameraCfg]:
+    """Alias for ``sim_hal_camera_cfgs_for_robot_link`` (historical name)."""
 
-    side_right_rot = _side_ros_offset_rot_from_front(yaw_deg=-90.0)
-    side_left_rot = _side_ros_offset_rot_from_front(yaw_deg=90.0)
-
-    side_right_camera = _pinhole_depth_cfg(
-        base=base,
-        prim_suffix="side_right_camera",
-        pos=_SIDE_RIGHT_POS,
-        rot=side_right_rot,
-        clipping_range=ISAAC_SIDE_DEPTH_CLIP_M,
-    )
-    side_right_rgb = _pinhole_rgb_cfg(
-        base=base,
-        prim_suffix="side_right_rgb",
-        pos=_SIDE_RIGHT_POS,
-        rot=side_right_rot,
-        clipping_range=ISAAC_SIDE_RGB_CLIP_M,
-    )
-    side_left_camera = _pinhole_depth_cfg(
-        base=base,
-        prim_suffix="side_left_camera",
-        pos=_SIDE_LEFT_POS,
-        rot=side_left_rot,
-        clipping_range=ISAAC_SIDE_DEPTH_CLIP_M,
-    )
-    side_left_rgb = _pinhole_rgb_cfg(
-        base=base,
-        prim_suffix="side_left_rgb",
-        pos=_SIDE_LEFT_POS,
-        rot=side_left_rot,
-        clipping_range=ISAAC_SIDE_RGB_CLIP_M,
-    )
-
-    return (
-        front_camera,
-        front_rgb,
-        side_right_camera,
-        side_right_rgb,
-        side_left_camera,
-        side_left_rgb,
-    )
+    return sim_hal_camera_cfgs_for_robot_link(link_name)
 
 
 def attach_sim_rgbd_sensors_to_scene_cfg(scene_cfg, robot_link: str) -> None:
-    """Mutate ``scene_cfg`` with HAL-facing sensor names matching Jetson catalog ids."""
+    """Mutate ``scene_cfg`` with HAL-facing sensor names matching catalog ids."""
 
-    (
-        fc,
-        fr,
-        src,
-        srr,
-        slc,
-        slr,
-    ) = sim_rgbd_camera_cfgs_for_robot_link(robot_link)
-    scene_cfg.front_camera = fc
-    scene_cfg.front_rgb = fr
-    scene_cfg.side_right_camera = src
-    scene_cfg.side_right_rgb = srr
-    scene_cfg.side_left_camera = slc
-    scene_cfg.side_left_rgb = slr
+    cfgs = sim_hal_camera_cfgs_for_robot_link(robot_link)
+    for attr, cfg in cfgs.items():
+        setattr(scene_cfg, attr, cfg)
+
+
+def apply_sim_hal_camera_update_periods(scene_cfg, *, control_dt: float) -> None:
+    """Set each HAL camera's ``update_period`` from ``SIM_HAL_CAMERA_ENTRIES`` fps."""
+
+    for entry in SIM_HAL_CAMERA_ENTRIES:
+        period = 1.0 / float(entry.fps) if entry.fps > 0.0 else control_dt
+        depth_sensor = getattr(scene_cfg, entry.depth_attr, None)
+        if depth_sensor is not None:
+            depth_sensor.update_period = period
+        if entry.rgb_attr is not None:
+            rgb_sensor = getattr(scene_cfg, entry.rgb_attr, None)
+            if rgb_sensor is not None:
+                rgb_sensor.update_period = period

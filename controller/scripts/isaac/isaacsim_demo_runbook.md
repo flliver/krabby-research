@@ -73,6 +73,66 @@ The Isaac Sim HAL server must run in an environment where **Isaac Sim** and **Is
 
 In joystick mode the viewport camera is set closer to the robot (eye 0, 1.2, 0.8) so the robot is clearly visible. Move the joystick to confirm joints in the sim.
 
+## Fullsim STM CAN gamepad (hex)
+
+Use this when the HAL should drive **virtual STM leg boards** on **`vcan0`** (duty on the wire) instead of the Mega three-board host bridge.
+
+1. Build the STM host library: `make -C firmware host-stm`
+2. Bring up **`vcan0`**: `firmware/stm/scripts/vcan0-lifecycle.sh up` (teardown: `... down`, or wrap the HAL command with `... run --`)
+3. Start HAL with **`--firmware-transport can`** (requires **`--backend fullsim`**, which `--hexapod` adds):
+
+   ```bash
+   export KRABBY_ISAAC_DEV_MOUNTS=1
+   firmware/stm/scripts/vcan0-lifecycle.sh run -- \
+     ./scripts/run_isaac_hal_server.sh --hexapod --headless --firmware-transport can
+   ```
+   Add **`--debug`** before `--hexapod` when you need per-command HAL ZMQ logs; for CAN fullsim hangs, default INFO logs include `CAN fullsim: entering MCU apply_command` vs `MCU apply_command returned` and `Joystick: apply_command returned` (see `hal/server/isaac/hal_server.py`).
+
+4. Optional bus watch while jogging. Most frames are telemetry (`0x201`-`0x206`); filter SetDuty (arbitration id **0x100**):
+
+   ```bash
+   candump vcan0,100:7FF -L
+   ```
+
+5. Start the client with **`--stm`** so values are **duty** on the wire (not Isaac incremental rad). The HAL does not read the gamepad; only this client does. With **`--stm`**, mapper scales default to **1.0** (full stick -> **+-1.0** duty), matching Jetson `krabby-uno --stm`. Without **`--stm`**, defaults stay **0.3 / 0.3 / 0.2** rad for the Isaac incremental mapper.
+
+   ```bash
+   .venv/bin/python -m controller.cli.cli_uno_sim \
+     --hex \
+     --stm \
+     --observation_endpoint tcp://127.0.0.1:5555 \
+     --command_endpoint tcp://127.0.0.1:5556 \
+     --rate 50 \
+     --connection-timeout 15 \
+     --gamepad-wait 600
+   ```
+
+   Hold a leg (e.g. **LT** = FL), move the left stick. HAL INFO logs include `CAN fullsim: ... last max |duty|=...` while commands flow.
+
+6. Without a physical gamepad: `vcan0` up, `RUN_FIRMWARE_ISAAC=1`, then  
+   `pytest tests/integration/firmware/test_hal_fullsim_can_teleop_e2e.py`.
+
+## Fullsim STM CAN model (hex, in-process policy)
+
+Hex fullsim with **`--firmware-transport can`** on **`vcan0`**, but **no** `krabby-uno-sim` and **no** `--joystick`. `hal.server.isaac.main` runs `ParkourInferenceClient` in-process; when `--firmware-transport can`, the model mapper uses **`stm=True`** (duty **[-1, 1]**).
+
+1. Prerequisites: `make -C firmware host-stm`, `vcan0` (`firmware/stm/scripts/vcan0-lifecycle.sh`), and `export KRABBY_ISAAC_DEV_MOUNTS=1` when using dev bind-mounts.
+2. **18-joint hex checkpoint** accessible inside the container (e.g. under `/workspace/parkour/logs/rsl_rl/...` when `parkour/` is dev-mounted). The image does not bundle a hex policy.
+3. Optional: `candump vcan0,100:7FF -L` on the host.
+4. Single HAL terminal (do **not** pass `--joystick`; pass **`--checkpoint`**):
+
+   ```bash
+   export KRABBY_ISAAC_DEV_MOUNTS=1
+   firmware/stm/scripts/vcan0-lifecycle.sh run -- \
+     ./scripts/run_isaac_hal_server.sh --hexapod --headless \
+     --firmware-transport can \
+     --checkpoint /workspace/parkour/logs/rsl_rl/<your_run>/model_XXXX.pt
+   ```
+
+   Expect logs: `Parkour inference client initialized`, then stepping with `CAN fullsim: ... last max |duty|=...` when the policy commands joints. No `Client connected` / ZMQ gamepad lines.
+
+5. To force gamepad mode even on hex, use the gamepad section (`--joystick` or default `run_isaac_hal_server.sh --hexapod` with no `--checkpoint`).
+
 ## Where to see logs
 
 - **Server (Docker):** The terminal where you ran `./scripts/run_isaac_hal_server.sh` **is** the Docker container’s logs (stdout/stderr). You don’t need a separate command to “see Docker logs.” Add `--debug` to that script to get per-command debug lines on the server.
@@ -161,4 +221,4 @@ Scaling is the same for both Jetson and IsaacSim by default (same feel on hardwa
 - **Knee out/in:** 0.3 rad per unit stick
 - **Hip yaw:** 0.2 rad per unit stick
 
-Jetson: defined in `controller/mappers/gamepad_to_krabby_hal_mapper.py`. IsaacSim: the mapper receives scale values from the control loop; the client **`krabby-uno-sim`** sets these defaults (0.3, 0.3, 0.2) and passes them via `ControlLoopConfig`. Override with `--mapper-hip-scale`, `--mapper-knee-scale`, `--mapper-hip-yaw-scale` if needed.
+Jetson: defined in `controller/mappers/gamepad_to_krabby_hal_mapper.py`. IsaacSim: the mapper receives scale values from the control loop; the client **`krabby-uno-sim`** passes them via `ControlLoopConfig` — **0.3, 0.3, 0.2** without **`--stm`**, **1.0, 1.0, 1.0** with **`--stm`** (STM CAN / duty path). Override with `--mapper-hip-scale`, `--mapper-knee-scale`, `--mapper-hip-yaw-scale` if needed.

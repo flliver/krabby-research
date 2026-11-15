@@ -1,0 +1,85 @@
+{
+  "checks": [
+    "reject invalid mask 8",
+    "reject invalid mask 9",
+    "exact encoder lower equality blocks outward",
+    "exact encoder upper equality blocks outward",
+    "saved schema 3 configuration survives reset; disarmed"
+  ],
+  "status": {
+    "uptime": 1586,
+    "node": 7,
+    "node_status": 1,
+    "motor_status": [
+      73,
+      65,
+      65
+    ],
+    "commands": [
+      0,
+      0,
+      0
+    ],
+    "samples": 1583,
+    "adc_errors": 0,
+    "drops": 0
+  },
+  "pages": [
+    [
+      0,
+      25,
+      0,
+      3,
+      3380,
+      9587,
+      10000,
+      25000,
+      3,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      500,
+      100,
+      1000,
+      490,
+      3350,
+      3,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      500,
+      0,
+      4095,
+      440,
+      3320,
+      3,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      100,
+      0,
+      4095,
+      -2000,
+      2000,
+      3,
+      1,
+      0
+    ]
+  ]
+}

@@ -120,6 +120,11 @@ RUN . /workspace/testenv/bin/activate && \
 RUN . /workspace/testenv/bin/activate && \
     pip install --no-cache-dir 'PyGObject>=3.42.0,<3.51'
 
+# Firmware / parkour pytest runs under /isaac-sim/python.sh (kit torch ~2.7). Isaac Lab can pull
+# tensordict 0.15+, which expects newer torch.utils._pytree than the kit provides.
+RUN . /workspace/testenv/bin/activate && \
+    pip install --no-cache-dir 'tensordict==0.13.0'
+
 # Copy parkour source so parkour_isaaclab is available
 # Note: parkour_isaaclab is not included in the wheel, so we need the source
 COPY parkour/ /workspace/parkour/

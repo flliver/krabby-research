@@ -131,6 +131,37 @@ def eighteen_joint_rig(crab_hex_play_env):
 
 
 @pytest.fixture(scope="session")
+def stm_can_rig(crab_hex_play_env):
+    """Six-board ``CanRobotCore`` on an in-process FD virtual CAN bus."""
+    from firmware.sim.can_board_bridge import StmHostLibraryNotBuiltError, load_stm_board_bridge
+    from firmware.sim.can_robot_core import CanRobotCore
+    from firmware.sim.isaac_scene import configure_open_loop_velocity_drive, resolve_eighteen_joint_indices
+    from firmware.stm.can_transport import InProcessVirtualCanFdBus
+
+    try:
+        bridge = load_stm_board_bridge()
+    except StmHostLibraryNotBuiltError as exc:
+        pytest.skip(f"{exc} (build on the host, it is mounted into the container)")
+
+    bus = InProcessVirtualCanFdBus.open("krabby_stm_can_isaac")
+    env, get_robot, _resolve_front = crab_hex_play_env
+    robot = get_robot(env)
+    indices = resolve_eighteen_joint_indices(robot)
+    configure_open_loop_velocity_drive(robot, list(indices.values()))
+    core = CanRobotCore.from_isaac(
+        env,
+        robot,
+        indices,
+        bridge=bridge,
+        bus=bus,
+        max_joint_speed=2.0,
+    )
+    core.reset()
+    yield core, robot, bus, indices, bridge
+    bus.shutdown()
+
+
+@pytest.fixture(scope="session")
 def gravity_front_board(crab_hex_play_env):
     """FRONT ``RobotCore`` with gravity enabled on the shared session env."""
     skip_unless_firmware_isaac()

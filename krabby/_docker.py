@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import glob
+import os
 import platform
 import subprocess
 import sys
@@ -49,6 +50,23 @@ def serial_device_flags() -> list[str]:
     return flags
 
 
+def sen0581_device_flags() -> list[str]:
+    """``--device`` for each configured SEN0581 udev symlink present on the host.
+
+    Paths match ``krabby._sen0581_udev.sen0581_device_paths()`` (same as HAL catalog
+    ``sen0581_device``). Locomotion already mounts ``/dev`` privileged; explicit
+    ``--device`` keeps the symlink paths available even when container tooling
+    filters device nodes.
+    """
+    from krabby._sen0581_udev import sen0581_device_paths
+
+    flags: list[str] = []
+    for path in sen0581_device_paths():
+        if os.path.exists(path):
+            flags += ["--device", path]
+    return flags
+
+
 def pull(image_ref: str) -> str:
     """Pull image and return its digest. Raises SystemExit on failure."""
     result = subprocess.run(
@@ -79,6 +97,7 @@ def run_cmd(image_ref: str, extra_args: list[str], entrypoint: str | None = None
         *gpu_flags(),
         *ep,
         "-v", "/dev:/dev",
+        *sen0581_device_flags(),
         *mounts,
         *network_flags(),
         image_ref,
@@ -119,6 +138,7 @@ def fleet_hal_cmd(
         "--privileged",
         *gpu_flags(),
         "-v", "/dev:/dev",
+        *sen0581_device_flags(),
         *mounts,
         *network_flags(),
         *_teleop_turn_env_forward(),
@@ -168,7 +188,7 @@ def _opt_value(args: list[str], name: str) -> str | None:
 _XDG_RUNTIME_DIR = "/tmp/runtime-krabby"
 
 
-def _gamepad_launch_script(server_robot: str) -> str:
+def _gamepad_launch_script(server_robot: str, *, server_stm: bool = False) -> str:
     """bash that brings up the HAL server + krabby-uno client/controller together.
 
     Mirrors controller/scripts/jetson/helper/run_server_and_client_in_container.sh so
@@ -190,7 +210,10 @@ def _gamepad_launch_script(server_robot: str) -> str:
         'if [ -d /opt/krabby-research/controller ]; then '
         'export PYTHONPATH="/opt/krabby-research${PYTHONPATH:+:$PYTHONPATH}"; '
         'echo "info: using host controller from /opt/krabby-research (PYTHONPATH)"; fi; '
-        'krabby-hal-server-jetson --control-source gamepad' + server_robot + ' '
+        'krabby-hal-server-jetson --control-source gamepad'
+        + server_robot
+        + (' --stm' if server_stm else '')
+        + ' '
         '--observation-bind "tcp://*:6001" --command-bind "tcp://*:6002" & '
         'server_pid=$!; '
         'trap "kill $server_pid ${client_pid:-} 2>/dev/null; wait 2>/dev/null; exit 130" TERM INT; '
@@ -213,6 +236,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
     """
     robot = _opt_value(extra_args, "--robot")
     server_robot = f" --robot {robot}" if robot in _GAMEPAD_ROBOTS else ""
+    server_stm = "--stm" in extra_args
     mounts: list[str] = []
     for m in (extra_mounts or []):
         mounts += ["-v", m]
@@ -232,7 +256,7 @@ def gamepad_cmd(image_ref: str, extra_args: list[str], extra_mounts: list[str] |
         "-e", f"XDG_RUNTIME_DIR={_XDG_RUNTIME_DIR}",
         "--entrypoint", "bash",
         image_ref,
-        "-c", _gamepad_launch_script(server_robot),
+        "-c", _gamepad_launch_script(server_robot, server_stm=server_stm),
         "bash",          # becomes $0; krabby-uno args follow as "$@"
         *extra_args,
     ]

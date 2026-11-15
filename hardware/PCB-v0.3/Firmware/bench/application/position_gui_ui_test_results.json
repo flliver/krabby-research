@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "physical_node": 7,
+  "speed_limits": [
+    0,
+    0,
+    0
+  ],
+  "actions": [
+    "connect",
+    "enable initializes targets",
+    "live normalized/current rendering",
+    "target sliders",
+    "zero-speed inhibition",
+    "disable",
+    "close"
+  ],
+  "positions": [
+    "Position: 13611 / 65535",
+    "Position: 0 / 65535",
+    "Position: 0 / 65535"
+  ],
+  "configuration_unchanged": true
+}

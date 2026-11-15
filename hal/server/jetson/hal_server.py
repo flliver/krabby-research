@@ -13,7 +13,7 @@ from hal.server.robot_definition import RobotDefinition
 from hal.client.data_structures.hardware import (
     HardwareObservations,
     JointCommand,
-    RgbdCatalogObservation,
+    SensorObservation,
 )
 from hal.server.jetson.rgb_depth_camera import RgbDepthCamera
 from hal.server.jetson.front_camera_factory import (
@@ -31,6 +31,7 @@ from hal.server.jetson.sensor_backend_jetson import (
     assert_hal_rgbd_catalog_config,
     front_observation_camera_catalog_entry,
 )
+from hal.server.rgbd_recording_catalog import channels_for_catalog_row
 from hal.server.sensor_interface import SensorInterface
 
 from compute.parkour.model_definition import ObservationDimensions
@@ -139,6 +140,8 @@ class JetsonHalServer(HalServerBase):
         mcu_target: McuSerialTarget | None = None,
         mcu_baud: int = DEFAULT_BAUD,
         mcu_auto_connect: bool = True,
+        stm: bool = False,
+        stm_virtual: bool = False,
     ):
         """Initialize Jetson HAL server.
 
@@ -152,6 +155,8 @@ class JetsonHalServer(HalServerBase):
             mcu_target: MCU serial endpoint. If None, uses :func:`firmware.mcu_port.default_target`.
             mcu_baud: Baud rate for MCU serial communication.
             mcu_auto_connect: If True, automatically connect to MCU on initialization.
+            stm: If True, use STM CAN ``KrabbyStmMCUSDK`` instead of serial Mega SDK.
+            stm_virtual: When ``stm`` is True, pass ``virtual=True`` to the CAN SDK (vcan sim).
         """
         super().__init__(config)
         self.observation_dimensions = observation_dimensions
@@ -187,27 +192,41 @@ class JetsonHalServer(HalServerBase):
         # GStreamer multi-sensor interface (optional)
         self._sensor_interface: Optional[SensorInterface] = None
 
-        # Initialize Krabby MCU SDK when robot definition has MCU joints
+        # Initialize MCU SDK when robot definition has MCU joints (serial Mega or STM CAN).
         self._mcusdk: Optional[KrabbyMCUSDK] = None
         mcu_joints = self.robot_definition.get_mcu_joints()
         if mcu_joints:
+            sdk_label = "KrabbyStmMCUSDK" if stm else "KrabbyMCUSDK"
             try:
-                self._mcusdk = KrabbyMCUSDK(
-                    mcu_joints=mcu_joints,
-                    target=mcu_target,
-                    baud=mcu_baud,
-                    auto_connect=mcu_auto_connect,
-                )
-                logger.info("KrabbyMCUSDK initialized for JetsonHalServer")
+                if stm:
+                    from hal.server.jetson.krabby_stm_mcusdk import KrabbyStmMCUSDK
+
+                    self._mcusdk = KrabbyStmMCUSDK(
+                        mcu_joints=mcu_joints,
+                        virtual=stm_virtual,
+                        auto_connect=mcu_auto_connect,
+                    )
+                else:
+                    self._mcusdk = KrabbyMCUSDK(
+                        mcu_joints=mcu_joints,
+                        target=mcu_target,
+                        baud=mcu_baud,
+                        auto_connect=mcu_auto_connect,
+                    )
+                logger.info("%s initialized for JetsonHalServer", sdk_label)
             except (ImportError, RuntimeError, ValueError) as e:
                 logger.warning(
-                    f"KrabbyMCUSDK not available: {e}. "
-                    "MCU commands will not be sent. Install firmware package and use a robot definition with mcu_joints."
+                    "%s not available: %s. "
+                    "MCU commands will not be sent. Install firmware package and use a robot definition with mcu_joints.",
+                    sdk_label,
+                    e,
                 )
             except Exception as e:
                 logger.warning(
-                    f"Failed to initialize KrabbyMCUSDK: {e}. "
+                    "Failed to initialize %s: %s. "
                     "MCU commands will not be sent. Check MCU connection and configuration.",
+                    sdk_label,
+                    e,
                     exc_info=True,
                 )
 
@@ -265,6 +284,7 @@ class JetsonHalServer(HalServerBase):
                 zed_serial_number=zed_serial,
                 maixsense_host=entry.maixsense_host,
                 maixsense_port=entry.maixsense_port,
+                sen0581_device=entry.sen0581_device,
             )
             if cam is None or not cam.is_ready():
                 if cam is not None:
@@ -522,9 +542,10 @@ class JetsonHalServer(HalServerBase):
             for i in range(num_prev):
                 previous_action[i] = self._last_joint_positions.get(names[i], 0.0)
 
-        # Catalog RGB-D: one grab per opened HAL camera. If the driver returns no frame
-        # (rgb or depth None), use zero tensors at the catalog resolution. Shape mismatches
-        # and other errors from get_camera_frames propagate (not converted to zeros).
+        # Catalog cameras: one grab per opened HAL camera. Emit only the channels
+        # declared by the row modality (RGB-D → rgb+depth; depth-only → depth).
+        # Missing declared channels become zero tensors at catalog resolution.
+        # Shape mismatches and exceptions from get_camera_frames propagate.
         camera_width, camera_height = primary_entry.resolution
         primary_depth_width, primary_depth_height = primary_entry.depth_resolution
         expected_rgb_shape = (camera_height, camera_width, 3)
@@ -532,7 +553,7 @@ class JetsonHalServer(HalServerBase):
         nf_scan = self.observation_dimensions.num_scan_front
         ns_scan = self.observation_dimensions.num_side_scan
 
-        rgbd_by_catalog_id: dict[str, RgbdCatalogObservation] = {}
+        rgbd_by_catalog_id: dict[str, SensorObservation] = {}
         for cid, cam in self._hal_rgbd_cameras.items():
             entry = JETSON_SENSOR_CATALOG_BY_ID.get(cid)
             if entry is None:
@@ -542,54 +563,66 @@ class JetsonHalServer(HalServerBase):
                 )
                 continue
 
+            declared = channels_for_catalog_row(entry)
             exp_rgb_shape, exp_depth_shape = _expected_rgb_depth_shapes_for_entry(entry)
             rgb_frame, depth_frame = cam.get_camera_frames()
 
-            placeholder = False
-            if rgb_frame is None or depth_frame is None:
+            want_rgb = "rgb" in declared
+            want_depth = "depth" in declared
+            rgb_ok = (not want_rgb) or (rgb_frame is not None)
+            depth_ok = (not want_depth) or (depth_frame is not None)
+            placeholder = not (rgb_ok and depth_ok)
+
+            channels: dict[str, np.ndarray] = {}
+            if placeholder:
                 if not self._rgbd_no_frame_logged.get(cid, False):
                     logger.error(
-                        "HAL RGB-D catalog %s: no frame from camera (rgb_ok=%s depth_ok=%s); "
-                        "using zero tensors shaped rgb=%s depth=%s",
+                        "HAL catalog %s: no frame from camera (want=%s rgb_ok=%s depth_ok=%s); "
+                        "using zero tensors",
                         cid,
+                        declared,
                         rgb_frame is not None,
                         depth_frame is not None,
-                        exp_rgb_shape,
-                        exp_depth_shape,
                     )
                     self._rgbd_no_frame_logged[cid] = True
-                rgb_u8 = np.zeros(exp_rgb_shape, dtype=np.uint8)
-                depth_f = np.zeros(exp_depth_shape, dtype=np.float32)
-                placeholder = True
+                if want_rgb:
+                    channels["rgb"] = np.zeros(exp_rgb_shape, dtype=np.uint8)
+                if want_depth:
+                    channels["depth"] = np.zeros(exp_depth_shape, dtype=np.float32)
             else:
                 self._rgbd_no_frame_logged[cid] = False
-                rgb_u8 = np.asarray(rgb_frame, dtype=np.uint8)
-                depth_f = np.asarray(depth_frame, dtype=np.float32)
-                if (
-                    rgb_u8.shape != exp_rgb_shape
-                    or depth_f.shape != exp_depth_shape
-                ):
-                    raise RuntimeError(
-                        f"HAL RGB-D catalog {cid!r}: frame shape mismatch "
-                        f"rgb={rgb_u8.shape} depth={depth_f.shape} "
-                        f"(expected rgb {exp_rgb_shape}, depth {exp_depth_shape})"
-                    )
+                if want_rgb:
+                    rgb_u8 = np.asarray(rgb_frame, dtype=np.uint8)
+                    if rgb_u8.shape != exp_rgb_shape:
+                        raise RuntimeError(
+                            f"HAL catalog {cid!r}: rgb shape {rgb_u8.shape} "
+                            f"!= expected {exp_rgb_shape}"
+                        )
+                    channels["rgb"] = rgb_u8
+                if want_depth:
+                    depth_f = np.asarray(depth_frame, dtype=np.float32)
+                    if depth_f.shape != exp_depth_shape:
+                        raise RuntimeError(
+                            f"HAL catalog {cid!r}: depth shape {depth_f.shape} "
+                            f"!= expected {exp_depth_shape}"
+                        )
+                    channels["depth"] = depth_f
 
+            depth_for_scan = channels.get("depth")
             scan_c: Optional[np.ndarray] = None
-            if not placeholder:
+            if depth_for_scan is not None and not placeholder:
                 if entry.is_primary and nf_scan > 0:
-                    scan_c = _policy_scan_from_depth(depth_f, nf_scan)
+                    scan_c = _policy_scan_from_depth(depth_for_scan, nf_scan)
                 elif entry.policy_scan_slot == "side" and ns_scan > 0:
-                    scan_c = _policy_scan_from_depth(depth_f, ns_scan)
-            else:
+                    scan_c = _policy_scan_from_depth(depth_for_scan, ns_scan)
+            elif placeholder:
                 if entry.is_primary and nf_scan > 0:
                     scan_c = np.zeros(nf_scan, dtype=np.float32)
                 elif entry.policy_scan_slot == "side" and ns_scan > 0:
                     scan_c = np.zeros(ns_scan, dtype=np.float32)
 
-            rgbd_by_catalog_id[cid] = RgbdCatalogObservation(
-                rgb=rgb_u8,
-                depth=depth_f,
+            rgbd_by_catalog_id[cid] = SensorObservation(
+                channels=channels,
                 scan_features=(
                     np.asarray(scan_c, dtype=np.float32)
                     if scan_c is not None
@@ -611,18 +644,25 @@ class JetsonHalServer(HalServerBase):
                 self._primary_chunk_missing_warned = True
         else:
             self._primary_chunk_missing_warned = False
-            if chunk_p.rgb.shape != expected_rgb_shape:
+            primary_rgb = chunk_p.channels.get("rgb")
+            primary_depth = chunk_p.channels.get("depth")
+            if primary_rgb is None or primary_depth is None:
+                raise RuntimeError(
+                    f"Primary catalog {self._primary_catalog_id!r}: expected rgb and "
+                    f"depth channels, got {sorted(chunk_p.channels)}"
+                )
+            if primary_rgb.shape != expected_rgb_shape:
                 raise RuntimeError(
                     f"Primary catalog {self._primary_catalog_id!r}: rgb shape "
-                    f"{chunk_p.rgb.shape} != expected {expected_rgb_shape}"
+                    f"{primary_rgb.shape} != expected {expected_rgb_shape}"
                 )
-            if chunk_p.depth.shape != expected_depth_shape:
+            if primary_depth.shape != expected_depth_shape:
                 raise RuntimeError(
                     f"Primary catalog {self._primary_catalog_id!r}: depth shape "
-                    f"{chunk_p.depth.shape} != expected {expected_depth_shape}"
+                    f"{primary_depth.shape} != expected {expected_depth_shape}"
                 )
-            camera_rgb = chunk_p.rgb
-            camera_depth = chunk_p.depth
+            camera_rgb = primary_rgb
+            camera_depth = primary_depth
             scan_features = chunk_p.scan_features
             if scan_features is not None:
                 scan_features = np.asarray(scan_features, dtype=np.float32)

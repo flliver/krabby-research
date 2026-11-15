@@ -1,0 +1,294 @@
+[
+  {
+    "test": "Boot disarmed; motor sleeps physically LOW",
+    "result": "PASS",
+    "status": {
+      "uptime": 871,
+      "node": 0,
+      "node_status": 1,
+      "motor_status": [
+        65,
+        65,
+        65
+      ],
+      "commands": [
+        0,
+        0,
+        0
+      ],
+      "samples": 868,
+      "adc_errors": 0,
+      "drops": 0
+    }
+  },
+  {
+    "test": "CAN and USB version identity agree",
+    "result": "PASS"
+  },
+  {
+    "test": "RAM configuration page read/write across CAN and USB",
+    "result": "PASS",
+    "page": 0
+  },
+  {
+    "test": "RAM configuration page read/write across CAN and USB",
+    "result": "PASS",
+    "page": 1
+  },
+  {
+    "test": "RAM configuration page read/write across CAN and USB",
+    "result": "PASS",
+    "page": 2
+  },
+  {
+    "test": "RAM configuration page read/write across CAN and USB",
+    "result": "PASS",
+    "page": 3
+  },
+  {
+    "test": "Reserved modes, invalid bounds, and fields rejected atomically",
+    "result": "PASS",
+    "cases": 14
+  },
+  {
+    "test": "Page access boundaries validated",
+    "result": "PASS",
+    "cases": 20
+  },
+  {
+    "test": "Whole-page SET and isolated defaults preserve other pages and saved-image status",
+    "result": "PASS"
+  },
+  {
+    "test": "Native physical ADC/encoder snapshot",
+    "result": "PASS",
+    "page": 0,
+    "values": [
+      1886,
+      1890,
+      3237,
+      3237,
+      4771,
+      8571,
+      1741,
+      0,
+      -2147483648
+    ]
+  },
+  {
+    "test": "Native physical ADC/encoder snapshot",
+    "result": "PASS",
+    "page": 1,
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      125,
+      0
+    ]
+  },
+  {
+    "test": "Native physical ADC/encoder snapshot",
+    "result": "PASS",
+    "page": 2,
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      182,
+      0
+    ]
+  },
+  {
+    "test": "Native physical ADC/encoder snapshot",
+    "result": "PASS",
+    "page": 3,
+    "values": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      154,
+      0
+    ]
+  },
+  {
+    "test": "NTC uncalibrated sentinel and configured beta math; not temperature calibration",
+    "result": "PASS"
+  },
+  {
+    "test": "Encoder register injection, not physical motion",
+    "result": "PASS",
+    "motor": 1,
+    "delta": 100
+  },
+  {
+    "test": "Encoder register injection, not physical motion",
+    "result": "PASS",
+    "motor": 2,
+    "delta": -100
+  },
+  {
+    "test": "Encoder register injection, not physical motion",
+    "result": "PASS",
+    "motor": 3,
+    "delta": 100
+  },
+  {
+    "test": "Normalized/native feedback selection independent per motor",
+    "result": "PASS"
+  },
+  {
+    "test": "Independent physical I2C DAC writes acknowledged; codes reported",
+    "result": "PASS",
+    "codes": [
+      125,
+      251,
+      376
+    ]
+  },
+  {
+    "test": "ARM clears commands; save/load reject while armed",
+    "result": "PASS"
+  },
+  {
+    "test": "Signed commands accepted, travel inhibition and Hi-Z verified on GPIO",
+    "result": "PASS"
+  },
+  {
+    "test": "Pre-ARM USB command rejected across CAN ARM; fresh transaction accepted",
+    "result": "PASS"
+  },
+  {
+    "test": "Watchdog timeout disarms, clears commands; queries cannot refresh",
+    "result": "PASS",
+    "status": {
+      "uptime": 2896,
+      "node": 0,
+      "node_status": 5,
+      "motor_status": [
+        69,
+        69,
+        69
+      ],
+      "commands": [
+        0,
+        0,
+        0
+      ],
+      "samples": 2831,
+      "adc_errors": 0,
+      "drops": 0
+    }
+  },
+  {
+    "test": "Rearm requires fresh command; -128 rejected without watchdog refresh",
+    "result": "PASS"
+  },
+  {
+    "test": "Watchdog 0 disables and 255 supported; explicit DISARM clears",
+    "result": "PASS"
+  },
+  {
+    "test": "Physical 50 Hz motor stream with inhibited outputs",
+    "result": "PASS",
+    "frames": 60
+  },
+  {
+    "test": "Malformed packets, version mismatch, unknown operation, wrong node",
+    "result": "PASS"
+  },
+  {
+    "test": "Periodic status and every sensor page observed over CAN",
+    "result": "PASS",
+    "types": [
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        4,
+        3
+      ]
+    ]
+  },
+  {
+    "test": "Reboot missing, cross-transport, and expired permissions rejected",
+    "result": "PASS"
+  },
+  {
+    "test": "SAVE/LOAD and two-stage reboot preserve configuration, boot disarmed",
+    "result": "PASS"
+  },
+  {
+    "test": "Interrupted application update survives reset; CAN-only reprogramming preserves config and boot",
+    "result": "PASS"
+  },
+  {
+    "test": "OpenBLT unchanged; physical CAN update preserved CRC-verified config",
+    "result": "PASS"
+  },
+  {
+    "test": "Corrupt saved data gives NO_CONFIG, provisional config still arms; save recovers",
+    "result": "PASS"
+  },
+  {
+    "test": "Invalid saved-image recovery with provisional RAM",
+    "result": "PASS",
+    "fixture": "erased"
+  },
+  {
+    "test": "Invalid saved-image recovery with provisional RAM",
+    "result": "PASS",
+    "fixture": "partial-header"
+  },
+  {
+    "test": "All factory-default fields match documented schema; bench Hi-Z saved",
+    "result": "PASS"
+  },
+  {
+    "test": "Final board disarmed, Hi-Z defaults saved",
+    "result": "PASS",
+    "status": {
+      "uptime": 1457,
+      "node": 0,
+      "node_status": 1,
+      "motor_status": [
+        65,
+        65,
+        65
+      ],
+      "commands": [
+        0,
+        0,
+        0
+      ],
+      "samples": 1440,
+      "adc_errors": 0,
+      "drops": 0
+    }
+  }
+]

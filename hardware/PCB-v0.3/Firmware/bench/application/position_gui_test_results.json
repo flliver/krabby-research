@@ -1,0 +1,90 @@
+{
+  "synthetic": "PASS",
+  "tests": [
+    "native pot/encoder normalization",
+    "signed P control",
+    "deadband",
+    "speed caps",
+    "firmware owns direction polarity",
+    "enable neutral until target moved",
+    "two-motor simulated plant convergence",
+    "disable zeros/disarms",
+    "cancel during ARM",
+    "ADC rail inhibits",
+    "GUI normalized/current readouts"
+  ],
+  "physical_runs": [
+    {
+      "port": "COM7",
+      "node": 7,
+      "zero_speed_limits": true,
+      "position_samples": 26,
+      "positions": [
+        13634,
+        0,
+        0
+      ],
+      "currents_mA": [
+        0,
+        0,
+        0
+      ],
+      "max_motor_gap_ms": 22.61680000810884,
+      "configuration_unchanged": true,
+      "final_status": {
+        "uptime": 3349708,
+        "node": 7,
+        "node_status": 1,
+        "motor_status": [
+          65,
+          65,
+          65
+        ],
+        "commands": [
+          0,
+          0,
+          0
+        ],
+        "samples": 3349576,
+        "adc_errors": 0,
+        "drops": 0
+      }
+    },
+    {
+      "port": "COM3",
+      "node": 7,
+      "zero_speed_limits": true,
+      "position_samples": 26,
+      "positions": [
+        13656,
+        0,
+        0
+      ],
+      "currents_mA": [
+        0,
+        0,
+        0
+      ],
+      "max_motor_gap_ms": 22.299000003840774,
+      "configuration_unchanged": true,
+      "final_status": {
+        "uptime": 3351978,
+        "node": 7,
+        "node_status": 1,
+        "motor_status": [
+          65,
+          65,
+          65
+        ],
+        "commands": [
+          0,
+          0,
+          0
+        ],
+        "samples": 3351843,
+        "adc_errors": 0,
+        "drops": 0
+      }
+    }
+  ]
+}

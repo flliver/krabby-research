@@ -3,8 +3,9 @@
 Register drivers in ``FRONT_RGB_DEPTH_CAMERA_FACTORIES``. ``JetsonHalServer`` opens one
 instance per ``JETSON_SENSOR_CATALOG`` rgbd row (primary always; others when ``hal_open_rgbd``).
 
-``camera_driver`` values: ``"zed"`` (USB + pyzed; optional ``zed_serial_number``), ``"maixsense_a075v"``
-(HTTP; accepts literal ``maixsense_host`` / ``maixsense_port`` on the catalog row).
+``camera_driver`` values: ``"zed"`` (USB + pyzed; optional ``zed_serial_number``),
+``"maixsense_a075v"`` (HTTP; literal ``maixsense_host`` / ``maixsense_port``),
+``"sen0581"`` (USB serial depth; literal ``sen0581_device`` path).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from hal.server.jetson.maixsense_rgb_depth_camera import (
     create_maixsense_a075v_rgb_depth_camera,
 )
 from hal.server.jetson.rgb_depth_camera import RgbDepthCamera
+from hal.server.jetson.sen0581_tof_camera import create_sen0581_tof_camera
 from hal.server.jetson.zed_camera import create_zed_camera
 
 FrontRgbDepthCameraFactory = Callable[
@@ -55,9 +57,25 @@ def _factory_maixsense_a075v(
     )
 
 
+def _factory_sen0581(
+    *,
+    resolution: tuple[int, int],
+    fps: int,
+    depth_mode: str,
+    sen0581_device: Optional[str] = None,
+) -> Optional[RgbDepthCamera]:
+    return create_sen0581_tof_camera(
+        resolution=resolution,
+        fps=fps,
+        depth_mode=depth_mode,
+        sen0581_device=sen0581_device,
+    )
+
+
 FRONT_RGB_DEPTH_CAMERA_FACTORIES: dict[str, FrontRgbDepthCameraFactory] = {
     "zed": _factory_zed,
     "maixsense_a075v": _factory_maixsense_a075v,
+    "sen0581": _factory_sen0581,
 }
 
 
@@ -70,6 +88,7 @@ def create_front_rgb_depth_camera(
     zed_serial_number: Optional[int] = None,
     maixsense_host: Optional[str] = None,
     maixsense_port: Optional[int] = None,
+    sen0581_device: Optional[str] = None,
 ) -> Optional[RgbDepthCamera]:
     """Build an RGB-D camera using a registered ``driver`` name (any catalog rgbd row)."""
     try:
@@ -98,6 +117,18 @@ def create_front_rgb_depth_camera(
             depth_mode=depth_mode,
             maixsense_host=(maixsense_host.strip() if maixsense_host else None),
             maixsense_port=maixsense_port,
+        )
+    if driver == "sen0581":
+        device = (sen0581_device or "").strip()
+        if not device:
+            raise ValueError(
+                "sen0581 requires sen0581_device (literal serial path) on JetsonSensorCatalogEntry"
+            )
+        return factory(
+            resolution=resolution,
+            fps=fps,
+            depth_mode=depth_mode,
+            sen0581_device=device,
         )
     return factory(
         resolution=resolution,

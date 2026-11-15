@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hal.client.data_structures.hardware import HardwareObservations, RgbdCatalogObservation
+from hal.client.data_structures.hardware import HardwareObservations, SensorObservation
 
 
 def test_serialize_deserialize_with_privileged_latent():
@@ -320,26 +320,27 @@ def test_side_camera_different_resolution_than_front_roundtrip():
 
 
 def test_rgbd_by_catalog_id_roundtrip():
-    """Per-catalog-id RGB-D chunks serialize after legacy side camera blobs."""
+    """Per-catalog-id sensor channels serialize after legacy side camera blobs."""
     camera_height, camera_width = 480, 640
     camera_rgb = np.random.randint(0, 255, (camera_height, camera_width, 3), dtype=np.uint8)
     camera_depth = np.random.rand(camera_height, camera_width).astype(np.float32) * 5.0
     scan_f = np.linspace(-0.5, 0.5, 132, dtype=np.float32)
+    tof_depth = np.random.rand(100, 100).astype(np.float32)
 
     rgbd_by_catalog_id = {
-        "front_rgbd": RgbdCatalogObservation(
-            rgb=camera_rgb.copy(),
-            depth=camera_depth.copy(),
+        "front_rgbd": SensorObservation(
+            channels={"rgb": camera_rgb.copy(), "depth": camera_depth.copy()},
             scan_features=scan_f.copy(),
         ),
-        "side_right_rgbd": RgbdCatalogObservation(
-            rgb=np.random.randint(0, 255, (camera_height, camera_width, 3), dtype=np.uint8),
-            depth=np.random.rand(camera_height, camera_width).astype(np.float32),
-            scan_features=np.linspace(0.0, 1.0, 64, dtype=np.float32),
+        "belly_right_tof": SensorObservation(
+            channels={"depth": tof_depth.copy()},
         ),
-        "side_left_rgbd": RgbdCatalogObservation(
-            rgb=np.random.randint(0, 255, (camera_height, camera_width, 3), dtype=np.uint8),
-            depth=np.random.rand(camera_height, camera_width).astype(np.float32),
+        "side_left_rgbd": SensorObservation(
+            channels={
+                "rgb": np.random.randint(0, 255, (camera_height, camera_width, 3), dtype=np.uint8),
+                "depth": np.random.rand(camera_height, camera_width).astype(np.float32),
+            },
+            scan_features=np.linspace(0.0, 1.0, 64, dtype=np.float32),
         ),
     }
 
@@ -361,12 +362,19 @@ def test_rgbd_by_catalog_id_roundtrip():
     )
     out = HardwareObservations.from_bytes(hw.to_bytes())
     assert out.rgbd_by_catalog_id is not None
-    assert set(out.rgbd_by_catalog_id) == {"front_rgbd", "side_right_rgbd", "side_left_rgbd"}
+    assert set(out.rgbd_by_catalog_id) == {
+        "front_rgbd",
+        "belly_right_tof",
+        "side_left_rgbd",
+    }
     for cid in out.rgbd_by_catalog_id:
         a = rgbd_by_catalog_id[cid]
         b = out.rgbd_by_catalog_id[cid]
-        assert np.array_equal(b.rgb, a.rgb)
-        assert np.allclose(b.depth, a.depth)
+        assert set(b.channels) == set(a.channels)
+        for name in a.channels:
+            assert np.array_equal(b.channels[name], a.channels[name]) or np.allclose(
+                b.channels[name], a.channels[name]
+            )
         if a.scan_features is None:
             assert b.scan_features is None
         else:

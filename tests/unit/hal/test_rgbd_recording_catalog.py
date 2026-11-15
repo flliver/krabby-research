@@ -16,8 +16,9 @@ def test_hal_rgbd_catalog_ids_match_jetson_registry() -> None:
     ids = hal_rgbd_catalog_ids_for_recording()
     assert ids == rgbd_ids_from_hal_catalog(jetson.JETSON_SENSOR_CATALOG)
     assert "front_rgbd" in ids
-    assert "side_right_rgbd" in ids
-    assert "side_left_rgbd" in ids
+    assert "belly_right_tof" in ids
+    assert "belly_left_tof" in ids
+    assert "rear_tof" in ids
     assert "front_rgbd_gray16_depth" not in ids
 
 

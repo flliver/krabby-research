@@ -22,7 +22,7 @@ from data_collection.serialization import (
     catalog_camera_topic,
     observation_to_writes,
 )
-from hal.client.data_structures.hardware import HardwareObservations, RgbdCatalogObservation
+from hal.client.data_structures.hardware import HardwareObservations, SensorObservation
 from rosbags.highlevel import AnyReader
 from rosbags.typesys import get_typestore
 from rosbags.typesys.stores import Stores
@@ -45,7 +45,7 @@ def _minimal_obs_with_camera() -> HardwareObservations:
         contact_forces=np.zeros(5, dtype=np.float32),
         previous_action=np.linspace(0.0, 0.2, 12, dtype=np.float32),
         rgbd_by_catalog_id={
-            "front_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep),
+            "front_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep}),
         },
     )
 

@@ -1,0 +1,44 @@
+[
+  {
+    "file": "bench\\application\\known_good.bin",
+    "before": 402641420,
+    "after": 84280,
+    "elf_srec_binary_match": true
+  },
+  {
+    "file": "build\\Blink125\\krabby_v03_bringup.bin",
+    "before": 402641384,
+    "after": 62348,
+    "elf_srec_binary_match": true
+  },
+  {
+    "file": "build\\Debug\\krabby_v03_bringup.bin",
+    "before": 402641420,
+    "after": 85512,
+    "elf_srec_binary_match": true
+  },
+  {
+    "file": "build\\LED1\\krabby_v03_bringup.bin",
+    "before": 402641384,
+    "after": 62344,
+    "elf_srec_binary_match": true
+  },
+  {
+    "file": "build\\LED2\\krabby_v03_bringup.bin",
+    "before": 402641384,
+    "after": 62348,
+    "elf_srec_binary_match": true
+  },
+  {
+    "file": "build\\LED3\\krabby_v03_bringup.bin",
+    "before": 402641384,
+    "after": 62352,
+    "elf_srec_binary_match": true
+  },
+  {
+    "file": "build\\LoadMeFirst\\krabby_v03_bringup.bin",
+    "before": 402641384,
+    "after": 35972,
+    "elf_srec_binary_match": true
+  }
+]

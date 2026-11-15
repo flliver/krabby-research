@@ -32,18 +32,26 @@ class JointCommandSource(str, Enum):
 
 
 @dataclass
-class RgbdCatalogObservation:
-    """One RGB-D capture keyed by ``JETSON_SENSOR_CATALOG`` row ``id`` (Jetson HAL).
+class SensorObservation:
+    """One catalog sensor capture keyed by sensor catalog row ``id``.
 
-    ``depth`` is always the metric depth map for that sensor (meters). Use it for collision /
-    proximity and other perception that is **not** the primary locomotion policy scan.
-    ``scan_features`` is only filled when HAL maps this row into the policy scan slots (primary
-    or ``policy_scan_slot="side"``); do not assume every row has scan features.
+    ``channels`` holds named arrays declared by the sensor type (e.g. ``"rgb"`` and
+    ``"depth"`` for RGB-D, or only ``"depth"`` for a ToF camera). Transport and
+    validation treat channels generically; consumers that interpret the data select
+    channels by name.
+
+    Prefer ``channels["depth"]`` (when present) for collision / proximity and other
+    perception that is **not** the primary locomotion policy scan.
+    ``scan_features`` is only filled when HAL maps this row into the policy scan slots
+    (primary or ``policy_scan_slot="side"``); do not assume every row has scan features.
     """
 
-    rgb: np.ndarray  # (H, W, 3) uint8
-    depth: np.ndarray  # (H, W) float32, meters
+    channels: dict[str, np.ndarray]
     scan_features: Optional[np.ndarray] = None  # 1D float32 when HAL computed a policy scan slice
+
+
+# Backward-compatible alias during migration; prefer ``SensorObservation``.
+RgbdCatalogObservation = SensorObservation
 
 
 @dataclass
@@ -58,10 +66,10 @@ class HardwareObservations:
     - **Policy second scan (optional):** legacy ``side_*`` when one catalog row has
       ``policy_scan_slot="side"``. ``side_camera_rgb`` / ``side_camera_depth`` use that
       stream's own H×W (may differ from ``camera_height`` × ``camera_width``).
-    - **All HAL rgbd streams (including side / extra cameras):** ``rgbd_by_catalog_id`` carries
-      full-resolution **RGB + depth** per catalog ``id``. Prefer ``rgbd_by_catalog_id[id].depth``
-      for **collision detection** and other geometry; resolutions may differ from
-      ``camera_height`` × ``camera_width``.
+    - **All HAL sensor streams (including extra cameras):** ``rgbd_by_catalog_id`` carries
+      named ``SensorObservation.channels`` per catalog ``id``. Prefer
+      ``rgbd_by_catalog_id[id].channels["depth"]`` for **collision detection** and other
+      geometry; resolutions may differ from ``camera_height`` × ``camera_width``.
     
     Front camera format (camera_rgb / camera_depth):
     - Resolution: same as camera_height x camera_width (self-describing).
@@ -99,7 +107,7 @@ class HardwareObservations:
     side_scan_features: Optional[np.ndarray] = None  # Depth-derived features for side camera (1D float32)
     side_camera_rgb: Optional[np.ndarray] = None  # (Hs, Ws, 3) uint8; Hs/Ws independent of front
     side_camera_depth: Optional[np.ndarray] = None  # (Hs, Ws) float32 meters; matches side rgb H×W
-    rgbd_by_catalog_id: Optional[dict[str, RgbdCatalogObservation]] = None
+    rgbd_by_catalog_id: Optional[dict[str, SensorObservation]] = None
 
     def __post_init__(self) -> None:
         """Validate hardware observations."""
@@ -187,21 +195,24 @@ class HardwareObservations:
 
         if self.rgbd_by_catalog_id is not None:
             for cid, obs in self.rgbd_by_catalog_id.items():
-                if obs.rgb.ndim != 3 or obs.rgb.shape[2] != 3:
+                if not isinstance(obs.channels, dict) or not obs.channels:
                     raise ValueError(
-                        f"rgbd_by_catalog_id[{cid!r}].rgb must be (H,W,3), got {obs.rgb.shape}"
+                        f"rgbd_by_catalog_id[{cid!r}].channels must be a non-empty dict"
                     )
-                if obs.rgb.dtype != np.uint8:
-                    obs.rgb = obs.rgb.astype(np.uint8)
-                if obs.depth.ndim != 2:
-                    raise ValueError(
-                        f"rgbd_by_catalog_id[{cid!r}].depth must be 2D, got {obs.depth.shape}"
-                    )
-                if obs.depth.dtype != np.float32:
-                    obs.depth = obs.depth.astype(np.float32)
-                # rgbd_by_catalog_id may intentionally carry mixed-resolution RGB/depth
-                # streams from certain camera drivers (for example MaixSense). Keep
-                # validation to rank/dtype and let per-stream consumers handle sizing.
+                for ch_name, arr in obs.channels.items():
+                    if not isinstance(ch_name, str) or not ch_name:
+                        raise ValueError(
+                            f"rgbd_by_catalog_id[{cid!r}] channel name must be a non-empty str"
+                        )
+                    if not isinstance(arr, np.ndarray) or arr.ndim < 1:
+                        raise ValueError(
+                            f"rgbd_by_catalog_id[{cid!r}].channels[{ch_name!r}] "
+                            f"must be a numpy array with rank >= 1, got {type(arr)} "
+                            f"shape={getattr(arr, 'shape', None)}"
+                        )
+                    # Keep validation generic: rank only. Consumers interpret dtype/shape
+                    # by channel kind (rgb/depth/...). Mixed resolutions across channels
+                    # are allowed (e.g. MaixSense).
                 if obs.scan_features is not None:
                     if obs.scan_features.ndim != 1:
                         raise ValueError(
@@ -302,9 +313,16 @@ class HardwareObservations:
             entries: dict = {}
             for cid in order:
                 o = self.rgbd_by_catalog_id[cid]
+                ch_order = sorted(o.channels.keys())
+                channels_meta = {
+                    name: {
+                        "shape": list(o.channels[name].shape),
+                        "dtype": str(o.channels[name].dtype),
+                    }
+                    for name in ch_order
+                }
                 entries[cid] = {
-                    "rgb": {"shape": list(o.rgb.shape), "dtype": str(o.rgb.dtype)},
-                    "depth": {"shape": list(o.depth.shape), "dtype": str(o.depth.dtype)},
+                    "channels": {"order": ch_order, "entries": channels_meta},
                     "scan_features": (
                         {
                             "shape": list(o.scan_features.shape),
@@ -345,8 +363,8 @@ class HardwareObservations:
         if self.rgbd_by_catalog_id:
             for cid in sorted(self.rgbd_by_catalog_id.keys()):
                 o = self.rgbd_by_catalog_id[cid]
-                buf += np.ascontiguousarray(o.rgb, dtype=np.uint8).tobytes()
-                buf += np.ascontiguousarray(o.depth, dtype=np.float32).tobytes()
+                for name in sorted(o.channels.keys()):
+                    buf += np.ascontiguousarray(o.channels[name]).tobytes()
                 if o.scan_features is not None:
                     buf += np.ascontiguousarray(o.scan_features, dtype=np.float32).tobytes()
         return bytes(buf)
@@ -528,7 +546,7 @@ class HardwareObservations:
         if rpack is not None:
             order = rpack["order"]
             entries = rpack["entries"]
-            out_rgbd: dict[str, RgbdCatalogObservation] = {}
+            out_rgbd: dict[str, SensorObservation] = {}
             for cid in order:
                 em = entries[cid]
 
@@ -552,19 +570,30 @@ class HardwareObservations:
                     )
                     return arr, nb
 
-                rgb_a, n = _read_blob(em["rgb"], offset)
-                offset += n
-                dep_a, n = _read_blob(em["depth"], offset)
-                offset += n
-                dep_a = dep_a.astype(np.float32)
-                rgb_a = rgb_a.astype(np.uint8)
+                channels: dict[str, np.ndarray] = {}
+                if "channels" in em:
+                    ch_pack = em["channels"]
+                    ch_order = ch_pack["order"]
+                    ch_entries = ch_pack["entries"]
+                    for ch_name in ch_order:
+                        arr, n = _read_blob(ch_entries[ch_name], offset)
+                        offset += n
+                        channels[ch_name] = arr
+                else:
+                    # Legacy wire format: fixed rgb + depth fields.
+                    rgb_a, n = _read_blob(em["rgb"], offset)
+                    offset += n
+                    dep_a, n = _read_blob(em["depth"], offset)
+                    offset += n
+                    channels["rgb"] = rgb_a.astype(np.uint8, copy=False)
+                    channels["depth"] = dep_a.astype(np.float32, copy=False)
                 scan_part: Optional[np.ndarray] = None
                 if em["scan_features"] is not None:
                     scan_part, n = _read_blob(em["scan_features"], offset)
                     offset += n
                     scan_part = scan_part.astype(np.float32).reshape(-1)
-                out_rgbd[cid] = RgbdCatalogObservation(
-                    rgb=rgb_a, depth=dep_a, scan_features=scan_part
+                out_rgbd[cid] = SensorObservation(
+                    channels=channels, scan_features=scan_part
                 )
             rgbd_by_catalog_id = out_rgbd
 

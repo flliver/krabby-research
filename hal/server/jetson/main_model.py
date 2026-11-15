@@ -108,7 +108,12 @@ def main() -> None:
     teleop_thread: threading.Thread | None = None
 
     try:
-        hal_server = create_hal_server(robot_definition, observation_bind, command_bind)
+        hal_server = create_hal_server(
+            robot_definition,
+            observation_bind,
+            command_bind,
+            stm=args.stm,
+        )
         # Cameras feed RGB-D observations (inference) and teleop video.
         hal_server.initialize_cameras()
         warn_if_mcu_missing(hal_server)
@@ -151,6 +156,7 @@ def main() -> None:
                 teleop_edge_settings=teleop_settings,
                 robot_definition=robot_definition,
                 send_hal_commands=teleop_send_commands,
+                stm=args.stm,
             )
             logger.info(
                 "Teleop outbound signaling started: mode=%s url=%s reconnect_s=%.1f "
@@ -179,6 +185,7 @@ def main() -> None:
                 control_rate=CONTROL_RATE_HZ,
                 device="cuda",
                 transport_context=transport_context,
+                stm=args.stm,
             )
             parkour_client.initialize()
             logger.info("Parkour inference client initialized")

@@ -32,6 +32,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Isaac incremental mapper (no --stm): rad feel in sim. STM CAN fullsim: duty [-1, 1] like krabby-uno --stm.
+_ISAAC_SIM_MAPPER_SCALES = (0.3, 0.3, 0.2)
+_STM_DUTY_MAPPER_SCALES = (1.0, 1.0, 1.0)
+
+
+def resolve_mapper_scales(
+    *,
+    stm: bool,
+    mapper_hip_scale: float | None,
+    mapper_knee_scale: float | None,
+    mapper_hip_yaw_scale: float | None,
+) -> tuple[float, float, float]:
+    """CLI defaults for hip/knee/yaw scale passed into ControlLoopConfig."""
+    if stm:
+        hip_scale, knee_scale, hip_yaw_scale = _STM_DUTY_MAPPER_SCALES
+    else:
+        hip_scale, knee_scale, hip_yaw_scale = _ISAAC_SIM_MAPPER_SCALES
+    if mapper_hip_scale is not None:
+        hip_scale = mapper_hip_scale
+    if mapper_knee_scale is not None:
+        knee_scale = mapper_knee_scale
+    if mapper_hip_yaw_scale is not None:
+        hip_yaw_scale = mapper_hip_yaw_scale
+    return hip_scale, knee_scale, hip_yaw_scale
+
 
 def _initialize_pygame() -> None:
     """Initialize Pygame in main thread for InputController (e.g. macOS)."""
@@ -128,6 +153,14 @@ def main() -> int:
         help="Override knee out/in scale (radians per unit LX) for gamepad mapper",
     )
     parser.add_argument(
+        "--stm",
+        action="store_true",
+        help=(
+            "Map sticks to duty [-1, 1] for STM CAN fullsim (match HAL --firmware-transport can). "
+            "Uses Krabby duty mapper instead of Isaac incremental mapper."
+        ),
+    )
+    parser.add_argument(
         "--mapper-hip-yaw-scale",
         type=float,
         default=None,
@@ -158,16 +191,12 @@ def main() -> int:
 
     device_id = args.device_id if args.device_id is not None else args.input_controller_id
 
-    # Mapper scaling: same defaults as Jetson (0.3, 0.3, 0.2) for parity; overrides via --mapper-*.
-    hip_scale = 0.3
-    knee_scale = 0.3
-    hip_yaw_scale = 0.2
-    if args.mapper_hip_scale is not None:
-        hip_scale = args.mapper_hip_scale
-    if args.mapper_knee_scale is not None:
-        knee_scale = args.mapper_knee_scale
-    if args.mapper_hip_yaw_scale is not None:
-        hip_yaw_scale = args.mapper_hip_yaw_scale
+    hip_scale, knee_scale, hip_yaw_scale = resolve_mapper_scales(
+        stm=args.stm,
+        mapper_hip_scale=args.mapper_hip_scale,
+        mapper_knee_scale=args.mapper_knee_scale,
+        mapper_hip_yaw_scale=args.mapper_hip_yaw_scale,
+    )
 
     _initialize_pygame()
 
@@ -217,10 +246,11 @@ def main() -> int:
         hal_client_config=hal_client_config,
         input_controller_device_id=device_id,
         input_controller_update_rate_hz=args.rate,
-         mapper_hip_up_down_scale=hip_scale,
-         mapper_knee_out_in_scale=knee_scale,
-         mapper_hip_yaw_scale=hip_yaw_scale,
+        mapper_hip_up_down_scale=hip_scale,
+        mapper_knee_out_in_scale=knee_scale,
+        mapper_hip_yaw_scale=hip_yaw_scale,
         isaacsim_robot_definition=KRABBY_QUAD_DEFINITION if args.quad else KRABBY_HEX_DEFINITION,
+        stm=args.stm,
     )
 
     control_loop = ControlLoop(control_loop_config)

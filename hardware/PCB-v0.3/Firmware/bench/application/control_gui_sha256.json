@@ -1,0 +1,8 @@
+{
+  "tools/krabby_control_gui.py": "27014528721a0649f764403c0b1ae54e55d03adbebacc22936825545f2efe945",
+  "tools/test_control_gui.py": "5fc94b8dcd886757e8b840bc19afe5f4deb9c0e96b34a6317ad127368840551a",
+  "tools/CONTROL_GUI.md": "d8d94194a901bc3b4f3aaa528170e0d618e44b6bf8f45d03ce83049b58ef598e",
+  "tools/krabby_debug_gui.py": "633db02fb955165502e255250b64785b901e237a0fba873e66a738110dc96c2e",
+  "bench/application/control_gui_test_results.json": "a688905ffb27a5b70279fec498ce1cfbd1de623f949af5271ddbb282f0339fc6",
+  "bench/application/control_gui_ui_test_results.json": "747fc2836bbeae9fa481b7c596fc17042b202469530fed0b4f64c56ae8ad937a"
+}

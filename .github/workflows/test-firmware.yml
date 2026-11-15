@@ -34,11 +34,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake python3-tk
-          python -m pip install pytest pytest-timeout pyserial keyboard gcovr
+          python -m pip install --upgrade pip build wheel setuptools
+          python -m pip install pytest pytest-timeout pyserial keyboard gcovr numpy
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install krabby-firmware (stm extra for DBC unit tests)
+        run: |
+          cd firmware
+          python -m build --wheel --no-isolation
+          pip install "$(ls dist/*.whl | head -1)[stm]"
 
       - name: Run native firmware tests and coverage gate
         run: make -C firmware test-native-coverage
+
+      - name: Build STM host sim library
+        run: make -C firmware host-stm
 
       - name: Run Python firmware tests
         if: ${{ !cancelled() }}

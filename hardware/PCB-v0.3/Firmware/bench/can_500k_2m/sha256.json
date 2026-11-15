@@ -1,0 +1,9 @@
+{
+  "bench/can_500k_2m/krabby_v03_bringup.elf": "ab7feb1af2574e3b555ffb4742bbf75e3928e658a671626dcb3861fdb4056734",
+  "bench/can_500k_2m/krabby_v03_bringup.ioc": "91fc6d96ac69a08d4819cb7f0b321e4830f2bd829c3c6d26c13db2e6368f0435",
+  "Src/main.c": "2f7dbacabd84995976cacdc5a5d8b9ffd434e46ad349b2a27c30f03609ddc861",
+  "App/Src/can_bridge.c": "a32e08980c45415b710ea35c48ca95546a3601736a1a02d1fdcb56c66eb3ab51",
+  "App/Inc/can_bridge.h": "9bd4075058d633c53d6b679f16c779394088ee522b0570d5d0f0fbff9b6e3b0f",
+  "Src/usbd_cdc_if.c": "470c51e6cf9a339850c7c9d2f4f4a03cd726d40b2bb27910a9eece22d7367a76",
+  "tools/test_can_bridge.py": "66925732a453bd708d70dfe692f7bb393e227c15cc080b8698007a0476a54a78"
+}

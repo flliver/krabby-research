@@ -1,0 +1,174 @@
+[
+  {
+    "test": "Connected to physical OpenBLT node 0",
+    "result": "PASS",
+    "boot_sha256": "bfcdaea65ee5f659190c223a6dadf9e29170848d85750362a896d28c3bd22898"
+  },
+  {
+    "test": "CAN update and USB application identity 250 ms",
+    "result": "PASS",
+    "status": "STM32G474RBT3 uptime=514 ms blink_ms=250 node=0 VTOR=08003000"
+  },
+  {
+    "test": "Application XCP re-entry and unchanged bootloader",
+    "result": "PASS",
+    "version_ms": 250
+  },
+  {
+    "test": "CAN update and USB application identity 125 ms",
+    "result": "PASS",
+    "status": "STM32G474RBT3 uptime=513 ms blink_ms=125 node=0 VTOR=08003000"
+  },
+  {
+    "test": "Application XCP re-entry and unchanged bootloader",
+    "result": "PASS",
+    "version_ms": 125
+  },
+  {
+    "test": "CAN update and USB application identity 250 ms",
+    "result": "PASS",
+    "status": "STM32G474RBT3 uptime=512 ms blink_ms=250 node=0 VTOR=08003000"
+  },
+  {
+    "test": "Application XCP re-entry and unchanged bootloader",
+    "result": "PASS",
+    "version_ms": 250
+  },
+  {
+    "test": "Reject bootloader erase",
+    "result": "PASS",
+    "response": "fe31"
+  },
+  {
+    "test": "Reject bootloader write",
+    "result": "PASS",
+    "response": "fe22"
+  },
+  {
+    "test": "Reject out-of-range MTA",
+    "result": "PASS",
+    "response": "fe22"
+  },
+  {
+    "test": "Reject UPLOAD across flash end",
+    "result": "PASS",
+    "response": "fe22"
+  },
+  {
+    "test": "Reject erase across flash end",
+    "result": "PASS",
+    "response": "fe31"
+  },
+  {
+    "test": "Reject malformed/unsupported ff",
+    "result": "PASS",
+    "response": "fe21"
+  },
+  {
+    "test": "Reject malformed/unsupported f6",
+    "result": "PASS",
+    "response": "fe21"
+  },
+  {
+    "test": "Reject malformed/unsupported d00501",
+    "result": "PASS",
+    "response": "fe21"
+  },
+  {
+    "test": "Reject malformed/unsupported d1",
+    "result": "PASS",
+    "response": "fe21"
+  },
+  {
+    "test": "Reject malformed/unsupported c901",
+    "result": "PASS",
+    "response": "fe21"
+  },
+  {
+    "test": "Reject malformed/unsupported 01",
+    "result": "PASS",
+    "response": "fe20"
+  },
+  {
+    "test": "Empty CAN frame does not crash bootloader",
+    "result": "PASS"
+  },
+  {
+    "test": "Wrong node identifier ignored",
+    "result": "PASS"
+  },
+  {
+    "test": "Bootloader unchanged after negative requests",
+    "result": "PASS"
+  },
+  {
+    "test": "Interrupted transfer remains in bootloader after reset",
+    "result": "PASS",
+    "offset": 0
+  },
+  {
+    "test": "CAN-only recovery and complete readback",
+    "result": "PASS",
+    "interrupted_offset": 0
+  },
+  {
+    "test": "Interrupted transfer remains in bootloader after reset",
+    "result": "PASS",
+    "offset": 1024
+  },
+  {
+    "test": "CAN-only recovery and complete readback",
+    "result": "PASS",
+    "interrupted_offset": 1024
+  },
+  {
+    "test": "Interrupted transfer remains in bootloader after reset",
+    "result": "PASS",
+    "offset": 31090
+  },
+  {
+    "test": "CAN-only recovery and complete readback",
+    "result": "PASS",
+    "interrupted_offset": 31090
+  },
+  {
+    "test": "Interrupted transfer remains in bootloader after reset",
+    "result": "PASS",
+    "offset": 62180
+  },
+  {
+    "test": "CAN-only recovery and complete readback",
+    "result": "PASS",
+    "interrupted_offset": 62180
+  },
+  {
+    "test": "ST-Link reset during active CAN transfer detected",
+    "result": "PASS",
+    "error": "LibOpenBLT program failed (1); relay=None"
+  },
+  {
+    "test": "CAN-only recovery after reset during transfer",
+    "result": "PASS"
+  },
+  {
+    "test": "Full 116 KiB application region programmed and read back over CAN",
+    "result": "PASS",
+    "bytes": 118784,
+    "status": "STM32G474RBT3 uptime=511 ms blink_ms=250 node=0 VTOR=08003000"
+  },
+  {
+    "test": "Three additional alternating updates with full CAN readback",
+    "result": "PASS"
+  },
+  {
+    "test": "Final application A restored over CAN",
+    "result": "PASS",
+    "status": "STM32G474RBT3 uptime=505 ms blink_ms=250 node=0 VTOR=08003000"
+  },
+  {
+    "test": "Motor sleeps LOW and TIM1 MOE disabled",
+    "result": "PASS",
+    "GPIOB_ODR": "0x0",
+    "TIM1_BDTR": "0x2002000"
+  }
+]

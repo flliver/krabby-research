@@ -91,6 +91,8 @@ def contiguous_runs(mask: np.ndarray) -> list[tuple[int, int]]:
 # scored differently in CI and here. Every 1-D norm and dot in this module goes through :func:`_norm` /
 # :func:`_dot` instead: numpy's elementwise multiply and pairwise ``add.reduce``, which is what
 # ``np.linalg.norm(x, axis=k)`` (used as is below) already does -- no BLAS, so no kernel dependence.
+# Segment distances in :func:`_signed_min_edge_margin` use :func:`_norm` instead of ``np.hypot`` / libm so
+# support-polygon ``min_edge_margin`` percentiles do not drift between glibc builds (2026-11-14).
 # Not covered: numpy's own runtime SIMD dispatch (float64 ``arctan2`` / ``arcsin`` / ``exp`` / ``log`` take
 # an AVX-512 path where the CPU has one), a separate CPU dependence outside BLAS.
 # Guarded by tests/unit/test_crab_hex_gait_eval_golden.py::test_scoring_is_identical_under_every_openblas_kernel.
@@ -1101,7 +1103,7 @@ def _signed_min_edge_margin(hull: np.ndarray, c: np.ndarray) -> float:
     for i in range(len(hull)):
         a, b = hull[i], hull[(i + 1) % len(hull)]
         e = b - a
-        ln = float(np.hypot(*e))
+        ln = float(_norm(e))
         if ln < 1e-12:
             continue
         # left-of-edge is inside for a CCW hull
@@ -1110,7 +1112,7 @@ def _signed_min_edge_margin(hull: np.ndarray, c: np.ndarray) -> float:
             inside = False
         # unsigned distance to the segment
         t = float(np.clip(_dot(c - a, e) / (ln * ln), 0.0, 1.0))
-        dseg = float(np.hypot(*(c - (a + t * e))))
+        dseg = float(_norm(c - (a + t * e)))
         best = min(best, dseg)
     return best if inside else -best
 

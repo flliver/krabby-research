@@ -19,7 +19,7 @@ from hal.server.robot_definition import RobotDefinition
 
 logger = logging.getLogger(__name__)
 
-FirmwareTransport = Literal["in_process", "serial_sdk"]
+FirmwareTransport = Literal["in_process", "serial_sdk", "can"]
 
 __all__ = [
     "FirmwareTransport",
@@ -94,8 +94,24 @@ class FullsimFirmwareSession:
     hal_krabby_sdk: Any | None = None
     pty_slave_path: str = ""
     firmware_transport: FirmwareTransport = "in_process"
+    can_bus: Any | None = None
+    stm_hal_sdk: Any | None = None
 
     def close(self) -> None:
+        if self.stm_hal_sdk is not None:
+            try:
+                self.stm_hal_sdk.close()
+            except Exception:  # noqa: BLE001 — best-effort shutdown
+                logger.exception("Error closing KrabbyStmMCUSDK")
+            self.stm_hal_sdk = None
+        if self.can_bus is not None:
+            try:
+                shutdown = getattr(self.can_bus, "shutdown", None)
+                if callable(shutdown):
+                    shutdown()
+            except Exception:  # noqa: BLE001
+                logger.exception("Error shutting down CAN bus")
+            self.can_bus = None
         if self.hal_krabby_sdk is not None:
             try:
                 self.hal_krabby_sdk.close()

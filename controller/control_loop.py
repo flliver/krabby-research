@@ -58,6 +58,7 @@ class ControlLoopConfig:
         hal_transport_context: Optional shared ZMQ context for HalClient (e.g. inproc with HAL server).
         command_send_gate: When set, joint commands are sent only if this callable returns True
             (portal teleop uses this for operator_override).
+        stm: When True, Krabby gamepad mappers emit duty [-1, 1] for STM CAN HAL (and Isaac CAN fullsim).
     """
     mode: ControlMode
     input_controller_device_id: Optional[int] = None
@@ -71,6 +72,7 @@ class ControlLoopConfig:
     webrtc_input_controller: Optional[WebRTCInputController] = None
     hal_transport_context: Optional[zmq.Context] = None
     command_send_gate: Optional[Callable[[], bool]] = None
+    stm: bool = False
 
 
 class ControlLoop:
@@ -182,15 +184,23 @@ class ControlLoop:
         )
         self._hal_client.initialize()
 
-        self._gamepad_to_isaacsim_hal_mapper = GamepadToIsaacSimHALMapper(
-            hip_up_down_scale=self.config.mapper_hip_up_down_scale,
-            knee_out_in_scale=self.config.mapper_knee_out_in_scale,
-            hip_yaw_scale=self.config.mapper_hip_yaw_scale,
-            robot_definition=rd,
-        )
-        
-        # Register callback to send commands when gamepad state changes
-        self._input_controller.register_callback(self._on_gamepad_state)
+        if self.config.stm:
+            self._gamepad_to_krabby_hal_mapper = GamepadToKrabbyHALMapper(
+                hip_up_down_scale=self.config.mapper_hip_up_down_scale,
+                knee_out_in_scale=self.config.mapper_knee_out_in_scale,
+                hip_yaw_scale=self.config.mapper_hip_yaw_scale,
+                robot_definition=rd,
+                stm=True,
+            )
+            self._input_controller.register_callback(self._on_gamepad_state_krabby)
+        else:
+            self._gamepad_to_isaacsim_hal_mapper = GamepadToIsaacSimHALMapper(
+                hip_up_down_scale=self.config.mapper_hip_up_down_scale,
+                knee_out_in_scale=self.config.mapper_knee_out_in_scale,
+                hip_yaw_scale=self.config.mapper_hip_yaw_scale,
+                robot_definition=rd,
+            )
+            self._input_controller.register_callback(self._on_gamepad_state)
         
         # Start input controller
         self._input_controller.start(
@@ -227,6 +237,7 @@ class ControlLoop:
             knee_out_in_scale=self.config.mapper_knee_out_in_scale,
             hip_yaw_scale=self.config.mapper_hip_yaw_scale,
             robot_definition=rd,
+            stm=self.config.stm,
         )
 
         # Register callback to send commands when gamepad state changes
@@ -238,7 +249,7 @@ class ControlLoop:
             update_rate_hz=self.config.input_controller_update_rate_hz,
         )
         
-        logger.info("INPUT_CONTROLLER_KRABBY mode initialized")
+        logger.info("INPUT_CONTROLLER_KRABBY mode initialized (stm=%s)", self.config.stm)
 
     def _start_input_controller_webrtc_mode(self) -> None:
         """Start components for INPUT_CONTROLLER_WEBRTC mode."""
@@ -267,10 +278,11 @@ class ControlLoop:
             knee_out_in_scale=self.config.mapper_knee_out_in_scale,
             hip_yaw_scale=self.config.mapper_hip_yaw_scale,
             robot_definition=rd,
+            stm=self.config.stm,
         )
         self._input_controller.register_callback(self._on_gamepad_state_krabby)
         self._input_controller.start(update_rate_hz=self.config.input_controller_update_rate_hz)
-        logger.info("INPUT_CONTROLLER_WEBRTC mode initialized")
+        logger.info("INPUT_CONTROLLER_WEBRTC mode initialized (stm=%s)", self.config.stm)
 
     def _command_send_allowed(self) -> bool:
         gate = self.config.command_send_gate

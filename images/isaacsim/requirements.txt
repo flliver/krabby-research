@@ -28,6 +28,9 @@ fast-simplification
 # Testing
 pytest>=7.0.0
 
+# tensordict: pytest uses /isaac-sim/python.sh (kit torch ~2.7). 0.15+ imports pytree symbols the kit lacks.
+tensordict==0.13.0
+
 # Reinforcement learning library
 # Note: Isaac Lab installs rsl-rl-lib 3.1.2 as a dependency, which overrides this
 # Version 3.1.2 has EmpiricalNormalization in rsl_rl.networks
@@ -37,6 +40,11 @@ rsl-rl-lib==3.1.2
 
 # PyYAML: settings and tests.
 PyYAML>=6.0.0
+
+# STM CAN host + firmware Isaac pytest (see firmware/pyproject.toml [stm] extras)
+pyserial>=3.5
+python-can>=4.3
+cantools>=39.0
 
 # Note: scipy is NOT installed here - Isaac Sim has its own bundled scipy
 # Installing scipy in the venv causes conflicts with Isaac Sim's bundled scipy

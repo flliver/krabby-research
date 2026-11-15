@@ -61,7 +61,12 @@ def main() -> None:
     collector_stop = collector_thread = None
 
     try:
-        hal_server = create_hal_server(robot_definition, observation_bind, command_bind)
+        hal_server = create_hal_server(
+            robot_definition,
+            observation_bind,
+            command_bind,
+            stm=args.stm,
+        )
         warn_if_mcu_missing(hal_server)
         logger.info("HAL server initialized")
         logger.info(

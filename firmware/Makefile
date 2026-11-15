@@ -49,6 +49,16 @@ else
 PYTHON ?= python3
 endif
 
+# Repo venv (cantools for STM DBC codegen). Override: make stm-dbc VENV_PYTHON=/path/to/python
+VENV_PYTHON ?= $(REPO_ROOT)/.venv/bin/python
+STM_DBC_DIR   := $(CURDIR)/stm/dbc
+STM_DBC_GEN   := $(STM_DBC_DIR)/generated
+STM_SRC_DIR   := $(CURDIR)/stm
+STM_FW_BUILD  := $(BUILD_DIR)/stm-leg
+STM_HOST_BUILD := $(BUILD_DIR)/stm-host
+KRABBY_HW_FIRMWARE := $(REPO_ROOT)/hardware/PCB-v0.3/Firmware
+ARM_NONE_EABI_GCC := $(shell command -v arm-none-eabi-gcc 2>/dev/null)
+
 # Always bake in the 256-byte serial RX buffer. The leader forwards ~200-byte
 # follower telemetry lines from Serial1/Serial2; the AVR core's 64-byte default
 # RX buffer drops the middle of those lines and the host logs "can't keep up".
@@ -76,7 +86,36 @@ endif
 $(info Using PORT=$(PORT))
 endif
 
-.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac
+.PHONY: arduino-core fetch-libs compile-firmware upload-firmware flash-remote host-actuator test-native test-native-coverage test-firmware test-firmware-isaac stm-dbc stm-build stm-firmware host-stm
+
+# MCU leg firmware (KRABBY_STM_BUILD_FIRMWARE=ON). App link base must stay aligned with
+# OpenBLT layout in hardware/PCB-v0.3/Firmware/ (see firmware/stm/docs/FLASH.md).
+stm-build:
+ifdef ARM_NONE_EABI_GCC
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=ON \
+		-DCMAKE_TOOLCHAIN_FILE="$(STM_SRC_DIR)/cmake/gcc-arm-none-eabi.cmake" \
+		-DKRABBY_HW_FIRMWARE="$(KRABBY_HW_FIRMWARE)"
+	$(CMAKE) --build "$(STM_FW_BUILD)" --target krabby_leg_app
+else
+	@echo "arm-none-eabi-gcc not on PATH; stm-build uses host compiler (smoke link only)" >&2
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_FW_BUILD)" -DKRABBY_STM_BUILD_FIRMWARE=ON
+	$(CMAKE) --build "$(STM_FW_BUILD)" --target krabby_leg_app
+endif
+
+# Deprecated alias — use stm-build.
+stm-firmware: stm-build
+
+# Host shared library: core + Isaac/CAN sim → firmware/build/stm-host/libkrabby_stm_host.so
+host-stm:
+	$(CMAKE) -S "$(STM_SRC_DIR)" -B "$(STM_HOST_BUILD)" -DKRABBY_STM_HOST_LIBRARY=ON
+	$(CMAKE) --build "$(STM_HOST_BUILD)" --target krabby_stm_host
+
+# CAN-FD DBC → C for leg-board firmware (committed under stm/dbc/generated/).
+stm-dbc:
+	@test -x "$(VENV_PYTHON)" || { echo "ERROR: $(VENV_PYTHON) not found; create repo .venv and pip install cantools"; exit 1; }
+	"$(VENV_PYTHON)" "$(STM_DBC_DIR)/regenerate_c.py" --python "$(VENV_PYTHON)"
+	sha256sum "$(STM_DBC_DIR)/krabby.dbc" | awk '{print $$1}' > "$(STM_DBC_DIR)/krabby.sha256"
+	@echo "Regenerated $(STM_DBC_GEN)/krabby.{c,h} and refreshed krabby.sha256"
 
 host-actuator:
 	$(CMAKE) -S "$(NATIVE_TEST_SOURCE)" -B "$(NATIVE_TEST_BUILD)"
@@ -121,7 +160,7 @@ test-firmware: test-native
 
 # Isaac Sim smoke / integration (krabby-isaacsim image; see images/isaacsim/README.md).
 # host-actuator first: the loop test loads libkrabby_host from the mounted build dir.
-test-firmware-isaac: host-actuator
+test-firmware-isaac: host-actuator host-stm
 	"$(REPO_ROOT)/images/isaacsim/run_firmware_isaac_pytest.sh"
 
 # Pinned to the core version the bench-verified hex was built with; bump

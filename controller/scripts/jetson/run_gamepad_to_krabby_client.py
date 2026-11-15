@@ -96,6 +96,11 @@ def main() -> int:
         default="hex",
         help="HAL joint topology for gamepad commands (must match Jetson HAL --robot)",
     )
+    parser.add_argument(
+        "--stm",
+        action="store_true",
+        help="Map sticks to duty [-1, 1] for STM CAN HAL (match Jetson HAL --stm).",
+    )
     args = parser.parse_args()
 
     _initialize_pygame()
@@ -111,6 +116,7 @@ def main() -> int:
         input_controller_device_id=args.device_id,
         input_controller_update_rate_hz=args.rate,
         krabby_gamepad_robot_definition=robot_definition,
+        stm=args.stm,
     )
 
     control_loop = ControlLoop(control_loop_config)

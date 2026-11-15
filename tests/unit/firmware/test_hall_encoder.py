@@ -5,10 +5,12 @@ from pathlib import Path
 
 from firmware.sim.hall_encoder import (
     DEFAULT_HALL_EDGES_PER_FULL_TRAVEL,
+    DEFAULT_STM_COUNTS_PER_FULL_TRAVEL,
     edges_for_angle_delta,
     edges_per_radian,
     load_hall_encoder_scale,
     resolve_hall_edges_per_full_travel,
+    resolve_stm_counts_per_full_travel,
 )
 from firmware.sim.simulated_robot_config import SimulatedRobotConfig
 
@@ -50,3 +52,11 @@ def test_hall_encoder_scale_json_matches_python_and_cpp():
     match = re.search(r"kHallEdgesPerFullTravel = (\d+)u", hpp)
     assert match is not None
     assert int(match.group(1)) == edges
+
+
+def test_stm_counts_per_full_travel_in_json():
+    data = load_hall_encoder_scale()
+    counts = int(data["stm_counts_per_full_travel"])
+    assert counts == 6400
+    assert resolve_stm_counts_per_full_travel() == counts
+    assert DEFAULT_STM_COUNTS_PER_FULL_TRAVEL == counts

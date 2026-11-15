@@ -1,0 +1,13 @@
+{
+  "boot_bytes": 12000,
+  "app_bytes": 35972,
+  "combined_bytes": 48260,
+  "app_base": "0x8003000",
+  "end_exclusive": "0x800bc84",
+  "signature": "0xaffa9d72",
+  "required_DBANK": 0,
+  "sha256": {
+    "LoadMeFirst.hex": "7831ce0f971f791027daa42fef173c2a83800d3988be4c739a6aea9972889d12",
+    "LoadMeFirst_app.srec": "e3606d414d231a0ce738e9274c99d11f8b745c6c7ec68624d934e1b8d5c6cc7c"
+  }
+}

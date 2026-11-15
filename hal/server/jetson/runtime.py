@@ -63,6 +63,11 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
             "HAL endpoints from --observation-bind/--command-bind are enforced by this entrypoint."
         ),
     )
+    parser.add_argument(
+        "--stm",
+        action="store_true",
+        help="Use STM CAN leg boards (KrabbyStmMCUSDK) instead of Mega serial MCU SDK.",
+    )
 
 
 def configure_logging(level_name: str) -> None:
@@ -83,7 +88,12 @@ def select_robot(name: str) -> RobotDefinition:
 
 
 def create_hal_server(
-    robot_definition: RobotDefinition, observation_bind: str, command_bind: str
+    robot_definition: RobotDefinition,
+    observation_bind: str,
+    command_bind: str,
+    *,
+    stm: bool = False,
+    stm_virtual: bool = False,
 ) -> JetsonHalServer:
     """Build and initialize the HAL server with sensors and actuators (cameras are left to the caller)."""
     model_definition = PARKOUR_MODEL_OBSERVATION_DEFINITION
@@ -92,6 +102,8 @@ def create_hal_server(
         observation_dimensions=model_definition.get_observation_dimensions(robot_definition),
         action_dim=model_definition.action_dim,
         robot_definition=robot_definition,
+        stm=stm,
+        stm_virtual=stm_virtual,
     )
     hal_server.initialize()
     hal_server.initialize_sensors()

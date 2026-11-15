@@ -1,0 +1,120 @@
+{
+  "synthetic": "PASS",
+  "features": [
+    "period selection",
+    "ARM neutral repeat",
+    "signed commands",
+    "field/page writes",
+    "per-motor polarity/units atomic writes",
+    "schema 2/3 JSON migration",
+    "save/load/defaults",
+    "reboot stages",
+    "raw packets",
+    "deadline detection",
+    "priority stop",
+    "worker close",
+    "GUI staged edits"
+  ],
+  "physical_runs": [
+    {
+      "physical": "PASS",
+      "port": "COM7",
+      "node": 7,
+      "usb": false,
+      "zero_repeat_seconds": 0.6,
+      "maximum_tx_gap_ms": 35.80139999394305,
+      "save_load": "PASS",
+      "restored_original_RAM_and_saved_configuration": true
+    },
+    {
+      "physical": "PASS",
+      "port": "COM3",
+      "node": 7,
+      "usb": true,
+      "zero_repeat_seconds": 0.6,
+      "maximum_tx_gap_ms": 31.89750001183711,
+      "save_load": "PASS",
+      "restored_original_RAM_and_saved_configuration": true
+    },
+    {
+      "physical": "PASS",
+      "port": "COM7",
+      "node": 7,
+      "usb": false,
+      "zero_repeat_seconds": 0.6,
+      "maximum_tx_gap_ms": 20.68159999907948,
+      "save_load": "PASS",
+      "restored_original_RAM_and_saved_configuration": true
+    },
+    {
+      "physical": "PASS",
+      "port": "COM3",
+      "node": 7,
+      "usb": true,
+      "zero_repeat_seconds": 0.6,
+      "maximum_tx_gap_ms": 20.68630000576377,
+      "save_load": "PASS",
+      "restored_original_RAM_and_saved_configuration": true
+    },
+    {
+      "physical": "PASS",
+      "port": "COM7",
+      "node": 7,
+      "usb": false,
+      "zero_repeat_seconds": 0.6,
+      "maximum_tx_gap_ms": 20.644400006858632,
+      "watchdog_profiles": [
+        {
+          "watchdog_ms": 50,
+          "period_ms": 12.5,
+          "repeated_for_test": true,
+          "max_gap_ms": 13.251800002763048
+        },
+        {
+          "watchdog_ms": 10,
+          "period_ms": 2.5,
+          "repeated_for_test": true,
+          "max_gap_ms": 3.7028999940957874
+        },
+        {
+          "watchdog_ms": 0,
+          "period_ms": 20.0,
+          "repeated_for_test": true,
+          "max_gap_ms": 20.644400006858632
+        }
+      ],
+      "save_load": "PASS",
+      "restored_original_RAM_and_saved_configuration": true
+    },
+    {
+      "physical": "PASS",
+      "port": "COM3",
+      "node": 7,
+      "usb": true,
+      "zero_repeat_seconds": 0.6,
+      "maximum_tx_gap_ms": 20.53519999026321,
+      "watchdog_profiles": [
+        {
+          "watchdog_ms": 50,
+          "period_ms": 12.5,
+          "repeated_for_test": true,
+          "max_gap_ms": 13.089300016872585
+        },
+        {
+          "watchdog_ms": 10,
+          "period_ms": 2.5,
+          "repeated_for_test": true,
+          "max_gap_ms": 4.5427000150084496
+        },
+        {
+          "watchdog_ms": 0,
+          "period_ms": 20.0,
+          "repeated_for_test": true,
+          "max_gap_ms": 20.53519999026321
+        }
+      ],
+      "save_load": "PASS",
+      "restored_original_RAM_and_saved_configuration": true
+    }
+  ]
+}

@@ -42,6 +42,7 @@ docker run --rm --gpus all \
   -v "$REPO_ROOT/assets:/workspace/assets:ro" \
   -v "$REPO_ROOT/parkour:/workspace/parkour" \
   -v "$REPO_ROOT/build/native-firmware-tests:/workspace/build/native-firmware-tests:ro" \
+  -v "$REPO_ROOT/firmware/build/stm-host:/workspace/firmware/build/stm-host:ro" \
   -v "$RESULTS_DIR:/results:rw" \
   -e RUN_FIRMWARE_ISAAC=1 \
   -e FIRMWARE_ISAAC_RESULTS_DIR=/results \
@@ -54,7 +55,6 @@ docker run --rm --gpus all \
   -c '
     set -uo pipefail
     source /workspace/testenv/bin/activate
-    pip install -q pyserial
     VENV_SITE_PACKAGES=$(/workspace/testenv/bin/python -c "import site; print(site.getsitepackages()[0])")
     export PYTHONPATH="/workspace/isaaclab/source/isaaclab_tasks:/workspace/isaaclab/source:/workspace/isaaclab/source/isaaclab:/workspace/parkour:/workspace:/isaac-sim/python_packages:${VENV_SITE_PACKAGES}"
     /isaac-sim/python.sh -m pytest -o log_cli=false --junitxml=/results/junit.xml "$@"

@@ -1,0 +1,242 @@
+{
+  "version": 4,
+  "page_size": 56,
+  "dataset_size": 224,
+  "node": [
+    {
+      "id": 0,
+      "offset": 0,
+      "name": "watchdog_mode",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 0,
+      "units": "enum",
+      "type": "int32_le"
+    },
+    {
+      "id": 1,
+      "offset": 4,
+      "name": "watchdog_timeout",
+      "default": 25,
+      "minimum": 0,
+      "maximum": 255,
+      "units": "10 ms",
+      "type": "int32_le"
+    },
+    {
+      "id": 2,
+      "offset": 8,
+      "name": "telemetry_ms",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 60000,
+      "units": "ms; 0 or >=10",
+      "type": "int32_le"
+    },
+    {
+      "id": 3,
+      "offset": 12,
+      "name": "board_filter_shift",
+      "default": 3,
+      "minimum": 0,
+      "maximum": 8,
+      "units": "binary shift",
+      "type": "int32_le"
+    },
+    {
+      "id": 4,
+      "offset": 16,
+      "name": "ntc_beta",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 10000,
+      "units": "K; 0 disables Celsius",
+      "type": "int32_le"
+    },
+    {
+      "id": 5,
+      "offset": 20,
+      "name": "ntc_nominal_ohms",
+      "default": 10000,
+      "minimum": 1,
+      "maximum": 1000000,
+      "units": "ohm",
+      "type": "int32_le"
+    },
+    {
+      "id": 6,
+      "offset": 24,
+      "name": "ntc_pullup_ohms",
+      "default": 10000,
+      "minimum": 1,
+      "maximum": 1000000,
+      "units": "ohm",
+      "type": "int32_le"
+    },
+    {
+      "id": 7,
+      "offset": 28,
+      "name": "ntc_nominal_mC",
+      "default": 25000,
+      "minimum": -50000,
+      "maximum": 150000,
+      "units": "milliC",
+      "type": "int32_le"
+    }
+  ],
+  "motors": [
+    {
+      "id": 0,
+      "offset": 0,
+      "name": "control_mode",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 0,
+      "units": "enum",
+      "type": "int32_le"
+    },
+    {
+      "id": 1,
+      "offset": 4,
+      "name": "feedback_source",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "units": "0 pot,1 encoder",
+      "type": "int32_le"
+    },
+    {
+      "id": 2,
+      "offset": 8,
+      "name": "report_mode",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "units": "0 native,1 normalized",
+      "type": "int32_le"
+    },
+    {
+      "id": 3,
+      "offset": 12,
+      "name": "current_limit_mode",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 0,
+      "units": "enum",
+      "type": "int32_le"
+    },
+    {
+      "id": 4,
+      "offset": 16,
+      "name": "current_vref_mv",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 3000,
+      "units": "mV at driver VREF",
+      "type": "int32_le"
+    },
+    {
+      "id": 5,
+      "offset": 20,
+      "name": "lower_limit",
+      "default": 0,
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "units": "native or normalized, selected by motor field 13",
+      "type": "int32_le"
+    },
+    {
+      "id": 6,
+      "offset": 24,
+      "name": "upper_limit",
+      "default": 4095,
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "units": "native or normalized, selected by motor field 13",
+      "type": "int32_le"
+    },
+    {
+      "id": 7,
+      "offset": 28,
+      "name": "calibration_min",
+      "default": 0,
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "units": "native",
+      "type": "int32_le"
+    },
+    {
+      "id": 8,
+      "offset": 32,
+      "name": "calibration_max",
+      "default": 4095,
+      "minimum": -2147483648,
+      "maximum": 2147483647,
+      "units": "native",
+      "type": "int32_le"
+    },
+    {
+      "id": 9,
+      "offset": 36,
+      "name": "adc_filter_shift",
+      "default": 3,
+      "minimum": 0,
+      "maximum": 8,
+      "units": "binary shift",
+      "type": "int32_le"
+    },
+    {
+      "id": 10,
+      "offset": 40,
+      "name": "safe_state",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "units": "0 brake,1 Hi-Z",
+      "type": "int32_le"
+    },
+    {
+      "id": 11,
+      "offset": 44,
+      "name": "travel_limits_enabled",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "units": "boolean",
+      "type": "int32_le"
+    },
+    {
+      "id": 12,
+      "offset": 48,
+      "name": "output_reversed",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "units": "boolean",
+      "type": "int32_le"
+    },
+    {
+      "id": 13,
+      "offset": 52,
+      "name": "normalized_limits",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "units": "0 native,1 normalized",
+      "type": "int32_le"
+    }
+  ],
+  "reserved_node_fields": [
+    8,
+    9,
+    10,
+    11
+  ],
+  "constraints": [
+    "lower_limit < upper_limit",
+    "calibration_min < calibration_max",
+    "telemetry_ms is 0 or >=10"
+  ],
+  "node_page_size": 48,
+  "motor_page_size": 56
+}

@@ -171,23 +171,53 @@ def serialize_base_twist_stamped(
 
 
 def catalog_camera_topic(catalog_id: str, stream: str) -> str:
-    """ROS topic for one catalog RGB-D stream (``stream`` is ``rgb`` or ``depth``)."""
+    """ROS topic for one catalog sensor channel (``stream`` is a channel name, e.g. ``rgb``)."""
     return f"/camera/{catalog_id}/{stream}"
 
 
 def catalog_camera_topic_msgtypes(
-    catalog_ids: tuple[str, ...] | list[str],
+    catalog_channels: (
+        tuple[str, ...]
+        | list[str]
+        | dict[str, tuple[str, ...] | list[str]]
+    ),
 ) -> list[tuple[str, str]]:
-    """(topic, msgtype) pairs for pre-registering catalog cameras in rosbag2."""
+    """(topic, msgtype) pairs for pre-registering catalog camera channels in rosbag2.
+
+    Accepts either:
+    - a mapping ``catalog_id -> channel names`` (preferred), or
+    - a sequence of catalog ids (legacy: registers both ``rgb`` and ``depth``).
+    """
+    if isinstance(catalog_channels, dict):
+        items = catalog_channels.items()
+    else:
+        items = ((cid, ("rgb", "depth")) for cid in catalog_channels)
     return [
         (catalog_camera_topic(cid, stream), IMAGE_MSGTYPE)
-        for cid in catalog_ids
-        for stream in ("rgb", "depth")
+        for cid, streams in items
+        for stream in streams
     ]
 
 
 def is_catalog_camera_topic(topic: str) -> bool:
     return topic.startswith("/camera/") and topic.count("/") == 3
+
+
+def _serialize_channel_image(
+    ts: "Typestore",
+    stamp_ns: int,
+    topic: str,
+    channel: str,
+    arr: "np.ndarray",
+) -> bytes:
+    """Map a channel kind to a ROS Image serializer."""
+    if channel == "depth":
+        return serialize_image_depth_32fc1(ts, stamp_ns, topic, arr)
+    if channel == "rgb":
+        if arr.ndim == 2:
+            return serialize_image_mono8(ts, stamp_ns, topic, arr)
+        return serialize_image_rgb8(ts, stamp_ns, topic, arr)
+    raise ValueError(f"unsupported catalog camera channel {channel!r} for topic {topic}")
 
 
 def observation_to_writes(
@@ -207,18 +237,14 @@ def observation_to_writes(
     rgbd = obs.rgbd_by_catalog_id or {}
     for cid in sorted(rgbd.keys()):
         entry = rgbd[cid]
-        rgb_topic = catalog_camera_topic(cid, "rgb")
-        depth_topic = catalog_camera_topic(cid, "depth")
         # Use the ROS topic as frame_id so MCAP/Foxglove stream names match playback topics
         # (``camera_{id}`` caused viewers to infer ``/camera/front/rgb`` from ``front_rgbd``).
-        if entry.rgb.ndim == 2:
-            rgb_bytes = serialize_image_mono8(ts, t, rgb_topic, entry.rgb)
-        else:
-            rgb_bytes = serialize_image_rgb8(ts, t, rgb_topic, entry.rgb)
-        out.append((rgb_topic, IMAGE_MSGTYPE, rgb_bytes))
-
-        depth_bytes = serialize_image_depth_32fc1(ts, t, depth_topic, entry.depth)
-        out.append((depth_topic, IMAGE_MSGTYPE, depth_bytes))
+        for channel in sorted(entry.channels.keys()):
+            topic = catalog_camera_topic(cid, channel)
+            payload = _serialize_channel_image(
+                ts, t, topic, channel, entry.channels[channel]
+            )
+            out.append((topic, IMAGE_MSGTYPE, payload))
 
     if topics.joints_state:
         out.append(

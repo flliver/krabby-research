@@ -1,0 +1,15 @@
+{
+  "result": "PASS",
+  "physical_node": 7,
+  "interface": "CANable2 COM7",
+  "gui_actions": [
+    "connect/settings lock",
+    "ARM + repeat ZERO",
+    "repeat toggle STOP/DISARM",
+    "staged field write and restore",
+    "all five periodic telemetry topics",
+    "disconnect/settings unlock"
+  ],
+  "telemetry_frames": 14,
+  "original_RAM_restored": true
+}

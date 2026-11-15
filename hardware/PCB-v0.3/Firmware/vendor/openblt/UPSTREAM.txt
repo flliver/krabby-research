@@ -1,0 +1,5 @@
+Feaser OpenBLT 8fc277c74298a2fedeb99e85f906d846bf0018e3; GPL-3.0-or-later. Selected upstream files, unmodified. See Doc/license.html.
+
+Host/Source is an inspection subset, not the complete host build tree.
+Host Windows executables are local dependencies excluded by .gitignore.
+See ../../THIRD_PARTY.md for provenance/distribution caveats.

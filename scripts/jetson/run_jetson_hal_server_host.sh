@@ -114,7 +114,7 @@ echo "Using task reference: $TASK_NAME"
 echo "Using robot definition: $ROBOT_TYPE"
 echo "Using control source: $CONTROL_SOURCE"
 echo "Using teleop portal IP: $TELEOP_IP"
-echo "Using side MaixSense endpoint: from sensor catalog"
+echo "Using SEN0581 ToF devices: from sensor catalog"
 echo "Using ZED resources mount: $ZED_RESOURCES_SUBDIR:$ZED_RESOURCES_CONTAINER_DIR"
 echo "Using ZED settings mount: $ZED_SETTINGS_SUBDIR:$ZED_SETTINGS_CONTAINER_DIR"
 
@@ -134,35 +134,26 @@ if front.camera_driver != "zed":
         "Update catalog to the requested front ZED configuration."
     )
 
-side = next(
-    (
-        e
-        for e in JETSON_SENSOR_CATALOG
-        if (not e.is_primary)
-        and e.hal_open_rgbd
-        and e.camera_driver == "maixsense_a075v"
-    ),
-    None,
-)
-if side is None:
-    raise SystemExit(
-        "Expected a non-primary side MaixSense catalog row "
-        "(camera_driver='maixsense_a075v', hal_open_rgbd=True), but none was found."
-    )
-maixsense_rows = [
+tof_rows = [
     e
     for e in JETSON_SENSOR_CATALOG
-    if e.camera_driver == "maixsense_a075v" and (e.is_primary or e.hal_open_rgbd)
+    if (not e.is_primary)
+    and e.hal_open_rgbd
+    and e.camera_driver == "sen0581"
 ]
+if len(tof_rows) != 3:
+    raise SystemExit(
+        "Expected three non-primary SEN0581 catalog rows "
+        "(camera_driver='sen0581', hal_open_rgbd=True), "
+        f"found {len(tof_rows)}: {[e.id for e in tof_rows]}"
+    )
 
 print(
     f"[launcher] Camera config OK: front={front.id}({front.camera_driver}), "
-    f"side={side.id}({side.camera_driver})"
+    f"tof={[e.id for e in tof_rows]}"
 )
-for row in maixsense_rows:
-    host = (row.maixsense_host or "").strip() or "(unset)"
-    port = row.maixsense_port if row.maixsense_port is not None else "(unset)"
-    print(f"[launcher] MaixSense {row.id}: {host}:{port}")
+for row in tof_rows:
+    print(f"[launcher] SEN0581 {row.id}: {row.sen0581_device}")
 if task_name:
     print(f"[launcher] Task reference: {task_name} (Jetson main does not consume --task)")
 

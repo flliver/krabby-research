@@ -23,6 +23,11 @@ values the failing CI job reported); and it differs from the previous fixture on
 (<= 2 ulp, |rel| <= 3.1e-16). That fixed a CPU dependence, it did not change what the rows score. It licenses
 nothing else: the rule above stands. :func:`test_scoring_is_identical_under_every_openblas_kernel` keeps the
 dependence from coming back.
+
+Second deliberate regeneration, 2026-11-14: ``_signed_min_edge_margin`` used ``np.hypot`` (libm), so
+``support_polygon.walking.min_edge_margin_m`` p50/p90 differed by 1 ulp between GitHub's runners and the
+fixture (written with a different libm). Those distances now use :func:`_norm`; the fixture was regenerated
+once from the unchanged generator. Same rules apply as the 2026-10-26 regen.
 """
 
 import json
@@ -72,7 +77,7 @@ def test_generator_parameters_are_the_ones_the_fixture_was_written_with(golden):
 
 def test_forward_and_sideways_scoring_is_exactly_the_golden_fixture(scored, golden):
     """Float EQUALITY, not approx: the refactor must not move a single ulp."""
-    assert scored == golden["results"]
+    _assert_json_equal(scored, golden["results"], root="results")
 
 
 @pytest.mark.parametrize("key", ["yaw_0", "yaw_half_pi"])
@@ -80,10 +85,11 @@ def test_each_episode_matches_key_by_key(scored, golden, key):
     """Same assertion, reported per episode/field so a regression names itself."""
     want, got = golden["results"][key], scored[key]
     assert len(got) == len(want)
-    for i, (g, w) in enumerate(zip(got, want)):
-        assert set(g) == set(w), f"{key}[{i}]: metric keys changed"
-        for field in w:
-            assert g[field] == w[field], f"{key}[{i}][{field}]"
+    for i, (scored_ep, golden_ep) in enumerate(zip(got, want)):
+        assert set(scored_ep) == set(golden_ep), f"{key}[{i}]: metric keys changed"
+        for field in golden_ep:
+            sub = _format_json_mismatch(scored_ep[field], golden_ep[field], f"{key}[{i}].{field}")
+            assert sub is None, sub
 
 
 def test_the_fixture_actually_exercises_the_paths_under_test(golden):
@@ -163,19 +169,68 @@ def _cpu_flags() -> set[str] | None:
     return None
 
 
+def _collect_json_mismatches(
+    scored, golden, path: str, out: list[str], *, limit: int, more: list[int]
+) -> None:
+    """Append up to ``limit`` human-readable mismatch lines; increment ``more[0]`` for every leaf diff."""
+    if len(out) >= limit:
+        more[0] += 1
+        return
+    if type(scored) is not type(golden):
+        out.append(f"{path}: types {type(scored).__name__} vs {type(golden).__name__}")
+        more[0] += 1
+        return
+    if isinstance(scored, dict):
+        extra = sorted(set(scored) - set(golden))
+        missing = sorted(set(golden) - set(scored))
+        if extra or missing:
+            parts = []
+            if missing:
+                parts.append(f"missing keys {missing}")
+            if extra:
+                parts.append(f"extra keys {extra}")
+            out.append(f"{path}: " + "; ".join(parts))
+            more[0] += 1
+            if len(out) >= limit:
+                return
+        for k in sorted(set(scored) & set(golden)):
+            _collect_json_mismatches(scored[k], golden[k], f"{path}.{k}", out, limit=limit, more=more)
+        return
+    if isinstance(scored, list):
+        if len(scored) != len(golden):
+            out.append(f"{path}: len {len(scored)} != {len(golden)}")
+            more[0] += 1
+            return
+        for i, (s, g) in enumerate(zip(scored, golden)):
+            _collect_json_mismatches(s, g, f"{path}[{i}]", out, limit=limit, more=more)
+        return
+    if scored != golden:
+        out.append(f"{path}: scored {scored!r} != golden {golden!r}")
+        more[0] += 1
+
+
+def _format_json_mismatch(scored, golden, root: str = "$", *, max_lines: int = 20) -> str | None:
+    """Short summary of where two JSON-shaped trees differ (no full pytest dict diff)."""
+    lines: list[str] = []
+    more = [0]
+    _collect_json_mismatches(scored, golden, root, lines, limit=max_lines, more=more)
+    if not lines and more[0] == 0:
+        return None
+    suffix = ""
+    if more[0] > len(lines):
+        suffix = f"\n  ... and {more[0] - len(lines)} more differing leaves"
+    return "golden fixture mismatch:\n  " + "\n  ".join(lines) + suffix
+
+
+def _assert_json_equal(scored, golden, *, root: str = "$") -> None:
+    msg = _format_json_mismatch(scored, golden, root)
+    if msg is not None:
+        pytest.fail(msg)
+
+
 def _first_difference(a, b, path="$"):
     """The first leaf path at which two JSON documents differ (for the failure message)."""
-    if type(a) is not type(b):
-        return f"{path}: {a!r} != {b!r}"
-    if isinstance(a, dict):
-        if set(a) != set(b):
-            return f"{path}: keys {sorted(set(a) ^ set(b))}"
-        return next((d for k in sorted(a) if (d := _first_difference(a[k], b[k], f"{path}.{k}"))), None)
-    if isinstance(a, list):
-        if len(a) != len(b):
-            return f"{path}: lengths {len(a)} != {len(b)}"
-        return next((d for i, (u, v) in enumerate(zip(a, b)) if (d := _first_difference(u, v, f"{path}[{i}]"))), None)
-    return None if a == b else f"{path}: {a!r} != {b!r}"
+    return _format_json_mismatch(a, b, path, max_lines=1)
 
 
 def _score_under(kernel: str | None) -> tuple[str, str | None]:

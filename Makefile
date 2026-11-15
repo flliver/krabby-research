@@ -114,6 +114,15 @@ endif
 # COPY dist/*.whl into one directory and pip install fails if two versions of the same
 # package are present (e.g. krabby-compute-parkour 0.1.0 and 0.1.1). Clear dist first.
 build-wheels:
+	@roots=$$(find hal controller compute data_collection parkour teleop krabby bench \
+		\( -path '*/build/*' -o -path '*/dist/*' \) -user root 2>/dev/null | wc -l); \
+	if [ "$$roots" -gt 0 ]; then \
+		echo "ERROR: root-owned files under package build/ or dist/ (often from Docker bind mounts + pytest)."; \
+		echo "Fix from repo root, then re-run make build-wheels:"; \
+		echo "  sudo find hal controller compute data_collection parkour teleop krabby bench \\;"; \
+		echo "    \\( -path '*/build' -o -path '*/dist' \\) -type d -exec chown -R $$USER:$$USER {} +"; \
+		exit 1; \
+	fi
 	@echo "Building wheels for all packages..."
 	@$(PIP) install -q build wheel setuptools
 	@cd hal/client && rm -rf dist build && $(PYTHON) -m build --wheel
@@ -250,6 +259,7 @@ test-isaacsim: build-isaacsim-image
 	@echo "  PYTHONUNBUFFERED=1 timeout 300 docker run --rm --gpus all \\"
 	@echo "    --entrypoint /workspace/run_test_runner.sh \\"
 	@echo "    krabby-isaacsim:latest <test_name>"
+	@echo "  ToF cameras: test_isaacsim_tof_cameras"
 	@echo "See test_runner.py and run_test_runner.sh for more information"
 	PYTHONUNBUFFERED=1 timeout 600 docker run --rm --gpus all \
 		--entrypoint /workspace/run_test_runner.sh \

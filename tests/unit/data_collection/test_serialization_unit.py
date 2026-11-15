@@ -18,10 +18,11 @@ from data_collection.serialization import (
     IMU_TOPIC,
     JOINT_STATE_MSGTYPE,
     catalog_camera_topic,
+    catalog_camera_topic_msgtypes,
     observation_to_writes,
     serialize_joint_state,
 )
-from hal.client.data_structures.hardware import RgbdCatalogObservation
+from hal.client.data_structures.hardware import SensorObservation
 from tests.helpers import create_dummy_hw_obs
 
 
@@ -52,7 +53,7 @@ def test_catalog_image_frame_id_matches_topic() -> None:
     dep = np.ones((2, 3), dtype=np.float32)
     obs = create_dummy_hw_obs(camera_height=2, camera_width=3)
     obs.rgbd_by_catalog_id = {
-        "front_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep),
+        "front_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep}),
     }
     rows = observation_to_writes(ts, obs, topics, ())
     rgb_topic = catalog_camera_topic("front_rgbd", "rgb")
@@ -72,21 +73,18 @@ def test_rgbd_catalog_writes_rgb_and_depth_topics() -> None:
     )
     rgb = np.zeros((2, 3, 3), dtype=np.uint8)
     dep = np.ones((2, 3), dtype=np.float32)
+    tof = np.ones((100, 100), dtype=np.float32)
     obs = create_dummy_hw_obs(camera_height=2, camera_width=3)
     obs.rgbd_by_catalog_id = {
-        "side_right_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep),
-        "side_left_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep),
-        "front_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep),
+        "belly_right_tof": SensorObservation(channels={"depth": tof}),
+        "front_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep}),
     }
     rows = observation_to_writes(ts, obs, topics, ())
     topics_found = {r[0] for r in rows}
     assert topics_found == {
         catalog_camera_topic("front_rgbd", "rgb"),
         catalog_camera_topic("front_rgbd", "depth"),
-        catalog_camera_topic("side_right_rgbd", "rgb"),
-        catalog_camera_topic("side_right_rgbd", "depth"),
-        catalog_camera_topic("side_left_rgbd", "rgb"),
-        catalog_camera_topic("side_left_rgbd", "depth"),
+        catalog_camera_topic("belly_right_tof", "depth"),
     }
 
 
@@ -98,12 +96,26 @@ def test_catalog_topic_names_used_for_all_catalog_ids() -> None:
     rgb = np.zeros((2, 3, 3), dtype=np.uint8)
     dep = np.ones((2, 3), dtype=np.float32)
     obs = create_dummy_hw_obs(camera_height=2, camera_width=3)
-    obs.rgbd_by_catalog_id = {"extra_rgbd": RgbdCatalogObservation(rgb=rgb, depth=dep)}
+    obs.rgbd_by_catalog_id = {
+        "extra_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep})
+    }
     rows = observation_to_writes(ts, obs, topics, ())
     topics_found = {r[0] for r in rows}
     assert topics_found == {
         catalog_camera_topic("extra_rgbd", "rgb"),
         catalog_camera_topic("extra_rgbd", "depth"),
+    }
+
+
+def test_catalog_camera_topic_msgtypes_per_channel_map() -> None:
+    pairs = catalog_camera_topic_msgtypes(
+        {"front_rgbd": ("rgb", "depth"), "belly_left_tof": ("depth",)}
+    )
+    topics = {t for t, _ in pairs}
+    assert topics == {
+        catalog_camera_topic("front_rgbd", "rgb"),
+        catalog_camera_topic("front_rgbd", "depth"),
+        catalog_camera_topic("belly_left_tof", "depth"),
     }
 
 
@@ -115,7 +127,9 @@ def test_catalog_mono_rgb_uses_mono8() -> None:
     gray = np.zeros((4, 5), dtype=np.uint8)
     obs = create_dummy_hw_obs(camera_height=4, camera_width=5)
     obs.rgbd_by_catalog_id = {
-        "radar_front": RgbdCatalogObservation(rgb=gray, depth=np.ones((4, 5), dtype=np.float32)),
+        "radar_front": SensorObservation(
+            channels={"rgb": gray, "depth": np.ones((4, 5), dtype=np.float32)}
+        ),
     }
     rows = observation_to_writes(ts, obs, topics, ())
     rgb_row = next(r for r in rows if r[0] == catalog_camera_topic("radar_front", "rgb"))
