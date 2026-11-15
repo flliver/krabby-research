@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
 
+project(krabby_leg_board LANGUAGES C)
+
 if(CMAKE_CROSSCOMPILING)
     enable_language(ASM)
 endif()
-
-project(krabby_leg_board LANGUAGES C)
 
 set(KRABBY_LEG_FW_VERSION "0.1.0-dev" CACHE STRING "Leg firmware version string")
 set(KRABBY_LEG_FW_GIT_SHA "dev-local" CACHE STRING "Git SHA embedded in NodeStatus")

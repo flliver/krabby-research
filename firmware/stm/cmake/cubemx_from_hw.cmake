@@ -20,12 +20,14 @@ set(KRABBY_MX_Include_Dirs
     ${_HW}/Drivers/CMSIS/Include
 )
 
+set(_STM_BOARD "${CMAKE_CURRENT_LIST_DIR}/../board")
+
 set(KRABBY_MX_Crt_Src
     ${_HW}/startup_stm32g474xx.s
     ${_HW}/Src/system_stm32g4xx.c
     ${_HW}/Src/sysmem.c
     ${_HW}/Src/syscalls.c
-    ${_HW}/Src/stm32g4xx_it.c
+    ${_STM_BOARD}/stm32g4xx_it.c
     ${_HW}/Src/stm32g4xx_hal_msp.c
 )
 
@@ -74,12 +76,12 @@ add_library(krabby_cubemx_usb OBJECT ${KRABBY_USB_Src})
 target_link_libraries(krabby_cubemx_usb PUBLIC krabby_cubemx_config)
 
 function(krabby_stm_link_cubemx app_target)
-    target_sources(${app_target} PRIVATE ${KRABBY_MX_Crt_Src})
-    target_link_libraries(${app_target} PRIVATE
-        krabby_cubemx_hal
-        krabby_cubemx_usb
-        m
-    )
+    set(_startup "${_HW}/startup_stm32g474xx.s")
+    set(_crt_c ${KRABBY_MX_Crt_Src})
+    list(REMOVE_ITEM _crt_c "${_startup}")
+    set_source_files_properties("${_startup}" PROPERTIES LANGUAGE ASM)
+    target_sources(${app_target} PRIVATE "${_startup}" ${_crt_c})
+    target_link_libraries(${app_target} PRIVATE krabby_cubemx_hal m)
     set_target_properties(${app_target} PROPERTIES
         OUTPUT_NAME krabby_leg_app
         SUFFIX ".elf"

@@ -185,6 +185,7 @@ void MX_ADC2_Init(void)
 
   /* USER CODE END ADC2_Init 2 */
 
+}
 
 void MX_I2C1_Init(void)
 {
