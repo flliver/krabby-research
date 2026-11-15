@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import math
+import struct
+
+import pytest
+
 from firmware.stm import codec, ids
 
 
@@ -28,3 +33,30 @@ def test_decode_telemetry_message_name() -> None:
     zeros = bytes(msg.length)
     fields = codec.decode_telemetry(1, zeros)
     assert "J1_DUTY" in fields
+
+
+def _dbc_float64(value: object) -> float:
+    if isinstance(value, int):
+        return struct.unpack("<d", struct.pack("<Q", value & ((1 << 64) - 1)))[0]
+    return float(value)
+
+
+def test_decode_telemetry_extreme_wire_values() -> None:
+    """Pot extrema, negative duty, large |hall|, and NaN position on the wire."""
+    db = codec.load_database()
+    msg = db.get_message_by_name("TELEMETRY_1")
+    base = msg.decode(bytes(msg.length))
+    nan_bits = struct.unpack("<Q", struct.pack("<d", float("nan")))[0]
+    base["J1_POT"] = 0
+    base["J2_POT"] = 4095
+    base["J1_DUTY"] = -0.5
+    base["J1_HALL"] = -2_000_000_000
+    base["J1_POSITION"] = nan_bits
+    wire = msg.encode(base)
+
+    fields = codec.decode_telemetry(1, wire)
+    assert fields["J1_POT"] == 0
+    assert fields["J2_POT"] == 4095
+    assert fields["J1_DUTY"] == pytest.approx(-0.5)
+    assert fields["J1_HALL"] == -2_000_000_000
+    assert math.isnan(_dbc_float64(fields["J1_POSITION"]))

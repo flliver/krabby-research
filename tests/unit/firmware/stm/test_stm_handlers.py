@@ -121,6 +121,44 @@ def test_set_duty_applies_this_leg_slice_only(stm_host_lib) -> None:
     assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 2) == pytest.approx(0.0)
 
 
+def test_set_duty_only_other_leg_rows_change_this_board(stm_host_lib) -> None:
+    """Updates on other legs' SET_DUTY slots do not change this node's three duties."""
+    leg = _leg_for_node(stm_host_lib, 1)
+    grid_a = ((0.35, 0.05, 0.0),) + ((0.5, 0.0, 0.0),) + ((0.0, 0.0, 0.0),) * 4
+    grid_b = ((0.35, 0.05, 0.0),) + ((0.9, -0.2, 0.1),) + ((0.0, 0.0, 0.0),) * 4
+    _send_set_duty_grid(stm_host_lib, leg, grid_a)
+    assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 0) == pytest.approx(0.35)
+    assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 1) == pytest.approx(0.05)
+
+    _send_set_duty_grid(stm_host_lib, leg, grid_b)
+    assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 0) == pytest.approx(0.35)
+    assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 1) == pytest.approx(0.05)
+    assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 2) == pytest.approx(0.0)
+
+
+def test_set_duty_negative_half_retract_power_500(stm_host_lib) -> None:
+    """Negative duty maps to direction false and |duty| 0.5 (power 500) in Isaac pin storage."""
+    leg = _leg_for_node(stm_host_lib, 1)
+    _send_set_duty_leg(stm_host_lib, leg, leg_id=1, yaw=-0.5, hip=0.0, knee=0.0)
+    assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 0) == pytest.approx(-0.5)
+
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 0)
+    assert decoded["J1_DUTY"] == pytest.approx(-0.5)
+
+
+def test_telemetry_reflects_pot_set_from_python(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 0, 2507)
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 0)
+    assert decoded["J1_POT"] == 2507
+
+
+def _send_set_duty_grid(stm_host_lib, leg: Leg, grid: tuple[tuple[float, float, float], ...]) -> None:
+    _frame_id, data = codec.encode_set_duty(codec.set_duty_values_from_grid(grid))
+    buf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), ids.set_duty_can_id(), buf, len(data))
+
+
 def test_calibrate_rejects_joint_one(stm_host_lib) -> None:
     leg = _leg_for_node(stm_host_lib, 1)
     cal_id = ids.calibrate_can_id(1)
