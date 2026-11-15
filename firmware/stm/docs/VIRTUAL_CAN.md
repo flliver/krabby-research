@@ -21,6 +21,8 @@ Exercise **`krabby.dbc`** on **`vcan0`** without hardware — Isaac fullsim and 
 
 ### `vcan0` bring-up
 
+Requires **sudo** once per machine (or use the lifecycle script below).
+
 ```bash
 sudo modprobe vcan
 sudo ip link add dev vcan0 type vcan
@@ -28,7 +30,20 @@ sudo ip link set vcan0 mtu 72
 sudo ip link set up vcan0
 ```
 
-### Target operator flow
+**Lifecycle script (recommended):** creates the link only when missing, records ownership, and
+**deletes `vcan0` on teardown only if this script created it** — pre-existing interfaces are left alone.
+
+```bash
+firmware/stm/scripts/vcan0-lifecycle.sh up      # create / fix mtu / up
+firmware/stm/scripts/vcan0-lifecycle.sh down    # delete only if we created it
+firmware/stm/scripts/vcan0-lifecycle.sh run -- CMD   # up, run CMD, down on exit
+```
+
+### CLI on the bus (no Isaac)
+
+`candump vcan0` in one terminal, then `krabby-firmware-stm --virtual duty 1 0.5 0 0` in another.
+
+### Target operator flow (Isaac sim on the bus)
 
 ```bash
 python -m firmware.sim.run_can_sim --bus vcan0   # terminal A

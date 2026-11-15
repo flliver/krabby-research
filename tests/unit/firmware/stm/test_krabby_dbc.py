@@ -81,5 +81,5 @@ def test_set_duty_encode_leg1_yaw_half() -> None:
         }
     )
     assert len(data) == 36
-    # int16 scale 0.001 → 0.5 duty = 500; grant acceptance 1a layout
+    # int16 scale 0.001 → 0.5 duty = 500; L1_J1 half-duty wire layout
     assert data == (500).to_bytes(2, "little", signed=True) + b"\x00" * 34
