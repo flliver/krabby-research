@@ -3,7 +3,7 @@
 # krabby-data-collection is not yet published to PyPI and is excluded from the production image.
 
 # --- Krabby packages (exact pins) ---
-krabby-hal-client==0.1.1
+krabby-hal-client==0.1.2
 krabby-hal-server==0.1.5
 krabby-hal-server-jetson==0.1.9
 krabby-hal-tools==0.1.0
