@@ -4,7 +4,7 @@
 
 # --- Krabby packages (exact pins) ---
 krabby-hal-client==0.1.2
-krabby-hal-server==0.1.5
+krabby-hal-server==0.1.6
 krabby-hal-server-jetson==0.1.9
 krabby-hal-tools==0.1.0
 krabby-compute-parkour==0.1.1
