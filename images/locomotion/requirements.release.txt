@@ -9,7 +9,7 @@ krabby-hal-server-jetson==0.1.8
 krabby-hal-tools==0.1.0
 krabby-compute-parkour==0.1.1
 krabby-controller==0.1.5
-krabby-firmware==0.2.18
+krabby-firmware==0.2.19
 krabby-teleop-edge==0.1.1
 
 # --- Runtime dependencies ---
