@@ -47,6 +47,10 @@ def _bind_leg_helpers(lib: ctypes.CDLL) -> None:
         ctypes.c_uint8,
     ]
     lib.krabby_sim_inject_rx.restype = None
+    lib.krabby_sim_fail_next_tx.argtypes = [ctypes.POINTER(Leg)]
+    lib.krabby_sim_fail_next_tx.restype = None
+    lib.calibration_joint_calibrating.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
+    lib.calibration_joint_calibrating.restype = ctypes.c_bool
 
 
 def _leg_for_node(lib: ctypes.CDLL, node_id: int) -> Leg:
@@ -97,6 +101,35 @@ def test_calibrate_id_for_other_leg_is_ignored(stm_host_lib) -> None:
     cal_id = ids.calibrate_can_id(2)
     buf = (ctypes.c_uint8 * 1)(2)
     stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+
+
+def _last_tx(stm_host_lib, leg: Leg) -> tuple[int, bytes]:
+    last_id = ctypes.c_uint32()
+    last_len = ctypes.c_uint8()
+    tx_buf = (ctypes.c_uint8 * 64)()
+    get_tx = stm_host_lib.krabby_sim_last_tx
+    assert (
+        get_tx(ctypes.byref(leg), ctypes.byref(last_id), tx_buf, ctypes.byref(last_len)) == 0
+    )
+    return last_id.value, bytes(tx_buf[: last_len.value])
+
+
+def test_telemetry_dropped_when_can_send_fails(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    stm_host_lib.telemetry_handler_tick(ctypes.byref(leg), 0)
+    prev_id, prev_payload = _last_tx(stm_host_lib, leg)
+
+    stm_host_lib.krabby_sim_fail_next_tx(ctypes.byref(leg))
+    stm_host_lib.telemetry_handler_tick(ctypes.byref(leg), 50)
+
+    last_id, last_payload = _last_tx(stm_host_lib, leg)
+    assert last_id == prev_id
+    assert last_payload == prev_payload
+
+    stm_host_lib.telemetry_handler_tick(ctypes.byref(leg), 100)
+    last_id, _last_payload = _last_tx(stm_host_lib, leg)
+    assert last_id == ids.telemetry_can_id(1)
 
 
 def test_telemetry_tx_rate_and_payload(stm_host_lib) -> None:

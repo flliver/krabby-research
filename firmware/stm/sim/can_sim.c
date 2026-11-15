@@ -25,6 +25,7 @@ typedef struct {
 } can_sim_bus_t;
 
 static can_sim_bus_t s_bus[KRABBY_CAN_SIM_LEGS];
+static bool s_fail_next_tx[KRABBY_CAN_SIM_LEGS];
 
 void can_init(leg_t *leg) {
     if (leg == NULL || leg->leg_index >= KRABBY_CAN_SIM_LEGS) {
@@ -33,6 +34,7 @@ void can_init(leg_t *leg) {
     can_sim_bus_t *bus = &s_bus[leg->leg_index];
     memset(bus, 0, sizeof(*bus));
     bus->leg_index = leg->leg_index;
+    s_fail_next_tx[leg->leg_index] = false;
 }
 
 bool can_send(leg_t *leg, uint32_t can_id, const uint8_t *data, uint8_t len) {
@@ -40,6 +42,10 @@ bool can_send(leg_t *leg, uint32_t can_id, const uint8_t *data, uint8_t len) {
         return false;
     }
     can_sim_bus_t *bus = &s_bus[leg->leg_index];
+    if (s_fail_next_tx[leg->leg_index]) {
+        s_fail_next_tx[leg->leg_index] = false;
+        return false;
+    }
     bus->last_tx_id = can_id;
     bus->last_tx_len = len;
     memcpy(bus->last_tx_data, data, len);
@@ -76,6 +82,13 @@ void krabby_sim_inject_rx(leg_t *leg, uint32_t can_id, const uint8_t *data, uint
     slot->len = len;
     memcpy(slot->data, data, len);
     bus->head = next;
+}
+
+void krabby_sim_fail_next_tx(leg_t *leg) {
+    if (leg == NULL || leg->leg_index >= KRABBY_CAN_SIM_LEGS) {
+        return;
+    }
+    s_fail_next_tx[leg->leg_index] = true;
 }
 
 int krabby_sim_last_tx(leg_t *leg, uint32_t *can_id, uint8_t *data, uint8_t *len) {
