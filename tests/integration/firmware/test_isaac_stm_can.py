@@ -7,6 +7,7 @@ import struct
 
 import pytest
 
+from firmware.sim.isaac_scene import physics_step_ms
 from firmware.sim.plant_jog_expectations import (
     max_zero_pwm_joint_drift_rad,
     min_commanded_jog_travel_rad,
@@ -62,6 +63,35 @@ def drain_leg_telemetry(bus, leg_id: int) -> dict | None:
 def run_steps(core, bus, steps: int) -> None:
     for _ in range(steps):
         core.step()
+
+
+def step_and_tally_frames(
+    core,
+    bus,
+    steps: int,
+    *,
+    watch_ids: frozenset[int],
+) -> tuple[dict[int, int], list[int], dict | None]:
+    """Run Isaac steps and count selected CAN RX frames; sample leg 1 J1_POT from telemetry."""
+    counts: dict[int, int] = {}
+    pots: list[int] = []
+    latest_telem: dict | None = None
+    telem_id = ids.telemetry_can_id(1)
+    for _ in range(steps):
+        core.step()
+        while True:
+            msg = bus.recv(timeout=0.0)
+            if msg is None:
+                break
+            aid = int(msg.arbitration_id)
+            if aid not in watch_ids:
+                continue
+            counts[aid] = counts.get(aid, 0) + 1
+            if aid == telem_id:
+                decoded = codec.decode_telemetry(1, bytes(msg.data))
+                pots.append(int(decoded["J1_POT"]))
+                latest_telem = decoded
+    return counts, pots, latest_telem
 
 
 def _float_position(raw: int | float) -> float:
@@ -127,7 +157,25 @@ def test_set_duty_leg1_yaw_only_and_sensor_readback(stm_can_rig) -> None:
 
     send_set_duty(bus, 1, 1.0, 0.0, 0.0)
     before = {name: robot.data.joint_pos[0, idx].item() for name, idx in indices.items()}
-    run_steps(core, bus, DRIVE_STEPS)
+    dt_ms = max(1, physics_step_ms(core.env))
+    telem_id = ids.telemetry_can_id(1)
+    info_id = ids.board_info_can_id(1)
+    watch = frozenset({telem_id, info_id})
+    counts, pots, telem_fwd = step_and_tally_frames(core, bus, DRIVE_STEPS, watch_ids=watch)
+    sim_ms = DRIVE_STEPS * dt_ms
+    min_telem_frames = max(1, sim_ms // 50 - 2)
+    assert counts.get(telem_id, 0) >= min_telem_frames
+    assert len(pots) >= 2 and pots[-1] != pots[0]
+    if sim_ms < 1050:
+        extra_steps = (1050 - sim_ms + dt_ms - 1) // dt_ms
+        extra_counts, _, telem_latest = step_and_tally_frames(
+            core, bus, extra_steps, watch_ids=frozenset({info_id, telem_id})
+        )
+        assert counts.get(info_id, 0) + extra_counts.get(info_id, 0) >= 1
+        if telem_latest is not None:
+            telem_fwd = telem_latest
+    else:
+        assert counts.get(info_id, 0) >= 1
     after = {name: robot.data.joint_pos[0, idx].item() - before[name] for name, idx in indices.items()}
 
     flhy_name = ThreeBoardSimConfigs.rev3().slot_by_firmware_id("FLHY").isaac_joint_name
@@ -145,7 +193,6 @@ def test_set_duty_leg1_yaw_only_and_sensor_readback(stm_can_rig) -> None:
         )
 
     assert robot.data.joint_pos[0, flhy_idx].item() > pos_before
-    telem_fwd = drain_leg_telemetry(bus, 1)
     assert telem_fwd is not None
     assert telem_fwd["J1_POT"] > pot_before
     assert telem_fwd["J1_HALL"] > hall_before
