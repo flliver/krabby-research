@@ -130,6 +130,17 @@ def test_calibrate_rejects_joint_one(stm_host_lib) -> None:
     assert not stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 1)
 
 
+def _send_set_duty_leg(
+    stm_host_lib, leg: Leg, *, leg_id: int, yaw: float, hip: float, knee: float
+) -> None:
+    rows: list[tuple[float, float, float]] = []
+    for lid in ids.LEG_IDS:
+        rows.append((yaw, hip, knee) if lid == leg_id else (0.0, 0.0, 0.0))
+    _frame_id, data = codec.encode_set_duty(codec.set_duty_values_from_grid(tuple(rows)))
+    buf = (ctypes.c_uint8 * len(data)).from_buffer_copy(data)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), ids.set_duty_can_id(), buf, len(data))
+
+
 def _run_stall_cal_host(stm_host_lib, leg: Leg, joint_id: int, motor: int) -> None:
     """Simulate hall motion then 250 ms quiet per phase (grant stall rule)."""
     cal_id = ids.calibrate_can_id(1)
@@ -180,6 +191,93 @@ def test_calibrate_joint_three_stall_finishes_on_host(stm_host_lib) -> None:
     _run_stall_cal_host(stm_host_lib, leg, 3, 2)
 
 
+def _run_stall_cal_flat_pot_host(
+    stm_host_lib, leg: Leg, leg_id: int, joint_id: int, motor: int
+) -> None:
+    """Stall cal with identical pot at both ends so position uses hall interpolation."""
+    cal_id = ids.calibrate_can_id(leg_id)
+    buf = (ctypes.c_uint8 * 1)(joint_id)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), joint_id)
+
+    flat_pot = 1500
+    for ms in range(0, 40):
+        stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, ms * 10)
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+    stall_hall = 800
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, stall_hall)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), motor, flat_pot)
+    for ms in range(40, 40 + 260):
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+
+    for ms in range(300, 340):
+        stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, stall_hall - (ms - 300) * 5)
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, 200)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), motor, flat_pot)
+    for ms in range(340, 340 + 260):
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), joint_id)
+
+
+def test_set_duty_during_cal_aborts_and_retains_prior_cal(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    _run_stall_cal_host(stm_host_lib, leg, 2, 1)
+
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 100)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 400)
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 800)
+    pos_before = _dbc_float64(decoded["J2_POSITION"])
+    assert pos_before == pytest.approx(0.0, abs=0.01)
+
+    cal_id = ids.calibrate_can_id(1)
+    buf = (ctypes.c_uint8 * 1)(2)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+    for ms in range(900, 920):
+        stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 200 + (ms - 900) * 5)
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+
+    _send_set_duty_leg(stm_host_lib, leg, leg_id=1, yaw=0.0, hip=0.5, knee=0.0)
+    stm_host_lib.app_tick(ctypes.byref(leg), 920)
+
+    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 2)
+
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 100)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 400)
+    decoded_after = _decode_telemetry_at(stm_host_lib, leg, 950)
+    assert _dbc_float64(decoded_after["J2_POSITION"]) == pytest.approx(pos_before, abs=0.01)
+
+
+def test_calibrate_never_stall_times_out_without_save(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 3)
+    joint_id = 2
+    motor = 1
+    cal_id = ids.calibrate_can_id(3)
+    buf = (ctypes.c_uint8 * 1)(joint_id)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), joint_id)
+
+    for ms in range(0, 10100, 50):
+        stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, ms)
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+
+    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), joint_id)
+    assert not stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), joint_id)
+
+
+def test_telemetry_position_uses_hall_when_pot_span_flat(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 4)
+    _run_stall_cal_flat_pot_host(stm_host_lib, leg, 4, 2, 1)
+
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 500)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 1500)
+    decoded = _decode_telemetry_at(stm_host_lib, leg, 650)
+    assert _dbc_float64(decoded["J2_POSITION"]) == pytest.approx(0.5, abs=0.02)
+
+
 def test_telemetry_joint_position_at_calibration_stops(stm_host_lib) -> None:
     leg = _leg_for_node(stm_host_lib, 1)
 
@@ -212,10 +310,11 @@ def test_calibrate_id_for_other_leg_is_ignored(stm_host_lib) -> None:
 
 
 def _decode_telemetry_at(stm_host_lib, leg: Leg, now_ms: int) -> dict[str, object]:
+    leg_id = int(leg.leg_index) + 1
     stm_host_lib.telemetry_handler_tick(ctypes.byref(leg), now_ms)
     last_id, payload = _last_tx(stm_host_lib, leg)
-    assert last_id == ids.telemetry_can_id(1)
-    return codec.decode_telemetry(1, payload)
+    assert last_id == ids.telemetry_can_id(leg_id)
+    return codec.decode_telemetry(leg_id, payload)
 
 
 def _last_tx(stm_host_lib, leg: Leg) -> tuple[int, bytes]:
