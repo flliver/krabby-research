@@ -951,3 +951,30 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
     - (5) Main's `test_task4_eval.py::test_committed_rows_parse_compile_and_score_bit_identically_to_the_baseline`
       fails on main b99b9232 itself: 701f8c47 swapped `np.hypot` for `_norm`, and the test's BLAS-free baseline shim
       has no hypot swap. GitHub CI skips the test because the shallow checkout has no dfae3c27. It is not fixed here.
+- **2026-11-15, the baseline shim gets the scalar hypot swap (the user: "Fix that"; test-only).**
+  - **Why:** main's 701f8c47 (2026-11-14) changed `_signed_min_edge_margin`'s edge length and point-to-segment
+    distance from `np.hypot(*v)` (libm) to `_norm(v)`. `test_task4_eval.py::test_committed_rows_parse_compile_and_score_bit_identically_to_the_baseline`
+    then failed on 12 of 18 rows (`scored` only), on main b99b9232 too (entry above, item 5). GitHub CI skips the
+    test because its shallow checkout has no dfae3c27.
+  - **Change** (`tests/unit/test_task4_eval.py` only; outside both hashes and the lock):
+    - `_BLAS_FREE_BASELINE_SHIM` also swaps `np.hypot`, but only for two real scalars, using
+      `sqrt(add.reduce(v * v))`, the arithmetic current `_norm` does on a 2-vector.
+    - Array calls stay libm's. The baseline's `v_step` in `body_yaw_metrics` is one, and the current code still
+      makes it.
+    - Complex input goes to libm, which raises, as `_norm` does.
+    - The comment and the module docstring say so.
+  - **Checks:**
+    - The test passes natively and under OPENBLAS_CORETYPE=Haswell / SandyBridge / Zen.
+    - Mutation matrix (fingerprint rows differing, baseline vs current):
+      - fixed shim vs current: 0 / 18;
+      - fixed shim vs current with 701f8c47 reverted: 12 / 18, so the test still guards that line;
+      - the old shim vs current: 12 / 18.
+    - A global (unscoped) hypot swap and a `v_step` change both read 0 / 18: these synthetic rows cannot see the
+      array call.
+    - Review (workflow `t4eval-shim-review`, wf_40e29d55-f89, fable·high) could not refute the fix.
+      - The swap equals current `_norm` bit for bit, value and result type, over float64 / float32 / float16 / int /
+        python / 0-d / extreme inputs.
+      - It reaches exactly the two 701f8c47 call sites. Both see float64 scalars only, because the hull is built in
+        float64.
+      - All 12 differing rows come from the distance line; the edge-length line alone moves no row here.
+      - Its comment and complex-input nits are applied.

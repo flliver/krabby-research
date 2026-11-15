@@ -18,7 +18,8 @@ each a quiet failure otherwise:
 * **opt-in ``metric_class``** -- a ``metric_class: translate`` category gets exactly the metrics a translation
   category gets; without it nothing changes: every committed manifest parses, compiles, records and SCORES
   bit-identically to the baseline commit's ``gait_eval`` (run side by side in subprocesses; since 2026-10-26 the
-  baseline's BLAS reductions are swapped for the BLAS-free forms, ``_BLAS_FREE_BASELINE_SHIM``);
+  baseline's BLAS reductions are swapped for the BLAS-free forms, and since 2026-11-15 its scalar ``np.hypot``
+  for main's 701f8c47, ``_BLAS_FREE_BASELINE_SHIM``);
 * **the sweep row file** ``rows/scenarios_pl_body.yaml`` -- 16 translate bins d000 ... d338 at 22.5 deg, |v| 0.22,
   wz 0, metric_class translate, the envelope block verbatim, and a schedule that builds and scores.
 """
@@ -810,12 +811,20 @@ Path(out).write_text(json.dumps(res, sort_keys=True))
 #: Prepended to the BASELINE run only (2026-10-26, the user's decision "Make scoring BLAS-free", Task 4 CHARTER).
 #: The baseline's three BLAS-reaching numpy calls -- a vector ``np.linalg.norm``, a 1-D ``np.dot`` and
 #: ``np.corrcoef`` of two series -- go through BLAS-free reference forms written HERE: numpy's own arithmetic with
-#: the BLAS reduction replaced by a pairwise ``add.reduce``. That swap is the one deliberate scoring change since
+#: the BLAS reduction replaced by a pairwise ``add.reduce``. That swap is the first deliberate scoring change since
 #: the baseline (OpenBLAS's ``ddot`` / ``gemm`` round differently per CPU kernel: FMA on the AVX-512 kernels), so
 #: the equality below still proves everything else unchanged, on every CPU. It is written independently of
-#: ``gait_eval.metrics``' own helpers, so a change to those still fails here. Every other call goes to numpy
-#: untouched. Without the norm / dot swap all 18 rows differ on an AVX-512 machine; the synthetic rows'
-#: correlations come out the same either way, so the ``corrcoef`` swap is carried for completeness.
+#: ``gait_eval.metrics``' own helpers, so a change to those still fails here. Apart from these and the hypot swap
+#: below, every call goes to numpy untouched. Without the norm / dot swap all 18 rows differ on an AVX-512 machine;
+#: the synthetic rows' correlations come out the same either way, so the ``corrcoef`` swap is carried for completeness.
+#: The second deliberate change is main's 701f8c47 (2026-11-14, "use _norm for support-polygon edge margins
+#: (libm-stable)"): ``_signed_min_edge_margin``'s edge length and point-to-segment distance, ``np.hypot(*v)`` --
+#: libm, which rounds differently between glibc builds -- became ``_norm(v)``. Only that form is swapped here, a
+#: ``np.hypot`` of two real SCALARS, by the same multiply + ``add.reduce`` arithmetic. The baseline's array call
+#: (``v_step``, the per-step commanded speed in ``body_yaw_metrics``), which the current code still makes, stays
+#: libm's; on these synthetic rows the two forms agree there, so this test does not see that call either way.
+#: Without the swap 12 of the 18 rows differ here (glibc 2.39), all from the distance line (the edge length alone
+#: moves no row), and with it a revert of 701f8c47 in the current code still makes those 12 differ.
 _BLAS_FREE_BASELINE_SHIM = r'''
 import numpy as _np
 _norm0, _dot0, _corrcoef0 = _np.linalg.norm, _np.dot, _np.corrcoef
@@ -842,7 +851,17 @@ def _corrcoef(x, y=None, *args, **kw):
     c /= s[:, None]
     c /= s[None, :]
     return _np.clip(c, -1, 1)
-_np.linalg.norm, _np.dot, _np.corrcoef = _norm, _dot, _corrcoef
+_hypot0 = _np.hypot
+def _hypot(x1, x2, *args, **kw):
+    if args or kw or _np.ndim(x1) or _np.ndim(x2):
+        return _hypot0(x1, x2, *args, **kw)
+    v = _np.asarray([x1, x2])
+    if v.dtype.kind == "c":
+        return _hypot0(x1, x2)
+    if not issubclass(v.dtype.type, _np.inexact):
+        v = v.astype(float)
+    return _np.sqrt(_np.add.reduce(v * v))
+_np.linalg.norm, _np.dot, _np.corrcoef, _np.hypot = _norm, _dot, _corrcoef, _hypot
 '''
 
 

@@ -6043,7 +6043,8 @@ followups:
     simulation of the merged tree fails exactly the 78 ids that main b99b9232 alone fails there (import gaps
     of the stand-in venv); the local suite fails 85 ids, exactly main''s 82 plus the branch''s known 51 (48
     shared). One of main''s: test_task4_eval''s baseline-identity test (its BLAS-free baseline shim lacks the
-    hypot swap 701f8c47 needs; CI skips it in a shallow checkout). Since 87cbbdec the branch itself is at eval
+    hypot swap 701f8c47 needs; CI skips it in a shallow checkout), fixed on the branch the same day (test-only,
+    the user: "Fix that": the shim swaps the scalar np.hypot; the local suite then fails 84). Since 87cbbdec the branch itself is at eval
     cd5ae167, so a kind-row replay, on this branch now or on main after the PR, needs a fresh campaign pin
     (rt_machinery.pin_problems refuses eval cd5ae167 against the 9fe964d7 pin; build_check reads BAD).'
   evidence:
@@ -6056,5 +6057,4 @@ followups:
   levers: 'the user''s PR: push, the real CI run (not called green before it) and the merge. Done on the
     branch 2026-11-15: the Task 4 relock, the CI-faithful simulation (re-run on the final merge-prep files)
     and the eval-sha read (no re-read). Later: a fresh campaign pin before any kind-row replay (on this
-    branch since 87cbbdec, or on main after the PR); a test-only fix of test_task4_eval''s baseline shim
-    (main''s 701f8c47)'
+    branch since 87cbbdec, or on main after the PR)'

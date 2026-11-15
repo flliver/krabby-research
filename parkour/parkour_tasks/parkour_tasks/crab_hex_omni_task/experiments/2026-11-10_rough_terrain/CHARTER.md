@@ -1655,3 +1655,18 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
   header note, and test pins for the new headline / levers.
 - **Not done:** the push, the PR, real CI and the merge; a fresh campaign pin for kind-row replays (on this branch
   since 87cbbdec, or on main after the PR); the `test_task4_eval` shim fix.
+
+### 2026-11-15 13:55 — main's test_task4_eval failure fixed (user: "Fix that"; local commit E; nothing is pushed)
+
+- I asked "Should I fix that test on this branch (test-only, about one line), or leave it to main?", and the user
+  answered "Fix that".
+- The baseline-identity test noted in the merge-prep entry now passes. Its BLAS-free baseline shim swaps the scalar
+  `np.hypot` that 701f8c47 replaced. Detail is in the Task 4 CHARTER entry of 2026-11-15, "the baseline shim gets
+  the scalar hypot swap".
+- The fix touches only `tests/unit/test_task4_eval.py`; the rest of commit E is records. No hash, lock or pin
+  moves.
+- The `merge_relock` follow-up now records the fix and drops it from the levers. The policy README is re-rendered.
+- **Tests:**
+  - `test_task4_eval.py`: 38 passed, 1 skipped (no forward student run dir).
+  - The full local suite fails 84 ids: the merged tree's 85 minus this one.
+  - The CI-faithful simulation cannot see this test: a shallow checkout skips it.
