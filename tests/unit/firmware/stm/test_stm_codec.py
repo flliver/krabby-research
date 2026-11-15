@@ -9,6 +9,8 @@ import pytest
 
 from firmware.stm import codec, ids
 
+from tests.unit.firmware.stm.dbc_test_utils import dbc_float64
+
 
 def test_encode_set_duty_matches_dbc_test_vector() -> None:
     payload = codec.set_duty_values_from_grid(((0.5, 0.0, 0.0),) + ((0.0, 0.0, 0.0),) * 5)
@@ -35,12 +37,6 @@ def test_decode_telemetry_message_name() -> None:
     assert "J1_DUTY" in fields
 
 
-def _dbc_float64(value: object) -> float:
-    if isinstance(value, int):
-        return struct.unpack("<d", struct.pack("<Q", value & ((1 << 64) - 1)))[0]
-    return float(value)
-
-
 def test_decode_telemetry_extreme_wire_values() -> None:
     """Pot extrema, negative duty, large |hall|, and NaN position on the wire."""
     db = codec.load_database()
@@ -59,4 +55,4 @@ def test_decode_telemetry_extreme_wire_values() -> None:
     assert fields["J2_POT"] == 4095
     assert fields["J1_DUTY"] == pytest.approx(-0.5)
     assert fields["J1_HALL"] == -2_000_000_000
-    assert math.isnan(_dbc_float64(fields["J1_POSITION"]))
+    assert math.isnan(dbc_float64(fields["J1_POSITION"]))

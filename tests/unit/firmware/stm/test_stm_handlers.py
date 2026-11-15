@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ctypes
 import math
-import struct
 import subprocess
 from pathlib import Path
 
@@ -12,15 +11,10 @@ import pytest
 
 from firmware.stm import codec, ids
 
+from tests.unit.firmware.stm.dbc_test_utils import dbc_float64
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
 LIB_PATH = REPO_ROOT / "firmware" / "build" / "stm-host" / "libkrabby_stm_host.so"
-
-
-def _dbc_float64(value: object) -> float:
-    """cantools may decode IEEE float64 signals as unsigned integer bit patterns."""
-    if isinstance(value, int):
-        return struct.unpack("<d", struct.pack("<Q", value))[0]
-    return float(value)
 
 
 class Leg(ctypes.Structure):
@@ -266,7 +260,7 @@ def test_set_duty_during_cal_aborts_and_retains_prior_cal(stm_host_lib) -> None:
     stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 100)
     stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 400)
     decoded = _decode_telemetry_at(stm_host_lib, leg, 800)
-    pos_before = _dbc_float64(decoded["J2_POSITION"])
+    pos_before = dbc_float64(decoded["J2_POSITION"])
     assert pos_before == pytest.approx(0.0, abs=0.01)
 
     cal_id = ids.calibrate_can_id(1)
@@ -286,7 +280,7 @@ def test_set_duty_during_cal_aborts_and_retains_prior_cal(stm_host_lib) -> None:
     stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 100)
     stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 400)
     decoded_after = _decode_telemetry_at(stm_host_lib, leg, 950)
-    assert _dbc_float64(decoded_after["J2_POSITION"]) == pytest.approx(pos_before, abs=0.01)
+    assert dbc_float64(decoded_after["J2_POSITION"]) == pytest.approx(pos_before, abs=0.01)
 
 
 def test_calibrate_never_stall_times_out_without_save(stm_host_lib) -> None:
@@ -313,14 +307,14 @@ def test_telemetry_position_uses_hall_when_pot_span_flat(stm_host_lib) -> None:
     stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 500)
     stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 1500)
     decoded = _decode_telemetry_at(stm_host_lib, leg, 650)
-    assert _dbc_float64(decoded["J2_POSITION"]) == pytest.approx(0.5, abs=0.02)
+    assert dbc_float64(decoded["J2_POSITION"]) == pytest.approx(0.5, abs=0.02)
 
 
 def test_telemetry_joint_position_at_calibration_stops(stm_host_lib) -> None:
     leg = _leg_for_node(stm_host_lib, 1)
 
     decoded = _decode_telemetry_at(stm_host_lib, leg, 0)
-    assert math.isnan(_dbc_float64(decoded["J2_POSITION"]))
+    assert math.isnan(dbc_float64(decoded["J2_POSITION"]))
     assert decoded["J2_CALIBRATED"] == 0
 
     _run_stall_cal_host(stm_host_lib, leg, 2, 1)
@@ -328,15 +322,15 @@ def test_telemetry_joint_position_at_calibration_stops(stm_host_lib) -> None:
     stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 100)
     stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 400)
     decoded = _decode_telemetry_at(stm_host_lib, leg, 650)
-    assert _dbc_float64(decoded["J2_POSITION"]) == pytest.approx(0.0)
+    assert dbc_float64(decoded["J2_POSITION"]) == pytest.approx(0.0)
     assert decoded["J2_CALIBRATED"] == 1
-    assert math.isnan(_dbc_float64(decoded["J1_POSITION"]))
+    assert math.isnan(dbc_float64(decoded["J1_POSITION"]))
     assert decoded["J1_CALIBRATED"] == 0
 
     stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), 1, 500)
     stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), 1, 3000)
     decoded = _decode_telemetry_at(stm_host_lib, leg, 700)
-    assert _dbc_float64(decoded["J2_POSITION"]) == pytest.approx(1.0)
+    assert dbc_float64(decoded["J2_POSITION"]) == pytest.approx(1.0)
 
 
 def test_calibrate_id_for_other_leg_is_ignored(stm_host_lib) -> None:
