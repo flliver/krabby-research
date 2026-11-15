@@ -77,6 +77,9 @@ class GamepadToKrabbyHALMapper:
                 knee_out_in_scale = STM_DUTY_SCALE
             if hip_yaw_scale == DEFAULT_HIP_YAW_SCALE:
                 hip_yaw_scale = STM_DUTY_SCALE
+            # Mega path uses a strong stick curve for fine rad control; STM duty should track stick linearly.
+            if stick_curve_exponent == DEFAULT_STICK_CURVE_EXPONENT:
+                stick_curve_exponent = 1.0
         self.hip_up_down_scale = hip_up_down_scale
         self.knee_out_in_scale = knee_out_in_scale
         self.hip_yaw_scale = hip_yaw_scale

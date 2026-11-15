@@ -2,7 +2,12 @@
 
 import argparse
 
-from hal.server.isaac.command_backend_cli import add_command_backend_arguments
+import pytest
+
+from hal.server.isaac.command_backend_cli import (
+    add_command_backend_arguments,
+    validate_command_backend_args,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -30,3 +35,11 @@ def test_firmware_transport_can_choice():
         ["--backend", "fullsim", "--firmware-transport", "can"]
     )
     assert args.firmware_transport == "can"
+
+
+def test_firmware_transport_can_requires_fullsim_backend():
+    parser = _parser()
+    args = parser.parse_args(["--firmware-transport", "can"])
+    assert args.backend == "direct"
+    with pytest.raises(SystemExit):
+        validate_command_backend_args(args, parser)

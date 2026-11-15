@@ -65,7 +65,12 @@ def attach_fullsim_firmware_to_env(
     ``firmware_transport``:
     - ``in_process``: host jog + ``tick_firmware_without_physics`` (default fallback).
     - ``serial_sdk``: ``KrabbyMCUSDK`` over PTY + ``ThreeBoardMcuHost`` (Jetson wire protocol).
+    - ``can``: six STM leg boards on SocketCAN + ``KrabbyStmMCUSDK(virtual=True)``.
     """
+    if firmware_transport == "can":
+        from hal.server.isaac.firmware_can_loop import start_can_stm_session
+
+        return start_can_stm_session(env, robot, robot_definition)
     from firmware.sim.host_bridge import HostLibraryNotBuiltError, load_host_bridge
     from firmware.sim.isaac_scene import (
         configure_open_loop_velocity_drive,

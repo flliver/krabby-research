@@ -229,7 +229,7 @@ class IsaacSimHalServer(HalServerBase):
         observation_dimensions=None,
         *,
         command_backend: Literal["direct", "fullsim"] = "direct",
-        firmware_transport: Literal["in_process", "serial_sdk"] = "in_process",
+        firmware_transport: Literal["in_process", "serial_sdk", "can"] = "in_process",
         command_timeout_s: Optional[float] = 1.0,
     ):
         """Initialize IsaacSim HAL server.
@@ -243,7 +243,7 @@ class IsaacSimHalServer(HalServerBase):
             command_backend: ``direct`` uses ``IsaacSimMCUSDK``; ``fullsim`` attaches three-board
                 host firmware to this server's existing ``env`` (18-joint hex only).
             firmware_transport: When ``command_backend='fullsim'``, ``in_process`` uses direct host
-                jog; ``serial_sdk`` uses ``KrabbyMCUSDK`` over a PTY (same wire protocol as Jetson).
+                jog; ``serial_sdk`` uses ``KrabbyMCUSDK`` over a PTY; ``can`` uses STM CAN on vcan0.
             command_timeout_s: Max seconds to wait for a joint command in apply_command(). If None, wait forever
                 and log every 30s while waiting. Used in joystick mode so the server does not exit when no client is connected.
         
@@ -282,6 +282,8 @@ class IsaacSimHalServer(HalServerBase):
         self._command_timeout_s = command_timeout_s
         self._first_command_received = False
         self._waiting_log_last_t: Optional[float] = None
+        self._can_apply_cycles = 0
+        self._can_apply_telemetry_last_t: Optional[float] = None
 
         if env is not None:
             self._cache_references()
@@ -398,18 +400,32 @@ class IsaacSimHalServer(HalServerBase):
             )
             self._fullsim_session = session
             self._three_board_core = session.core
-            from hal.server.isaac.isaacsim_firmware_mcusdk import IsaacSimFirmwareMCUSDK
+            if session.firmware_transport == "can":
+                from hal.server.isaac.isaacsim_stm_mcusdk import IsaacSimStmMCUSDK
 
-            self._mcusdk = IsaacSimFirmwareMCUSDK.from_robot_definition(
-                self.robot_definition,
-                device=unwrapped_env.device,
-                firmware_loop=session.firmware_loop,
-            )
-            logger.info(
-                "Initialized IsaacSimFirmwareMCUSDK with three-board firmware on existing env "
-                "(transport=%s)",
-                session.firmware_transport,
-            )
+                self._mcusdk = IsaacSimStmMCUSDK.from_robot_definition(
+                    self.robot_definition,
+                    device=unwrapped_env.device,
+                    firmware_loop=session.firmware_loop,
+                )
+                logger.info(
+                    "Initialized IsaacSimStmMCUSDK with STM CAN firmware on existing env "
+                    "(transport=%s)",
+                    session.firmware_transport,
+                )
+            else:
+                from hal.server.isaac.isaacsim_firmware_mcusdk import IsaacSimFirmwareMCUSDK
+
+                self._mcusdk = IsaacSimFirmwareMCUSDK.from_robot_definition(
+                    self.robot_definition,
+                    device=unwrapped_env.device,
+                    firmware_loop=session.firmware_loop,
+                )
+                logger.info(
+                    "Initialized IsaacSimFirmwareMCUSDK with three-board firmware on existing env "
+                    "(transport=%s)",
+                    session.firmware_transport,
+                )
             return
 
         self._mcusdk = IsaacSimMCUSDK()
@@ -816,7 +832,47 @@ class IsaacSimHalServer(HalServerBase):
         unwrapped_env = self.env.unwrapped if hasattr(self.env, 'unwrapped') else self.env
         num_envs = unwrapped_env.num_envs
 
+        cmd_dict = command.to_positions_dict()
+        duty_abs_max = max((abs(float(v)) for v in cmd_dict.values()), default=0.0)
+        apply_t0 = time.perf_counter()
+        if self._firmware_transport == "can":
+            if self._can_apply_cycles == 0:
+                logger.info(
+                    "CAN fullsim: entering MCU apply_command (max |duty|=%.3f, joints=%d)",
+                    duty_abs_max,
+                    len(cmd_dict),
+                )
+            elif logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "CAN fullsim: MCU apply_command start (max |duty|=%.3f)",
+                    duty_abs_max,
+                )
+
         sdk_result = self._mcusdk.apply_command(command, num_envs=num_envs)
+        apply_ms = (time.perf_counter() - apply_t0) * 1000.0
+        if self._firmware_transport == "can":
+            self._can_apply_cycles += 1
+            if self._can_apply_cycles == 1:
+                logger.info("CAN fullsim: MCU apply_command returned (%.1f ms)", apply_ms)
+            elif apply_ms >= 500.0:
+                logger.warning(
+                    "CAN fullsim: slow MCU apply_command %.1f ms (max |duty|=%.3f)",
+                    apply_ms,
+                    duty_abs_max,
+                )
+            now = time.time()
+            if (
+                self._can_apply_telemetry_last_t is None
+                or (now - self._can_apply_telemetry_last_t) >= 5.0
+            ):
+                logger.info(
+                    "CAN fullsim: %d MCU apply cycles; last %.1f ms; last max |duty|=%.4f",
+                    self._can_apply_cycles,
+                    apply_ms,
+                    duty_abs_max,
+                )
+                self._can_apply_telemetry_last_t = now
+
         device = unwrapped_env.device
 
         if isinstance(sdk_result, torch.Tensor):

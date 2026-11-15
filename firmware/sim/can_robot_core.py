@@ -183,17 +183,25 @@ class CanRobotCore:
             return
         apply_cam_hip_slave(self._cam_hip_slave, self.articulation)
 
+    def _run_boards_and_apply_duties(self) -> None:
+        self._poll_bus()
+        plant = PlantReadbackView.from_articulation(self.articulation)
+        self._sync_sensors(plant)
+        self._tick_boards()
+        dt_ms = int(physics_step_ms(self.env))
+        self._sim_ms += dt_ms
+        with torch.inference_mode():
+            self._apply_duties()
+
+    def tick_without_physics(self) -> None:
+        """Poll CAN, run virtual leg firmware, sync sensors, apply duty velocity targets (no env.step)."""
+        with self._step_lock:
+            self._run_boards_and_apply_duties()
+
     def step(self) -> Any:
         with self._step_lock:
-            self._poll_bus()
-            plant = PlantReadbackView.from_articulation(self.articulation)
-            self._sync_sensors(plant)
-            self._tick_boards()
-            dt_ms = int(physics_step_ms(self.env))
-            self._sim_ms += dt_ms
-
+            self._run_boards_and_apply_duties()
             with torch.inference_mode():
-                self._apply_duties()
                 advance = self.advance or advance_sim
                 result = advance(self.env)
                 self._slave_body_hip_after_physics()

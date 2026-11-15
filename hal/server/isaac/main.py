@@ -564,6 +564,13 @@ def main():
         # apply_command() will loop internally until command received or timeout (throws if timeout)
         # apply_command() automatically expands single action to all environments if num_envs > 1
         action = hal_server.apply_command()
+        if args.joystick and timestep == 0:
+            action_peak = float(action.detach().abs().max().cpu())
+            logger.info(
+                "Joystick: apply_command returned action shape=%s peak |action|=%.3f",
+                tuple(action.shape),
+                action_peak,
+            )
 
         # Ensure action has correct shape [num_envs, action_dim]
         # apply_command() should already expand to [num_envs, action_dim] if needed

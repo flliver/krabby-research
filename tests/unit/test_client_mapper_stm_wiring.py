@@ -46,15 +46,45 @@ class TestCliUnoStmFlag:
         assert ns.stm is True
 
 
+@patch("controller.control_loop.GamepadToIsaacSimHALMapper")
 @patch("controller.control_loop.GamepadToKrabbyHALMapper")
 @patch("controller.control_loop.HalClient")
 @patch("controller.control_loop.InputController")
 class TestControlLoopStmWiring:
+    def test_isaacsim_mode_stm_uses_krabby_duty_mapper(
+        self,
+        mock_input_cls: MagicMock,
+        mock_hal_cls: MagicMock,
+        mock_krabby_mapper_cls: MagicMock,
+        mock_isaac_mapper_cls: MagicMock,
+    ):
+        mock_input = MagicMock()
+        mock_input_cls.get_instance.return_value = mock_input
+
+        config = ControlLoopConfig(
+            mode=ControlMode.INPUT_CONTROLLER_ISAACSIM,
+            hal_client_config=HalClientConfig(
+                observation_endpoint="tcp://127.0.0.1:5555",
+                command_endpoint="tcp://127.0.0.1:5556",
+            ),
+            isaacsim_robot_definition=KRABBY_HEX_DEFINITION,
+            stm=True,
+        )
+        loop = ControlLoop(config)
+        loop.start()
+        try:
+            mock_krabby_mapper_cls.assert_called_once()
+            _, kwargs = mock_krabby_mapper_cls.call_args
+            assert kwargs["stm"] is True
+            mock_isaac_mapper_cls.assert_not_called()
+        finally:
+            loop.stop()
     def test_krabby_mode_passes_stm_to_mapper(
         self,
         mock_input_cls: MagicMock,
         mock_hal_cls: MagicMock,
-        mock_mapper_cls: MagicMock,
+        mock_krabby_mapper_cls: MagicMock,
+        mock_isaac_mapper_cls: MagicMock,
     ):
         mock_input = MagicMock()
         mock_input_cls.get_instance.return_value = mock_input
@@ -71,7 +101,7 @@ class TestControlLoopStmWiring:
         loop = ControlLoop(config)
         loop.start()
         try:
-            _, kwargs = mock_mapper_cls.call_args
+            _, kwargs = mock_krabby_mapper_cls.call_args
             assert kwargs["stm"] is True
         finally:
             loop.stop()
@@ -80,7 +110,8 @@ class TestControlLoopStmWiring:
         self,
         mock_input_cls: MagicMock,
         mock_hal_cls: MagicMock,
-        mock_mapper_cls: MagicMock,
+        mock_krabby_mapper_cls: MagicMock,
+        mock_isaac_mapper_cls: MagicMock,
     ):
         from teleop.edge.webrtc_input_controller import WebRTCInputController
 
@@ -97,7 +128,7 @@ class TestControlLoopStmWiring:
         loop = ControlLoop(config)
         loop.start()
         try:
-            _, kwargs = mock_mapper_cls.call_args
+            _, kwargs = mock_krabby_mapper_cls.call_args
             assert kwargs["stm"] is True
         finally:
             loop.stop()

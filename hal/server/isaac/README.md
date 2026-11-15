@@ -93,7 +93,7 @@ python -m hal.server.isaac.main \
 - `--observation_bind`: Observation endpoint (default: `inproc://hal_observation`)
 - `--command_bind`: Command endpoint (default: `inproc://hal_commands`)
 - `--backend`: `direct` (default) or `fullsim` (three-board host firmware on the hex env)
-- `--firmware-transport`: with `fullsim`, `in_process` (default) or `serial_sdk` (KrabbyMCUSDK over PTY)
+- `--firmware-transport`: with `fullsim`, `in_process` (default), `serial_sdk` (KrabbyMCUSDK over PTY), or `can` (STM on vcan0)
 
 Plus all AppLauncher arguments for IsaacSim configuration.
 
@@ -110,6 +110,7 @@ need the Jetson/GUI pyserial path in the loop.
 |-----------|----------|-----------|
 | **`in_process`** (default) | Host bridge jog + firmware tick; no PTY | Policy/firmware Isaac work, throughput (`test_hal_fullsim_teleop_e2e.py`) |
 | **`serial_sdk`** | **`KrabbyMCUSDK`** over PTY (`B`/`J`/`H` wire) | Debug teleop, SDK reader, serial framing before hardware (`test_hal_fullsim_serial_sdk.py`; Unix PTY only) |
+| **`can`** | Six STM leg boards on **`vcan0`** + **`KrabbyStmMCUSDK(virtual=True)`** | Gamepad: **`cli_uno_sim --stm`** ([runbook gamepad](../../../controller/scripts/isaac/isaacsim_demo_runbook.md#fullsim-stm-can-gamepad-hex)). Model: in-process **`--checkpoint`** (no `--joystick`) ([runbook model](../../../controller/scripts/isaac/isaacsim_demo_runbook.md#fullsim-stm-can-model-hex-in-process-policy)) |
 | **`direct`** backend (no fullsim) | Isaac actions only, no host firmware | Default HAL; not a `--firmware-transport` target |
 
 ```bash

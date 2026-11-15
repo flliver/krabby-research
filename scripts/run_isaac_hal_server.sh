@@ -4,7 +4,9 @@
 #   ./scripts/run_isaac_hal_server.sh              # Go2 play + krabby-uno-sim (HAL TCP :5555 / :5556 on host)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1     # Go2 play + portal WebRTC (in-process policy; no krabby-uno-sim)
 #   ./scripts/run_isaac_hal_server.sh --teleop-ip 127.0.0.1 --joystick  # Portal + manual drive (start krabby-uno-sim on host)
-#   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD + --backend fullsim (host firmware)
+#   ./scripts/run_isaac_hal_server.sh --hexapod  # Hex USD + --backend fullsim + --joystick (krabby-uno-sim)
+#   ./scripts/run_isaac_hal_server.sh --hexapod --headless --firmware-transport can --checkpoint /workspace/parkour/.../model.pt
+#       # Hex fullsim STM on vcan0 + in-process policy (no --joystick; path must exist in the container)
 #   ./scripts/run_isaac_hal_server.sh --hexapod --teleop-ip 127.0.0.1 --data-collector
 #       # rosbag2/mcap on host at ~/krabby_bags/ by default (override: --data-collector /path)
 #
@@ -97,7 +99,13 @@ if [ "$want_hexapod" -eq 1 ]; then
       fi
     fi
   else
-    py+=(--joystick)
+    if [ "$want_joystick" -eq 1 ]; then
+      py+=(--joystick)
+    elif [ "$has_checkpoint_in_pass" -eq 1 ]; then
+      :
+    else
+      py+=(--joystick)
+    fi
   fi
 else
   py+=(--task "$GO2_TASK")
@@ -166,6 +174,12 @@ if [ "$want_hexapod" -eq 1 ]; then
   if [ -f "$HOST_LIB" ]; then
     docker_mounts+=(
       -v "${REPO_ROOT}/build/native-firmware-tests:/workspace/build/native-firmware-tests:ro"
+    )
+  fi
+  HOST_STM_LIB="${REPO_ROOT}/firmware/build/stm-host/libkrabby_stm_host.so"
+  if [ -f "$HOST_STM_LIB" ]; then
+    docker_mounts+=(
+      -v "${REPO_ROOT}/firmware/build/stm-host:/workspace/firmware/build/stm-host:ro"
     )
   fi
 fi
