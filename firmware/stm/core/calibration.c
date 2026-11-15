@@ -10,6 +10,7 @@
 #define KRABBY_CAL_STALL_QUIET_MS 250u
 #define KRABBY_CAL_STALL_TIMEOUT_MS 10000u
 #define KRABBY_CAL_HALL_MOVE_THRESHOLD 2
+#define KRABBY_CAL_MIN_POT_SPAN 100
 
 typedef enum {
     KRABBY_CAL_IDLE = 0,
@@ -25,7 +26,6 @@ typedef struct {
     int32_t stall_last_hall;
     uint32_t stall_quiet_since_ms;
     joint_cal_t capture;
-    bool calibrated[3];
 } cal_state_t;
 
 static cal_state_t s_cal[6];
@@ -61,6 +61,24 @@ static bool hall_stalled(leg_t *leg, int motor, cal_state_t *st, uint32_t now_ms
 static void cal_finish_idle(leg_t *leg, cal_state_t *st, int motor) {
     send_pwm(leg, motor, true, 0);
     st->phase = KRABBY_CAL_IDLE;
+}
+
+static bool joint_cal_usable(const joint_cal_t *cal) {
+    if (cal == NULL) {
+        return false;
+    }
+    int32_t pot_span = (int32_t)cal->pot_extended - (int32_t)cal->pot_retracted;
+    if (pot_span < 0) {
+        pot_span = -pot_span;
+    }
+    if (pot_span >= KRABBY_CAL_MIN_POT_SPAN) {
+        return true;
+    }
+    int32_t hall_span = cal->hall_extended - cal->hall_retracted;
+    if (hall_span < 0) {
+        hall_span = -hall_span;
+    }
+    return hall_span > KRABBY_CAL_HALL_MOVE_THRESHOLD;
 }
 
 void calibration_init(leg_t *leg) {
@@ -128,7 +146,6 @@ void calibration_tick(leg_t *leg, uint32_t now_ms) {
         case KRABBY_CAL_SAVE:
             send_pwm(leg, motor, true, 0);
             (void)save_joint_calibration(leg, motor, &st->capture);
-            st->calibrated[motor] = true;
             st->phase = KRABBY_CAL_IDLE;
             break;
         default:
@@ -146,11 +163,18 @@ bool calibration_joint_calibrating(leg_t *leg, uint8_t joint_id) {
 }
 
 bool calibration_joint_calibrated(leg_t *leg, uint8_t joint_id) {
-    const cal_state_t *st = state_for(leg);
-    if (st == NULL || joint_id < 1u || joint_id > 3u) {
+    if (leg == NULL || joint_id < 1u || joint_id > 3u) {
         return false;
     }
-    return st->calibrated[joint_id - 1u];
+    if (joint_id == 1u) {
+        return false;
+    }
+    const int motor = motor_index(joint_id);
+    joint_cal_t cal;
+    if (!load_joint_calibration(leg, motor, &cal)) {
+        return false;
+    }
+    return joint_cal_usable(&cal);
 }
 
 bool calibration_blocks_duty(leg_t *leg, int motor) {

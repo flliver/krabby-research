@@ -61,6 +61,8 @@ def _bind_leg_helpers(lib: ctypes.CDLL) -> None:
         ctypes.c_uint16,
     ]
     lib.krabby_sim_set_pot.restype = None
+    lib.calibration_init.argtypes = [ctypes.POINTER(Leg)]
+    lib.calibration_init.restype = None
     lib.calibration_joint_calibrating.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
     lib.calibration_joint_calibrating.restype = ctypes.c_bool
     lib.calibration_joint_calibrated.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
@@ -147,6 +149,16 @@ def _run_stall_cal_host(stm_host_lib, leg: Leg, joint_id: int, motor: int) -> No
 
     assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), joint_id)
     assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), joint_id)
+
+
+def test_calibrated_reflects_persisted_pin_storage(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    assert not stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 2)
+    _run_stall_cal_host(stm_host_lib, leg, 2, 1)
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 2)
+    stm_host_lib.calibration_init(ctypes.byref(leg))
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 2)
+    assert not stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 1)
 
 
 def test_calibrate_joint_two_stall_finishes_on_host(stm_host_lib) -> None:
