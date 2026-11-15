@@ -8,6 +8,7 @@ import struct
 import pytest
 
 from firmware.sim.plant_jog_expectations import (
+    max_zero_pwm_joint_drift_rad,
     min_commanded_jog_travel_rad,
     skip_plant_jog_coupling_check,
 )
@@ -61,7 +62,6 @@ def drain_leg_telemetry(bus, leg_id: int) -> dict | None:
 def run_steps(core, bus, steps: int) -> None:
     for _ in range(steps):
         core.step()
-    drain_leg_telemetry(bus, 1)
 
 
 def _float_position(raw: int) -> float:
@@ -135,7 +135,8 @@ def test_set_duty_leg1_yaw_only_and_sensor_readback(stm_can_rig) -> None:
     send_set_duty(bus, 1, 0.0, 0.0, 0.0)
     stop_pos = robot.data.joint_pos[0, flhy_idx].item()
     run_steps(core, bus, SETTLE_STEPS)
-    assert abs(robot.data.joint_pos[0, flhy_idx].item() - stop_pos) < min_travel
+    max_drift = max_zero_pwm_joint_drift_rad(robot, "FLHY")
+    assert abs(robot.data.joint_pos[0, flhy_idx].item() - stop_pos) < max_drift
 
 
 def test_calibrate_leg1_hip_flags_and_partial_drive(stm_can_rig) -> None:
@@ -161,7 +162,8 @@ def test_calibrate_leg1_hip_flags_and_partial_drive(stm_can_rig) -> None:
 
     send_set_duty(bus, 1, 0.0, 0.5, 0.0)
     hip_before = robot.data.joint_pos[0, flhl_idx].item()
-    run_steps(core, bus, DRIVE_STEPS)
+    for _ in range(DRIVE_STEPS):
+        core.step()
     hip_after = robot.data.joint_pos[0, flhl_idx].item()
     min_travel = min_commanded_jog_travel_rad(robot)
     assert abs(hip_after - hip_before) > min_travel

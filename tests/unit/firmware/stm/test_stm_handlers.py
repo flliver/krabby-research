@@ -51,6 +51,8 @@ def _bind_leg_helpers(lib: ctypes.CDLL) -> None:
     lib.krabby_sim_fail_next_tx.restype = None
     lib.calibration_joint_calibrating.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
     lib.calibration_joint_calibrating.restype = ctypes.c_bool
+    lib.calibration_joint_calibrated.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
+    lib.calibration_joint_calibrated.restype = ctypes.c_bool
 
 
 def _leg_for_node(lib: ctypes.CDLL, node_id: int) -> Leg:
@@ -94,6 +96,38 @@ def test_set_duty_applies_this_leg_slice_only(stm_host_lib) -> None:
     assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 0) == pytest.approx(0.75)
     assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 1) == pytest.approx(-0.25)
     assert stm_host_lib.krabby_sim_get_duty(ctypes.byref(leg), 2) == pytest.approx(0.0)
+
+
+def test_calibrate_rejects_joint_one(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    cal_id = ids.calibrate_can_id(1)
+    buf = (ctypes.c_uint8 * 1)(1)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 1)
+    assert not stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 1)
+
+
+def test_calibrate_joint_two_stall_finishes_on_host(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    cal_id = ids.calibrate_can_id(1)
+    buf = (ctypes.c_uint8 * 1)(2)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+    for ms in (1, 2, 3, 4, 5):
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 2)
+    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+
+
+def test_calibrate_joint_three_stall_finishes_on_host(stm_host_lib) -> None:
+    leg = _leg_for_node(stm_host_lib, 1)
+    cal_id = ids.calibrate_can_id(1)
+    buf = (ctypes.c_uint8 * 1)(3)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 3)
+    for ms in (1, 2, 3, 4, 5):
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 3)
 
 
 def test_calibrate_id_for_other_leg_is_ignored(stm_host_lib) -> None:

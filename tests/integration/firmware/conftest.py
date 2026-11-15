@@ -133,25 +133,17 @@ def eighteen_joint_rig(crab_hex_play_env):
 @pytest.fixture(scope="session")
 def stm_can_rig(crab_hex_play_env):
     """Six-board ``CanRobotCore`` on an in-process FD virtual CAN bus."""
-    import can
-
     from firmware.sim.can_board_bridge import StmHostLibraryNotBuiltError, load_stm_board_bridge
     from firmware.sim.can_robot_core import CanRobotCore
     from firmware.sim.isaac_scene import configure_open_loop_velocity_drive, resolve_eighteen_joint_indices
-    from firmware.stm.can_transport import ARBITRATION_BITRATE, DATA_BITRATE
+    from firmware.stm.can_transport import InProcessVirtualCanFdBus
 
     try:
         bridge = load_stm_board_bridge()
     except StmHostLibraryNotBuiltError as exc:
         pytest.skip(f"{exc} (build on the host, it is mounted into the container)")
 
-    bus = can.interface.Bus(
-        interface="virtual",
-        channel="krabby_stm_can_isaac",
-        fd=True,
-        bitrate=ARBITRATION_BITRATE,
-        data_bitrate=DATA_BITRATE,
-    )
+    bus = InProcessVirtualCanFdBus.open("krabby_stm_can_isaac")
     env, get_robot, _resolve_front = crab_hex_play_env
     robot = get_robot(env)
     indices = resolve_eighteen_joint_indices(robot)

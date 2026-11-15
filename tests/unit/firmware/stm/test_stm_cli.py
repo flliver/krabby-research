@@ -6,8 +6,11 @@ from unittest import mock
 
 import pytest
 
+import argparse
+
 from firmware.stm import codec, ids
 from firmware.stm.cli import _build_parser
+from firmware.stm import cli_stm
 from firmware.stm.mcu_can import KrabbyMCUCANSDK
 
 
@@ -18,6 +21,11 @@ def test_cli_duty_parses() -> None:
     assert args.command == "duty"
     assert args.leg_id == 1
     assert args.y == pytest.approx(0.5)
+
+
+def test_cli_calibrate_rejects_joint_one() -> None:
+    args = argparse.Namespace(virtual=True, leg_id=1, joint=1)
+    assert cli_stm.cmd_calibrate(args) == 2
 
 
 def test_encode_calibrate_frame_id() -> None:

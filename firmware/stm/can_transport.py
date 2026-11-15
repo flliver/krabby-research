@@ -11,6 +11,51 @@ ROBOT_INTERFACES = ("can0", "can1")
 VIRTUAL_INTERFACE = "vcan0"
 
 
+class InProcessVirtualCanFdBus:
+    """Virtual CAN-FD with separate TX/RX handles (python-can does not loop back on one Bus)."""
+
+    def __init__(self, tx, rx) -> None:
+        self._tx = tx
+        self._rx = rx
+
+    @classmethod
+    def open(cls, channel: str):
+        import can
+
+        kwargs = {
+            "interface": "virtual",
+            "channel": channel,
+            "fd": True,
+            "bitrate": ARBITRATION_BITRATE,
+            "data_bitrate": DATA_BITRATE,
+        }
+        return cls(can.interface.Bus(**kwargs), can.interface.Bus(**kwargs))
+
+    @property
+    def channel(self) -> str:
+        return self._tx.channel
+
+    @property
+    def interface(self) -> str:
+        return self._tx.interface
+
+    @property
+    def is_fd(self) -> bool:
+        return bool(getattr(self._tx, "is_fd", False))
+
+    def send(self, message) -> None:
+        self._tx.send(message)
+
+    def recv(self, timeout: float | None = None):
+        if timeout is None:
+            return self._rx.recv()
+        return self._rx.recv(timeout=timeout)
+
+    def shutdown(self) -> None:
+        self._tx.shutdown()
+        self._rx.shutdown()
+
+
 def default_interfaces() -> tuple[str, ...]:
     import os
 
