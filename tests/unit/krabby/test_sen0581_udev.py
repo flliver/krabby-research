@@ -87,14 +87,18 @@ def test_device_paths_match_symlink_convention() -> None:
 
 
 def test_jetson_catalog_sen0581_devices_match_udev_paths() -> None:
-    """HAL catalog literals must stay aligned with udev / Docker device paths."""
-    from hal.server.jetson.sensor_backend_jetson import JETSON_SENSOR_CATALOG_BY_ID
+    """HAL catalog literals must stay aligned with udev / Docker device paths.
 
-    role_to_catalog_id = {
-        "belly_right": "belly_right_tof",
-        "belly_left": "belly_left_tof",
-        "rear": "rear_tof",
-    }
-    for role, catalog_id in role_to_catalog_id.items():
-        row = JETSON_SENSOR_CATALOG_BY_ID[catalog_id]
-        assert row.sen0581_device == sen0581_device_path(role)
+    krabby-launcher PyPI publish runs only ``tests/unit/krabby/`` without HAL deps
+    (no numpy). Cross-check ``sensor_backend_jetson.py`` source instead of importing HAL.
+    """
+    catalog_path = (
+        Path(__file__).resolve().parents[3]
+        / "hal/server/jetson/sensor_backend_jetson.py"
+    )
+    catalog_src = catalog_path.read_text(encoding="utf-8")
+    for role in SEN0581_ROLES:
+        dev = sen0581_device_path(role)
+        assert f'sen0581_device="{dev}"' in catalog_src, (
+            f"missing {dev!r} for role {role!r} in {catalog_path}"
+        )
