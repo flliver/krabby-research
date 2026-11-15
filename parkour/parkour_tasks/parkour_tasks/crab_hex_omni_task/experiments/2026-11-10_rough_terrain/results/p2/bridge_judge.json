@@ -1,0 +1,944 @@
+{
+ "schema": "p2_bridge_judge_v1",
+ "at": "2026-11-12T15:07:46",
+ "verdict": "PASS",
+ "stop_rows": [],
+ "relaunch_due": [],
+ "pin": {
+  "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+  "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+ },
+ "policy": {
+  "name": "c31000",
+  "sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-08_02-57-24_RSD_ST_s19/model_31000.pt"
+ },
+ "normalisation": {
+  "rule": "run_meta.json: every string value passed through rt_machinery.normalise_roots (<MAIN> and <MAIN>/.claude/worktrees/<name> -> <ROOT>) on BOTH stamps of a pair, in a shadow dir (run_meta rewritten, every other file symlinked); classflip_check.py / wave_diff.py run unchanged on the shadow dirs",
+  "keys_changed": [
+   "checkpoint",
+   "student.checkpoint_agent_yaml",
+   "student.module",
+   "student.zero_depth_source",
+   "usd_path"
+  ]
+ },
+ "rule": "RSD CHARTER section 4 (amended 2026-11-08 20:12; wave 0 per 23:06): PASS = any launch bitwise equal to any recorded stamp of the same shape; RELAUNCH (up to 2) on the class signature against every recorded stamp; otherwise STOP (notify and ask; the distill runs regardless)",
+ "rows": {
+  "L090.field_light": {
+   "tag": "L090",
+   "cell": "T00_nominal_L090_Z",
+   "fam": "field_light",
+   "scenario": "field_light__omni",
+   "es": 1,
+   "policy_sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+   "row": {
+    "id": "bridge_L090_field_light",
+    "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L090_Z__field_light.env",
+    "level_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env",
+    "manifest": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+    "scenario": "field_light__omni",
+    "args": [
+     "--task",
+     "Isaac-Crab-Hex-Omni-Student-Play-v0",
+     "--policy-role",
+     "student"
+    ]
+   },
+   "recorded": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10"
+   ],
+   "launch_stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54"
+   ],
+   "launches": [
+    {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+     "problems": [],
+     "pairs": [
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19",
+       "bitwise": false,
+       "classflip_verdict_raw": "CODE-PATH",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 100,
+       "earliest_step": 0,
+       "earliest_keys": [
+        "actions"
+       ],
+       "earliest_envs": [
+        5,
+        7,
+        30
+       ],
+       "earliest_max_dact": 6.139278411865234e-06,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "judged_on": "whole stamp (single wave)",
+       "signature": true
+      },
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      },
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      },
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      }
+     ],
+     "bitwise_match": [
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10",
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11",
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10"
+     ],
+     "signature_vs_all": true
+    }
+   ],
+   "status": "PASS",
+   "why": "bitwise match: /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54 == /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10",
+   "match": [
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10"
+    ],
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11"
+    ],
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/field_light__omni/seed001/2026-11-12_19-40-54",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10"
+    ]
+   ],
+   "step0_references": {
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06": "x07_L090"
+   },
+   "step0_fingerprint": {
+    "class_envs": [
+     5,
+     7,
+     30
+    ],
+    "n_class_envs": 3,
+    "class_envs_rule": "envs where the step-0 references (both bridge cells, same family) disagree",
+    "envs_compared": "all",
+    "n_envs_compared": 100,
+    "references": {
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06": "x07_L090"
+    },
+    "reference_env_set_mismatch": [],
+    "classes": [
+     {
+      "id": 0,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19"
+      ],
+      "cells": [
+       "L090"
+      ],
+      "has_same_shape_stamp": true,
+      "new_equal_in_class_envs": false,
+      "n_equal": 0
+     },
+     {
+      "id": 1,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06"
+      ],
+      "cells": [
+       "L090",
+       "x07_L090"
+      ],
+      "has_same_shape_stamp": true,
+      "new_equal_in_class_envs": true,
+      "n_equal": 3
+     }
+    ],
+    "same_shape_class": [
+     0,
+     1
+    ],
+    "equals_class": 1,
+    "equals_recorded_class": true,
+    "equals_other_recorded_class": null,
+    "equals_other_why": "every recorded class holds a same-shape stamp (no 'other' class); see equals_class",
+    "envs_new_differs_from_the_one_class": null
+   }
+  },
+  "L090.suite": {
+   "tag": "L090",
+   "cell": "T00_nominal_L090_Z",
+   "fam": "suite",
+   "scenario": "suite__omni",
+   "es": 1,
+   "policy_sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+   "row": {
+    "id": "bridge_L090_suite",
+    "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L090_Z__suite.env",
+    "level_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env",
+    "manifest": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml",
+    "scenario": "suite__omni",
+    "args": [
+     "--task",
+     "Isaac-Crab-Hex-Omni-Student-Play-v0",
+     "--trained-categories",
+     "stand,fwd,side,back,diag,turn,move_turn",
+     "--policy-role",
+     "student"
+    ]
+   },
+   "recorded": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49"
+   ],
+   "launch_stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50"
+   ],
+   "launches": [
+    {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+     "problems": [],
+     "pairs": [
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05",
+       "bitwise": false,
+       "classflip_verdict_raw": "CODE-PATH",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 1000,
+       "earliest_step": 0,
+       "earliest_keys": [
+        "actions",
+        "applied_torque",
+        "foot_force_norm"
+       ],
+       "earliest_envs": [
+        0,
+        4,
+        15,
+        35,
+        36,
+        58,
+        75,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112
+       ],
+       "earliest_max_dact": 1.0361498296260834,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "wave0": {
+        "episodes": 100,
+        "differ": 100,
+        "earliest_step": 0,
+        "earliest_keys": [
+         "actions"
+        ],
+        "n_step0_diff": 7,
+        "step0_keys": [
+         "actions"
+        ],
+        "n_step0_action_diff": 7,
+        "n_step0_dynamic_only": 0,
+        "step0_state_keys_differ": [],
+        "first_diff_kinds": {
+         "action-only@depth": 76,
+         "other": 24
+        }
+       },
+       "judged_on": "wave 0 (RSD CHARTER section 4, 2026-11-08 23:06)",
+       "signature": true
+      },
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      },
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      },
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      }
+     ],
+     "bitwise_match": [
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58",
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58",
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49"
+     ],
+     "signature_vs_all": true
+    }
+   ],
+   "status": "PASS",
+   "why": "bitwise match: /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50 == /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58",
+   "match": [
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58"
+    ],
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58"
+    ],
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_L090/suite__omni/seed001/2026-11-12_19-44-50",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49"
+    ]
+   ],
+   "step0_references": {
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55": "x07_L090"
+   },
+   "step0_fingerprint": {
+    "class_envs": [
+     0,
+     4,
+     15,
+     35,
+     36,
+     58,
+     75
+    ],
+    "n_class_envs": 7,
+    "class_envs_rule": "envs where the step-0 references (both bridge cells, same family) disagree",
+    "envs_compared": "wave 0",
+    "n_envs_compared": 100,
+    "references": {
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55": "x07_L090"
+    },
+    "reference_env_set_mismatch": [],
+    "classes": [
+     {
+      "id": 0,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05"
+      ],
+      "cells": [
+       "L090"
+      ],
+      "has_same_shape_stamp": true,
+      "new_equal_in_class_envs": false,
+      "n_equal": 0
+     },
+     {
+      "id": 1,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55"
+      ],
+      "cells": [
+       "L090",
+       "x07_L090"
+      ],
+      "has_same_shape_stamp": true,
+      "new_equal_in_class_envs": true,
+      "n_equal": 7
+     }
+    ],
+    "same_shape_class": [
+     0,
+     1
+    ],
+    "equals_class": 1,
+    "equals_recorded_class": true,
+    "equals_other_recorded_class": null,
+    "equals_other_why": "every recorded class holds a same-shape stamp (no 'other' class); see equals_class",
+    "envs_new_differs_from_the_one_class": null
+   }
+  },
+  "x07_L090.field_light": {
+   "tag": "x07_L090",
+   "cell": "T01_rod_speed_0p7_L090",
+   "fam": "field_light",
+   "scenario": "field_light__omni",
+   "es": 1,
+   "policy_sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+   "row": {
+    "id": "bridge_x07_L090_field_light",
+    "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/envs/T01_rod_speed_0p7_L090__field_light.env",
+    "level_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env",
+    "manifest": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-07_omni_phase2/scenarios_p2.yaml",
+    "scenario": "field_light__omni",
+    "args": [
+     "--task",
+     "Isaac-Crab-Hex-Omni-Student-Play-v0",
+     "--policy-role",
+     "student"
+    ]
+   },
+   "recorded": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06"
+   ],
+   "launch_stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/field_light__omni/seed001/2026-11-12_19-52-26",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090_R1/field_light__omni/seed001/2026-11-12_20-03-54"
+   ],
+   "launches": [
+    {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/field_light__omni/seed001/2026-11-12_19-52-26",
+     "problems": [],
+     "pairs": [
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/field_light__omni/seed001/2026-11-12_19-52-26",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06",
+       "bitwise": false,
+       "classflip_verdict_raw": "CODE-PATH",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 100,
+       "earliest_step": 0,
+       "earliest_keys": [
+        "actions"
+       ],
+       "earliest_envs": [
+        5,
+        7,
+        30
+       ],
+       "earliest_max_dact": 6.139278411865234e-06,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "judged_on": "whole stamp (single wave)",
+       "signature": true
+      }
+     ],
+     "bitwise_match": [],
+     "signature_vs_all": true
+    },
+    {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090_R1/field_light__omni/seed001/2026-11-12_20-03-54",
+     "problems": [],
+     "pairs": [
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090_R1/field_light__omni/seed001/2026-11-12_20-03-54",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      }
+     ],
+     "bitwise_match": [
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06"
+     ],
+     "signature_vs_all": true
+    }
+   ],
+   "status": "PASS",
+   "why": "bitwise match: /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090_R1/field_light__omni/seed001/2026-11-12_20-03-54 == /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06",
+   "match": [
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090_R1/field_light__omni/seed001/2026-11-12_20-03-54",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06"
+    ]
+   ],
+   "step0_references": {
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06": "x07_L090"
+   },
+   "step0_fingerprint": {
+    "class_envs": [
+     5,
+     7,
+     30
+    ],
+    "n_class_envs": 3,
+    "class_envs_rule": "envs where the step-0 references (both bridge cells, same family) disagree",
+    "envs_compared": "all",
+    "n_envs_compared": 100,
+    "references": {
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06": "x07_L090"
+    },
+    "reference_env_set_mismatch": [],
+    "classes": [
+     {
+      "id": 0,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/field_light__omni/seed001/2026-11-08_18-21-19"
+      ],
+      "cells": [
+       "L090"
+      ],
+      "has_same_shape_stamp": false,
+      "new_equal_in_class_envs": false,
+      "n_equal": 0
+     },
+     {
+      "id": 1,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/field_light__omni/seed001/2026-11-09_04-21-10",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/field_light__omni/seed001/2026-11-09_03-50-10",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/field_light__omni/seed001/2026-11-09_04-10-11",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/field_light__omni/seed001/2026-11-09_00-57-06"
+      ],
+      "cells": [
+       "L090",
+       "x07_L090"
+      ],
+      "has_same_shape_stamp": true,
+      "new_equal_in_class_envs": true,
+      "n_equal": 3
+     }
+    ],
+    "same_shape_class": [
+     1
+    ],
+    "equals_class": 1,
+    "equals_recorded_class": true,
+    "equals_other_recorded_class": false,
+    "equals_other_why": "same-shape class [1]; other recorded class(es) [0]",
+    "envs_new_differs_from_the_one_class": null
+   }
+  },
+  "x07_L090.suite": {
+   "tag": "x07_L090",
+   "cell": "T01_rod_speed_0p7_L090",
+   "fam": "suite",
+   "scenario": "suite__omni",
+   "es": 1,
+   "policy_sha256": "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e",
+   "row": {
+    "id": "bridge_x07_L090_suite",
+    "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/envs/T01_rod_speed_0p7_L090__suite.env",
+    "level_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env",
+    "manifest": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/eval/scenarios_omni.yaml",
+    "scenario": "suite__omni",
+    "args": [
+     "--task",
+     "Isaac-Crab-Hex-Omni-Student-Play-v0",
+     "--trained-categories",
+     "stand,fwd,side,back,diag,turn,move_turn",
+     "--policy-role",
+     "student"
+    ]
+   },
+   "recorded": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55"
+   ],
+   "launch_stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/suite__omni/seed001/2026-11-12_19-56-08"
+   ],
+   "launches": [
+    {
+     "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/suite__omni/seed001/2026-11-12_19-56-08",
+     "problems": [],
+     "pairs": [
+      {
+       "new": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/suite__omni/seed001/2026-11-12_19-56-08",
+       "ref": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55",
+       "bitwise": true,
+       "classflip_verdict_raw": "BITWISE-EQUAL",
+       "cfg_identical": true,
+       "cfg_differs": [],
+       "dose_identical": true,
+       "same_code": false,
+       "structural_mismatch": [],
+       "differing_episodes": 0,
+       "earliest_step": null,
+       "earliest_keys": null,
+       "earliest_envs": [],
+       "earliest_max_dact": null,
+       "normalised_keys": {
+        "new": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ],
+        "ref": [
+         "checkpoint",
+         "student.checkpoint_agent_yaml",
+         "student.module",
+         "student.zero_depth_source",
+         "usd_path"
+        ]
+       },
+       "signature": true
+      }
+     ],
+     "bitwise_match": [
+      "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55"
+     ],
+     "signature_vs_all": true
+    }
+   ],
+   "status": "PASS",
+   "why": "bitwise match: /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/suite__omni/seed001/2026-11-12_19-56-08 == /home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55",
+   "match": [
+    [
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2B_155b5981_x07_L090/suite__omni/seed001/2026-11-12_19-56-08",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55"
+    ]
+   ],
+   "step0_references": {
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49": "L090",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55": "x07_L090"
+   },
+   "step0_fingerprint": {
+    "class_envs": [
+     0,
+     4,
+     15,
+     35,
+     36,
+     58,
+     75
+    ],
+    "n_class_envs": 7,
+    "class_envs_rule": "envs where the step-0 references (both bridge cells, same family) disagree",
+    "envs_compared": "wave 0",
+    "n_envs_compared": 100,
+    "references": {
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58": "L090",
+     "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55": "x07_L090"
+    },
+    "reference_env_set_mismatch": [],
+    "classes": [
+     {
+      "id": 0,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090/suite__omni/seed001/2026-11-08_18-14-05"
+      ],
+      "cells": [
+       "L090"
+      ],
+      "has_same_shape_stamp": false,
+      "new_equal_in_class_envs": false,
+      "n_equal": 0
+     },
+     {
+      "id": 1,
+      "stamps": [
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDSEL_155b5981_L090_D1/suite__omni/seed001/2026-11-09_04-13-49",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z/suite__omni/seed001/2026-11-09_03-42-58",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T00_nominal_L090_Z_D1/suite__omni/seed001/2026-11-09_04-02-58",
+       "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/lr/RSDS_155b5981_T01_rod_speed_0p7_L090/suite__omni/seed001/2026-11-09_00-49-55"
+      ],
+      "cells": [
+       "L090",
+       "x07_L090"
+      ],
+      "has_same_shape_stamp": true,
+      "new_equal_in_class_envs": true,
+      "n_equal": 7
+     }
+    ],
+    "same_shape_class": [
+     1
+    ],
+    "equals_class": 1,
+    "equals_recorded_class": true,
+    "equals_other_recorded_class": false,
+    "equals_other_why": "same-shape class [1]; other recorded class(es) [0]",
+    "envs_new_differs_from_the_one_class": null
+   }
+  }
+ }
+}

@@ -1,0 +1,69 @@
+{
+ "at": "2026-11-13T09:43:51",
+ "controls_source": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-07_rod_speed_dr/results/stand/sn_calib.json",
+ "tol": 0.03,
+ "plan_line": 1.095,
+ "mode": "predicted",
+ "c1_suite_stamps": {
+  "1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTSW_6d1f29be_R_suite/suite__omni/seed001/2026-11-11_11-52-29",
+  "2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RTA_6d1f29be_R_suite/suite__omni/seed002/2026-11-11_17-47-36"
+ },
+ "refs": {
+  "suite es1": 1.10691,
+  "walkstop es1": 1.10589,
+  "suite es2": 1.10689,
+  "walkstop es2": 1.10562
+ },
+ "note": "walkstop = c1 suite - REFS(TDR)'s (suite - walkstop) per seed (RSD sn_calib.json); suite = p2s_summary on c1's own 0-kg suite rows",
+ "lines": {
+  "suite es1": {
+   "refs": 1.10691,
+   "controls": {
+    "R": 1.06478,
+    "HOLD": 1.06478
+   },
+   "controls_spare_m": 0.01213,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  },
+  "walkstop es1": {
+   "refs": 1.10589,
+   "controls": {
+    "R": 1.06191,
+    "HOLD": 1.06399
+   },
+   "controls_spare_m": 0.0119,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  },
+  "suite es2": {
+   "refs": 1.10689,
+   "controls": {
+    "R": 1.06514,
+    "HOLD": 1.06514
+   },
+   "controls_spare_m": 0.01175,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  },
+  "walkstop es2": {
+   "refs": 1.10562,
+   "controls": {
+    "R": 1.06245,
+    "HOLD": 1.06409
+   },
+   "controls_spare_m": 0.01153,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  }
+ },
+ "notify": []
+}

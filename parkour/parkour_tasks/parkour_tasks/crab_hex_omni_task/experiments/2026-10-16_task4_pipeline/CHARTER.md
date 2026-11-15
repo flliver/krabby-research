@@ -921,3 +921,60 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
         unchanged and outside EVAL_PATHSPECS.
     - (6) The Task 4 lock is re-pinned to eval_sha 9fe964d7. `check` is clean on R18 / F19 / dry once this commit
       lands (verified on a scratch commit of exactly these files).
+- **2026-11-15, re-pin for the rough-terrain merge prep (milestone boundary).**
+  - **Why:** the rough-terrain pairing became the omni policy of record (rough-terrain CHARTER "2026-11-15 01:50 —
+    BAKE DONE"), and the user asked to get feat/rough-terrain merge-ready ("Get it merge ready, yeah"), which includes
+    the relock that the bake's follow-up `merge_relock` lists. The lock had already been behind main since the
+    rod-speed DR merge (PR #13, code de3772e2) and 701f8c47 (eval cd5ae167).
+  - **Before**, `check` on the merged tree (87cbbdec = origin/main b99b9232 merged into the branch):
+    - code_sha drifted, live 89c1916b vs lock 6a4e4c6e;
+    - eval_sha drifted, live cd5ae167 vs lock 9fe964d7;
+    - locked file `experiments/tools/run_candidates.py` drifted, 124b0c1d -> 0ff25b5c (the branch's rough-terrain
+      machinery, 6588f1c3 + 82946834, +138 / -7);
+    - external stack drifted: python 3.11.17 -> 3.11.18 (the deadsnakes PPA's python3.11 package, updated by apt
+      on 2026-10-28 15:47, so the rod-speed DR and rough-terrain campaigns ran on 3.11.18).
+    - The other 347 locked files were unchanged.
+  - **Relock:** `pipeline.py lock` on the committed, clean merged tree, written 2026-11-15T11:51:15. It holds the same
+    348 files, dirty 0: code_sha 89c1916b, eval_sha cd5ae167, tools_sha 81420414 -> 33413769, git_head_informational
+    87cbbdec. `check` (R18, F19, dry) is clean.
+  - **Consequences:**
+    - (1) R18 / F19 stay the record of build cbaf6797 / 8c8d22f0, preserved by the local task4-pin-* tags. A re-run
+      now runs the new build.
+    - (2) No new tag. The task4-pin-* tags mark builds a run actually ran on; no run uses this pin yet. The
+      2026-10-26 re-pins were not tagged either.
+    - (3) eval cd5ae167 moves only the per-episode `support_polygon` `min_edge_margin_m` leaves, by <= 2.2e-16 m on
+      1,005 replayed rough-terrain episodes. No thresholds v1.2 decisive line reads that field (it does not reach the
+      aggregates), so no recorded verdict can move. Details are in the rough-terrain CHARTER "2026-11-15 12:30 —
+      Merge prep".
+    - (4) The Task 4 README section 2 says so in two hand edits, because report.py (its generator) is Task 4-locked.
+      The README's header discloses them; a regeneration drops them.
+    - (5) Main's `test_task4_eval.py::test_committed_rows_parse_compile_and_score_bit_identically_to_the_baseline`
+      fails on main b99b9232 itself: 701f8c47 swapped `np.hypot` for `_norm`, and the test's BLAS-free baseline shim
+      has no hypot swap. GitHub CI skips the test because the shallow checkout has no dfae3c27. It is not fixed here.
+- **2026-11-15, the baseline shim gets the scalar hypot swap (the user: "Fix that"; test-only).**
+  - **Why:** main's 701f8c47 (2026-11-14) changed `_signed_min_edge_margin`'s edge length and point-to-segment
+    distance from `np.hypot(*v)` (libm) to `_norm(v)`. `test_task4_eval.py::test_committed_rows_parse_compile_and_score_bit_identically_to_the_baseline`
+    then failed on 12 of 18 rows (`scored` only), on main b99b9232 too (entry above, item 5). GitHub CI skips the
+    test because its shallow checkout has no dfae3c27.
+  - **Change** (`tests/unit/test_task4_eval.py` only; outside both hashes and the lock):
+    - `_BLAS_FREE_BASELINE_SHIM` also swaps `np.hypot`, but only for two real scalars, using
+      `sqrt(add.reduce(v * v))`, the arithmetic current `_norm` does on a 2-vector.
+    - Array calls stay libm's. The baseline's `v_step` in `body_yaw_metrics` is one, and the current code still
+      makes it.
+    - Complex input goes to libm, which raises, as `_norm` does.
+    - The comment and the module docstring say so.
+  - **Checks:**
+    - The test passes natively and under OPENBLAS_CORETYPE=Haswell / SandyBridge / Zen.
+    - Mutation matrix (fingerprint rows differing, baseline vs current):
+      - fixed shim vs current: 0 / 18;
+      - fixed shim vs current with 701f8c47 reverted: 12 / 18, so the test still guards that line;
+      - the old shim vs current: 12 / 18.
+    - A global (unscoped) hypot swap and a `v_step` change both read 0 / 18: these synthetic rows cannot see the
+      array call.
+    - Review (workflow `t4eval-shim-review`, wf_40e29d55-f89, fable·high) could not refute the fix.
+      - The swap equals current `_norm` bit for bit, value and result type, over float64 / float32 / float16 / int /
+        python / 0-d / extreme inputs.
+      - It reaches exactly the two 701f8c47 call sites. Both see float64 scalars only, because the hull is built in
+        float64.
+      - All 12 differing rows come from the distance line; the edge-length line alone moves no row here.
+      - Its comment and complex-input nits are applied.

@@ -1,0 +1,70 @@
+{
+ "at": "2026-11-13T18:56:43",
+ "controls_source": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/results/p2/stand/sn_calib.json",
+ "tol": 0.03,
+ "plan_line": 1.095,
+ "mode": "measured",
+ "refs_stamps": {
+  "suite es1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/suite__omni/seed001/2026-11-13_21-02-53",
+  "suite es2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/suite__omni/seed002/2026-11-13_21-10-09",
+  "walkstop es1": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/walkstop__omni/seed001/2026-11-13_21-17-23",
+  "walkstop es2": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/phase2/lr/REFS_RT_6d1f29be/walkstop__omni/seed002/2026-11-13_21-20-00"
+ },
+ "refs": {
+  "suite es1": 1.10602,
+  "walkstop es1": 1.10536,
+  "suite es2": 1.10705,
+  "walkstop es2": 1.10571
+ },
+ "lines": {
+  "suite es1": {
+   "refs": 1.10602,
+   "controls": {
+    "R": 1.06478,
+    "HOLD": 1.06478
+   },
+   "controls_spare_m": 0.01124,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  },
+  "walkstop es1": {
+   "refs": 1.10536,
+   "controls": {
+    "R": 1.06191,
+    "HOLD": 1.06399
+   },
+   "controls_spare_m": 0.01137,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  },
+  "suite es2": {
+   "refs": 1.10705,
+   "controls": {
+    "R": 1.06514,
+    "HOLD": 1.06514
+   },
+   "controls_spare_m": 0.01191,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  },
+  "walkstop es2": {
+   "refs": 1.10571,
+   "controls": {
+    "R": 1.06245,
+    "HOLD": 1.06409
+   },
+   "controls_spare_m": 0.01162,
+   "head_like_controls_fails_strict_line": true,
+   "refs_at_or_below_plan_line": false,
+   "class": "REANCHOR_AVAILABLE",
+   "knife_edge": false
+  }
+ },
+ "notify": []
+}

@@ -1,0 +1,3675 @@
+{
+ "rows": {
+  "rt_slopes_b1__omni": {
+   "row": "rt_slopes_b1__omni",
+   "kind": "slopes",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_slopes_b1/rt_slopes_b1__omni/seed001/2026-11-11_00-53-09",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.08443288008372,
+     "max": 1.0922009944915771,
+     "median": 1.086909830570221,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0072009265422821045,
+       "dsurf": 0.007799074053764343,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.000967167317867279,
+       "dsurf": 0.015967167913913727,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.002852499485015869,
+       "dsurf": 0.0071475207805633545,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0005671431620915685,
+       "dsurf": 0.019432860116163894,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      2.0,
+      7.3999999999999995
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 3.3259822130203247,
+       "rim_max_m": 1.86,
+       "median_grad_deg": 3.258000221180672,
+       "track_max_grad_deg": 3.8414379001023256,
+       "table_deg": 3.3259822130203247,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 2.148819215595722,
+       "rim_max_m": 1.9000000000000001,
+       "median_grad_deg": 2.092989654899017,
+       "track_max_grad_deg": 2.6462529699073456,
+       "table_deg": 2.148819215595722,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 6.498389333486557,
+       "rim_max_m": 1.76,
+       "median_grad_deg": 6.458962297391751,
+       "track_max_grad_deg": 7.417027177325708,
+       "table_deg": 6.498389333486557,
+       "variant": "down_raised_pad",
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 2.3017086163163185,
+       "rim_max_m": 1.86,
+       "median_grad_deg": 2.3324820745286567,
+       "track_max_grad_deg": 2.64831378450063,
+       "table_deg": 2.3017086163163185,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "slopes_variant": {
+    "up_sunk_pad": 3,
+    "down_raised_pad": 1
+   },
+   "pass": true
+  },
+  "rt_slopes_b2__omni": {
+   "row": "rt_slopes_b2__omni",
+   "kind": "slopes",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_slopes_b2/rt_slopes_b2__omni/seed001/2026-11-11_00-56-30",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.08443284034729,
+     "max": 1.0922008355458577,
+     "median": 1.0869099497795105,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.007200767596562685,
+       "dsurf": 0.007799218098322569,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0009672244389851703,
+       "dsurf": 0.015967239936192812,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.002852658430735233,
+       "dsurf": 0.007147332032521603,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0005671977996826172,
+       "dsurf": 0.019432812929153442,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      7.3999999999999995,
+      12.799999999999999
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 8.725982427597046,
+       "rim_max_m": 1.76,
+       "median_grad_deg": 8.658215305727076,
+       "track_max_grad_deg": 8.880659150520298,
+       "table_deg": 8.725982427597046,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 7.548819363117218,
+       "rim_max_m": 1.74,
+       "median_grad_deg": 7.514275777390017,
+       "track_max_grad_deg": 7.66836328499932,
+       "table_deg": 7.548819363117218,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 11.89838981628418,
+       "rim_max_m": 1.74,
+       "median_grad_deg": 11.78392604571456,
+       "track_max_grad_deg": 12.431925924276724,
+       "table_deg": 11.89838981628418,
+       "variant": "down_raised_pad",
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 7.701708495616913,
+       "rim_max_m": 1.76,
+       "median_grad_deg": 7.6076865253980905,
+       "track_max_grad_deg": 7.8462404595715824,
+       "table_deg": 7.701708495616913,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.25,
+   "termination_reasons": {
+    "fall": 1,
+    "schedule_complete": 3
+   },
+   "slopes_variant": {
+    "up_sunk_pad": 3,
+    "down_raised_pad": 1
+   },
+   "pass": true
+  },
+  "rt_slopes_b3__omni": {
+   "row": "rt_slopes_b3__omni",
+   "kind": "slopes",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_slopes_b3/rt_slopes_b3__omni/seed001/2026-11-11_01-00-11",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0844329198201499,
+     "max": 1.0922008951505027,
+     "median": 1.0869099299112954,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0072008570035299035,
+       "dsurf": 0.00779912869135535,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0009671847025553015,
+       "dsurf": 0.015967170397440555,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.002852658430735233,
+       "dsurf": 0.007147391637166378,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0005671183268228797,
+       "dsurf": 0.019432862599690792,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      12.799999999999999,
+      20.0
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 14.567976355552673,
+       "rim_max_m": 1.74,
+       "median_grad_deg": 14.360896162019692,
+       "track_max_grad_deg": 14.851062468857867,
+       "table_deg": 14.567976355552673,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 12.998425960540771,
+       "rim_max_m": 1.74,
+       "median_grad_deg": 12.90805219836667,
+       "track_max_grad_deg": 13.577011092435496,
+       "table_deg": 12.998425960540771,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 18.797852158546448,
+       "rim_max_m": 1.74,
+       "median_grad_deg": 18.62139305971221,
+       "track_max_grad_deg": 19.502448506662155,
+       "table_deg": 18.797852158546448,
+       "variant": "down_raised_pad",
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 13.202278137207031,
+       "rim_max_m": 1.74,
+       "median_grad_deg": 13.116545447123316,
+       "track_max_grad_deg": 14.036243467926404,
+       "table_deg": 13.202278137207031,
+       "variant": "up_sunk_pad",
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.5,
+   "termination_reasons": {
+    "fall": 2,
+    "schedule_complete": 2
+   },
+   "slopes_variant": {
+    "up_sunk_pad": 3,
+    "down_raised_pad": 1
+   },
+   "pass": true
+  },
+  "rt_hills_b1__omni": {
+   "row": "rt_hills_b1__omni",
+   "kind": "hills",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_hills_b1/rt_hills_b1__omni/seed001/2026-11-11_01-04-15",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.08443284034729,
+     "max": 1.092200756072998,
+     "median": 1.0869099299112954,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.007200717926025391,
+       "dsurf": 0.0077992817386984825,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0009672641754150391,
+       "dsurf": 0.015967263840138912,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0028525193532307944,
+       "dsurf": 0.007147480423251787,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0005671977996826172,
+       "dsurf": 0.019432801753282547,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      2.0,
+      7.3999999999999995
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 3.3259822130203247,
+       "realised": 3.1553902350600462,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 2.148819215595722,
+       "realised": 2.2749142514268748,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 6.498389333486557,
+       "realised": 6.0964985768665985,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 2.3017086163163185,
+       "realised": 2.5091742627055993,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_hills_b2__omni": {
+   "row": "rt_hills_b2__omni",
+   "kind": "hills",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_hills_b2/rt_hills_b2__omni/seed001/2026-11-11_01-06-54",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.08443284034729,
+     "max": 1.092200756072998,
+     "median": 1.0869099299112954,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.007200717926025391,
+       "dsurf": 0.0077992817386984825,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0009672641754150391,
+       "dsurf": 0.015967263840138912,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0028525193532307944,
+       "dsurf": 0.007147480423251787,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0005671977996826172,
+       "dsurf": 0.019432801753282547,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      7.3999999999999995,
+      12.799999999999999
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 8.725982427597046,
+       "realised": 8.147210340269263,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 7.548819363117218,
+       "realised": 7.064455602226417,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 11.89838981628418,
+       "realised": 11.25490769080981,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 7.701708495616913,
+       "realised": 7.200756222864773,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_hills_b3__omni": {
+   "row": "rt_hills_b3__omni",
+   "kind": "hills",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_hills_b3/rt_hills_b3__omni/seed001/2026-11-11_01-09-37",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.08443284034729,
+     "max": 1.092200756072998,
+     "median": 1.0869099299112954,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.007200717926025391,
+       "dsurf": 0.0077992817386984825,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0009672641754150391,
+       "dsurf": 0.015967263840138912,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0028525193532307944,
+       "dsurf": 0.007147480423251787,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0005671977996826172,
+       "dsurf": 0.019432801753282547,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      12.799999999999999,
+      20.0
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 14.567976355552673,
+       "realised": 13.47260839164263,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 12.998425960540771,
+       "realised": 12.030102845437435,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 18.797852158546448,
+       "realised": 17.490760370306436,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 13.202278137207031,
+       "realised": 12.213188525402115,
+       "estimator": "5x5 plane fit (test_rt_terrain's)",
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_ledge_up_b1__omni": {
+   "row": "rt_ledge_up_b1__omni",
+   "kind": "ledge_up",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_ledge_up_b1/rt_ledge_up_b1__omni/seed001/2026-11-11_01-12-21",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.076374610265096,
+     "max": 1.089666485786438,
+     "median": 1.0836246212323506,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.00862546513477961,
+       "dsurf": 0.006374535461266838,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0024148809413115195,
+       "dsurf": 0.0024148809413115195,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.00466647744178772,
+       "dsurf": 0.00033351778984069824,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.000335995728770893,
+       "dsurf": 0.020335993419090908,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      0.02,
+      0.104
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.04062638998031616,
+       "realised": 0.03999999910593033,
+       "tol": 0.011562638998031616,
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 0.022314965575933456,
+       "realised": 0.019999999552965164,
+       "tol": 0.009731496557593346,
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 0.08997494518756866,
+       "realised": 0.09000000357627869,
+       "tol": 0.016497494518756865,
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 0.024693245142698286,
+       "realised": 0.02500000037252903,
+       "tol": 0.009969324514269828,
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_ledge_up_b2__omni": {
+   "row": "rt_ledge_up_b2__omni",
+   "kind": "ledge_up",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_ledge_up_b2/rt_ledge_up_b2__omni/seed001/2026-11-11_01-20-55",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0763744513193767,
+     "max": 1.0896665453910828,
+     "median": 1.083624541759491,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.008625586827596024,
+       "dsurf": 0.006374413768450424,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.002414919435977936,
+       "dsurf": 0.002414919435977936,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004666522145271301,
+       "dsurf": 0.0003334730863571167,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0003360360860824585,
+       "dsurf": 0.020336031913757324,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      0.104,
+      0.18799999999999997
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.12462639331817627,
+       "realised": 0.125,
+       "tol": 0.019962639331817626,
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 0.10631496787071228,
+       "realised": 0.10499999672174454,
+       "tol": 0.018131496787071228,
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 0.17397495269775387,
+       "realised": 0.17499999701976776,
+       "tol": 0.024897495269775388,
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 0.10869324326515198,
+       "realised": 0.10999999940395355,
+       "tol": 0.018369324326515196,
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_ledge_up_b3__omni": {
+   "row": "rt_ledge_up_b3__omni",
+   "kind": "ledge_up",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_ledge_up_b3/rt_ledge_up_b3__omni/seed001/2026-11-11_01-23-46",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0763745705286663,
+     "max": 1.089666525522868,
+     "median": 1.0836246411005654,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0086254378159841,
+       "dsurf": 0.006374577681223542,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0024148027102152414,
+       "dsurf": 0.0024148027102152414,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004666457573572813,
+       "dsurf": 0.00033353765805560487,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.00033599138259887695,
+       "dsurf": 0.020335987210273743,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      0.18799999999999997,
+      0.3
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.21550185441970823,
+       "realised": 0.2150000035762787,
+       "tol": 0.029050185441970824,
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 0.19108662605285642,
+       "realised": 0.1899999976158142,
+       "tol": 0.026608662605285643,
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 0.28129992246627805,
+       "realised": 0.2800000011920929,
+       "tol": 0.03562999224662781,
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 0.19425765991210936,
+       "realised": 0.19499999284744263,
+       "tol": 0.026925765991210937,
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.5,
+   "termination_reasons": {
+    "fall": 2,
+    "schedule_complete": 2
+   },
+   "pass": true
+  },
+  "rt_ledge_down_b1__omni": {
+   "row": "rt_ledge_down_b1__omni",
+   "kind": "ledge_down",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_ledge_down_b1/rt_ledge_down_b1__omni/seed001/2026-11-11_01-26-43",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0763744115829468,
+     "max": 1.089666724205017,
+     "median": 1.0836245616277058,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.008625581860542297,
+       "dsurf": 0.006374415010213852,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.002414957309762638,
+       "dsurf": 0.002414959172407787,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004666663706302643,
+       "dsurf": 0.00033333897590637207,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.000335947299997013,
+       "dsurf": 0.020335947784284752,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      0.02,
+      0.119
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.04430967390537262,
+       "realised": 0.04500000178813934,
+       "tol": 0.011930967390537263,
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 0.022728352285921575,
+       "realised": 0.02500000037252903,
+       "tol": 0.009772835228592158,
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 0.1024704711139202,
+       "realised": 0.10000000149011612,
+       "tol": 0.017747047111392023,
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 0.025531324632465838,
+       "realised": 0.02500000037252903,
+       "tol": 0.010053132463246583,
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_ledge_down_b2__omni": {
+   "row": "rt_ledge_down_b2__omni",
+   "kind": "ledge_down",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed001/2026-11-11_01-29-30",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0763745307922363,
+     "max": 1.0896666049957275,
+     "median": 1.0836246212323508,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.008625492453575134,
+       "dsurf": 0.0063745081424713135,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0024148300290107727,
+       "dsurf": 0.0024148300290107727,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004666522145271301,
+       "dsurf": 0.00033348798751831055,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.00033601125081381134,
+       "dsurf": 0.020336014529069274,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      0.119,
+      0.21799999999999997
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.14330967783927917,
+       "realised": 0.14499999582767487,
+       "tol": 0.021830967783927915,
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 0.12172835499048232,
+       "realised": 0.11999999731779099,
+       "tol": 0.019672835499048233,
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 0.20147047996520992,
+       "realised": 0.20000000298023224,
+       "tol": 0.02764704799652099,
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 0.12453132241964339,
+       "realised": 0.125,
+       "tol": 0.01995313224196434,
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.5,
+   "termination_reasons": {
+    "fall": 2,
+    "schedule_complete": 2
+   },
+   "pass": true
+  },
+  "rt_ledge_down_b3__omni": {
+   "row": "rt_ledge_down_b3__omni",
+   "kind": "ledge_down",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_ledge_down_b3/rt_ledge_down_b3__omni/seed001/2026-11-11_01-32-20",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.076374610265096,
+     "max": 1.0896666447321575,
+     "median": 1.0836246609687805,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.008625427881876646,
+       "dsurf": 0.006374557813008608,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0024148126443227225,
+       "dsurf": 0.0024148126443227225,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004666576782862364,
+       "dsurf": 0.0003334482510884418,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.00033600131670633027,
+       "dsurf": 0.020335997144381196,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      0.21799999999999997,
+      0.35
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.250412899851799,
+       "realised": 0.25,
+       "tol": 0.0325412899851799,
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 0.22163780927658078,
+       "realised": 0.2199999988079071,
+       "tol": 0.02966378092765808,
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 0.3279606229066849,
+       "realised": 0.33000001311302185,
+       "tol": 0.04029606229066849,
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 0.22537509918212886,
+       "realised": 0.22499999403953552,
+       "tol": 0.030037509918212888,
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 1.0,
+   "termination_reasons": {
+    "fall": 4
+   },
+   "pass": true
+  },
+  "rt_pits_b1__omni": {
+   "row": "rt_pits_b1__omni",
+   "kind": "pits",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_pits_b1/rt_pits_b1__omni/seed001/2026-11-11_01-33-34",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0810972054799397,
+     "max": 1.0903346538543701,
+     "median": 1.0860848426818848,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0039028326670328775,
+       "dsurf": 0.018902832331756752,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.00018024444580078125,
+       "dsurf": 0.015180244110524654,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.005334615707397461,
+       "dsurf": 0.009665383957326412,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0019893646240234375,
+       "dsurf": 0.0030106352642178535,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      0.03,
+      0.126
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.05357301712036132,
+       "realised": 0.055,
+       "tol": 0.012857301712036133,
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 0.032645674943923945,
+       "realised": 0.035,
+       "tol": 0.010764567494392394,
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 0.1099713659286499,
+       "realised": 0.11,
+       "tol": 0.01849713659286499,
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 0.03536370873451233,
+       "realised": 0.035,
+       "tol": 0.011036370873451232,
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_pits_b2__omni": {
+   "row": "rt_pits_b2__omni",
+   "kind": "pits",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_pits_b2/rt_pits_b2__omni/seed001/2026-11-11_01-36-22",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0852657159169514,
+     "max": 1.0893042087554932,
+     "median": 1.0866511265436807,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.00026567776997884113,
+       "dsurf": 0.00473432211826245,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.004304170608520508,
+       "dsurf": 0.004304170608520508,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0010237693786621094,
+       "dsurf": 0.011023769155144691,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.002278407414754232,
+       "dsurf": 0.017721592138210934,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      0.126,
+      0.22199999999999998
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.1495730209350586,
+       "realised": 0.15,
+       "tol": 0.02245730209350586,
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 0.1286456775665283,
+       "realised": 0.13,
+       "tol": 0.02036456775665283,
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 0.20597137451171874,
+       "realised": 0.20500000000000002,
+       "tol": 0.028097137451171875,
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 0.1313637065887451,
+       "realised": 0.13,
+       "tol": 0.02063637065887451,
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.75,
+   "termination_reasons": {
+    "fall": 3,
+    "schedule_complete": 1
+   },
+   "pass": true
+  },
+  "rt_pits_b3__omni": {
+   "row": "rt_pits_b3__omni",
+   "kind": "pits",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_pits_b3/rt_pits_b3__omni/seed001/2026-11-11_01-39-14",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0811994075775146,
+     "max": 1.084891716639201,
+     "median": 1.0838179190953572,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.00010832150777180989,
+       "dsurf": 0.019891678045193355,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0010728041330973308,
+       "dsurf": 0.006072804021338622,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.003800630569458008,
+       "dsurf": 0.016199368983507156,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.0012914339701334636,
+       "dsurf": 0.016291433634857338,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      0.22199999999999998,
+      0.35
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.25343069076538083,
+       "realised": 0.255,
+       "tol": 0.032843069076538084,
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 0.2255275726318359,
+       "realised": 0.225,
+       "tol": 0.030052757263183592,
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 0.32862848281860346,
+       "realised": 0.33,
+       "tol": 0.04036284828186035,
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 0.22915161132812498,
+       "realised": 0.23,
+       "tol": 0.0304151611328125,
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 1.0,
+   "termination_reasons": {
+    "fall": 4
+   },
+   "pass": true
+  },
+  "rt_gravel_b1__omni": {
+   "row": "rt_gravel_b1__omni",
+   "kind": "gravel",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_gravel_b1/rt_gravel_b1__omni/seed001/2026-11-11_01-40-57",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0837143262227376,
+     "max": 1.0877892971038818,
+     "median": 1.0852278470993042,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0027892589569091797,
+       "dsurf": 0.012210740707814693,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0005927880605061849,
+       "dsurf": 0.009407211715976397,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0012857119242350261,
+       "dsurf": 0.0162857115889589,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.00013717015584309897,
+       "dsurf": 0.014862829508880774,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      0.02,
+      0.029
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.022209970355033876,
+       "realised": 0.02,
+       "tol": 0.009720997035503387,
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 0.02024803202599287,
+       "realised": 0.02,
+       "tol": 0.009524803202599286,
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 0.02749731555581093,
+       "realised": 0.025,
+       "tol": 0.010249731555581093,
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 0.020502847693860533,
+       "realised": 0.02,
+       "tol": 0.009550284769386054,
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "gravel_mu_eff": {
+     "pass": true,
+     "range": [
+      0.2,
+      0.5
+     ],
+     "bad": [],
+     "mu": [
+      0.2542078240208281,
+      0.4169663015607111,
+      0.23619537888077394,
+      0.3025736815746236
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_gravel_b2__omni": {
+   "row": "rt_gravel_b2__omni",
+   "kind": "gravel",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_gravel_b2/rt_gravel_b2__omni/seed001/2026-11-11_01-43-42",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0837143262227376,
+     "max": 1.0877892971038818,
+     "median": 1.0852278470993042,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0027892589569091797,
+       "dsurf": 0.012210740707814693,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0005927880605061849,
+       "dsurf": 0.009407211715976397,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0012857119242350261,
+       "dsurf": 0.0162857115889589,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.00013717015584309897,
+       "dsurf": 0.014862829508880774,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      0.029,
+      0.038000000000000006
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.031209970712661746,
+       "realised": 0.03,
+       "tol": 0.010620997071266174,
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 0.029248032271862033,
+       "realised": 0.03,
+       "tol": 0.010424803227186204,
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 0.03649731636047364,
+       "realised": 0.035,
+       "tol": 0.011149731636047364,
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 0.029502847492694856,
+       "realised": 0.03,
+       "tol": 0.010450284749269486,
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "gravel_mu_eff": {
+     "pass": true,
+     "range": [
+      0.2,
+      0.5
+     ],
+     "bad": [],
+     "mu": [
+      0.2542078240208281,
+      0.4169663015607111,
+      0.23619537888077394,
+      0.3025736815746236
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_gravel_b3__omni": {
+   "row": "rt_gravel_b3__omni",
+   "kind": "gravel",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_gravel_b3/rt_gravel_b3__omni/seed001/2026-11-11_01-46-28",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0837143262227376,
+     "max": 1.0877892971038818,
+     "median": 1.0852278470993042,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.0027892589569091797,
+       "dsurf": 0.012210740707814693,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0005927880605061849,
+       "dsurf": 0.009407211715976397,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.0012857119242350261,
+       "dsurf": 0.0162857115889589,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.00013717015584309897,
+       "dsurf": 0.014862829508880774,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      0.038000000000000006,
+      0.05
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.04094662725925446,
+       "realised": 0.04,
+       "tol": 0.011594662725925447,
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 0.038330709934234625,
+       "realised": 0.04,
+       "tol": 0.011333070993423462,
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 0.04799642026424408,
+       "realised": 0.05,
+       "tol": 0.012299642026424407,
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 0.03867046356201172,
+       "realised": 0.04,
+       "tol": 0.011367046356201171,
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "gravel_mu_eff": {
+     "pass": true,
+     "range": [
+      0.2,
+      0.5
+     ],
+     "bad": [],
+     "mu": [
+      0.2542078240208281,
+      0.4169663015607111,
+      0.23619537888077394,
+      0.3025736815746236
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_rubble_b1__omni": {
+   "row": "rt_rubble_b1__omni",
+   "kind": "rubble",
+   "band": "b1",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_rubble_b1/rt_rubble_b1__omni/seed001/2026-11-11_01-49-15",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0807185173034668,
+     "max": 1.089155117670695,
+     "median": 1.0837608575820923,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.004281520843505859,
+       "dsurf": 0.00928152073174715,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0015399456024169922,
+       "dsurf": 0.006539945490658283,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004155079523722331,
+       "dsurf": 0.024155079076687496,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.004018306732177734,
+       "dsurf": 0.0009816931560635567,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.0,
+      0.3
+     ],
+     "band_value": [
+      0.02,
+      0.059
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.029576538205146788,
+       "realised": 0.03,
+       "tol": 0.010457653820514678,
+       "pass": true,
+       "env": 0,
+       "d": 0.07366567850112915
+      },
+      {
+       "design": 0.021074805445969104,
+       "realised": 0.02,
+       "tol": 0.00960748054459691,
+       "pass": true,
+       "env": 1,
+       "d": 0.008267734199762344
+      },
+      {
+       "design": 0.05248836740851402,
+       "realised": 0.05,
+       "tol": 0.012748836740851402,
+       "pass": true,
+       "env": 2,
+       "d": 0.24991051852703094
+      },
+      {
+       "design": 0.022179006673395636,
+       "realised": 0.02,
+       "tol": 0.009717900667339564,
+       "pass": true,
+       "env": 3,
+       "d": 0.01676158979535103
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_rubble_b2__omni": {
+   "row": "rt_rubble_b2__omni",
+   "kind": "rubble",
+   "band": "b2",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_rubble_b2/rt_rubble_b2__omni/seed001/2026-11-11_01-52-00",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0807185173034668,
+     "max": 1.089155117670695,
+     "median": 1.0837608575820923,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.004281520843505859,
+       "dsurf": 0.00928152073174715,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0015399456024169922,
+       "dsurf": 0.006539945490658283,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004155079523722331,
+       "dsurf": 0.024155079076687496,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.004018306732177734,
+       "dsurf": 0.0009816931560635567,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.3,
+      0.6
+     ],
+     "band_value": [
+      0.059,
+      0.098
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.06857653975486755,
+       "realised": 0.07,
+       "tol": 0.014357653975486755,
+       "pass": true,
+       "env": 0,
+       "d": 0.3736656904220581
+      },
+      {
+       "design": 0.06007480651140214,
+       "realised": 0.06,
+       "tol": 0.013507480651140213,
+       "pass": true,
+       "env": 1,
+       "d": 0.308267742395401
+      },
+      {
+       "design": 0.09148837089538575,
+       "realised": 0.09,
+       "tol": 0.016648837089538578,
+       "pass": true,
+       "env": 2,
+       "d": 0.5499105453491211
+      },
+      {
+       "design": 0.061179005801677705,
+       "realised": 0.06,
+       "tol": 0.01361790058016777,
+       "pass": true,
+       "env": 3,
+       "d": 0.3167615830898285
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  },
+  "rt_rubble_b3__omni": {
+   "row": "rt_rubble_b3__omni",
+   "kind": "rubble",
+   "band": "b3",
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/smoke/lr/RT5_03c3e472_rt_rubble_b3/rt_rubble_b3__omni/seed001/2026-11-11_01-54-46",
+   "checks": {
+    "stamp_build": {
+     "pass": true,
+     "why": []
+    },
+    "spawn_height": {
+     "n": 4,
+     "pass": true,
+     "n_out": 0,
+     "min": 1.0807185173034668,
+     "max": 1.089155117670695,
+     "median": 1.0837608575820923,
+     "target": 1.085,
+     "tol": 0.05
+    },
+    "terrain_mesh": {
+     "pass": true,
+     "terrain_source": "raycast_mesh",
+     "why": null
+    },
+    "no_early_termination": {
+     "pass": true,
+     "early_envs": [],
+     "first_s": 2.0
+    },
+    "probe_build": {
+     "pass": true,
+     "why": [],
+     "build": {
+      "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+      "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+      "dirty": "False",
+      "dirty_paths": [],
+      "head": "f63aff2a4ae5494379497d3613cebe9c7ff858df",
+      "writer": "rt_kit_eval_probe.py"
+     }
+    },
+    "probe_process_paths": {
+     "pass": true,
+     "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+     "modules": {
+      "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+      "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+      "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+      "site_raster": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/site_raster.py"
+     }
+    },
+    "probe_matches_harness": {
+     "pass": true,
+     "envs": [
+      {
+       "env": 0,
+       "dxy": 0.0,
+       "dpad": 0.004281520843505859,
+       "dsurf": 0.00928152073174715,
+       "ok": true
+      },
+      {
+       "env": 1,
+       "dxy": 0.0,
+       "dpad": 0.0015399456024169922,
+       "dsurf": 0.006539945490658283,
+       "ok": true
+      },
+      {
+       "env": 2,
+       "dxy": 0.0,
+       "dpad": 0.004155079523722331,
+       "dsurf": 0.024155079076687496,
+       "ok": true
+      },
+      {
+       "env": 3,
+       "dxy": 0.0,
+       "dpad": 0.004018306732177734,
+       "dsurf": 0.0009816931560635567,
+       "ok": true
+      }
+     ]
+    },
+    "tile_kind": {
+     "pass": true,
+     "n": 4
+    },
+    "tile_d_in_band": {
+     "pass": true,
+     "band_d": [
+      0.6,
+      1.0
+     ],
+     "band_value": [
+      0.098,
+      0.15
+     ]
+    },
+    "realised_dose": {
+     "pass": true,
+     "tiles": [
+      {
+       "design": 0.11076871812343599,
+       "realised": 0.11,
+       "tol": 0.018576871812343597,
+       "pass": true,
+       "env": 0,
+       "d": 0.6982209086418152
+      },
+      {
+       "design": 0.09943307638168336,
+       "realised": 0.1,
+       "tol": 0.017443307638168336,
+       "pass": true,
+       "env": 1,
+       "d": 0.6110236644744873
+      },
+      {
+       "design": 0.14131782114505767,
+       "realised": 0.14,
+       "tol": 0.021631782114505768,
+       "pass": true,
+       "env": 2,
+       "d": 0.933214008808136
+      },
+      {
+       "design": 0.1009053421020508,
+       "realised": 0.1,
+       "tol": 0.01759053421020508,
+       "pass": true,
+       "env": 3,
+       "d": 0.6223487854003906
+      }
+     ]
+    },
+    "friction_contract_off": {
+     "pass": true,
+     "mu_shape": [
+      [
+       0.8772270679473877,
+       0.8772270679473877
+      ],
+      [
+       1.734866976737976,
+       1.734866976737976
+      ],
+      [
+       1.5166414976119995,
+       1.5166414976119995
+      ],
+      [
+       1.5241186618804932,
+       1.5241186618804932
+      ]
+     ]
+    }
+   },
+   "fall_share": 0.0,
+   "termination_reasons": {
+    "schedule_complete": 4
+   },
+   "pass": true
+  }
+ },
+ "by_kind_band": {
+  "slopes": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.25,
+    "termination_reasons": {
+     "fall": 1,
+     "schedule_complete": 3
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 0.5,
+    "termination_reasons": {
+     "fall": 2,
+     "schedule_complete": 2
+    }
+   }
+  },
+  "hills": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   }
+  },
+  "ledge_up": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 0.5,
+    "termination_reasons": {
+     "fall": 2,
+     "schedule_complete": 2
+    }
+   }
+  },
+  "ledge_down": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.5,
+    "termination_reasons": {
+     "fall": 2,
+     "schedule_complete": 2
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 1.0,
+    "termination_reasons": {
+     "fall": 4
+    }
+   }
+  },
+  "pits": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.75,
+    "termination_reasons": {
+     "fall": 3,
+     "schedule_complete": 1
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 1.0,
+    "termination_reasons": {
+     "fall": 4
+    }
+   }
+  },
+  "gravel": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   }
+  },
+  "rubble": {
+   "b1": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b2": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   },
+   "b3": {
+    "pass": true,
+    "fall_share": 0.0,
+    "termination_reasons": {
+     "schedule_complete": 4
+    }
+   }
+  }
+ },
+ "pin": {
+  "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+  "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8"
+ },
+ "fails": [],
+ "pass": true
+}

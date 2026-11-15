@@ -1,0 +1,249 @@
+{
+ "tool": "rt_kit_train_smoke.py",
+ "mode": "ref",
+ "task": "Isaac-Crab-Hex-Omni-Teacher-v0",
+ "num_envs": 400,
+ "seed": 19,
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+ "launch_krabby": {
+  "KRABBY_ACTION_BOUND": "1.1",
+  "KRABBY_ACTION_BOUND_LOSS": "0.001",
+  "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+  "KRABBY_ACTION_RATE_W": "-0.05",
+  "KRABBY_APEX_W": "0.001",
+  "KRABBY_CLOCK_W": "0.001",
+  "KRABBY_DR_ROD_SPEED": "0.6:1.35",
+  "KRABBY_ENTROPY_COEF": "0.0025",
+  "KRABBY_EPISODE_S": "6",
+  "KRABBY_FIELD_BLOCKS": "14:28",
+  "KRABBY_FIELD_EDGES": "wall",
+  "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+  "KRABBY_FIELD_PAD_R": "1.7",
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "field",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+  "KRABBY_OMNI_DIR_BAND": "",
+  "KRABBY_OMNI_FACING": "0.2:1.2",
+  "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+  "KRABBY_OMNI_PHASE": "2a",
+  "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_PAYLOAD_COM_XY": "0.10",
+  "KRABBY_PAYLOAD_COM_Z": "0.309",
+  "KRABBY_PAYLOAD_KG": "0:180",
+  "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+  "KRABBY_PHASEOUT": "",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PPO_HAND_DIAG": "1",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+  "KRABBY_YAW_W": "0.2"
+ },
+ "checks": {
+  "modules_and_pythonpath_under_worktree": {
+   "pass": true,
+   "modules": {
+    "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+    "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+    "runner_factory": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/runner_factory.py",
+    "rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py"
+   },
+   "pythonpath": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour"
+  },
+  "process_krabby_env_is_the_env_file": {
+   "pass": true,
+   "differ": []
+  },
+  "every_column_has_two_envs": {
+   "pass": true,
+   "min": 20
+  },
+  "every_shape_one_mu_static_eq_dynamic_restitution0": {
+   "pass": true,
+   "n_shapes": 25
+  },
+  "ref_shipped_event_mu_in_range": {
+   "pass": true,
+   "min": 0.606942355632782,
+   "max": 1.963463306427002,
+   "range": [
+    0.6,
+    2.0
+   ]
+  },
+  "obs_width_1149": {
+   "pass": true,
+   "width": 1149
+  },
+  "friction_input": {
+   "pass": true,
+   "obs_col": 210,
+   "max_err": 0.0,
+   "term_err": 0.0,
+   "mapping": "raw shape mu"
+  },
+  "every_column_resets": {
+   "pass": true,
+   "min": 40
+  },
+  "spawn_height_first_step_per_kind": {
+   "pass": true,
+   "per_kind": {
+    "flat": {
+     "n": 601,
+     "n_out": 0,
+     "min": 1.062964916229248,
+     "max": 1.1042572259902954
+    },
+    "omni_field_dense": {
+     "n": 300,
+     "n_out": 0,
+     "min": 1.062966227531433,
+     "max": 1.1037085056304932
+    },
+    "omni_field_sparse": {
+     "n": 302,
+     "n_out": 0,
+     "min": 1.0629671812057495,
+     "max": 1.103684663772583
+    }
+   }
+  }
+ },
+ "step_dt": 0.02,
+ "max_episode_length": 300,
+ "episode_length_s": 6.0,
+ "columns": {
+  "kinds": [
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "flat",
+   "omni_field_sparse",
+   "omni_field_sparse",
+   "omni_field_sparse",
+   "omni_field_sparse",
+   "omni_field_sparse",
+   "omni_field_dense",
+   "omni_field_dense",
+   "omni_field_dense",
+   "omni_field_dense",
+   "omni_field_dense"
+  ],
+  "envs_per_column": [
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20,
+   20
+  ]
+ },
+ "material_event": {
+  "func": "randomize_rigid_body_material",
+  "params": {
+   "friction_range": [
+    0.6,
+    2.0
+   ],
+   "num_buckets": 64
+  }
+ },
+ "early_by_kind": {
+  "omni_field_sparse": {
+   "episodes": 202,
+   "early": 0,
+   "time_outs": 194
+  },
+  "flat": {
+   "episodes": 401,
+   "early": 0,
+   "time_outs": 393
+  },
+  "omni_field_dense": {
+   "episodes": 200,
+   "early": 0,
+   "time_outs": 196
+  }
+ },
+ "resets_per_column": [
+  40,
+  40,
+  40,
+  40,
+  41,
+  40,
+  40,
+  40,
+  40,
+  40,
+  42,
+  40,
+  40,
+  40,
+  40,
+  40,
+  40,
+  40,
+  40,
+  40
+ ],
+ "spawn_reset_placement": {
+  "flat": {
+   "n": 401,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.1050000190734863,
+   "median": 1.0800000429153442,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "omni_field_dense": {
+   "n": 200,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.1050000190734863,
+   "median": 1.0850000381469727,
+   "target": 1.085,
+   "tol": 0.05
+  },
+  "omni_field_sparse": {
+   "n": 202,
+   "pass": true,
+   "n_out": 0,
+   "min": 1.065000057220459,
+   "max": 1.100000023841858,
+   "median": 1.090000033378601,
+   "target": 1.085,
+   "tol": 0.05
+  }
+ },
+ "pass": true,
+ "wall_s": 40.18482494354248,
+ "complete": true
+}

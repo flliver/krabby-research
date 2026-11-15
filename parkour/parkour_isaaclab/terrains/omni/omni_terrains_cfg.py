@@ -1,7 +1,9 @@
+from dataclasses import MISSING
+
 from isaaclab.utils import configclass
 
 from ..extreme_parkour.extreme_parkour_terrains_cfg import ExtremeParkourRoughTerrainCfg
-from . import omni_terrains
+from . import omni_terrains, site_terrains
 
 
 @configclass
@@ -93,3 +95,60 @@ class OmniFieldTerrainCfg(ExtremeParkourRoughTerrainCfg):
     pit_depth: str = "0.02 + 0.06 * difficulty"
 
     vertical_edges: bool = False
+
+
+@configclass
+class OmniSiteFieldTerrainCfg(OmniFieldTerrainCfg):
+    """Site teacher (``crab_hex_omni_task/experiments/2026-10-28_site_teacher/DESIGN.md`` §3.1): the
+    legacy field on a SITE generator -- ``field_layout`` + padding + roughness, byte-identical heights
+    to :class:`OmniFieldTerrainCfg` at the same RNG state, plus the site layers (kind ``FIELD_BLOCK``
+    / ``FIELD_PIT``, level 0, no crossing radius). A SUBCLASS on purpose: the parkour term's
+    ``field_mode`` (exact occupancy, seam-aware lookups, field keys) is chosen by ``isinstance`` and
+    switches on for every site generator. Installed only under ``KRABBY_FLAT_TERRAIN_GEOM=site``.
+    """
+
+    function = site_terrains.omni_site_field_terrain
+
+
+@configclass
+class OmniSiteTerrainCfg(ExtremeParkourRoughTerrainCfg):
+    """Site teacher (DESIGN §3.1-§3.6): one construction-site hazard kind per column, laid out around
+    the spawn pad in the tile-centre frame by ``site_terrains.site_layout`` on the kind's ladder
+    ``lo + (hi - lo) * d_site``. ``kind`` is a ``SITE_KINDS`` hazard name (``pits`` ... ``ramps``).
+
+    The two radius fields keep the ring / field NAMES (the sector anchors and the parkour-term radius
+    sync read them by name): ``clear_radius`` is the spawn pad, ``ring_outer_radius`` the half-width of
+    the square every feature lies in. ``site_d_range`` / ``gen_d_range`` are written by the site
+    applier (``KRABBY_SITE_DIFF`` and the generator's ``difficulty_range``); ``ramp_max_deg`` is the
+    friction-capped ramp slope. Installed only under ``KRABBY_FLAT_TERRAIN_GEOM=site``.
+    """
+
+    function = site_terrains.omni_site_terrain
+
+    kind: str = MISSING
+    clear_radius: float = 1.7
+    ring_outer_radius: float = 4.80
+    field_margin: float = 0.16
+    noise_range: tuple[float, float] = (0.02, 0.02)
+    vertical_edges: bool = True
+    site_d_range: tuple[float, float] = (0.0, 1.0)
+    gen_d_range: tuple[float, float] = (0.0, 1.0)
+    ramp_max_deg: float = 20.0
+    max_tries: int = 64
+
+
+@configclass
+class OmniSiteRtTerrainCfg(OmniSiteTerrainCfg):
+    """Rough-terrain teacher (``crab_hex_omni_task/experiments/2026-11-10_rough_terrain/PLAN.md`` step 2): one rt
+    hazard column of ``OMNI_SITE_RT_TERRAINS_CFG`` (``kind`` one of ``site_terrains.RT_KINDS``), laid out on the
+    rough-terrain ladder by ``site_terrains.omni_site_terrain_rt``. A SUBCLASS of :class:`OmniSiteTerrainCfg`, so every
+    site check (class, radius fields, d mapping, caps) applies unchanged. Installed only under
+    ``KRABBY_FLAT_TERRAIN_GEOM=site`` with ``KRABBY_SITE_LADDER=rt``.
+    """
+
+    function = site_terrains.omni_site_terrain_rt
+
+    tile_col: int | None = None
+    """The tile's column in the generator grid, set per tile by ``ParkourTerrainGenerator._get_terrain_mesh``: the
+    slopes layout alternates its up / down variant by column parity (even column up), so every level holds both.
+    None (a direct call of the body) falls back to a per-tile 0.5 / 0.5 draw."""

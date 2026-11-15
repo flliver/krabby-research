@@ -2350,7 +2350,15 @@ TERRAIN_GEOM_VAR = "KRABBY_FLAT_TERRAIN_GEOM"
 TERRAIN_PROMOTE_VAR = "KRABBY_TERRAIN_PROMOTE"
 #: The dumped ``function`` leaf of each omni sub-terrain kind (``parkour_isaaclab/terrains/omni``).
 OMNI_SUB_TERRAIN_KINDS = {"omni_flat_terrain": "flat", "omni_ring_terrain": "ring",
-                          "omni_field_terrain": "field"}
+                          "omni_field_terrain": "field",
+                          # site TERRAIN geometry (rough-terrain port of the site teacher, 2026-11-10): the site
+                          # generator's legacy-field columns and its hazard columns; a dump of flat + these two IS
+                          # the ``site`` geometry
+                          "omni_site_field_terrain": "site_field", "omni_site_terrain": "site",
+                          # KRABBY_SITE_LADDER=b4: the same hazard columns on the bottom rung
+                          "omni_site_terrain_b4": "site",
+                          # KRABBY_SITE_LADDER=rt (rough-terrain PLAN step 2, 2026-11-10): the rt hazard columns
+                          "omni_site_terrain_rt": "site"}
 #: The two generators' obstacle sub-terrain KEYS, in generator order (``config/omni_ring.py`` /
 #: ``config/omni_field.py``; ``tests/unit/test_omni_phase2_tooling.py`` pins them to those files).
 RING_SUB_TERRAIN_KEYS = ("omni_ring_sparse", "omni_ring_dense")
@@ -2364,8 +2372,9 @@ _PARKOUR_MDP_CFG = rp.FWD_PKG / "config/crab_hex/agents/parkour_mdp_cfg.py"
 
 
 def parse_terrain_geom(text) -> str:
-    """``KRABBY_FLAT_TERRAIN_GEOM`` -> ``ring`` / ``field`` (read as ``strip().lower()``, like the
-    knob block); anything else is refused -- ``require_omni_geom`` raises on it at config build."""
+    """``KRABBY_FLAT_TERRAIN_GEOM`` -> ``ring`` / ``field`` / ``site`` (``omni_terrain_knobs.OMNI_GEOMS``; read as
+    ``strip().lower()``, like the knob block); anything else is refused -- ``require_omni_geom`` raises on it at
+    config build."""
     value = str(text).strip().lower()
     if value not in _terrain().OMNI_GEOMS:
         raise ValueError(f"{TERRAIN_GEOM_VAR} must be one of {_terrain().OMNI_GEOMS}, got {text!r}")
@@ -2474,18 +2483,24 @@ def _sub_terrains(txt: str) -> dict[str, tuple[str | None, dict]]:
 
 def dump_terrain_geom(txt: str) -> str | None:
     """The omni geometry a dump's generator IS: ``ring`` (flat + ring sub-terrains, at least one
-    ring), ``field`` (flat + field, at least one field), else ``None`` (no generator, an unknown
+    ring), ``field`` (flat + field, at least one field), ``site`` (flat + the site generator's
+    hazard columns, at least one, + its legacy-field columns), else ``None`` (no generator, an unknown
     sub-terrain function, or ring and field mixed -- neither guard would have built that)."""
     kinds = [kind for kind, _c in _sub_terrains(txt).values()]
     if not kinds or None in kinds:
         return None
     obstacle = set(kinds) - {"flat"}
+    if "site" in obstacle and obstacle <= {"site", "site_field"}:
+        return "site"
+    if "site_field" in obstacle:
+        return None
     return obstacle.pop() if len(obstacle) == 1 else None
 
 
 def _field_cfgs(txt: str) -> list[dict]:
-    """The FIELD sub-terrains' cfgs, in generator order (empty on a ring dump)."""
-    return [cfg for kind, cfg in _sub_terrains(txt).values() if kind == "field"]
+    """The FIELD sub-terrains' cfgs, in generator order (empty on a ring dump; the legacy-field columns of a site
+    dump, which the ``KRABBY_FIELD_*`` knobs configure under ``site``)."""
+    return [cfg for kind, cfg in _sub_terrains(txt).values() if kind in ("field", "site_field")]
 
 
 def _parkour_cfg(txt: str) -> dict:
@@ -2522,7 +2537,7 @@ def _field_pad_r_ok(txt: str, value) -> bool:
     carry the pad so their sector anchors match) and the parkour term's ``clear_radius_m``, all equal
     to the knob; the dump must be a field dump."""
     pad = _terrain().parse_field_pad_r(value)
-    if dump_terrain_geom(txt) != "field":
+    if dump_terrain_geom(txt) not in ("field", "site"):
         return False
     return (all(_same(cfg.get("clear_radius"), pad) for _kind, cfg in _sub_terrains(txt).values())
             and _same(_parkour_cfg(txt).get("clear_radius_m"), pad))
@@ -2810,6 +2825,111 @@ def _check_field_geom_composition(env: dict, where: str, reasons: list) -> None:
         reasons.append(f"{where}: {exc}")
 
 
+# ---- site TERRAIN knobs (rough-terrain port of the site teacher, 2026-11-10; site DESIGN §1.2 / §9). Every check PINS
+# the dumped location the site applier writes; every knob is default off, and its off spelling is audited as the
+# default the applier leaves. The parsed values come from the round-trip table (:func:`knob_parsers`), so a check
+# reads a knob exactly as its own module does. The site teacher's other knobs (DR, curriculum, rewards, layout v2,
+# critic group) are not ported and have no entry: the knob block refuses them (``SITE_UNPORTED_VARS``).
+def _site_parse(var: str, value):
+    return knob_parsers()[var]("" if value is None else str(value))
+
+
+def _site_raster():
+    """``mdp/site_raster.py`` (pure; SITE_KINDS / SITE_SUBTERRAIN_KEYS), loaded by path."""
+    if "crab_hex_omni_site_raster_ladder" in sys.modules:
+        return sys.modules["crab_hex_omni_site_raster_ladder"]
+    return _load(rp.PKG / "mdp/site_raster.py", "crab_hex_omni_site_raster_ladder")
+
+
+def _site_cfgs(txt: str) -> list[dict]:
+    """The site generator's hazard sub-terrains' cfgs (``omni_site_terrain``), in dump order."""
+    return [cfg for kind, cfg in _sub_terrains(txt).values() if kind == "site"]
+
+
+def _dump_is_rt(txt: str) -> bool:
+    """A site dump on the rough-terrain ladder: its hazard columns stamp on ``omni_site_terrain_rt``."""
+    cfgs = _site_cfgs(txt)
+    return bool(cfgs) and all(str(cfg.get("function")).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+                              == "omni_site_terrain_rt" for cfg in cfgs)
+
+
+def _site_mix_ok(txt: str, value) -> bool:
+    """``KRABBY_SITE_MIX``: a site dump whose ``num_cols`` is the mix total and whose every sub-terrain's
+    ``proportion`` is ``count / total`` in ``SITE_SUBTERRAIN_KEYS`` order (blank = ``DEFAULT_SITE_MIX``). On an rt
+    dump (rough-terrain ladder, :func:`_dump_is_rt`) the keys are ``omni_terrain_knobs.RT_SUBTERRAIN_KEYS`` and the
+    mix is parsed on ``rt`` (blank never passes: the rt applier refuses it)."""
+    tk = _terrain()
+    rt = _dump_is_rt(txt)
+    if rt:
+        mix = None if not str(value or "").strip() else tk.parse_site_mix(str(value), tk.RT_LADDER)
+        if mix is None:
+            return False
+    else:
+        mix = _site_parse(knobs().SITE_MIX_VAR, value)
+        if mix is None:
+            mix = _site_parse(knobs().SITE_MIX_VAR, tk.DEFAULT_SITE_MIX)
+    if dump_terrain_geom(txt) != "site":
+        return False
+    tg = _dig(_dump_doc(txt), "scene", "terrain", "terrain_generator") or {}
+    subs = tg.get("sub_terrains") if isinstance(tg.get("sub_terrains"), dict) else {}
+    total = sum(mix.values())
+    if tg.get("num_cols") != total:
+        return False
+    sr = _site_raster()
+    pairs = zip(tk.RT_COLUMN_KINDS, tk.RT_SUBTERRAIN_KEYS) if rt else zip(sr.SITE_KINDS, sr.SITE_SUBTERRAIN_KEYS)
+    return all(isinstance(subs.get(key), dict) and _same(subs[key].get("proportion"), mix.get(kind, 0) / total)
+               for kind, key in pairs)
+
+
+def _rt_friction_ok(txt: str, value) -> bool:
+    """``KRABBY_RT_FRICTION`` (rough-terrain PLAN step 2): set -> ``events.physics_material`` is the contract
+    (``rt_friction_contract``, ``gravel_range`` the band), the terrain material combines ``multiply`` at static =
+    dynamic = 1.0 and ``rt_friction`` is dumped; blank -> the material event is still TDR's
+    ``randomize_rigid_body_material`` and no ``rt_friction`` is dumped."""
+    spec = knob_parsers()[knobs().RT_FRICTION_VAR]("" if value is None else str(value))
+    doc = _dump_doc(txt)
+    event = _dig(doc, "events", "physics_material") or {}
+    leaf = str(event.get("func", "")).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1]
+    if spec is None:
+        return leaf == "randomize_rigid_body_material" and _dig(doc, "rt_friction") is None
+    params = event.get("params") if isinstance(event.get("params"), dict) else {}
+    band = params.get("gravel_range")
+    mat = _dig(doc, "scene", "terrain", "physics_material") or {}
+    return (leaf == "rt_friction_contract" and isinstance(band, list) and len(band) == 2
+            and _same(band[0], spec["lo"]) and _same(band[1], spec["hi"])
+            and mat.get("friction_combine_mode") == "multiply" and _same(mat.get("static_friction"), 1.0)
+            and _same(mat.get("dynamic_friction"), 1.0) and isinstance(_dig(doc, "rt_friction"), dict))
+
+
+def _site_diff_ok(txt: str, value) -> bool:
+    """``KRABBY_SITE_DIFF``: every hazard sub-terrain's ``site_d_range`` is the band (blank = 0:1) and its
+    ``gen_d_range`` the generator's ``difficulty_range`` (the applier writes both, site DESIGN §3.2)."""
+    band = _site_parse(knobs().SITE_DIFF_VAR, value)
+    band = (0.0, 1.0) if band is None else band
+    gen = _dig(_dump_doc(txt), "scene", "terrain", "terrain_generator", "difficulty_range")
+    cfgs = _site_cfgs(txt)
+    if not cfgs or not isinstance(gen, list) or len(gen) != 2:
+        return False
+    for cfg in cfgs:
+        s, g = cfg.get("site_d_range"), cfg.get("gen_d_range")
+        if not (isinstance(s, list) and len(s) == 2 and all(_same(a, b) for a, b in zip(s, band))):
+            return False
+        if not (isinstance(g, list) and len(g) == 2 and all(_same(a, b) for a, b in zip(g, gen))):
+            return False
+    return True
+
+
+def _site_ladder_ok(txt: str, value) -> bool:
+    """``KRABBY_SITE_LADDER``: every hazard sub-terrain's dumped ``function`` leaf is the ladder's body,
+    ``omni_site_terrain`` when blank and ``omni_site_terrain_<ladder>`` when set (``site_terrains.SITE_LADDER_BODIES``;
+    the site applier writes it)."""
+    ladder = _site_parse(knobs().SITE_LADDER_VAR, value)
+    want = "omni_site_terrain" if ladder is None else f"omni_site_terrain_{ladder}"
+    cfgs = _site_cfgs(txt)
+    return bool(cfgs) and all(str(cfg.get("function")).strip().rsplit(":", 1)[-1].rsplit(".", 1)[-1] == want
+                              for cfg in cfgs)
+
+
 #: Overlay keys audited against ``params/agent.yaml`` (the RUNNER cfg) instead of ``env.yaml``.
 AGENT_DUMP_KEYS = frozenset({"KRABBY_ACTION_STD_MAX", "KRABBY_ACTION_STD_RESET", "KRABBY_ENTROPY_COEF",
                             # side-speed-bisection plan step 1a (2026-09-28): the symmetry loss's
@@ -3002,6 +3122,12 @@ OVERLAY_DUMP_CHECKS = {
     "KRABBY_PAYLOAD_ZERO_FRAC": _payload_param_ok("zero_frac", lambda v: _payload().parse_payload_zero_frac(v)),
     "KRABBY_PAYLOAD_COM_XY": _payload_param_ok("com_xy", lambda v: _payload().parse_payload_com_xy(v)),
     "KRABBY_PAYLOAD_COM_Z": _payload_param_ok("com_z", lambda v: _payload().parse_payload_com_z(v)),
+    # ---- site TERRAIN knobs (rough-terrain port of the site teacher, 2026-11-10). Env side.
+    "KRABBY_SITE_MIX": _site_mix_ok,
+    "KRABBY_SITE_DIFF": _site_diff_ok,
+    "KRABBY_SITE_LADDER": _site_ladder_ok,
+    # ---- the rough-terrain friction contract (rough-terrain PLAN step 2, 2026-11-10). Env side.
+    "KRABBY_RT_FRICTION": _rt_friction_ok,
 }
 
 
@@ -3289,6 +3415,11 @@ def knob_parsers() -> dict:
         # NOTE(M18 Task 4 pipeline step 6, 2026-10-16): the four M1a payload knobs' own parsers (re-exported by
         # omni_knobs from payload_knobs.py); the KG-needs-its-companions rule is _check_payload_composition.
         **k.PAYLOAD_KNOB_PARSERS,
+        # NOTE(rough-terrain campaign step 1, 2026-11-10): the site TERRAIN knobs' own parsers (re-exported by
+        # omni_knobs from mdp/omni_terrain_knobs.py).
+        **k.SITE_KNOB_PARSERS,
+        # NOTE(rough-terrain PLAN step 2, 2026-11-10): the friction contract's parser (re-exported by omni_knobs).
+        **k.RT_KNOB_PARSERS,
     }
     _KNOB_PARSERS_CACHE = table
     return table

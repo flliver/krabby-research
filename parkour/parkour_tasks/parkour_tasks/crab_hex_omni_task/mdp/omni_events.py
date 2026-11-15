@@ -169,6 +169,7 @@ def reset_root_state_ring(
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     offset: float = 0.0,
     yaw_range: tuple[float, float] = (-math.pi, math.pi),
+    spawn_level_z: bool = False,
 ) -> None:
     """Place resetting envs at their tile centre with a random world yaw.
 
@@ -180,6 +181,11 @@ def reset_root_state_ring(
             NAME is load-bearing, see the module docstring.
         yaw_range: ``(lo, hi)`` uniform band for the spawn yaw, radians. ``(a, a)`` pins the
             yaw (the eval harness does this to make a world-frame hold reproducible).
+        spawn_level_z: site teacher (DESIGN §3.8; written True only by the site applier under
+            ``KRABBY_FLAT_TERRAIN_GEOM=site``): add the tile's pad level
+            (``site_raster.site_layers(env).tile_centre_level_m[terrain_levels, terrain_types]``; 0 without
+            site layers) to the spawn z, so a raised / sunken ledge pad spawns at its own height. False
+            (the default) is today's path, untouched.
 
     The default root state supplies the spawn height and the nominal orientation; the yaw
     rotation is applied in the WORLD frame (``q = q_z(psi) * q_default``), so the robot's
@@ -191,6 +197,8 @@ def reset_root_state_ring(
     root_states = asset.data.default_root_state[env_ids].clone()
     origin = env.scene.env_origins[env_ids].clone()
     origin[:, -1] = 0.0
+    if spawn_level_z:
+        origin[:, -1] = _site_pad_level(env, env_ids, origin.dtype)
 
     n = int(root_states.shape[0])
     positions = root_states[:, 0:3] + origin
@@ -205,6 +213,20 @@ def reset_root_state_ring(
     asset.write_root_pose_to_sim(torch.cat([positions, orientations], dim=-1), env_ids=env_ids)
     asset.write_root_velocity_to_sim(torch.zeros_like(root_states[:, 7:13]), env_ids=env_ids)
     note_spawn_xy_to_parkour(env, env_ids, positions[:, :2], SPAWN_PLATFORM)
+
+
+def _site_pad_level(env: ManagerBasedEnv, env_ids: torch.Tensor, dtype) -> torch.Tensor:
+    """``(len(env_ids),)`` pad level (m) of each env's tile: the site layers' ``tile_centre_level_m`` at
+    the importer's ``terrain_levels`` / ``terrain_types``; zeros when the generator has no site layers."""
+    from . import site_raster  # noqa: PLC0415  (lazy: only the site spawn reads it)
+
+    layers = site_raster.site_layers(env)
+    ids = env_ids if torch.is_tensor(env_ids) else torch.as_tensor(env_ids, device=env.device)
+    if layers is None:
+        return torch.zeros(int(ids.numel()), dtype=dtype, device=env.device)
+    terrain = env.scene.terrain
+    level = layers.tile_centre_level_m[terrain.terrain_levels[ids], terrain.terrain_types[ids]]
+    return level.to(device=env.device, dtype=dtype)
 
 
 # =======================================================================================

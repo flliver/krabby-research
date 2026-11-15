@@ -1,0 +1,1133 @@
+{
+ "schema": "rt_thresholds_v1",
+ "tdr_sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+ "rule": {
+  "gate_line": 0.8,
+  "band_choice_env_seed": 3,
+  "gate_env_seeds": [
+   1,
+   2
+  ],
+  "k": 2,
+  "borderline": [
+   0.74,
+   0.86
+  ],
+  "envelope_m": 0.14,
+  "above_envelope": [
+   [
+    "ledge_up",
+    "b3"
+   ],
+   [
+    "ledge_down",
+    "b3"
+   ],
+   [
+    "pits",
+    "b3"
+   ]
+  ],
+  "cross_r": {
+   "ledge_up": 3.2,
+   "ledge_down": 3.2,
+   "pits": 3.2,
+   "rubble": 3.2,
+   "slopes": 3.0,
+   "hills": 3.0,
+   "gravel": 3.0
+  },
+  "bands": {
+   "b1": [
+    0.0,
+    0.3
+   ],
+   "b2": [
+    0.3,
+    0.6
+   ],
+   "b3": [
+    0.6,
+    1.0
+   ]
+  },
+  "statistic": "success = complete AND crossed",
+  "G": {
+   "gain_floor": 0.1,
+   "gain_se_mult": 3.0,
+   "ci_lb": 0.05,
+   "regress_floor": 0.05,
+   "regress_se_mult": 2.0,
+   "text": "gain: new - TDR >= max(0.10, 3 SE) and CI95 lower >= 0.05; no gated kind below TDR - max(0.05, 2 SE); >= k kinds gain"
+  },
+  "R_completion": {
+   "floor": 0.05,
+   "se_mult": 2.0,
+   "manifest_shape_split": 0.0,
+   "text": "new >= TDR - max(0.05, 2 SE)"
+  },
+  "R_tracking": {
+   "call": "gate_read.zero_kg_check",
+   "translate": [
+    "fwd",
+    "side",
+    "back",
+    "diag"
+   ],
+   "its_past_p2a": 0,
+   "thresholds": "thresholds_v1_2.json",
+   "text": "each decisive suite line worse by <= max(R, 3 SE), its v1.2 R, drift 0; side22 FAST/FAST"
+  },
+  "noise_effect": 0.04,
+  "se": "thresholds.paired_completion_se on (env seed, env_index)"
+ },
+ "kinds": {
+  "slopes": {
+   "in_envelope_bands": [
+    "b1",
+    "b2",
+    "b3"
+   ],
+   "above_envelope_bands": [],
+   "status": "gated",
+   "gate_band": "b2",
+   "r_band": null,
+   "pick_success": 0.7,
+   "borderline": false,
+   "borderline_bands": [],
+   "tdr_es3_success": {
+    "b1": 1.0,
+    "b2": 0.7,
+    "b3": 0.16
+   }
+  },
+  "hills": {
+   "in_envelope_bands": [
+    "b1",
+    "b2",
+    "b3"
+   ],
+   "above_envelope_bands": [],
+   "status": "solved",
+   "gate_band": null,
+   "r_band": "b3",
+   "pick_success": 1.0,
+   "borderline": false,
+   "borderline_bands": [],
+   "tdr_es3_success": {
+    "b1": 1.0,
+    "b2": 1.0,
+    "b3": 1.0
+   }
+  },
+  "ledge_up": {
+   "in_envelope_bands": [
+    "b1",
+    "b2"
+   ],
+   "above_envelope_bands": [
+    "b3"
+   ],
+   "status": "gated",
+   "gate_band": "b2",
+   "r_band": null,
+   "pick_success": 0.41,
+   "borderline": false,
+   "borderline_bands": [],
+   "tdr_es3_success": {
+    "b1": 0.98,
+    "b2": 0.41,
+    "b3": 0.0
+   }
+  },
+  "ledge_down": {
+   "in_envelope_bands": [
+    "b1",
+    "b2"
+   ],
+   "above_envelope_bands": [
+    "b3"
+   ],
+   "status": "gated",
+   "gate_band": "b2",
+   "r_band": null,
+   "pick_success": 0.37,
+   "borderline": false,
+   "borderline_bands": [],
+   "tdr_es3_success": {
+    "b1": 1.0,
+    "b2": 0.37,
+    "b3": 0.0
+   }
+  },
+  "pits": {
+   "in_envelope_bands": [
+    "b1",
+    "b2"
+   ],
+   "above_envelope_bands": [
+    "b3"
+   ],
+   "status": "gated",
+   "gate_band": "b2",
+   "r_band": null,
+   "pick_success": 0.55,
+   "borderline": false,
+   "borderline_bands": [],
+   "tdr_es3_success": {
+    "b1": 0.99,
+    "b2": 0.55,
+    "b3": 0.01
+   }
+  },
+  "gravel": {
+   "in_envelope_bands": [
+    "b1",
+    "b2",
+    "b3"
+   ],
+   "above_envelope_bands": [],
+   "status": "solved",
+   "gate_band": null,
+   "r_band": "b3",
+   "pick_success": 1.0,
+   "borderline": false,
+   "borderline_bands": [],
+   "tdr_es3_success": {
+    "b1": 1.0,
+    "b2": 1.0,
+    "b3": 1.0
+   }
+  },
+  "rubble": {
+   "in_envelope_bands": [
+    "b1",
+    "b2",
+    "b3"
+   ],
+   "above_envelope_bands": [],
+   "status": "gated",
+   "gate_band": "b3",
+   "r_band": null,
+   "pick_success": 0.79,
+   "borderline": true,
+   "borderline_bands": [
+    "b3"
+   ],
+   "tdr_es3_success": {
+    "b1": 1.0,
+    "b2": 1.0,
+    "b3": 0.79
+   }
+  }
+ },
+ "gated": [
+  "slopes",
+  "ledge_up",
+  "ledge_down",
+  "pits",
+  "rubble"
+ ],
+ "solved": [
+  "hills",
+  "gravel"
+ ],
+ "n_gated": 5,
+ "decision": "proceed",
+ "why": "5 gated kinds >= k = 2: steps 8-9 run",
+ "tdr_baseline_es3": {
+  "rt_slopes_b1__omni": {
+   "kind": "slopes",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 2.0,
+    "top": 7.3999999999999995
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.763038273816283,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.817878610996107,
+    "min": 4.107977887943998,
+    "max": 5.616121098424493,
+    "p05": 4.2024950430440065,
+    "p10": 4.304660413787438,
+    "p25": 4.399347999748111,
+    "p50": 4.763038273816283,
+    "p75": 5.2120995822009935,
+    "p90": 5.391086962527431,
+    "p95": 5.4290624804552134
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "slopes_variant": {
+    "up_sunk_pad": 50,
+    "down_raised_pad": 50,
+    "flat": 0,
+    "n": 100,
+    "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_slopes_b1/rt_slopes_b1__omni/seed003/2026-11-11_02-00-18"
+  },
+  "rt_slopes_b2__omni": {
+   "kind": "slopes",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 7.3999999999999995,
+    "top": 12.799999999999999
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 0.7,
+   "success": 0.7,
+   "stuck": 0.0,
+   "crossed": 0.9,
+   "r_max_all_p50": 3.8489918751628287,
+   "r_max_completers": {
+    "n": 70,
+    "mean": 4.469465192727144,
+    "min": 3.2332442108899495,
+    "max": 5.92802082890484,
+    "p05": 3.403763939205942,
+    "p10": 3.5402793010110876,
+    "p25": 3.745416330211296,
+    "p50": 4.010159703377161,
+    "p75": 5.646630270940993,
+    "p90": 5.766137400417956,
+    "p95": 5.827700463371013
+   },
+   "termination_reasons": {
+    "fall": 30,
+    "schedule_complete": 70
+   },
+   "slopes_variant": {
+    "up_sunk_pad": 50,
+    "down_raised_pad": 50,
+    "flat": 0,
+    "n": 100,
+    "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_slopes_b2/rt_slopes_b2__omni/seed003/2026-11-11_02-04-57"
+  },
+  "rt_slopes_b3__omni": {
+   "kind": "slopes",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 12.799999999999999,
+    "top": 20.0
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 0.25,
+   "success": 0.16,
+   "stuck": 0.09,
+   "crossed": 0.21,
+   "r_max_all_p50": 2.474177316652729,
+   "r_max_completers": {
+    "n": 25,
+    "mean": 3.024011241524341,
+    "min": 2.428755425899338,
+    "max": 3.3928776153089526,
+    "p05": 2.502554110575679,
+    "p10": 2.5815161963364037,
+    "p25": 2.935007932806168,
+    "p50": 3.109206164923534,
+    "p75": 3.1818763666915433,
+    "p90": 3.281844083855654,
+    "p95": 3.3114869334884003
+   },
+   "termination_reasons": {
+    "fall": 75,
+    "schedule_complete": 25
+   },
+   "slopes_variant": {
+    "up_sunk_pad": 50,
+    "down_raised_pad": 50,
+    "flat": 0,
+    "n": 100,
+    "rule": "sign of the spawn pad level (mean terrain_z at step 0, |z| > 0.01 m)"
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_slopes_b3/rt_slopes_b3__omni/seed003/2026-11-11_02-10-02"
+  },
+  "rt_hills_b1__omni": {
+   "kind": "hills",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 2.0,
+    "top": 7.3999999999999995
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.802196532566803,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.80612855986241,
+    "min": 4.602532520024019,
+    "max": 4.981157491521111,
+    "p05": 4.682371998687371,
+    "p10": 4.70333600502373,
+    "p25": 4.761225649108516,
+    "p50": 4.802196532566803,
+    "p75": 4.8587271891703505,
+    "p90": 4.906656674568968,
+    "p95": 4.9328086162246665
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_hills_b1/rt_hills_b1__omni/seed003/2026-11-11_02-15-10"
+  },
+  "rt_hills_b2__omni": {
+   "kind": "hills",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 7.3999999999999995,
+    "top": 12.799999999999999
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.731468601665704,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.731235066717058,
+    "min": 4.515056769129012,
+    "max": 4.895955980770054,
+    "p05": 4.600923283646653,
+    "p10": 4.612245332682323,
+    "p25": 4.666105900255195,
+    "p50": 4.731468601665704,
+    "p75": 4.802700798991116,
+    "p90": 4.852161151989268,
+    "p95": 4.871684006422335
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_hills_b2/rt_hills_b2__omni/seed003/2026-11-11_02-18-54"
+  },
+  "rt_hills_b3__omni": {
+   "kind": "hills",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 12.799999999999999,
+    "top": 20.0
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.633863388612017,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.621301591445714,
+    "min": 4.3751480471559985,
+    "max": 4.894531167728465,
+    "p05": 4.424485281384088,
+    "p10": 4.4701761589993225,
+    "p25": 4.536905842125596,
+    "p50": 4.633863388612017,
+    "p75": 4.702159633311403,
+    "p90": 4.7577733416260575,
+    "p95": 4.795742686817244
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_hills_b3/rt_hills_b3__omni/seed003/2026-11-11_02-23-56"
+  },
+  "rt_ledge_up_b1__omni": {
+   "kind": "ledge_up",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 0.02,
+    "top": 0.104
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.99,
+   "success": 0.98,
+   "stuck": 0.01,
+   "crossed": 0.99,
+   "r_max_all_p50": 4.550015392624204,
+   "r_max_completers": {
+    "n": 99,
+    "mean": 4.517189979210961,
+    "min": 2.985837355209353,
+    "max": 4.889160835547133,
+    "p05": 4.0427348586343586,
+    "p10": 4.205537693996483,
+    "p25": 4.37337019651736,
+    "p50": 4.5534245605393275,
+    "p75": 4.731596494685885,
+    "p90": 4.818339880479546,
+    "p95": 4.866439597121242
+   },
+   "termination_reasons": {
+    "fall": 1,
+    "schedule_complete": 99
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_ledge_up_b1/rt_ledge_up_b1__omni/seed003/2026-11-11_02-27-52"
+  },
+  "rt_ledge_up_b2__omni": {
+   "kind": "ledge_up",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 0.104,
+    "top": 0.18799999999999997
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.87,
+   "success": 0.41,
+   "stuck": 0.46,
+   "crossed": 0.42,
+   "r_max_all_p50": 2.672406513845016,
+   "r_max_completers": {
+    "n": 87,
+    "mean": 3.0448346624094484,
+    "min": 1.1836235451852852,
+    "max": 4.621942747077416,
+    "p05": 1.2808484355888463,
+    "p10": 1.3710744846970426,
+    "p25": 2.4673547534703744,
+    "p50": 2.8376914620082334,
+    "p75": 4.033372956780968,
+    "p90": 4.360622787521422,
+    "p95": 4.443103775830909
+   },
+   "termination_reasons": {
+    "fall": 13,
+    "schedule_complete": 87
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_ledge_up_b2/rt_ledge_up_b2__omni/seed003/2026-11-11_02-31-41"
+  },
+  "rt_ledge_up_b3__omni": {
+   "kind": "ledge_up",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 0.18799999999999997,
+    "top": 0.3
+   },
+   "above_envelope": true,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.76,
+   "success": 0.0,
+   "stuck": 0.76,
+   "crossed": 0.0,
+   "r_max_all_p50": 1.2422472912295404,
+   "r_max_completers": {
+    "n": 76,
+    "mean": 1.2948510541517793,
+    "min": 1.131006978714833,
+    "max": 2.4617510213781895,
+    "p05": 1.1552242265000732,
+    "p10": 1.177265486865918,
+    "p25": 1.196022271290687,
+    "p50": 1.231949043919705,
+    "p75": 1.266635233026071,
+    "p90": 1.3356131644952436,
+    "p95": 1.626175958173803
+   },
+   "termination_reasons": {
+    "fall": 24,
+    "schedule_complete": 76
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_ledge_up_b3/rt_ledge_up_b3__omni/seed003/2026-11-11_02-35-44"
+  },
+  "rt_ledge_down_b1__omni": {
+   "kind": "ledge_down",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 0.02,
+    "top": 0.119
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.8424980037194345,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.821193081086602,
+    "min": 3.4578920661409978,
+    "max": 5.009445549175565,
+    "p05": 4.690215002884659,
+    "p10": 4.716891209948012,
+    "p25": 4.779591185998525,
+    "p50": 4.8424980037194345,
+    "p75": 4.889307332155066,
+    "p90": 4.944749568043335,
+    "p95": 4.9610564871427165
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_ledge_down_b1/rt_ledge_down_b1__omni/seed003/2026-11-11_02-39-59"
+  },
+  "rt_ledge_down_b2__omni": {
+   "kind": "ledge_down",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 0.119,
+    "top": 0.21799999999999997
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.37,
+   "success": 0.37,
+   "stuck": 0.0,
+   "crossed": 0.37,
+   "r_max_all_p50": 1.91311047615727,
+   "r_max_completers": {
+    "n": 37,
+    "mean": 4.599612498305596,
+    "min": 3.6331462268296284,
+    "max": 4.991186179383766,
+    "p05": 3.7713390605645207,
+    "p10": 3.812499194240206,
+    "p25": 4.609484677879167,
+    "p50": 4.7372555012193205,
+    "p75": 4.8197575611697046,
+    "p90": 4.8560912283174975,
+    "p95": 4.910325849828854
+   },
+   "termination_reasons": {
+    "fall": 63,
+    "schedule_complete": 37
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed003/2026-11-11_02-43-47"
+  },
+  "rt_ledge_down_b3__omni": {
+   "kind": "ledge_down",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 0.21799999999999997,
+    "top": 0.35
+   },
+   "above_envelope": true,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.0,
+   "success": 0.0,
+   "stuck": 0.0,
+   "crossed": 0.0,
+   "r_max_all_p50": 1.435947601997876,
+   "r_max_completers": {
+    "n": 0
+   },
+   "termination_reasons": {
+    "fall": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_ledge_down_b3/rt_ledge_down_b3__omni/seed003/2026-11-11_02-47-32"
+  },
+  "rt_pits_b1__omni": {
+   "kind": "pits",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 0.03,
+    "top": 0.126
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.99,
+   "success": 0.99,
+   "stuck": 0.0,
+   "crossed": 0.99,
+   "r_max_all_p50": 4.741714042757458,
+   "r_max_completers": {
+    "n": 99,
+    "mean": 4.6963361866101065,
+    "min": 3.4917318406777134,
+    "max": 4.926240782604988,
+    "p05": 4.396609867179114,
+    "p10": 4.545913706573946,
+    "p25": 4.647801786100747,
+    "p50": 4.7418022930912915,
+    "p75": 4.820234676111166,
+    "p90": 4.8661268986446435,
+    "p95": 4.88070162441534
+   },
+   "termination_reasons": {
+    "fall": 1,
+    "schedule_complete": 99
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_pits_b1/rt_pits_b1__omni/seed003/2026-11-11_02-48-49"
+  },
+  "rt_pits_b2__omni": {
+   "kind": "pits",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 0.126,
+    "top": 0.22199999999999998
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.57,
+   "success": 0.55,
+   "stuck": 0.02,
+   "crossed": 0.72,
+   "r_max_all_p50": 4.159541109900497,
+   "r_max_completers": {
+    "n": 57,
+    "mean": 4.363496797573562,
+    "min": 2.487724633068603,
+    "max": 4.936783518014821,
+    "p05": 3.5866034110222302,
+    "p10": 3.70542128258858,
+    "p25": 4.197355136067999,
+    "p50": 4.537846060529174,
+    "p75": 4.669864372621808,
+    "p90": 4.7729197397248,
+    "p95": 4.816854735067552
+   },
+   "termination_reasons": {
+    "fall": 43,
+    "schedule_complete": 57
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_pits_b2/rt_pits_b2__omni/seed003/2026-11-11_02-52-40"
+  },
+  "rt_pits_b3__omni": {
+   "kind": "pits",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 0.22199999999999998,
+    "top": 0.35
+   },
+   "above_envelope": true,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.01,
+   "success": 0.01,
+   "stuck": 0.0,
+   "crossed": 0.04,
+   "r_max_all_p50": 2.2221917661501926,
+   "r_max_completers": {
+    "n": 1,
+    "mean": 4.269510303687624,
+    "min": 4.269510303687624,
+    "max": 4.269510303687624,
+    "p05": 4.269510303687624,
+    "p10": 4.269510303687624,
+    "p25": 4.269510303687624,
+    "p50": 4.269510303687624,
+    "p75": 4.269510303687624,
+    "p90": 4.269510303687624,
+    "p95": 4.269510303687624
+   },
+   "termination_reasons": {
+    "fall": 99,
+    "schedule_complete": 1
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_pits_b3/rt_pits_b3__omni/seed003/2026-11-11_02-56-38"
+  },
+  "rt_gravel_b1__omni": {
+   "kind": "gravel",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 0.02,
+    "top": 0.029
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.915504178572101,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.914206013505402,
+    "min": 4.745590058523699,
+    "max": 5.128266914827737,
+    "p05": 4.779163311975839,
+    "p10": 4.798444214250095,
+    "p25": 4.855656872545014,
+    "p50": 4.915504178572101,
+    "p75": 4.969118467086364,
+    "p90": 5.010627483844623,
+    "p95": 5.0409957919371235
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_gravel_b1/rt_gravel_b1__omni/seed003/2026-11-11_03-00-39"
+  },
+  "rt_gravel_b2__omni": {
+   "kind": "gravel",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 0.029,
+    "top": 0.038000000000000006
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.862937666847895,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.868319067593932,
+    "min": 4.536119325916245,
+    "max": 5.061271952457062,
+    "p05": 4.70168764133444,
+    "p10": 4.755482243971546,
+    "p25": 4.810158680054906,
+    "p50": 4.862937666847895,
+    "p75": 4.937619205864081,
+    "p90": 4.989374750231485,
+    "p95": 5.003755394007496
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_gravel_b2/rt_gravel_b2__omni/seed003/2026-11-11_03-04-20"
+  },
+  "rt_gravel_b3__omni": {
+   "kind": "gravel",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 0.038000000000000006,
+    "top": 0.05
+   },
+   "above_envelope": false,
+   "cross_r": 3.0,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.789641499459332,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.783982430624597,
+    "min": 4.430249543748942,
+    "max": 5.035452492299882,
+    "p05": 4.583884336131299,
+    "p10": 4.6505621428004185,
+    "p25": 4.717045998140334,
+    "p50": 4.789641499459332,
+    "p75": 4.858963679509734,
+    "p90": 4.9172570822450945,
+    "p95": 4.94563334584179
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_gravel_b3/rt_gravel_b3__omni/seed003/2026-11-11_03-08-07"
+  },
+  "rt_rubble_b1__omni": {
+   "kind": "rubble",
+   "band": "b1",
+   "d": [
+    0.0,
+    0.3
+   ],
+   "ladder": {
+    "bottom": 0.02,
+    "top": 0.059
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.770311479501034,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.7687429170381845,
+    "min": 4.49817661607397,
+    "max": 4.965982194947271,
+    "p05": 4.615784064995305,
+    "p10": 4.6455260217473935,
+    "p25": 4.709592704091876,
+    "p50": 4.770311479501034,
+    "p75": 4.831035517023564,
+    "p90": 4.902418675234719,
+    "p95": 4.92909178689446
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_rubble_b1/rt_rubble_b1__omni/seed003/2026-11-11_03-11-59"
+  },
+  "rt_rubble_b2__omni": {
+   "kind": "rubble",
+   "band": "b2",
+   "d": [
+    0.3,
+    0.6
+   ],
+   "ladder": {
+    "bottom": 0.059,
+    "top": 0.098
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 1.0,
+   "success": 1.0,
+   "stuck": 0.0,
+   "crossed": 1.0,
+   "r_max_all_p50": 4.61673297233734,
+   "r_max_completers": {
+    "n": 100,
+    "mean": 4.534130383162729,
+    "min": 3.528007407766726,
+    "max": 4.863386172105219,
+    "p05": 3.846135080798786,
+    "p10": 4.207793135136591,
+    "p25": 4.463246581954708,
+    "p50": 4.61673297233734,
+    "p75": 4.698619202736496,
+    "p90": 4.78368537474262,
+    "p95": 4.809586415778988
+   },
+   "termination_reasons": {
+    "schedule_complete": 100
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_rubble_b2/rt_rubble_b2__omni/seed003/2026-11-11_03-15-44"
+  },
+  "rt_rubble_b3__omni": {
+   "kind": "rubble",
+   "band": "b3",
+   "d": [
+    0.6,
+    1.0
+   ],
+   "ladder": {
+    "bottom": 0.098,
+    "top": 0.15
+   },
+   "above_envelope": false,
+   "cross_r": 3.2,
+   "n": 100,
+   "completion": 0.82,
+   "success": 0.79,
+   "stuck": 0.03,
+   "crossed": 0.83,
+   "r_max_all_p50": 4.159308475449738,
+   "r_max_completers": {
+    "n": 82,
+    "mean": 4.142105396857789,
+    "min": 1.8996128437343727,
+    "max": 4.898309523610353,
+    "p05": 3.3485693238149157,
+    "p10": 3.5399644461329567,
+    "p25": 3.9286570142946013,
+    "p50": 4.253567067073506,
+    "p75": 4.499070528546619,
+    "p90": 4.6098959823689105,
+    "p95": 4.655071391454843
+   },
+   "termination_reasons": {
+    "fall": 18,
+    "schedule_complete": 82
+   },
+   "stamp": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_rt_rubble_b3/rt_rubble_b3__omni/seed003/2026-11-11_03-19-34"
+  }
+ },
+ "tdr_retention_report": {
+  "R_field_hard": {
+   "status": "OK",
+   "completion": 0.9475,
+   "n": 400,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_hard/field_hard__omni/seed001/2026-11-11_03-23-33",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_hard/field_hard__omni/seed002/2026-11-11_03-27-35",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_hard/field_hard__omni/seed003/2026-11-11_03-31-35",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_hard/field_hard__omni/seed004/2026-11-11_03-35-36"
+   ]
+  },
+  "R_field_light": {
+   "status": "OK",
+   "completion": 0.995,
+   "n": 200,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_light/field_light__omni/seed001/2026-11-11_03-39-36",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_light/field_light__omni/seed002/2026-11-11_03-43-22"
+   ]
+  },
+  "R_ring_obst": {
+   "status": "OK",
+   "completion": 1.0,
+   "n": 200,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_ring_obst/ring_obst__omni/seed001/2026-11-11_03-47-09",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_ring_obst/ring_obst__omni/seed002/2026-11-11_03-50-55"
+   ]
+  },
+  "R_field_turn": {
+   "status": "OK",
+   "completion": 0.99,
+   "n": 200,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_turn/field_turn__omni/seed001/2026-11-11_03-54-40",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_turn/field_turn__omni/seed002/2026-11-11_03-57-09"
+   ]
+  },
+  "R_field_light_L090": {
+   "status": "OK",
+   "completion": 0.995,
+   "n": 200,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_light_L090/field_light__omni/seed001/2026-11-11_03-59-36",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_light_L090/field_light__omni/seed002/2026-11-11_04-03-14"
+   ]
+  },
+  "R_field_light_L135": {
+   "status": "OK",
+   "completion": 0.96,
+   "n": 200,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_light_L135/field_light__omni/seed001/2026-11-11_04-06-52",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_field_light_L135/field_light__omni/seed002/2026-11-11_04-10-32"
+   ]
+  },
+  "R_x07_L090_field_light": {
+   "status": "OK",
+   "completion": 0.93,
+   "n": 200,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_x07_L090_field_light/field_light__omni/seed001/2026-11-11_04-14-10",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_x07_L090_field_light/field_light__omni/seed002/2026-11-11_04-17-48"
+   ]
+  },
+  "R_suite": {
+   "status": "OK",
+   "completion": 1.0,
+   "n": 2000,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed001/2026-11-11_04-21-27",
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_suite/suite__omni/seed002/2026-11-11_04-28-52"
+   ]
+  },
+  "R_side22": {
+   "status": "OK",
+   "completion": 1.0,
+   "n": 500,
+   "stamps": [
+    "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr/RT6_03c3e472_R_side22/side22_25lr__omni/seed001/2026-11-11_04-36-16"
+   ]
+  }
+ },
+ "sources": {
+  "roots": [
+   "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/lr"
+  ],
+  "sha256": {
+   "make_thresholds.py": "8c67532f4164ca590776eb4f21de4884a99f5f03bbfce4681c02404969762a86",
+   "readout.py": "14e8717c8371a9e45ecd4aebb812d5d6b458be685459a7f159f9b1af9975a46f",
+   "rt_spec.py": "6716d9994d000c6517ddf6bcd730c9a4b91b9f29e30224e62c20c178aa2db99d"
+  },
+  "rows_rt_json_sha256": "0b038f035022a2469da2487df27aec9b73402c05e7b91212f79488227e370c3d"
+ }
+}

@@ -14,8 +14,10 @@ T* as a ``kind: distill`` stage, and the stand nets SH_T4F19 / SN_T4F19 beside T
 SH_T17, whose files STAY in the folder (``superseded[].files``); since 2026-11-09 the rod-speed DR pairing (TDR = T* +
 3000 iterations of rod-speed DR as ``current``, the depth student c31000 as the ``distill`` stage and the stand nets
 SH_RSD_TDR / SN_RSD_TDR beside TDR) supersedes F19's student and stand nets, whose files also STAY, while F19's s1 .. p3b
-stay live stages. It changes ONLY on a bake / adoption decision, which is the user's: edit the manifest, run ``--sync``,
-commit.
+stay live stages; since 2026-11-14 the rough-terrain pairing (c1 = TDR + 509 iterations on the rough-terrain mix as
+``current``, the depth student C1S as the ``distill`` stage and the stand nets SH_RT / SN_RT beside c1) supersedes the
+rod-speed DR pairing's student and stand nets, whose files also STAY, while TDR stays a live stage (c1's resume point).
+It changes ONLY on a bake / adoption decision, which is the user's: edit the manifest, run ``--sync``, commit.
 
     python3 experiments/tools/bundle_policy.py --sync     # copy missing stage / asset / stand files (sha-verified),
                                                           #   verify present ones, regenerate README.md,

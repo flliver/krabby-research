@@ -1,0 +1,2992 @@
+{
+ "name": "RT5_smoke50",
+ "created": "2026-11-10T19:52:27",
+ "cli": {
+  "name": "RT5_smoke50",
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+  "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/envs/RT_train.env",
+  "iterations": 50,
+  "num_envs": 256,
+  "seed": 19,
+  "timeout_s": 3600,
+  "wait_idle": true,
+  "smoke": true,
+  "dry_run": false,
+  "preflight_only": false
+ },
+ "trainer_argv": [
+  "/home/nickmagus/krabby/isaac_venv/bin/python",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/train.py",
+  "--task",
+  "Isaac-Crab-Hex-Omni-Teacher-v0",
+  "--headless",
+  "--num_envs",
+  "256",
+  "--seed",
+  "19",
+  "--max_iterations",
+  "50",
+  "--resume",
+  "--checkpoint",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+  "--run_name",
+  "RT5_smoke50"
+ ],
+ "wrapper_argv": [
+  "systemd-run",
+  "--user",
+  "--scope",
+  "-q",
+  "--unit=rt-train-RT5_smoke50-1794358346",
+  "-p",
+  "MemoryMax=48G",
+  "-p",
+  "MemorySwapMax=0",
+  "timeout",
+  "--signal=TERM",
+  "3600",
+  "/home/nickmagus/krabby/isaac_venv/bin/python",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/train.py",
+  "--task",
+  "Isaac-Crab-Hex-Omni-Teacher-v0",
+  "--headless",
+  "--num_envs",
+  "256",
+  "--seed",
+  "19",
+  "--max_iterations",
+  "50",
+  "--resume",
+  "--checkpoint",
+  "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+  "--run_name",
+  "RT5_smoke50"
+ ],
+ "unit": "rt-train-RT5_smoke50-1794358346",
+ "cwd": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour",
+ "log": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain/train/RT5_smoke50.log",
+ "krabby": {
+  "KRABBY_ACTION_BOUND": "1.1",
+  "KRABBY_ACTION_BOUND_LOSS": "0.001",
+  "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+  "KRABBY_ACTION_RATE_W": "-0.05",
+  "KRABBY_APEX_W": "0.001",
+  "KRABBY_CLOCK_W": "0.001",
+  "KRABBY_DR_ROD_SPEED": "0.6:1.35",
+  "KRABBY_ENTROPY_COEF": "0.0025",
+  "KRABBY_FIELD_BLOCKS": "14:28",
+  "KRABBY_FIELD_EDGES": "wall",
+  "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+  "KRABBY_FIELD_PAD_R": "1.7",
+  "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+  "KRABBY_FLAT_TERRAIN_GEOM": "site",
+  "KRABBY_INIT_STD": "0.8",
+  "KRABBY_OMNI_CLOCK_HIDE": "1",
+  "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+  "KRABBY_OMNI_DIR_BAND": "",
+  "KRABBY_OMNI_FACING": "0.2:1.2",
+  "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+  "KRABBY_OMNI_PHASE": "2a",
+  "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+  "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+  "KRABBY_PAYLOAD_COM_XY": "0.10",
+  "KRABBY_PAYLOAD_COM_Z": "0.309",
+  "KRABBY_PAYLOAD_KG": "0:180",
+  "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+  "KRABBY_PHASEOUT": "",
+  "KRABBY_PLANT": "A15+B",
+  "KRABBY_PPO_HAND_DIAG": "1",
+  "KRABBY_RSI_FRAC": "0",
+  "KRABBY_RT_FRICTION": "gravel:0.2:0.5",
+  "KRABBY_SITE_LADDER": "rt",
+  "KRABBY_SITE_MIX": "flat=3,field_sparse=2,field_dense=1,slopes=2,hills=2,ledge_up=2,ledge_down=2,pits=2,gravel=2,rubble=2",
+  "KRABBY_STD_PARAM": "soft",
+  "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+  "KRABBY_YAW_W": "0.2"
+ },
+ "added_env": {
+  "OMNI_KIT_ACCEPT_EULA": "yes",
+  "TERM": "xterm",
+  "PYTHONUNBUFFERED": "1",
+  "PYTHONPATH": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks:/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour"
+ },
+ "base_keys": [
+  "DBUS_SESSION_BUS_ADDRESS",
+  "DEBUGINFOD_URLS",
+  "DESKTOP_SESSION",
+  "DISPLAY",
+  "GDMSESSION",
+  "GNOME_DESKTOP_SESSION_ID",
+  "GNOME_SHELL_SESSION_MODE",
+  "GPG_AGENT_INFO",
+  "GSM_SKIP_SSH_AGENT_WORKAROUND",
+  "GTK_MODULES",
+  "HOME",
+  "KRABBY_ACTION_BOUND",
+  "KRABBY_ACTION_BOUND_LOSS",
+  "KRABBY_ACTION_BOUND_RAMP",
+  "KRABBY_ACTION_RATE_W",
+  "KRABBY_APEX_W",
+  "KRABBY_CLOCK_W",
+  "KRABBY_DR_ROD_SPEED",
+  "KRABBY_ENTROPY_COEF",
+  "KRABBY_FIELD_BLOCKS",
+  "KRABBY_FIELD_EDGES",
+  "KRABBY_FIELD_KINDS",
+  "KRABBY_FIELD_PAD_R",
+  "KRABBY_FLAT_TERRAIN_DIFF",
+  "KRABBY_FLAT_TERRAIN_GEOM",
+  "KRABBY_INIT_STD",
+  "KRABBY_OMNI_CLOCK_HIDE",
+  "KRABBY_OMNI_CMD_POOL",
+  "KRABBY_OMNI_DIR_BAND",
+  "KRABBY_OMNI_FACING",
+  "KRABBY_OMNI_MIRROR_IMAGES",
+  "KRABBY_OMNI_PHASE",
+  "KRABBY_OMNI_SLOTS",
+  "KRABBY_OMNI_SPEED_ELLIPSE",
+  "KRABBY_PAYLOAD_COM_XY",
+  "KRABBY_PAYLOAD_COM_Z",
+  "KRABBY_PAYLOAD_KG",
+  "KRABBY_PAYLOAD_ZERO_FRAC",
+  "KRABBY_PHASEOUT",
+  "KRABBY_PLANT",
+  "KRABBY_PPO_HAND_DIAG",
+  "KRABBY_RSI_FRAC",
+  "KRABBY_RT_FRICTION",
+  "KRABBY_SITE_LADDER",
+  "KRABBY_SITE_MIX",
+  "KRABBY_STD_PARAM",
+  "KRABBY_TERRAIN_PROMOTE",
+  "KRABBY_YAW_W",
+  "LANG",
+  "LOGNAME",
+  "OMNI_KIT_ACCEPT_EULA",
+  "PATH",
+  "PWD",
+  "PYTHONPATH",
+  "PYTHONUNBUFFERED",
+  "QTWEBENGINE_DICTIONARIES_PATH",
+  "QT_ACCESSIBILITY",
+  "QT_IM_MODULE",
+  "SESSION_MANAGER",
+  "SHELL",
+  "SHLVL",
+  "SSH_AUTH_SOCK",
+  "TERM",
+  "USER",
+  "USERNAME",
+  "WINDOWPATH",
+  "XAUTHORITY",
+  "XDG_CONFIG_DIRS",
+  "XDG_CURRENT_DESKTOP",
+  "XDG_DATA_DIRS",
+  "XDG_MENU_PREFIX",
+  "XDG_RUNTIME_DIR",
+  "XDG_SESSION_CLASS",
+  "XDG_SESSION_DESKTOP",
+  "XDG_SESSION_TYPE",
+  "XMODIFIERS"
+ ],
+ "preflight": {
+  "PF1": {
+   "id": "PF1",
+   "ok": true,
+   "detail": "build == pin (code 89c1916b17d5 eval 9fe964d7f46d), clean",
+   "data": {
+    "live": {
+     "code_sha": "89c1916b17d57e716db83d5ebb6b0b4ec2d89da35f03f820fb2e19f97187f851",
+     "eval_sha": "9fe964d7f46d1116d1d2983b0ece43f2430695cc35c9f33fd4cdc28f169ed5b8",
+     "dirty": [],
+     "head": "911b6a29ea987a14fceeef6c54007363ba786589",
+     "repo": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain"
+    },
+    "warnings": [
+     "run-machinery / read-out scripts changed since the pin (report): ['scripts/rt_kit_eval_probe.py', 'scripts/rt_kit_train_smoke.py', 'scripts/rt_queue.py', 'scripts/rt_smoke_check.py']",
+     "HEAD 911b6a29ea != pin 82946834d8 (records may move HEAD)"
+    ],
+    "problems": []
+   }
+  },
+  "PF2": {
+   "id": "PF2",
+   "ok": true,
+   "detail": "env file = the planned set (37 KRABBY_* keys)",
+   "data": {
+    "env_file": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/envs/RT_train.env",
+    "env_file_sha256": "26a0461ede51acee0ed4409062f10ff63367eb872309a7fd3cbe165217dc6eaf",
+    "krabby": {
+     "KRABBY_ACTION_BOUND": "1.1",
+     "KRABBY_ACTION_BOUND_LOSS": "0.001",
+     "KRABBY_ACTION_BOUND_RAMP": "0.0001:0.001:500",
+     "KRABBY_ACTION_RATE_W": "-0.05",
+     "KRABBY_APEX_W": "0.001",
+     "KRABBY_CLOCK_W": "0.001",
+     "KRABBY_DR_ROD_SPEED": "0.6:1.35",
+     "KRABBY_ENTROPY_COEF": "0.0025",
+     "KRABBY_FIELD_BLOCKS": "14:28",
+     "KRABBY_FIELD_EDGES": "wall",
+     "KRABBY_FIELD_KINDS": "0.4:0.4:0.2",
+     "KRABBY_FIELD_PAD_R": "1.7",
+     "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0",
+     "KRABBY_FLAT_TERRAIN_GEOM": "site",
+     "KRABBY_INIT_STD": "0.8",
+     "KRABBY_OMNI_CLOCK_HIDE": "1",
+     "KRABBY_OMNI_CMD_POOL": "stand:0.15,fwd:0.14,side_l:0.09,side_r:0.09,back:0.09,omni:0.14,turn:0.1,fwd_turn:0.06,side_l_turn:0.035,side_r_turn:0.035,omni_turn:0.07",
+     "KRABBY_OMNI_DIR_BAND": "",
+     "KRABBY_OMNI_FACING": "0.2:1.2",
+     "KRABBY_OMNI_MIRROR_IMAGES": "fa",
+     "KRABBY_OMNI_PHASE": "2a",
+     "KRABBY_OMNI_SLOTS": "0.15:0.55:0.1:0.2",
+     "KRABBY_OMNI_SPEED_ELLIPSE": "0.35:0.35:0.25",
+     "KRABBY_PAYLOAD_COM_XY": "0.10",
+     "KRABBY_PAYLOAD_COM_Z": "0.309",
+     "KRABBY_PAYLOAD_KG": "0:180",
+     "KRABBY_PAYLOAD_ZERO_FRAC": "0.25",
+     "KRABBY_PHASEOUT": "",
+     "KRABBY_PLANT": "A15+B",
+     "KRABBY_PPO_HAND_DIAG": "1",
+     "KRABBY_RSI_FRAC": "0",
+     "KRABBY_RT_FRICTION": "gravel:0.2:0.5",
+     "KRABBY_SITE_LADDER": "rt",
+     "KRABBY_SITE_MIX": "flat=3,field_sparse=2,field_dense=1,slopes=2,hills=2,ledge_up=2,ledge_down=2,pits=2,gravel=2,rubble=2",
+     "KRABBY_STD_PARAM": "soft",
+     "KRABBY_TERRAIN_PROMOTE": "0.7:0.4",
+     "KRABBY_YAW_W": "0.2"
+    }
+   }
+  },
+  "PF3": {
+   "id": "PF3",
+   "ok": true,
+   "detail": "TDR sha 03c3e472 iter 28991 counter 30450 lr 1.5e-05; final model_29040.pt",
+   "data": {
+    "facts": {
+     "path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+     "sha256": "03c3e4728ac2175b4fbff66bc3944134c28fcbec0f6d8cc4aee4e5f3640c8567",
+     "iter": 28991,
+     "file_iter": 28991,
+     "counter": 30450,
+     "learning_rate": 1.5000000000000004e-05
+    },
+    "expected": {
+     "loading": "[INFO]: Loading model checkpoint from: /home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+     "restored": "[INFO]: Restored algorithm state: counter 30450, learning_rate 1.5e-05",
+     "first_title": "Learning iteration 28991/29041",
+     "final_iter": 29040
+    }
+   }
+  },
+  "PF4": {
+   "id": "PF4",
+   "ok": true,
+   "detail": "argv = the run_phases template",
+   "data": {
+    "argv": [
+     "/home/nickmagus/krabby/isaac_venv/bin/python",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/train.py",
+     "--task",
+     "Isaac-Crab-Hex-Omni-Teacher-v0",
+     "--headless",
+     "--num_envs",
+     "256",
+     "--seed",
+     "19",
+     "--max_iterations",
+     "50",
+     "--resume",
+     "--checkpoint",
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+     "--run_name",
+     "RT5_smoke50"
+    ]
+   }
+  },
+  "PF5": {
+   "id": "PF5",
+   "ok": true,
+   "detail": "every module resolves under this worktree",
+   "data": {
+    "modules": {
+     "parkour_tasks": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/__init__.py",
+     "parkour_tasks.crab_hex_omni_task.mdp.rt_friction": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/rt_friction.py",
+     "parkour_tasks.crab_hex_omni_task.mdp.omni_terrain_knobs": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/mdp/omni_terrain_knobs.py",
+     "parkour_tasks.crab_hex_omni_task.config.crab_hex.omni_knobs": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/config/crab_hex/omni_knobs.py",
+     "parkour_tasks.crab_hex_forward_task.mdp.rod_speed_dr": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/rod_speed_dr.py",
+     "scripts.rsl_rl.runner_factory": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/runner_factory.py",
+     "scripts.rsl_rl.modules.on_policy_runner_with_extractor": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/scripts/rsl_rl/modules/on_policy_runner_with_extractor.py",
+     "parkour_isaaclab": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab",
+     "parkour_isaaclab.terrains.omni.site_terrains": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_isaaclab/terrains/omni/site_terrains.py"
+    }
+   }
+  },
+  "PF6": {
+   "id": "PF6",
+   "ok": true,
+   "detail": "name free",
+   "data": {}
+  },
+  "PF7": {
+   "id": "PF7",
+   "ok": true,
+   "detail": "guard ok (DDC 75 GB, free 45 GB); not busy",
+   "data": {
+    "ddc_gb": 75.0,
+    "free_gb": {
+     "/home/nickmagus/krabby/krabby-research": 44.51652145385742,
+     "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain": 44.51652145385742
+    },
+    "busy": []
+   }
+  },
+  "PF8": {
+   "id": "PF8",
+   "ok": true,
+   "detail": "trainer pid 2358133 environ: PYTHONPATH + KRABBY_* as composed",
+   "data": {}
+  }
+ },
+ "preflight_inrun": [
+  {
+   "id": "PF9",
+   "ok": true,
+   "detail": "checkpoint loaded, alg_state restored as the file records",
+   "data": {}
+  },
+  {
+   "id": "PF10",
+   "ok": true,
+   "detail": "first title 'Learning iteration 28991/29041', want 'Learning iteration 28991/29041'",
+   "data": {}
+  },
+  {
+   "id": "PF11",
+   "ok": true,
+   "detail": "rt knob lines and the [rt_friction] draw line present",
+   "data": {}
+  },
+  {
+   "id": "PF12",
+   "ok": true,
+   "detail": "per-kind telemetry for all 10 kinds",
+   "data": {}
+  },
+  {
+   "id": "PF14",
+   "ok": false,
+   "detail": "env.yaml events.reset_root_state.params.spawn_level_z: '<absent>' -> True [not in the allow-list (an unplanned difference)]",
+   "data": {
+    "result": {
+     "ok": false,
+     "files": {
+      "env.yaml": {
+       "allowed": [
+        {
+         "path": "actions.joint_pos.rod_speed_dr.ramp_steps",
+         "ref": 12000,
+         "new": 0,
+         "why": "rod-speed DR ramp (TDR 12000 steps -> the knob's)"
+        },
+        {
+         "path": "events.physics_material.func",
+         "ref": "parkour_isaaclab.envs.mdp.events:randomize_rigid_body_material",
+         "new": "parkour_tasks.crab_hex_omni_task.mdp.rt_friction:rt_friction_contract",
+         "why": "friction contract: the startup material event replaced"
+        },
+        {
+         "path": "events.physics_material.params.gravel_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          0.5
+         ],
+         "why": "friction contract: gravel mu range"
+        },
+        {
+         "path": "events.physics_material.params.gravel_sub_terrains",
+         "ref": "<absent>",
+         "new": [
+          "rt_gravel"
+         ],
+         "why": "friction contract: gravel sub-terrain keys"
+        },
+        {
+         "path": "rt_friction.friction_range",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          2.0
+         ],
+         "why": "friction contract: cfg.rt_friction (the privileged friction input)"
+        },
+        {
+         "path": "rt_friction.gravel_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          0.5
+         ],
+         "why": "friction contract: cfg.rt_friction (the privileged friction input)"
+        },
+        {
+         "path": "rt_friction.num_buckets",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "friction contract: cfg.rt_friction (the privileged friction input)"
+        },
+        {
+         "path": "rt_friction.obs",
+         "ref": "<absent>",
+         "new": "2*mu_eff-1",
+         "why": "friction contract: cfg.rt_friction (the privileged friction input)"
+        },
+        {
+         "path": "scene.terrain.physics_material.friction_combine_mode",
+         "ref": "average",
+         "new": "multiply",
+         "why": "friction contract: ground friction combine mode"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.apply_flat",
+         "ref": false,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.apply_roughness",
+         "ref": true,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.bar_fraction",
+         "ref": 0.4,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.bar_length_range",
+         "ref": [
+          1.0,
+          2.0
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.bar_thickness_range",
+         "ref": [
+          0.16,
+          0.32
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.border_width",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.clear_radius",
+         "ref": 1.7,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.downsampled_scale",
+         "ref": 0.075,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.edge_width_thresh",
+         "ref": 0.05,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.field_margin",
+         "ref": 0.16,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.flat_patch_sampling",
+         "ref": null,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.function",
+         "ref": "parkour_isaaclab.terrains.omni.omni_terrains:omni_field_terrain",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.half_valid_width",
+         "ref": [
+          0.6,
+          1.2
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.horizontal_scale",
+         "ref": 0.08,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.hurdle_height_range",
+         "ref": "0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.max_tries",
+         "ref": 64,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.min_gap",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.n_blocks",
+         "ref": 28,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.noise_range",
+         "ref": [
+          0.02,
+          0.02
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.noise_step",
+         "ref": 0.005,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.pad_height",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.pad_width",
+         "ref": 0.1,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.pit_depth",
+         "ref": "0.02 + 0.06 * difficulty",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.pit_fraction",
+         "ref": 0.2,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.platform_height",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.platform_len",
+         "ref": 2.5,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.proportion",
+         "ref": 0.25,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.ring_outer_radius",
+         "ref": 4.8,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.size",
+         "ref": [
+          10,
+          10
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.slab_side_range",
+         "ref": [
+          0.6,
+          1.2
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.slope_threshold",
+         "ref": 1.5,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.step_height",
+         "ref": "0.02 + 0.06 * difficulty",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.use_simplified",
+         "ref": false,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.vertical_edges",
+         "ref": true,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.vertical_scale",
+         "ref": 0.005,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.x_range",
+         "ref": [
+          0.8,
+          1.5
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_dense.y_range",
+         "ref": [
+          -0.4,
+          0.4
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.apply_flat",
+         "ref": false,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.apply_roughness",
+         "ref": true,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.bar_fraction",
+         "ref": 0.4,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.bar_length_range",
+         "ref": [
+          1.0,
+          2.0
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.bar_thickness_range",
+         "ref": [
+          0.16,
+          0.32
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.border_width",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.clear_radius",
+         "ref": 1.7,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.downsampled_scale",
+         "ref": 0.075,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.edge_width_thresh",
+         "ref": 0.05,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.field_margin",
+         "ref": 0.16,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.flat_patch_sampling",
+         "ref": null,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.function",
+         "ref": "parkour_isaaclab.terrains.omni.omni_terrains:omni_field_terrain",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.half_valid_width",
+         "ref": [
+          0.6,
+          1.2
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.horizontal_scale",
+         "ref": 0.08,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.hurdle_height_range",
+         "ref": "0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.max_tries",
+         "ref": 64,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.min_gap",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.n_blocks",
+         "ref": 14,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.noise_range",
+         "ref": [
+          0.02,
+          0.02
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.noise_step",
+         "ref": 0.005,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.pad_height",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.pad_width",
+         "ref": 0.1,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.pit_depth",
+         "ref": "0.02 + 0.06 * difficulty",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.pit_fraction",
+         "ref": 0.2,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.platform_height",
+         "ref": 0.0,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.platform_len",
+         "ref": 2.5,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.proportion",
+         "ref": 0.25,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.ring_outer_radius",
+         "ref": 4.8,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.size",
+         "ref": [
+          10,
+          10
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.slab_side_range",
+         "ref": [
+          0.6,
+          1.2
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.slope_threshold",
+         "ref": 1.5,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.step_height",
+         "ref": "0.02 + 0.06 * difficulty",
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.use_simplified",
+         "ref": false,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.vertical_edges",
+         "ref": true,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.vertical_scale",
+         "ref": 0.005,
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.x_range",
+         "ref": [
+          0.8,
+          1.5
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.omni_field_sparse.y_range",
+         "ref": [
+          -0.4,
+          0.4
+         ],
+         "new": "<absent>",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.parkour_flat.proportion",
+         "ref": 0.5,
+         "new": 0.15,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.apply_roughness",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.kind",
+         "ref": "<absent>",
+         "new": "gravel",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_gravel.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.kind",
+         "ref": "<absent>",
+         "new": "hills",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_hills.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.kind",
+         "ref": "<absent>",
+         "new": "slopes",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.rt_slopes.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.bar_fraction",
+         "ref": "<absent>",
+         "new": 0.4,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.bar_length_range",
+         "ref": "<absent>",
+         "new": [
+          1.0,
+          2.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.bar_thickness_range",
+         "ref": "<absent>",
+         "new": [
+          0.16,
+          0.32
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_field_terrain",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.hurdle_height_range",
+         "ref": "<absent>",
+         "new": "0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.min_gap",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.n_blocks",
+         "ref": "<absent>",
+         "new": 28,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.pit_depth",
+         "ref": "<absent>",
+         "new": "0.02 + 0.06 * difficulty",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.pit_fraction",
+         "ref": "<absent>",
+         "new": 0.2,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.proportion",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.slab_side_range",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.step_height",
+         "ref": "<absent>",
+         "new": "0.02 + 0.06 * difficulty",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_dense.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.bar_fraction",
+         "ref": "<absent>",
+         "new": 0.4,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.bar_length_range",
+         "ref": "<absent>",
+         "new": [
+          1.0,
+          2.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.bar_thickness_range",
+         "ref": "<absent>",
+         "new": [
+          0.16,
+          0.32
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_field_terrain",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.hurdle_height_range",
+         "ref": "<absent>",
+         "new": "0.02 + 0.05 * difficulty, 0.03 + 0.06 * difficulty",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.min_gap",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.n_blocks",
+         "ref": "<absent>",
+         "new": 14,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.pit_depth",
+         "ref": "<absent>",
+         "new": "0.02 + 0.06 * difficulty",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.pit_fraction",
+         "ref": "<absent>",
+         "new": 0.2,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.slab_side_range",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.step_height",
+         "ref": "<absent>",
+         "new": "0.02 + 0.06 * difficulty",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_field_sparse.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.kind",
+         "ref": "<absent>",
+         "new": "ledge_down",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_down.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.kind",
+         "ref": "<absent>",
+         "new": "ledge_up",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_ledge_up.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.kind",
+         "ref": "<absent>",
+         "new": "pits",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_pits.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.apply_flat",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.apply_roughness",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.border_width",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.clear_radius",
+         "ref": "<absent>",
+         "new": 1.7,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.downsampled_scale",
+         "ref": "<absent>",
+         "new": 0.075,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.edge_width_thresh",
+         "ref": "<absent>",
+         "new": 0.05,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.field_margin",
+         "ref": "<absent>",
+         "new": 0.16,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.flat_patch_sampling",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.function",
+         "ref": "<absent>",
+         "new": "parkour_isaaclab.terrains.omni.site_terrains:omni_site_terrain_rt",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.gen_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.2,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.half_valid_width",
+         "ref": "<absent>",
+         "new": [
+          0.6,
+          1.2
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.horizontal_scale",
+         "ref": "<absent>",
+         "new": 0.08,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.kind",
+         "ref": "<absent>",
+         "new": "rubble",
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.max_tries",
+         "ref": "<absent>",
+         "new": 64,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.noise_range",
+         "ref": "<absent>",
+         "new": [
+          0.02,
+          0.02
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.noise_step",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.pad_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.pad_width",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.platform_height",
+         "ref": "<absent>",
+         "new": 0.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.platform_len",
+         "ref": "<absent>",
+         "new": 2.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.proportion",
+         "ref": "<absent>",
+         "new": 0.1,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.ramp_max_deg",
+         "ref": "<absent>",
+         "new": 20.0,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.ring_outer_radius",
+         "ref": "<absent>",
+         "new": 4.8,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.site_d_range",
+         "ref": "<absent>",
+         "new": [
+          0.0,
+          1.0
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.size",
+         "ref": "<absent>",
+         "new": [
+          10,
+          10
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.slope_threshold",
+         "ref": "<absent>",
+         "new": 1.5,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.tile_col",
+         "ref": "<absent>",
+         "new": null,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.use_simplified",
+         "ref": "<absent>",
+         "new": false,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.vertical_edges",
+         "ref": "<absent>",
+         "new": true,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.vertical_scale",
+         "ref": "<absent>",
+         "new": 0.005,
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.x_range",
+         "ref": "<absent>",
+         "new": [
+          0.8,
+          1.5
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "scene.terrain.terrain_generator.sub_terrains.site_rubble.y_range",
+         "ref": "<absent>",
+         "new": [
+          -0.4,
+          0.4
+         ],
+         "why": "terrain generator / site sub-terrain keys (KRABBY_FLAT_TERRAIN_GEOM=site, SITE_LADDER, SITE_MIX)"
+        },
+        {
+         "path": "sim.physics_material.friction_combine_mode",
+         "ref": "average",
+         "new": "multiply",
+         "why": "friction contract: ground friction combine mode"
+        }
+       ],
+       "disallowed": [
+        {
+         "path": "events.reset_root_state.params.spawn_level_z",
+         "ref": "<absent>",
+         "new": true,
+         "why": "not in the allow-list (an unplanned difference)"
+        }
+       ],
+       "n_compared": 2029
+      },
+      "agent.yaml": {
+       "allowed": [
+        {
+         "path": "load_checkpoint",
+         "ref": "<ROOT>/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/f19_8_p3b_payload180/model_25992.pt",
+         "new": "<ROOT>/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_9_p3b_rodspeed_dr/model_28991.pt",
+         "why": "resume checkpoint path"
+        },
+        {
+         "path": "max_iterations",
+         "ref": 3000,
+         "new": 50,
+         "why": "iteration count"
+        },
+        {
+         "path": "run_name",
+         "ref": "RSD_TDR_s19",
+         "new": "RT5_smoke50",
+         "why": "run name"
+        }
+       ],
+       "disallowed": [],
+       "n_compared": 84
+      }
+     }
+    }
+   }
+  }
+ ],
+ "stops": [
+  {
+   "reason": "PF14 failed in-run",
+   "pids": [
+    2358133
+   ],
+   "terms": 1,
+   "alive_after": []
+  }
+ ],
+ "rc": -6,
+ "ended": "2026-11-10T19:52:59",
+ "wall_s": 32.2,
+ "run_dir": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_teacher/2026-11-10_19-52-37_RT5_smoke50",
+ "status": "preflight_fail",
+ "why": "PF14"
+}

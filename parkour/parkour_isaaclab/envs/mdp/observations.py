@@ -62,6 +62,11 @@ class ExtremeParkourObservations(ManagerTermBase):
             except ValueError:
                 continue
         self.body_id = base_bodies[0] if base_bodies else 0
+        # NOTE(rough-terrain friction contract, 2026-11-10): DEFAULT OFF. Only ``KRABBY_RT_FRICTION`` (the omni
+        # ``omni_terrain_knobs.apply_rt_friction_knobs``) writes ``env.cfg.rt_friction``; then every robot shape holds the
+        # EFFECTIVE mu and the privileged friction input below reports ``2 mu_eff - 1`` (TDR's own encoding of its
+        # shape mu ``b``). Absent, the input is the raw shape mu, as before.
+        self._rt_friction_obs = getattr(env.cfg, "rt_friction", None) is not None
         
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         self._obs_history_buffer[env_ids, :, :] = 0. 
@@ -162,6 +167,8 @@ class ExtremeParkourObservations(ManagerTermBase):
             body_com = body_com.reshape(body_com.shape[0], -1)
         mass_params_tensor = torch.cat([body_mass, body_com],dim=-1).to(self.device)
         friction_coeffs_tensor = self.asset.root_physx_view.get_material_properties()[:, 0, 0]
+        if getattr(self, "_rt_friction_obs", False):
+            friction_coeffs_tensor = 2.0 * friction_coeffs_tensor - 1.0
         joint_stiffness = self.asset.data.joint_stiffness.to(self.device)
         default_joint_stiffness = self.asset.data.default_joint_stiffness.to(self.device)
         joint_damping = self.asset.data.joint_damping.to(self.device)

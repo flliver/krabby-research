@@ -1,0 +1,341 @@
+{
+ "schema": "p2_read_pairs_v1",
+ "pairs": {
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_R_x07_L090_field_light/field_light__omni/seed009/2026-11-13_18-48-26|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_R_x07_L090_field_light_L2/field_light__omni/seed009/2026-11-13_18-55-56": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_R_x07_L090_field_light/field_light__omni/seed009/2026-11-13_18-44-41|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_R_x07_L090_field_light_L2/field_light__omni/seed009/2026-11-13_18-52-11": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_R_x07_L090_field_light/field_light__omni/seed010/2026-11-13_19-03-25|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_R_x07_L090_field_light_L2/field_light__omni/seed010/2026-11-13_19-10-55": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_R_x07_L090_field_light/field_light__omni/seed010/2026-11-13_18-59-40|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_R_x07_L090_field_light_L2/field_light__omni/seed010/2026-11-13_19-07-10": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed009/2026-11-13_16-24-09|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed009/2026-11-13_16-31-47": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed009/2026-11-13_16-20-07|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed009/2026-11-13_16-27-54": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed010/2026-11-13_16-39-28|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed010/2026-11-13_16-47-00": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed010/2026-11-13_16-35-31|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed010/2026-11-13_16-43-12": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed011/2026-11-13_16-54-42|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed011/2026-11-13_17-02-17": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed011/2026-11-13_16-50-43|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed011/2026-11-13_16-58-28": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed012/2026-11-13_17-10-01|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed012/2026-11-13_17-17-32": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2/rt_ledge_down_b2__omni/seed012/2026-11-13_17-06-02|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_down_b2_L2/rt_ledge_down_b2__omni/seed012/2026-11-13_17-13-43": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2/rt_slopes_b2__omni/seed009/2026-11-13_15-02-51|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2_L2/rt_slopes_b2__omni/seed009/2026-11-13_15-13-09": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2/rt_slopes_b2__omni/seed009/2026-11-13_14-57-33|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2_L2/rt_slopes_b2__omni/seed009/2026-11-13_15-07-59": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2/rt_slopes_b2__omni/seed010/2026-11-13_15-23-34|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2_L2/rt_slopes_b2__omni/seed010/2026-11-13_15-33-48": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2/rt_slopes_b2__omni/seed010/2026-11-13_15-18-16|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2_L2/rt_slopes_b2__omni/seed010/2026-11-13_15-28-39": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2/rt_slopes_b2__omni/seed011/2026-11-13_15-44-14|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2_L2/rt_slopes_b2__omni/seed011/2026-11-13_15-54-28": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2/rt_slopes_b2__omni/seed011/2026-11-13_15-38-55|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2_L2/rt_slopes_b2__omni/seed011/2026-11-13_15-49-19": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2/rt_slopes_b2__omni/seed012/2026-11-13_16-04-51|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_slopes_b2_L2/rt_slopes_b2__omni/seed012/2026-11-13_16-15-02": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2/rt_slopes_b2__omni/seed012/2026-11-13_15-59-34|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_slopes_b2_L2/rt_slopes_b2__omni/seed012/2026-11-13_16-09-54": {
+   "verdict": "BITWISE-EQUAL",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 0,
+   "earliest_step": null,
+   "earliest_keys": null,
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": null
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_up_b2/rt_ledge_up_b2__omni/seed009/2026-11-13_17-21-14|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_up_b2_R1/rt_ledge_up_b2__omni/seed009/2026-11-13_20-47-52": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_up_b2/rt_ledge_up_b2__omni/seed009/2026-11-13_14-36-41|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_up_b2_R1/rt_ledge_up_b2__omni/seed009/2026-11-13_20-43-51": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_up_b2/rt_ledge_up_b2__omni/seed010/2026-11-13_17-29-25|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_155b5981_rt_ledge_up_b2_R1/rt_ledge_up_b2__omni/seed010/2026-11-13_20-55-54": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  },
+  "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_up_b2/rt_ledge_up_b2__omni/seed010/2026-11-13_17-25-15|/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/lr/P2R_6b48ef33_rt_ledge_up_b2_R1/rt_ledge_up_b2__omni/seed010/2026-11-13_20-51-53": {
+   "verdict": "CLASS-FLIP",
+   "cfg_identical": true,
+   "cfg_differs": [],
+   "dose_identical": true,
+   "same_code": true,
+   "structural_mismatch": [],
+   "differing_episodes": 100,
+   "earliest_step": 0,
+   "earliest_keys": [
+    "actions"
+   ],
+   "step0_state_identical": true,
+   "earliest_action_only_at_depth_frame": true
+  }
+ }
+}

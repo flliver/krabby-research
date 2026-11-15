@@ -5,6 +5,7 @@ import omni.log
 from isaaclab.terrains.trimesh.utils import make_border
 from isaaclab.terrains.terrain_generator import TerrainGenerator
 from .parkour_terrain_generator_cfg import ParkourTerrainGeneratorCfg, ParkourSubTerrainBaseCfg
+from .utils import SITE_GENERATOR_ATTRS, store_site_layers
 
 class ParkourTerrainGenerator(TerrainGenerator):
     def __init__(self, cfg: ParkourTerrainGeneratorCfg, device: str = "cpu"):
@@ -25,6 +26,12 @@ class ParkourTerrainGenerator(TerrainGenerator):
         # Allocated LAZILY, on the first sub-terrain whose function returns one (the omni field);
         # stays None on every other generator, so ring / forward runs carry no new array.
         self.block_masks = None
+        # Site teacher (DESIGN §2.2, 2026-10-28): the kind raster per tile (site_kind / site_level /
+        # site_surface0 / site_material (R, C, W, L), site_cross_r / site_d / site_centre_level_m (R, C)).
+        # Set to None HERE, before the base constructor runs the generation loops that fill them; allocated
+        # lazily on the first site tile, so ring / field / flat-only generators carry no new array.
+        for attr in SITE_GENERATOR_ATTRS.values():
+            setattr(self, attr, None)
         self._tile_px = (width_pixels, length_pixels)
 
         super().__init__(cfg=cfg, device=device)
@@ -50,7 +57,8 @@ class ParkourTerrainGenerator(TerrainGenerator):
             sub_terrains_name = sub_terrains_names[sub_index]
             self.terrain_type[sub_row, sub_col] = sub_col
             sub_terrains_cfg = sub_terrains_cfgs[sub_index]
-            mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights, block_mask = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
+            self._tile_col = sub_col      # read by _get_terrain_mesh (rt slopes: the up / down variant alternates by column parity)
+            mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights, block_mask, layers = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
             # add to sub-terrains
             self.terrain_names[sub_row, sub_col] = sub_terrains_name
             self._add_sub_terrain(mesh, origin, sub_row, sub_col, sub_terrain_goal)
@@ -58,6 +66,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
             self.x_edge_maskes[sub_row, sub_col,: ,:] = x_edge_mask
             self.height_fields[sub_row, sub_col, :, :] = heights
             self._store_block_mask(sub_row, sub_col, block_mask)
+            self._store_site_layers(sub_row, sub_col, layers)
 
     def _generate_curriculum_terrains(self):
         """Add terrains based on the difficulty parameter."""
@@ -86,7 +95,8 @@ class ParkourTerrainGenerator(TerrainGenerator):
                 # generate terrain
                 sub_terrains_cfg = sub_terrains_cfgs[sub_indices[sub_col]]
                 sub_terrains_name = sub_terrains_names[sub_indices[sub_col]]
-                mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights, block_mask = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
+                self._tile_col = sub_col      # as in the random loop
+                mesh, origin, sub_terrain_goal, goal_heights, x_edge_mask, heights, block_mask, layers = self._get_terrain_mesh(difficulty, sub_terrains_cfg)
                 # add to sub-terrains
                 self.terrain_type[sub_row, sub_col] = sub_indices[sub_col]
                 self.terrain_names[sub_row, sub_col] = sub_terrains_name
@@ -95,6 +105,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
                 self.x_edge_maskes[sub_row, sub_col,: ,:] = x_edge_mask
                 self.height_fields[sub_row, sub_col, :, :] = heights
                 self._store_block_mask(sub_row, sub_col, block_mask)
+                self._store_site_layers(sub_row, sub_col, layers)
 
     def _store_block_mask(self, row: int, col: int, block_mask) -> None:
         """Keep a tile's exact block occupancy (omni field only; ``None`` = no blocks recorded).
@@ -110,6 +121,14 @@ class ParkourTerrainGenerator(TerrainGenerator):
             )
         self.block_masks[row, col, :, :] = block_mask
 
+    def _store_site_layers(self, row: int, col: int, layers) -> None:
+        """Keep a tile's bordered site layers (site sub-terrains only; ``None`` = none emitted).
+
+        ``terrains/utils.store_site_layers``: allocated on the first non-None tile, initialised to
+        ground / level 0 / no crossing, so tiles generated before it (flat tiles) read correctly.
+        """
+        store_site_layers(self, row, col, layers, (self.cfg.num_rows, self.cfg.num_cols), self._tile_px)
+
     def _get_terrain_mesh(
         self, 
         difficulty: float, 
@@ -120,12 +139,17 @@ class ParkourTerrainGenerator(TerrainGenerator):
         # add other parameters to the sub-terrain configuration
         cfg.difficulty = float(difficulty)
         cfg.seed = self.cfg.seed
+        # the tile's column, handed only to a cfg that declares ``tile_col`` (the rt ladder's cfg; every other cfg is untouched)
+        if hasattr(cfg, "tile_col"):
+            cfg.tile_col = getattr(self, "_tile_col", None)
         # generate hash for the sub-terrain
         # generate the terrain
         out = cfg.function(difficulty, cfg, self.num_goals)
         meshes, origin, goals, goal_heights, x_edge_mask, heights = out[:6]
         # 7th value: exact block occupancy, returned only by bodies that supply stamped heights.
         block_mask = out[6] if len(out) > 6 else None
+        # 8th value: the site kind raster (bordered), returned only by the site bodies (DESIGN §2.2).
+        layers = out[7] if len(out) > 7 else None
         mesh = trimesh.util.concatenate(meshes)
         # offset mesh such that they are in their center
         transform = np.eye(4)
@@ -136,7 +160,7 @@ class ParkourTerrainGenerator(TerrainGenerator):
 
         # if caching is enabled, save the mesh and origin
 
-        return mesh, origin, goals, goal_heights, x_edge_mask, heights, block_mask
+        return mesh, origin, goals, goal_heights, x_edge_mask, heights, block_mask, layers
     
     def _add_terrain_border(self):
         """Add a surrounding border over all the sub-terrains into the terrain meshes."""

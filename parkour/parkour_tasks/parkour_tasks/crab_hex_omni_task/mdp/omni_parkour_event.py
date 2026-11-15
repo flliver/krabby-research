@@ -53,6 +53,21 @@ call's log, and the ledger reports ``track_ratio_obst_p50`` (the median promotio
 obstacle-tile episodes). Telemetry only -- no cfg field, so no config dump changes; both geometries
 gain the same four ``Metrics/base_parkour/*`` keys. Definitions: ``omni_exposure``'s
 OBSTACLE-TILE CURRICULUM TELEMETRY section.
+
+SITE MODE (ported from the closed site teacher, ``worktree-sen0581-cameras`` 2a3e3c51, for the rough-terrain campaign,
+``experiments/2026-11-10_rough_terrain/PLAN.md`` step 1, 2026-11-10): when the generator carries site layers
+(``KRABBY_FLAT_TERRAIN_GEOM=site``; ``site_raster.site_layers`` is not None) the term adds, with no cfg field, the
+per-kind TELEMETRY: per reset call ``site_level/<kind>``, ``site_promote/<kind>``, ``site_demote/<kind>`` (the APPLIED
+decisions of main's ratio rule, :func:`omni_exposure.promotion_mask`, which stays the promotion rule in site mode),
+``site_metres/<kind>`` and the curriculum counts ``site_cnt_*/<kind>`` (``omni_exposure.SiteCurriculumTally``,
+zero-filled between reset calls by :meth:`OmniParkourEvent._site_log_zero_fill`); per-kind lazy windows
+``site_crossed_frac`` / ``site_fail_frac`` / ``site_track_p50``. The site generator's legacy-field sub-terrains switch
+``field_mode`` on too; its block-based keys then mark every site feature.
+
+NOT ported (the rough-terrain plan keeps main's promotion rule and has no blockers): the site's fall-aware promotion
+(``KRABBY_SITE_PROMOTE`` / ``promotion_mask_site``), rule ``loc``, the crash flag (``KRABBY_SITE_CRASH_N``), the
+blocker step counters (``KRABBY_SITE_SLACK_GEOM``) and ``site_impact`` as a failure. A cfg carrying any of their
+INSTANCE attributes is refused in ``__init__`` (it would silently do nothing here).
 """
 from __future__ import annotations
 
@@ -67,10 +82,13 @@ from isaaclab.utils import configclass
 from parkour_isaaclab.envs.mdp.parkours.parkour_event import ParkourEvent
 from parkour_isaaclab.envs.mdp.parkours.parkour_events_cfg import ParkourEventsCfg
 
+from . import site_raster as _site_raster
 from .crab_hex_omni_command_math import SLOT_MOVE, wrap_to_pi
 from .omni_exposure import (
     SPAWN_PLATFORM,
     OmniExposureLedger,
+    SiteCurriculumTally,
+    SiteKindLedger,
     block_mask_from_height_field,
     episode_exposure_omni,
     feet_block_flags_tiled,
@@ -80,6 +98,13 @@ from .omni_exposure import (
     obstacle_promotion_counts,
     promotion_mask,
     sector_index,
+    site_count_extras,
+    site_crossed,
+    site_level_extras,
+    site_log_key,
+    site_metres_extras,
+    site_primary_metres_table,
+    site_zero_filled_log,
     terrain_window_extras,
     tile_pixel_index,
     tracking_ratio,
@@ -88,6 +113,17 @@ from .omni_terrain_knobs import is_field_generator
 
 if TYPE_CHECKING:
     from parkour_isaaclab.envs import ParkourManagerBasedRLEnv
+
+#: The site teacher's cfg INSTANCE attributes whose features are NOT ported (promotion table, rule ``loc``, crash flag,
+#: blocker step counters): ``__init__`` refuses a cfg that carries any of them.
+SITE_UNPORTED_CFG_ATTRS = ("site_promote", "site_crash_n", "site_promote_rule", "site_slack_geom", "site_slack_halfw")
+
+
+def _load_site_terrains():
+    """``site_terrains`` (the ``d -> metres`` ladder of the metres telemetry), imported only when that telemetry runs."""
+    from parkour_isaaclab.terrains.omni import site_terrains  # noqa: PLC0415
+
+    return site_terrains
 
 
 class OmniParkourEvent(ParkourEvent):
@@ -104,6 +140,14 @@ class OmniParkourEvent(ParkourEvent):
     #: class-level zeros so a bare test double starts clean, instance attributes once incremented.
     _win_promote: int = 0
     _win_demote: int = 0
+
+    #: Site mode (rough-terrain port of the site teacher's telemetry): set in ``__init__`` when the generator carries
+    #: site layers (``site_raster.site_layers``). The class-level values are the ring / field, whose keys, metrics and
+    #: promotion path are untouched. Class-level None / empty: every path below reads exactly as before the port.
+    site_mode: bool = False
+    _site_tally: SiteCurriculumTally | None = None
+    _site_log_keys: frozenset = frozenset()
+    _site_log_zeroed: dict | None = None
 
     def __init__(self, cfg: OmniParkourEventsCfg, env: ParkourManagerBasedRLEnv):
         # NOTE: the base __init__ calls self._platform_start_xy(slice(None)) and
@@ -169,8 +213,57 @@ class OmniParkourEvent(ParkourEvent):
         self._build_block_mask()
         self._resolve_feet(cfg)
         self._cmd_term_cache = None
+        # Site mode: by the generator's site layers, no cfg field. Reads the terrain importer only.
+        unported = [a for a in SITE_UNPORTED_CFG_ATTRS if getattr(cfg, a, None) not in (None, False)]
+        if unported:
+            raise RuntimeError(
+                f"OmniParkourEventsCfg carries {unported}: the site teacher's promotion table / rule loc / crash flag / "
+                "blocker counters are NOT ported to this branch (main's ratio rule KRABBY_TERRAIN_PROMOTE promotes); "
+                "they would silently do nothing"
+            )
+        self.site_mode = _site_raster.site_layers(env) is not None
+        if self.site_mode:
+            self._init_site_mode(capacity=int(getattr(cfg, "exposure_window", 1024)))
         # First targets: the base __init__ derived them from the corridor goals.
         self._write_targets()
+
+    def _init_site_mode(self, capacity: int) -> None:
+        """Site-mode state: the layers, the per-kind ledger, window counts and curriculum tally, and the metres table."""
+        dev = self.device
+        self._site = _site_raster.site_layers(self.env)
+        # TILE_KINDS = SITE_KINDS + the rough-terrain ladder's extra columns (slopes / hills / gravel): what
+        # ``tile_kind`` indexes; every key below is emitted per PRESENT kind, so a site-only grid logs as before.
+        self._site_kinds = tuple(_site_raster.TILE_KINDS)
+        present = sorted({int(k) for k in self._site.tile_kind.reshape(-1).tolist()} - {-1})
+        self._site_present = tuple(self._site_kinds[i] for i in present)
+        self._site_ledger = SiteKindLedger(self._site_kinds, tuple(_site_raster.TILE_KIND_POLICY), capacity=capacity)
+        self._site_win_up: dict[str, int] = {}
+        self._site_win_down: dict[str, int] = {}
+        self._site_tally = SiteCurriculumTally(self._site_kinds, self._site_present)
+        self._init_site_metres(dev)
+        self._site_log_keys = frozenset(site_log_key(_site_raster.TERRAIN_TERM_NAME, k) for k in self._site_tally.keys())
+
+    def _init_site_metres(self, dev) -> None:
+        """The primary-metres table of the ``site_metres/<kind>`` telemetry (on the ladder each hazard column stamps,
+        ``site_terrains.ladder_of``; ``KRABBY_SITE_LADDER`` honoured)."""
+        lay = self._site
+        st = _load_site_terrains()
+        subs = getattr(self.terrain.cfg.terrain_generator, "sub_terrains", None) or {}
+        ladders = {}
+        for name in self._site_present:
+            if name not in st.PRIMARY_PARAM and name not in st.RT_PRIMARY_PARAM:
+                continue
+            key = _site_raster.TILE_SUBTERRAIN_KEYS[self._site_kinds.index(name)]
+            if key not in subs:
+                raise RuntimeError(f"site metres telemetry: the grid carries kind {name!r} but the generator has no "
+                                   f"sub-terrain {key!r}")
+            ladder = st.ladder_of(subs[key].function)
+            # the rt ladder's slopes / hills have no metres parameter (degrees); a site ladder's kinds always do
+            if st.has_primary(name, ladder):
+                ladders[name] = ladder
+        self._site_metres_kinds = tuple(ladders)
+        self._site_metres = site_primary_metres_table(
+            lay.tile_kind, lay.tile_d, self._site_kinds, ladders, st.primary_metres).to(dev)
 
     # ------------------------------------------------------------------ construction
 
@@ -320,6 +413,8 @@ class OmniParkourEvent(ParkourEvent):
         episode (which is also what keeps ``terminate_episode``'s goal cutoff inert -- see
         the omni terminations, which drop it outright).
         """
+        if self._site_log_keys:
+            self._site_log_zero_fill()
         self._write_targets()
         self.cur_goals = self._gather_cur_goals()
         self.next_goals = self._gather_cur_goals(future=1)
@@ -416,6 +511,70 @@ class OmniParkourEvent(ParkourEvent):
             self.ep_off_tile_steps[env_ids] = 0.0
             self.ep_off_tile_block_steps[env_ids] = 0.0
 
+    # ------------------------------------------------------------------ site mode (telemetry only)
+
+    def _site_episode(self, ids: torch.Tensor) -> dict[str, torch.Tensor]:
+        """The ending episodes' site inputs, read on the tile they ENDED on (call before the tile moves):
+        ``tile_kind`` (index into ``SITE_KINDS``, -1 = not a site key), ``crossed``, ``failed`` (the base
+        ``crab_failure`` flags) -- all ``(len(ids),)``."""
+        lv, ty = self.terrain.terrain_levels[ids], self.terrain.terrain_types[ids]
+        tk = self._site.tile_kind[lv, ty].long()
+        return {
+            "tile_kind": tk,
+            "crossed": site_crossed(self.ep_r_max[ids], self._site.tile_cross_r[lv, ty]),
+            "failed": self._failure_flags(ids).bool(),
+        }
+
+    def _site_finalize(self, ids: torch.Tensor) -> None:
+        """Push the ending episodes into the per-kind ledger; its keys reach ``self.metrics`` lazily."""
+        ep = self._site_episode(ids)
+        self._site_ledger.push(
+            ep["tile_kind"], ep["crossed"], ep["failed"],
+            tracking_ratio(self.ep_track_dist[ids], self.ep_cmd_dist[ids]),
+            self.ep_cmd_dist[ids] >= self.min_cmd_dist,
+        )
+        site_means = self._site_ledger.means()
+        self._exposure_means.update(site_means)
+        for key, val in site_means.items():
+            if key not in self.metrics:
+                self.metrics[key] = torch.full((self.num_envs,), float(val), device="cpu")
+
+    def _site_tally_episodes(self, env_ids, move_up: torch.Tensor, move_down: torch.Tensor) -> None:
+        """The ending episodes that ran (``ep_steps > 0``, the exposure ledger's population) into the per-kind tally,
+        on the tile they ENDED on; up / down are the APPLIED masks of :func:`promotion_mask` (none when frozen)."""
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+        ran = self.ep_steps[ids] > 0
+        ep = self._site_episode(ids)
+        applied = not self.cfg.freeze_terrain_levels
+        up = move_up.bool().to(ran.device) & ran if applied else torch.zeros_like(ran)
+        down = move_down.bool().to(ran.device) & ran if applied else torch.zeros_like(ran)
+        tk = torch.where(ran, ep["tile_kind"].to(ran.device), torch.full_like(ep["tile_kind"].to(ran.device), -1))
+        self._site_tally.add(tk, ep["crossed"], ep["failed"], up, down)
+
+    def _site_log_zero_fill(self) -> None:
+        """Every env step (before this step's resets): replace an ``extras["log"]`` the runner has already appended by
+        a copy whose count keys are 0 (``omni_exposure.site_zero_filled_log``; module docstring of ``omni_exposure``),
+        so each reset call's counts are logged once. A dict this term made itself is left alone."""
+        extras = getattr(self.env, "extras", None)
+        log = extras.get("log") if isinstance(extras, dict) else None
+        if log is None or log is self._site_log_zeroed:
+            return
+        self._site_log_zeroed = site_zero_filled_log(log, self._site_log_keys)
+        extras["log"] = self._site_log_zeroed
+
+    def _site_count(self, env_ids, move_up: torch.Tensor, move_down: torch.Tensor) -> None:
+        """Accumulate the APPLIED promotions / demotions per kind of the tile each episode ended on."""
+        ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
+        tk = self._site.tile_kind[self.terrain.terrain_levels[ids], self.terrain.terrain_types[ids]].long()
+        up, down = move_up.bool().to(tk.device), move_down.bool().to(tk.device)
+        for i, name in enumerate(self._site_kinds):
+            m = tk == i
+            n_up, n_down = int((up & m).sum()), int((down & m).sum())
+            if n_up:
+                self._site_win_up[name] = self._site_win_up.get(name, 0) + n_up
+            if n_down:
+                self._site_win_down[name] = self._site_win_down.get(name, 0) + n_down
+
     def _finalize_episodes(self, env_ids) -> None:
         """Push the finished episodes' exposure records into the omni ledger."""
         ids = torch.as_tensor(env_ids, device=self.device, dtype=torch.long).reshape(-1)
@@ -462,6 +621,8 @@ class OmniParkourEvent(ParkourEvent):
         for key in self.exposure.lazy_keys:
             if key in self._exposure_means and key not in self.metrics:
                 self.metrics[key] = torch.full((self.num_envs,), float(self._exposure_means[key]), device="cpu")
+        if getattr(self, "site_mode", False):   # getattr: the method is also driven on bare stand-ins
+            self._site_finalize(ids)
 
     # ------------------------------------------------------------------ reset / promote
 
@@ -486,6 +647,9 @@ class OmniParkourEvent(ParkourEvent):
             self.ep_track_dist[env_ids], self.ep_cmd_dist[env_ids],
             self.cfg.move_up_frac, self.cfg.move_down_frac, self.min_cmd_dist,
         )
+        if self._site_tally is not None:
+            # site mode: the per-kind counts of main's APPLIED decisions (telemetry only)
+            self._site_tally_episodes(env_ids, move_up, move_down)
 
         if not self.cfg.freeze_terrain_levels:
             # CHARTER 8 telemetry: the APPLIED decisions on episodes that ended on an obstacle tile
@@ -493,6 +657,8 @@ class OmniParkourEvent(ParkourEvent):
             n_up, n_down = obstacle_promotion_counts(move_up, move_down, self.is_obst_tile[env_ids])
             self._win_promote += n_up
             self._win_demote += n_down
+            if self.site_mode:
+                self._site_count(env_ids, move_up, move_down)
             self.terrain.terrain_levels[env_ids] += 1 * move_up - 1 * move_down
             # Robots that solve the last level are sent to a random one
             self.terrain.terrain_levels[env_ids] = torch.where(
@@ -541,10 +707,26 @@ class OmniParkourEvent(ParkourEvent):
         with ``Metrics/<term>/`` -- the path every other key of this term takes.
         """
         level_obst = obstacle_level_mean(self.terrain.terrain_levels, self.is_obst_tile)
+        site_lv = None
+        if self.site_mode:
+            # site_level/<kind>: read before any tile moves, like terrain_levels_obst
+            tk = self._site.tile_kind[self.terrain.terrain_levels, self.terrain.terrain_types]
+            site_lv = site_level_extras(self.terrain.terrain_levels, tk, self._site_kinds)
+            # site_metres/<kind>: each env's own tile, read with site_level
+            metres = self._site_metres[self.terrain.terrain_levels, self.terrain.terrain_types]
+            site_lv.update(site_metres_extras(metres, tk, self._site_kinds, self._site_metres_kinds))
         extras = super().reset(env_ids)
         extras.update(terrain_window_extras(level_obst, self._win_promote, self._win_demote))
         self._win_promote = 0
         self._win_demote = 0
+        if self.site_mode:
+            extras.update(site_lv)
+            extras.update(site_count_extras(self._site_win_up, self._site_win_down, self._site_present))
+            self._site_win_up = {}
+            self._site_win_down = {}
+            # the curriculum counts: booked once per reset call, zero-filled on the steps that re-append this dict
+            extras.update(self._site_tally.extras())
+            self._site_tally.clear()
         return extras
 
     # ------------------------------------------------------------- debug visualisation

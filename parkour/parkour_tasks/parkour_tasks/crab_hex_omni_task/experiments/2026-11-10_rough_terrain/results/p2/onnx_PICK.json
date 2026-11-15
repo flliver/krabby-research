@@ -1,0 +1,100 @@
+{
+ "at": "2026-11-13T09:22:32",
+ "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-12_15-08-00_RT_ST_s19/model_34499.pt",
+ "checkpoint_iter": 34499,
+ "checkpoint_sha256": "6b48ef33d26b9523c764f48c664897d756838bb1ca70424492f8f7bdf54236a1",
+ "complete": true,
+ "files": {
+  "depth_jit": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/depth_latest.pt",
+   "sha256": "fa9c5208ed564c092a7738fb97c9c82db2bc9657530755654fac47d3dd2d9056"
+  },
+  "depth_onnx": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/depth_latest.onnx",
+   "sha256": "cca6952df6796660eff14f5caafcd75edd825d1fe5ed28d8b1b3edeb9cae88fa"
+  },
+  "io": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/omni_student_io.json",
+   "sha256": "4ee03d02cbf1f6736d4fa392d18bc36af0e893e008543e2f744cac65439bff1a"
+  },
+  "policy_jit": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/policy.pt",
+   "sha256": "acec37204845e7544f426da26c88fdae9da373a3e3b21cacba7b780b98be9f7b"
+  },
+  "policy_onnx": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/policy.onnx",
+   "sha256": "86d1c80142609ddf22ab66f900ef4f24dc998622300b0c5dc5a473c36e6db4be"
+  }
+ },
+ "io_differs_on": [],
+ "io_equal_c31000": true,
+ "io_reference": {
+  "bundled": {
+   "path": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/policy/rsd_10_student/omni_student_io.json",
+   "sha256": "4ee03d02cbf1f6736d4fa392d18bc36af0e893e008543e2f744cac65439bff1a"
+  },
+  "rsd_export": {
+   "path": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/PICK_c31000/omni_student_io.json",
+   "sha256": "4ee03d02cbf1f6736d4fa392d18bc36af0e893e008543e2f744cac65439bff1a"
+  }
+ },
+ "ok": true,
+ "onnx_vs_c31000_bundle": {
+  "depth_onnx": {
+   "c31000_bundled": "0a04e0653afb1499b0998eae04491628170c67d14e439948b52198b2c8d246c3",
+   "equal": false,
+   "new": "cca6952df6796660eff14f5caafcd75edd825d1fe5ed28d8b1b3edeb9cae88fa"
+  },
+  "policy_onnx": {
+   "c31000_bundled": "ac0ea3e2b618a1ebfd6d90de560ab3cdfe2d7504b33ea9185582804684606783",
+   "equal": false,
+   "new": "86d1c80142609ddf22ab66f900ef4f24dc998622300b0c5dc5a473c36e6db4be"
+  }
+ },
+ "out_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33",
+ "parity": {
+  "checkpoint": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-12_15-08-00_RT_ST_s19/model_34499.pt",
+  "checkpoint_iter": 34499,
+  "complete": true,
+  "encodes": 25,
+  "max_abs_action_err": 1.1622905731201172e-06,
+  "max_abs_latent_err": 2.2351741790771484e-07,
+  "max_abs_raw_action_err": 1.430511474609375e-06,
+  "onnx_dir": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33",
+  "parity_ok": true,
+  "runtime": "onnx.reference",
+  "steps_compared": 120,
+  "tol": 0.0001,
+  "tool": "onnx_parity.py",
+  "wall_s": 7.745321750640869
+ },
+ "parity_ok": true,
+ "pick": {
+  "cand": "6b48ef33_it34499",
+  "ckpt": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-12_15-08-00_RT_ST_s19/model_34499.pt",
+  "iter": 34499,
+  "policy": "C1S",
+  "sha256": "6b48ef33d26b9523c764f48c664897d756838bb1ca70424492f8f7bdf54236a1",
+  "teacher": "C1",
+  "teacher_sha256": "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1"
+ },
+ "record": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rod_speed_dr/onnx/G0_record.npz",
+ "record_sha256": "0012cd155099a2ec2f9293eb8cad20c9d6a0d3ab80ec14df75f7a73ae557ff8c",
+ "rsd_onnx_rc": 0,
+ "rsd_onnx_record": "/home/nickmagus/krabby/krabby-research/parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/rsd_onnx.json",
+ "rule": "P2.md step 6: parity <= 1e-4 vs the .pt (rsd_onnx.py / onnx_parity.py, unchanged); I/O json == c31000's omni_student_io.json; exported into a P2 output dir, never policy/",
+ "schema": "p2_onnx_pick_v1",
+ "sel_json": "/home/nickmagus/krabby/krabby-research/.claude/worktrees/rough-terrain/parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-10_rough_terrain/results/p2/sel.json",
+ "sel_json_sha256": "c6e4405ab98395f3e0037d2572acb186b0cfdae9d6675ae119de63af93f6cfa8",
+ "sha256": {
+  "depth_jit": "fa9c5208ed564c092a7738fb97c9c82db2bc9657530755654fac47d3dd2d9056",
+  "depth_onnx": "cca6952df6796660eff14f5caafcd75edd825d1fe5ed28d8b1b3edeb9cae88fa",
+  "io": "4ee03d02cbf1f6736d4fa392d18bc36af0e893e008543e2f744cac65439bff1a",
+  "policy_jit": "acec37204845e7544f426da26c88fdae9da373a3e3b21cacba7b780b98be9f7b",
+  "policy_onnx": "86d1c80142609ddf22ab66f900ef4f24dc998622300b0c5dc5a473c36e6db4be",
+  "pt": "6b48ef33d26b9523c764f48c664897d756838bb1ca70424492f8f7bdf54236a1"
+ },
+ "tol": 0.0001,
+ "tool": "p2_onnx.py",
+ "wall_s": 9.922024250030518
+}

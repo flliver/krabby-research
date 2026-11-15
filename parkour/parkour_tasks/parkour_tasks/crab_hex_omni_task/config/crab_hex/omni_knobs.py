@@ -137,6 +137,19 @@ five things the forward block cannot know about:
     (``dr_knobs.apply_dr_knobs``) right after the stress knobs and refused together with the stress rod-speed
     scale.
 
+17. **the site TERRAIN knobs** (rough-terrain campaign step 1, 2026-11-10: ported from the closed site teacher,
+    ``worktree-sen0581-cameras`` 2a3e3c51; DEFAULT OFF, set by no preset) -- ``KRABBY_SITE_MIX`` /
+    ``KRABBY_SITE_DIFF`` / ``KRABBY_SITE_LADDER`` live in ``mdp/omni_terrain_knobs.py`` with the field knobs and are
+    re-exported here (``SITE_GEOM``, ``SITE_*_VAR``, ``SITE_KNOB_PARSERS``) for the driver's whitelist / round-trip
+    table only. They act only under ``KRABBY_FLAT_TERRAIN_GEOM=site`` (``apply_omni_ring_knobs``' site branch and
+    ``install_omni_terrain_generator``); :func:`apply_omni_knobs` does not call anything new. Terrain geometry like
+    ``KRABBY_FIELD_*``: an eval row carries them in its own env file (never stripped).
+    Rough-terrain PLAN step 2 (2026-11-10): ``KRABBY_SITE_LADDER=rt`` (the rough-terrain columns) rides the same
+    knobs; the friction contract ``KRABBY_RT_FRICTION=gravel:LO:HI`` (``RT_FRICTION_VAR``, ``RT_KNOB_PARSERS``) is
+    applied by :func:`apply_omni_knobs` (``omni_terrain_knobs.apply_rt_friction_knobs``, after the payload knobs and
+    before the stress knobs, whose fixed-mu variable it refuses), only under ``site`` + ``rt``; it is a training AND
+    gravel-eval knob, never stripped from an eval row that carries it.
+
 Every parser is pure and lives at module scope with no Isaac import (the Isaac-touching bits
 are lazy imports inside :func:`apply_omni_knobs`), so this module can be path-loaded and
 unit-tested without booting Kit -- see ``tests/unit/test_crab_hex_omni_phases.py``.
@@ -354,6 +367,19 @@ FIELD_EDGES_VAR = _tk.FIELD_EDGES_VAR
 FIELD_MIN_GAP_VAR = _tk.FIELD_MIN_GAP_VAR
 FIELD_SIZE_SCALE_VAR = _tk.FIELD_SIZE_SCALE_VAR
 FIELD_KNOB_PARSERS = _tk.FIELD_KNOB_PARSERS
+# NOTE(rough-terrain campaign step 1, 2026-11-10): the site TERRAIN knobs (mdp/omni_terrain_knobs.py, ported from the
+# site teacher), re-exported for the same whitelist reason; applied by ``apply_omni_ring_knobs`` (site branch) and
+# ``install_omni_terrain_generator``. SITE_KNOB_PARSERS is for the driver's round-trip table.
+SITE_GEOM = _tk.SITE_GEOM
+SITE_MIX_VAR = _tk.SITE_MIX_VAR
+SITE_DIFF_VAR = _tk.SITE_DIFF_VAR
+SITE_LADDER_VAR = _tk.SITE_LADDER_VAR
+SITE_KNOB_PARSERS = _tk.SITE_KNOB_PARSERS
+# NOTE(rough-terrain PLAN step 2, 2026-11-10): the friction contract knob (mdp/omni_terrain_knobs.py), re-exported for
+# the same whitelist reason; applied by :func:`apply_omni_knobs` (``apply_rt_friction_knobs``). A training AND
+# gravel-eval knob: an eval row that carries it keeps it. RT_KNOB_PARSERS is for the driver's round-trip table.
+RT_FRICTION_VAR = _tk.RT_FRICTION_VAR
+RT_KNOB_PARSERS = _tk.RT_KNOB_PARSERS
 
 _bk = _body_knobs()
 # NOTE(body-frame command mode, 2026-10-15): the three command-frame knobs (body_knobs.py),
@@ -481,6 +507,10 @@ __all__ = [
     # field-geometry knobs (mdp/omni_terrain_knobs.py, 2026-10-06)
     "FIELD_PAD_R_VAR", "FIELD_BLOCKS_VAR", "FIELD_KINDS_VAR", "FIELD_EDGES_VAR",
     "FIELD_MIN_GAP_VAR", "FIELD_SIZE_SCALE_VAR", "FIELD_KNOB_PARSERS",
+    # site terrain knobs (mdp/omni_terrain_knobs.py; rough-terrain port 2026-11-10)
+    "SITE_GEOM", "SITE_MIX_VAR", "SITE_DIFF_VAR", "SITE_LADDER_VAR", "SITE_KNOB_PARSERS",
+    # rough-terrain friction contract (mdp/omni_terrain_knobs.py, 2026-11-10)
+    "RT_FRICTION_VAR", "RT_KNOB_PARSERS",
     # body-frame command knobs (body_knobs.py, 2026-10-15)
     "COMMAND_FRAME_VAR", "BODY_ENVELOPE_VAR", "BODY_CAP_VAR", "COMMAND_FRAMES", "parse_command_frame",
     "parse_body_envelope_knob", "parse_body_cap_knob", "BODY_KNOB_PARSERS", "body_frame_env_refusals",
@@ -1810,6 +1840,10 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     # armed, they add ``events.payload_reset``). Here, before the motion / stroke knobs and the command frame,
     # which stay the last three calls (pinned by the clock-hide and motion-knob suites) and never touch events.
     _pk.apply_payload_knobs(cfg, env)
+    # NOTE(rough-terrain PLAN step 2, 2026-11-10): the friction contract, default off (unset writes nothing). Before
+    # the stress knobs: it refuses the stress sweep's fixed-mu variable (passed in by name: config modules may not
+    # spell it), so a stress mu never reaches the replaced material event.
+    _tk.apply_rt_friction_knobs(cfg, env, exclusive_with=(_srk.MU_VAR,))
     # NOTE(DR stress sweep, 2026-11-06): the stress knobs, default off (unset writes nothing). After the payload
     # (an armed push or leg-mass term sits beside ``events.payload_reset``) and before the last three calls.
     _srk.apply_stress_knobs(cfg, env)

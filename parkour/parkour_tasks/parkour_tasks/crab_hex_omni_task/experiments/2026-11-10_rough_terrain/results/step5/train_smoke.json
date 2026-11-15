@@ -1,0 +1,115 @@
+{
+ "rt": {
+  "modules_and_pythonpath_under_worktree": true,
+  "process_krabby_env_is_the_env_file": true,
+  "every_kind_builds_and_column_count_is_the_mix": true,
+  "env_share_per_kind": true,
+  "every_column_has_two_envs": true,
+  "every_shape_one_mu_static_eq_dynamic_restitution0": true,
+  "contract_event_armed": true,
+  "mu_equals_contract_draw": true,
+  "gravel_mu_in_range": true,
+  "others_mu_are_tdr_buckets": true,
+  "obs_width_1149": true,
+  "friction_input": true,
+  "every_column_resets": true,
+  "spawn_height_first_step_per_kind": true,
+  "per_kind_telemetry_keys_logged": true,
+  "slide_contact_mu": true
+ },
+ "ref_checks": {
+  "modules_and_pythonpath_under_worktree": true,
+  "process_krabby_env_is_the_env_file": true,
+  "every_column_has_two_envs": true,
+  "every_shape_one_mu_static_eq_dynamic_restitution0": true,
+  "ref_shipped_event_mu_in_range": true,
+  "obs_width_1149": true,
+  "friction_input": true,
+  "every_column_resets": true,
+  "spawn_height_first_step_per_kind": true
+ },
+ "complete": true,
+ "early": {
+  "ref": {
+   "episodes": 803,
+   "early": 0,
+   "share": 0.0
+  },
+  "kinds": {
+   "field_dense": {
+    "episodes": 40,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "field_sparse": {
+    "episodes": 80,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "flat": {
+    "episodes": 121,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "gravel": {
+    "episodes": 81,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "hills": {
+    "episodes": 81,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "ledge_down": {
+    "episodes": 81,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "ledge_up": {
+    "episodes": 82,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "pits": {
+    "episodes": 80,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "rubble": {
+    "episodes": 80,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   },
+   "slopes": {
+    "episodes": 80,
+    "early": 0,
+    "share": 0.0,
+    "limit": 0.05,
+    "flag": false
+   }
+  },
+  "flagged": []
+ },
+ "fails": [],
+ "ref_fails": [],
+ "pass": true
+}

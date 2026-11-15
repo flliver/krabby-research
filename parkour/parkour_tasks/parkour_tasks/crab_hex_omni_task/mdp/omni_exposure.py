@@ -115,10 +115,43 @@ omni run, ring and field alike (telemetry only: no cfg field, so no config dump 
     out) and non-finite ratios dropped. ABSENT (never 0.0, never NaN) until the window holds one
     episode, exactly like :data:`OMNI_SPAWN_SPLIT_KEYS`. A per-reset-call median would be a median
     of the 1-5 episodes one step ends, and its iteration mean would be a MEAN in all but name.
+
+SITE MODE (ported from the closed site teacher, ``worktree-sen0581-cameras`` 2a3e3c51, for the rough-terrain
+campaign, ``experiments/2026-11-10_rough_terrain/PLAN.md`` step 1, 2026-11-10)
+-------------------------------------------------------------------------------------------------------------
+Only a site generator (``KRABBY_FLAT_TERRAIN_GEOM=site``) reaches it, through the parkour term's ``site_mode``; ring /
+field runs call none of it. TELEMETRY ONLY: the promotion rule stays :func:`promotion_mask` (main's ratio rule,
+``KRABBY_TERRAIN_PROMOTE``) everywhere; the site's fall-aware promotion table, rule ``loc``, the crash flag and the
+blocker step counters are NOT ported. :func:`site_level_extras` / :func:`site_count_extras` are the per-reset-call
+``site_level`` / ``site_promote`` / ``site_demote`` keys (``site_promote`` / ``site_demote`` count the APPLIED
+decisions of :func:`promotion_mask`), :class:`SiteKindLedger` the per-kind lazy window keys
+(:data:`SITE_LEDGER_STEMS`), all ``<stem>/<kind>``. ``crossed`` comes from ``site_task_math`` (path-loaded here).
+
+SITE CURRICULUM COUNTS (the site's PLAN_rev1 "Telemetry"; armed in site mode)
+----------------------------------------------------------------------------
+All keys are ``Metrics/base_parkour/<stem>/<kind>`` (:func:`site_key`), for the kinds present in the grid, emitted on
+EVERY reset call (0 when nothing happened: a stable tag set). :class:`SiteCurriculumTally`: per kind, the episode
+COUNTS of the reset call (:data:`SITE_COUNT_STEMS`: ends, crossed, failed, applied up, applied down, held = ends - up
+- down; up / down are :func:`promotion_mask`'s APPLIED masks, none under a frozen curriculum); and per hazard kind
+:data:`SITE_METRES_STEM` -- the mean over the kind's envs of the primary ladder parameter in metres at each env's own
+tile (``site_terrains.primary_metres`` at the tile's ``d``, on the ladder the column stamps: ``KRABBY_SITE_LADDER``
+honoured; read before tiles move, like ``site_level``; a MEAN, so not zero-filled).
+
+Why counts, and the zero fill. The per-kind rings above never fill for a single-column kind (12-13 envs, ~400 episodes
+in 2000 its: a cumulative mean in practice), and the runner appends ``extras["log"]`` on every env step while the env
+replaces it only on a reset step, so a reset call's dict is re-appended (stale) until the next one and a per-reset-call
+count is averaged with its own repeats (``diag/curriculum_verify.md`` items 4 and 12). Each count key is therefore
+emitted once: on every step the parkour term replaces a dict it has already seen by a copy whose count keys are 0
+(:func:`site_zero_filled_log`; every other key keeps its value object, so its logged mean is unchanged). The runner's
+per-iteration ``nanmean`` over its ``num_steps_per_env`` appends is then ``sum of the iteration's counts /
+num_steps_per_env``: exact, and :func:`site_counts_from_logged` undoes the scale (shares need no scale).
 """
 from __future__ import annotations
 
+import importlib.util
 import math
+import sys
+from pathlib import Path
 
 import torch
 
@@ -157,6 +190,22 @@ __all__ = [
     "obstacle_level_mean",
     "obstacle_promotion_counts",
     "terrain_window_extras",
+    # site mode (rough-terrain port of the site teacher's per-kind telemetry, 2026-11-10)
+    "site_crossed",
+    "SITE_WINDOW_STEMS",
+    "SITE_LEDGER_STEMS",
+    "site_key",
+    "site_level_extras",
+    "site_count_extras",
+    "SiteKindLedger",
+    "SITE_COUNT_STEMS",
+    "SITE_METRES_STEM",
+    "site_log_key",
+    "site_zero_filled_log",
+    "site_counts_from_logged",
+    "site_primary_metres_table",
+    "site_metres_extras",
+    "SiteCurriculumTally",
 ]
 
 TWO_PI = 2.0 * math.pi
@@ -551,6 +600,236 @@ def promotion_mask(
 def tracking_ratio(track: torch.Tensor, cmd: torch.Tensor) -> torch.Tensor:
     """``track / cmd`` with the same guard :func:`promotion_mask` uses (telemetry)."""
     return track / torch.clamp(cmd, min=1e-6)
+
+
+# ------------------------------------------------------- site mode (rough-terrain port, 2026-11-10)
+#
+# SITE MODE (module docstring): only a site generator (``KRABBY_FLAT_TERRAIN_GEOM=site``) reaches anything below, and
+# only through the parkour term's ``site_mode``; ring / field runs call none of it. ``promotion_mask`` above is
+# unchanged and is the promotion rule in site mode too (telemetry only; the site promotion table is not ported).
+
+_SITE_TASK_MATH_PY = Path(__file__).resolve().with_name("site_task_math.py")
+_SITE_TASK_MATH_NAME = "crab_hex_omni_site_task_math"
+
+
+def _site_task_math():
+    """``site_task_math.py`` (pure torch), by path: this module is path-loaded by the CPU tests, so a relative
+    import would not resolve there."""
+    mod = sys.modules.get(_SITE_TASK_MATH_NAME)
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(_SITE_TASK_MATH_NAME, _SITE_TASK_MATH_PY)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[_SITE_TASK_MATH_NAME] = mod
+        try:
+            spec.loader.exec_module(mod)
+        except BaseException:
+            sys.modules.pop(_SITE_TASK_MATH_NAME, None)
+            raise
+    return mod
+
+
+def site_crossed(r_max: torch.Tensor, cross_r: torch.Tensor) -> torch.Tensor:
+    """``r_max >= cross_r``, False where ``cross_r`` is NaN (``site_task_math.crossed``): the site columns'
+    "crossed the hazard" flag of the per-kind telemetry."""
+    return _site_task_math().crossed(r_max, cross_r)
+
+
+#: Per-reset-call site keys (``<stem>/<kind>``, absent for a kind with no env / not in the grid).
+SITE_WINDOW_STEMS = ("site_level", "site_promote", "site_demote")
+#: Per-kind ledger keys (``<stem>/<kind>``; lazy: absent until that kind's window holds an episode).
+SITE_LEDGER_STEMS = ("site_crossed_frac", "site_fail_frac", "site_track_p50")
+
+
+def site_key(stem: str, kind: str) -> str:
+    """``"<stem>/<kind>"`` -- logged as ``Metrics/base_parkour/<stem>/<kind>``."""
+    return f"{stem}/{kind}"
+
+
+def site_level_extras(levels: torch.Tensor, tile_kind: torch.Tensor, kinds: tuple[str, ...]) -> dict[str, float]:
+    """``site_level/<kind>``: the mean ``terrain_levels`` of the envs whose CURRENT tile is of that kind
+    (``tile_kind`` ``(n,)`` int, an index into ``kinds``, -1 = not a site key); absent for a kind with no env."""
+    lv = levels.reshape(-1).float()
+    tk = tile_kind.reshape(-1).to(lv.device).long()
+    out = {}
+    for i, name in enumerate(kinds):
+        m = tk == i
+        if bool(m.any()):
+            out[site_key("site_level", name)] = float(lv[m].mean())
+    return out
+
+
+def site_count_extras(up: dict[str, int], down: dict[str, int], kinds: tuple[str, ...]) -> dict[str, float]:
+    """``site_promote/<kind>`` / ``site_demote/<kind>``: the APPLIED decisions of one reset call, for every kind
+    in ``kinds`` (the kinds present in the grid -- a stable tag set, 0 when nothing moved)."""
+    out = {}
+    for name in kinds:
+        out[site_key("site_promote", name)] = float(up.get(name, 0))
+        out[site_key("site_demote", name)] = float(down.get(name, 0))
+    return out
+
+
+class SiteKindLedger:
+    """Per-kind rolling windows over the last ``capacity`` finished episodes OF THAT KIND (site mode).
+
+    Keys (:data:`SITE_LEDGER_STEMS`, all lazy -- absent until the kind's window holds one episode, never 0.0 /
+    NaN before that):
+
+    * ``site_crossed_frac/<kind>`` -- share of episodes with ``crossed`` (crossing kinds: CROSS and VOID);
+    * ``site_fail_frac/<kind>`` -- share that ended on ``crab_failure``;
+    * ``site_track_p50/<kind>`` -- the median promotion ratio, :data:`OMNI_OBST_RATIO_KEY`'s rule (valid =
+      ``ep_cmd_dist >= min_cmd_dist``, non-finite ratios dropped).
+
+    The site's ``site_crash_frac`` (blocker crash share) is not ported: no crash flag exists here.
+    """
+
+    def __init__(self, kinds: tuple[str, ...], policy: tuple[int, ...], capacity: int = 1024, device="cpu"):
+        if len(kinds) != len(policy):
+            raise ValueError(f"SiteKindLedger: {len(kinds)} kinds but {len(policy)} policy classes")
+        stm = _site_task_math()
+        self.kinds = tuple(kinds)
+        self.policy = tuple(int(p) for p in policy)
+        self._rings: dict[str, RingMean] = {}
+        for name, pc in zip(self.kinds, self.policy):
+            stems = ["site_fail_frac", "site_track_p50"]
+            if pc in (stm.POLICY_CROSS, stm.POLICY_VOID):
+                stems.insert(0, "site_crossed_frac")
+            for stem in stems:
+                self._rings[site_key(stem, name)] = RingMean(capacity, device)
+
+    def keys(self) -> list[str]:
+        """Every key this ledger can report (in kind order)."""
+        return list(self._rings)
+
+    def push(self, tile_kind, crossed, failed, ratio, ratio_valid) -> None:
+        """One batch of finished episodes, all ``(n,)``; ``tile_kind`` indexes ``kinds`` (-1 = not a site key:
+        skipped). ``ratio_valid`` is the promotion rule's ``ep_cmd_dist >= min_cmd_dist``."""
+        tk = torch.as_tensor(tile_kind).reshape(-1).long().cpu()
+        crossed = torch.as_tensor(crossed).reshape(-1).float().cpu()
+        failed = torch.as_tensor(failed).reshape(-1).float().cpu()
+        ratio = torch.as_tensor(ratio).reshape(-1).float().cpu()
+        valid = torch.as_tensor(ratio_valid).reshape(-1).bool().cpu()
+        for i, name in enumerate(self.kinds):
+            m = tk == i
+            if not bool(m.any()):
+                continue
+            for stem, vals in (("site_crossed_frac", crossed[m]), ("site_fail_frac", failed[m])):
+                ring = self._rings.get(site_key(stem, name))
+                if ring is not None:
+                    ring.push(vals)
+            r = ratio[m & valid]
+            self._rings[site_key("site_track_p50", name)].push(r[torch.isfinite(r)])
+
+    def means(self) -> dict[str, float]:
+        """Every non-empty key: the window mean, or the interpolated median for ``site_track_p50``."""
+        out = {}
+        for key, ring in self._rings.items():
+            if ring.n == 0:
+                continue
+            if key.startswith("site_track_p50/"):
+                out[key] = float(torch.quantile(ring.buf[: ring.n], 0.5))
+            else:
+                out[key] = ring.mean()
+        return out
+
+
+# ------------------------------------------------------- site curriculum counts (site PLAN_rev1 telemetry)
+#
+# SITE CURRICULUM COUNTS (module docstring): only the parkour term's site mode reaches anything below.
+
+#: Per-kind episode counts of one reset call: ends, crossed, failed, applied up, applied down, held.
+SITE_COUNT_STEMS = ("site_cnt_end", "site_cnt_crossed", "site_cnt_failed", "site_cnt_up", "site_cnt_down",
+                    "site_cnt_held")
+#: Per hazard kind: the mean primary ladder parameter (m) over the kind's envs, per reset call (a mean of state).
+SITE_METRES_STEM = "site_metres"
+
+
+def site_log_key(term: str, key: str) -> str:
+    """``"Metrics/<term>/<key>"`` -- the key a parkour term's reset-log entry carries in ``extras["log"]``."""
+    return f"Metrics/{term}/{key}"
+
+
+def site_zero_filled_log(log: dict, keys) -> dict:
+    """A copy of ``log`` with every key in ``keys`` (full ``extras["log"]`` keys) set to 0.0 and every other value the
+    SAME object (module docstring: the zero fill)."""
+    return {k: (0.0 if k in keys else v) for k, v in log.items()}
+
+
+def site_counts_from_logged(value: float, num_steps_per_env: int) -> float:
+    """The iteration's count from a zero-filled count tag's logged value (the runner's mean over its
+    ``num_steps_per_env`` appends): ``value * num_steps_per_env``."""
+    return float(value) * int(num_steps_per_env)
+
+
+def site_primary_metres_table(tile_kind: torch.Tensor, tile_d: torch.Tensor, kinds: tuple[str, ...],
+                              ladders: dict, primary_metres) -> torch.Tensor:
+    """``(R, C)`` float32: each tile's primary ladder parameter in metres, ``primary_metres(kind, d, ladder)``
+    (``site_terrains.primary_metres``) at the tile's ``d`` (``SiteLayers.tile_d``) on its column's ladder, for the
+    kinds in ``ladders`` (``{kind: ladder | None}``, ``site_terrains.ladder_of`` of the column's body); NaN elsewhere
+    and where ``d`` is NaN."""
+    tk = tile_kind.detach().cpu().long()
+    d = tile_d.detach().cpu().to(torch.float64)
+    out = torch.full(tuple(tk.shape), math.nan, dtype=torch.float64)
+    for r, row in enumerate(tk.tolist()):
+        for c, k in enumerate(row):
+            d_rc = float(d[r, c])
+            if k < 0 or kinds[k] not in ladders or not math.isfinite(d_rc):
+                continue
+            out[r, c] = float(primary_metres(kinds[k], d_rc, ladders[kinds[k]]))
+    return out.to(torch.float32)
+
+
+def site_metres_extras(metres: torch.Tensor, tile_kind: torch.Tensor, kinds: tuple[str, ...],
+                       metres_kinds) -> dict[str, float]:
+    """``site_metres/<kind>``: the mean of ``metres`` (``(n,)``, each env's current tile) over the envs whose CURRENT
+    tile is of that kind, for the kinds in ``metres_kinds`` with at least one env (absent otherwise)."""
+    m_all = metres.reshape(-1).double()
+    tk = tile_kind.reshape(-1).to(m_all.device).long()
+    out = {}
+    for i, name in enumerate(kinds):
+        if name not in metres_kinds:
+            continue
+        m = (tk == i) & torch.isfinite(m_all)
+        if bool(m.any()):
+            out[site_key(SITE_METRES_STEM, name)] = float(m_all[m].mean())
+    return out
+
+
+class SiteCurriculumTally:
+    """Per-kind episode counts of one reset call (module docstring).
+
+    :meth:`add` takes the ending episodes (aligned ``(n,)``, on the tile they ENDED on); :meth:`extras` reports every
+    :meth:`keys` key (0.0 when nothing happened) and :meth:`clear` starts the next reset call. ``present`` are the kinds
+    in the grid. (The site's per-level blocker / crash counts are not ported.)
+    """
+
+    def __init__(self, kinds: tuple[str, ...], present: tuple[str, ...]):
+        self.kinds = tuple(kinds)
+        self.present = tuple(k for k in self.kinds if k in set(present))
+        self.clear()
+
+    def keys(self) -> list[str]:
+        """Every key :meth:`extras` reports (kind order)."""
+        return [site_key(stem, name) for name in self.present for stem in SITE_COUNT_STEMS]
+
+    def clear(self) -> None:
+        self._counts = {name: [0] * len(SITE_COUNT_STEMS) for name in self.present}
+
+    def add(self, tile_kind, crossed, failed, up, down) -> None:
+        """One batch of ending episodes: ``tile_kind`` indexes ``kinds`` (-1 skipped), ``up`` / ``down`` the APPLIED
+        decision masks (all False under a frozen curriculum)."""
+        tk = torch.as_tensor(tile_kind).reshape(-1).long().cpu()
+        crossed, failed, up, down = (torch.as_tensor(t).reshape(-1).bool().cpu() for t in (crossed, failed, up, down))
+        for name in self.present:
+            m = tk == self.kinds.index(name)
+            if not bool(m.any()):
+                continue
+            c = self._counts[name]
+            for j, t in enumerate((m, m & crossed, m & failed, m & up, m & down, m & ~up & ~down)):
+                c[j] += int(t.sum())
+
+    def extras(self) -> dict[str, float]:
+        return {site_key(stem, name): float(self._counts[name][j])
+                for name in self.present for j, stem in enumerate(SITE_COUNT_STEMS)}
 
 
 # ------------------------------------------------------- obstacle-tile curriculum telemetry
