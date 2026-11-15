@@ -2584,7 +2584,8 @@ def test_bake_disclosures_are_recorded():
     the passing lines worse than RSD's (walk-stop settle, the controls' 0.011 m spare); one training seed (+509 of 6000,
     4 candidates, seed 20 failed); rigid gravel; back_overshoot reopened; the stand nets never on the rough kinds;
     camera use UNVERIFIED; and the pins / merge state (this branch's code_sha 89c1916b / eval_sha 9fe964d7; main's
-    de3772e2 / cd5ae167; a relock at the merge)."""
+    de3772e2 / cd5ae167; the merge prep of 2026-11-15: origin/main b99b9232 merged in at 87cbbdec, the Task 4 relock
+    at code 89c1916b / eval cd5ae167, no re-read)."""
     m = _m()
     sn = _stand(m)
     c1, stu = _stage(m, C1), _stage(m, STUDENT)
@@ -2689,6 +2690,15 @@ def test_bake_disclosures_are_recorded():
               "Task 4-locked", "6a4e4c6e"):
         assert s in mr, s
     assert "CI-faithful" in fu["merge_relock"]["headline"] and "relock" in fu["merge_relock"]["headline"]
+    # the 2026-11-15 merge prep (CHARTER "2026-11-15 12:30 — Merge prep"): the merge, the relocked values, the eval read
+    prep = mr[mr.index("MERGE PREP (2026-11-15"):]
+    for s in ("b99b9232", "87cbbdec", "6a4e4c6e -> 89c1916b", "9fe964d7 -> cd5ae167",
+              "0ff25b5c", "3.11.18", "min_edge_margin_m", "no row is re-read"):
+        assert s in prep, s
+    assert fu["merge_relock"]["recorded"].endswith("revised 2026-11-15 (merge prep)")
+    hl, lv = fu["merge_relock"]["headline"], fu["merge_relock"]["levers"]
+    assert hl.startswith("Merge prep done") and "no row needs a re-read" in hl
+    assert "Done on the branch 2026-11-15" in lv and "fresh campaign pin" in lv and "since 87cbbdec" in lv
     # the superseded rod-speed DR pairing's own disclosures stay on its kept stand block and its carried follow-ups
     old = _sup(m, "SH_RSD_TDR")["block"]
     ocav = "\n".join(old["caveats"])

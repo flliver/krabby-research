@@ -61,7 +61,8 @@
 #   eval pathspecs, so neither hash moves here. MERGING this branch moves main's code_sha de3772e2 -> 89c1916b (the
 #   branch's default-off site / rough-terrain code), puts this branch's eval rows (eval 9fe964d7) onto main's eval
 #   cd5ae167, and changes the Task 4-locked experiments/tools/run_candidates.py (the lock pins code 6a4e4c6e): a Task 4
-#   relock and a CI-faithful simulation come first (followup merge_relock). sha256 of every new stage, export and
+#   relock and a CI-faithful simulation come first (followup merge_relock; both done 2026-11-15 after origin/main was
+#   merged in at 87cbbdec: the lock now pins code 89c1916b / eval cd5ae167). sha256 of every new stage, export and
 #   stand file verified read-only 2026-11-14.
 # EARLIER (the superseded rod-speed DR record; its student and stand blocks are kept verbatim under `superseded:`
 # RSD_student / SH_RSD_TDR, and the manifest as it stood is policy/manifest.yaml at 2ceff431, RSD.record_commit):
@@ -344,8 +345,9 @@ obs_contract:
     which on c1''s non-gravel training tiles equalled the contract''s 2 ((b + 1) / 2) - 1 = b (crab_hex_omni_task/mdp/rt_friction.py)
     -- the same value, distribution and physics; TDR replays BITWISE on the new code (experiments/2026-11-10_rough_terrain/results/step5/neutrality.json).
     KRABBY_FLAT_TERRAIN_GEOM may be site for the rough-terrain KIND rows only (obs_contract.kind_rows),
-    and only on this branch''s code (code_sha 89c1916b; main''s omni_terrain_knobs allows ring / field
-    only, 3f944c4b): a kind row runs experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env
+    and only on code that carries the rough-terrain machinery (feat/rough-terrain at code_sha 89c1916b, and
+    main once that branch''s PR merges; before it, main''s omni_terrain_knobs allows ring / field only,
+    3f944c4b): a kind row runs experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env
     (this env minus the geometry, 26 keys) plus its own block from manifests/scenarios_rt.yaml copied
     verbatim. KRABBY_RT_FRICTION=gravel:0.2:0.5 is a TRAINING and GRAVEL-EVAL knob: c1 and C1S trained
     with it and the gravel kind rows set it, and it is never part of the play env; it is refused unless
@@ -411,9 +413,9 @@ obs_contract:
   kind_rows:
     what: 'data only (bundle_policy.py does not render it; the hazard text above states the rule): the
       rough-terrain KIND rows -- the gate, read and report rows on slopes, hills, ledge_up, ledge_down,
-      pits, gravel and rubble -- need three things the stock contract does not have. (a) This branch''s
-      code: KRABBY_FLAT_TERRAIN_GEOM=site exists only at code_sha 89c1916b (feat/rough-terrain; main''s
-      omni_terrain_knobs.OMNI_GEOMS is (ring, field), 3f944c4b). (b) The row env = env_file (the 27-key
+      pits, gravel and rubble -- need three things the stock contract does not have. (a) The rough-terrain
+      code: KRABBY_FLAT_TERRAIN_GEOM=site exists from code_sha 89c1916b on (feat/rough-terrain, and main once
+      that branch''s PR merges; before it, main''s omni_terrain_knobs.OMNI_GEOMS is (ring, field), 3f944c4b). (b) The row env = env_file (the 27-key
       eval env minus KRABBY_FLAT_TERRAIN_GEOM, 26 keys) + the row''s own block from `manifest`, copied
       VERBATIM under `rows` (7 keys; the gravel rows 8); the recorded kind rows carry exactly these 33
       / 34 keys (run_meta env_vars of P2R_6b48ef33_rt_slopes_b2 / _rt_gravel_b3 seed009). (c) On the GRAVEL
@@ -1346,7 +1348,7 @@ stages:
   notes: 'c1 = TDR + 509 iterations on the rough-terrain mix; the omni walker of record since 2026-11-14.
     Policy obs contract and STOCK eval env UNCHANGED from TDR (the same 27 driver eval keys, width 1149,
     std_raw); the rough-terrain knobs, KRABBY_DR_ROD_SPEED and the payload knobs are training-only, and
-    its kind rows run their own env (obs_contract.kind_rows: this branch''s code, rt_kind_eval.env + the
+    its kind rows run their own env (obs_contract.kind_rows: the rough-terrain code, rt_kind_eval.env + the
     row block, KRABBY_RT_FRICTION on gravel rows only). c1''s confirm-gate rows (results/short_arm/gates_fresh.json),
     its kind rows and its teacher-role rows were scored with --task Isaac-Crab-Hex-Omni-Student-Play-v0
     --policy-role teacher (rt_12_student play_notes), not on Walk-Play; only its REFS(c1) rows are
@@ -1622,8 +1624,8 @@ stages:
     knobs is in it. --policy-role student makes the harness run the depth student C1S (OmniStudentStep,
     the trainer''s / play.py''s one step); --policy-role teacher on the same task scores c1 through the
     student env (the paired completion reads and every c1 gate row); the harness sets every row''s task
-    from --task. ROUGH-TERRAIN KIND ROWS (the P2 read''s T / T-reg / report rows) need this branch''s
-    code (code_sha 89c1916b) and their own env (obs_contract.kind_rows: manifests/envs/rt_kind_eval.env
+    from --task. ROUGH-TERRAIN KIND ROWS (the P2 read''s T / T-reg / report rows) need the rough-terrain
+    code (code_sha 89c1916b on feat/rough-terrain; main once that branch''s PR merges) and their own env (obs_contract.kind_rows: manifests/envs/rt_kind_eval.env
     + the row''s block from manifests/scenarios_rt.yaml; KRABBY_RT_FRICTION=gravel:0.2:0.5 on the gravel
     rows only). The deployed student reads no rough-terrain input: OmniStudentObsPrep pins the tile flags
     to the field pair (1, 0) and overwrites columns 207-215 (the friction value among them) with the frozen
@@ -6008,9 +6010,10 @@ followups:
     jittered walk durations; each stand net carries its own walker''s estimator and records trained_beside_s1_sha256,
     so the harness may need a report-only override for a cross pairing (not checked)'
 - id: merge_relock
-  recorded: '2026-11-14 (rough-terrain bake)'
-  headline: 'Merging feat/rough-terrain needs a Task 4 relock and a CI-faithful simulation; until then
-    the kind rows replay only on this branch.'
+  recorded: '2026-11-14 (rough-terrain bake); revised 2026-11-15 (merge prep)'
+  headline: 'Merge prep done on feat/rough-terrain (2026-11-15): origin/main merged in, the Task 4 relock
+    and a CI-faithful simulation; no row needs a re-read; as of 2026-11-15 the push, real CI and the merge
+    were the user''s PR.'
   detail: 'The bake sits on feat/rough-terrain (as the rod-speed DR bake sat on its branch). Every c1
     / C1S / stand stamp is at this branch''s code_sha 89c1916b / eval_sha 9fe964d7 (results/pin.json,
     results/p2/pin.json). Main (origin/main 4e4fa6f4 as fetched 2026-11-14 23:25: 22 commits / 480 files
@@ -6021,14 +6024,37 @@ followups:
     / none under parkour/ is stale. MERGING moves main''s code_sha de3772e2 -> 89c1916b (the branch''s
     default-off site terrains, rt_friction.py, the omni knobs and observations.py), puts this branch''s
     eval rows (eval 9fe964d7) onto main''s eval cd5ae167, and changes the Task 4-locked experiments/tools/run_candidates.py
-    (+138 / -7; the lock pins code 6a4e4c6e, already behind main). The bake commits themselves touch neither
+    (+138 / -7; the lock then pinned code 6a4e4c6e, already behind main). The bake commits themselves touch neither
     hash nor the lock. Main''s code allows only KRABBY_FLAT_TERRAIN_GEOM ring / field (3f944c4b omni_terrain_knobs.py),
-    so the rough-terrain kind rows (obs_contract.kind_rows) replay only on this branch until the merge.'
+    so at the bake the rough-terrain kind rows (obs_contract.kind_rows) replayed only on this branch.
+    MERGE PREP (2026-11-15, the user: "Get it merge ready"; nothing pushed): origin/main b99b9232 (51 commits
+    / 531 files past 3f944c4b, nearly all firmware / STM / HAL / launcher) was merged into the branch at
+    87cbbdec with no conflicts; the one file both sides changed, docs/JETSON_DEPLOYMENT.md, took separate
+    hunks, and 701f8c47 is still main''s only change under parkour/. The Task 4 lock was rewritten on the
+    merged, clean tree (pipeline.py lock; check clean): code_sha 6a4e4c6e -> 89c1916b, eval_sha 9fe964d7
+    -> cd5ae167, tools_sha 81420414 -> 33413769, run_candidates.py 124b0c1d -> 0ff25b5c (of the 348 locked
+    files the only one that moved), python 3.11.17 -> 3.11.18 (a system update on 2026-10-28, so the rod-speed
+    DR and rough-terrain runs ran on 3.11.18). EVAL cd5ae167: 701f8c47 swaps np.hypot for _norm in
+    _signed_min_edge_margin, so only the per-episode support_polygon min_edge_margin_m leaves can move, and
+    no omni gate, threshold (v1.2, rough_v1), aggregate, manifest evals block, kind-row read or stand K-line
+    reads that field. A CPU replay of 1,005 saved rough-terrain episodes moved it by at most 2.2e-16 m per
+    frame (1.1e-16 m on a percentile leaf; a fable re-derivation on another 1,005 agrees) with every other
+    field bit-identical, so no row is re-read and every recorded stamp keeps eval 9fe964d7. The CI-faithful
+    simulation of the merged tree fails exactly the 78 ids that main b99b9232 alone fails there (import gaps
+    of the stand-in venv); the local suite fails 85 ids, exactly main''s 82 plus the branch''s known 51 (48
+    shared). One of main''s: test_task4_eval''s baseline-identity test (its BLAS-free baseline shim lacks the
+    hypot swap 701f8c47 needs; CI skips it in a shallow checkout). Since 87cbbdec the branch itself is at eval
+    cd5ae167, so a kind-row replay, on this branch now or on main after the PR, needs a fresh campaign pin
+    (rt_machinery.pin_problems refuses eval cd5ae167 against the 9fe964d7 pin; build_check reads BAD).'
   evidence:
   - experiments/2026-11-10_rough_terrain/BAKE_PLAN.md
   - experiments/2026-11-10_rough_terrain/p2/P2.md
   - 'experiments/2026-11-10_rough_terrain/results/p2/pin.json'
   - 'experiments/2026-10-16_task4_pipeline/pipeline.lock.json'
-  levers: 'at the merge (the user''s PR): a Task 4 relock (the lock''s run_candidates.py entry and code_sha),
-    the CI-faithful simulation before calling CI green, and a decision on re-reading any eval-sha-sensitive
-    row at eval cd5ae167 (the gait_eval metrics change)'
+  - experiments/2026-10-16_task4_pipeline/CHARTER.md
+  - experiments/2026-11-10_rough_terrain/CHARTER.md
+  levers: 'the user''s PR: push, the real CI run (not called green before it) and the merge. Done on the
+    branch 2026-11-15: the Task 4 relock, the CI-faithful simulation (re-run on the final merge-prep files)
+    and the eval-sha read (no re-read). Later: a fresh campaign pin before any kind-row replay (on this
+    branch since 87cbbdec, or on main after the PR); a test-only fix of test_task4_eval''s baseline shim
+    (main''s 701f8c47)'

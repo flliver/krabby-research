@@ -74,8 +74,9 @@ does not restate them.
   (P5 follow-on).
 - **Play / eval / deploy contract:** stock rows (suite, field, ring, walkstop, stand) keep the same 27-key env; the
   friction change is neutral on them (with `KRABBY_RT_FRICTION` unset the privileged friction input is the raw shape
-  mu, and TDR replays bitwise equal on the new code). Rough-terrain kind rows need three more things: this branch's code
-  (`KRABBY_FLAT_TERRAIN_GEOM=site`; main's code accepts only ring or field until the branch merges), the row's own env
+  mu, and TDR replays bitwise equal on the new code). Rough-terrain kind rows need three more things: the rough-terrain code
+  (`KRABBY_FLAT_TERRAIN_GEOM=site`, added by feat/rough-terrain at code_sha 89c1916b; main before that branch's merge
+  accepts only ring or field), the row's own env
   (`experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env` plus the row's block from
   `manifests/scenarios_rt.yaml`, copied verbatim), and, on gravel rows only, `KRABBY_RT_FRICTION=gravel:0.2:0.5`
   (leaving it off is silent: the row plays rigid mu >= 0.8 ground). The student's deploy is unchanged:

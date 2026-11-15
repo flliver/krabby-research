@@ -1580,3 +1580,78 @@ The checks behind this entry ran in workflow `wf_50c2a6c8-2b5`: the fable·high 
     `tkinter`, `aiortc`). Real CI's environment has those modules: Unit tests passed on main e662191a.
   - CI is not called green before a real run.
 - **Nothing is pushed.**
+
+### 2026-11-15 12:30 — Merge prep (user: "Get it merge ready"; local merge 87cbbdec + commit D; nothing is pushed)
+
+- **The user's words.** I asked "Should I get the branch merge-ready here (merge main locally, relock, CI sim)?", and
+  the user answered "Get it merge ready, yeah." Push, the PR, real CI and the merge into main stay the user's.
+- **Merge.**
+  - `git fetch origin` found origin/main at b99b9232, 12 commits past e662191a, all STM / HAL / launcher.
+  - Merge commit 87cbbdec (parents 9f75e940 and b99b9232) brings in 51 main commits / 531 files past the base 3f944c4b.
+  - No conflicts (`git merge-tree`). The one file both sides changed, `docs/JETSON_DEPLOYMENT.md`, took separate
+    hunks: main's SEN0581 camera rows and the bake's policy-of-record paragraph.
+  - Main's only change under `parkour/` is still 701f8c47 (eval_sha 9fe964d7 -> cd5ae167). The merged tree's code_sha
+    is 89c1916b, the branch's own.
+- **Task 4 relock** (Task 4 CHARTER, 2026-11-15 entry).
+  - On the merged tree, `pipeline.py check` reported three drifts: code / eval sha, `run_candidates.py`, and the
+    external stack's python, 3.11.17 -> 3.11.18 (a system update on 2026-10-28).
+  - `pipeline.py lock` on the clean tree wrote code 89c1916b, eval cd5ae167 and tools 33413769, with the same 348
+    files. `check` is clean.
+- **Eval cd5ae167 read: no re-read.** Workflow `merge-ready-impact` (wf_6ae9de8e-c7e): an opus·high impact analysis,
+  then a fable·high adversarial verify that could not refute it.
+  - 701f8c47 swaps `np.hypot` for `_norm` in `_signed_min_edge_margin`. In exact arithmetic the two are the same.
+  - Only the per-episode `support_polygon.{walking,prefall}.min_edge_margin_m` leaves can move. `report.aggregate`
+    never pools them.
+  - Nothing in this campaign or the policy of record reads that field: no gate, no threshold (v1.2, rough_v1), no
+    manifest evals block, no kind-row or P2 read, no stand K-line, no `run_phases.summarize` line.
+  - Replay of 1,005 saved rough-terrain episodes:
+    - per frame, the field moves by <= 2.2e-16 m; on a percentile leaf, by <= 1.1e-16 m;
+    - every other support-polygon field is bit-identical;
+    - the old code reproduces every recorded leaf.
+    - The fable re-derivation, on another 1,005 episodes, agrees.
+  - Every recorded stamp keeps eval 9fe964d7. Since 87cbbdec the branch itself is at eval cd5ae167, so a kind-row
+    replay, on this branch now or on main after the PR, needs a fresh campaign pin: `rt_machinery.pin_problems`
+    refuses cd5ae167 against the 9fe964d7 pin, and `build_check.py check` already reads BAD here.
+- **Merge semantic check** (same workflow, opus·high). Nothing to fix:
+  - no main code, config, image pin, doc or test names the omni policy of record, a `policy/` path, an ONNX file or
+    sha, the manifest or the stand net;
+  - main's STM mapper clamps actions to [-1, 1], which agrees with the io contract's `actions_clip` 1.0;
+  - the only env var both sides touch is `KRABBY_HEX_USD_PATH`, which main sets in-process only
+    (`hal/server/isaac/main.py` with `--usd`, and `scripts/isaac/walk_tof_preview.py`).
+- **Tests.**
+  - **CI-faithful simulation** of the merged tree plus the new lock: 78 failing ids. They are exactly the 78 that main
+    b99b9232 alone fails there, all import gaps of the stand-in venv (`cantools`, `can`, `zmq`, `serial`, `tkinter`,
+    `aiortc`).
+    - Re-run with all of commit D's files applied (after the review fixes): the same 78 ids, 6,527 passed.
+    - Main's unit CI now installs `firmware[stm]` (python-can, cantools). The stand-in venv lacks it, and it was not
+      installed (a network install).
+  - **Local suite** on the merged tree: 85 ids, exactly main's 82 (a local run of b99b9232) plus commit C's 51, of
+    which 48 are shared. Nothing new, nothing lost.
+  - **One failure is main's own:** `test_task4_eval.py::test_committed_rows_parse_compile_and_score_bit_identically_to_the_baseline`
+    fails on b99b9232 too, on 12 / 18 rows and in `scored` only.
+    - 701f8c47 swapped `np.hypot` for `_norm`, and the test's BLAS-free baseline shim has no hypot swap.
+    - Swapping metrics.py back makes all 18 match.
+    - GitHub CI skips the test (a shallow checkout has no dfae3c27).
+    - Not fixed here; it is main's test.
+  - **After commit D's edits:**
+    - the policy-of-record, Task 4 pipeline, rt_machinery and experiment-layout tests: 275 pass, plus the 2 known
+      baseline failures;
+    - `bundle_policy.py --check` reads OK;
+    - `pipeline.py check` is clean, since every edit is outside both hashes.
+- **Living docs updated** (commit D).
+  - The `merge_relock` follow-up: a dated MERGE PREP paragraph and new levers; the policy README is re-rendered.
+  - The kind-row wording ("this branch's code") in the hazard, `kind_rows.what`, c1's notes, the student's
+    play_notes and the omni README now holds both before and after the PR merge.
+  - The Task 4 README, section 2.
+  - The REPORT and BAKE_PLAN status lines, and P2.md's out-of-scope note.
+  - `docs/crab-hexapod-plant.md` still named F19 as the omni policy of record. That line was written on 2026-10-26
+    (593a047e) and has been stale since the rod-speed DR bake of 2026-11-10, which did not touch the file. It now
+    names the rough-terrain pairing.
+- **Review** (workflow `merge-prep-review`, wf_7be5b8d3-e4f: a fable·high claim checker and an opus·high procedure
+  reviewer with a mutation harness). It confirmed the merge tree, the lock (clean tree, same 348 files, live hashes
+  equal), both test-set relations and the impact numbers. One should_fix, applied: the pin refusal holds on this
+  branch already, not only on main later. Nits, applied: the python source (deadsnakes PPA), the plant-doc history,
+  the second `KRABBY_HEX_USD_PATH` site, the Task 4 README header disclosure, the dated headline, the manifest
+  header note, and test pins for the new headline / levers.
+- **Not done:** the push, the PR, real CI and the merge; a fresh campaign pin for kind-row replays (on this branch
+  since 87cbbdec, or on main after the PR); the `test_task4_eval` shim fix.
