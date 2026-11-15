@@ -1,15 +1,17 @@
 
 # Bake plan: rough-terrain pairing as the omni policy of record
 
-**Status: PROPOSED, awaiting your decision.** Nothing is baked, committed, pushed or merged. The P2 read routed
-USER_DECIDES (CHARTER "2026-11-13 16:00 — P2 step 8"). The stand re-pair finished at 22:58 (CHARTER "2026-11-13 23:30 —
-P2 step 9"): SN and SH are both HALT on lines that re-anchor under the pre-registered rules, with nothing remaining.
+**Status: APPROVED 2026-11-14 23:25 ("Yes, bake") and DONE in local commit B (CHARTER "2026-11-15 01:50 — BAKE
+DONE"); nothing is pushed or merged.** The P2 read routed USER_DECIDES (CHARTER "2026-11-13 16:00 — P2 step 8"). The
+stand re-pair finished at 22:58 (CHARTER "2026-11-13 23:30 — P2 step 9"): SN and SH are both HALT on lines that
+re-anchor under the pre-registered rules, with nothing remaining. §1's count of main's drift ("11 commits and 439
+files", none under `parkour/`) is stale; the BAKE DONE entry has the 2026-11-15 count.
 
 - **Template:** the rod-speed DR (domain randomization) bake: `2026-11-07_rod_speed_dr/BAKE_PLAN.md`, commits 825ea251
   (record), 2ceff431 (bake) and 0a2617d6 (CI test fix). P2.md steps 11–12.
 - **Shas:** c1, C1S, SN and SH were re-hashed on disk on 2026-11-13. The ONNX files were re-hashed in the main checkout.
-- **Pairing checks still to run (CPU, at bake time):** C1S's teacher weights equal c1's, bit for bit. SN and SH name
-  c1 as their walker and carry its estimator. SH's warm start is SN 5bedc50e.
+- **Pairing checks (CPU, at bake time; all PASS 2026-11-14, CHARTER "BAKE DONE"):** C1S's teacher weights equal
+  c1's, bit for bit. SN and SH name c1 as their walker and carry its estimator. SH's warm start is SN 5bedc50e.
 
 ## 1. What goes in
 

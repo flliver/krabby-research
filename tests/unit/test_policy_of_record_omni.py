@@ -1,40 +1,48 @@
 """The omni-walk POLICY OF RECORD (``crab_hex_omni_task/policy/``) stays consistent.
 
 ``policy/manifest.yaml`` declares the shipped head (``current``) and the stage heads it was trained through. Since the
-2026-11-09 bake (user decision "Bake as proposed", experiments/2026-11-07_rod_speed_dr CHARTER section 6, 23:08) that is
-the ROD-SPEED DR PAIRING at seed 19: the Task 4 deliverable run F19's stages f19_1_s1 (preset 1b) -> f19_2_c4 -> f19_3_c5
--> f19_4_c6 -> f19_5_c6x_clockfree (preset 1a) -> f19_6_p2a_field -> f19_7_p3a_payload90 -> f19_8_p3b_payload180 (preset
-2a; = T*, still a live stage), each with its overlay from F19/candidates.yaml, then rsd_9_p3b_rodspeed_dr (= TDR, current:
-T* + 3000 iterations under the training-only per-env rod-speed DR, KRABBY_DR_ROD_SPEED) and the depth student
-rsd_10_student (= c31000, kind ``distill``, distilled from TDR with the DR on; its 122 MB checkpoint is NOT bundled --
-``bundled: false``, cited by sha256 -- and its folder holds the ONNX deploy export + io json). The shared training assets
-(``assets:``, the omni RSI bank) stay. Every declared file must be present, tracked by git, sha-pinned to the manifest,
-and the only checkpoint in its folder; the README is generated from the manifest by ``experiments/tools/bundle_policy.py
---sync``. The c6x and later heads were trained with the gait clock hidden, and their observation contract must say so.
-Every stage's eval environment must be exactly what the driver's suite eval builds from that stage's preset + overlay,
-the tracked F19 env file and (when on disk) its eval stamp's run_meta; the DR knob never reaches it.
+2026-11-14 bake (user decision "Yes, bake", 23:25, answering "Bake c1, C1S and the new stand nets as the omni policy of
+record?"; experiments/2026-11-10_rough_terrain BAKE_PLAN.md) that is the ROUGH-TERRAIN PAIRING at seed 19: the Task 4
+deliverable run F19's stages f19_1_s1 (preset 1b) -> f19_2_c4 -> f19_3_c5 -> f19_4_c6 -> f19_5_c6x_clockfree (preset 1a)
+-> f19_6_p2a_field -> f19_7_p3a_payload90 -> f19_8_p3b_payload180 (preset 2a; = T*, a live stage), each with its overlay
+from F19/candidates.yaml, then rsd_9_p3b_rodspeed_dr (= TDR, T* + 3000 iterations under the training-only rod-speed DR;
+a LIVE stage, c1's resume point), rt_11_p3b_rough (= c1, current: TDR + 509 iterations on the rough-terrain mix
+envs/RT_train.env, the short arm's pre-registered pick, run RT_s19 model_29500) and the depth student rt_12_student (=
+C1S, kind ``distill``, distilled from c1 on the same mix; its 122 MB checkpoint is NOT bundled -- ``bundled: false``,
+cited by sha256 -- and its folder holds the ONNX deploy export + io json). The shared training assets (``assets:``, the
+omni RSI bank) stay. Every declared file must be present, tracked by git, sha-pinned to the manifest, and the only
+checkpoint in its folder; the README is generated from the manifest by ``experiments/tools/bundle_policy.py --sync``.
+The c6x and later heads were trained with the gait clock hidden, and their observation contract must say so. Every
+stage's STOCK eval environment must be exactly what the driver's suite eval builds from that stage's preset + overlay,
+the tracked F19 env file and (when on disk) its eval stamps' run_meta; the DR, rough-terrain and friction knobs never
+reach it. The rough-terrain KIND rows run their own env (``obs_contract.kind_rows``: manifests/envs/rt_kind_eval.env +
+the row's block of manifests/scenarios_rt.yaml, KRABBY_RT_FRICTION on the gravel rows only), as every recorded kind
+stamp did.
 
-The STAND NETWORK OF RECORD (``stand_network:``, folder ``rsd_stand_net/``) is SH_RSD_TDR_sh_s19, trained and gated
-beside TDR, with SN_RSD_TDR_sn_s19 its bundled warm-start ancestor; its contract constants must be the stand-height
-campaign's ``sh_core`` and the checkpoint's; its routing env and walker override must be TDR's (the campaign's
-results/stand/walker_spec.json); its K1-K6 table must be the campaign's stand reads (results/stand/sh_lazy_rh_read.json /
-sh_read.json), the superseded SH_T4F19's (F19/stand/sh_lazy_rh_read.json) and R_h beside S1 (head_SH_T17.json); its
-pipeline gate (results/stand/gates/sh.json) HALTed, and every failed line is re-anchored by a recorded rule
-(gates/sh_reanchor.json) or accepted and disclosed by the user (gates/sh_decision.json, 18:10 "Accept and disclose").
+The STAND NETWORK OF RECORD (``stand_network:``, folder ``rt_stand_net/``) is SH_RT_6d1f29be_sh_s19, trained and gated
+beside c1, with SN_RT_6d1f29be_sn_s19 its bundled warm-start ancestor; its contract constants must be the stand-height
+campaign's ``sh_core`` and the checkpoint's; its routing env and walker override must be c1's (the campaign's
+results/p2/stand/walker_spec.json); its K1-K6 table must be the campaign's stand reads (results/p2/stand/
+sh_lazy_rh_read.json / sh_read.json), the superseded SH_RSD_TDR's (the rod-speed DR campaign's results/stand/
+sh_lazy_rh_read.json) and R_h beside S1 (head_SH_T17.json); its pipeline gate (results/p2/stand/gates/sh.json) HALTed on
+7 of 101 lines, and every failed line is re-anchored by a recorded rule (gates/sh_reanchor.json, remaining []); no K4
+line failed, so no gates/sh_decision.json exists.
 
-SUPERSEDED, KEPT: nothing was deleted at the 2026-10-24 and 2026-11-09 bakes. The seed-18 lineage (1_fb6k .. 6_p2a_field,
-S1 s18), SH_T17 (stand_net/model_5000.pt), A-mask s17 (stand_net/model_4000.pt -- the fixed path sh_core and the stand
-campaign tests load), F19's student exports (f19_9_student/, F19_student) and F19's stand nets (f19_stand_net/,
-SH_T4F19 + SN_T4F19) stay in ``policy/`` as ``superseded[].files``: present, sha-pinned, byte-identical to the files they
-were baked with, and their full records kept verbatim (equal to the manifest at ``record_commit``). F19 itself is
-recorded as the superseded ``current`` (its stages stay live). W (superseded 2026-10-06) left the folder and stays
-recoverable from git history.
+SUPERSEDED, KEPT: nothing was deleted at the 2026-10-24, 2026-11-09 and 2026-11-14 bakes. The seed-18 lineage (1_fb6k ..
+6_p2a_field, S1 s18), SH_T17 (stand_net/model_5000.pt), A-mask s17 (stand_net/model_4000.pt -- the fixed path sh_core
+and the stand campaign tests load), F19's student exports (f19_9_student/, F19_student), F19's stand nets
+(f19_stand_net/, SH_T4F19 + SN_T4F19), the rod-speed DR student exports (rsd_10_student/, RSD_student) and its stand
+nets (rsd_stand_net/, SH_RSD_TDR + SN_RSD_TDR) stay in ``policy/`` as ``superseded[].files``: present, sha-pinned,
+byte-identical to the files they were baked with, and their full records kept verbatim (equal to the manifest at
+``record_commit``). F19 and the rod-speed DR pairing (RSD) are recorded as superseded ``current`` entries (their stages
+stay live). W (superseded 2026-10-06) left the folder and stays recoverable from git history.
 
-Untracked inputs (run dirs, stamps, the stand runs, the videos) are read from this checkout or, in a git worktree, from
-the main checkout; every test that needs one skips when it is on neither (CI's depth-1 checkout has none, and no history:
-the history checks skip naming the missing commits).
+Untracked inputs (run dirs, stamps, the stand runs, the ONNX source dir, the videos) are read from this checkout or, in
+a git worktree, from the main checkout; every test that needs one skips when it is on neither (CI's depth-1 checkout has
+none, and no history: the history checks skip naming the missing commits).
 """
 
+import ast
 import copy
 import difflib
 import hashlib
@@ -55,6 +63,9 @@ TOOL = PKG / "experiments" / "tools" / "bundle_policy.py"
 RUN_PHASES = PKG / "experiments" / "tools" / "run_phases.py"
 HIDE = "KRABBY_OMNI_CLOCK_HIDE"
 DR_VAR = "KRABBY_DR_ROD_SPEED"
+GEOM = "KRABBY_FLAT_TERRAIN_GEOM"
+FRICTION = "KRABBY_RT_FRICTION"
+SITE_PREFIX = "KRABBY_SITE_"
 
 #: the Task 4 campaign and its deliverable run F19 (every record below is tracked)
 T4 = PKG / "experiments" / "2026-10-16_task4_pipeline"
@@ -68,19 +79,32 @@ TSTAR = "f19_8_p3b_payload180"
 RSD = PKG / "experiments" / "2026-11-07_rod_speed_dr"
 RES = RSD / "results"
 TDR = "rsd_9_p3b_rodspeed_dr"
-STUDENT = "rsd_10_student"
-STAGES = [*F19_STAGES, TDR, STUDENT]
-STAND_DIR = "rsd_stand_net"
-#: the superseded F19 student / stand folders, kept
+#: the rough-terrain campaign (its results/ are tracked: the run, the short arm, P2's selection / read / stand re-pair)
+RT = PKG / "experiments" / "2026-11-10_rough_terrain"
+RTRES = RT / "results"
+P2 = RTRES / "p2"
+RTS = P2 / "stand"
+C1 = "rt_11_p3b_rough"
+STUDENT = "rt_12_student"
+STAGES = [*F19_STAGES, TDR, C1, STUDENT]
+STAND_DIR = "rt_stand_net"
+#: the superseded F19 and rod-speed DR student / stand folders, kept
 OLD_STUDENT = "f19_9_student"
 OLD_STAND = "f19_stand_net"
+RSD_STUDENT = "rsd_10_student"
+RSD_STAND = "rsd_stand_net"
+STUDENT_EXPORTS = ("policy.onnx", "depth_latest.onnx", "omni_student_io.json")
 #: the stages trained with the clock observation hidden (c6x and every stage after it, the student included)
-CLOCK_HIDDEN = {"f19_5_c6x_clockfree", "f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR, STUDENT}
+CLOCK_HIDDEN = {"f19_5_c6x_clockfree", "f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR, C1, STUDENT}
 #: the superseded seed-18 lineage, kept in the folder
 S18_STAGES = ["1_fb6k", "2_c4", "3_c5", "4_c6", "5_c6x_clockfree", "6_p2a_field"]
-#: the commits the superseded F19 entries name: the manifest before the 2026-11-09 bake, and the F19 bake itself
+#: the commits the superseded entries name: the manifest before the 2026-11-09 bake, the F19 bake, and the rod-speed DR
+#: bake (2ceff431: both the RSD entries' adopted_commit and the manifest before this bake, its record_commit)
 F19_RECORD_COMMIT = "64f397e5621ffab2432e4a13542a34a5845f9a88"
 F19_BAKE_COMMIT = "de81f98ad66df4f931fb595a7facf5743ae42eeb"
+RSD_BAKE_COMMIT = "2ceff43146ca0351ae7d46cd0a33af817a58649e"
+#: the rough-terrain campaign's commit A (the record this bake cites: results/p2/stand/, the CHARTER entries, BAKE_PLAN.md)
+RT_RECORD_COMMIT = "21b5063f33ae18891b341e9c1dab85e774fd0664"
 #: the stand-network campaign (its sn_common.py is the stand-net input / D5 env rule both stand campaigns use)
 SN_CAMPAIGN = PKG / "experiments" / "2026-10-11_stand_network"
 SN_COMMON = SN_CAMPAIGN / "scripts" / "sn_common.py"
@@ -93,20 +117,30 @@ SH_HEADS = ("SH_T18", "SH_T16", "SH_T17")
 #: the fixed paths the stand campaign tests and sh_core load (they must keep resolving to the kept files)
 AMASK_KEPT = POLICY / "stand_net" / "model_4000.pt"
 SHT17_KEPT = POLICY / "stand_net" / "model_5000.pt"
-#: the two walker + stand mix videos of the 2026-11-09 bake (untracked; written by the main session's recorder)
+#: the two walker + stand mix videos of THIS bake (untracked; P2 step 10, p2/p2_bake_videos.sh, main checkout)
+RT_VIDEOS = {
+    "field_medium": "parkour/outputs/omni_plan/rough_terrain_p2/videos/sh_mix_RTC1_6f8b558e_s1514_rough_sequence_sanity.json",
+    "field_max": "parkour/outputs/omni_plan/rough_terrain_p2/videos/sh_mix_RTC1_6f8b558e_s1514_roughest_sequence_sanity.json"}
+#: ... and the superseded rod-speed DR bake's (untracked; written by the main session's recorder)
 RSD_VIDEOS = {"field_medium": "parkour/logs/videos/sh_stand_height/sh_mix_RSD_s1514_rough_sequence_sanity.json",
               "field_max": "parkour/logs/videos/sh_stand_height/sh_mix_RSD_s1514_roughest_sequence_sanity.json"}
-#: the two reader mismatches of the stand reads beside TDR: both K5 control cells cannot be read
+#: the two reader mismatches of the stand reads beside TDR and beside c1: both K5 control cells cannot be read
 K5_CONTROL_INVALID = [
     "K5 NON-REGRESSION @1.064 x R_h (R_h (height-aware R)): INVALID (a listed cell cannot be read)",
     "K5 NON-REGRESSION @1.064 x Amask (A-mask s17): INVALID (a listed cell cannot be read)"]
 
 
 def _load(path: Path, name: str):
+    """A module by path, registered under ``name``; writes no ``__pycache__`` (no test writes outside tmp_path)."""
     spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
-    spec.loader.exec_module(mod)
+    old = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        sys.dont_write_bytecode = old
     return mod
 
 
@@ -124,6 +158,15 @@ def _load_nobc(path: Path, name: str):
     return mod
 
 
+def _ast_const(path: Path, name: str):
+    """A module-level literal constant read from a script's SOURCE (no import: the campaign scripts import Isaac-side
+    modules and are hash-reported)."""
+    for n in ast.parse(path.read_text()).body:
+        if isinstance(n, ast.Assign) and any(getattr(t, "id", None) == name for t in n.targets):
+            return ast.literal_eval(n.value)
+    raise KeyError(f"{path.name}: no literal {name}")
+
+
 def _tool():
     return _load(TOOL, "bundle_policy_omni")
 
@@ -134,6 +177,10 @@ def _m() -> dict:
 
 def _json(p: Path) -> dict:
     return json.loads(p.read_text())
+
+
+def _sha(p: Path) -> str:
+    return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
 def _tracked() -> set[str]:
@@ -250,6 +297,20 @@ def _seed_values(cell: dict, key: str = "field_light_completion") -> list:
     return [cell["seeds"][k]["values"][key] for k in ("1", "2")]
 
 
+def _mean(xs) -> float:
+    return sum(xs) / len(xs)
+
+
+def _scenarios_rt() -> dict:
+    return {s["id"]: s for s in yaml.safe_load((RT / "manifests" / "scenarios_rt.yaml").read_text())["scenarios"]}
+
+
+def _kind_env(rid: str) -> dict[str, str]:
+    """A kind row's env as the campaign's launchers compose it: rt_kind_eval.env + the row's own scenarios_rt.yaml block."""
+    return {**_env_file(RT / "manifests" / "envs" / "rt_kind_eval.env"),
+            **{k: str(v) for k, v in _scenarios_rt()[rid]["env"].items()}}
+
+
 # ------------------------------------------------------------------------------ the lineage of record
 def test_manifest_and_files_are_consistent():
     tool = _tool()
@@ -262,29 +323,33 @@ def test_manifest_and_files_are_consistent():
 def test_stage_order_and_chain():
     m = _m()
     assert [s["dir"] for s in m["stages"]] == STAGES
-    assert [s["phase"] for s in m["stages"]] == ["1b"] + ["1a"] * 4 + ["2a"] * 5
-    assert [s["stage"] for s in m["stages"]] == ["s1", "c4", "c5", "c6", "c6x", "p2a", "p3a", "p3b", "p3b_dr", "st_dr"]
-    assert [s.get("kind") for s in m["stages"]] == ["rl"] * 9 + ["distill"]
+    assert [s["phase"] for s in m["stages"]] == ["1b"] + ["1a"] * 4 + ["2a"] * 6
+    assert [s["stage"] for s in m["stages"]] == ["s1", "c4", "c5", "c6", "c6x", "p2a", "p3a", "p3b", "p3b_dr", "p3b_rt",
+                                                 "st_rt"]
+    assert [s.get("kind") for s in m["stages"]] == ["rl"] * 10 + ["distill"]
     assert m["stages"][0]["resume_from"] == "scratch"
     for prev, s in zip(m["stages"], m["stages"][1:]):
         assert prev["dir"] in s["resume_from"], f"{s['dir']} must resume from {prev['dir']}"
-    # current = TDR = the last RL stage; the student (distill) follows it and is not the walking head
-    assert m["current"] == m["stages"][-2]["dir"] == TDR
-    assert m["heads"] == {"phase1": "f19_5_c6x_clockfree", "phase2": "f19_6_p2a_field", "payload": TDR,
+    # current = c1 = the last RL stage; the student (distill) follows it and is not the walking head; TDR stays live
+    assert m["current"] == m["stages"][-2]["dir"] == C1
+    assert m["stages"][-3]["dir"] == TDR and TDR in _stage(m, C1)["resume_from"]
+    assert m["heads"] == {"phase1": "f19_5_c6x_clockfree", "phase2": "f19_6_p2a_field", "payload": C1,
                           "student": STUDENT, "stand": STAND_DIR}
     assert m["heads"]["stand"] not in STAGES
     # the new heads take folders of their own: no stage or the stand net reuses a superseded (kept) folder
     kept_dirs = {f["dir"] for e in m["superseded"] for f in e.get("files") or []}
-    assert kept_dirs == {*S18_STAGES, "stand_net", OLD_STUDENT, OLD_STAND}
+    assert kept_dirs == {*S18_STAGES, "stand_net", OLD_STUDENT, OLD_STAND, RSD_STUDENT, RSD_STAND}
     assert not (set(STAGES) | {STAND_DIR}) & kept_dirs
 
 
 def test_stage_files_are_one_resume_chain():
     """Each F19 stage file is the checkpoint the next stage resumed from, read from the F19 driver's own tracked state
     (F19/state.json, whose candidates.yaml must still be the one the driver ran), at the manifest seed, with exactly the
-    sha256 the deliverable record lists; TDR is the campaign's run RSD_TDR_s19 resumed from the bundled T* file (its
-    run record, the campaign's policy registry and G1 name the same file and sha); the distill stage is the student the
-    campaign distilled from TDR and selected (results/sel.json, the distill run record)."""
+    sha256 the deliverable record lists; TDR is the rod-speed DR campaign's run RSD_TDR_s19 resumed from the bundled T*
+    file (its run record, that campaign's policy registry and G1 name the same file and sha); c1 is the rough-terrain
+    run RT_s19 resumed from the bundled TDR file (its run record) at model_29500 -- NOT the run's final file, the short
+    arm's pre-registered pick (results/short_arm/selection.json), the policy the confirm gate read; the distill stage is
+    the student the campaign distilled from c1 and selected (results/p2/sel.json, the distill run record)."""
     m = _m()
     dl = _deliverable()
     heads = dl["stage_heads_by_sha256"]
@@ -313,7 +378,7 @@ def test_stage_files_are_one_resume_chain():
     assert n_driver == 8
     assert dl["tstar"]["stage"] == "p3b" and _rel_logs(dl["tstar"]["ckpt"]) == m["stages"][7]["source"]
     # TDR: the campaign's run RSD_TDR_s19, resumed from the BUNDLED T* file (by path, with T*'s alg_state counter)
-    tstar, tdr, stu = _stage(m, TSTAR), _stage(m, TDR), _stage(m, STUDENT)
+    tstar, tdr, c1, stu = _stage(m, TSTAR), _stage(m, TDR), _stage(m, C1), _stage(m, STUDENT)
     pol = _json(RES / "policies.json")["policies"]
     run = _json(PKG / tdr["run_record"])
     assert tdr["run_record"] == "experiments/2026-11-07_rod_speed_dr/results/runs/RSD_TDR_s19.json"
@@ -331,20 +396,58 @@ def test_stage_files_are_one_resume_chain():
     argv = run["trainer_argv"]
     assert argv[argv.index("--seed") + 1] == str(m["seed"]) and "--resume" in argv
     assert pol["TSTAR"]["sha256"] == tstar["sha256"]
-    # the student: distilled from TDR, selected by the campaign's sel stage, its run dir the source's
-    sel = _json(RES / "sel.json")
-    pick = sel["pick"]
-    assert (pick["sha256"], _rel_logs(pick["ckpt"]), pick["teacher"], pick["cand"]) == (
-        stu["sha256"], stu["source"], "TDR", stu["distill"]["selected"])
-    assert sel["verdict"] == "SELECTED" and stu["file"] == f"model_{pick['iter']}.pt"
-    assert pol[pick["policy"]]["sha256"] == stu["sha256"] and _rel_logs(pol[pick["policy"]]["checkpoint"]) == stu["source"]
-    dj = _json(RES / "runs" / "RSD_ST_s19.distill.json")
-    assert dj["teacher_sha256"] == tdr["sha256"] and _rel_logs(dj["teacher"]) == tdr["source"]
+    # c1: the rough-terrain run RT_s19, resumed from the BUNDLED TDR file (by path, with TDR's alg_state counter)
+    rrun = _json(PKG / c1["run_record"])
+    assert c1["run_record"] == "experiments/2026-11-10_rough_terrain/results/runs/RT_s19.json"
+    assert (rrun["status"], rrun["rc"], rrun["name"]) == ("ok", 0, "RT_s19")
+    argv = rrun["trainer_argv"]
+    assert argv[argv.index("--task") + 1] == c1["task"] == "Isaac-Crab-Hex-Omni-Teacher-v0"
+    assert argv[argv.index("--seed") + 1] == str(m["seed"]) and "--resume" in argv
+    assert argv[argv.index("--run_name") + 1] == rrun["name"]
+    assert argv[argv.index("--checkpoint") + 1].endswith(f"/{rel_pol}/{TDR}/{tdr['file']}")
+    assert rrun["cli"]["checkpoint"].endswith(f"/{rel_pol}/{TDR}/{tdr['file']}")
+    assert all(p["ok"] for p in rrun["preflight"].values()) and all(p["ok"] for p in rrun["preflight_inrun"])
+    assert rrun["PF13"]["ok"]
+    facts = rrun["preflight"]["PF3"]["data"]["facts"]
+    assert (facts["sha256"], facts["iter"], facts["counter"]) == (tdr["sha256"], 28991, 30450)
+    assert f"counter {facts['counter']}" in c1["resume_from"]
+    assert _rel_logs(rrun["run_dir"]) == str(Path(c1["source"]).parent)
+    # ... c1 is the short arm's pick (4 same-mix candidates, pre-registered rule), not the run's final model_34990,
+    # which step 9 did NOT accept
+    sel_c1 = _json(RTRES / "short_arm" / "selection.json")
+    pick = sel_c1["pick"]
+    assert (pick["id"], pick["sha256"], _rel_logs(pick["ckpt"]), pick["run"], pick["seed"]) == (
+        "c1", c1["sha256"], c1["source"], rrun["name"], m["seed"])
+    assert c1["file"] == f"model_{pick['file_iter']}.pt" and pick["file_iter"] - facts["iter"] == pick["its_after_tdr"]
+    assert pick["its_after_tdr"] == 509 and len(sel_c1["candidates"]) == 4 and sel_c1["tdr"]["sha256"] == tdr["sha256"]
+    assert c1["sha256"] == "6d1f29be8bf4504fd53fd20018dbab38ff60c6ccb32d7bd885f3ab15eaaed3c1"
+    rfinal = rrun["final"]
+    assert rfinal["iter"] == 34990 and rfinal["sha256"] != c1["sha256"] and rfinal["sha256"][:8] in c1["trained_in"]
+    g9 = _json(RTRES / "step9" / "gates.json")
+    assert g9["verdict"]["verdict"] == "NOT_ACCEPTED" and g9["policies"] == {"new": rfinal["sha256"],
+                                                                              "tdr": tdr["sha256"]}
+    gf = _json(RTRES / "short_arm" / "gates_fresh.json")
+    assert gf["policies"] == {"new": c1["sha256"], "tdr": tdr["sha256"]} and gf["pick"] == pick
+    # the student: distilled from c1, selected by P2's sel stage, its run dir the source's
+    sel = _json(P2 / "sel.json")
+    pk = sel["pick"]
+    assert (pk["sha256"], _rel_logs(pk["ckpt"]), pk["teacher"], pk["teacher_sha256"], pk["cand"], pk["policy"]) == (
+        stu["sha256"], stu["source"], "C1", c1["sha256"], stu["distill"]["selected"], "C1S")
+    assert sel["verdict"] == "SELECTED" and stu["file"] == f"model_{pk['iter']}.pt"
+    assert sel["teacher"]["sha256"] == c1["sha256"] and _rel_logs(sel["teacher"]["checkpoint"]) == c1["source"]
+    assert _rel_logs(sel["student_run"]) == str(Path(stu["source"]).parent)
+    assert stu["sha256"] == "6b48ef33d26b9523c764f48c664897d756838bb1ca70424492f8f7bdf54236a1"
+    dj = _json(P2 / "runs" / "RT_ST_s19.distill.json")
+    assert dj["teacher_sha256"] == dj["c1_sha256"] == c1["sha256"] and _rel_logs(dj["teacher"]) == c1["source"]
+    assert dj["teacher_facts"]["iter"] == pick["file_iter"] and dj["teacher_facts"]["sha256"] == c1["sha256"]
     assert dj["name"] == stu["distill"]["run_name"] and Path(stu["source"]).parent.name.endswith("_" + dj["name"])
-    assert dj["env_file"].endswith("/" + stu["distill"]["env_file"]) and stu["distill"]["teacher"] == TDR
+    assert dj["env_file"].endswith("/" + stu["distill"]["env_file"]) and stu["distill"]["teacher"] == C1
+    assert (dj["seed"], dj["num_envs"]) == (stu["distill"]["seed"], stu["distill"]["num_envs"]) == (m["seed"], 192)
+    assert dj["stripped"] == stu["distill"]["stripped"]
     assert [c["iter"] for c in sel["candidates"]] == stu["distill"]["candidates"]
-    assert sel["ranked"] == [f"c{i}" for i in stu["distill"]["prescreen_rank"]]
-    assert stu["distill"]["seed"] == m["seed"]
+    by_iter = {v["iter"]: k for k, v in sel["candidates_by_sha"].items()}
+    assert sel["ranked"] == [by_iter[i] for i in stu["distill"]["prescreen_rank"]]
+    assert sel["candidates_by_sha"][stu["distill"]["selected"]]["sha256"] == stu["sha256"]
 
 
 def test_every_policy_file_is_tracked_and_nothing_else():
@@ -358,16 +461,19 @@ def test_every_policy_file_is_tracked_and_nothing_else():
     assert tracked <= expected, f"tracked files the manifest does not name (git rm them): {sorted(tracked - expected)}"
     on_disk = {str(p.relative_to(REPO)) for p in POLICY.rglob("*") if p.is_file() and "__pycache__" not in p.parts}
     assert on_disk == expected, sorted(on_disk ^ expected)
-    # the superseded-but-kept files are expected, tracked and on disk; neither student checkpoint is among them
+    assert len(expected) == 36
+    # the superseded-but-kept files are expected, tracked and on disk; no student checkpoint is among them
     kept = {f"{rel}/{f['dir']}/{f['file']}" for e in m["superseded"] for f in e.get("files") or []}
     assert kept == {f"{rel}/{d}/{s['file']}" for d, s in zip(S18_STAGES, _sup(m, "S1_s18")["stages"])} | {
         f"{rel}/stand_net/model_4000.pt", f"{rel}/stand_net/model_5000.pt",
-        *(f"{rel}/{OLD_STUDENT}/{f}" for f in ("policy.onnx", "depth_latest.onnx", "omni_student_io.json")),
-        f"{rel}/{OLD_STAND}/model_5000.pt", f"{rel}/{OLD_STAND}/model_4000.pt"}
-    assert kept <= expected & tracked & on_disk
+        *(f"{rel}/{OLD_STUDENT}/{f}" for f in STUDENT_EXPORTS),
+        f"{rel}/{OLD_STAND}/model_5000.pt", f"{rel}/{OLD_STAND}/model_4000.pt",
+        *(f"{rel}/{RSD_STUDENT}/{f}" for f in STUDENT_EXPORTS),
+        f"{rel}/{RSD_STAND}/model_5000.pt", f"{rel}/{RSD_STAND}/model_4000.pt"}
+    assert len(kept) == 18 and kept <= expected & tracked & on_disk
     st = _stage(m, STUDENT)
-    old = _sup(m, "F19_student")["block"]
-    for d, s in ((STUDENT, st), (OLD_STUDENT, old)):
+    for d, s in ((STUDENT, st), (RSD_STUDENT, _sup(m, "RSD_student")["block"]),
+                 (OLD_STUDENT, _sup(m, "F19_student")["block"])):
         assert f"{rel}/{d}/{s['file']}" not in expected | tracked | on_disk, d
         assert not list((POLICY / d).glob("*.pt")), d
 
@@ -387,23 +493,24 @@ def test_readme_is_generated_from_the_manifest():
     assert "KRABBY_OMNI_CLOCK_HIDE=1" in text and "KRABBY_OMNI_COMMAND_FRAME=world" in text
     # the play / eval commands must rebuild the soft-std policy, or the strict load refuses the checkpoint
     assert "KRABBY_STD_PARAM=soft" in text
-    # TDR ships; the README names every head and the teacher task
-    assert f"policy/{TDR}/model_28991.pt" in text and "Isaac-Crab-Hex-Omni-Teacher-v0" in text
-    for k, d in (("phase1", "f19_5_c6x_clockfree"), ("phase2", "f19_6_p2a_field"), ("payload", TDR),
+    # c1 ships; the README names every head and the teacher task
+    assert f"policy/{C1}/model_29500.pt" in text and "Isaac-Crab-Hex-Omni-Teacher-v0" in text
+    for k, d in (("phase1", "f19_5_c6x_clockfree"), ("phase2", "f19_6_p2a_field"), ("payload", C1),
                  ("student", STUDENT), ("stand", STAND_DIR)):
         assert f"{k} [`{d}/`]" in text, k
-    # T* and p2a stay live stages with their evals of record; TDR's rows / payload read are the manifest's
+    # T*, p2a and TDR stay live stages with their evals of record; c1's rows / payload read are the manifest's
     assert f"| `{TSTAR}/` | `field_hard` | 0.905 | 200 |" in text
     assert "| `f19_6_p2a_field/` | `field_hard` | 0.7725 | 400 |" in text
     assert f"| `{TSTAR}/` | `0:180` | 0 yes, 45 yes, 90 yes, 135 yes, 180 NO | 135 | 180 |" in text
-    tdr = tool.stage_by_dir(m, TDR)
-    for row, r in tdr["evals"]["rows"].items():
-        assert f"| `{TDR}/` | `{row}` | {r['completion']} | {r['n']} |" in text, row
-    assert f"| `{TDR}/` | `0:180` | 0 yes, 90 yes, 135 yes | >= 135 (180 not read) | not read |" in text
+    for d in (TDR, C1):
+        for row, r in tool.stage_by_dir(m, d)["evals"]["rows"].items():
+            assert f"| `{d}/` | `{row}` | {r['completion']} | {r['n']} |" in text, (d, row)
+        assert f"| `{d}/` | `0:180` | 0 yes, 90 yes, 135 yes | >= 135 (180 not read) | not read |" in text, d
     # the student section: its own task and role, the cited (not bundled) checkpoint, the bundled exports
     st = tool.stage_by_dir(m, STUDENT)
     assert f"## The depth student -- [`{STUDENT}/`]({STUDENT}/) (kind `distill`)" in text
-    assert f"## The depth student -- [`{OLD_STUDENT}/`]" not in text
+    for old in (RSD_STUDENT, OLD_STUDENT):
+        assert f"## The depth student -- [`{old}/`]" not in text, old
     assert "python scripts/rsl_rl/play.py --task Isaac-Crab-Hex-Omni-Student-Play-v0 --enable_cameras \\" in text
     assert "--task Isaac-Crab-Hex-Omni-Student-Play-v0 --policy-role student \\" in text
     assert f"--checkpoint $PWD/{st['source'].removeprefix('parkour/')}" in text
@@ -415,13 +522,12 @@ def test_readme_is_generated_from_the_manifest():
     for e in m["superseded"]:
         for f in e.get("files") or []:
             assert f"[`{f['dir']}/{f['file']}`]({f['dir']}/{f['file']}) -- sha256 `{f['sha256']}`" in text
-    assert f"**Current head:** [`{TDR}/model_28991.pt`]" in text
+    assert f"**Current head:** [`{C1}/model_29500.pt`]" in text
 
 
 def test_rsi_bank_asset_is_the_bank_the_omni_presets_use():
     """The bundled RSI bank is byte-identical to the bank every KRABBY_OMNI_PHASE preset seeds resets from."""
-    sys.path.insert(0, str(PKG / "config" / "crab_hex"))
-    import crab_hex_omni_phases as ph  # noqa: E402
+    ph = _load(PKG / "config" / "crab_hex" / "crab_hex_omni_phases.py", "crab_hex_omni_phases_policy_test")
 
     tool = _tool()
     m = tool.load_manifest()
@@ -439,23 +545,29 @@ def test_rsi_bank_asset_is_the_bank_the_omni_presets_use():
         env = _env_file(F19 / f"envs/{sid}.train.env")
         assert env["KRABBY_RSI_BANK"].startswith(REPO_TOKEN + "/"), sid           # checkout-independent as committed
         assert _at_checkout(env["KRABBY_RSI_BANK"]) == str(preset_bank) and env["KRABBY_RSI_FRAC"] == "0", sid
-    # TDR's composed train env (its run record, RSD_TDR_s19.train.env) turns RSI off too (the bank comes from the
-    # preset, KRABBY_OMNI_PHASE 2a); the asset's used_by says so
-    tdr = tool.stage_by_dir(m, TDR)
-    run_env = _json(PKG / tdr["run_record"])["env"]["krabby"]
-    for env in (run_env, _env_file(PKG / tdr["env_file"])):
-        assert env["KRABBY_RSI_FRAC"] == "0" and env["KRABBY_OMNI_PHASE"] == tdr["phase"]
-        assert "KRABBY_RSI_BANK" not in env or env["KRABBY_RSI_BANK"].endswith("/" + str(preset_bank.relative_to(REPO)))
-    assert tdr["env_file"] in banks[0]["used_by"] and "KRABBY_RSI_FRAC=0" in banks[0]["used_by"]
+    # TDR's and c1's composed train envs (their run records; RSD_TDR_s19.train.env, RT_train.env) and C1S's distill
+    # env turn RSI off too (the bank comes from the preset, KRABBY_OMNI_PHASE 2a); the asset's used_by says so
+    tdr, c1, stu = (tool.stage_by_dir(m, d) for d in (TDR, C1, STUDENT))
+    for s, run_env in ((tdr, _json(PKG / tdr["run_record"])["env"]["krabby"]),
+                       (c1, _json(PKG / c1["run_record"])["krabby"])):
+        for env in (run_env, _env_file(PKG / s["env_file"])):
+            assert env["KRABBY_RSI_FRAC"] == "0" and env["KRABBY_OMNI_PHASE"] == s["phase"], s["dir"]
+            assert "KRABBY_RSI_BANK" not in env or env["KRABBY_RSI_BANK"].endswith("/" + str(
+                preset_bank.relative_to(REPO))), s["dir"]
+        assert s["env_file"] in banks[0]["used_by"], s["dir"]
+    denv = _env_file(PKG / stu["distill"]["env_file"])
+    assert denv["KRABBY_RSI_FRAC"] == "0" and "KRABBY_RSI_BANK" not in denv
+    assert stu["distill"]["env_file"] in banks[0]["used_by"] and "KRABBY_RSI_FRAC=0" in banks[0]["used_by"]
 
 
 def test_obs_contract_current_head_is_clock_hidden():
     """c6x and every later head (the student included) trained with KRABBY_OMNI_CLOCK_HIDE=1; the earlier stages with the
     clock visible; the manifest's carried semantics cover exactly the driver's EVAL_CARRY set minus the body-only
-    envelope keys (every head here is a WORLD-frame head), and every stage's full eval env is EXACTLY what the driver's
-    suite eval (run_phases.eval_morph: keep CANARY_KEYS from ph.FORMATION) builds from that stage's preset + overlay --
-    and exactly the tracked F19 env file the pipeline evaluated it with (TDR: T*'s; the student: its selection rows').
-    The training-only rod-speed DR knob is in no eval env and is not carried."""
+    envelope keys (every head here is a WORLD-frame head), and every stage's full (STOCK) eval env is EXACTLY what the
+    driver's suite eval (run_phases.eval_morph: keep CANARY_KEYS from ph.FORMATION) builds from that stage's preset +
+    overlay -- and exactly the tracked F19 env file the pipeline evaluated it with (TDR, c1 and the student: T*'s
+    p3b.env). The training-only rod-speed DR, rough-terrain and friction knobs are in no eval or play env and are not
+    carried; c1's only overlay key in its eval env is the geometry, which a stock row sets to ring."""
     tool = _tool()
     m = tool.load_manifest()
     cur = tool.stage_by_dir(m, m["current"])
@@ -464,43 +576,103 @@ def test_obs_contract_current_head_is_clock_hidden():
     assert tool.play_env(m, cur)[HIDE] == "1"
     for s in m["stages"]:
         assert str(s["obs_contract"][HIDE]) == ("1" if s["dir"] in CLOCK_HIDDEN else "0"), s["dir"]
-    # phase 2, the payload stages, TDR and the student did not change the policy's inputs: their eval env is c6x's
+    # phase 2, the payload stages, TDR, c1 and the student did not change the policy's inputs: their eval env is c6x's
     c6x = tool.eval_env(m, tool.stage_by_dir(m, "f19_5_c6x_clockfree"))
-    for d in ("f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR, STUDENT):
+    for d in ("f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR, C1, STUDENT):
         assert tool.eval_env(m, tool.stage_by_dir(m, d)) == c6x, d
     assert m["obs_contract"]["width"] == 1149
     rp = _load(RUN_PHASES, "omni_run_phases_policy_test")
     carry = m["obs_contract"]["eval_env"]["carry"]
+    fixed = m["obs_contract"]["eval_env"]["fixed"]
     assert set(carry) | {HIDE} == set(rp.EVAL_CARRY) - set(rp.EVAL_CARRY_BODY_ONLY)
     assert carry[rp.COMMAND_FRAME_VAR] == "world"
-    assert DR_VAR not in rp.EVAL_CARRY and DR_VAR not in carry and DR_VAR not in m["obs_contract"]["eval_env"]["fixed"]
+    training_only = (DR_VAR, FRICTION)
+    for k in training_only:
+        assert k not in rp.EVAL_CARRY and k not in carry and k not in fixed, k
+    assert not [k for k in (*carry, *fixed) if k.startswith(SITE_PREFIX)]
+    assert fixed[GEOM] == "ring"
     plan = _json(F19 / "plan.json")
-    sel_rows = _json(RES / "sel.rows.json")
     for s in m["stages"]:
         base, ov = _overlay(s["overlay_ref"])
         assert base == s["phase"], f"{s['dir']}: chain base {base} != manifest phase {s['phase']}"
         want = rp.eval_env_for(rp.ph.PHASES[s["phase"]], m["plant"], keep=rp.CANARY_KEYS,
                                keep_source=rp.ph.FORMATION, carry_overlay=ov)
-        assert tool.eval_env(m, s) == want, s["dir"]
-        assert DR_VAR not in tool.eval_env(m, s) and DR_VAR not in tool.play_env(m, s), s["dir"]
-        for k in s.get("overlay_delta") or {}:
-            assert k not in tool.eval_env(m, s), (s["dir"], k)
-        # the tracked env file the stage was evaluated with (TDR: T*'s p3b.env; the student: the sel rows' env file)
-        if s["kind"] == "distill":
-            envf = {Path(v["job"]["env_file"]).name for k, v in sel_rows.items()
-                    if k.startswith(f"{s['distill']['selected']}:suite@")}
-            assert envf == {"p3b.env"}
-            assert tool.eval_env(m, s) == _env_file(F19 / "envs/p3b.env")
-        elif s["dir"] == TDR:
-            assert tool.eval_env(m, s) == _env_file(F19 / "envs/p3b.env")
+        ev, pv = tool.eval_env(m, s), tool.play_env(m, s)
+        assert ev == want, s["dir"]
+        for k in training_only:
+            assert k not in ev and k not in pv, (s["dir"], k)
+        assert not [k for k in (*ev, *pv) if k.startswith(SITE_PREFIX)], s["dir"]
+        assert ev[GEOM] == "ring", s["dir"]
+        # an overlay_delta key never reaches the stock eval env -- except c1's geometry, which it REPLACES (field ->
+        # site in training); a stock row keeps ring
+        delta = s.get("overlay_delta") or {}
+        assert set(delta) & set(ev) == ({GEOM} if s["dir"] == C1 else set()), s["dir"]
+        for k in set(delta) & set(ev):
+            assert ev[k] == "ring" != delta[k], (s["dir"], k)
+        # the tracked env file the stage was evaluated with (TDR, c1, the student: T*'s p3b.env)
+        if s["dir"] in (TDR, C1, STUDENT):
+            assert ev == _env_file(F19 / "envs/p3b.env"), s["dir"]
         else:
-            assert tool.eval_env(m, s) == _env_file(F19 / plan["stages"][s["stage"]]["env"]), s["dir"]
+            assert ev == _env_file(F19 / plan["stages"][s["stage"]]["env"]), s["dir"]
+    # the superseded c31000's selection rows ran T*'s p3b.env (the rod-speed DR campaign's sel.rows.json)
+    old = _sup(m, "RSD_student")["block"]
+    envf = {Path(v["job"]["env_file"]).name for k, v in _json(RES / "sel.rows.json").items()
+            if k.startswith(f"{old['distill']['selected']}:suite@")}
+    assert envf == {"p3b.env"} and tool.eval_env(m, old) == _env_file(F19 / "envs/p3b.env")
+
+
+def test_kind_rows_contract_is_the_campaign_manifest():
+    """The rough-terrain KIND rows' env (``obs_contract.kind_rows``, data only): this branch's code (the P2 pin), the
+    campaign's frozen rt_kind_eval.env (= the stock eval env minus the geometry: 26 keys) + each row's block copied
+    VERBATIM from the frozen manifests/scenarios_rt.yaml; the rows of record are exactly the bands every c1 / C1S gate and
+    read row used (the confirm's G kinds + solved rows, the P2 read's T / T-reg / report kinds, the terrain videos);
+    KRABBY_RT_FRICTION is in the gravel rows' block only, with c1's training value; the hazard text states the rule."""
+    tool = _tool()
+    m = tool.load_manifest()
+    kr = m["obs_contract"]["kind_rows"]
+    c1 = tool.stage_by_dir(m, C1)
+    pin = _json(P2 / "pin.json")
+    assert kr["code_sha"] == pin["code_sha"] == _json(RTRES / "pin.json")["code_sha"]
+    assert kr["env_file"] == "experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env"
+    assert kr["manifest"] == "experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml"
+    for rel in ("manifests/envs/rt_kind_eval.env", "manifests/scenarios_rt.yaml"):
+        assert _sha(RT / rel) == pin["frozen_files"][rel], rel
+    kenv = _env_file(PKG / kr["env_file"])
+    ev = tool.eval_env(m, c1)
+    assert kenv == {k: v for k, v in ev.items() if k != GEOM} and len(kenv) == 26 and ev[GEOM] == "ring"
+    assert kr["recorded_env_keys"]["stock"] == len(ev) == 27
+    sc = _scenarios_rt()
+    for rid, blk in kr["rows"].items():
+        want = {k: str(v) for k, v in sc[rid]["env"].items()}
+        assert list(blk.items()) == list(want.items()), f"{rid}: not the scenarios_rt.yaml block verbatim"
+    # every kind row of the manifest (21) has the shape; the rows of record are the decisive bands
+    for rid, s in sc.items():
+        kind = re.fullmatch(r"rt_(\w+)_b\d__omni", rid).group(1)
+        blk = {k: str(v) for k, v in s["env"].items()}
+        assert (blk[GEOM], blk["KRABBY_SITE_LADDER"], blk["KRABBY_SITE_MIX"]) == ("site", "rt", f"{kind}=20"), rid
+        assert (FRICTION in blk) is (kind == "gravel"), rid
+        if FRICTION in blk:
+            assert blk[FRICTION] == c1["rt"][FRICTION] == c1["overlay_delta"][FRICTION] == "gravel:0.2:0.5", rid
+        assert not set(blk) & set(kenv), rid               # the block adds the terrain; it never overrides the contract
+        assert len({**kenv, **blk}) == kr["recorded_env_keys"]["gravel_row" if kind == "gravel" else "kind_row"], rid
+    gf = _json(RTRES / "short_arm" / "gates_fresh.json")
+    rd = _json(P2 / "read.json")
+    gated = {e["row"] for e in gf["G"]["kinds"].values()} | {e["row"] for e in gf["R"]["solved"].values()}
+    read_rows = {e["row"] for blk in ("T", "T_reg", "report") for e in rd[blk]["kinds"].values()}
+    videos = {c["row"] for c in _json(P2 / "terrain_videos.json")["clips"].values()}
+    assert set(kr["rows"]) == gated == read_rows == videos and len(kr["rows"]) == 7
+    hz = m["obs_contract"]["hazard"]
+    for s in ("ROUGH TERRAIN", FRICTION, "site", "SILENT"):
+        assert s in hz, s
+    assert "code_sha 89c1916b" in kr["what"] and "VERBATIM" in kr["what"] and FRICTION in kr["what"]
 
 
 def test_eval_stamps_are_the_stage_files_under_the_manifest_env():
     """Every stage's eval stamps (untracked; this checkout or the main one, skipped when on neither) scored exactly the
     stage's file, under exactly the manifest's eval env, with the policy width 1149; the suite@1 stamp's per-category
-    suite numbers are the manifest's."""
+    suite numbers are the manifest's; every obstacle row's per-seed completion is its stamp's; every recorded KIND row
+    (c1's confirm rows and TDR's references, C1S's and c31000's P2 read rows) ran rt_kind_eval.env + its row block,
+    KRABBY_RT_FRICTION on gravel only; c1's x0.7 L090 stress seeds are its confirm stamps'."""
     tool = _tool()
     m = tool.load_manifest()
     rp = _load(RUN_PHASES, "omni_run_phases_policy_stamp_test")
@@ -524,6 +696,51 @@ def test_eval_stamps_are_the_stage_files_under_the_manifest_env():
                 for k, v in e.items():
                     got = cat[c][k]
                     assert (got == v) if k == "n" else abs(round(got, 3) - v) < 1e-9, (s["dir"], c, k, got, v)
+        # the obstacle rows (and the teacher-role rows) per env seed are their stamps' completion
+        blocks = [s["evals"].get("rows") or {}, {k: v for k, v in (s["evals"].get("teacher_role") or {}).items()
+                                                 if isinstance(v, dict) and "stamps" in v}]
+        for rows in blocks:
+            for name, r in rows.items():
+                for k, stamp in enumerate(r.get("stamps") or [] if r.get("per_env_seed") else []):
+                    st = _local(stamp)
+                    if st is None or not (st / "scenario_metrics.json").is_file():
+                        continue
+                    got = _json(st / "scenario_metrics.json")["aggregate"]["schedule_completion_rate"]
+                    assert abs(got - r["per_env_seed"][k]) < 5e-4, (s["dir"], name, k, got)
+                    seen += 1
+    # the kind rows: every served kind stamp of the confirm (c1, TDR) and of the P2 read (C1S, c31000, c1, TDR)
+    shas = {tool.stage_by_dir(m, d)["sha256"] for d in (TDR, C1, STUDENT)} | {_sup(m, "RSD_student")["block"]["sha256"]}
+    served = [*_json(RTRES / "short_arm" / "gates_fresh.json")["served_checks"]["served"],
+              *_json(P2 / "read.json")["served"]]
+    kinds = [x for x in served if x["rid"].startswith("rt_")]
+    assert kinds and {x["sha256"] for x in kinds} <= shas
+    roles = {tool.stage_by_dir(m, C1)["sha256"]: "teacher", tool.stage_by_dir(m, TDR)["sha256"]: "teacher",
+             tool.stage_by_dir(m, STUDENT)["sha256"]: "student", _sup(m, "RSD_student")["block"]["sha256"]: "student"}
+    for x in kinds:
+        st = _local(_rel_logs(x["stamp"]))
+        if st is None or not (st / "run_meta.json").is_file():
+            continue
+        meta = _json(st / "run_meta.json")
+        env = meta["env_vars"]
+        assert env == _kind_env(x["rid"]), (x["rid"], x["stamp"])
+        assert (FRICTION in env) is x["rid"].startswith("rt_gravel_"), x["stamp"]
+        assert meta["checkpoint_sha256"] == x["sha256"] and meta["obs_dim_actual"] == 1149, x["stamp"]
+        assert (meta["task"], meta["role"]) == ("Isaac-Crab-Hex-Omni-Student-Play-v0", roles[x["sha256"]]), x["stamp"]
+        seen += 1
+    # c1's stress seeds: the confirm-2 x0.7 L090 stamps (c1 and TDR's RTF reference) per real env seed
+    c1, tdr = tool.stage_by_dir(m, C1), tool.stage_by_dir(m, TDR)
+    e = c1["evals"]["stress"]["x0p7_L090"]
+    for who, sha in (("c1", c1["sha256"]), ("tdr", tdr["sha256"])):
+        rows = sorted((x for x in served if x["rid"] == "R_x07_L090_field_light" and x["sha256"] == sha
+                       and "real_es" in x and "/rough_terrain/lr/" in x["stamp"]), key=lambda x: x["real_es"])
+        assert [x["real_es"] for x in rows] == [5, 6], who
+        for x, want in zip(rows, e[who]):
+            st = _local(_rel_logs(x["stamp"]))
+            if st is None or not (st / "scenario_metrics.json").is_file():
+                continue
+            got = _json(st / "scenario_metrics.json")["aggregate"]["schedule_completion_rate"]
+            assert abs(got - want) < 5e-4, (who, x["stamp"], got, want)
+            seen += 1
     if not seen:
         pytest.skip("no eval stamp of a stage on this machine (raw stamps are untracked)")
 
@@ -533,15 +750,17 @@ def test_recipe_construction_is_what_every_stage_trained():
     except the keys a stage declares in its own ``construction_delta`` -- which must be what that overlay trained and
     never a POLICY-structure knob; the F19 s1 .. p2a overlays are byte-identical to the superseded seed-18 lineage's
     (same recipe, new seed); the payload knobs appear on the payload stages only; TDR trained T*'s overlay plus exactly
-    the DR knob (its recorded and tracked env); the distill stage trained under TDR's composed env plus the DR (no
-    ramp) minus exactly the student-runner-refused knobs (STD_PARAM / INIT_STD kept), as F19's student did under T*'s."""
+    the DR knob (its recorded and tracked env); c1 trained TDR's env with exactly the rough-terrain campaign's
+    PLANNED_SET + the site mix (scripts/rt_machinery.py; its recorded and tracked env); the distill stage trained under
+    c1's composed env (preset + plant + overlay + the rough-terrain keys + the DR without its ramp) minus exactly the
+    student-runner-refused knobs (STD_PARAM / INIT_STD kept), as c31000 did under TDR's and F19's student under T*'s."""
     m = _m()
     con = m["construction"]
     assert con["ppo"]["KRABBY_STD_PARAM"] == m["obs_contract"]["eval_env"]["carry"]["KRABBY_STD_PARAM"]
     assert str(con["ppo"]["KRABBY_INIT_STD"]) == str(m["obs_contract"]["eval_env"]["carry"]["KRABBY_INIT_STD"])
     deltas = {s["dir"]: s.get("construction_delta") or {} for s in m["stages"]}
     assert {d: v for d, v in deltas.items() if v} == {d: {"KRABBY_ACTION_RATE_W": "-0.05"} for d in (
-        "f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR)}
+        "f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR, C1)}
     old = {s["stage"]: s for s in _sup(m, "S1_s18")["stages"]}
     for s in m["stages"]:
         _, ov = _overlay(s["overlay_ref"])
@@ -557,38 +776,64 @@ def test_recipe_construction_is_what_every_stage_trained():
         assert ov.get(HIDE, "0") == str(s["obs_contract"][HIDE]), s["dir"]
         pay = {k: v for k, v in ov.items() if k.startswith("KRABBY_PAYLOAD_")}
         assert pay == {k: str(v) for k, v in ((s.get("payload") or {}).get("knobs") or {}).items()}, s["dir"]
-        assert DR_VAR not in ov, s["dir"]
+        assert DR_VAR not in ov and FRICTION not in ov and not [k for k in ov if k.startswith(SITE_PREFIX)], s["dir"]
         if s["stage"] in old:
             _, ov_old = _overlay(old[s["stage"]]["overlay_ref"])
             assert ov == ov_old, f"{s['dir']}: the F19 overlay differs from the seed-18 lineage's"
             assert _chain_stage(s["overlay_ref"])["iters"] == _chain_stage(old[s["stage"]]["overlay_ref"])["iters"]
     # TDR: T*'s chain stage (the same overlay) + the DR knob, nothing else; recorded by its run and its env file
-    tstar, tdr = _stage(m, TSTAR), _stage(m, TDR)
+    tstar, tdr, c1 = _stage(m, TSTAR), _stage(m, TDR), _stage(m, C1)
     assert tdr["overlay_ref"] == tstar["overlay_ref"]
     assert tdr["overlay_delta"] == {DR_VAR: "0.6:1.35:12000"} == {DR_VAR: tdr["dr"][DR_VAR]}
     _, ov = _overlay(tdr["overlay_ref"])
     composed = {"KRABBY_OMNI_PHASE": tdr["phase"], "KRABBY_PLANT": m["plant"], **ov, **tdr["overlay_delta"]}
     assert _json(PKG / tdr["run_record"])["env"]["krabby"] == composed
-    assert _krabby(_env_file(PKG / tdr["env_file"])) == composed
+    tdr_env = _krabby(_env_file(PKG / tdr["env_file"]))
+    assert tdr_env == composed
     assert "training-only" in tdr["dr"]["what"]
+    # c1: TDR's training env with EXACTLY the campaign's PLANNED_SET + the site mix (rt_machinery.py, read as source);
+    # the geometry is REPLACED (field -> site), the DR loses its ramp, the ladder / friction / mix are added
+    mach = RT / "scripts" / "rt_machinery.py"
+    planned = {**_ast_const(mach, "PLANNED_SET"), _ast_const(mach, "PLANNED_MIX_VAR"): c1["rt"]["KRABBY_SITE_MIX"]}
+    assert c1["overlay_ref"] == tdr["overlay_ref"]
+    assert c1["overlay_delta"] == planned
+    assert {k: v for k, v in c1["rt"].items() if k != "what"} == {k: v for k, v in planned.items() if k != DR_VAR}
+    assert c1["dr"] == {"KRABBY_DR_ROD_SPEED": planned[DR_VAR], "what": c1["dr"]["what"]} and planned[DR_VAR] == "0.6:1.35"
+    assert "training-only" in c1["rt"]["what"] and "training-only" in c1["dr"]["what"]
+    rt_env = _krabby(_env_file(PKG / c1["env_file"]))
+    assert {k: v for k, v in rt_env.items() if tdr_env.get(k) != v} == planned and set(tdr_env) <= set(rt_env)
+    assert tdr_env[GEOM] == "field" and rt_env[GEOM] == "site"
+    c1_composed = {"KRABBY_OMNI_PHASE": c1["phase"], "KRABBY_PLANT": m["plant"], **ov, **c1["overlay_delta"]}
+    assert rt_env == c1_composed == _json(PKG / c1["run_record"])["krabby"]
+    assert _json(PKG / c1["run_record"])["preflight"]["PF2"]["ok"]
     # the refused list is read from the student spec's source (as distill.sh does), not by importing the config module
-    import ast
     src = (PKG / "config" / "crab_hex" / "omni_student_spec.py").read_text()
     refused = next(ast.literal_eval(n.value) for n in ast.walk(ast.parse(src)) if isinstance(n, ast.Assign)
                    and any(getattr(t, "id", None) == "STUDENT_RUNNER_KNOBS_REFUSED" for t in n.targets))
-    assert DR_VAR not in refused
-    # the distill stage: TDR's composed env (preset + plant + overlay) + the DR without its ramp, minus the refused
+    assert DR_VAR not in refused and FRICTION not in refused and not [k for k in refused if k.startswith(SITE_PREFIX)]
+    # the distill stage: c1's composed env (preset + plant + overlay + rough-terrain keys + the DR), minus the refused
     st = next(s for s in m["stages"] if s["kind"] == "distill")
     teacher = _stage(m, st["distill"]["teacher"])
-    assert st["distill"]["teacher"] == TDR and st["overlay_ref"] == teacher["overlay_ref"]
+    assert st["distill"]["teacher"] == C1 and st["overlay_ref"] == teacher["overlay_ref"]
     assert st["distill"]["dr"] == {DR_VAR: "0.6:1.35"}
+    assert st["distill"]["rt"] == {k: v for k, v in c1["overlay_delta"].items() if k != DR_VAR}
     denv = _env_file(PKG / st["distill"]["env_file"])
-    assert denv == {"KRABBY_OMNI_PHASE": st["phase"], "KRABBY_PLANT": m["plant"], **ov, **st["distill"]["dr"]}
-    assert _json(RES / "runs" / "RSD_ST_s19.distill.json")["env_file_krabby"] == _krabby(denv)
+    assert denv == {"KRABBY_OMNI_PHASE": st["phase"], "KRABBY_PLANT": m["plant"], **ov, **st["distill"]["rt"],
+                    **st["distill"]["dr"]}
+    assert _krabby(denv) == rt_env, "C1S distilled on c1's training mix"
+    assert _json(P2 / "runs" / "RT_ST_s19.distill.json")["env_file_krabby"] == _krabby(denv)
     assert st["distill"]["stripped"] == [k for k in refused if k in denv]
     assert {"KRABBY_STD_PARAM", "KRABBY_INIT_STD"} <= set(denv) - set(st["distill"]["stripped"])
     for k, v in st["removal_set"].items():
         assert denv.get(k) == str(v), k
+    # the superseded c31000: TDR's composed env + the DR without its ramp, the same stripped list
+    rsd_st = _sup(m, "RSD_student")["block"]
+    assert rsd_st["distill"]["teacher"] == TDR and rsd_st["overlay_ref"] == tdr["overlay_ref"]
+    assert rsd_st["distill"]["dr"] == {DR_VAR: "0.6:1.35"}
+    renv = _env_file(PKG / rsd_st["distill"]["env_file"])
+    assert renv == {"KRABBY_OMNI_PHASE": rsd_st["phase"], "KRABBY_PLANT": m["plant"], **ov, **rsd_st["distill"]["dr"]}
+    assert _json(RES / "runs" / "RSD_ST_s19.distill.json")["env_file_krabby"] == _krabby(renv)
+    assert rsd_st["distill"]["stripped"] == [k for k in refused if k in renv] == st["distill"]["stripped"]
     # the superseded F19 student: T*'s composed env, no DR, the same stripped list
     old_st = _sup(m, "F19_student")["block"]
     assert old_st["distill"]["teacher"] == TSTAR and old_st["overlay_ref"] == tstar["overlay_ref"]
@@ -598,20 +843,23 @@ def test_recipe_construction_is_what_every_stage_trained():
 
 
 def test_payload_and_field_stages_with_their_evals_of_record():
-    """p2a: preset 2a on the teacher task, the wall field, the clock still removed; p3a / p3b / TDR: the same + their
+    """p2a: preset 2a on the teacher task, the wall field, the clock still removed; p3a / p3b / TDR / c1: the same + their
     payload knobs; the F19 curves and max_stable exactly as the tracked gate records say, TDR's as G1's nominal cells
-    (180 kg not read); every obstacle row pooled consistently and equal to the record it was read from (F19: the gate's
-    own row reads; TDR: G1 N / R and the stand re-pairing's REFS(TDR) calibration); T* = p3b by the recorded rule; every
-    stage FAST / FAST and its gate record's verdict and head sha as the manifest says; the student's selection and G2."""
+    and c1's as the confirm's completion rows (180 kg read for neither); every obstacle row pooled consistently and equal
+    to the record it was read from (F19: the gate's own row reads; TDR: G1 N / R and the stand re-pairing's REFS(TDR)
+    calibration; c1: the P2 stand re-pair's REFS(c1) calibration and the P2 selection's teacher rows); T* = p3b by the
+    recorded rule; every stage FAST / FAST and its gate record's verdict and head sha as the manifest says; c1's confirm
+    block is the confirm gate's (gates_fresh.json, HALT_R, overruled by the user); the student's selection and P2 read."""
     m = _m()
     st = {s["dir"]: s for s in m["stages"]}
     p2a = st["f19_6_p2a_field"]
     assert (p2a["task"], p2a["play_task"]) == ("Isaac-Crab-Hex-Omni-Teacher-v0", "Isaac-Crab-Hex-Omni-Walk-Play-v0")
-    assert (st[TDR]["task"], st[TDR]["play_task"]) == (p2a["task"], p2a["play_task"])
+    for d in (TDR, C1):
+        assert (st[d]["task"], st[d]["play_task"]) == (p2a["task"], p2a["play_task"]), d
     assert p2a["overlay_ref"] == "experiments/2026-10-16_task4_pipeline/F19/candidates.yaml chains.F19_p2a stage p2a"
-    for d in ("f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR):
+    for d in ("f19_6_p2a_field", "f19_7_p3a_payload90", TSTAR, TDR, C1):
         _, ov = _overlay(st[d]["overlay_ref"])
-        for k, v in {"KRABBY_FLAT_TERRAIN_GEOM": "field", "KRABBY_FIELD_EDGES": "wall", "KRABBY_PHASEOUT": "",
+        for k, v in {GEOM: "field", "KRABBY_FIELD_EDGES": "wall", "KRABBY_PHASEOUT": "",
                      "KRABBY_FLAT_TERRAIN_DIFF": "0.20:1.0", "KRABBY_TERRAIN_PROMOTE": "0.7:0.4"}.items():
             assert ov.get(k) == v, (d, k, ov.get(k))
         for k, v in st[d]["removal_set"].items():
@@ -620,8 +868,9 @@ def test_payload_and_field_stages_with_their_evals_of_record():
         assert not st[d].get("payload"), d
     assert st["f19_7_p3a_payload90"]["payload"]["knobs"]["KRABBY_PAYLOAD_KG"] == "0:90"
     assert st[TSTAR]["payload"]["knobs"]["KRABBY_PAYLOAD_KG"] == "0:180"
-    assert st[TDR]["payload"]["knobs"] == st[TSTAR]["payload"]["knobs"]
-    assert st[TDR]["field_env"] == st[TSTAR]["field_env"] and st[TDR]["removal_set"] == st[TSTAR]["removal_set"]
+    for d in (TDR, C1):
+        assert st[d]["payload"]["knobs"] == st[TSTAR]["payload"]["knobs"], d
+        assert st[d]["field_env"] == st[TSTAR]["field_env"] and st[d]["removal_set"] == st[TSTAR]["removal_set"], d
     dl = _deliverable()
     for s in m["stages"][:len(F19_STAGES)]:
         g = s.get("gate")
@@ -658,7 +907,7 @@ def test_payload_and_field_stages_with_their_evals_of_record():
     assert by["p3b"]["chosen"] and by["p3b"]["zero_kg"] == "PASS" and not by["p3a"]["chosen"]
     assert by["p3a"]["zero_kg"] == "FAIL" and by["p3a"]["accepted"]
     assert "HALT" == st["f19_7_p3a_payload90"]["gate"]["verdict"] and "accepted" in st["f19_7_p3a_payload90"]["gate"]["halt"].lower()
-    # TDR: the teacher gate G1 (its own record shape: S stress / N nominal / R paired 0-kg vs in-pin T*)
+    # TDR (a live stage): the teacher gate G1 (its own record shape: S stress / N nominal / R paired 0-kg vs in-pin T*)
     tdr = st[TDR]
     g1 = _json(PKG / tdr["gate"]["record"])
     assert tdr["gate"]["record"] == "experiments/2026-11-07_rod_speed_dr/results/g1.json"
@@ -686,7 +935,8 @@ def test_payload_and_field_stages_with_their_evals_of_record():
     assert rows["field_light"]["per_env_seed"] == _seed_values(nom0)
     assert rows["field_light"]["completion"] == g1["N_pooled"]["T00_nominal_L000_A"]["head"] == rrow["field_light"]["head"]
     assert rows["ring_obst"]["completion"] == rrow["ring_obst"]["head"]
-    # the Walk-Play REFS(TDR) rows: the stand re-pairing's walker reference (walker_spec.json), read by sn_calib
+    # the Walk-Play REFS(TDR) rows: the rod-speed DR stand re-pairing's walker reference (walker_spec.json), read by
+    # sn_calib
     spec = _json(RES / "stand" / "walker_spec.json")
     refs = _json(RES / "stand" / "sn_calib.json")["rows"]["REFS"]["gates"]["G4"]
     assert refs["clauses"]["field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE)"]["value"] == \
@@ -719,95 +969,327 @@ def test_payload_and_field_stages_with_their_evals_of_record():
         if "tstar" in e:
             assert e["tstar"] == [bridge["cell_seeds"][f"{cell}@es{k}"]["first"]["values"]["field_light_completion"]
                                   for k in (1, 2)], key
-    # the student: the campaign's selection (the full block passes) and its student gate G2 against in-pin c28000
+    # c1: the confirm gate (Amendment A on fresh es5-8 vs TDR's RTF rows): HALT_R, G PASS, R tracking FAIL, overruled
+    c1 = st[C1]
+    gf = _json(PKG / c1["gate"]["record"])
+    assert c1["gate"]["record"] == "experiments/2026-11-10_rough_terrain/results/short_arm/gates_fresh.json"
+    assert gf["verdict"]["verdict"] == c1["gate"]["verdict"] == "HALT_R" and gf["guards"]["ok"]
+    assert (gf["G"]["status"], gf["R"]["status"], gf["R"]["tracking"]["status"]) == ("PASS", "FAIL", "FAIL")
+    assert gf["R"]["tracking"]["fails"] == ["track_err back suite es1", "track_err back suite es2",
+                                            "yaw_progress turn suite es2"]
+    assert gf["R"]["tracking"]["n_suite_lines"] == 22 and "3 of 22" in c1["evals"]["confirm"]["tracking"]
+    assert gf["R"]["tracking"]["thresholds_version"] == "v1.2" and "v1.2" in c1["gate"]["thresholds"]
+    assert gf["thresholds"]["sha256"][:8] in c1["gate"]["thresholds"]
+    assert '2026-11-11 17:25 "A"' in c1["gate"]["overruled"] and "HALT_R" in c1["gate"]["overruled"]
+    assert '2026-11-11 17:25 "A"' in c1["evals"]["confirm"]["tracking"]
+    conf = c1["evals"]["confirm"]
+    assert conf["record"] == c1["gate"]["record"]
+    for key, e in conf["kinds"].items():
+        kind, band = key.rsplit("_", 1)
+        g = gf["G"]["kinds"][kind]
+        assert (g["band"], g["row"]) == (band, f"rt_{key}__omni"), key
+        assert (e["c1"], e["tdr"], e["n"]) == (g["new"], g["tdr"], g["n"]), key
+        for k in ("diff", "se", "ci_lb"):
+            assert abs(e[k] - g[k]) < 5e-4, (key, k)
+        assert (e["read"] == "GAIN") is g["gain"] and not g["regress"], key
+        assert e["read"] == ("GAIN" if g["gain"] else "no gain, no regress"), key
+    assert set(conf["kinds"]) == {f"{k}_{g['band']}" for k, g in gf["G"]["kinds"].items()}
+    assert sorted(k.rsplit("_", 1)[0] for k, e in conf["kinds"].items() if e["read"] == "GAIN") == sorted(
+        gf["G"]["gain_kinds"]) == ["ledge_down", "slopes"]
+    for key, e in conf["solved"].items():
+        kind, band = key.rsplit("_", 1)
+        g = gf["R"]["solved"][kind]
+        assert g["band"] == band and (e["c1"], e["tdr"], e["pass"]) == (g["head"], g["ref"], g["pass"]), key
+        assert abs(e["line"] - g["line"]) < 5e-4, key
+    assert {k.rsplit("_", 1)[0] for k in conf["solved"]} == set(gf["R"]["solved"])
+    assert {f"R_{n}" for n in conf["completion"]} == set(gf["R"]["completion"])
+    for name, e in conf["completion"].items():
+        g = gf["R"]["completion"][f"R_{name}"]
+        assert (e["c1"], e["tdr"], e["n"], e["pass"]) == (g["head"], g["ref"], g["n"], g["pass"]), name
+        assert abs(e["line"] - g["line"]) < 5e-4, name
+    # c1's payload read: the confirm's field_light completion rows at 0 / 90 / 135 kg (180 kg NOT read)
+    p = c1["payload"]
+    by_kg = {0: "R_field_light", 90: "R_field_light_L090", 135: "R_field_light_L135"}
+    assert {int(k): v for k, v in p["curve"].items()} == {k: gf["R"]["completion"][r]["pass"] for k, r in by_kg.items()} \
+        == {0: True, 90: True, 135: True}
+    assert {int(k): v for k, v in p["field_light_by_kg"].items()} == {
+        k: gf["R"]["completion"][r]["head"] for k, r in by_kg.items()}
+    assert p["max_stable_kg"] == ">= 135 (180 not read)" and p["first_unstable_kg"] == "not read"
+    assert p["limiting_factor"].startswith("not read") and "180 kg NOT READ" in p["curve_source"]
+    assert "HALT_R" in p["zero_kg_check"] and '17:25 "A"' in p["zero_kg_check"]
+    assert p["label"] == st[TSTAR]["payload"]["label"]
+    # c1's stress cell: confirm-2's x0.7 L090 row (the per-seed values pool to the gate's head / ref)
+    sx = c1["evals"]["stress"]
+    g = gf["R"]["completion"]["R_x07_L090_field_light"]
+    assert sx["record"] == c1["gate"]["record"]
+    assert abs(_mean(sx["x0p7_L090"]["c1"]) - g["head"]) < 1e-9 and abs(_mean(sx["x0p7_L090"]["tdr"]) - g["ref"]) < 1e-9
+    assert sx["x0p7_L090"]["pass"] is g["pass"] is True and f"{g['line']:.3f}" in sx["what"]
+    # c1's side22: FAST / FAST, as TDR's (the confirm's R.tracking.side22, its served stamp)
+    assert gf["R"]["tracking"]["side22"]["head"] == gf["R"]["tracking"]["side22"]["p2a"] == ["FAST", "FAST"]
+    assert c1["evals"]["lr"]["hands"] == "FAST/FAST" and "FAST / FAST" in c1["evals"]["lr"]["source"]
+    assert any(x["stamp"].endswith("/" + c1["evals"]["lr"]["stamp"]) and x["sha256"] == c1["sha256"]
+               for x in gf["served_checks"]["served"])
+    # c1's rows: REFS(c1) on Walk-Play (the P2 stand re-pair's walker reference, read by its sn_calib) ...
+    rows = c1["evals"]["rows"]
+    for name, r in [*rows.items(), *((k, v) for k, v in c1["evals"]["teacher_role"].items() if isinstance(v, dict))]:
+        per = r["per_env_seed"]
+        assert r["n"] == 100 * len(per) == 100 * len(r["stamps"]), name
+        assert abs(sum(per) / len(per) - r["completion"]) < 1e-9, name
+    spec = _json(RTS / "walker_spec.json")
+    assert spec["spec"]["S1_SHA256"] == spec["walker"]["sha256"] == c1["sha256"]
+    refs = _json(RTS / "sn_calib.json")["rows"]["REFS"]["gates"]["G4"]
+    assert refs["clauses"]["field_hard es1+2+3+4 completion >= REFS - max(0.05, 2 SE)"]["value"] == \
+        rows["field_hard"]["completion"]
+    assert refs["clauses"]["field_turn es1 completion >= REFS - max(0.05, band)"]["value"] == \
+        rows["field_turn"]["completion"]
+    assert refs["reported"]["z2_field_vs_hold default rows (FT es1, FH es1)"][
+        "field_hard__omni@1 completion >= HOLD - 2 SE(diff)"][0] == rows["field_hard"]["per_env_seed"][0]
+    for name in ("field_hard", "field_turn"):
+        for k, stamp in enumerate(rows[name]["stamps"], 1):
+            assert spec["refs_stamps"][f"{name}__omni@{k}"].endswith("/" + stamp), (name, k)
+    assert spec["refs_stamps"]["suite__omni@1"].endswith("/" + c1["evals"]["stamp"])
+    assert spec["refs_stamps"]["suite__omni@2"].endswith("/" + c1["evals"]["es2_stamp"])
+    # ... and the P2 selection's teacher rows (c1 in the teacher role on Student-Play: the 'tstar' side of the paired
+    # student lines, sel.json rows teacher:<row>@k)
     stu = st[STUDENT]
-    sel = _json(PKG / stu["distill"]["selection_gate"])
-    assert sel["verdict"] == "SELECTED" and sel["blocks"][stu["distill"]["selected"]]["pass"] is True
-    g2 = _json(RES / "g2.json")
-    assert stu["distill"]["student_gate"].startswith("experiments/2026-11-07_rod_speed_dr/results/g2.json PASS")
-    assert g2["verdict"] == "PASS" and g2["policies"]["pick"]["sha256"] == stu["sha256"]
-    assert g2["policies"]["ref"]["sha256"] == _sup(m, "F19_student")["block"]["sha256"]
-    sst = stu["evals"]["stress"]
-    assert sst["record"] == "experiments/2026-11-07_rod_speed_dr/results/g2.json"
-    for key in ("x0p7_L090", "x0p8_L090"):
-        cell = _STRESS_CELLS[key]
-        assert sst[key]["student"] == _seed_values(g2["S"][cell]), key
-        assert sst[key]["pass"] is (g2["S"][cell]["status"] == "pass") is True, key
-    assert sst["x0p7_L090"]["tdr"] == stress["x0p7_L090"]["tdr"]
-    rows_sel = _json(RES / "sel.rows.json")
+    sel = _json(P2 / "sel.json")
     pick = stu["distill"]["selected"]
+    dec = {x["id"].rsplit(".", 1)[1]: x for x in sel["blocks"][pick]["decisive"]
+           if x["id"].startswith("student.capability.completion.")}
+    for name, r in (("field_light", rows["field_light"]), ("ring_obst", rows["ring_obst"]),
+                    ("field_hard", c1["evals"]["teacher_role"]["field_hard"]),
+                    ("field_turn", c1["evals"]["teacher_role"]["field_turn"])):
+        assert abs(r["completion"] - dec[name]["tstar"]) < 1e-9, name
+        for k, stamp in enumerate(r["stamps"], 1):
+            row = sel["rows"][f"teacher:{name}@{k}"]
+            assert row["stamp"].endswith("/" + stamp) and row["ckpt_sha"] == c1["sha256"], (name, k)
+    # the student: P2's selection (the full block passes) and the pre-registered P2 read against c31000 (USER_DECIDES)
+    assert sel["verdict"] == "SELECTED" and sel["blocks"][pick]["pass"] is True and sel["gate"]["verdict"] == "PASS"
+    assert sel["failed_blocks"] == [] and stu["distill"]["selection_gate"] == "experiments/2026-11-10_rough_terrain/results/p2/sel.json"
     for name, r in stu["evals"]["rows"].items():
         per = r["per_env_seed"]
         assert r["n"] == 100 * len(per) == 100 * len(r["stamps"]), name
         assert abs(sum(per) / len(per) - r["completion"]) < 1e-9, name
         for k, stamp in enumerate(r["stamps"], 1):
-            assert rows_sel[f"{pick}:{name}@{k}"]["stamp"].endswith("/" + stamp), (name, k)
-    assert rows_sel[f"{pick}:suite@1"]["stamp"].endswith("/" + stu["evals"]["stamp"])
-    assert rows_sel[f"{pick}:suite@2"]["stamp"].endswith("/" + stu["evals"]["es2_stamp"])
-    assert rows_sel[f"{pick}:side22@1"]["stamp"].endswith("/" + stu["evals"]["lr"]["stamp"])
+            assert sel["rows"][f"{pick}:{name}@{k}"]["stamp"].endswith("/" + stamp), (name, k)
+    assert sel["rows"][f"{pick}:suite@1"]["stamp"].endswith("/" + stu["evals"]["stamp"])
+    assert sel["rows"][f"{pick}:suite@2"]["stamp"].endswith("/" + stu["evals"]["es2_stamp"])
+    assert sel["rows"][f"{pick}:side22@1"]["stamp"].endswith("/" + stu["evals"]["lr"]["stamp"])
     assert stu["evals"]["lr"]["hands"] == "FAST/FAST"
+    wt = stu["evals"]["watch_terrain"]
+    assert wt["record"] == stu["distill"]["selection_gate"]
+    for kind, e in sel["watch_terrain"][pick].items():
+        assert e["watch"] is True and e["decisive"] is False, kind
+        got = wt[f"{kind}_b2"]
+        assert (got["student"], got["c1"]) == (e["student"], e["c1"]) and abs(got["line"] - e["line"]) < 5e-4, kind
+    rd = _json(P2 / "read.json")
+    rr = stu["evals"]["read"]
+    assert rr["record"] == "experiments/2026-11-10_rough_terrain/results/p2/read.json" and rd["status"] == "COMPUTED"
+    assert rd["decision"]["route"] == rr["route"] == "USER_DECIDES"
+    assert rd["decision"]["why"] == ["T PARTIAL", "T-reg fail", "Tr fail"]
+    assert (rd["policies"]["C1S"]["sha256"], rd["policies"]["c1"]["sha256"], rd["policies"]["TDR"]["sha256"]) == (
+        stu["sha256"], c1["sha256"], tdr["sha256"])
+    assert rd["policies"]["c31000"]["sha256"] == _sup(m, "RSD_student")["block"]["sha256"]
+    for blk, key in (("T", "T"), ("T_reg", "T_reg")):
+        assert rr[key]["verdict"] == rd[blk]["status"], blk
+        assert {k for k, v in rr[key].items() if isinstance(v, dict)} == {
+            re.fullmatch(r"rt_(\w+_b\d)__omni", e["row"]).group(1) for e in rd[blk]["kinds"].values()}, blk
+        for kind, e in rd[blk]["kinds"].items():
+            got = rr[key][re.fullmatch(r"rt_(\w+_b\d)__omni", e["row"]).group(1)]
+            assert (got["c1s"], got["c31000"], got["n"]) == (e["new"], e["tdr"], e["n"]), (blk, kind)
+            for k in ("diff", "se", "ci_lb"):
+                assert abs(got[k] - e[k]) < 5e-4, (blk, kind, k)
+    assert rd["T"]["status"] == "PARTIAL" and rd["T"]["gain_kinds"] == ["ledge_down"]
+    assert rd["T_reg"]["status"] == "FAIL" and rd["T_reg"]["kinds"]["ledge_up"]["regress"] is True
+    assert rd["N"]["status"] == "PASS"
+    for name, e in rd["N"]["rows"].items():
+        got = rr["N"][name]
+        assert (got["c1s"], got["c31000"], got["n"], got["pass"]) == (e["head"], e["ref"], e["n"], e["pass"]), name
+        assert abs(got["line"] - e["line"]) < 5e-4, name
+    fails = [x for x in rd["Tr"]["lines"] if x["fails"]]
+    assert rd["Tr"]["status"] == "FAIL" and rd["Tr"]["n_lines"] == 18 and len(fails) == 1
+    assert (fails[0]["statistic"], fails[0]["row"]) == ("track_err diag", "suite es1")
+    over = fails[0]["worse_by"] - fails[0]["margin"]["margin"]
+    assert f"over by {over:.5f}" in rr["Tr"] and "1 of 18" in rr["Tr"]
+    assert rd["Tr"]["E"]["flags"] == [] and rr["E"].startswith("no flag")
 
 
 def test_distill_stage_is_the_student_with_its_exports():
-    """rsd_10_student: kind distill on the Student task, NOT bundled (its .pt is over GitHub's 100 MiB limit), cited by
+    """rt_12_student: kind distill on the Student task, NOT bundled (its .pt is over GitHub's 100 MiB limit), cited by
     the selection record's sha256; its folder holds exactly the ONNX deploy export + io json, the parity-tested export's
-    bytes (results/onnx_PICK.json); the io json is F19's byte for byte (the deploy interface is unchanged: 1149-wide,
-    4-camera, clip 1.0); the paired completions are the selection gate's; the run file (when on disk) is that sha, over
-    the limit, and carries TDR's weights bitwise."""
+    bytes (results/p2/onnx_PICK.json; the source dir is the P2 export dir in the main checkout, the run dir has no
+    exported_deploy/); the io json is c31000's and F19's byte for byte (the deploy interface is unchanged: 1149-wide,
+    4-camera, clip 1.0); the paired completions are the selection gate's (against c1 in the teacher role); the run file
+    (when on disk) is that sha, over the limit, and carries c1's weights bitwise; the export sources (when on disk) are
+    the bundled bytes."""
     tool = _tool()
     m = tool.load_manifest()
     s = tool.stage_by_dir(m, STUDENT)
     assert (s["kind"], s["bundled"], s["task"], s["play_task"]) == (
         "distill", False, "Isaac-Crab-Hex-Omni-Student-v0", "Isaac-Crab-Hex-Omni-Student-Play-v0")
-    assert not tool.is_bundled(s) and s["file"] == "model_31000.pt"
-    assert s["sha256"] == _json(RES / "sel.json")["pick"]["sha256"] == \
-        "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e"
+    assert not tool.is_bundled(s) and s["file"] == "model_34499.pt"
+    assert s["sha256"] == _json(P2 / "sel.json")["pick"]["sha256"] == \
+        "6b48ef33d26b9523c764f48c664897d756838bb1ca70424492f8f7bdf54236a1"
     assert s["eval_args"] == ["--task", "Isaac-Crab-Hex-Omni-Student-Play-v0", "--policy-role", "student"]
     assert s["play_args"] == ["--enable_cameras"]
-    assert "TDR" in s["play_notes"] and "c31000" in s["play_notes"] and DR_VAR in s["play_notes"]
+    for k in ("c1", "--policy-role student", "--policy-role teacher", DR_VAR, FRICTION, "obs_contract.kind_rows",
+              "rt_kind_eval.env", "gravel:0.2:0.5", "89c1916b"):
+        assert k in s["play_notes"], k
     files = tool.stage_files(s)
-    assert [f["file"] for f in files] == ["policy.onnx", "depth_latest.onnx", "omni_student_io.json"]
+    assert [f["file"] for f in files] == list(STUDENT_EXPORTS)
     assert sorted(p.name for p in (POLICY / STUDENT).iterdir()) == sorted(f["file"] for f in files)
+    onnx = _json(P2 / "onnx_PICK.json")
+    assert onnx["parity_ok"] is True and onnx["ok"] is True and onnx["checkpoint_sha256"] == s["sha256"]
+    assert onnx["parity"]["max_abs_action_err"] <= onnx["tol"] == 1e-4 and onnx["io_equal_c31000"] is True
+    want = {"policy.onnx": onnx["files"]["policy_onnx"], "depth_latest.onnx": onnx["files"]["depth_onnx"],
+            "omni_student_io.json": onnx["files"]["io"]}
+    for f in files:
+        assert tool.sha256_of(f["path"]) == f["sha256"] == want[f["file"]]["sha256"], f["file"]
+        assert f["source"] == _rel_logs(want[f["file"]]["path"]), f["file"]
+        assert f["source"] == f"parkour/outputs/omni_plan/rough_terrain_p2/onnx/PICK_6b48ef33/{f['file']}", f["file"]
+        assert f["path"].stat().st_size <= tool.MAX_FILE_BYTES
+    for e in s["exports"][:2]:
+        assert "results/p2/onnx_PICK.json" in e["what"], e["file"]
+    # the new graphs are not c31000's (new weights) -- recorded by the export check
+    for k, e in onnx["onnx_vs_c31000_bundle"].items():
+        assert e["equal"] is False and e["c31000_bundled"] in {f["sha256"] for f in _sup(m, "RSD_student")["files"]}, k
+    # the deploy interface is c31000's and F19's: the io json is byte-identical to both kept students'
+    io_path = POLICY / STUDENT / "omni_student_io.json"
+    for old in (RSD_STUDENT, OLD_STUDENT):
+        assert io_path.read_bytes() == (POLICY / old / "omni_student_io.json").read_bytes(), old
+    io = _json(io_path)
+    assert io["kind"] == "omni_depth_student" and io["obs"] == [1, m["obs_contract"]["width"]]
+    assert len(io["camera_groups"]) == 4 and io["actions_clip"] == 1.0 and io["trained_on_zero_depth"] is False
+    # the selection: the gate's paired completions (student vs c1 in the teacher role) and rank
+    sel = _json(P2 / "sel.json")["blocks"][s["distill"]["selected"]]
+    got = {x["id"].rsplit(".", 1)[1]: x for x in sel["decisive"] if x["id"].startswith("student.capability.completion.")}
+    assert set(got) == set(s["evals"]["paired_completion"]) == {"field_hard", "field_light", "ring_obst", "field_turn"}
+    for row, e in s["evals"]["paired_completion"].items():
+        assert abs(got[row]["value"] - e["student"]) < 1e-9 and abs(got[row]["student"] - e["student"]) < 1e-9, row
+        assert abs(got[row]["tstar"] - e["c1"]) < 1e-9, row       # sel.json's key "tstar" = the teacher = c1 here
+        assert abs(got[row]["line"] - e["line"]) < 5e-4, row
+        assert got[row]["pass"] is e["pass"] is True, row
+        assert abs(s["evals"]["rows"][row]["completion"] - e["student"]) < 1e-9, row
+    assert s["distill"]["selected"] == "6b48ef33_it34499" and s["distill"]["prescreen_rank"][0] == 34499
+    assert "UNVERIFIED" in s["distill"]["camera_use"] and "not re-tested" in s["distill"]["camera_use"]
+    seen = 0
+    for f in files:
+        src = _local(f["source"])
+        if src is not None:
+            assert tool.sha256_of(src) == f["sha256"], f["source"]
+            seen += 1
+    src = _local(s["source"])
+    if src is None:
+        pytest.skip(f"student run file not on this machine (raw run dirs are untracked): {s['source']} "
+                    f"({seen} export sources checked)")
+    assert src.stat().st_size > tool.MAX_FILE_BYTES and tool.sha256_of(src) == s["sha256"]
+    torch = pytest.importorskip("torch")
+    ck = torch.load(str(src), map_location="cpu", weights_only=False)
+    c1 = torch.load(str(tool.stage_path(tool.stage_by_dir(m, C1))), map_location="cpu", weights_only=False)
+    for key in ("model_state_dict", "estimator_state_dict"):
+        a, b = ck[key], c1[key]
+        assert set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a), f"the student's teacher copy is c1's ({key})"
+    assert ck["iter"] == 34499 and {"depth_actor_state_dict", "depth_encoder_state_dict"} <= set(ck)
+
+
+def test_superseded_rsd_student_is_kept_with_its_exports():
+    """The superseded rod-speed DR student (superseded[RSD_student]): its block is the RSD-era distill stage (c31000,
+    cited by the rod-speed DR selection's sha256, distilled from TDR -- still a live stage); its three kept files are
+    that block's exports, the parity-tested export's bytes (that campaign's results/onnx_PICK.json); the io json is
+    the 1149-wide, 4-camera, clip-1.0 contract, F19's and C1S's byte for byte; its selection, G2 and stress block are
+    that campaign's records; it is the P2 read's reference (read.json); the run file (when on disk) carries TDR's
+    weights."""
+    tool = _tool()
+    m = tool.load_manifest()
+    e = _sup(m, "RSD_student")
+    s = e["block"]
+    tdr = tool.stage_by_dir(m, TDR)
+    assert (e["kind"], s["dir"], s["kind"], s["bundled"], s["stage"]) == ("distill", RSD_STUDENT, "distill", False, "st_dr")
+    assert s["file"] == "model_31000.pt" and s["distill"]["teacher"] == TDR and tdr["sha256"] in e["teacher_was"]
+    assert s["sha256"] == _json(RES / "sel.json")["pick"]["sha256"] == \
+        "155b5981a718ec2c41460490c38e2aadb61c60c7b48dd67e3a33a45b1d5e634e"
+    assert [(f["dir"], f["file"], f["sha256"], f["source"]) for f in e["files"]] == [
+        (RSD_STUDENT, x["file"], x["sha256"], x["source"]) for x in s["exports"]]
+    assert sorted(p.name for p in (POLICY / RSD_STUDENT).iterdir()) == sorted(f["file"] for f in e["files"])
     onnx = _json(RES / "onnx_PICK.json")
     assert onnx["parity_ok"] is True and onnx["checkpoint_sha256"] == s["sha256"]
     want = {"policy.onnx": onnx["files"]["policy_onnx"]["sha256"],
             "depth_latest.onnx": onnx["files"]["depth_onnx"]["sha256"],
             "omni_student_io.json": onnx["files"]["io"]["sha256"]}
     run_dir = str(Path(s["source"]).parent)
-    for f in files:
-        assert tool.sha256_of(f["path"]) == f["sha256"] == want[f["file"]], f["file"]
+    for f in e["files"]:
+        p = POLICY / f["dir"] / f["file"]
+        assert tool.sha256_of(p) == f["sha256"] == want[f["file"]], f["file"]
         assert f["source"] == f"{run_dir}/exported_deploy/{f['file']}", f["file"]
-        assert f["path"].stat().st_size <= tool.MAX_FILE_BYTES
-    for e in s["exports"][:2]:
-        assert "results/onnx_PICK.json" in e["what"], e["file"]
-    # the deploy interface is F19's: the io json is byte-identical to the kept F19 student's
-    io_path = POLICY / STUDENT / "omni_student_io.json"
-    assert io_path.read_bytes() == (POLICY / OLD_STUDENT / "omni_student_io.json").read_bytes()
-    io = _json(io_path)
+    io = _json(POLICY / RSD_STUDENT / "omni_student_io.json")
     assert io["kind"] == "omni_depth_student" and io["obs"] == [1, m["obs_contract"]["width"]]
     assert len(io["camera_groups"]) == 4 and io["actions_clip"] == 1.0 and io["trained_on_zero_depth"] is False
-    # the selection: the gate's paired completions (student vs TDR in the teacher role) and rank
-    sel = _json(RES / "sel.json")["blocks"]["c31000"]
-    got = {x["id"].rsplit(".", 1)[1]: x for x in sel["decisive"] if x["id"].startswith("student.capability.completion.")}
+    assert (POLICY / RSD_STUDENT / "omni_student_io.json").read_bytes() == \
+        (POLICY / OLD_STUDENT / "omni_student_io.json").read_bytes()
+    assert "p2_onnx.py" in e["files_kept_because"] and "2026-11-14" in e["superseded"]
+    # the rod-speed DR selection: the full block passes; the paired completions vs TDR in the teacher role
+    sel = _json(RES / "sel.json")
+    assert sel["verdict"] == "SELECTED" and sel["blocks"][s["distill"]["selected"]]["pass"] is True
+    pick = sel["pick"]
+    assert (pick["sha256"], _rel_logs(pick["ckpt"]), pick["teacher"], pick["cand"]) == (
+        s["sha256"], s["source"], "TDR", s["distill"]["selected"])
+    assert s["file"] == f"model_{pick['iter']}.pt"
+    pol = _json(RES / "policies.json")["policies"]
+    assert pol[pick["policy"]]["sha256"] == s["sha256"] and _rel_logs(pol[pick["policy"]]["checkpoint"]) == s["source"]
+    dj = _json(RES / "runs" / "RSD_ST_s19.distill.json")
+    assert dj["teacher_sha256"] == tdr["sha256"] and _rel_logs(dj["teacher"]) == tdr["source"]
+    assert dj["name"] == s["distill"]["run_name"] and Path(s["source"]).parent.name.endswith("_" + dj["name"])
+    assert dj["env_file"].endswith("/" + s["distill"]["env_file"])
+    assert [c["iter"] for c in sel["candidates"]] == s["distill"]["candidates"]
+    assert sel["ranked"] == [f"c{i}" for i in s["distill"]["prescreen_rank"]]
+    assert s["distill"]["seed"] == m["seed"]
+    got = {x["id"].rsplit(".", 1)[1]: x for x in sel["blocks"]["c31000"]["decisive"]
+           if x["id"].startswith("student.capability.completion.")}
     assert set(got) == set(s["evals"]["paired_completion"]) == {"field_hard", "field_light", "ring_obst", "field_turn"}
-    for row, e in s["evals"]["paired_completion"].items():
-        assert abs(got[row]["value"] - e["student"]) < 1e-9 and abs(got[row]["student"] - e["student"]) < 1e-9, row
-        assert abs(got[row]["tstar"] - e["tdr"]) < 1e-9, row       # sel.json's key "tstar" = the teacher = TDR here
-        assert abs(got[row]["line"] - e["line"]) < 5e-4, row
-        assert got[row]["pass"] is e["pass"] is True, row
-        assert abs(s["evals"]["rows"][row]["completion"] - e["student"]) < 1e-9, row
+    for row, pc in s["evals"]["paired_completion"].items():
+        assert abs(got[row]["value"] - pc["student"]) < 1e-9 and abs(got[row]["tstar"] - pc["tdr"]) < 1e-9, row
+        assert abs(got[row]["line"] - pc["line"]) < 5e-4 and got[row]["pass"] is pc["pass"] is True, row
+        assert abs(s["evals"]["rows"][row]["completion"] - pc["student"]) < 1e-9, row
     assert s["distill"]["selected"] == "c31000" and s["distill"]["prescreen_rank"][0] == 31000
     assert "UNVERIFIED" in s["distill"]["camera_use"] and "not re-tested" in s["distill"]["camera_use"]
+    # its student gate G2 against in-pin c28000 (the superseded F19 student) and its stress block
+    g2 = _json(RES / "g2.json")
+    assert s["distill"]["student_gate"].startswith("experiments/2026-11-07_rod_speed_dr/results/g2.json PASS")
+    assert g2["verdict"] == "PASS" and g2["policies"]["pick"]["sha256"] == s["sha256"]
+    assert g2["policies"]["ref"]["sha256"] == _sup(m, "F19_student")["block"]["sha256"]
+    sst = s["evals"]["stress"]
+    assert sst["record"] == "experiments/2026-11-07_rod_speed_dr/results/g2.json"
+    for key in ("x0p7_L090", "x0p8_L090"):
+        cell = _STRESS_CELLS[key]
+        assert sst[key]["student"] == _seed_values(g2["S"][cell]), key
+        assert sst[key]["pass"] is (g2["S"][cell]["status"] == "pass") is True, key
+    assert sst["x0p7_L090"]["tdr"] == tdr["evals"]["stress"]["x0p7_L090"]["tdr"]
+    rows_sel = _json(RES / "sel.rows.json")
+    pk = s["distill"]["selected"]
+    for name, r in s["evals"]["rows"].items():
+        per = r["per_env_seed"]
+        assert r["n"] == 100 * len(per) == 100 * len(r["stamps"]), name
+        assert abs(sum(per) / len(per) - r["completion"]) < 1e-9, name
+        for k, stamp in enumerate(r["stamps"], 1):
+            assert rows_sel[f"{pk}:{name}@{k}"]["stamp"].endswith("/" + stamp), (name, k)
+    assert rows_sel[f"{pk}:suite@1"]["stamp"].endswith("/" + s["evals"]["stamp"])
+    assert rows_sel[f"{pk}:suite@2"]["stamp"].endswith("/" + s["evals"]["es2_stamp"])
+    assert rows_sel[f"{pk}:side22@1"]["stamp"].endswith("/" + s["evals"]["lr"]["stamp"])
+    assert s["evals"]["lr"]["hands"] == "FAST/FAST"
+    # c31000 is the reference of C1S's P2 read (and its .pt the path p2_onnx.py names)
+    rd = _json(P2 / "read.json")
+    assert rd["policies"]["c31000"]["sha256"] == s["sha256"] and _rel_logs(rd["policies"]["c31000"]["ckpt"]) == s["source"]
+    assert _ast_const(RT / "p2" / "p2_onnx.py", "C31000_SHA") == s["sha256"]
     src = _local(s["source"])
     if src is None:
-        pytest.skip(f"student run file not on this machine (raw run dirs are untracked): {s['source']}")
+        pytest.skip(f"c31000 run file not on this machine (raw run dirs are untracked): {s['source']}")
     assert src.stat().st_size > tool.MAX_FILE_BYTES and tool.sha256_of(src) == s["sha256"]
     torch = pytest.importorskip("torch")
     ck = torch.load(str(src), map_location="cpu", weights_only=False)
-    tdr = torch.load(str(tool.stage_path(tool.stage_by_dir(m, TDR))), map_location="cpu", weights_only=False)
-    a, b = ck["model_state_dict"], tdr["model_state_dict"]
-    assert set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a), "the student's teacher copy is TDR's"
-    assert ck["iter"] == 31000 and {"depth_actor_state_dict", "depth_encoder_state_dict"} <= set(ck)
+    t = torch.load(str(tool.stage_path(tdr)), map_location="cpu", weights_only=False)
+    a, b = ck["model_state_dict"], t["model_state_dict"]
+    assert set(a) == set(b) and all(torch.equal(a[k], b[k]) for k in a), "c31000's teacher copy is TDR's"
+    assert ck["iter"] == 31000
 
 
 def test_superseded_f19_student_is_kept_with_its_exports():
@@ -868,36 +1350,60 @@ def test_superseded_f19_student_is_kept_with_its_exports():
     assert ck["iter"] == 28000
 
 
+def test_c1_source_is_the_bundled_file_and_a_fine_tune_of_tdr():
+    """The c1 source run file (untracked; in both checkouts since the run dir's hard link) is byte-identical to the
+    bundled copy; the bundled c1 differs from TDR in every policy weight (a real fine-tune) with the same keys / shapes."""
+    tool = _tool()
+    m = tool.load_manifest()
+    c1, tdr = tool.stage_by_dir(m, C1), tool.stage_by_dir(m, TDR)
+    p = tool.stage_path(c1)
+    assert tool.sha256_of(p) == c1["sha256"] and p.stat().st_size <= tool.MAX_FILE_BYTES
+    torch = pytest.importorskip("torch")
+    a = torch.load(str(p), map_location="cpu", weights_only=False)
+    b = torch.load(str(tool.stage_path(tdr)), map_location="cpu", weights_only=False)
+    ma, mb = a["model_state_dict"], b["model_state_dict"]
+    assert set(ma) == set(mb) and all(ma[k].shape == mb[k].shape for k in ma)
+    assert sum(not torch.equal(ma[k], mb[k]) for k in ma) == len(ma), "c1 must differ from TDR in every model key"
+    assert a["iter"] == 29500
+    src = _local(c1["source"])
+    if src is None:
+        pytest.skip(f"c1 source run file not on this machine (raw run dirs are untracked): {c1['source']}")
+    assert tool.sha256_of(src) == c1["sha256"]
+
+
 def test_bundle_policy_check_is_clean():
     out = subprocess.run([sys.executable, str(TOOL), "--check"], cwd=REPO, capture_output=True, text=True)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert f"1 cited, not bundled: {STUDENT}" in out.stdout and "+ 13 kept superseded files" in out.stdout
-    assert f"stand network {STAND_DIR}" in out.stdout and f"current {TDR}: OK" in out.stdout
+    assert f"1 cited, not bundled: {STUDENT}" in out.stdout and "+ 18 kept superseded files" in out.stdout
+    assert "11 stages" in out.stdout
+    assert f"stand network {STAND_DIR}" in out.stdout and f"current {C1}: OK" in out.stdout
 
 
 # ------------------------------------------------------------------------------ superseded heads (kept / left)
 def test_superseded_heads_are_recorded_and_recoverable():
     """W left policy/ at the 2026-10-06 bake and is recoverable, byte-exact, from the commit the manifest names. Nothing
-    left at the 2026-10-24 or the 2026-11-09 bake: every kept file (the seed-18 lineage, SH_T17, A-mask s17, F19's
-    student exports, SH_T4F19, SN_T4F19) is present with its recorded sha, byte-identical to the file it was baked /
-    adopted with, and its record is the manifest at record_commit verbatim (F19: the manifest before this bake)."""
+    left at the 2026-10-24, the 2026-11-09 or the 2026-11-14 bake: every kept file (the seed-18 lineage, SH_T17, A-mask
+    s17, F19's student exports, SH_T4F19, SN_T4F19, c31000's exports, SH_RSD_TDR, SN_RSD_TDR) is present with its
+    recorded sha, byte-identical to the file it was baked / adopted with, and its record is the manifest at
+    record_commit verbatim (F19: the manifest before the 2026-11-09 bake; RSD: the manifest before this bake)."""
     m = _m()
     tool = _tool()
     sups = m.get("superseded") or []
     assert [s["id"] for s in sups] == ["W", "SN_Amask_s17", "S1_s18", "SH_T17", "F19", "F19_student", "SH_T4F19",
-                                       "SN_T4F19"]
+                                       "SN_T4F19", "RSD", "RSD_student", "SH_RSD_TDR", "SN_RSD_TDR"]
     w = sups[0]
     commit = w["last_commit"]
     assert re.fullmatch(r"[0-9a-f]{40}", str(commit)), f"superseded W: last_commit {commit!r}"
     assert "files" not in w
     s18 = _sup(m, "S1_s18")
     f19 = _sup(m, "F19")
+    rsd = _sup(m, "RSD")
     baked_at = {d: ("80e839e3a987a912222fa216a31cd192a43cf014" if d != "6_p2a_field"
                     else "dd972b6a2fc919f1ab7426fcea41a6e962577761") for d in S18_STAGES}
     # the byte-exact history reads need the commits; a shallow clone runs every other check, then skips naming them
     no_hist = _missing_commits(commit, *baked_at.values(), s18["record_commit"],
                                *(_sup(m, sid)["adopted_commit"] for sid in ("SN_Amask_s17", "SH_T17")),
-                               F19_RECORD_COMMIT, F19_BAKE_COMMIT)
+                               F19_RECORD_COMMIT, F19_BAKE_COMMIT, RSD_BAKE_COMMIT)
     hist = not no_hist
     for st in w["stages"]:
         rel = f"{w['path_in_history']}/{st['dir']}/{st['file']}"
@@ -936,24 +1442,38 @@ def test_superseded_heads_are_recorded_and_recoverable():
     assert "files" not in f19 and "2026-11-09" in f19["superseded"] and "Bake as proposed" in f19["superseded"]
     assert f19["heads_were"] == {"phase1": "f19_5_c6x_clockfree", "phase2": "f19_6_p2a_field", "payload": TSTAR,
                                  "student": OLD_STUDENT, "stand": OLD_STAND}
-    assert m["baked"].rstrip().endswith("PREVIOUSLY: F19 (2026-10-24) -- superseded: F19")
-    kept_new = {"F19_student": [(OLD_STUDENT, f) for f in ("policy.onnx", "depth_latest.onnx", "omni_student_io.json")],
-                "SH_T4F19": [(OLD_STAND, "model_5000.pt")], "SN_T4F19": [(OLD_STAND, "model_4000.pt")]}
-    for sid, want in kept_new.items():
+    # the 2026-11-14 entry: RSD (the superseded current, no files: TDR stays live) and its student / stand nets
+    assert (rsd["kind"], rsd["current_was"], rsd["record_commit"], rsd["adopted_commit"]) == (
+        "current", TDR, RSD_BAKE_COMMIT, RSD_BAKE_COMMIT)
+    assert "files" not in rsd and "2026-11-14" in rsd["superseded"] and '"Yes, bake"' in rsd["superseded"]
+    assert f"{TDR}) STAYS a live stage" in rsd["superseded"]
+    assert rsd["heads_were"] == {"phase1": "f19_5_c6x_clockfree", "phase2": "f19_6_p2a_field", "payload": TDR,
+                                 "student": RSD_STUDENT, "stand": RSD_STAND}
+    assert m["baked"].rstrip().endswith("PREVIOUSLY: the rod-speed DR pairing (2026-11-09) -- superseded: RSD")
+    assert rsd["baked"].rstrip().endswith("PREVIOUSLY: F19 (2026-10-24) -- superseded: F19")
+    kept_new = {"F19_student": (F19_BAKE_COMMIT, "2026-11-09", [(OLD_STUDENT, f) for f in STUDENT_EXPORTS]),
+                "SH_T4F19": (F19_BAKE_COMMIT, "2026-11-09", [(OLD_STAND, "model_5000.pt")]),
+                "SN_T4F19": (F19_BAKE_COMMIT, "2026-11-09", [(OLD_STAND, "model_4000.pt")]),
+                "RSD_student": (RSD_BAKE_COMMIT, "2026-11-14", [(RSD_STUDENT, f) for f in STUDENT_EXPORTS]),
+                "SH_RSD_TDR": (RSD_BAKE_COMMIT, "2026-11-14", [(RSD_STAND, "model_5000.pt")]),
+                "SN_RSD_TDR": (RSD_BAKE_COMMIT, "2026-11-14", [(RSD_STAND, "model_4000.pt")])}
+    for sid, (bake, day, want) in kept_new.items():
         e = _sup(m, sid)
-        assert e["adopted_commit"] == F19_BAKE_COMMIT and F19_BAKE_COMMIT[:8] in e["adopted"], sid
-        assert "2026-11-09" in e["superseded"] and "STAY" in e["superseded"], sid
+        assert e["adopted_commit"] == bake and bake[:8] in e["adopted"], sid
+        assert day in e["superseded"] and "STAY" in e["superseded"], sid
         assert [(f["dir"], f["file"]) for f in e["files"]] == want, sid
         assert not {"last_commit", "path_in_history"} & set(e), sid
         for f in e["files"]:
             p = POLICY / f["dir"] / f["file"]
             assert p.is_file() and tool.sha256_of(p) == f["sha256"], p
             if hist:
-                assert hashlib.sha256(_git_blob(F19_BAKE_COMMIT, f"{rel_pol}/{f['dir']}/{f['file']}")).hexdigest() \
+                assert hashlib.sha256(_git_blob(bake, f"{rel_pol}/{f['dir']}/{f['file']}")).hexdigest() \
                     == f["sha256"], p
-    assert _sup(m, "SH_T4F19")["kind"] == _sup(m, "SN_T4F19")["kind"] == "stand_network"
-    assert _sup(m, "SH_T4F19")["block"]["warm_start"]["sha256"] == _sup(m, "SN_T4F19")["files"][0]["sha256"]
+    for a, b in (("SH_T4F19", "SN_T4F19"), ("SH_RSD_TDR", "SN_RSD_TDR")):
+        assert _sup(m, a)["kind"] == _sup(m, b)["kind"] == "stand_network"
+        assert _sup(m, a)["block"]["warm_start"]["sha256"] == _sup(m, b)["files"][0]["sha256"], a
     assert tool.stage_by_dir(m, TSTAR)["sha256"] in _sup(m, "SH_T4F19")["walker_was"]
+    assert tool.stage_by_dir(m, TDR)["sha256"] in _sup(m, "SH_RSD_TDR")["walker_was"]
     if not hist:
         pytest.skip(f"git history not in this clone (shallow checkout): commits {no_hist} -- the byte-exact blob and "
                     "record_commit manifest checks need them")
@@ -963,29 +1483,58 @@ def test_superseded_heads_are_recorded_and_recoverable():
     assert s18["stages"] == old["stages"] and [s["dir"] for s in old["stages"]] == S18_STAGES
     assert (s18["baked"], s18["recipe"], s18["construction"]) == (old["baked"], old["recipe"], old["construction"])
     assert sh["block"] == old["stand_network"], "the kept SH_T17 block must be the record_commit block verbatim"
-    # F19's: the manifest before this bake (64f397e5): its current / heads / baked, its student stage, its stand block
+    # F19's: the manifest before the 2026-11-09 bake (64f397e5): its current / heads / baked, its student, its stand block
     pre = yaml.safe_load(_git_blob(F19_RECORD_COMMIT, f"{rel_pol}/manifest.yaml"))
     assert pre["current"] == f19["current_was"] and pre["heads"] == f19["heads_were"] and pre["baked"] == f19["baked"]
     assert pre["stages"][-1]["dir"] == OLD_STUDENT and _sup(m, "F19_student")["block"] == pre["stages"][-1]
     assert _sup(m, "SH_T4F19")["block"] == pre["stand_network"], "the kept SH_T4F19 block must be verbatim"
     assert m["superseded"][:4] == pre["superseded"], "the four earlier superseded entries must stay verbatim"
-    # the F19 stages stay live, unchanged but for T*'s `what` / `notes` (it no longer ships)
-    assert [s["dir"] for s in pre["stages"][:8]] == F19_STAGES
+    # RSD's: the manifest before THIS bake (2ceff431): its current / heads / baked, c31000's stage, its stand block
+    prr = yaml.safe_load(_git_blob(RSD_BAKE_COMMIT, f"{rel_pol}/manifest.yaml"))
+    assert prr["current"] == rsd["current_was"] and prr["heads"] == rsd["heads_were"] and prr["baked"] == rsd["baked"]
+    assert prr["stages"][-1]["dir"] == RSD_STUDENT and _sup(m, "RSD_student")["block"] == prr["stages"][-1]
+    assert _sup(m, "SH_RSD_TDR")["block"] == prr["stand_network"], "the kept SH_RSD_TDR block must be verbatim"
+    assert m["superseded"][:8] == prr["superseded"], "the eight earlier superseded entries must stay verbatim"
+    # the F19 stages stay live, unchanged but for T*'s `what` / `notes` since F19 (it no longer ships) and TDR's since
+    # the rod-speed DR bake (neither does it); T*'s `what` also changed in this bake (TDR "shipped", no longer "ships")
+    assert [s["dir"] for s in pre["stages"][:8]] == F19_STAGES and [s["dir"] for s in prr["stages"][:9]] == STAGES[:9]
     for a, b in zip(m["stages"][:8], pre["stages"][:8]):
         diff = {k for k in set(a) | set(b) if a.get(k) != b.get(k)}
         assert diff == (set() if a["dir"] != TSTAR else {"what", "notes"}), (a["dir"], diff)
-    assert m["obs_contract"]["eval_env"] == pre["obs_contract"]["eval_env"]
-    assert m["obs_contract"]["width"] == pre["obs_contract"]["width"]
-    assert {k for k in set(m["construction"]) | set(pre["construction"])
-            if m["construction"].get(k) != pre["construction"].get(k)} <= {"runner_fixed"}
-    assert m["assets"][0]["sha256"] == pre["assets"][0]["sha256"]
+    for a, b in zip(m["stages"][:9], prr["stages"][:9]):
+        diff = {k for k in set(a) | set(b) if a.get(k) != b.get(k)}
+        assert diff == {TDR: {"what", "notes"}, TSTAR: {"what"}}.get(a["dir"], set()), (a["dir"], diff)
+    assert "the head that shipped 2026-11-09 .. 2026-11-14" in _stage(m, TSTAR)["what"]
+    for old_m in (pre, prr):
+        assert m["obs_contract"]["eval_env"] == old_m["obs_contract"]["eval_env"]
+        assert m["obs_contract"]["width"] == old_m["obs_contract"]["width"]
+        assert {k for k in set(m["construction"]) | set(old_m["construction"])
+                if m["construction"].get(k) != old_m["construction"].get(k)} <= {"runner_fixed"}
+        assert m["assets"][0]["sha256"] == old_m["assets"][0]["sha256"]
+    # this bake only ADDED to the observation contract text (hazard, clock columns) and the kind-row data
+    oc_new, oc_old = m["obs_contract"], prr["obs_contract"]
+    assert {k for k in set(oc_new) | set(oc_old) if oc_new.get(k) != oc_old.get(k)} == {"clock_columns", "hazard",
+                                                                                       "kind_rows"}
+    assert "kind_rows" not in oc_old
+    # every carried follow-up keeps its old text verbatim behind the new revision
+    ofu = {f["id"]: f for f in prr["followups"]}
+    nfu = {f["id"]: f for f in m["followups"]}
+    assert list(nfu)[:len(ofu)] == list(ofu)
+    for k, o in ofu.items():
+        n = nfu[k]
+        assert n["detail"].endswith(o["detail"]) and n["recorded"].startswith(o["recorded"]), k
+        if k not in ("back_overshoot", "stand_k4_restore_sag"):
+            assert (n["headline"], n.get("levers")) == (o["headline"], o.get("levers")), k
 
 
 def test_kept_superseded_paths_stay_valid_for_their_users():
     """The fixed paths other code names keep resolving to the same bytes: sh_core's warm-start pin (A-mask s17 at
     stand_net/model_4000.pt), the Task 4 pipeline's bundled_s1 (6_p2a_field) and its lock, p2_read's lookup of the
     seed-18 c6x categories by sha (now under superseded S1_s18), the dose smokes' superseded-W resolution, the DR
-    sweep's ONNX parity default (the kept f19_9_student) and the rod-speed DR campaign's T* (the live f19_8 file)."""
+    sweep's ONNX parity default (the kept f19_9_student), the rod-speed DR campaign's T* (the live f19_8 file) and its
+    bake-video script's TDR (live) and SH_RSD_TDR (the kept rsd_stand_net/model_5000.pt), the rough-terrain campaign's
+    TDR (the live rsd_9 file, rt_machinery.TDR_CK) and P2's ONNX export check (p2_onnx.py: the kept rsd_10_student io
+    json and graphs, c31000's sha)."""
     tool = _tool()
     m = tool.load_manifest()
     core = _load_nobc(SH_CORE, "sh_core_policy_kept_test")
@@ -1003,7 +1552,7 @@ def test_kept_superseded_paths_stay_valid_for_their_users():
     assert p2r._manifest_s18() == c6x["evals"]["categories"]
     w = _sup(m, "W")
     assert [st["dir"] for st in w["stages"]][-1] == "5_c6x_clockfree" and w["stages"][-1]["file"] == "model_11995.pt"
-    # read as source text (both modules import torch / Task 4 tools at import time)
+    # read as source text (these modules import torch / Task 4 tools / Isaac-side code at import time)
     parity = (PKG / "experiments" / "2026-11-06_dr_stress_sweep" / "scripts" / "onnx_parity.py").read_text()
     mo = re.search(r'^ONNX_DIR = R / "([^"]+)"$', parity, re.M)
     assert mo and (REPO / mo.group(1)).resolve() == (POLICY / OLD_STUDENT).resolve(), mo
@@ -1013,15 +1562,48 @@ def test_kept_superseded_paths_stay_valid_for_their_users():
     assert mo and (PKG / mo.group(1)).resolve() == tool.stage_path(tool.stage_by_dir(m, TSTAR)).resolve(), mo
     pre = re.search(r'^TSTAR_SHA_PREFIX = "([0-9a-f]{8})"$', lib, re.M)
     assert pre and tool.stage_by_dir(m, TSTAR)["sha256"].startswith(pre.group(1))
+    # the rod-speed DR bake-video script: TDR (live) and SH_RSD_TDR (kept) by path under $PKG/policy/
+    vids = (RSD / "scripts" / "bake_videos.sh").read_text()
+    by = {k: v for k, v in re.findall(r"^(TDR|SH)=\$PKG/policy/(\S+)$", vids, re.M)}
+    assert set(by) == {"TDR", "SH"}, by
+    assert (POLICY / by["TDR"]).resolve() == tool.stage_path(tool.stage_by_dir(m, TDR)).resolve()
+    kept_sh = _sup(m, "SH_RSD_TDR")["files"][0]
+    assert by["SH"] == f"{RSD_STAND}/model_5000.pt" == f"{kept_sh['dir']}/{kept_sh['file']}"
+    assert tool.sha256_of(POLICY / by["SH"]) == kept_sh["sha256"] and "bake_videos.sh" in _sup(m, "SH_RSD_TDR")[
+        "files_kept_because"]
+    # the rough-terrain machinery: TDR_CK is the live TDR stage file, with its sha
+    mach = (RT / "scripts" / "rt_machinery.py").read_text()
+    mo = re.search(r'^TDR_CK = OMNI / "policy" / "([^"]+)" / "([^"]+)"$', mach, re.M)
+    tdr = tool.stage_by_dir(m, TDR)
+    assert mo and (mo.group(1), mo.group(2)) == (TDR, tdr["file"]), mo
+    assert _ast_const(RT / "scripts" / "rt_machinery.py", "TDR_SHA") == tdr["sha256"]
+    assert _ast_const(RT / "scripts" / "rt_machinery.py", "TRAIN_NAME") == "RT_s19"
+    # P2's ONNX export check: POLICY_DIR / rsd_10_student (the kept c31000 io json and graphs it compares against)
+    onx = RT / "p2" / "p2_onnx.py"
+    src = onx.read_text()
+    for ln in ('HERE = Path(__file__).resolve().parent', "CAMP = HERE.parent", "EXPS = CAMP.parent",
+               "OMNI = EXPS.parent", 'POLICY_DIR = OMNI / "policy"'):
+        assert re.search(rf"^{re.escape(ln)}(?:\s|$)", src, re.M), ln
+    assert onx.parents[3] == PKG                                     # p2/ -> campaign -> experiments -> OMNI
+    io_m = re.search(r'^C31000_IO = POLICY_DIR / "([^"]+)" / "([^"]+)"$', src, re.M)
+    bd_m = re.search(r'^C31000_BUNDLE = POLICY_DIR / "([^"]+)"$', src, re.M)
+    rsd_files = {f["file"]: f for f in _sup(m, "RSD_student")["files"]}
+    assert io_m and bd_m and io_m.group(1) == bd_m.group(1) == RSD_STUDENT and io_m.group(2) in rsd_files
+    assert tool.sha256_of(POLICY / RSD_STUDENT / io_m.group(2)) == rsd_files[io_m.group(2)]["sha256"]
+    assert set(rsd_files) <= {p.name for p in (POLICY / bd_m.group(1)).iterdir()}
+    assert "p2_onnx.py" in _sup(m, "RSD_student")["files_kept_because"]
+    head = (POLICY / "manifest.yaml").read_text().split("\n\n", 1)[0]
+    for s in ("rt_machinery.py", "p2_onnx.py", "bake_videos.sh", "p2_read.py", "rsd_lib.py"):
+        assert s in head, s
 
 
 def test_rsd_lib_manifest_student_sha_falls_back_to_the_superseded_f19_student_block():
-    """Since this bake c28000 is no stage of the manifest: rsd_lib.manifest_student_sha reads its sha from the
-    superseded F19_student block (manifest only, no run file, so this runs on CI too). rsd_lib is loaded as a private
-    instance and the process state it touches (sys.dont_write_bytecode, the shared 'tp_lib' module) is restored."""
+    """c28000 is no stage of the manifest: rsd_lib.manifest_student_sha reads its sha from the superseded F19_student
+    block (manifest only, no run file, so this runs on CI too). rsd_lib is loaded as a private instance and the process
+    state it touches (sys.dont_write_bytecode, the shared 'tp_lib' module) is restored."""
     pytest.importorskip("numpy")
     m = _m()
-    assert not [s for s in m["stages"] if s["dir"] == OLD_STUDENT]
+    assert not [s for s in m["stages"] if s["dir"] in (OLD_STUDENT, RSD_STUDENT)]
     blk = _sup(m, "F19_student")["block"]
     saved = (sys.dont_write_bytecode, sys.modules.get("tp_lib"))
     try:
@@ -1095,39 +1677,122 @@ def _sn_family_counts(g: dict) -> dict:
     return counts
 
 
+def _family_line(counts: dict) -> str:
+    return ", ".join(f"{a} / {b}" for a, b in (counts[k] for k in ("G1", "G2", "G3", "G4", "G5")))
+
+
 def test_stand_network_file_is_bundled_with_the_manifest_sha():
-    """The adopted SH_RSD_TDR file sits in its own folder (not a stage / asset / kept dir) with the manifest sha (the
-    campaign's head record and gate name the same), beside the walking head of record TDR it was trained and gated
-    with; the folder holds exactly it and its warm-start ancestor."""
+    """The adopted SH_RT file sits in its own folder (not a stage / asset / kept dir) with the manifest sha (the
+    campaign's head record and gate name the same), beside the walking head of record c1 it was trained and gated with;
+    the folder holds exactly it and its warm-start ancestor; no stand decision was needed (no gates/sh_decision.json)."""
     tool = _tool()
     m = tool.load_manifest()
     sn = _stand(m)
     assert (sn["dir"], sn["file"]) == (STAND_DIR, "model_5000.pt")
     assert (sn["id"], sn["arm"], sn["stand_mask"], sn["training_seed"], sn["iterations"]) == (
-        "SH_RSD_TDR_sh_s19", "A-mask", 1, 19, 5000)
+        "SH_RT_6d1f29be_sh_s19", "A-mask", 1, 19, 5000)
     kept_dirs = {f["dir"] for e in m["superseded"] for f in e.get("files") or []}
     assert sn["dir"] not in {s["dir"] for s in m["stages"]} | {a["dir"] for a in m["assets"]} | kept_dirs
     p = tool.stand_path(sn)
     assert p == POLICY / STAND_DIR / "model_5000.pt" and p.is_file(), p
-    head = _json(RES / "stand" / "sh_head.json")
+    head = _json(RTS / "sh_head.json")
     assert head["name"] == sn["id"] and head["stage"] == "sh"
-    assert tool.sha256_of(p) == sn["sha256"] == head["sha256"] == _json(RES / "stand/gates/sh.json")["head"]["sha256"]
+    assert tool.sha256_of(p) == sn["sha256"] == head["sha256"] == _json(RTS / "gates/sh.json")["head"]["sha256"]
+    assert sn["sha256"] == "6f8b558e1eda9d9e795104ff79101ebfd0a1e133ac05ad7868d994bfbd3b4e4c"
     assert head["ckpt"].endswith("/" + sn["source"]) and head["status"]["iterations_run"] == sn["iterations"]
+    assert head["status"]["status"] == "done"
     assert sorted(q.name for q in p.parent.iterdir()) == ["model_4000.pt", "model_5000.pt"]
     assert [f["path"] for f in tool.stand_files(sn)] == [p, tool.warm_start_path(sn)] == [p, p.parent / "model_4000.pt"]
     assert m["heads"]["stand"] == sn["dir"]
     # the walking head of record, baked at the same time, and the block pins exactly that walker
-    assert m["current"] == sn["walker"]["stage"] == TDR
-    assert sn["walker"]["sha256"] == tool.stage_by_dir(m, TDR)["sha256"] == \
-        _json(RES / "policies.json")["policies"]["TDR"]["sha256"]
-    assert '"Bake as proposed"' in sn["adopted"] and "2026-11-09" in sn["adopted"]
-    assert '"Accept and disclose"' in sn["adopted"] and "results/stand/gates/sh_decision.json" in sn["adopted"]
-    assert sn["source"] == "parkour/outputs/omni_plan/stand_height/runs/SH_RSD_TDR_sh_s19/model_5000.pt"
+    c1 = tool.stage_by_dir(m, C1)
+    assert m["current"] == sn["walker"]["stage"] == C1
+    assert sn["walker"]["sha256"] == c1["sha256"] == _json(RTS / "walker_spec.json")["spec"]["S1_SHA256"]
+    assert _json(RTS / "gates/sh.json")["head"]["walker"]["sha256"] == c1["sha256"]
+    assert '"Yes, bake"' in sn["adopted"] and "2026-11-14" in sn["adopted"] and "23:25" in sn["adopted"]
+    assert "no stand decision was needed" in sn["adopted"] and "sh_decision.json" not in sn["adopted"]
+    assert not (RTS / "gates" / "sh_decision.json").exists()
+    assert sn["source"] == "parkour/outputs/omni_plan/stand_height/runs/SH_RT_6d1f29be_sh_s19/model_5000.pt"
+    assert "NEVER on the rough-terrain kinds" in sn["walker"]["note"]
     # the trainer flags the head record ran with (+ the warm start it names)
     args = head["args"]
     assert args[:len(sn["training"]["flags"].split())] == sn["training"]["flags"].split()
     assert args[args.index("--warm-sha") + 1] == sn["warm_start"]["sha256"]
     assert args[args.index("--warm-start") + 1].endswith("/" + sn["warm_start"]["source"])
+
+
+def test_superseded_sh_rsd_tdr_is_kept_with_its_ancestor():
+    """The superseded rod-speed DR stand nets (superseded[SH_RSD_TDR] / [SN_RSD_TDR]): their kept files in
+    rsd_stand_net/ are that campaign's stand heads (results/stand/sh_head.json / sn_head.json, its gates); SH_RSD_TDR's
+    block pins TDR (still a live stage) as its walker and SN_RSD_TDR as its warm start, whose SN gate HALTed on the four
+    G5 body-height lines only, all re-anchored (gates/sn_reanchor.json, the user's 11:53 rule), with the per-family
+    counts its block states; its K4 HALT was accepted and disclosed by the user (gates/sh_decision.json); its walker
+    override is TDR's; the checkpoints (when torch is there) were trained beside TDR."""
+    tool = _tool()
+    m = tool.load_manifest()
+    sh, sn_old = _sup(m, "SH_RSD_TDR"), _sup(m, "SN_RSD_TDR")
+    blk = sh["block"]
+    tdr = tool.stage_by_dir(m, TDR)
+    assert (blk["dir"], blk["file"], blk["id"]) == (RSD_STAND, "model_5000.pt", "SH_RSD_TDR_sh_s19")
+    p = POLICY / RSD_STAND / "model_5000.pt"
+    head = _json(RES / "stand" / "sh_head.json")
+    assert tool.sha256_of(p) == sh["files"][0]["sha256"] == blk["sha256"] == head["sha256"] == \
+        _json(RES / "stand/gates/sh.json")["head"]["sha256"]
+    assert sh["files"][0]["source"] == blk["source"] == \
+        "parkour/outputs/omni_plan/stand_height/runs/SH_RSD_TDR_sh_s19/model_5000.pt"
+    assert head["name"] == blk["id"] and head["ckpt"].endswith("/" + blk["source"])
+    assert sorted(q.name for q in p.parent.iterdir()) == ["model_4000.pt", "model_5000.pt"]
+    assert blk["walker"]["stage"] == TDR and blk["walker"]["sha256"] == tdr["sha256"] == \
+        _json(RES / "policies.json")["policies"]["TDR"]["sha256"]
+    assert '"Bake as proposed"' in blk["adopted"] and '"Accept and disclose"' in blk["adopted"]
+    assert "results/stand/gates/sh_decision.json" in blk["adopted"]
+    ws = blk["warm_start"]
+    q = POLICY / RSD_STAND / ws["file"]
+    sn_head = _json(RES / "stand" / "sn_head.json")
+    assert (ws["id"], ws["file"]) == ("SN_RSD_TDR_sn_s19", "model_4000.pt") and sn_head["name"] == ws["id"]
+    assert [(f["dir"], f["file"], f["sha256"], f["source"]) for f in sn_old["files"]] == [
+        (RSD_STAND, ws["file"], ws["sha256"], ws["source"])]
+    assert ws["sha256"] == "6cd82ff539daa3e78efa8de94fcb9fb21c8ba2f43715242a7c2e08bbb2ce534d" == sn_head["sha256"]
+    assert ws["source"] == "parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_4000.pt"
+    assert sn_head["ckpt"].endswith("/" + ws["source"]) and sn_head["args"] == [
+        "--mode", "dagger", "--arm", "mask", "--seed", "19", "--iterations", "4000"]
+    assert tool.sha256_of(q) == ws["sha256"] and ws["sha256"] in blk["training"]["warm_start"]
+    # the SN stage's gate: HALT on exactly the four G5 body-height lines, each re-anchored; the counts the block states
+    g = _json(RES / "stand" / "gates" / "sn.json")
+    ra = _json(RES / "stand" / "gates" / "sn_reanchor.json")
+    assert g["verdict"] == "HALT" and g["thresholds"]["version"] == "v1.2" and g["head"]["sha256"] == ws["sha256"]
+    failed = [x["id"] for x in g["decisive"] if not x["pass"]]
+    assert len(failed) == 4 and all(".G5." in x and "body height" in x for x in failed), failed
+    assert failed == g["halt_lines"] == ra["halt_lines"] == [x["id"] for x in ra["body_height"]["lines"]]
+    assert all(x["reanchored"] and all(c["control_fails_same_line"] and c["head_within_tol"]
+                                       for c in x["controls"].values()) for x in ra["body_height"]["lines"])
+    assert ra["reanchored"] is True and ra["remaining"] == []
+    assert "11:53" in ra["body_height"]["rule"] and "11:53" in ws["used_by"]
+    counts = _sn_family_counts(g)
+    assert sorted(counts) == ["G1", "G2", "G3", "G4", "G5"] and counts["G5"][1] - counts["G5"][0] == 4
+    assert _family_line(counts) in ws["used_by"]
+    assert f"{sum(a for a, _ in counts.values())} / {len(g['decisive'])} decisive pass" in ws["used_by"]
+    assert "results/stand/gates/sn.json" in ws["used_by"] and "results/stand/gates/sn_reanchor.json" in ws["used_by"]
+    # its walker override: TDR's (the rod-speed DR campaign's results/stand/walker_spec.json)
+    env = blk["evaluate"]["env"]
+    rec = _json(RES / "stand" / "walker_spec.json")["spec"]
+    assert env["SN_WALKER_CK"] == f"{REPO_TOKEN}/{tdr['source']}" and _names_recorded(env["SN_WALKER_ST"],
+                                                                                    rec["REFS_ENV_STAMP"])
+    assert env["SN_WALKER_SPEC"]["REFS_NAME"] == "REFS_RSD_TDR" and env["SN_WALKER_SPEC"]["S1_SHA256"] == tdr["sha256"]
+    assert env["SN_WALKER_ST"] == f"{REPO_TOKEN}/{tdr['evals']['stamp']}"
+    torch = pytest.importorskip("torch")
+    ck = torch.load(str(p), map_location="cpu", weights_only=False)
+    info = ck["infos"]["sh_dagger"]
+    assert info["s1_sha256"] == tdr["sha256"] and info["warm_start"]["sha256"] == ws["sha256"]
+    assert (info["seed"], info["stand_mask"], info["residual_deadband"]) == (19, 1, 0.25)
+    wck = torch.load(str(q), map_location="cpu", weights_only=False)
+    snd = wck["infos"]["sn_dagger"]
+    assert (snd["s1_sha256"], snd["seed"], snd["iterations"], snd["stand_mask"], snd["arm"]) == (
+        tdr["sha256"], 19, 4000, 1, "mask")
+    t = torch.load(str(tool.stage_path(tdr)), map_location="cpu", weights_only=False)
+    for c in (ck, wck):
+        assert all(torch.equal(c["estimator_state_dict"][k], t["estimator_state_dict"][k])
+                   for k in t["estimator_state_dict"])
 
 
 def test_superseded_sh_t4f19_is_kept_with_its_ancestor():
@@ -1157,8 +1822,7 @@ def test_superseded_sh_t4f19_is_kept_with_its_ancestor():
     assert tool.sha256_of(q) == ws["sha256"] and (T4 / "head" / "model_4000.pt").read_bytes() == q.read_bytes()
     g = _json(F19 / "gates/sn.json")
     assert g["verdict"] == "PASS" and g["head"]["sha256"] == ws["sha256"]
-    counts = _sn_family_counts(g)
-    assert ", ".join(f"{a} / {b}" for a, b in (counts[k] for k in ("G1", "G2", "G3", "G4", "G5"))) in ws["used_by"]
+    assert _family_line(_sn_family_counts(g)) in ws["used_by"]
     env = blk["evaluate"]["env"]
     assert env["SN_WALKER_CK"] == f"{REPO_TOKEN}/{tstar['source']}"
     assert _names_recorded(env["SN_WALKER_ST"], dl["tstar"]["driver_stamp"])
@@ -1177,9 +1841,11 @@ def test_expected_files_include_the_stand_network():
     # the stand network of record AND its bundled warm-start ancestor; every superseded stand file stays expected
     new = {f"{STAND_DIR}/model_5000.pt", f"{STAND_DIR}/model_4000.pt"}
     kept = {"stand_net/model_5000.pt", "stand_net/model_4000.pt"}
-    kept_f19 = {*(f"{OLD_STUDENT}/{f}" for f in ("policy.onnx", "depth_latest.onnx", "omni_student_io.json")),
+    kept_f19 = {*(f"{OLD_STUDENT}/{f}" for f in STUDENT_EXPORTS),
                 f"{OLD_STAND}/model_5000.pt", f"{OLD_STAND}/model_4000.pt"}
-    assert new | kept | kept_f19 <= files
+    kept_rsd = {*(f"{RSD_STUDENT}/{f}" for f in STUDENT_EXPORTS),
+                f"{RSD_STAND}/model_5000.pt", f"{RSD_STAND}/model_4000.pt"}
+    assert new | kept | kept_f19 | kept_rsd <= files
     no_ws = copy.deepcopy(m)
     del no_ws["stand_network"]["warm_start"]
     assert tool.expected_files(no_ws) == files - {f"{STAND_DIR}/model_4000.pt"}
@@ -1188,7 +1854,7 @@ def test_expected_files_include_the_stand_network():
     assert tool.expected_files(bare) == files - new
     no_sup = copy.deepcopy(m)
     no_sup["superseded"] = [e for e in no_sup["superseded"] if e["id"] == "W"]
-    assert tool.expected_files(no_sup) == files - kept - kept_f19 - {f"{d}/{s['file']}" for d, s in zip(
+    assert tool.expected_files(no_sup) == files - kept - kept_f19 - kept_rsd - {f"{d}/{s['file']}" for d, s in zip(
         S18_STAGES, _sup(m, "S1_s18")["stages"])}
 
 
@@ -1204,35 +1870,38 @@ def test_stand_network_source_is_the_bundled_file():
         assert tool.sha256_of(src) == f["sha256"] == tool.sha256_of(f["path"])
 
 
-def test_stand_warm_start_is_the_ancestor_sh_rsd_tdr_records():
-    """The bundled warm start (``stand_network.warm_start``, same folder) is the file SH_RSD_TDR was warm-started from:
-    its sha256 equals SH_RSD_TDR's checkpoint ``infos.sh_dagger.warm_start`` / ``warm_start_cli`` (which name its source
-    run) and the campaign's SN head record; it is itself the stand net trained beside TDR, whose SN gate HALTed on the
-    four G5 body-height lines only -- all four re-anchored on the R / HOLD controls under the user's 11:53 rule
-    (gates/sn_reanchor.json) -- with the per-family line counts the block states, and whose estimator is TDR's;
-    sh_core's own pinned default warm start stays the kept A-mask s17 file."""
+def test_stand_warm_start_is_the_ancestor_sh_rt_records():
+    """The bundled warm start (``stand_network.warm_start``, same folder) is the file SH_RT was warm-started from: its
+    sha256 equals SH_RT's checkpoint ``infos.sh_dagger.warm_start`` / ``warm_start_cli`` (which name its source run) and
+    the campaign's SN head record; it is itself the stand net trained beside c1, whose SN gate HALTed on the four G5
+    body-height lines only -- all four re-anchored on the R / HOLD controls under the user's 11:53 rule
+    (results/p2/stand/gates/sn_reanchor.json covers exactly them) -- with the per-family line counts the block states
+    (G1-G5 from gates/sn.json), and whose estimator is c1's; sh_core's own pinned default warm start stays the kept A-mask
+    s17 file."""
     tool = _tool()
     m = tool.load_manifest()
     sn = _stand(m)
     ws = sn["warm_start"]
-    head = _json(RES / "stand" / "sn_head.json")
-    assert (ws["id"], ws["file"]) == ("SN_RSD_TDR_sn_s19", "model_4000.pt") and head["name"] == ws["id"]
-    assert ws["sha256"] == "6cd82ff539daa3e78efa8de94fcb9fb21c8ba2f43715242a7c2e08bbb2ce534d" == head["sha256"]
-    assert ws["source"] == "parkour/outputs/omni_plan/stand_network/runs/SN_RSD_TDR_sn_s19/model_4000.pt"
+    head = _json(RTS / "sn_head.json")
+    assert (ws["id"], ws["file"]) == ("SN_RT_6d1f29be_sn_s19", "model_4000.pt") and head["name"] == ws["id"]
+    assert ws["sha256"] == "5bedc50efb8f2364db024b0e8134af7edd31595224acc530468f2688e19cd6a3" == head["sha256"]
+    assert ws["source"] == "parkour/outputs/omni_plan/stand_network/runs/SN_RT_6d1f29be_sn_s19/model_4000.pt"
     assert head["ckpt"].endswith("/" + ws["source"]) and head["args"] == ["--mode", "dagger", "--arm", "mask", "--seed",
                                                                           "19", "--iterations", "4000"]
+    assert head["status"]["iterations_run"] == 4000 and head["status"]["status"] == "done"
     assert "NOT the stand network of record" in ws["role"] and "W[:, 15] zeroed" in ws["role"]
     p = tool.warm_start_path(sn)
     assert p == POLICY / sn["dir"] / ws["file"] and p.is_file(), p
     assert tool.sha256_of(p) == ws["sha256"]
     assert ws["sha256"] in sn["training"]["warm_start"]
     # the SN stage's gate: HALT on exactly the four G5 body-height lines, each re-anchored; the counts the block states
-    g = _json(RES / "stand" / "gates" / "sn.json")
-    ra = _json(RES / "stand" / "gates" / "sn_reanchor.json")
+    g = _json(RTS / "gates" / "sn.json")
+    ra = _json(RTS / "gates" / "sn_reanchor.json")
     assert g["verdict"] == "HALT" and g["thresholds"]["version"] == "v1.2" and g["head"]["sha256"] == ws["sha256"]
+    assert g["head"]["walker"]["sha256"] == sn["walker"]["sha256"] and g["head"]["refs"] == "REFS_RT_6d1f29be"
     failed = [x["id"] for x in g["decisive"] if not x["pass"]]
     assert len(failed) == 4 and all(".G5." in x and "body height" in x for x in failed), failed
-    assert failed == g["halt_lines"] == ra["halt_lines"]
+    assert failed == g["halt_lines"] == ra["halt_lines"] == ra["body_height"]["covered"]
     assert [x["id"] for x in ra["body_height"]["lines"]] == failed
     assert all(x["reanchored"] and all(c["control_fails_same_line"] and c["head_within_tol"]
                                        for c in x["controls"].values()) for x in ra["body_height"]["lines"])
@@ -1241,10 +1910,11 @@ def test_stand_warm_start_is_the_ancestor_sh_rsd_tdr_records():
     assert "11:53" in ra["body_height"]["rule"] and "11:53" in ws["used_by"]
     counts = _sn_family_counts(g)
     assert sorted(counts) == ["G1", "G2", "G3", "G4", "G5"] and counts["G5"][1] - counts["G5"][0] == 4
-    assert ", ".join(f"{a} / {b}" for a, b in (counts[k] for k in ("G1", "G2", "G3", "G4", "G5"))) in ws["used_by"]
+    assert _family_line(counts) in ws["used_by"]
     assert f"{sum(a for a, _ in counts.values())} / {len(g['decisive'])} decisive pass" in ws["used_by"]
-    assert "results/stand/gates/sn.json" in ws["used_by"] and "results/stand/gates/sn_reanchor.json" in ws["used_by"]
-    # sh_core's pinned default is the kept A-mask s17 (the trainer warm-started SH_RSD_TDR from SN_RSD_TDR by --warm-start)
+    assert f"{len(g['watch_lines'])} / {len(g['watch_lines'])} WATCH" in ws["used_by"]
+    assert "results/p2/stand/gates/sn.json" in ws["used_by"] and "results/p2/stand/gates/sn_reanchor.json" in ws["used_by"]
+    # sh_core's pinned default is the kept A-mask s17 (the trainer warm-started SH_RT from SN_RT by --warm-start)
     core = _load_nobc(SH_CORE, "sh_core_policy_warm_test")
     assert Path(core.STAND_NET_CKPT).resolve() == AMASK_KEPT.resolve() and core.STAND_NET_SHA256 != ws["sha256"]
     torch = pytest.importorskip("torch")
@@ -1258,22 +1928,22 @@ def test_stand_warm_start_is_the_ancestor_sh_rsd_tdr_records():
     snd = wck["infos"]["sn_dagger"]
     assert (snd["s1_sha256"], snd["seed"], snd["iterations"], snd["stand_mask"], snd["arm"]) == (
         sn["walker"]["sha256"], 19, 4000, 1, "mask")
-    t = torch.load(str(tool.stage_path(tool.stage_by_dir(m, TDR))), map_location="cpu", weights_only=False)
+    t = torch.load(str(tool.stage_path(tool.stage_by_dir(m, C1))), map_location="cpu", weights_only=False)
     assert all(torch.equal(wck["estimator_state_dict"][k], t["estimator_state_dict"][k]) for k in t["estimator_state_dict"])
 
 
 def test_stand_network_checkpoint_is_the_height_net_beside_the_walker():
     """infos.sh_dagger (and the predecessor's infos.sn_dagger block): mask 1 as the manifest says, trained beside the
-    walking stage the block names (s1_sha256 == TDR's sha), with R's validated constants, the trainer flags of record
-    (deadband 0.25 in the loop, the trim branch at the saturated label), warm-started from the bundled SN_RSD_TDR, under
-    the height contract and clip the manifest's deployment.constants state; only the actor backbone differs from TDR's
-    checkpoint and the estimator is TDR's, bitwise."""
+    walking stage the block names (s1_sha256 == c1's sha), with R's validated constants, the trainer flags of record
+    (deadband 0.25 in the loop, the trim branch at the saturated label), warm-started from the bundled SN_RT, under the
+    height contract and clip the manifest's deployment.constants state; only the actor backbone differs from c1's
+    checkpoint and the estimator is c1's, bitwise."""
     torch = pytest.importorskip("torch")
     tool = _tool()
     m = tool.load_manifest()
     sn = _stand(m)
     w = tool.stage_by_dir(m, sn["walker"]["stage"])
-    assert w["dir"] == TDR
+    assert w["dir"] == C1
     c, tr = sn["deployment"]["constants"], sn["training"]
     ck = torch.load(str(tool.stand_path(sn)), map_location="cpu", weights_only=False)
     sh, snd = ck["infos"]["sh_dagger"], ck["infos"]["sn_dagger"]
@@ -1324,26 +1994,42 @@ def test_stand_network_checkpoint_is_the_height_net_beside_the_walker():
 
 def test_stand_network_contract_is_the_campaign_core():
     """Every number of deployment.constants is the stand-height campaign's sh_core (the ONE implementation the trainer,
-    the launcher, the table test and the recorder import) and identical to the superseded SH_T4F19 and SH_T17
-    contracts' (the same recipe on a new walker); the contract text differs from SH_T4F19's only in the walker-specific
-    keys; the posture endpoints the contract states are sh_core's q map, and the action path behaves as stated: hard
-    0.25 deadband on the clamped hip / knee residual only, before the posture; column 15 = 0 at 1.064."""
+    the launcher, the table test and the recorder import) and identical to the superseded SH_RSD_TDR, SH_T4F19 and SH_T17
+    contracts' (the same recipe on a new walker); the contract text differs from SH_RSD_TDR's only in the walker-specific
+    keys, whose numbers are the campaign's gate / height records; the posture endpoints the contract states are sh_core's
+    q map, and the action path behaves as stated: hard 0.25 deadband on the clamped hip / knee residual only, before the
+    posture; column 15 = 0 at 1.064."""
     torch = pytest.importorskip("torch")
     tool = _tool()
     m = tool.load_manifest()
     sn = _stand(m)
     dep = sn["deployment"]
     c = dep["constants"]
-    old = _sup(m, "SH_T4F19")["block"]["deployment"]
-    assert c == old["constants"] == _sup(m, "SH_T17")["block"]["deployment"]["constants"]
+    old = _sup(m, "SH_RSD_TDR")["block"]["deployment"]
+    assert c == old["constants"] == _sup(m, "SH_T4F19")["block"]["deployment"]["constants"] == \
+        _sup(m, "SH_T17")["block"]["deployment"]["constants"]
     changed = {k for k in set(dep) | set(old) if dep.get(k) != old.get(k)}
     assert changed == {"zero_height", "scope", "caveat_switch_keying", "caveat_walker_height"}, changed
     assert dep["env_required"] == old["env_required"] and dep["env_off"] == old["env_off"]
-    assert "SH_RSD_TDR" in dep["scope"] and "SH_T4F19 (es1" not in dep["scope"] and "5 / 6" in dep["scope"]
-    assert "SH_RSD_TDR_sh_s19z" in dep["zero_height"] and "43 K5 lines" in dep["zero_height"]
-    assert "REFS_RSD_TDR" in dep["zero_height"] and "0.92 / 0.91" in dep["zero_height"]
-    assert "SH_T4F19" in dep["caveat_switch_keying"] and "caveat_walker_height" not in old
-    assert "0.03 m taller" in dep["caveat_walker_height"] and "1.064" in dep["caveat_walker_height"]
+    g = _json(RTS / "gates" / "sh.json")
+    gv = {x["id"]: x for x in g["decisive"]}
+    rsd_g = {x["id"]: x for x in _json(RES / "stand" / "gates" / "sh.json")["decisive"]}
+    miss = [gv[f"stand.D2.K4.miss es{k} <= max(1, R_h's)"]["value"] for k in (1, 2)]
+    assert "SH_RT" in dep["scope"] and "SH_RSD_TDR (es1" not in dep["scope"] and f"{miss[0]} / {miss[1]} misses" in dep["scope"]
+    assert "NEVER on the rough-terrain kinds" in dep["scope"]
+    k5 = [x for x in g["decisive"] if ".K5." in x["id"]]
+    assert f"{sum(x['pass'] for x in k5)} of its {len(k5)} K5 lines" in dep["zero_height"]
+    assert "SH_RT_6d1f29be_sh_s19z" in dep["zero_height"] and "REFS_RT_6d1f29be" in dep["zero_height"]
+    homed = [gv[f"stand.D2.K5.G2.homed walkstop es{k}"]["value"] for k in (1, 2)]
+    settle = [gv[f"stand.D2.K5.G2.median settle walkstop es{k} <= probe + 1.0 s"] for k in (1, 2)]
+    rsd_settle = [rsd_g[f"stand.D2.K5.G2.median settle walkstop es{k} <= probe + 1.0 s"]["value"] for k in (1, 2)]
+    assert f"{homed[0]:.3f} / {homed[1]:.3f}" in dep["zero_height"]
+    assert (f"{settle[0]['value']:.2f} / {settle[1]['value']:.2f} s against the lines {settle[0]['line']:.2f} / "
+            f"{settle[1]['line']:.2f} s (SH_RSD_TDR {rsd_settle[0]:.2f} / {rsd_settle[1]:.2f} s)") in dep["zero_height"]
+    assert "SH_RSD_TDR" in dep["caveat_switch_keying"] and "SH_T4F19" in dep["caveat_switch_keying"]
+    spare = min(x["controls_spare_m"] for x in _json(RTS / "body_height_measured.json")["lines"].values())
+    assert "0.014 m lower" in dep["caveat_walker_height"] and "1.064" in dep["caveat_walker_height"]
+    assert f"{spare:.3f} m" in dep["caveat_walker_height"] and "11:53" in dep["caveat_walker_height"]
     core = _load_nobc(SH_CORE, "sh_core_policy_test")
     assert (c["h_settled_m"], c["h_min_m"], c["h_max_m"]) == (core.H_SETTLED, core.H_MIN, core.H_MAX)
     assert (c["rate_m_s"], c["height_col"], c["height_obs_scale"], c["q_grid_step_m"]) == (
@@ -1381,17 +2067,17 @@ def test_stand_network_contract_is_the_campaign_core():
 
 
 def test_stand_network_routing_env_is_the_walkers():
-    """Both networks run in one process under TDR's carry env (= T*'s): the block's env_required is exactly the walker's
-    carry values, its env_off knobs are off there, the launcher's D5 rule (sn_common.env_reasons) accepts that env, which
-    is T*'s tracked F19 eval env (and, when on disk, the env of every SH_RSD_TDR height stamp); the walker override the
-    README exports is the campaign's results/stand/walker_spec.json spec (REFS_ENV_STAMP included) and parses under
-    sn_dagger_spec; every script the commands name exists; a re-run uses fresh names, the trained deadband, mask 1 and
-    the bundled file."""
+    """Both networks run in one process under c1's carry env (= TDR's = T*'s): the block's env_required is exactly the
+    walker's carry values, its env_off knobs are off there, the launcher's D5 rule (sn_common.env_reasons) accepts that
+    env, which is T*'s tracked F19 eval env (and, when on disk, the env of every SH_RT height stamp); the walker override
+    the README exports is the campaign's results/p2/stand/walker_spec.json spec (REFS_ENV_STAMP == SN_WALKER_ST, REFS_NAME
+    REFS_RT_6d1f29be) and parses under sn_dagger_spec; every script the commands name exists; a re-run uses fresh names,
+    the trained deadband, mask 1 and the bundled file."""
     tool = _tool()
     m = tool.load_manifest()
     sn = _stand(m)
     w = tool.stage_by_dir(m, sn["walker"]["stage"])
-    assert w["dir"] == TDR
+    assert w["dir"] == C1
     carry = tool.carry_env(m, w)
     dep = sn["deployment"]
     for k, v in dep["env_required"].items():
@@ -1404,10 +2090,10 @@ def test_stand_network_routing_env_is_the_walkers():
     assert set(sc.ENV4) <= set(dep["env_required"])
     assert {sc.STAND_MASK_VAR, sc.STAND_PROXY_VAR, sc.RESTANCE_VAR} == set(dep["env_off"])
     assert tool.eval_env(m, w) == _env_file(F19 / "envs/p3b.env")
-    # the walker override: exactly what the stand re-pairing composed beside TDR (results/stand/walker_spec.json)
+    # the walker override: exactly what the stand re-pair composed beside c1 (results/p2/stand/walker_spec.json)
     run = sn["evaluate"]
     env = run["env"]
-    rec = _json(RES / "stand" / "walker_spec.json")["spec"]
+    rec = _json(RTS / "walker_spec.json")["spec"]
     cand = yaml.safe_load((F19 / "candidates.yaml").read_text())
     spec = env["SN_WALKER_SPEC"]
     # checkout-independent as committed: every path is $REPO/<repo-relative path>, none absolute
@@ -1415,7 +2101,7 @@ def test_stand_network_routing_env_is_the_walkers():
     assert not [v for v in leaves if v.startswith("/")], leaves
     assert (env["SN_WALKER_CK"], str(env["P2_REANCHOR"])) == (f"{REPO_TOKEN}/{w['source']}", "1")
     assert _names_recorded(env["SN_WALKER_ST"], rec["REFS_ENV_STAMP"])
-    assert spec["REFS_ENV_STAMP"] == env["SN_WALKER_ST"]
+    assert spec["REFS_ENV_STAMP"] == env["SN_WALKER_ST"] and spec["REFS_NAME"] == rec["REFS_NAME"] == "REFS_RT_6d1f29be"
     assert set(spec) == set(rec)
     for k, v in spec.items():
         if isinstance(v, str) and v.startswith(REPO_TOKEN + "/"):
@@ -1425,13 +2111,16 @@ def test_stand_network_routing_env_is_the_walkers():
     assert env["SN_WALKER_ST"] == f"{REPO_TOKEN}/{w['evals']['stamp']}"
     here = _at_checkout(spec)
     assert here == {"CANDIDATES": str(F19 / "candidates.yaml"), "OVERLAY_CHAIN": "F19_p2a",
-                    "REFS_ENV_STAMP": _at_checkout(env["SN_WALKER_ST"]), "REFS_NAME": "REFS_RSD_TDR",
+                    "REFS_ENV_STAMP": _at_checkout(env["SN_WALKER_ST"]), "REFS_NAME": "REFS_RT_6d1f29be",
                     "S1_AGENT_YAML": str(REPO / Path(w["source"]).parent / "params" / "agent.yaml"),
                     "S1_CKPT": str(REPO / w["source"]), "S1_SHA256": w["sha256"],
                     "S1_OVERLAY": {k: str(v) for k, v in cand["chains"]["F19_p2a"]["stages"][0]["overlay"].items()}}
+    # the stand nets trained on the wall field with NO DR / rough-terrain key (the walker's overlay is F19_p2a's)
+    assert not [k for k in spec["S1_OVERLAY"] if k in (DR_VAR, FRICTION) or k.startswith(SITE_PREFIX)]
+    assert spec["S1_OVERLAY"][GEOM] == "field"
     spec_mod = _load_nobc(SN_SPEC, "sn_dagger_spec_policy_test")
     parsed = spec_mod.walker_spec_override({"SN_WALKER_SPEC": json.dumps(here, sort_keys=True)})
-    assert parsed["S1_SHA256"] == w["sha256"] and parsed["REFS_NAME"] == "REFS_RSD_TDR"
+    assert parsed["S1_SHA256"] == w["sha256"] and parsed["REFS_NAME"] == "REFS_RT_6d1f29be"
     text = (POLICY / "README.md").read_text()
     # the README's exports, run as written from parkour/ (bash), give exactly the resolved values at run time -- the
     # absolute paths every consumer requires (sn_dagger_spec refuses a relative one), this checkout's, not the writer's
@@ -1449,8 +2138,8 @@ def test_stand_network_routing_env_is_the_walkers():
     assert named == {"sh_eval_rows.sh", "sh_table_test.sh", "sh_read.py", "sh_record_video.sh"}
     for f in named | {"sh_eval_crab_hex_gait.py", "sh_core.py", "sh_video_core.py", "sh_record_video.py"}:
         assert (sdir / f).is_file(), f
-    assert (RES / "stand" / "sh_lazy_rh_read_spec.json").is_file()
-    assert "experiments/2026-11-07_rod_speed_dr/results/stand/sh_lazy_rh_read_spec.json" in run["notes"]
+    assert (RTS / "sh_lazy_rh_read_spec.json").is_file()
+    assert "experiments/2026-11-10_rough_terrain/results/p2/stand/sh_lazy_rh_read_spec.json" in run["notes"]
     for cmd in cmds:
         if "$CK" in cmd:
             assert f"--deadband {sn['deployment']['constants']['residual_deadband']}" in cmd, cmd
@@ -1460,11 +2149,12 @@ def test_stand_network_routing_env_is_the_walkers():
     head = next(h for h in sn["evals"]["heads"] if h.get("adopted"))
     evr = [x for cmd in cmds for x in re.findall(r"--eval-run \$PWD/(\S+)", cmd)]
     assert evr and set(evr) == {head["stamps"]["hraise__omni@1"].removeprefix("parkour/")}
-    old_run = _sup(m, "SH_T4F19")["block"]["evaluate"]["name"]
-    taken = {h["id"] for h in sn["evals"]["heads"]} | {"SH_T17", "SH_T18", "SH_T16", "SH_T4F19_sh_s19", old_run,
-                                                       "SH_RH_RSD_TDR"}
+    old_runs = {_sup(m, sid)["block"]["evaluate"]["name"] for sid in ("SH_T4F19", "SH_RSD_TDR")}
+    taken = {h["id"] for h in sn["evals"]["heads"]} | {"SH_T17", "SH_T18", "SH_T16", "SH_T4F19_sh_s19",
+                                                       "SH_RSD_TDR_sh_s19", "SH_RH_RSD_TDR", "SH_RH_RT_6d1f29be",
+                                                       *old_runs}
     assert not {run["name"], run["name"] + "z"} & (taken | {h + "z" for h in taken}), "a re-run must use FRESH names"
-    # the recorded stamps (untracked) ran under exactly TDR's eval env, beside TDR, with this stand file
+    # the recorded stamps (untracked) ran under exactly c1's eval env, beside c1, with this stand file
     for k, v in head["stamps"].items():
         if "@" not in k:
             continue
@@ -1475,17 +2165,9 @@ def test_stand_network_routing_env_is_the_walkers():
             assert meta["p2r_mode"]["specialist"]["sha256"] == sn["sha256"], st
 
 
-def test_stand_network_videos_ran_the_bundled_pair():
-    """The bake's walker + stand mix videos (untracked, recorded by the main session; skipped when absent): each sanity
-    record names TDR and SH_RSD_TDR by sha, mask 1, the trained deadband, the restore armed, no fall, the validator's
-    pass, the terrain its name says, and the adopted head's hraise@1 stamp as its reference row."""
-    tool = _tool()
-    m = tool.load_manifest()
-    sn = _stand(m)
-    w = tool.stage_by_dir(m, sn["walker"]["stage"])
-    head = next(h for h in sn["evals"]["heads"] if h.get("adopted"))
+def _check_videos(videos: dict, sn: dict, w: dict, head: dict, src_ck: str | None = None, src_stand: str | None = None):
     seen = 0
-    for terrain, rel in RSD_VIDEOS.items():
+    for terrain, rel in videos.items():
         p = _local(rel)
         if p is None:
             continue
@@ -1494,9 +2176,42 @@ def test_stand_network_videos_ran_the_bundled_pair():
         assert (v["stand_mask"], v["residual_deadband"], v["restore"], v["falls"]) == (1, 0.25, "armed", []), rel
         assert v["validator"] == "pass" and v["terrain"]["terrain"] == terrain, rel
         assert v["reference_run_meta"].endswith("/" + head["stamps"]["hraise__omni@1"] + "/run_meta.json"), rel
+        if src_ck:
+            assert _rel_logs(v["checkpoint"]) == src_ck and _rel_logs(v["stand_checkpoint"]) == src_stand, rel
+            assert v["mp4"].endswith("/" + rel.rsplit("/", 1)[1].replace("_sanity.json", ".mp4")), rel
         seen += 1
-    if not seen:
+    return seen
+
+
+def test_stand_network_videos_ran_the_bundled_pair():
+    """This bake's walker + stand mix videos (untracked, P2 step 10 in the main checkout; skipped when absent): each
+    sanity record names c1 and SH_RT by sha (recorded from the source files, whose shas are the bundled ones), mask 1,
+    the trained deadband, the restore armed, no fall, the validator's pass, the terrain its name says, and the adopted
+    head's hraise@1 stamp as its reference row; the stand block cites both."""
+    tool = _tool()
+    m = tool.load_manifest()
+    sn = _stand(m)
+    w = tool.stage_by_dir(m, sn["walker"]["stage"])
+    head = next(h for h in sn["evals"]["heads"] if h.get("adopted"))
+    for rel in RT_VIDEOS.values():
+        mp4 = rel.replace("_sanity.json", ".mp4")
+        assert mp4 in head["detail"].replace("{rough,roughest}", "rough") or mp4 in head["stamps"].values(), mp4
+        assert mp4 in head["stamps"].values() and mp4 in sn["evaluate"]["notes"], mp4
+    if not _check_videos(RT_VIDEOS, sn, w, head, w["source"], sn["source"]):
         pytest.skip("the bake's stand mix videos are not on this machine (videos are untracked)")
+
+
+def test_superseded_sh_rsd_tdr_videos_ran_its_pair():
+    """The superseded rod-speed DR bake's mix videos (untracked; skipped when absent) ran TDR + SH_RSD_TDR, as its kept
+    block says."""
+    tool = _tool()
+    m = tool.load_manifest()
+    blk = _sup(m, "SH_RSD_TDR")["block"]
+    w = tool.stage_by_dir(m, blk["walker"]["stage"])
+    assert w["dir"] == TDR
+    head = next(h for h in blk["evals"]["heads"] if h.get("adopted"))
+    if not _check_videos(RSD_VIDEOS, blk, w, head):
+        pytest.skip("the rod-speed DR bake's stand mix videos are not on this machine (videos are untracked)")
 
 
 #: gate-table row key -> (gate, kind, clause (regex for max / min / margin; '{k}' = env seed), scale, rounding tolerance)
@@ -1566,16 +2281,27 @@ def _num_str(x: float) -> str:
     return s or "0"
 
 
-#: the stand gate table's columns -> (read, role in that read): the stand net of record beside TDR
-_SH_COLS = {"R_h_TDR": ("lazy", "R_h"), "SH_RSD_TDR": ("lazy", "SH_RSD_TDR_sh_s19"),
-            "SH_RSD_TDR_s1era": ("orig", "SH_RSD_TDR_sh_s19"), "SH_T4F19": ("F19", "SH_T4F19_sh_s19"),
+#: the stand gate table's columns -> (read, role in that read): the stand net of record beside c1
+_SH_COLS = {"R_h_c1": ("lazy", "R_h"), "SH_RT": ("lazy", "SH_RT_6d1f29be_sh_s19"),
+            "SH_RT_s1era": ("orig", "SH_RT_6d1f29be_sh_s19"), "SH_RSD_TDR": ("RSD", "SH_RSD_TDR_sh_s19"),
             "R_h_S1": ("T17", "R_h")}
+#: ... the superseded SH_RSD_TDR's table (its block, kept verbatim)
+_RSD_COLS = {"R_h_TDR": ("lazy", "R_h"), "SH_RSD_TDR": ("lazy", "SH_RSD_TDR_sh_s19"),
+             "SH_RSD_TDR_s1era": ("orig", "SH_RSD_TDR_sh_s19"), "SH_T4F19": ("F19", "SH_T4F19_sh_s19"),
+             "R_h_S1": ("T17", "R_h")}
 #: ... and the superseded SH_T4F19's table (its block, kept verbatim)
 _F19_COLS = {"R_h_T": ("lazy", "R_h"), "SH_T4F19": ("lazy", "SH_T4F19_sh_s19"),
              "SH_T4F19_s1era": ("orig", "SH_T4F19_sh_s19"), "SH_T17": ("T17", "SH_T17"), "R_h_S1": ("T17", "R_h")}
 
 
 def _sh_reads() -> dict:
+    return {"lazy": _json(RTS / "sh_lazy_rh_read.json"),
+            "orig": _json(RTS / "sh_read.json"),
+            "RSD": _json(RES / "stand/sh_lazy_rh_read.json"),
+            "T17": _json(SH_CAMPAIGN / "head_SH_T17.json")}
+
+
+def _rsd_sh_reads() -> dict:
     return {"lazy": _json(RES / "stand/sh_lazy_rh_read.json"),
             "orig": _json(RES / "stand/sh_read.json"),
             "F19": _json(F19 / "stand/sh_lazy_rh_read.json"),
@@ -1618,33 +2344,114 @@ def _check_gate_table(gt: dict, reads: dict, cols: dict, line_col: str):
         assert gt["verdicts"][cid].startswith(", ".join(failing) if failing else "PASS"), (cid, gt["verdicts"][cid])
 
 
+def _gate_counts(g: dict) -> dict:
+    counts = {}
+    for x in g["decisive"]:
+        K = x["id"].split(".")[2]
+        counts.setdefault(K, [0, 0])
+        counts[K][0] += bool(x["pass"])
+        counts[K][1] += 1
+    return {K: f"{a} / {b}" for K, (a, b) in counts.items()}
+
+
 def test_stand_network_gate_table_matches_the_campaign_reads():
     """Every cell of the manifest's K1-K6 table is its read at the manifest's rounding: the re-anchored and the original
-    reads beside TDR (results/stand/sh_lazy_rh_read.json / sh_read.json), the superseded SH_T4F19's beside T*
-    (F19/stand/sh_lazy_rh_read.json) and R_h beside S1 (head_SH_T17.json); the lines name the re-anchored read's clause
-    lines; each read carries the adopted checkpoint's sha and the trained deadband; the verdict row names exactly each
-    column's non-PASS gates; both reads list exactly the two K5-control INVALID mismatches, nothing pending; the pipeline
-    gate (gates/sh.json) HALTed on 12 of 101 lines, every one re-anchored by a recorded rule or accepted by the user;
-    the head's stamps are the ones the re-anchored read used."""
+    reads beside c1 (results/p2/stand/sh_lazy_rh_read.json / sh_read.json), the superseded SH_RSD_TDR's beside TDR (the
+    rod-speed DR campaign's results/stand/sh_lazy_rh_read.json) and R_h beside S1 (head_SH_T17.json); the lines name the
+    re-anchored read's clause lines; each read carries the adopted checkpoint's sha and the trained deadband; the verdict
+    row names exactly each column's non-PASS gates; both reads list exactly the two K5-control INVALID mismatches, nothing
+    pending, and fail K5 (re-anchored) / K4 K5 K6 (S1-era) as recorded; the pipeline gate (gates/sh.json) HALTed on 7 of
+    101 lines, exactly the ids sh_reanchor.json covers (4 body-height on R / HOLD, 3 K6 on the lazy R_h control),
+    nothing remaining and no K4 line failed (no sh_decision.json); the head's stamps are the ones the re-anchored read
+    used."""
     m = _m()
     sn = _stand(m)
     ev = sn["evals"]
     gt = ev["gate_table"]
     reads = _sh_reads()
     for r in ("lazy", "orig"):
-        hd = reads[r]["heads"]["SH_RSD_TDR_sh_s19"]
+        hd = reads[r]["heads"]["SH_RT_6d1f29be_sh_s19"]
         assert hd["stand_sha256"] == [sn["sha256"]] and (hd["residual_deadband"], hd["trained_residual_deadband"]) == (
+            0.25, 0.25), r
+        assert reads[r]["mismatches"] == K5_CONTROL_INVALID and reads[r]["pending"] == [], r
+        assert reads[r]["meta"]["spec_body"]["refs"] == "REFS_RT_6d1f29be", r
+    assert reads["RSD"]["heads"]["SH_RSD_TDR_sh_s19"]["stand_sha256"] == [_sup(m, "SH_RSD_TDR")["block"]["sha256"]]
+    assert ev["title"] == "Gates K1-K6 beside c1"
+    _check_gate_table(gt, reads, _SH_COLS, "SH_RT")
+    # the re-anchored read: only the K5 identity fails; the original read fails K4 / K5 / K6
+    assert reads["lazy"]["heads"]["SH_RT_6d1f29be_sh_s19"]["failed"] == ["K5"]
+    assert reads["orig"]["heads"]["SH_RT_6d1f29be_sh_s19"]["failed"] == ["K4", "K5", "K6"]
+    # the decisive pipeline gate: 7 failed lines, every one re-anchored by a recorded rule; K4 passed
+    pg = ev["pipeline_gate"]
+    g = _json(PKG / pg["record"])
+    assert pg["record"] == "experiments/2026-11-10_rough_terrain/results/p2/stand/gates/sh.json"
+    assert (g["verdict"], g["thresholds"]["version"]) == (pg["verdict"], pg["thresholds"]) == ("HALT", "v1.2")
+    assert g["halt_lines"] == pg["halt_lines"]
+    bad = [x["id"] for x in g["decisive"] if not x["pass"]]
+    assert bad == g["halt_lines"] and len(bad) == 7 and len(g["decisive"]) == 101
+    ra = _json(PKG / pg["reanchored"]["record"])
+    assert pg["reanchored"]["record"] == "experiments/2026-11-10_rough_terrain/results/p2/stand/gates/sh_reanchor.json"
+    assert ra["halt_lines"] == g["halt_lines"]
+    body = ra["body_height"]["covered"]
+    assert body == [x["id"] for x in ra["body_height"]["lines"] if x["reanchored"]]
+    assert len(body) == 4 and all(".K5.G5." in x and "body height" in x for x in body)
+    assert all(all(c["control_fails_same_line"] and c["head_within_tol"] for c in x["controls"].values())
+               for x in ra["body_height"]["lines"])
+    assert "11:53" in ra["body_height"]["rule"] and "11:53" in pg["reanchored"]["body_height"]
+    lazy = ra["lazy_rh"]["covered"]
+    assert len(lazy) == 3 and all(".K6." in x for x in lazy) and ra["lazy_rh"]["halt_lines"] == lazy
+    assert [x["id"] for x in ra["lazy_rh"]["lines"]] == lazy and ra["lazy_rh"]["control"] == "SH_RH_RT_6d1f29be"
+    assert all(x["control_fails_same_line"] and x["head_passes_reanchored"] for x in ra["lazy_rh"]["lines"])
+    assert " / ".join(f"{x['reanchored_line']:.3f}" for x in ra["lazy_rh"]["lines"]) in pg["reanchored"]["lazy_rh"]
+    assert " / ".join(f"{x['control']:.2f}" for x in ra["lazy_rh"]["lines"]) in pg["reanchored"]["lazy_rh"]
+    # the failed ids are exactly the covered ones; nothing remains, nothing accepted, no K4 line failed
+    assert sorted(bad) == sorted([*body, *lazy]) and ra["remaining"] == [] and ra["lazy_rh"]["not_rh_derived"] == []
+    assert ra["reanchored"] is True and ra["k4"] is None and ra["k4_accepted"] is False
+    assert not (RTS / "gates" / "sh_decision.json").exists() and "accepted" not in pg
+    k4 = [x for x in g["decisive"] if ".K4." in x["id"]]
+    assert len(k4) == 6 and all(x["pass"] for x in k4) and pg["k4"].startswith("PASS")
+    miss = [x for x in k4 if ".K4.miss " in x["id"]]
+    assert f"{miss[0]['value']} / {miss[1]['value']} per 800 against the fixed thresholds-v1.2 line {miss[0]['line']}" \
+        in pg["k4"] and "no sh_decision.json" in pg["k4"]
+    assert pg["reader_mismatches"] == K5_CONTROL_INVALID
+    assert f"{len(bad)} of {len(g['decisive'])}" in pg["resolution"] and "remaining []" in pg["resolution"]
+    assert _gate_counts(g) == pg["lines"]
+    assert g["head"]["sha256"] == sn["sha256"]
+    adopted = [h for h in ev["heads"] if h.get("adopted")]
+    assert [h["id"] for h in adopted] == [sn["id"]] and adopted[0]["sha256"] == sn["sha256"]
+    assert adopted[0]["source"] == sn["source"]
+    rd = reads["lazy"]["reads"]["SH_RT_6d1f29be_sh_s19"]
+    for k in (1, 2):
+        for row in ("hwalkstop__omni", "hraise__omni"):
+            assert rd[f"es{k}"][row]["stamp"].endswith(adopted[0]["stamps"][f"{row}@{k}"]), (row, k)
+    # the K3 ungated cells the scope / caveat state are the read's
+    rep = reads["lazy"]["gates"]["K3"]["SH_RT_6d1f29be_sh_s19"]["reported"]
+    for cell, txt in (("ground__knee_folded", "ground knee_folded"), ("ground__random", "ground random")):
+        pair = " / ".join(f"{rep[f'es{k}']['per_cell'][cell]['stood_share']:.2f}" for k in (1, 2))
+        assert f"{txt} STOOD {pair}" in sn["deployment"]["scope"] or f"{txt} {pair}" in sn["deployment"]["scope"], cell
+
+
+def test_superseded_sh_rsd_tdr_block_still_matches_its_campaign_reads():
+    """The kept SH_RSD_TDR record (superseded[SH_RSD_TDR].block): its K1-K6 table is still the rod-speed DR stand reads
+    (results/stand/sh_lazy_rh_read.json / sh_read.json), the superseded SH_T4F19's (F19/stand/sh_lazy_rh_read.json) and
+    R_h beside S1 (head_SH_T17.json); both reads list exactly the two K5-control INVALID mismatches; its pipeline gate
+    (results/stand/gates/sh.json) HALTed on 12 of 101 lines = 10 re-anchored (4 body-height on R / HOLD, 6 K6 on the lazy
+    R_h control) + 2 K4 lines accepted and disclosed by the user (gates/sh_decision.json, 18:10 "Accept and disclose")."""
+    m = _m()
+    blk = _sup(m, "SH_RSD_TDR")["block"]
+    ev = blk["evals"]
+    reads = _rsd_sh_reads()
+    for r in ("lazy", "orig"):
+        hd = reads[r]["heads"]["SH_RSD_TDR_sh_s19"]
+        assert hd["stand_sha256"] == [blk["sha256"]] and (hd["residual_deadband"], hd["trained_residual_deadband"]) == (
             0.25, 0.25), r
         assert reads[r]["mismatches"] == K5_CONTROL_INVALID and reads[r]["pending"] == [], r
         assert reads[r]["meta"]["spec_body"]["refs"] == "REFS_RSD_TDR", r
     assert reads["F19"]["heads"]["SH_T4F19_sh_s19"]["stand_sha256"] == [_sup(m, "SH_T4F19")["block"]["sha256"]]
     assert ev["title"] == "Gates K1-K6 beside TDR"
-    _check_gate_table(gt, reads, _SH_COLS, "SH_RSD_TDR")
-    # the re-anchored read: K4 (restore misses) and the K5 identity fail; the original read fails K4 / K5 / K6
+    _check_gate_table(ev["gate_table"], reads, _RSD_COLS, "SH_RSD_TDR")
     assert reads["lazy"]["heads"]["SH_RSD_TDR_sh_s19"]["failed"] == ["K4", "K5"]
     assert reads["orig"]["heads"]["SH_RSD_TDR_sh_s19"]["failed"] == ["K4", "K5", "K6"]
-    # the decisive pipeline gate: 12 failed lines = 10 re-anchored (4 body-height on R / HOLD, 6 K6 on the lazy R_h
-    # control) + 2 K4 lines accepted and disclosed by the user; the counts per family the block states
     pg = ev["pipeline_gate"]
     g = _json(PKG / pg["record"])
     assert pg["record"] == "experiments/2026-11-07_rod_speed_dr/results/stand/gates/sh.json"
@@ -1678,30 +2485,18 @@ def test_stand_network_gate_table_matches_the_campaign_reads():
     assert (pg["accepted"]["user_words"], pg["accepted"]["decided_at"], pg["accepted"]["rule"],
             pg["accepted"]["reason"], pg["accepted"]["decision"]) == (
         dec["user_words"], dec["decided_at"], dec["rule"], dec["reason"], dec["decision"])
-    assert dec["decided_at"].startswith("2026-11-09T18:10") and dec["head"]["sha256"] == sn["sha256"]
+    assert dec["decided_at"].startswith("2026-11-09T18:10") and dec["head"]["sha256"] == blk["sha256"]
     assert dec["gate"] == "results/stand/gates/sh.json" and dec["reanchor"] == "results/stand/gates/sh_reanchor.json"
     assert pg["reader_mismatches"] == K5_CONTROL_INVALID
     assert "12 of 101" in pg["resolution"] and "Accept and disclose" in pg["resolution"]
-    counts = {}
-    for x in g["decisive"]:
-        K = x["id"].split(".")[2]
-        counts.setdefault(K, [0, 0])
-        counts[K][0] += bool(x["pass"])
-        counts[K][1] += 1
-    assert {K: f"{a} / {b}" for K, (a, b) in counts.items()} == pg["lines"]
-    assert g["head"]["sha256"] == sn["sha256"]
+    assert _gate_counts(g) == pg["lines"]
+    assert g["head"]["sha256"] == blk["sha256"]
     adopted = [h for h in ev["heads"] if h.get("adopted")]
-    assert [h["id"] for h in adopted] == [sn["id"]] and adopted[0]["sha256"] == sn["sha256"]
-    assert adopted[0]["source"] == sn["source"]
+    assert [h["id"] for h in adopted] == [blk["id"]] and adopted[0]["sha256"] == blk["sha256"]
     rd = reads["lazy"]["reads"]["SH_RSD_TDR_sh_s19"]
     for k in (1, 2):
         for row in ("hwalkstop__omni", "hraise__omni"):
             assert rd[f"es{k}"][row]["stamp"].endswith(adopted[0]["stamps"][f"{row}@{k}"]), (row, k)
-    # the K3 ungated cells the scope / caveat state are the read's
-    rep = reads["lazy"]["gates"]["K3"]["SH_RSD_TDR_sh_s19"]["reported"]
-    for cell, txt in (("ground__knee_folded", "ground knee_folded"), ("ground__random", "ground random")):
-        pair = " / ".join(f"{rep[f'es{k}']['per_cell'][cell]['stood_share']:.2f}" for k in (1, 2))
-        assert f"{txt} STOOD {pair}" in sn["deployment"]["scope"] or f"{txt} {pair}" in sn["deployment"]["scope"], cell
 
 
 def test_superseded_sh_t4f19_block_still_matches_its_campaign_reads():
@@ -1750,7 +2545,7 @@ def test_readme_has_the_stand_network_section():
     assert sn["warm_start"]["sha256"] in ws_lines[0] and sn["warm_start"]["role"] in ws_lines[0]
     # the superseded stand files appear ONLY in the superseded section
     for line in text.splitlines():
-        for d in ("stand_net", OLD_STAND):
+        for d in ("stand_net", OLD_STAND, RSD_STAND):
             for f in ("model_5000.pt", "model_4000.pt"):
                 if f"[`{d}/{f}`]" in line:
                     assert line.startswith(f"  - [`{d}/{f}`]({d}/{f}) -- sha256 "), line
@@ -1758,80 +2553,280 @@ def test_readme_has_the_stand_network_section():
     for s in ("stand_net_input", "hist_encoding=True", "CAVEAT (switch keying)", "CAVEAT (height source)",
               "**Zero-height mode:**", "**Restore before hand-back:**", "**Height command:**", "**Posture map q(h):**",
               "deadband(clamp(a_net, +-1), 0.25)", "  - **residual_deadband:** 0.25", "**Adoption grade:**",
-              "### Gates K1-K6 beside TDR", "- **Training:**", "  - **trim_min:** 0.0999",
+              "### Gates K1-K6 beside c1", "- **Training:**", "  - **trim_min:** 0.0999",
               "export SN_WALKER_CK=", "export P2_REANCHOR=1"):
         assert s in text, s
-    assert "### Gates K1-K6 beside T*" not in text
+    assert "### Gates K1-K6 beside T*" not in text and "### Gates K1-K6 beside TDR" not in text
     assert f"CK=$PWD/$P/policy/{path}" in text
-    assert "bash $S/sh_eval_rows.sh --deadband 0.25 SH_RSD_TDR_re stand_net manifest armed $CK 1 \\" in text
-    assert "bash $S/sh_eval_rows.sh --deadband 0.25 SH_RSD_TDR_rez stand_net zero armed $CK 1 \\" in text
-    assert ("| Gate | Statistic | Line | R_h beside TDR (lazy control) | SH_RSD_TDR re-anchored (adopted) | "
-            "SH_RSD_TDR vs the S1-era lines | SH_T4F19 beside T* (superseded) | R_h beside S1 |") in text
-    assert ("| K4 | restore misses (of 800 restore-required exits) | <= max(1, R_h's) = 4 / 5 (R_h beside TDR) in this "
-            "reader; the decisive pipeline gate holds D9's fixed 3 (results/stand/gates/sh.json) | 4 / 5 | 5 / 6 | "
-            "5 / 6 | 2 / 3 | 1 / 1 |") in text
+    assert "bash $S/sh_eval_rows.sh --deadband 0.25 SH_RT_re stand_net manifest armed $CK 1 \\" in text
+    assert "bash $S/sh_eval_rows.sh --deadband 0.25 SH_RT_rez stand_net zero armed $CK 1 \\" in text
+    assert ("| Gate | Statistic | Line | R_h beside c1 (lazy control) | SH_RT re-anchored (adopted) | "
+            "SH_RT vs the S1-era lines | SH_RSD_TDR beside TDR (superseded) | R_h beside S1 |") in text
+    assert ("| K4 | restore misses (of 800 restore-required exits) | <= max(1, R_h's) = 5 / 6 (R_h beside c1) in this "
+            "reader; the decisive pipeline gate holds D9's fixed 3 (results/p2/stand/gates/sh.json) | 5 / 6 | 1 / 2 | "
+            "1 / 2 | 5 / 6 | 1 / 1 |") in text
     assert "| K5 | G1-G5 at 1.064 (sn_calib, zero-command rows) as the reader reads it |" in text
     for c in sn["caveats"]:
         assert c in text
     for f in ("stand_march", "stand_switch_keying", "stand_trim_underfit", "two_network_export", "stand_ground_getup",
               "stand_height_command_source", "stand_pd_torque_excess", "stand_hip_contacts_0p635",
               "stand_knee_hold_only", "stand_k5_identity", "stand_k4_restore_sag", "stand_low_bin_homing",
-              "walker_stance_height_shift"):
+              "walker_stance_height_shift", "stand_walkstop_settle"):
         assert f"### `{f}` --" in text
 
 
 def test_bake_disclosures_are_recorded():
-    """The bake's disclosures (BAKE_PLAN section 2 item 6) are in the manifest: the stand block's caveats carry K4 5 / 6
-    vs D9's 3, the K5.G2 walkstop homing, bin-1 homing, the one training seed, the uninformative exit-fall / onset
-    readings, the two K5-control INVALID reader mismatches, the re-anchors and the walker's taller stance; the
-    follow-ups carry the same plus the c28000 bridge class flip, camera use not re-tested for c31000 and TDR's unread
-    180 kg."""
+    """The bake's disclosures (BAKE_PLAN section 3 item 6) are in the manifest, each number read from its record: the
+    USER_DECIDES read (T PARTIAL: ledge_down +0.171, slopes +0.094 under the 0.10 floor; T-reg ledge_up -0.055 against
+    0.05; Tr diag es9 over by 0.00076; N PASS; no E flag); the R-tracking overrule at HALT_R (17:25 "A": back fails es5 /
+    es6, yaw es6; 1.08x and -3.5 %); the SN re-anchor (31 / 35, 4 G5 lines); the SH re-anchor (94 / 101: 4 K5-G5 on R /
+    HOLD, 3 K6 on the lazy R_h; K4 passes 1 / 2 vs 3; a strict subset of SH_RSD_TDR's 12 failed lines, closer on each);
+    the passing lines worse than RSD's (walk-stop settle, the controls' 0.011 m spare); one training seed (+509 of 6000,
+    4 candidates, seed 20 failed); rigid gravel; back_overshoot reopened; the stand nets never on the rough kinds;
+    camera use UNVERIFIED; and the pins / merge state (this branch's code_sha 89c1916b / eval_sha 9fe964d7; main's
+    de3772e2 / cd5ae167; a relock at the merge)."""
     m = _m()
     sn = _stand(m)
+    c1, stu = _stage(m, C1), _stage(m, STUDENT)
+    fu = {f["id"]: f for f in m["followups"]}
     cav = "\n".join(sn["caveats"])
+    rd = _json(P2 / "read.json")
+    # the USER_DECIDES read
+    t, treg = rd["T"]["kinds"], rd["T_reg"]["kinds"]
+    for txt in (stu["distill"]["student_gate"], m["baked"]):
+        assert "USER_DECIDES" in txt and "T PARTIAL" in txt
+    sg = stu["distill"]["student_gate"]
+    assert f"slopes b2 +{t['slopes']['diff']:.3f} under the {t['slopes']['gain_need']:.2f} floor" in sg
+    assert f"ledge_up b2 {treg['ledge_up']['diff']:.3f} against a {treg['ledge_up']['regress_margin']:.2f} margin" in sg
+    fail = next(x for x in rd["Tr"]["lines"] if x["fails"])
+    assert f"over its line by {fail['worse_by'] - fail['margin']['margin']:.5f}" in sg and "N PASS" in sg
+    assert "no E flag" in sg and rd["Tr"]["E"]["flags"] == []
+    assert f"+{t['ledge_down']['diff']:.3f}" in m["baked"] and f"+{t['slopes']['diff']:.3f}" in m["baked"]
+    # the R-tracking overrule at HALT_R
+    gf = _json(RTRES / "short_arm" / "gates_fresh.json")
+    tdr = _stage(m, TDR)
+    back = c1["evals"]["categories"]["back"]["ratio"]
+    yaw = (c1["evals"]["categories"]["turn"]["yaw_progress"] / tdr["evals"]["categories"]["turn"]["yaw_progress"] - 1)
+    assert '17:25 "A"' in c1["gate"]["overruled"] and f"{back:.2f}x" in c1["gate"]["overruled"]
+    assert f"{100 * yaw:.1f} %" in c1["gate"]["overruled"] and f"{100 * yaw:.1f} %" in fu["flat_tracking_costs"]["headline"]
+    assert '17:25 "A"' in m["baked"] and "(back es5 / es6, yaw es6) -> HALT_R" in m["baked"]
+    # the disclosed costs are the numbers the user was shown at the 17:25 decision and the confirm gate's back lines
+    charter = (RT / "CHARTER.md").read_text()
+    assert f"back-hold overshoot {back:.2f}× against TDR's 1.01–1.02×" in charter
+    assert f"in-place yaw rate −{-100 * yaw:.1f} % (0.165 vs 0.171 rad/s)" in charter
+    bl = [x for x in gf["R"]["tracking"]["suite_lines"] if x["statistic"] == "track_err back"]
+    assert len(bl) == 2 and {f"{1 + x['head']:.2f}x" for x in bl} == {f"{back:.2f}x"}
+    assert sorted(f"{1 + x['p2a']:.2f}" for x in bl) == ["1.01", "1.02"] and "1.01-1.02x" in c1["gate"]["overruled"]
+    assert gf["verdict"]["verdict"] == "HALT_R" and len(gf["R"]["tracking"]["fails"]) == 3
+    # the SN re-anchor
+    sng = _json(RTS / "gates" / "sn.json")
+    sn_pass = sum(x["pass"] for x in sng["decisive"])
+    assert f"{sn_pass} / {len(sng['decisive'])} decisive pass" in sn["warm_start"]["used_by"] and "4 / 4" in sn[
+        "warm_start"]["used_by"]
+    assert f"SN HALT on its {len(sng['halt_lines'])} G5 body-height lines, all {len(sng['halt_lines'])} re-anchored" in m["baked"]
+    # the SH re-anchor, K4, and the comparison with the baked RSD stand
+    g = _json(RTS / "gates" / "sh.json")
+    rsd = _json(RES / "stand" / "gates" / "sh.json")
+    gv, rv = {x["id"]: x for x in g["decisive"]}, {x["id"]: x for x in rsd["decisive"]}
+    n_bad = len(g["halt_lines"])
+    assert f"SH HALT on {n_bad} of {len(g['decisive'])} lines, all {n_bad} re-anchored" in m["baked"]
+    assert "no K4 line failed" in m["baked"] and len(g["decisive"]) - n_bad == 94
+    assert f"{n_bad} of {len(g['decisive'])}" in sn["evals"]["adoption_grade"] and "NOT adoption-grade" in sn["evals"][
+        "adoption_grade"]
+    assert set(g["halt_lines"]) < set(rsd["halt_lines"]) and len(rsd["halt_lines"]) == 12
+    for lid in g["halt_lines"]:
+        short = lambda x: abs(x["value"] - x["line"])                                       # noqa: E731
+        assert short(gv[lid]) < short(rv[lid]), lid
+    assert f"strict subset of SH_RSD_TDR's {len(rsd['halt_lines'])}" in cav
+    miss = [gv[f"stand.D2.K4.miss es{k} <= max(1, R_h's)"] for k in (1, 2)]
+    assert f"restore misses {miss[0]['value']} / {miss[1]['value']} per 800 (es1 / es2) against the fixed " \
+           f"thresholds-v1.2 line {miss[0]['line']}" in cav
+    ra = _json(RTS / "gates" / "sh_reanchor.json")
+    k6 = [gv[x["id"]]["value"] for x in ra["lazy_rh"]["lines"]]
+    assert f"homed es1 {k6[0]:.2f} and es2 {k6[1]:.2f}, settled es2 {k6[2]:.2f}" in cav
+    assert " / ".join(f"{x['control']:.2f}" for x in ra["lazy_rh"]["lines"]) in cav
+    assert " / ".join(f"{x['reanchored_line']:.3f}" for x in ra["lazy_rh"]["lines"]) in cav
+    # some passing lines are worse than RSD's: the walk-stop settle (SN and SH), and the controls' body-height spare
+    sng_v = {x["id"]: x for x in sng["decisive"]}
+    rsd_sn = {x["id"]: x for x in _json(RES / "stand" / "gates" / "sn.json")["decisive"]}
+    sn_set = [sng_v[f"stand.D1.G2.median settle walkstop es{k} <= probe + 1.0 s"] for k in (1, 2)]
+    sh_set = [gv[f"stand.D2.K5.G2.median settle walkstop es{k} <= probe + 1.0 s"] for k in (1, 2)]
+    rsd_sn_set = [rsd_sn[f"stand.D1.G2.median settle walkstop es{k} <= probe + 1.0 s"]["value"] for k in (1, 2)]
+    rsd_sh_set = [rv[f"stand.D2.K5.G2.median settle walkstop es{k} <= probe + 1.0 s"]["value"] for k in (1, 2)]
+    want = (f"SN {sn_set[0]['value']:.2f} / {sn_set[1]['value']:.2f} s and SH {sh_set[0]['value']:.2f} / "
+            f"{sh_set[1]['value']:.2f} s against lines {sn_set[0]['line']:.2f} / {sn_set[1]['line']:.2f} s and RSD's "
+            f"{rsd_sn_set[0]:.2f} / {rsd_sn_set[1]:.2f} (SN) and {rsd_sh_set[0]:.2f} / {rsd_sh_set[1]:.2f} (SH)")
+    assert want in cav
+    fd = fu["stand_walkstop_settle"]["detail"]
+    for x in (*sn_set, *sh_set):
+        assert f"{x['value']:.2f}" in fd and f"{x['line']:.2f}" in fd, x["id"]
+    assert all(f"{v:.2f}" in fd for v in (*rsd_sn_set, *rsd_sh_set))
+    assert all(x["pass"] for x in (*sn_set, *sh_set)) and sn_set[0]["line"] == sh_set[0]["line"]
+    spare = min(x["controls_spare_m"] for x in _json(RTS / "body_height_measured.json")["lines"].values())
+    assert f"{spare:.3f} m" in cav and "S1-era" in cav
+    # the remaining caveats: reader mismatches, uninformative readings, one seed, no rough kinds
+    for s in (*K5_CONTROL_INVALID, "one training seed", "-1.305", "0 exit falls", "NEVER on the rough-terrain kinds"):
+        assert s in cav, s
+    # one training seed per network, c1 an early checkpoint from 4 candidates, the seed-20 replication failed
+    sel_c1 = _json(RTRES / "short_arm" / "selection.json")
+    d = fu["rod_speed_dr_one_seed"]["detail"]
+    assert f"+{sel_c1['pick']['its_after_tdr']} of RT_s19's planned {_json(RTRES / 'runs' / 'RT_s19.json')['cli']['iterations']}" in d
+    assert f"from {len(sel_c1['candidates'])} same-mix candidates" in d and "seed-20 replication failed" in d
+    assert {c["run"] for c in sel_c1["candidates"]} == {"RT_s19", "RT_s20s"}
+    # gravel is rigid (P5), back_overshoot reopened, camera use unverified, TDR / c1 at 180 kg never read
+    assert "rigid" in fu["loose_ground_p5"]["headline"].lower() and "P5" in fu["loose_ground_p5"]["headline"]
+    assert "reopened 2026-11-14" in fu["back_overshoot"]["headline"] and "REOPENED" in fu["back_overshoot"]["detail"]
+    assert f"{back:.2f}x" in fu["back_overshoot"]["headline"]
+    assert "C1S" in fu["camera_use_unverified"]["detail"] and "not re-tested" in fu["camera_use_unverified"]["detail"]
+    assert "UNVERIFIED" in stu["distill"]["camera_use"]
+    assert "180 kg was NEVER read for TDR" in fu["payload_sim_plant"]["detail"]
+    assert "c1" in fu["payload_sim_plant"]["detail"] and "180 not read" in c1["payload"]["max_stable_kg"]
+    assert all(s in fu["stand_k5_identity"]["detail"] for s in K5_CONTROL_INVALID)
+    # the pins and the merge state
+    pin = _json(P2 / "pin.json")
+    mr = fu["merge_relock"]["detail"]
+    for s in (pin["code_sha"][:8], pin["eval_sha"][:8], "de3772e2", "cd5ae167", "701f8c47", "run_candidates.py",
+              "Task 4-locked", "6a4e4c6e"):
+        assert s in mr, s
+    assert "CI-faithful" in fu["merge_relock"]["headline"] and "relock" in fu["merge_relock"]["headline"]
+    # the superseded rod-speed DR pairing's own disclosures stay on its kept stand block and its carried follow-ups
+    old = _sup(m, "SH_RSD_TDR")["block"]
+    ocav = "\n".join(old["caveats"])
     for s in ("5 / 6", "D9's fixed 3", "Accept and disclose", "0.92 / 0.91", "0.74 / 0.81", "one training seed",
               "0 exit falls", "-1.305", *K5_CONTROL_INVALID, "re-anchor", "0.03 m taller"):
-        assert s in cav, s
-    fu = {f["id"]: f for f in m["followups"]}
+        assert s in ocav, s
+    assert "12 of 101" in old["evals"]["adoption_grade"] and "NOT adoption-grade" in old["evals"]["adoption_grade"]
+    assert "re-anchored" in old["warm_start"]["used_by"] and "4 / 4" in old["warm_start"]["used_by"]
     assert "5 / 6" in fu["stand_k4_restore_sag"]["headline"] and "sh_decision.json" in fu["stand_k4_restore_sag"]["detail"]
+    # the headline names the superseded net for the 5 / 6 and the stand net of record's own K4 count
+    k4 = fu["stand_k4_restore_sag"]["headline"]
+    shk4 = {x["id"].split()[1]: x for x in _json(RTS / "gates" / "sh.json")["decisive"]
+            if x["id"].startswith("stand.D2.K4.miss ")}
+    assert set(shk4) == {"es1", "es2"} and all(x["pass"] and x["line"] == 3 for x in shk4.values())
+    assert k4.startswith("SH_RSD_TDR (superseded 2026-11-14) missed 5 / 6") and (
+        f"SH_RT misses {shk4['es1']['value']} / {shk4['es2']['value']} (K4 PASS)" in k4)
     assert "0.74 / 0.81" in fu["stand_low_bin_homing"]["headline"]
     assert "one training seed" in fu["rod_speed_dr_one_seed"]["headline"]
     assert "0.03 m" in fu["walker_stance_height_shift"]["headline"]
     assert "bridge_C28000.json" in fu["eval_class_flip"]["detail"] and "class flip" in fu["eval_class_flip"]["detail"]
-    assert "c31000" in fu["camera_use_unverified"]["detail"] and "not re-tested" in fu["camera_use_unverified"]["detail"]
-    assert "180 kg was NEVER read for TDR" in fu["payload_sim_plant"]["detail"]
-    assert all(s in fu["stand_k5_identity"]["detail"] for s in K5_CONTROL_INVALID)
-    # SN's own four body-height re-anchors are disclosed on the warm start, the adoption grade names the HALT
-    assert "re-anchored" in sn["warm_start"]["used_by"] and "4 / 4" in sn["warm_start"]["used_by"]
-    assert "12 of 101" in sn["evals"]["adoption_grade"] and "NOT adoption-grade" in sn["evals"]["adoption_grade"]
+    assert "c31000" in fu["camera_use_unverified"]["detail"]
+
+
+def test_pins_are_the_campaign_pin_and_the_bake_touches_no_pinned_path():
+    """Every c1 / C1S / stand record names this branch's pin (code_sha 89c1916b / eval_sha 9fe964d7: results/pin.json =
+    results/p2/pin.json = the run's PF1 = the distill / selection / read / stand records); no policy file of this bake,
+    nor this test file, is in Task 4's lock or under the code / eval pathspecs (read from run_candidates.py's source), so
+    the bake moves neither hash."""
+    pin, p2pin = _json(RTRES / "pin.json"), _json(P2 / "pin.json")
+    want = (pin["code_sha"], pin["eval_sha"])
+    assert (p2pin["code_sha"], p2pin["eval_sha"]) == want and want[0].startswith("89c1916b") and want[1].startswith(
+        "9fe964d7")
+    live = _json(RTRES / "runs" / "RT_s19.json")["preflight"]["PF1"]["data"]["live"]
+    assert (live["code_sha"], live["eval_sha"]) == want
+    dj = _json(P2 / "runs" / "RT_ST_s19.distill.json")
+    assert (dj["code_sha"], dj["eval_sha"]) == want and dj["pin"]["ok"] and dj["dirty"] == []
+    sel = _json(P2 / "sel.json")
+    assert (sel["build"]["p2_pin"]["code_sha"], sel["build"]["p2_pin"]["eval_sha"]) == want
+    rd = _json(P2 / "read.json")
+    assert (rd["pin"]["code_sha"], rd["pin"]["eval_sha"]) == want
+    gf = _json(RTRES / "short_arm" / "gates_fresh.json")
+    assert (gf["guards"]["pin"]["code_sha"], gf["guards"]["pin"]["eval_sha"]) == want and gf["guards"]["pin"]["ok"]
+    for k, cs in _json(RTS / "walker_spec.json")["code_state"].items():
+        assert (cs["code_sha"], cs["eval_sha"], cs["dirty"]) == (*want, False), k
+    m = _m()
+    assert m["obs_contract"]["kind_rows"]["code_sha"] == want[0]
+    # nothing this bake writes is hash-pinned: the Task 4 lock lists only the kept 6_p2a_field / stand_net files
+    lock = _json(T4 / "pipeline.lock.json")
+    rel_pol = str(POLICY.relative_to(REPO))
+    locked_pol = {k for k in lock["files"] if k.startswith(rel_pol + "/")}
+    assert locked_pol == {f"{rel_pol}/{x}" for x in ("6_p2a_field/model_19994.pt", "stand_net/model_4000.pt",
+                                                     "stand_net/model_5000.pt")}
+    this = str(Path(__file__).resolve().relative_to(REPO.resolve()))
+    assert this not in lock["files"] and f"{rel_pol}/manifest.yaml" not in lock["files"]
+    rc = PKG / "experiments" / "tools" / "run_candidates.py"
+    specs = (*_ast_const(rc, "CODE_PATHSPECS"), *_ast_const(rc, "EVAL_PATHSPECS"))
+    tool = _tool()
+    for rel in [*(f"{rel_pol}/{f}" for f in tool.expected_files(m)), f"{rel_pol}/manifest.yaml", this]:
+        assert not [s for s in specs if rel == s or rel.startswith(s + "/")], rel
+
+
+def test_user_decisions_are_quoted_from_the_charter():
+    """The user's words the manifest records (baked / adoption) are quoted verbatim from the campaign's CHARTER; the
+    bake's own answer, "Yes, bake", is the button answering BAKE_PLAN's question (the CHARTER's BAKE DONE entry, once
+    written, must carry the same words)."""
+    m = _m()
+    charter = (RT / "CHARTER.md").read_text()
+    quotes = ["Approve, start step 0", "Plan short arm", "Audit, up to 2 passes", "Approve + es2 suite", "A",
+              "accept the defaults and audit", "Accept as is"]
+    for q in quotes:
+        assert f'"{q}"' in m["baked"], q
+        assert f'"{q}"' in charter, q
+    assert '2026-11-11 17:25 — User decision at the HALT_R: "A"' in charter
+    bake_q = "Bake c1, C1S and the new stand nets as the omni policy of record?"
+    for txt in (m["baked"], _stand(m)["adopted"], _sup(m, "RSD")["superseded"]):
+        assert '"Yes, bake"' in txt and "23:25" in txt, txt[:120]
+    assert f'"{bake_q}"' in m["baked"] and bake_q in _stand(m)["adopted"]
+    assert "BAKE DONE" in charter, "the CHARTER's BAKE DONE entry is missing"
+    done = charter[charter.index("BAKE DONE"):]
+    assert '"Yes, bake"' in done and "23:25" in done and bake_q in done, \
+        "the CHARTER's BAKE DONE entry must quote the user's answer, its time and the question"
+
+
+def test_bake_cites_commit_a_records():
+    """The records this bake cites are the rough-terrain campaign's commit A (21b5063f) byte for byte: the stand
+    re-pair's head / gate / re-anchor / read records, the walker spec, and the selection / read / export records."""
+    rels = ["results/p2/stand/sh_head.json", "results/p2/stand/sn_head.json", "results/p2/stand/walker_spec.json",
+            "results/p2/stand/gates/sh.json", "results/p2/stand/gates/sh_reanchor.json",
+            "results/p2/stand/gates/sn.json", "results/p2/stand/gates/sn_reanchor.json",
+            "results/p2/stand/sh_read.json", "results/p2/stand/sh_lazy_rh_read.json",
+            "results/p2/stand/sh_lazy_rh_read_spec.json", "results/p2/stand/sn_calib.json",
+            "results/p2/stand/body_height_measured.json", "results/p2/sel.json", "results/p2/read.json",
+            "results/p2/onnx_PICK.json", "results/p2/pin.json", "results/p2/runs/RT_ST_s19.distill.json",
+            "results/short_arm/selection.json", "results/short_arm/gates_fresh.json", "results/runs/RT_s19.json"]
+    for rel in rels:
+        assert (RT / rel).is_file(), rel
+    no = _missing_commits(RT_RECORD_COMMIT)
+    if no:
+        pytest.skip(f"git history not in this clone (shallow checkout): commit {no}")
+    base = str(RT.relative_to(REPO))
+    for rel in rels:
+        assert _git_blob(RT_RECORD_COMMIT, f"{base}/{rel}") == (RT / rel).read_bytes(), rel
+    assert _git_blob(RT_RECORD_COMMIT, f"{base}/BAKE_PLAN.md")
 
 
 def test_followups_track_the_new_head():
-    """Every follow-up carried over is revised for the rod-speed DR bake (2026-11-09) and keeps the schema; the stand
-    ones name SH_RSD_TDR; the five new ones (one seed, the K4 restore sag, low-bin homing, the walker's stance height,
-    the eval class flip) exist and cite tracked evidence."""
+    """Every follow-up carried over is revised for the rough-terrain bake (2026-11-14) and keeps the schema (and its
+    earlier revisions); the stand ones name SH_RT; the five new ones (loose ground, the flat-tracking costs, the ledge_up
+    regress, the walk-stop settle, the merge relock) exist and cite tracked evidence."""
     m = _m()
     fu = {f["id"]: f for f in m["followups"]}
-    carried = ("move_turn", "c0_side_first_n1", "action_jitter", "phase2_clock_free", "stand_march",
-               "stand_switch_keying", "stand_trim_underfit", "two_network_export", "stand_ground_getup",
-               "stand_height_command_source", "stand_pd_torque_excess", "stand_hip_contacts_0p635",
-               "stand_knee_hold_only", "p2b_negative", "back_overshoot", "camera_use_unverified", "payload_sim_plant",
-               "student_checkpoint_not_bundled", "stand_k5_identity")
-    new = ("rod_speed_dr_one_seed", "stand_k4_restore_sag", "stand_low_bin_homing", "walker_stance_height_shift",
-           "eval_class_flip")
+    carried_f19 = ("move_turn", "c0_side_first_n1", "action_jitter", "phase2_clock_free", "stand_march",
+                   "stand_switch_keying", "stand_trim_underfit", "two_network_export", "stand_ground_getup",
+                   "stand_height_command_source", "stand_pd_torque_excess", "stand_hip_contacts_0p635",
+                   "stand_knee_hold_only", "p2b_negative", "back_overshoot", "camera_use_unverified",
+                   "payload_sim_plant", "student_checkpoint_not_bundled", "stand_k5_identity")
+    carried_rsd = ("rod_speed_dr_one_seed", "stand_k4_restore_sag", "stand_low_bin_homing",
+                   "walker_stance_height_shift", "eval_class_flip")
+    carried = (*carried_f19, *carried_rsd)
+    new = ("loose_ground_p5", "flat_tracking_costs", "ledge_up_regress", "stand_walkstop_settle", "merge_relock")
     assert list(fu) == [*carried, *new]
     for k in carried:
-        assert fu[k]["recorded"].endswith("revised 2026-11-09 (rod-speed DR bake)") and fu[k]["detail"].startswith(
-            "RSD BAKE (2026-11-09)"), k
-    for k in carried[:15]:
+        assert fu[k]["recorded"].endswith("revised 2026-11-14 (rough-terrain bake)") and fu[k]["detail"].startswith(
+            "RT BAKE (2026-11-14)"), k
+    for k in carried_f19:
+        assert "revised 2026-11-09 (rod-speed DR bake)" in fu[k]["recorded"], k
+        assert "RSD BAKE (2026-11-09)" in fu[k]["detail"], k
+    for k in carried_f19[:15]:
         assert "revised 2026-10-24 (F19 bake)" in fu[k]["recorded"], k
-    for k in carried[15:]:
+    for k in carried_f19[15:]:
         assert fu[k]["recorded"].startswith("2026-10-24"), k
-    for k in new:
+    for k in carried_rsd:
         assert fu[k]["recorded"].startswith("2026-11-09"), k
+    for k in new:
+        assert fu[k]["recorded"].startswith("2026-11-14"), k
     for k in ("stand_march", "stand_switch_keying", "stand_trim_underfit", "stand_ground_getup",
               "stand_pd_torque_excess", "stand_k5_identity", "stand_k4_restore_sag", "stand_low_bin_homing"):
-        assert "SH_RSD_TDR" in fu[k]["detail"], k
+        assert "SH_RT" in fu[k]["detail"] and "SH_RSD_TDR" in fu[k]["detail"], k
     for k in (*carried, *new):
         f = fu[k]
         assert {"id", "recorded", "headline", "detail"} <= set(f), k
@@ -1841,10 +2836,16 @@ def test_followups_track_the_new_head():
     for k in new:
         assert fu[k].get("evidence"), k
     assert "0.741" in fu["move_turn"]["detail"] and "0.658" in fu["move_turn"]["detail"]
+    mt = _stage(m, C1)["evals"]["categories"]["move_turn"]["ratio"]
+    assert f"{mt:.3f}" in fu["move_turn"]["detail"]
     assert "RESOLVED" in fu["back_overshoot"]["detail"] and "0.993" in fu["back_overshoot"]["detail"]
     assert "0.04 / 0.06" in fu["stand_ground_getup"]["detail"]
-    assert "4fa81f0f" in fu["student_checkpoint_not_bundled"]["detail"]
-    assert "155b5981" in fu["student_checkpoint_not_bundled"]["detail"]
+    for s in ("4fa81f0f", "155b5981", "6b48ef33"):
+        assert s in fu["student_checkpoint_not_bundled"]["detail"], s
+    assert str(_stage(m, STUDENT)["not_bundled"]).split()[0] in fu["student_checkpoint_not_bundled"]["detail"]
+    rd = _json(P2 / "read.json")
+    lu = rd["T_reg"]["kinds"]["ledge_up"]
+    assert f"{lu['new']:.3f} vs {lu['tdr']:.3f} ({lu['diff']:.3f}" in fu["ledge_up_regress"]["detail"]
 
 
 def test_readme_without_the_stand_network_is_unchanged():
@@ -1899,6 +2900,7 @@ def _st(m, d):
 
 
 @pytest.mark.parametrize("mutate, why", [
+    (lambda m: m["stand_network"].update(dir=C1), "collides with a stage dir"),
     (lambda m: m["stand_network"].update(dir=TDR), "collides with a stage dir"),
     (lambda m: m["stand_network"].update(dir="f19_8_p3b_payload180"), "collides with a stage dir"),
     (lambda m: m["stand_network"].update(dir="rsi"), "collides with an asset dir"),
@@ -1906,13 +2908,16 @@ def _st(m, d):
      "is a live policy file with another sha256"),
     (lambda m: (m["stand_network"].update(dir=OLD_STAND), m["heads"].update(stand=OLD_STAND)),
      "is a live policy file with another sha256"),
+    (lambda m: (m["stand_network"].update(dir=RSD_STAND), m["heads"].update(stand=RSD_STAND)),
+     "is a live policy file with another sha256"),
     (lambda m: m["stand_network"].pop("sha256"), "missing 'sha256'"),
-    (lambda m: m["stand_network"].update(sha256="89f4428b"), "full lowercase sha256"),
+    (lambda m: m["stand_network"].update(sha256="6f8b558e"), "full lowercase sha256"),
     (lambda m: m["stand_network"].update(stand_mask=True), "int 0 or 1"),
     (lambda m: m["stand_network"]["walker"].update(sha256="0" * 64), "walker.sha256"),
     (lambda m: m["stand_network"]["walker"].update(stage="7_nope"), "walker.stage"),
     (lambda m: m["stand_network"]["walker"].update(stage="f19_6_p2a_field"), "walker.sha256"),
     (lambda m: m["stand_network"]["walker"].update(stage=TSTAR), "walker.sha256"),
+    (lambda m: m["stand_network"]["walker"].update(stage=TDR), "walker.sha256"),
     (lambda m: m["heads"].update(stand="nope"), "heads.stand"),
     (lambda m: m.pop("stand_network"), "heads.stand"),
     (lambda m: m["stand_network"].update(deployment="hard switch"), "deployment must be a mapping"),
@@ -1924,7 +2929,7 @@ def _st(m, d):
     (lambda m: m["stand_network"].update(warm_start="model_4000.pt"), "warm_start must be a mapping"),
     (lambda m: m["stand_network"]["warm_start"].pop("source"), "warm_start missing 'source'"),
     (lambda m: m["stand_network"]["warm_start"].pop("role"), "warm_start missing 'role'"),
-    (lambda m: m["stand_network"]["warm_start"].update(sha256="6cd82ff5"), "warm_start.sha256 must be a full"),
+    (lambda m: m["stand_network"]["warm_start"].update(sha256="5bedc50e"), "warm_start.sha256 must be a full"),
     (lambda m: m["stand_network"]["warm_start"].update(dir="rsi"), "warm_start lives in the stand network's folder"),
     (lambda m: m["stand_network"]["warm_start"].update(file="model_5000.pt"), "different file from the stand network"),
     (lambda m: m["stand_network"]["warm_start"].update(sha256=m["stand_network"]["sha256"]),
@@ -1941,33 +2946,42 @@ def _st(m, d):
     (lambda m: _st(m, "f19_1_s1").update(kind="ppo"), "kind 'ppo' is not one of"),
     (lambda m: _st(m, "f19_1_s1").update(bundled=False), "for kind 'distill' stages only"),
     (lambda m: _st(m, TDR).update(bundled=False), "for kind 'distill' stages only"),
+    (lambda m: _st(m, C1).update(bundled=False), "for kind 'distill' stages only"),
     (lambda m: _st(m, STUDENT).pop("exports"), "is not bundled and declares no exports"),
     (lambda m: _st(m, STUDENT).update(exports=[]), "exports must be a non-empty list"),
     (lambda m: _st(m, STUDENT).update(bundled="no"), "bundled must be true or false"),
     (lambda m: _st(m, STUDENT)["exports"][0].pop("sha256"), "missing 'sha256'"),
-    (lambda m: _st(m, STUDENT)["exports"][0].update(sha256="ac0ea3e2"), "must be a full lowercase sha256"),
-    (lambda m: _st(m, STUDENT)["exports"][0].update(file="model_31000.pt"), "plain non-checkpoint file"),
+    (lambda m: _st(m, STUDENT)["exports"][0].update(sha256="86d1c801"), "must be a full lowercase sha256"),
+    (lambda m: _st(m, STUDENT)["exports"][0].update(file="model_34499.pt"), "plain non-checkpoint file"),
     (lambda m: _st(m, STUDENT)["exports"][1].update(file="policy.onnx"), "must be distinct files"),
     (lambda m: m.update(current=STUDENT), "is a stage whose checkpoint is not bundled"),
     (lambda m: _st(m, "f19_2_c4").update(sha256="0cbab2c4"), "sha256 must be a full lowercase sha256"),
     (lambda m: _st(m, TDR).update(sha256="03c3e472"), "sha256 must be a full lowercase sha256"),
+    (lambda m: _st(m, C1).update(sha256="6d1f29be"), "sha256 must be a full lowercase sha256"),
     # superseded files kept in the folder
     (lambda m: _sup(m, "S1_s18")["files"][0].update(dir="f19_2_c4"), "sits in a live stage / asset / stand folder"),
     (lambda m: _sup(m, "S1_s18")["files"][0].update(dir=TDR), "sits in a live stage / asset / stand folder"),
+    (lambda m: _sup(m, "S1_s18")["files"][0].update(dir=C1), "sits in a live stage / asset / stand folder"),
     (lambda m: _sup(m, "F19_student")["files"][0].update(dir=STUDENT), "is a live policy file with another sha256"),
+    (lambda m: _sup(m, "RSD_student")["files"][0].update(dir=STUDENT), "is a live policy file with another sha256"),
     (lambda m: _sup(m, "SH_T4F19")["files"][0].update(dir=STAND_DIR), "is a live policy file with another sha256"),
+    (lambda m: _sup(m, "SH_RSD_TDR")["files"][0].update(dir=STAND_DIR), "is a live policy file with another sha256"),
     (lambda m: _sup(m, "S1_s18")["files"][0].update(dir="f19_1_s1"), "is a live policy file with another sha256"),
     (lambda m: _sup(m, "S1_s18")["files"][0].update(dir="rsi"), "sits in a live stage / asset / stand folder"),
     (lambda m: _sup(m, "S1_s18")["files"][0].pop("sha256"), "missing 'sha256'"),
     (lambda m: _sup(m, "S1_s18")["files"][0].update(sha256="72e4b1e3"), "must be a full lowercase sha256"),
     (lambda m: _sup(m, "SH_T17")["files"].append(dict(_sup(m, "SN_Amask_s17")["files"][0])), "recorded twice"),
     (lambda m: _sup(m, "SH_T17")["files"].append(dict(_sup(m, "SN_T4F19")["files"][0])), "recorded twice"),
+    (lambda m: _sup(m, "SH_T17")["files"].append(dict(_sup(m, "SN_RSD_TDR")["files"][0])), "recorded twice"),
     (lambda m: _sup(m, "SH_T17")["files"].append({"dir": OLD_STAND, "file": "model_4000.pt", "sha256": "0" * 64,
+                                                   "source": "x"}), "recorded twice"),
+    (lambda m: _sup(m, "SH_T17")["files"].append({"dir": RSD_STAND, "file": "model_4000.pt", "sha256": "0" * 64,
                                                    "source": "x"}), "recorded twice"),
     (lambda m: _sup(m, "SH_T17")["files"].append({"dir": STAND_DIR, "file": "model_4000.pt", "sha256": "0" * 64,
                                                    "source": "x"}), "is a live policy file with another sha256"),
     (lambda m: _sup(m, "SH_T17").update(files=[]), "files must be a non-empty list"),
     (lambda m: _sup(m, "F19_student").update(files=[]), "files must be a non-empty list"),
+    (lambda m: _sup(m, "RSD_student").update(files=[]), "files must be a non-empty list"),
     (lambda m: m["superseded"].append({"files": []}), "mapping with an id"),
 ])
 def test_manifest_is_validated(tmp_path, mutate, why):
@@ -2011,8 +3025,10 @@ def _sandbox(tmp_path: Path, tool, m: dict) -> Path:
 def _kept_set(m: dict) -> set[str]:
     return {f"{d}/{s['file']}" for d, s in zip(S18_STAGES, _sup(m, "S1_s18")["stages"])} | {
         "stand_net/model_4000.pt", "stand_net/model_5000.pt",
-        *(f"{OLD_STUDENT}/{f}" for f in ("policy.onnx", "depth_latest.onnx", "omni_student_io.json")),
-        f"{OLD_STAND}/model_5000.pt", f"{OLD_STAND}/model_4000.pt"}
+        *(f"{OLD_STUDENT}/{f}" for f in STUDENT_EXPORTS),
+        f"{OLD_STAND}/model_5000.pt", f"{OLD_STAND}/model_4000.pt",
+        *(f"{RSD_STUDENT}/{f}" for f in STUDENT_EXPORTS),
+        f"{RSD_STAND}/model_5000.pt", f"{RSD_STAND}/model_4000.pt"}
 
 
 def test_check_flags_problems_in_kept_and_distill_folders(tmp_path):
@@ -2024,18 +3040,22 @@ def test_check_flags_problems_in_kept_and_distill_folders(tmp_path):
     assert tool.check(m) == []
     (pol / "stand_net" / "model_4000.pt").unlink()
     (pol / "stand_net" / "model_9.pt").write_bytes(b"x")
-    (pol / STUDENT / "model_31000.pt").write_bytes(b"x")
+    (pol / STUDENT / "model_34499.pt").write_bytes(b"x")
     (pol / OLD_STAND / "model_4000.pt").unlink()
+    (pol / RSD_STAND / "model_4000.pt").unlink()
     bad = copy.deepcopy(m)
     _sup(bad, "S1_s18")["files"][0]["sha256"] = "0" * 64
     _sup(bad, "F19_student")["files"][0]["sha256"] = "0" * 64
+    _sup(bad, "RSD_student")["files"][1]["sha256"] = "0" * 64
     probs = "\n".join(tool.check(bad))
     assert "stand_net/model_4000.pt: missing" in probs
     assert f"{OLD_STAND}/model_4000.pt: missing" in probs
+    assert f"{RSD_STAND}/model_4000.pt: missing" in probs
     assert "stand_net: stray checkpoints ['model_9.pt']" in probs
-    assert f"{STUDENT}/model_31000.pt: stage '{STUDENT}' is `bundled: false`" in probs
+    assert f"{STUDENT}/model_34499.pt: stage '{STUDENT}' is `bundled: false`" in probs
     assert "1_fb6k/model_5999.pt: sha256" in probs
     assert f"{OLD_STUDENT}/policy.onnx: sha256" in probs
+    assert f"{RSD_STUDENT}/depth_latest.onnx: sha256" in probs
     assert "README.md: stale" in probs
 
 
@@ -2056,12 +3076,13 @@ def test_sync_verifies_kept_files_and_never_touches_them(tmp_path):
     m = tool.load_manifest()
     _sandbox(tmp_path, tool, m)
     kept = tool.kept_files(m)
-    assert {f"{k['dir']}/{k['file']}" for k in kept} == _kept_set(m)
+    assert {f"{k['dir']}/{k['file']}" for k in kept} == _kept_set(m) and len(kept) == 18
     for k in kept:
         tool._verify_kept(k)
     (tool.POLICY / "6_p2a_field" / "model_19994.pt").unlink()
     with pytest.raises(SystemExit, match="never recreates a superseded file"):
         tool._verify_kept(next(k for k in kept if k["dir"] == "6_p2a_field"))
-    (tool.POLICY / OLD_STAND / "model_5000.pt").unlink()
-    with pytest.raises(SystemExit, match="never recreates a superseded file"):
-        tool._verify_kept(next(k for k in kept if k["dir"] == OLD_STAND and k["file"] == "model_5000.pt"))
+    for d in (OLD_STAND, RSD_STAND):
+        (tool.POLICY / d / "model_5000.pt").unlink()
+        with pytest.raises(SystemExit, match="never recreates a superseded file"):
+            tool._verify_kept(next(k for k in kept if k["dir"] == d and k["file"] == "model_5000.pt"))

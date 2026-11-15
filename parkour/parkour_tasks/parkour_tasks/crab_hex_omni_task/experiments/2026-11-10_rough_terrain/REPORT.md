@@ -1,12 +1,12 @@
 # Rough-terrain teacher c1 and its student and stand pairing — REPORT
 
-**Status: bake decision pending (route USER_DECIDES), 2026-11-13; the decision is yours.** Nothing is baked, pushed or merged. TDR + c31000 + SH/SN_RSD_TDR stay the omni policy of record until you say yes. The P2 read routes to USER_DECIDES (`results/p2/read.json` `decision`). The stand re-pair is done (SN and SH re-anchored, nothing remaining), and the bake videos were recorded on 2026-11-13 at 23:19. Read this beside `BAKE_PLAN.md`.
+**Status: BAKED — your "Yes, bake" (2026-11-14 23:25), done in local commit B on 2026-11-15; nothing is pushed or merged.** c1 + C1S + SH/SN_RT are the omni policy of record (`policy/manifest.yaml`). TDR + c31000 + SH/SN_RSD_TDR are superseded with their files kept, and TDR stays a live stage as c1's resume point (CHARTER "2026-11-15 01:50 — BAKE DONE"). The P2 read routed to USER_DECIDES (`results/p2/read.json` `decision`), and you decided yes. The stand re-pair is done (SN and SH re-anchored, nothing remaining), and the bake videos were recorded on 2026-11-13 at 23:19. Read this beside `BAKE_PLAN.md`.
 
 - **Campaign:** `crab_hex_omni_task/experiments/2026-11-10_rough_terrain/`, branch `feat/rough-terrain`, cut from `origin/main` `3f944c4b` (the PR #13 merge). Every gate row ran at code_sha `89c1916b` / eval_sha `9fe964d7`. The one cross-pin comparison is the P2 step-3 bridge: c31000's RSD stamps are at code_sha `de3772e2` [12 15:08]. The decision log is `CHARTER.md`; the plans are `PLAN.md`, `short_arm/ARM.md` and `p2/P2.md`.
 - **Citations:** [10 hh:mm] … [14 hh:mm] are CHARTER entries dated 2026-11-10 … 2026-11-14. A file name means `results/<file>` unless a path is given. † marks a count made for this REPORT from `p2/read.json` (`falls`, `variant_split`); it is in no gate.
 
 **Terms.**
-- **Policies.** TDR is the teacher of record today (`model_28991`, `03c3e472`). RT_s19 is this campaign's fine-tune of TDR. **c1** is RT_s19 `model_29500` (`6d1f29be`), 509 iterations after TDR. **C1S** is the depth student distilled from c1 (RT_ST_s19 `model_34499`, `6b48ef33`). **c31000** is the student of record today (`155b5981`).
+- **Policies.** TDR was the teacher of record until the bake (`model_28991`, `03c3e472`); c1 is now. RT_s19 is this campaign's fine-tune of TDR. **c1** is RT_s19 `model_29500` (`6d1f29be`), 509 iterations after TDR. **C1S** is the depth student distilled from c1 (RT_ST_s19 `model_34499`, `6b48ef33`). **c31000** was the student of record until the bake (`155b5981`); C1S is now.
 - **Stand nets.** SN is the stand net and SH the stand-height net trained after it. Each is re-paired to the walker.
 - **Seeds and statistics.** es*N* is eval env seed *N*. es1–2 is the selection seed pair, es3 was used for band choice, and es5–8 and es9–12 are fresh seeds. SE is the paired standard error. Success means the schedule completed AND the root crossed the kind's radius (3.0 m for slopes, 3.2 m for ledges, pits and rubble). b1/b2/b3 are a kind's three difficulty bands.
 - **Teacher gates (PLAN).** **G** is gain per kind: at least k = 2 gated kinds gain new − TDR ≥ max(0.10, 3·SE) with CI lower bound ≥ 0.05, and no gated kind falls below TDR − max(0.05, 2·SE). **R** is retention: completion rows and solved kinds at new ≥ TDR − max(0.05, 2·SE), plus 22 v1.2 tracking and turning lines, each at its own margin R (the line's resolution).
@@ -31,7 +31,7 @@
    - The student's own share of the ledge_up loss is not measured.
    - Gravel and rubble are rigid, so loose ground is untested.
    - ledge_up, pits and rubble did not gain in any read, and ledge_up and pits at or above 0.14 m did not move. The b3 ledge and pit bands (above the blind envelope) are report-only.
-9. **Nothing is pushed.** The branch changes 140 files against `3f944c4b`: 109 in the campaign dir, 30 code and test files (all default-off) and the lit review (git diff, §6).
+9. **Nothing is pushed.** With the bake (local commit B), the branch changes 183 files against `3f944c4b` (167 before the bake). They are 135 in the campaign dir, 19 code and 14 test files, 8 policy-of-record files, 6 living docs and the lit review (git diff, §6). The code is all default-off; the bake added only the policy-test rewrite and a `bundle_policy.py` docstring.
 
 ## 2. Verdict table
 
@@ -202,7 +202,7 @@ The student keeps all of c1's ledge_down gain and gives back about a third of it
 - **Superseded, files kept.** c31000 and SH/SN_RSD_TDR.
 - **back_overshoot** is reopened as a follow-up.
 - **Deploy interface unchanged.** C1S's `omni_student_io.json` (4ee03d02) is byte-identical to c31000's. Its ONNX graphs differ from c31000's bundled ones (new weights), and parity is 1.2e-6 against its `.pt` (`p2/onnx_PICK.json`).
-- **Code.** The branch changes 31 files outside the campaign dir, all default-off knobs: site/rt terrains, `rt_friction.py`, the omni knobs, `observations.py`, `tools/run_candidates.py` and tests. TDR's path is unchanged: neutrality was bitwise [10 19:40].
+- **Code.** Before the bake the branch changed 31 code and test files outside the campaign dir, all default-off knobs: site/rt terrains, `rt_friction.py`, the omni knobs, `observations.py`, `tools/run_candidates.py` and tests. TDR's path is unchanged: neutrality was bitwise [10 19:40].
   - A merge moves main's code_sha to 89c1916b and touches the Task 4-locked `run_candidates.py`, so a relock and a CI-faithful simulation come first (P2.md Out of scope).
   - Push, PR and merge are your call after the bake.
 - **What does not change.**
