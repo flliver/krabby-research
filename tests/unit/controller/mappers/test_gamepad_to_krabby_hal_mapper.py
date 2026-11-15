@@ -27,6 +27,7 @@ from controller.mappers.gamepad_to_krabby_hal_mapper import (
     DEFAULT_HIP_YAW_SCALE,
     DEFAULT_KNEE_OUT_IN_SCALE,
     DEFAULT_STICK_CURVE_EXPONENT,
+    STM_DUTY_SCALE,
     GamepadToKrabbyHALMapper,
     LEG_TO_JOINT_INDICES,
     apply_stick_curve,
@@ -180,5 +181,48 @@ class TestStickCurve:
         names = list(d)
         for idx in LEG_TO_JOINT_INDICES[LegIdentifier.FRONT_LEFT]:
             assert _rad_to_pwm(d[names[idx]]) == 255
+
+
+class TestStmDutyScaling:
+    """STM HAL path: JointCommand values are duty [-1, 1], full stick -> 1.0."""
+
+    def test_stm_full_stick_reaches_unit_duty(self):
+        state = ControllerState(LT=True, LB=False, LY=-1.0, LX=1.0, RY=1.0)
+        d = GamepadToKrabbyHALMapper(stick_curve_exponent=1.0, stm=True).map(
+            state
+        ).to_positions_dict()
+        names = list(d)
+        hip_yaw_idx, hip_pitch_idx, knee_idx = LEG_TO_JOINT_INDICES[
+            LegIdentifier.FRONT_LEFT
+        ]
+        assert d[names[hip_yaw_idx]] == pytest.approx(STM_DUTY_SCALE)
+        assert d[names[hip_pitch_idx]] == pytest.approx(STM_DUTY_SCALE)
+        assert d[names[knee_idx]] == pytest.approx(STM_DUTY_SCALE)
+
+    def test_stm_partial_stick_uses_duty_scale_not_mega_default(self):
+        state = ControllerState(LT=True, LB=False, LY=-0.5, LX=-0.3, RY=0.2)
+        legacy = GamepadToKrabbyHALMapper(stick_curve_exponent=1.0, stm=False)
+        stm = GamepadToKrabbyHALMapper(stick_curve_exponent=1.0, stm=True)
+        d_legacy = legacy.map(state).to_positions_dict()
+        d_stm = stm.map(state).to_positions_dict()
+        names = list(d_legacy)
+        hip_yaw_idx, hip_pitch_idx, knee_idx = LEG_TO_JOINT_INDICES[
+            LegIdentifier.FRONT_LEFT
+        ]
+        for idx in (hip_yaw_idx, hip_pitch_idx, knee_idx):
+            assert d_stm[names[idx]] == pytest.approx(d_legacy[names[idx]] * 2.0)
+
+    def test_non_stm_unchanged_from_prior_defaults(self):
+        state = ControllerState(LT=True, LB=False, LY=-0.5, LX=-0.3, RY=0.2)
+        d = GamepadToKrabbyHALMapper(stick_curve_exponent=1.0, stm=False).map(
+            state
+        ).to_positions_dict()
+        names = list(d)
+        hip_yaw_idx, hip_pitch_idx, knee_idx = LEG_TO_JOINT_INDICES[
+            LegIdentifier.FRONT_LEFT
+        ]
+        assert d[names[hip_yaw_idx]] == pytest.approx(0.2 * DEFAULT_HIP_YAW_SCALE)
+        assert d[names[hip_pitch_idx]] == pytest.approx(0.5 * DEFAULT_HIP_UP_DOWN_SCALE)
+        assert d[names[knee_idx]] == pytest.approx(-0.3 * DEFAULT_KNEE_OUT_IN_SCALE)
 
 

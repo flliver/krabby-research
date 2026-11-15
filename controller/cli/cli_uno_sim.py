@@ -128,6 +128,14 @@ def main() -> int:
         help="Override knee out/in scale (radians per unit LX) for gamepad mapper",
     )
     parser.add_argument(
+        "--stm",
+        action="store_true",
+        help=(
+            "Map sticks to duty [-1, 1] for STM CAN fullsim (match HAL --firmware-transport can). "
+            "Uses Krabby duty mapper instead of Isaac incremental mapper."
+        ),
+    )
+    parser.add_argument(
         "--mapper-hip-yaw-scale",
         type=float,
         default=None,
@@ -221,6 +229,7 @@ def main() -> int:
          mapper_knee_out_in_scale=knee_scale,
          mapper_hip_yaw_scale=hip_yaw_scale,
         isaacsim_robot_definition=KRABBY_QUAD_DEFINITION if args.quad else KRABBY_HEX_DEFINITION,
+        stm=args.stm,
     )
 
     control_loop = ControlLoop(control_loop_config)

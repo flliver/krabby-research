@@ -217,6 +217,7 @@ def start_hal_teleop_signaling_thread(
     teleop_edge_settings: TeleopEdgeSettings,
     robot_definition: RobotDefinition,
     send_hal_commands: bool = True,
+    stm: bool = False,
 ) -> threading.Thread:
     """Start outbound teleop: HalClient poll thread + asyncio signaling; stop when ``stop_event`` is set.
 
@@ -332,6 +333,7 @@ def start_hal_teleop_signaling_thread(
                     krabby_gamepad_robot_definition=robot_definition,
                     input_controller_update_rate_hz=50.0,
                     command_send_gate=operator_override_gate.get,
+                    stm=stm,
                 )
             )
             control_loop.start()

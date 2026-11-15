@@ -22,11 +22,11 @@ def add_command_backend_arguments(parser: argparse.ArgumentParser) -> None:
         "--firmware-transport",
         type=str,
         default="in_process",
-        choices=("in_process", "serial_sdk"),
+        choices=("in_process", "serial_sdk", "can"),
         dest="firmware_transport",
         help=(
-            "When --backend fullsim: in_process (host jog, default) or serial_sdk "
-            "(KrabbyMCUSDK over PTY, Jetson wire). See hal/server/isaac/README.md."
+            "When --backend fullsim: in_process (host jog, default), serial_sdk "
+            "(KrabbyMCUSDK over PTY), or can (STM CAN on vcan0). See hal/server/isaac/README.md."
         ),
     )
 

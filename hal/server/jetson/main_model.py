@@ -156,6 +156,7 @@ def main() -> None:
                 teleop_edge_settings=teleop_settings,
                 robot_definition=robot_definition,
                 send_hal_commands=teleop_send_commands,
+                stm=args.stm,
             )
             logger.info(
                 "Teleop outbound signaling started: mode=%s url=%s reconnect_s=%.1f "
@@ -184,6 +185,7 @@ def main() -> None:
                 control_rate=CONTROL_RATE_HZ,
                 device="cuda",
                 transport_context=transport_context,
+                stm=args.stm,
             )
             parkour_client.initialize()
             logger.info("Parkour inference client initialized")

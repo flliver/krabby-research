@@ -24,14 +24,16 @@ class ParkourLocomotionToHWMapper:
     If model output is shorter, pads with zeros; if longer, slices to command length.
     """
 
-    def __init__(self, robot_definition: RobotDefinition):
+    def __init__(self, robot_definition: RobotDefinition, *, stm: bool = False):
         """Initialize the mapper.
 
         Args:
             robot_definition: Robot definition; output length = get_total_joint_count()
+            stm: When True, clamp joint values to duty [-1, 1] for STM CAN HAL.
         """
         self.robot_definition = robot_definition
         self._command_joint_count = robot_definition.get_total_joint_count()
+        self._stm = stm
     
     def map(self, model_output: InferenceResponse, observation_timestamp_ns: int) -> JointCommand:
         """Map model output to hardware joint positions.
@@ -76,6 +78,8 @@ class ParkourLocomotionToHWMapper:
         
         # Map model output to command length per robot definition (pad if hex)
         model_joints = self._map_to_krabby_joints(action_array)
+        if self._stm:
+            model_joints = np.clip(model_joints, -1.0, 1.0).astype(np.float32, copy=False)
         n = self._command_joint_count
         joint_positions = np.zeros(n, dtype=np.float32)
         joint_positions[: len(model_joints)] = model_joints

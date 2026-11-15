@@ -23,3 +23,10 @@ def test_backend_fullsim_and_firmware_transport():
     )
     assert args.backend == "fullsim"
     assert args.firmware_transport == "serial_sdk"
+
+
+def test_firmware_transport_can_choice():
+    args = _parser().parse_args(
+        ["--backend", "fullsim", "--firmware-transport", "can"]
+    )
+    assert args.firmware_transport == "can"

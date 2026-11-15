@@ -55,6 +55,7 @@ class ParkourInferenceClient(HalClient):
         device: str = "cuda",
         transport_context: Optional[zmq.Context] = None,
         use_env_observations: bool = False,
+        stm: bool = False,
     ):
         """Initialize Parkour inference client.
 
@@ -67,6 +68,7 @@ class ParkourInferenceClient(HalClient):
             device: Device for inference ("cuda" or "cpu")
             transport_context: ZMQ context for inproc connections (required for inproc)
             use_env_observations: If True, use environment observations directly instead of hardware observations
+            stm: When True, map model actions to duty [-1, 1] for STM CAN HAL.
         """
         super().__init__(hal_client_config, context=transport_context)
         self.model_weights = model_weights
@@ -75,6 +77,7 @@ class ParkourInferenceClient(HalClient):
         self.control_rate = control_rate
         self.device = device
         self.use_env_observations = use_env_observations
+        self._stm = stm
         self.model: Optional[ParkourPolicyModel] = None
         self.nav_cmd: Optional[NavigationCommand] = None
         self._inference_initialized = False
@@ -155,7 +158,7 @@ class ParkourInferenceClient(HalClient):
             raise RuntimeError(f"Inference failed: {inference_result.error_message}")
         
         # Map inference response to hardware joint positions
-        hw_mapper = ParkourLocomotionToHWMapper(self.robot_definition)
+        hw_mapper = ParkourLocomotionToHWMapper(self.robot_definition, stm=self._stm)
         joint_cmd = hw_mapper.map(inference_result, observation_timestamp_ns=time.time_ns())
         
         # Update timestamp to current time
@@ -258,7 +261,7 @@ class ParkourInferenceClient(HalClient):
         self._non_finite_drop_count = 0
 
         # Map inference response to hardware joint positions
-        hw_mapper = ParkourLocomotionToHWMapper(self.robot_definition)
+        hw_mapper = ParkourLocomotionToHWMapper(self.robot_definition, stm=self._stm)
         try:
             joint_cmd = hw_mapper.map(
                 inference_result,

@@ -448,6 +448,7 @@ def main():
             observation_endpoint=observation_client_endpoint,
             command_endpoint=command_client_endpoint,
         )
+        teleop_stm = args.firmware_transport == "can"
         teleop_thread = start_hal_teleop_signaling_thread(
             teleop_hal_cfg,
             transport_context,
@@ -457,6 +458,7 @@ def main():
             teleop_edge_settings=teleop_settings,
             robot_definition=robot_definition,
             send_hal_commands=True,
+            stm=teleop_stm,
         )
         logger.info(
             "Teleop signaling thread started (url=%s, observation=%s, command_connect=%s, "
@@ -478,6 +480,7 @@ def main():
             observation_dimensions=observation_dimensions,
             action_dim=model_definition.action_dim,
         )
+        inference_stm = args.firmware_transport == "can"
         parkour_client = ParkourInferenceClient(
             hal_client_config=hal_client_config,
             model_weights=model_weights,
@@ -486,6 +489,7 @@ def main():
             control_rate=CONTROL_RATE_HZ,
             device=args.inference_device,
             transport_context=transport_context,
+            stm=inference_stm,
         )
         # Initialize inference client first (creates model)
         parkour_client.initialize()
