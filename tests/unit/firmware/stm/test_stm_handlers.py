@@ -49,6 +49,18 @@ def _bind_leg_helpers(lib: ctypes.CDLL) -> None:
     lib.krabby_sim_inject_rx.restype = None
     lib.krabby_sim_fail_next_tx.argtypes = [ctypes.POINTER(Leg)]
     lib.krabby_sim_fail_next_tx.restype = None
+    lib.krabby_sim_set_hall.argtypes = [
+        ctypes.POINTER(Leg),
+        ctypes.c_int,
+        ctypes.c_int32,
+    ]
+    lib.krabby_sim_set_hall.restype = None
+    lib.krabby_sim_set_pot.argtypes = [
+        ctypes.POINTER(Leg),
+        ctypes.c_int,
+        ctypes.c_uint16,
+    ]
+    lib.krabby_sim_set_pot.restype = None
     lib.calibration_joint_calibrating.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
     lib.calibration_joint_calibrating.restype = ctypes.c_bool
     lib.calibration_joint_calibrated.argtypes = [ctypes.POINTER(Leg), ctypes.c_uint8]
@@ -107,27 +119,44 @@ def test_calibrate_rejects_joint_one(stm_host_lib) -> None:
     assert not stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 1)
 
 
+def _run_stall_cal_host(stm_host_lib, leg: Leg, joint_id: int, motor: int) -> None:
+    """Simulate hall motion then 250 ms quiet per phase (grant stall rule)."""
+    cal_id = ids.calibrate_can_id(1)
+    buf = (ctypes.c_uint8 * 1)(joint_id)
+    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
+    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), joint_id)
+
+    # Extend phase: moving hall, then hold for KRABBY_CAL_STALL_QUIET_MS (250).
+    for ms in range(0, 40):
+        stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, ms * 10)
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+    stall_hall = 500
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, stall_hall)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), motor, 3000)
+    for ms in range(40, 40 + 260):
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+
+    # Retract phase: move hall again, then second stall.
+    for ms in range(300, 340):
+        stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, stall_hall - (ms - 300) * 5)
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+    stm_host_lib.krabby_sim_set_hall(ctypes.byref(leg), motor, 100)
+    stm_host_lib.krabby_sim_set_pot(ctypes.byref(leg), motor, 400)
+    for ms in range(340, 340 + 260):
+        stm_host_lib.app_tick(ctypes.byref(leg), ms)
+
+    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), joint_id)
+    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), joint_id)
+
+
 def test_calibrate_joint_two_stall_finishes_on_host(stm_host_lib) -> None:
     leg = _leg_for_node(stm_host_lib, 1)
-    cal_id = ids.calibrate_can_id(1)
-    buf = (ctypes.c_uint8 * 1)(2)
-    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
-    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
-    for ms in (1, 2, 3, 4, 5):
-        stm_host_lib.app_tick(ctypes.byref(leg), ms)
-    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 2)
-    assert not stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 2)
+    _run_stall_cal_host(stm_host_lib, leg, 2, 1)
 
 
 def test_calibrate_joint_three_stall_finishes_on_host(stm_host_lib) -> None:
     leg = _leg_for_node(stm_host_lib, 1)
-    cal_id = ids.calibrate_can_id(1)
-    buf = (ctypes.c_uint8 * 1)(3)
-    stm_host_lib.can_handler_on_frame(ctypes.byref(leg), cal_id, buf, 1)
-    assert stm_host_lib.calibration_joint_calibrating(ctypes.byref(leg), 3)
-    for ms in (1, 2, 3, 4, 5):
-        stm_host_lib.app_tick(ctypes.byref(leg), ms)
-    assert stm_host_lib.calibration_joint_calibrated(ctypes.byref(leg), 3)
+    _run_stall_cal_host(stm_host_lib, leg, 3, 2)
 
 
 def test_calibrate_id_for_other_leg_is_ignored(stm_host_lib) -> None:
