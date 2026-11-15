@@ -1,14 +1,16 @@
 """Launch the Krabby firmware test GUI: python -m firmware.gui [--device PATH] [--debug]"""
-import sys
+from __future__ import annotations
+
 import argparse
 import logging
+import sys
 
 from firmware.gui.app import KrabbyTestGUI
 from firmware.krabby_mcu import DEFAULT_BAUD, logger
 from firmware.mcu_port import McuSerialDevice, McuSerialTarget, McuSerialUrl
 
 
-def main():
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Krabby MCU test GUI",
         epilog=(
@@ -27,12 +29,43 @@ def main():
         default=None,
         help="Pyserial URL (e.g. socket://127.0.0.1:54321 for Windows sim TCP)",
     )
+    dest.add_argument(
+        "--stm",
+        action="store_true",
+        help="Use STM leg boards over CAN (KrabbyMCUCANSDK) instead of Mega serial",
+    )
+    parser.add_argument(
+        "--virtual",
+        action="store_true",
+        help="With --stm: connect to virtual CAN (vcan0) instead of can0+can1",
+    )
     parser.add_argument("--baud", type=int, default=DEFAULT_BAUD)
-    parser.add_argument("--debug", action="store_true", help="Log every command sent to the MCU")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Log every command sent to the MCU",
+    )
+    return parser
+
+
+def parse_gui_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.virtual and not args.stm:
+        parser.error("--virtual requires --stm")
+    return args
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_gui_args(argv)
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
+
+    if args.stm:
+        app = KrabbyTestGUI(stm=True, virtual=args.virtual)
+        app.mainloop()
+        return
 
     target: McuSerialTarget | None = None
     if args.device is not None:
