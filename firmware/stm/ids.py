@@ -102,5 +102,17 @@ def board_info_can_id_for_index(leg_index: int) -> int:
     return board_info_can_id(leg_index_to_id(leg_index))
 
 
+def telemetry_leg_id_from_frame(can_id: int) -> int | None:
+    """Inverse of ``telemetry_can_id``; ``None`` if *can_id* is not a leg telemetry frame."""
+    leg_id = can_id - CAN_ID_TELEMETRY_BASE
+    return leg_id if leg_id in LEG_IDS else None
+
+
+def board_info_leg_id_from_frame(can_id: int) -> int | None:
+    """Inverse of ``board_info_can_id``; ``None`` if *can_id* is not a leg board-info frame."""
+    leg_id = can_id - CAN_ID_BOARD_INFO_BASE
+    return leg_id if leg_id in LEG_IDS else None
+
+
 def leg_bus(leg_id: int) -> str:
     return LEG_BUS_BY_ID[leg_id]

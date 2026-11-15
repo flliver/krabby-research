@@ -31,6 +31,15 @@ def test_joint_id_index_round_trip() -> None:
         assert ids.joint_index_to_id(ids.joint_id_to_index(joint_id)) == joint_id
 
 
+def test_telemetry_and_board_info_frame_leg_id_round_trip() -> None:
+    for leg_id in ids.LEG_IDS:
+        assert ids.telemetry_leg_id_from_frame(ids.telemetry_can_id(leg_id)) == leg_id
+        assert ids.board_info_leg_id_from_frame(ids.board_info_can_id(leg_id)) == leg_id
+    assert ids.telemetry_leg_id_from_frame(ids.CAN_ID_TELEMETRY_BASE) is None
+    assert ids.board_info_leg_id_from_frame(ids.CAN_ID_BOARD_INFO_BASE) is None
+    assert ids.telemetry_leg_id_from_frame(ids.set_duty_can_id()) is None
+
+
 def test_hal_joint_names_match_robot_definition() -> None:
     assert len(hal_joint_names.MCU_JOINTS) == 18
 

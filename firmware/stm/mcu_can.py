@@ -119,14 +119,16 @@ class KrabbyMCUCANSDK:
             can_transport.send_fd_frame(bus, frame_id, data)
 
     def _on_message(self, msg: Any) -> None:
-        decoded = codec.decode_frame(msg.arbitration_id, bytes(msg.data))
-        if decoded is None:
-            return
-        name, fields = decoded
-        with self._lock:
-            if name.startswith("TELEMETRY_"):
-                leg_id = int(name.split("_", 1)[1])
+        can_id = int(msg.arbitration_id)
+        payload = bytes(msg.data)
+        leg_id = ids.telemetry_leg_id_from_frame(can_id)
+        if leg_id is not None:
+            fields = codec.decode_telemetry(leg_id, payload)
+            with self._lock:
                 self._telemetry[leg_id] = fields
-            elif name.startswith("BOARD_INFO_"):
-                leg_id = int(name.split("_", 1)[1])
+            return
+        leg_id = ids.board_info_leg_id_from_frame(can_id)
+        if leg_id is not None:
+            fields = codec.decode_board_info(leg_id, payload)
+            with self._lock:
                 self._board_info[leg_id] = fields
