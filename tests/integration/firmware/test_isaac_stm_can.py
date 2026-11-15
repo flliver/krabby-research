@@ -64,8 +64,35 @@ def run_steps(core, bus, steps: int) -> None:
         core.step()
 
 
-def _float_position(raw: int) -> float:
-    return struct.unpack("<d", struct.pack("<Q", raw & ((1 << 64) - 1)))[0]
+def _float_position(raw: int | float) -> float:
+    if isinstance(raw, int):
+        return struct.unpack("<d", struct.pack("<Q", raw & ((1 << 64) - 1)))[0]
+    return float(raw)
+
+
+def _wait_for_joint_calibrated(
+    core,
+    bus,
+    leg_id: int,
+    joint_id: int,
+    *,
+    max_steps: int = CAL_MAX_STEPS,
+) -> dict:
+    """Wait for stall cal to finish; require a calibrating phase (session legs may already be calibrated)."""
+    telem = None
+    saw_calibrating = False
+    for _ in range(max_steps):
+        core.step()
+        telem = drain_leg_telemetry(bus, leg_id)
+        if telem is None:
+            continue
+        if telem[f"J{joint_id}_CALIBRATING"] == 1:
+            saw_calibrating = True
+        if not saw_calibrating:
+            continue
+        if telem[f"J{joint_id}_CALIBRATING"] == 0 and telem[f"J{joint_id}_CALIBRATED"] == 1:
+            return telem
+    raise AssertionError(f"leg {leg_id} joint {joint_id} calibrate did not finish (calibrated bit)")
 
 
 def _isaac_index_for_flhy(indices: dict[str, int]) -> int:
@@ -145,20 +172,10 @@ def test_calibrate_leg1_hip_flags_and_partial_drive(stm_can_rig) -> None:
     _park_stm(core, robot, bus)
 
     send_calibrate(bus, 1, 2)
-    calibrated = False
-    for _ in range(CAL_MAX_STEPS):
-        core.step()
-        telem = drain_leg_telemetry(bus, 1)
-        if telem is None:
-            continue
-        if telem["J2_CALIBRATING"] == 0 and telem["J2_CALIBRATED"] == 1:
-            calibrated = True
-            break
-    assert calibrated, "joint 2 calibrate did not finish (calibrated bit)"
+    telem = _wait_for_joint_calibrated(core, bus, 1, 2)
 
-    pos_raw = telem["J2_POSITION"] if telem else 0
-    pos = _float_position(pos_raw)
-    assert pos == pytest.approx(0.0) or math.isnan(pos)
+    pos = _float_position(telem["J2_POSITION"])
+    assert pos == pytest.approx(0.0, abs=0.2)
 
     send_set_duty(bus, 1, 0.0, 0.5, 0.0)
     hip_before = robot.data.joint_pos[0, flhl_idx].item()
@@ -171,3 +188,45 @@ def test_calibrate_leg1_hip_flags_and_partial_drive(stm_can_rig) -> None:
     telem_mid = drain_leg_telemetry(bus, 1)
     assert telem_mid is not None
     assert telem_mid["J2_CALIBRATED"] == 1
+
+
+def test_calibrate_leg1_hip_position_ramp_and_restart(stm_can_rig) -> None:
+    core, robot, bus, indices, bridge = stm_can_rig
+    flhl_idx = indices[ThreeBoardSimConfigs.rev3().slot_by_firmware_id("FLHL").isaac_joint_name]
+    _park_stm(core, robot, bus)
+
+    send_calibrate(bus, 1, 2)
+    telem = _wait_for_joint_calibrated(core, bus, 1, 2)
+
+    pos_retracted = _float_position(telem["J2_POSITION"])
+    assert pos_retracted == pytest.approx(0.0, abs=0.2)
+
+    send_set_duty(bus, 1, 0.0, 0.5, 0.0)
+    hip_before = robot.data.joint_pos[0, flhl_idx].item()
+    for _ in range(DRIVE_STEPS):
+        core.step()
+    assert abs(robot.data.joint_pos[0, flhl_idx].item() - hip_before) > min_commanded_jog_travel_rad(robot)
+
+    telem_mid = drain_leg_telemetry(bus, 1)
+    assert telem_mid is not None
+    pos_mid = _float_position(telem_mid["J2_POSITION"])
+    assert pos_mid > 0.05
+    assert pos_mid < 1.0
+    assert telem_mid["J2_CALIBRATED"] == 1
+
+    send_zero_duty(bus)
+    for _ in range(SETTLE_STEPS):
+        core.step()
+
+    leg1 = core.legs[0]
+    pos_before_restart = pos_mid
+    bridge.restart_leg_app(leg1)
+    for _ in range(SETTLE_STEPS):
+        core.step()
+
+    telem_after = drain_leg_telemetry(bus, 1)
+    assert telem_after is not None
+    assert telem_after["J2_CALIBRATED"] == 1
+    pos_after = _float_position(telem_after["J2_POSITION"])
+    assert not math.isnan(pos_after)
+    assert pos_after == pytest.approx(pos_before_restart, abs=0.25)

@@ -110,6 +110,12 @@ class StmBoardBridge:
         self._lib.app_init(ctypes.byref(leg), pins)
         return leg
 
+    def restart_leg_app(self, leg: Leg) -> None:
+        """Re-run app_init on the same pins (Isaac cal storage survives)."""
+        if not leg.pins:
+            raise ValueError("leg has no pins pointer")
+        self._lib.app_init(ctypes.byref(leg), leg.pins)
+
     def set_tick_ms(self, ms: int) -> None:
         self._lib.krabby_sim_set_tick_ms(int(ms))
 
