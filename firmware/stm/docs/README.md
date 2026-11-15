@@ -8,7 +8,7 @@ Specs for six CAN-FD leg boards, host tools, and simulation.
 
 - Leg-board firmware (STM32, three joints per board)
 - **`../dbc/krabby.dbc`** and `ids.py` / `board_ids.h`
-- **`krabby-firmware-stm`** CLI and CAN SDK (in progress)
+- **`krabby-firmware-stm`** CLI (`duty`, `calibrate`, `telemetry`, `--virtual`) and **`KrabbyMCUCANSDK`**
 - HAL MCU boundary (Jetson, Isaac, GUI)
 - Virtual CAN (`vcan0`) for Isaac sim
 

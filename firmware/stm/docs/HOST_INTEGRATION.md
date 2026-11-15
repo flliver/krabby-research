@@ -9,7 +9,7 @@ Python package layout, **`krabby-firmware-stm`** CLI, and CAN SDK on the Orin or
 - **`krabby-firmware`** PyPI package (`firmware/pyproject.toml`)
 - Optional **`stm`** deps: `python-can`, `cantools`
 - Console script **`krabby-firmware-stm`** → `firmware/stm/cli/`
-- **`ids.py`**, **`codec.py`**, **`can_transport.py`** (SDK wiring in progress)
+- **`ids.py`**, **`codec.py`**, **`can_transport.py`**, **`mcu_can.py`** (`KrabbyMCUCANSDK`)
 - Mega serial unchanged: `firmware/cli.py`, `firmware/krabby_mcu.py`
 
 ## Critical points
@@ -19,8 +19,8 @@ Python package layout, **`krabby-firmware-stm`** CLI, and CAN SDK on the Orin or
 - **Connect:**
   - Robot: **`can0`** + **`can1`**, CAN-FD **1M/5M**, BRS.
   - Sim: **`vcan0`**, MTU **72**, `virtual=True`.
-- **SDK (target):** `set_duty(leg, j1, j2, j3)` / `set_duties(18 values)` → one **`SET_DUTY`** per TX on **each** open bus; background thread decodes **`TELEMETRY_*`** / **`BOARD_INFO_*`**.
-- **CLI (target):**
+- **SDK:** `set_duty(leg, j1, j2, j3)` / `set_duties(18 values)` → one **`SET_DUTY`** per TX on **each** open bus; background thread decodes **`TELEMETRY_*`** / **`BOARD_INFO_*`**.
+- **CLI:**
   - `duty <leg> <y> <h> <k>` — duties **−1…1**
   - `calibrate <leg> <joint>`
   - `telemetry`
