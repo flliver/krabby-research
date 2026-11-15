@@ -66,3 +66,36 @@ def test_send_calibration_targets_leg_bus(monkeypatch) -> None:
     channel, frame_id, _payload = sent[0]
     assert channel == ids.leg_bus(2)
     assert frame_id == ids.calibrate_can_id(2)
+
+
+def test_cmd_duty_virtual_tx_set_duty_fd(monkeypatch) -> None:
+    captured: list[object] = []
+    opened: list[str] = []
+
+    class FakeBus:
+        def __init__(self, channel: str) -> None:
+            self.channel = channel
+            opened.append(channel)
+
+        def shutdown(self) -> None:
+            pass
+
+        def send(self, msg: object) -> None:
+            captured.append(msg)
+
+    monkeypatch.setattr(
+        "firmware.stm.can_transport.open_socketcan_fd",
+        lambda channel, **_kw: FakeBus(channel),
+    )
+    monkeypatch.setattr("can.Notifier", lambda _bus, _listeners: mock.Mock(stop=mock.Mock()))
+
+    args = argparse.Namespace(virtual=True, leg_id=1, y=0.5, h=0.0, k=0.0)
+    assert cli_stm.cmd_duty(args) == 0
+    assert opened == ["vcan0"]
+    assert len(captured) == 1
+    msg = captured[0]
+    assert msg.arbitration_id == ids.set_duty_can_id()
+    assert msg.is_fd is True
+    assert msg.bitrate_switch is True
+    assert len(msg.data) == 36
+    assert msg.data == (500).to_bytes(2, "little", signed=True) + b"\x00" * 34
