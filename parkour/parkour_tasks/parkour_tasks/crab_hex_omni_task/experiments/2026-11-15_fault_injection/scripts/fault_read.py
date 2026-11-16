@@ -351,7 +351,10 @@ def fall_info(n_steps: int, reason: str, onset: int) -> dict:
     """Fall bookkeeping of one episode against its onset (fall step = n_steps - 1)."""
     fell = reason != COMPLETE
     fs = int(n_steps) - 1 if fell else None
-    alive = (not fell) or fs >= onset
+    # alive at onset = the episode actually REACHED its onset step (onset < n_steps; a fall at step fs >= onset
+    # implies it). A completed episode shorter than its onset (armed-but-never smoke: onsets ~150000 steps) never
+    # reached it and is not in the F denominator.
+    alive = int(onset) < int(n_steps)
     post = fell and fs >= onset
     return {"fell": fell, "fall_step": fs, "alive_at_onset": bool(alive), "post_fall": bool(post),
             "pre_fall": bool(fell and fs < onset), "f2": bool(post and fs < onset + F2_STEPS),
@@ -431,7 +434,7 @@ def r_episode(vx, sp, n_steps: int, reason: str, ws: int, we: int, extent: tuple
     """One episode's R entry: inside (window within the translate hold's planned extent), alive at ws, ok."""
     inside = extent is not None and extent[0] <= ws and we <= extent[1]
     fell = reason != COMPLETE
-    alive = (not fell) or (int(n_steps) - 1) >= ws
+    alive = ws < int(n_steps)                    # the episode reached the window start (fell or not)
     ok = None
     if inside and alive:
         if int(n_steps) < we:                    # fell inside the window: not tracking
@@ -805,7 +808,16 @@ def sidecar_checks(L: Launch, cell: dict, sc: dict, waves_expected: int, num_env
             errs.append(f"wave {wv}: state_cleared false")
         if not np.array_equal(start, np.zeros_like(on) if from_start else on):
             errs.append(f"wave {wv}: start != {'0' if from_start else 'onset'}")
-        alive = (fell < 0) | (fell > start)
+        n_ep = np.full(on.shape, -1, np.int64)          # episode length of (wave, env), from scenario_metrics
+        for ep in L.episodes():
+            if ep["wave"] == wv and 0 <= ep["env"] < n_ep.size:
+                n_ep[ep["env"]] = int(ep["n"])
+        if (n_ep < 0).any():
+            errs.append(f"wave {wv}: no episode length for envs {np.flatnonzero(n_ep < 0)[:8].tolist()}")
+        survived = (fell < 0) | (fell > start)          # did not fall before the start step
+        reached = start < n_ep                          # the start step exists in the episode (onset actually reached)
+        alive = survived & reached
+        unreached = survived & ~reached                 # onset beyond the episode: must stay fully inactive
         n_alive += int(alive.sum())
         n_active += int((fa >= 0).sum())
         # inactive before the start (every stage), off again after a transient
@@ -815,8 +827,11 @@ def sidecar_checks(L: Launch, cell: dict, sc: dict, waves_expected: int, num_env
                 bad = np.flatnonzero(np.nan_to_num(arr, nan=0.0) > ZERO_TOL)
                 if bad.size:
                     errs.append(f"wave {wv}: {name} > 0 on envs {bad[:8].tolist()}")
-        if (fa[~alive] >= 0).any():
-            errs.append(f"wave {wv}: active on envs that fell before the start {np.flatnonzero(~alive & (fa >= 0))[:8].tolist()}")
+        if (fa[~survived] >= 0).any():
+            errs.append(f"wave {wv}: active on envs that fell before the start {np.flatnonzero(~survived & (fa >= 0))[:8].tolist()}")
+        if (unreached & ((fa >= 0) | (la >= 0))).any():
+            errs.append(f"wave {wv}: active on envs whose start is beyond the episode (armed-but-never dose) "
+                        f"{np.flatnonzero(unreached & ((fa >= 0) | (la >= 0)))[:8].tolist()}")
         lag = (fa - start)[alive]
         if depth:
             okfa = (lag >= 0) & (lag < 5)
@@ -828,7 +843,7 @@ def sidecar_checks(L: Launch, cell: dict, sc: dict, waves_expected: int, num_env
             pl = np.asarray(w["planned_last"], np.int64)
             if (la > pl).any():
                 errs.append(f"wave {wv}: active after planned_last on envs {np.flatnonzero(la > pl)[:8].tolist()}")
-            through = (fell < 0) | (fell > pl)
+            through = ((fell < 0) | (fell > pl)) & reached      # unreached envs never run the dose
             if depth:
                 vis = np.asarray(w.get("policy_visible_last") or [-1] * len(on), np.int64)
                 bnd = np.asarray(w.get("policy_visible_bound") or pl.tolist(), np.int64)

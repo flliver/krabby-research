@@ -197,6 +197,57 @@ def test_fall_info(fr):
     assert f["post_fall"] and not f["f2"]
 
 
+def test_alive_at_onset_needs_the_onset_reached(fr):
+    """A completed episode shorter than its onset (armed-but-never smoke) never reached it: not alive, no exposure."""
+    f = fr.fall_info(775, "schedule_complete", 150000)
+    assert not f["alive_at_onset"] and not f["post_fall"] and not f["pre_fall"] and f["exposure_steps"] == 0
+    assert fr.fall_info(775, "schedule_complete", 774)["alive_at_onset"]           # last step 774 = onset: reached
+    assert not fr.fall_info(775, "schedule_complete", 775)["alive_at_onset"]       # onset one past the last step
+    # R: a window starting beyond the episode has no alive episode, whatever the termination
+    vx = sp = np.ones(775)
+    e = fr.r_episode(vx, sp, 775, "schedule_complete", 150000, 150100, (0, 10 ** 6))
+    assert e["inside"] and not e["alive"] and e["ok"] is None
+    assert fr.r_share([e]) == (None, 0)
+
+
+class _StubLaunch:
+    def __init__(self, n_steps):
+        self._eps = [{"idx": i, "wave": 0, "env": i, "n": n, "reason": "schedule_complete"}
+                     for i, n in enumerate(n_steps)]
+
+    def episodes(self):
+        return self._eps
+
+
+def _s1_sidecar(fr, onset, first_active, n_envs=4):
+    return {"schema": fr.fault_inject().SIDECAR_SCHEMA, "fault": {"id": "S1", "from_start": False}, "kind": "S1",
+            "duration_steps": None, "num_envs": n_envs, "env_seed": 1, "onset": {"window_s": [3000.0, 3001.0]},
+            "waves": [{"wave": 0, "onset": onset, "start": onset, "planned_last": None, "state_cleared": True,
+                       "fell_at": [-1] * n_envs, "first_active": first_active, "last_active": first_active,
+                       "probes": {}}]}
+
+
+def test_sidecar_armed_but_never_counts_no_alive_env(fr):
+    """Onsets (~150000 steps) beyond a 775-step episode: nobody is alive at start, and any activity is an error."""
+    cell = {"id": "SMK_never", "fault": "S1:perm", "smoke": True}
+    n = 4
+    tab = fr.onset_table_np(3000.0, 3001.0, n, 1, 1)
+    onset = tab[0].tolist()
+    assert min(onset) > 100000
+    L = _StubLaunch([775] * n)
+    chk = fr.sidecar_checks(L, cell, _s1_sidecar(fr, onset, [-1] * n), 1, n, 1, (3000.0, 3001.0))
+    assert chk["errors"] == [] and chk["report"]["n_alive_at_start"] == 0 and chk["report"]["n_active"] == 0
+    # the injector reporting activity on an env whose start was never reached is a launch error
+    chk = fr.sidecar_checks(L, cell, _s1_sidecar(fr, onset, [-1, onset[1], -1, -1]), 1, n, 1, (3000.0, 3001.0))
+    assert any("start is beyond the episode" in e for e in chk["errors"])
+    assert chk["report"]["n_active"] == 1
+    # control: onsets inside the episode are alive and must activate exactly at the start
+    inside = [100, 200, 300, 400]
+    chk = fr.sidecar_checks(L, cell, _s1_sidecar(fr, inside, inside), 1, n, 1, (3000.0, 3001.0))
+    assert chk["report"]["n_alive_at_start"] == 4
+    assert not any("first_active" in e for e in chk["errors"])
+
+
 def test_ratio_of(fr):
     vx, sp = np.full(200, 0.2), np.full(200, 0.25)
     assert fr.ratio_of(vx, sp, np.arange(0, 100)) == pytest.approx(0.8)

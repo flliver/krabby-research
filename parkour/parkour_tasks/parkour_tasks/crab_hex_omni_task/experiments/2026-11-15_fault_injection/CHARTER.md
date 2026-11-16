@@ -270,3 +270,8 @@ One detached queue runner + log-sentinel watcher; serial.
   ≥ 90 % of envs alive at onset) plus sidecar counts; A1 gates on rod_speed = 0 (joint_pos drift reported);
   survival is the harness's own-hold survival over all episodes; a fall inside an R window counts as not tracking;
   rule 3 drops R when R is report-only, as rule 2 does; marginal = |ΔF − t|·n ≤ 2.
+- 2026-11-16 00:20: smoke stop at FS_C1S_SMK_never_L000.suite.es1 was a reader false error (onsets beyond the
+  episode counted as reached; fixed: alive-at-onset needs onset < n_steps). Diagnosis (2 extra suite es1 launches,
+  FSD_*): nominal B and both armed-but-never launches are bitwise equal on waves 0–1; nominal A is the other class.
+  So arming without onset leaks nothing, and the class rule (§5.1) works as designed. Baseline gate: nominal A
+  field_light es1 bitwise equal to P2SEL; suite lines within 0.003.
