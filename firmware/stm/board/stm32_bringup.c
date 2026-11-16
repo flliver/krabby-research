@@ -57,7 +57,7 @@ static void system_clock_config(void) {
     }
 }
 
-/* CubeMX FDCAN2 — 1 Mbit/s nominal, 5 Mbit/s data @ PCLK1 80 MHz (hardware/PCB-v0.3/Firmware/Src/main.c). */
+/* CubeMX FDCAN2 — 1 Mbit/s nominal, 5 Mbit/s data @ PCLK1 80 MHz (firmware/stm/uno-v0.3/Src/main.c). */
 static void mx_fdcan2_init(void) {
     hfdcan2.Instance = FDCAN2;
     hfdcan2.Init.ClockDivider = FDCAN_CLOCK_DIV1;

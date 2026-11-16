@@ -6,7 +6,7 @@ How each leg board learns **`leg_id` 1…6** for CAN filtering and telemetry IDs
 
 ## Components
 
-- **Node ID switch** on PCB (`HARDWARE.md`, `hardware/PCB-v0.3/Firmware/App/Src/board.c` `Board_GetNodeId()`)
+- **Node ID switch** on PCB (`HARDWARE.md`, `firmware/stm/uno-v0.3/App/Src/board.c` `Board_GetNodeId()`)
 - **`board_ids.h`** — `krabby_leg_code_valid()` for switch **`leg_id` 1…6**
 - **NV calibration** pages (joint travel) — separate from identity
 
@@ -24,4 +24,4 @@ How each leg board learns **`leg_id` 1…6** for CAN filtering and telemetry IDs
 
 ## Host NV provisioning (not on the bus today)
 
-Older plans used **`ProvisionSet`**, **`DiscoveryRequest`**, and host-assigned leg codes over CAN. Those frames are **not** in **`krabby.dbc`**. Use the **switch** (or OpenBLT tools under `hardware/PCB-v0.3/Firmware/`) until the DBC gains provisioning messages.
+Older plans used **`ProvisionSet`**, **`DiscoveryRequest`**, and host-assigned leg codes over CAN. Those frames are **not** in **`krabby.dbc`**. Use the **switch** (or OpenBLT tools under `firmware/stm/uno-v0.3/`) until the DBC gains provisioning messages.

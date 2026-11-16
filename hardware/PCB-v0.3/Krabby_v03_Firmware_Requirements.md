@@ -118,7 +118,7 @@ Prefer lightweight modules: hardware-specific board support; sensing; motor outp
 
 ## 10. Development baseline and test environment
 
-- Project root: `C:\krabby-research\hardware\PCB-v0.3`; all firmware under `Firmware/`.
+- Working firmware: `firmware/stm/uno-v0.3/`; PCB definitions and CAD: `hardware/Uno-v0.3/pcb/`. Run firmware build commands from the working firmware directory.
 - MCU: STM32G474RBT3, LQFP64; STM32CubeMX, CMake/GCC via STM32Cube VS Code extension, ST-Link V2, and USB CDC working.
 - Existing bring-up: SWD ID/memory read, build/debug/flash, LED blink and SysTick handler, USB CDC COM enumeration and bidirectional serial, three node switches, LED GPIO board functions.
 - **Verified correction:** NODE_ID0 PC13 has value **4**, NODE_ID1 PB4 **2**, NODE_ID2 PB5 **1**. All switches active-low; values match board silkscreen. Older pin-definition documents imply different bit ordering and must not overwrite this correction.

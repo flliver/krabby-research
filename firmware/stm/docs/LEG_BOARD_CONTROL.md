@@ -35,4 +35,4 @@ Per-leg STM32 firmware drives three linear joints and reports state on CAN.
 | 2 | H | 1 |
 | 3 | K | 2 |
 
-Drive polarity and profile details remain in `HARDWARE.md` and `hardware/PCB-v0.3/Firmware/`.
+Drive polarity and profile details remain in `HARDWARE.md` and `firmware/stm/uno-v0.3/`.

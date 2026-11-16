@@ -1,6 +1,6 @@
 /**
  * Leg-board ISRs for krabby_leg_app (no reference app_service / App_Tick).
- * CubeMX HAL MSP still comes from hardware/PCB-v0.3/Firmware.
+ * CubeMX HAL MSP still comes from firmware/stm/uno-v0.3.
  */
 #include "main.h"
 #include "stm32g4xx_it.h"

@@ -146,7 +146,7 @@ Use the existing STM32 GCC/Ninja/CMake bundle paths. In this environment:
 ```powershell
 $env:PATH = 'C:/Users/Me/AppData/Local/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin;C:/Users/Me/AppData/Local/stm32cube/bundles/ninja/1.13.2+st.1/bin;' + $env:PATH
 $cmake = 'C:/Users/Me/AppData/Local/stm32cube/bundles/cmake/4.4.0+st.1/bin/cmake.exe'
-& $cmake -S Bootloader -B build/Bootloader -G Ninja '-DCMAKE_TOOLCHAIN_FILE=C:/krabby-research/hardware/PCB-v0.3/Firmware/cmake/gcc-arm-none-eabi.cmake' '-DCMAKE_BUILD_TYPE=Release'
+& $cmake -S Bootloader -B build/Bootloader -G Ninja '-DCMAKE_TOOLCHAIN_FILE=C:/krabby-research/firmware/stm/uno-v0.3/cmake/gcc-arm-none-eabi.cmake' '-DCMAKE_BUILD_TYPE=Release'
 & $cmake --build build/Bootloader
 & $cmake -S . -B build/Debug '-DAPP_BLINK_MS=250'
 & $cmake --build --preset Debug

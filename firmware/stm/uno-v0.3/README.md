@@ -2,6 +2,8 @@
 
 STM32G474RBT3 (128 KiB flash), CubeMX + GCC/CMake/Ninja, FDCAN2 PB12 RX / PB13 TX, USB CDC. This directory is a firmware subproject of the surrounding repository; do not stage unrelated parent-repository changes when committing it.
 
+Located at `firmware/stm/uno-v0.3/`. Run this document's build and tool commands from this directory. The parent `firmware/stm/` has a separate DBC application and simulation stack; its `stm-build` target does not build this hardware-tested application. PCB definitions and CAD revisions are under `hardware/Uno-v0.3/pcb/`.
+
 ## Current state
 
 - Physically tested CAN FD at 1 Mbps nominal / 5 Mbps data with BRS on one board.

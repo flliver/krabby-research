@@ -12,12 +12,12 @@ To program the board:
 4. Open **Option bytes** (box with "OB"), expand **User Configuration**, and find **DBANK**. Clear its checkbox so **DBANK=0** (single-bank mode), then click **Apply**. If it is already 0, leave it unchanged. Leave all other option bytes unchanged.
 5. After Apply, reset the target and re-enter DFU using the BOOT/RESET sequence in step 2, then reconnect using USB. I've found this transition buggy: it has sometimes taken a couple of resets and attempts to re-enter DFU before normal programming would work. Refresh the USB device list as needed. Once reconnected, read the option bytes and confirm **DBANK=0** before continuing.
 6. Open **Erasing & Programming** (box with downward pointing arrow) and select [FirstForUSBBootload.hex](FirstForUSBBootload.hex), in the same folder as these instructions:
-   `hardware/PCB-v0.3/Firmware/Instructions/FirstForUSBBootload.hex`
+   `firmware/stm/uno-v0.3/Instructions/FirstForUSBBootload.hex`
 7. Click **Start Programming**. Once programming completes successfully, release BOOT and press RESET.
 
 After reset, allow approximately two seconds for the bootloader. The top-left LED should then blink at approximately 2 Hz. The **STM32 BootLoader** device is replaced by the application's USB serial device, which Windows Device Manager lists under **Ports (COM & LPT)** with an assigned COM port. Use that COM port for the GUI below.
 
-Next, from hardware/PCB-v0.3/Firmware/tools, run:
+Next, from firmware/stm/uno-v0.3/tools, run:
 
 python krabby_position_gui.py
 
