@@ -298,3 +298,7 @@ One detached queue runner + log-sentinel watcher; serial.
   inactivity probes are clean, so no fault leaks. Rule: after a wave's first onset, any non-structural divergence
   before an env's own onset is batch coupling (`via` physics or obs), counted and reported, not an error; strict
   identity (and its drift cap) applies only before the wave's first onset.
+- 2026-11-16 03:10: step 6 complete. Smoke phase 44/44 rows ok (1.68 GPU-h incl. the diagnosis rows; projection
+  23.25). Null-fault read (results/null_fault/): suite es1 + field_light es1, read as S1_perm, S1_2, S10_2, B1_25,
+  B4_0p5 — TOLERATED against both a same-class and a cross-class suite nominal (ΔF 0.000, R 1.000; cross-class
+  identity broken, as expected). Grid queued via scripts/chain.sh.
