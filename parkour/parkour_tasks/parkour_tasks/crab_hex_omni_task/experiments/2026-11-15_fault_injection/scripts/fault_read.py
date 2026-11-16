@@ -82,6 +82,7 @@ MIN_WINDOW_STEPS = 50                                  # min_window_s 1.0
 FALL_TRIM_STEPS = 25                                   # fall_exclusion_s 0.5
 FC_FLOOR = 0.15                                        # metrics.FACING_CLOSED_MIN_INITIAL_RAD
 F2_STEPS = 100
+MAX_PHYSICS_DRIFT = 3                                  # CHARTER 5.1 (2026-11-16 amendment): > 3 drift envs / row = launch error
 TRANSLATE_LABELS = ("fwd", "lat_l", "lat_r", "back", "diag")
 R_LAG_STEPS, R_LEN_STEPS = 100, 100                    # [clear + 2 s, clear + 4 s)
 R_TOL, R_MIN, R_FLOOR_N = 0.25, 0.90, 25
@@ -565,12 +566,14 @@ def episode_record(job: dict) -> dict:
 
 def first_diff(job: dict) -> dict:
     """First npz row (any key) where two episodes differ bitwise (classflip_check.first_diff), over the full length;
-    a length mismatch with equal common rows -> the shorter length."""
+    a length mismatch with equal common rows -> the shorter length. ``act_step`` = the first row where the
+    ``actions`` key alone differs (None = equal over the common rows): a first divergence at a step with
+    ``act_step`` None or > step has equal policy outputs through that step ("physics drift", ``identity_read``)."""
     x, y = job["x"], job["y"]
     with np.load(x, allow_pickle=False) as a, np.load(y, allow_pickle=False) as b:
         if set(a.files) != set(b.files):
             return {"idx": job["idx"], "step": 0, "keys": sorted(set(a.files) ^ set(b.files)), "struct": True}
-        best, which = None, []
+        best, which, act_step = None, [], None
         for k in sorted(a.files):
             u, v = a[k], b[k]
             if u.ndim == 0:
@@ -589,11 +592,13 @@ def first_diff(job: dict) -> dict:
                 t = 0 if len(u) != len(v) else None
             if t is None:
                 continue
+            if k == "actions":
+                act_step = t
             if best is None or t < best:
                 best, which = t, [k]
             elif t == best:
                 which.append(k)
-    return {"idx": job["idx"], "step": best, "keys": which, "struct": False}
+    return {"idx": job["idx"], "step": best, "keys": which, "struct": False, "act_step": act_step}
 
 
 def class_hash(job: dict) -> tuple:
@@ -736,13 +741,38 @@ class Reader:
         return {r["idx"]: r for r in res}
 
 
-def identity_read(X: Launch, diffs: dict, onsets: np.ndarray, gated_waves=(0,)) -> dict:
+def grid_onset_horizon(row: dict, dt: float = DT) -> int:
+    """Latest step a grid onset of this row can take = round(hi / dt) - 1 (suite 574, field_light 2999, ledge_down
+    549, pits 669): the identity horizon of an armed-but-never row, whose own onsets lie beyond the episode."""
+    hi = float(str(row["onset"]).split(":")[1])
+    return int(round(hi / dt)) - 1
+
+
+def is_physics_drift(d: dict) -> bool:
+    """A divergence whose first differing step still has bitwise-equal ``actions`` through that step (CHARTER 5.1,
+    2026-11-16 amendment): the policy output had not diverged, so the injector (which writes from the onset only)
+    is not the cause -- spontaneous contact-solver drift. Actions differing at or before the step stay a break."""
+    st = d.get("step")
+    if st is None or d.get("struct"):
+        return False
+    a = d.get("act_step")
+    return a is None or a > st
+
+
+def identity_read(X: Launch, diffs: dict, onsets: np.ndarray, gated_waves=(0,), horizon: int | None = None) -> dict:
     """Per-env pre-onset identity on the gated waves (every env up to its own onset - 1), and the divergence counts
-    of the other waves (step-0 divergences; divergences before the env's onset)."""
-    breaks, per_wave = [], {}
+    of the other waves (step-0 divergences; divergences before the env's onset). A gated-wave pre-onset divergence
+    with equal actions through its first differing step is physics drift (``is_physics_drift``): counted, listed
+    in ``drift`` / ``drift_idx`` (excluded from per-episode pairing checks by the callers), not a break; more than
+    ``MAX_PHYSICS_DRIFT`` of them make ``ok`` False. Any other gated divergence (actions first or at the same
+    step, structural) is a break. ``horizon`` caps the identity horizon at that last step (an armed-but-never
+    row: ``grid_onset_horizon``); a divergence after it is not pre-onset."""
+    breaks, drift, per_wave = [], [], {}
     for ep in X.episodes():
         d = diffs[ep["idx"]]
         on = int(onsets[ep["wave"], ep["env"]])
+        if horizon is not None:
+            on = min(on, int(horizon) + 1)
         st = d["step"]
         pre = st is not None and st < on
         w = per_wave.setdefault(ep["wave"], {"n": 0, "step0": 0, "pre_onset": 0, "any": 0})
@@ -751,9 +781,15 @@ def identity_read(X: Launch, diffs: dict, onsets: np.ndarray, gated_waves=(0,)) 
         w["step0"] += int(st == 0)
         w["pre_onset"] += int(pre)
         if ep["wave"] in gated_waves and (pre or d.get("struct")):
-            breaks.append({"idx": ep["idx"], "wave": ep["wave"], "env": ep["env"], "onset": on, "step": st,
-                           "keys": d["keys"][:6]})
-    return {"ok": not breaks, "breaks": breaks[:20], "n_breaks": len(breaks), "per_wave": per_wave}
+            rec = {"idx": ep["idx"], "wave": ep["wave"], "env": ep["env"], "onset": on, "step": st,
+                   "keys": d["keys"][:6], "act_step": d.get("act_step")}
+            if pre and is_physics_drift(d):
+                drift.append(rec)
+            else:
+                breaks.append(rec)
+    return {"ok": not breaks and len(drift) <= MAX_PHYSICS_DRIFT, "breaks": breaks[:20], "n_breaks": len(breaks),
+            "drift": drift[:20], "n_physics_drift": len(drift), "drift_idx": sorted(r["idx"] for r in drift),
+            "horizon": horizon, "per_wave": per_wave}
 
 
 # ====================================================================================== launch checks (§6.2)
@@ -1005,11 +1041,11 @@ def _dose_probe_report(kind: str, waves: list) -> dict:
 
 
 def npz_dose_checks(reader: Reader, L: Launch, cell: dict, sc: dict, onsets: np.ndarray, diffs: dict | None,
-                    paired_waves=(0,)) -> dict:
+                    paired_waves=(0,), exclude=frozenset()) -> dict:
     """Sim-side doses recomputed from the npz (CHARTER §6.2): A1 locked leg rod_speed 0 (+ joint_pos drift
     reported), A3 / B4 / B6 rod_speed, B1 / B5 applied-action gap, A2 joint leave, A4 cam; on paired waves the
     first sim divergence of an A / B fault must lie at or after the onset (and inside the active window + 1 for
-    B1 / B4 / B6)."""
+    B1 / B4 / B6). ``exclude`` = episode idx dropped from that pairing check (physics-drift envs)."""
     kind = str(sc.get("kind"))
     errs, rep = [], {}
     if kind not in ("A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "B5", "B6"):
@@ -1074,9 +1110,12 @@ def npz_dose_checks(reader: Reader, L: Launch, cell: dict, sc: dict, onsets: np.
         a = [r.get("a4_cam_angle_drift") for r in res if r.get("a4_cam_angle_drift") is not None]
         rep["a4_cam_angle_drift_max_npz"] = max(a) if a else None
     if diffs is not None:
-        early, never, late, n = 0, 0, 0, 0
+        early, never, late, n, excl = 0, 0, 0, 0, 0
         for ep in L.episodes():
             if ep["wave"] not in paired_waves:
+                continue
+            if ep["idx"] in exclude:
+                excl += 1
                 continue
             on = int(onsets[ep["wave"], ep["env"]])
             if ep["n"] <= on:
@@ -1091,7 +1130,8 @@ def npz_dose_checks(reader: Reader, L: Launch, cell: dict, sc: dict, onsets: np.
                 early += 1
             elif kind in ("B1", "B4", "B6") and last is not None and st > last + 1:
                 late += 1
-        rep["paired_divergence"] = {"n": n, "never": never, "before_onset": early, "after_active_window": late}
+        rep["paired_divergence"] = {"n": n, "never": never, "before_onset": early, "after_active_window": late,
+                                   "physics_drift_excluded": excl}
         if early:
             errs.append(f"{early} paired episodes diverge before the onset")
         if n and (never + late) > 0.10 * n:
@@ -1490,19 +1530,32 @@ class Campaign:
         out["reference"] = [str(R.stamp) for R in refs]
         out["same_class_reference"] = same
         diffs = None
+        drift_idx = set()
         if L.cell not in NOMINAL_CELLS and refs and not is_anchor(cell):
             if same:
                 diffs = self.reader.diffs(L, refs[0])
-                idr = identity_read(L, diffs, onsets, gated_waves=(0,))
-                out["identity"] = {k: idr[k] for k in ("ok", "n_breaks", "breaks")}
+                # armed-but-never row: its own onsets lie beyond the episode, so the identity horizon is the
+                # row's latest grid onset (CHARTER 5.1, 2026-11-16 amendment)
+                hz = grid_onset_horizon(row) if cell.get("smoke") and row else None
+                idr = identity_read(L, diffs, onsets, gated_waves=(0,), horizon=hz)
+                out["identity"] = {k: idr[k] for k in ("ok", "n_breaks", "breaks", "n_physics_drift", "drift",
+                                                       "horizon")}
                 out["divergence_per_wave"] = idr["per_wave"]
-                if not idr["ok"]:
+                drift_idx = set(idr["drift_idx"])
+                if idr["n_breaks"]:
                     out["errors"].append(f"pre-onset identity broken on {idr['n_breaks']} paired envs vs the "
                                          "same-class reference (pairing premise: stop and amend, never relaunch)")
+                if idr["n_physics_drift"] > MAX_PHYSICS_DRIFT:
+                    out["errors"].append(f"{idr['n_physics_drift']} physics-drift envs (> {MAX_PHYSICS_DRIFT}: "
+                                         "pre-onset divergence with equal actions) vs the same-class reference")
+                elif idr["n_physics_drift"]:
+                    out["warnings"].append(f"{idr['n_physics_drift']} physics-drift env(s) (pre-onset divergence, "
+                                           "actions equal through the first differing step): kept in net counts, "
+                                           "excluded from per-episode pairing")
             else:
                 out["warnings"].append("no same-class nominal: identity not checked (read against both nominals)")
         if sc is not None and is_armed(cell) and not cell.get("smoke"):
-            dz = npz_dose_checks(self.reader, L, cell, sc, onsets, diffs)
+            dz = npz_dose_checks(self.reader, L, cell, sc, onsets, diffs, exclude=drift_idx)
             out["errors"].extend(f"dose: {e}" for e in dz["errors"])
             out["dose_report"] = dz["report"]
         return out
@@ -1651,7 +1704,7 @@ def null_fault(reader: Reader, pairs: list, sidecars: list, cell_id: str | None)
         rd = read_row(reader, A, B, onsets, clear, perm)
         diffs = reader.diffs(A, B)
         idr = identity_read(A, diffs, onsets, gated_waves=(0,))
-        rd["identity"] = {k: idr[k] for k in ("ok", "n_breaks", "breaks")}
+        rd["identity"] = {k: idr[k] for k in ("ok", "n_breaks", "breaks", "n_physics_drift", "drift")}
         rd["divergence_per_wave"] = idr["per_wave"]
         rd["as_cell"] = cid
         rd["transient"] = not perm
@@ -1813,7 +1866,8 @@ def main(argv=None) -> int:
             print(json.dumps(_jsonable(outs), indent=1))
             for c in outs:
                 print(f"FAULTCHECK {c['cell']} {c['row']} es{c['seed']} {c['payload']} errors={len(c['errors'])} "
-                      f"class={c.get('class')} stamp={c['stamp']}")
+                      f"class={c.get('class')} physics_drift={(c.get('identity') or {}).get('n_physics_drift', 0)} "
+                      f"stamp={c['stamp']}")
             print(f"FAULTCHECK END rc={rc}")
             return rc
         camp = Campaign(a.root, reader)

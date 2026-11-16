@@ -275,3 +275,10 @@ One detached queue runner + log-sentinel watcher; serial.
   FSD_*): nominal B and both armed-but-never launches are bitwise equal on waves 0–1; nominal A is the other class.
   So arming without onset leaks nothing, and the class rule (§5.1) works as designed. Baseline gate: nominal A
   field_light es1 bitwise equal to P2SEL; suite lines within 0.003.
+- 2026-11-16 01:10 amendment (before any faulted grid row): smoke stop at FS_C1S_SMK_never_L000.rt_pits_b2.es1 —
+  env 81 drifted from its same-class nominal at step 2996 in leg_contact_force only (6e-5) with actions still
+  bitwise equal, on a row whose fault never activates: spontaneous GPU contact-solver drift. Rule (§5.1, §6.2): a
+  pre-onset divergence whose first differing step still has equal actions is "physics drift"; such envs are
+  counted, kept in net counts (F, lines, R), and dropped from per-episode pairing checks; > 3 per row is a launch
+  error; any divergence with actions differing first stays an identity break. The armed-but-never identity horizon
+  is the row's latest grid onset (suite 574, field_light 2999, ledge_down 549, pits 669).

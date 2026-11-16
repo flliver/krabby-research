@@ -275,3 +275,143 @@ def test_probe_kind_labels_from_injector(fr):
     assert fi.probe_kind("a2_applied_torque_absmax") == "model_estimate"
     tab = fr.onset_table_np(7.5, 11.5, 100, 1, 10)
     assert tab.shape == (10, 100) and tab.min() >= 375 and tab.max() < 575
+
+
+# ---------------------------------------------------------------------- physics drift (CHARTER 5.1, 2026-11-16)
+def _npz(path, n=40, actions_flip=None, contact_flip=None, extra_flip=None):
+    rng = np.random.default_rng(0)
+    d = {"actions": rng.normal(size=(n, 3)).astype(np.float32),
+         "leg_contact_force": rng.normal(size=(n, 2)).astype(np.float32),
+         "root_pos_w": rng.normal(size=(n, 3)).astype(np.float32)}
+    for key, step in (("actions", actions_flip), ("leg_contact_force", contact_flip), ("root_pos_w", extra_flip)):
+        if step is not None:
+            d[key] = d[key].copy()
+            d[key][step:, 0] += np.float32(6e-5)
+    np.savez(path, **d)
+    return path
+
+
+def _fd(fr, tmp_path, **kw):
+    x = _npz(tmp_path / "x.npz")
+    y = _npz(tmp_path / "y.npz", **kw)
+    return fr.first_diff({"x": str(x), "y": str(y), "idx": 0})
+
+
+def test_first_diff_reports_the_actions_step(fr, tmp_path):
+    d = _fd(fr, tmp_path, contact_flip=30)
+    assert d["step"] == 30 and d["keys"] == ["leg_contact_force"] and d["act_step"] is None
+    d = _fd(fr, tmp_path, contact_flip=30, actions_flip=35)
+    assert d["step"] == 30 and d["act_step"] == 35 and fr.is_physics_drift(d)
+    d = _fd(fr, tmp_path, contact_flip=30, actions_flip=30)               # same step: actions are not "still equal"
+    assert d["step"] == 30 and d["act_step"] == 30 and not fr.is_physics_drift(d)
+    d = _fd(fr, tmp_path, contact_flip=30, actions_flip=20)               # actions first
+    assert d["step"] == 20 and d["act_step"] == 20 and not fr.is_physics_drift(d)
+    d = _fd(fr, tmp_path)                                                 # identical
+    assert d["step"] is None and not fr.is_physics_drift(d)
+
+
+def test_is_physics_drift_struct_never(fr):
+    assert not fr.is_physics_drift({"step": 0, "keys": ["x"], "struct": True})
+    assert fr.is_physics_drift({"step": 7, "keys": ["leg_contact_force"], "struct": False, "act_step": None})
+    assert not fr.is_physics_drift({"step": 7, "keys": ["actions"], "struct": False, "act_step": 7})
+
+
+class _IdLaunch:
+    def __init__(self, n_envs):
+        self._eps = [{"idx": i, "wave": 0, "env": i, "n": 700, "reason": "schedule_complete"} for i in range(n_envs)]
+
+    def episodes(self):
+        return self._eps
+
+
+def _d(idx, step, act_step=None, keys=("leg_contact_force",)):
+    return {"idx": idx, "step": step, "keys": list(keys), "struct": False, "act_step": act_step}
+
+
+def test_grid_onset_horizon_from_cells_yaml(fr):
+    rows = fr.load_cells()["rows"]
+    assert fr.grid_onset_horizon(rows["suite"]) == 574
+    assert fr.grid_onset_horizon(rows["field_light"]) == 2999
+    assert fr.grid_onset_horizon(rows["ledge_down"]) == 549
+    assert fr.grid_onset_horizon(rows["pits"]) == 669           # the pits grid draws onsets up to 13.4 s
+
+
+def test_identity_read_drift_vs_break(fr):
+    n = 6
+    onsets = np.full((1, n), 400)
+    L = _IdLaunch(n)
+    diffs = {i: _d(i, None) for i in range(n)}
+    diffs[1] = _d(1, 100)                                    # equal actions through step 100: drift
+    diffs[2] = _d(2, 100, act_step=100)                      # actions at the same step: break
+    diffs[3] = _d(3, 90, act_step=80)                        # actions first: break
+    diffs[4] = _d(4, 450)                                    # post-onset: neither
+    r = fr.identity_read(L, diffs, onsets)
+    assert r["n_physics_drift"] == 1 and r["drift_idx"] == [1]
+    assert r["n_breaks"] == 2 and sorted(b["idx"] for b in r["breaks"]) == [2, 3]
+    assert not r["ok"]
+    # drift alone is ok up to 3 envs, a launch error beyond
+    for k, ok in ((3, True), (4, False)):
+        dd = {i: _d(i, None) for i in range(n)}
+        for i in range(k):
+            dd[i] = _d(i, 50 + i)
+        r = fr.identity_read(L, dd, onsets)
+        assert r["n_physics_drift"] == k and r["n_breaks"] == 0 and r["ok"] is ok
+    # a structural difference is always a break
+    dd = {i: _d(i, None) for i in range(n)}
+    dd[0] = {"idx": 0, "step": 0, "keys": ["k"], "struct": True}
+    r = fr.identity_read(L, dd, onsets)
+    assert r["n_breaks"] == 1 and r["n_physics_drift"] == 0
+
+
+def test_identity_read_armed_never_horizon(fr):
+    """Onsets far beyond the episode: the horizon caps the identity check (the pits es1 env 81 case)."""
+    n = 3
+    onsets = np.full((1, n), 150000)
+    L = _IdLaunch(n)
+    diffs = {0: _d(0, 2996), 1: _d(1, 600, act_step=600), 2: _d(2, None)}
+    # uncapped: step 2996 is "pre-onset" drift, 600 a break
+    r = fr.identity_read(L, diffs, onsets)
+    assert r["n_physics_drift"] == 1 and r["n_breaks"] == 1
+    # field_light horizon 2999: step 2996 is still inside what the grid rows need
+    r = fr.identity_read(L, diffs, onsets, horizon=2999)
+    assert r["n_physics_drift"] == 1 and r["n_breaks"] == 1
+    # kind row horizon 669: 2996 lies beyond what the grid rows need; 600 is inside and an actions break
+    r = fr.identity_read(L, diffs, onsets, horizon=669)
+    assert r["n_physics_drift"] == 0 and r["n_breaks"] == 1 and r["horizon"] == 669
+    # suite horizon 574: both beyond
+    r = fr.identity_read(L, diffs, onsets, horizon=574)
+    assert r["n_physics_drift"] == 0 and r["n_breaks"] == 0 and r["ok"]
+    # a real onset earlier than the cap still wins
+    r = fr.identity_read(L, {0: _d(0, 100, act_step=100), 1: _d(1, None), 2: _d(2, None)},
+                         np.array([[50, 150000, 150000]]), horizon=574)
+    assert r["n_breaks"] == 0                                # step 100 is post-onset (50) for env 0
+
+
+def test_dose_pairing_excludes_drift_envs(fr, tmp_path):
+    """Drift envs leave the paired-divergence check (n, 'before onset')."""
+    # B6-less minimal path: kind A1 with no npz jobs would need the pool; check the exclusion arithmetic directly
+    class _R:
+        def pool(self):
+            class P:
+                def map(self, f, jobs, chunksize=1):
+                    return []
+            return P()
+
+    class _L(_IdLaunch):
+        run_meta = {}
+        stamp = tmp_path
+
+        def npz(self, i):
+            return tmp_path / f"{i}.npz"
+
+    L = _L(4)
+    for e in L._eps:
+        e["n"] = 700
+    onsets = np.full((1, 4), 300)
+    sc = {"kind": "A1", "binding": {}, "waves": [{"wave": 0, "planned_last": None}]}
+    diffs = {0: _d(0, 100), 1: _d(1, 400), 2: _d(2, 410), 3: _d(3, 420)}
+    r = fr.npz_dose_checks(_R(), L, {}, sc, onsets, diffs)
+    assert any("diverge before the onset" in e for e in r["errors"])
+    r = fr.npz_dose_checks(_R(), L, {}, sc, onsets, diffs, exclude={0})
+    assert not any("diverge before the onset" in e for e in r["errors"])
+    assert r["report"]["paired_divergence"]["n"] == 3 and r["report"]["paired_divergence"]["physics_drift_excluded"] == 1
