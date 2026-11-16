@@ -826,7 +826,8 @@ def identity_read(X: Launch, diffs: dict, onsets: np.ndarray, gated_waves=(0,), 
                 breaks.append(rec)
             elif st < strict_end:
                 (drift if is_physics_drift(d) else breaks).append(rec)
-            elif is_physics_drift(d):                       # fo <= st < own onset, actions still equal
+            elif not d.get("struct"):  # fo <= st < own onset: batch coupling, physics- or render/obs-first (amend 02:45)
+                rec["via"] = "physics" if is_physics_drift(d) else "obs"
                 coupled.append(rec)
                 w["n_coupled"] += 1
                 w["first_coupled_step"] = st if w["first_coupled_step"] is None else min(w["first_coupled_step"], st)

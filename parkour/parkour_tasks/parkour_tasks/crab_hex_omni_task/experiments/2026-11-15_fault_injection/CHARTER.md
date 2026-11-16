@@ -292,3 +292,9 @@ One detached queue runner + log-sentinel watcher; serial.
   per-episode dose-pairing checks (report-only if < 5 remain). Verdict statistics (F, ΔF, lines, R) are per-side
   net counts and are unaffected; the REPORT states that faulted episodes are not per-episode paired after the
   wave's first onset.
+- 2026-11-16 02:45 amendment: identity smoke FS_C1S_S1_perm_L000.rt_ledge_down_b2.es1 — after the wave's first
+  onset (480), 41 not-yet-faulted envs diverged at step 520 (a depth refresh) with actions and torque in the same
+  step: coupling through the batched render/obs path, not only physics. The armed-but-never ledge_down row and the
+  inactivity probes are clean, so no fault leaks. Rule: after a wave's first onset, any non-structural divergence
+  before an env's own onset is batch coupling (`via` physics or obs), counted and reported, not an error; strict
+  identity (and its drift cap) applies only before the wave's first onset.

@@ -500,14 +500,18 @@ def test_batch_coupling_the_s2_smoke_case(fr):
     assert r["n_batch_coupled"] >= 12 and r["ok"] and r["n_physics_drift"] == 0
 
 
-def test_batch_coupling_actions_first_is_a_break(fr):
+def test_batch_coupling_obs_first_is_coupling_structural_is_a_break(fr):
+    """Amendment 2026-11-16 02:45: after the wave's first onset, an actions-first / same-step divergence before
+    the env's own onset is coupling through the batched render/obs path (ledge_down smoke: 41 envs at a depth
+    refresh); only a structural difference stays a break there."""
     onsets = np.array([[380, 547, 558, 563]])
     L = _coupling_launch(list(onsets[0]))
     diffs = {0: _d(0, None), 1: _d(1, 543, act_step=543, keys=("actions",)),    # actions at the same step
              2: _d(2, 520, act_step=500, keys=("actions",)),                    # actions earlier
              3: {"idx": 3, "step": 0, "keys": ["k"], "struct": True}}           # structural
     r = fr.identity_read(L, diffs, onsets)
-    assert r["n_batch_coupled"] == 0 and r["n_breaks"] == 3 and not r["ok"]
+    assert r["n_batch_coupled"] == 2 and r["n_breaks"] == 1 and not r["ok"]
+    assert {c["via"] for c in r["coupled"]} == {"obs"}
 
 
 def test_strict_identity_up_to_first_onset(fr):
