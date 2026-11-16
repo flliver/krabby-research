@@ -1474,6 +1474,9 @@ class Campaign:
         """The slot's (waves, N) onset table: every same-slot sidecar must agree; none -> onset_table()."""
         errs, tabs = [], []
         for L in self.slots[slot]:
+            c = self.cells["cells"].get(L.cell) or {}
+            if c.get("smoke"):  # armed-but-never etc.: a deliberate non-grid window, never the slot's table
+                continue
             if L.sidecar is not None and not L.sidecar.get("synthetic"):
                 tabs.append((L, sidecar_onsets(L.sidecar)))
         for L, t in tabs[1:]:
@@ -1549,7 +1552,10 @@ class Campaign:
         if cell is None:
             out["errors"].append(f"unknown cell (env file {L.env_file!r})")
             return out
-        onsets, terr = self.slot_onsets(L.slot)
+        if cell.get("smoke") and L.sidecar is not None:  # a smoke cell is checked on its own onsets
+            onsets, terr = sidecar_onsets(L.sidecar), []
+        else:
+            onsets, terr = self.slot_onsets(L.slot)
         out["errors"].extend(terr)
         sc = L.sidecar
         row = self.cells["rows"].get(L.row)
