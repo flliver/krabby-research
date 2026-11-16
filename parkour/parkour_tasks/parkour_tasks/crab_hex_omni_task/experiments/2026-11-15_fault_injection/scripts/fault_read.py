@@ -202,7 +202,7 @@ def _json(p: Path, default=None):
     return json.loads(p.read_text())
 
 
-_ENV_RE = re.compile(r"^(?P<cell>[A-Za-z0-9_]+?)__(?P<row>suite|field_light|ledge_down|pits)(?P<lvl>_L\d{3})?\.env$")
+_ENV_RE = re.compile(r"^(?P<cell>[A-Za-z0-9_]+?)__(?P<row>suite|field_light|ledge_down|pits|smk_field_light)(?P<lvl>_L\d{3})?\.env$")
 
 
 def payload_label(run_meta: dict) -> str:
