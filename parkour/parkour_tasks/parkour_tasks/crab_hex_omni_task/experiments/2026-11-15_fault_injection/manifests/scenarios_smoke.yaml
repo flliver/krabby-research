@@ -1,0 +1,87 @@
+# Fault-injection sweep: the SHORT smoke rows (CHARTER §6.1.3, the dose smoke per fault id). Smoke-only: no grid
+# row reads this file, and no verdict is ever computed on it. Run by scripts/queue.py --phase smoke.
+#
+# Each block is a copy of a real row's block with ONLY envs / episodes / waves / schedule length changed:
+#   smk_suite__omni        <- experiments/eval/scenarios_omni.yaml suite__omni: categories stand + fwd only (so
+#                             waves 2 = one hold per wave, the validator's rule), 16 envs per wave. Episode length,
+#                             settle and the 12-s own hold are unchanged, so the row's onset window
+#                             KRABBY_FAULT_ONSET=7.5:11.5 (the real envs/<cell>__suite.env files are used as they
+#                             are) still lies 4-8 s into the own hold (own hold 3.5-15.5 s); wave 1 (fwd) is the
+#                             walking wave. Launched with --trained-categories stand,fwd (suite_cli_args refuses a
+#                             name the row lacks).
+#   smk_field_light__omni  <- experiments/2026-10-07_omni_phase2/scenarios_p2.yaml field_light__omni: the first three
+#                             holds (stand, fwd, lat_l; 1.5 + 24 = 25.5 s), episode 26 s, 16 envs. The real window
+#                             10:60 does not fit a 26-s episode, so its env files are the smoke copies
+#                             manifests/envs_smoke/<cell>__smk_field_light.env (queue.py make-smoke-envs) with
+#                             KRABBY_FAULT_ONSET=10.0:14.0: inside the fwd hold (9.5-17.5 s), lo unchanged, so the
+#                             class-check horizon (step 499) is the real row's; a 2-s transient clears by 16 s (+ the
+#                             0.2-s depth latency) before the hold ends.
+# The header is scenarios_omni.yaml's verbatim (scenarios_p2.yaml carries the same one).
+
+manifest_version: 2
+
+speed_ellipse: {fwd: 0.35, lat: 0.25, back: 0.25}
+ang_vel_max: 0.3
+
+defaults:
+  prologue_s: 1.5
+  settle_s: 1.0
+  min_window_s: 1.0
+  fall_exclusion_s: 0.5
+  contact_force_threshold: 1.0
+  slip_speed_threshold: 0.02
+  min_cycles: 2
+  lin_vel_clip: 0.2
+
+scenarios:
+  - id: smk_suite__omni
+    kind: category_suite
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: flat
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 16
+    waves: 2
+    env_seed: 1
+    episode_length_s: 18.0
+    spawn_yaw: first_face
+    settle: {hold_s: 2.0, label: settle}
+    hold_s: 12.0
+    categories:
+      - name: stand
+        kind: stand
+        holds:
+          - {label: stand, speed: 0.00, dir: 0.0000000, face: 0.0000000}
+      - name: fwd
+        kind: translate
+        holds:
+          - {label: fwd, speed: 0.25, dir: 0.0000000, face: 0.0000000}
+    notes: >-
+      Fault-sweep dose smoke: suite__omni cut to its stand + fwd waves, 16 envs per wave; episode, settle and
+      12-s own hold unchanged (onset 7.5-11.5 s valid). Smoke only.
+
+  - id: smk_field_light__omni
+    role: teacher
+    task: Isaac-Crab-Hex-Omni-Walk-Play-v0
+    terrain_label: field_light
+    checkpoint: SUPPLIED-PER-RUN--pass---checkpoint
+    episodes: 16
+    env_seed: 1
+    episode_length_s: 26.0
+    spawn_yaw: first_face
+    schedule:
+      - {speed: 0.00, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: stand}
+      - {speed: 0.25, dir: 0.0000000, face: 0.0000000, hold_s: 8.0, label: fwd}
+      - {speed: 0.22, dir: 1.5707963, face: 0.0000000, hold_s: 8.0, label: lat_l}
+    env:
+      KRABBY_FLAT_TERRAIN_MODE: "light"
+      KRABBY_FLAT_TERRAIN_FLAT_FRAC: "0.0"
+      KRABBY_FLAT_TERRAIN_GEOM: "field"
+      KRABBY_FLAT_TERRAIN_DIFF: "0.05:0.2"
+      KRABBY_FIELD_PAD_R: "1.7"
+      KRABBY_FIELD_BLOCKS: "14:28"
+      KRABBY_FIELD_KINDS: "0.4:0.4:0.2"
+      KRABBY_FIELD_EDGES: "wall"
+    notes: >-
+      Fault-sweep dose smoke: field_light__omni cut to its first three holds (stand, fwd, lat_l), 26-s episode,
+      16 envs; onset override 10.0-14.0 s via manifests/envs_smoke/. Smoke only.

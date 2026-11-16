@@ -20,6 +20,7 @@ from parkour_tasks.crab_hex_forward_task.mdp.crab_hex_clock_reward import (
     clock_command_speed,
     park_clock_phase,
 )
+from parkour_tasks.crab_hex_forward_task.mdp.fault_inject import get_injector
 from parkour_tasks.crab_hex_forward_task.mdp.rod_speed_dr import build_rod_speed_dr
 from parkour_tasks.crab_hex_forward_task.mdp.stress_push import build_stress_push
 
@@ -214,6 +215,12 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         self._stress_push = build_stress_push(
             cfg, self.num_envs, env.step_dt, self.device, getattr(env.cfg, "seed", None)
         )
+        # NOTE(fault-injection sweep, 2026-11-15): ONE mid-episode fault (mdp/fault_inject.py), DEFAULT OFF -- None
+        # unless the omni fault knobs wrote ``env.cfg.fault_inject``. Built here (the action manager is constructed
+        # before the observation manager) and shared with the observation and depth terms via the env.
+        self._fault = get_injector(env)
+        if self._fault is not None:
+            self._fault.bind_action_term(self)
 
     @property
     def rod_cmd_filtered(self) -> torch.Tensor:
@@ -261,6 +268,10 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         staged = self.rsi_clock_staged[env_ids]
         self.clock_phase[env_ids] = torch.where(torch.isfinite(staged), staged, fresh)
         self.rsi_clock_staged[env_ids] = float("nan")
+        # Fault injection (default off): clear the reset envs' fault state, restore A2 gains, count waves / disarm.
+        fault = getattr(self, "_fault", None)
+        if fault is not None:
+            fault.on_reset(self, env_ids)
 
     def _cam_raw_bounds(self, env_ids, like: torch.Tensor):
         """``(scale, lo, hi)`` shaped like ``like`` (``(k, n_cam)``) for the cam columns of
@@ -389,6 +400,10 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         if rod_speed_scale is not None:
             max_step_h = max_step_h * rod_speed_scale
         dlam_h = (lam_h_cmd - self._hip_rod_len).clamp(-max_step_h, max_step_h)
+        fault = getattr(self, "_fault", None)
+        if fault is not None:
+            # Fault injection (default off): B4 runaway / B6 stop / A1 lock / A3 slow rod, on the slew.
+            dlam_h = fault.rod_dlam(self, "hip", lam_h_cmd, self._hip_rod_len, dlam_h, max_step_h)
         self._hip_rod_len += dlam_h
         self.hip_rod_speed = dlam_h / dt
         theta_h_tgt = linkage.hip_angle_from_length(self._hip_rod_len)
@@ -420,6 +435,8 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         if rod_speed_scale is not None:
             max_step_k = max_step_k * rod_speed_scale
         dlam_k = (lam_k_cmd - self._knee_rod_len).clamp(-max_step_k, max_step_k)
+        if fault is not None:
+            dlam_k = fault.rod_dlam(self, "knee", lam_k_cmd, self._knee_rod_len, dlam_k, max_step_k)
         self._knee_rod_len += dlam_k
         self.knee_rod_speed = dlam_k / dt
         theta_k_tgt = linkage.knee_angle_from_length(self._knee_rod_len, theta_h_tgt)
@@ -434,6 +451,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         self._asset.set_joint_velocity_target(
             omega_k_tgt * self._knee_sign, joint_ids=self._knee_joint_ids
         )
+        if fault is not None:
+            # Fault injection (default off): A2's broken leg keeps its onset targets (its gains are 0).
+            fault.after_linkage(self)
 
     def apply_actions(self):
         # Position targets for all 18 columns (inert for the camshaft: its actuator runs
@@ -451,7 +471,14 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
                 cap = getattr(self, "_cam_speed_cap", None)
                 if cap is not None:
                     cam_cmd = cam_cmd.clamp(-cap, cap)
+            fault = getattr(self, "_fault", None)
+            if fault is not None:
+                # Fault injection (default off): B4 keeps the last cam command, B6 commands 0.
+                cam_cmd = fault.cam_cmd(self, cam_cmd)
             self._cam_vel_applied += (cam_cmd - self._cam_vel_applied).clamp(-max_step, max_step)
+            if fault is not None:
+                # A4: the stuck cam's target velocity is 0.
+                fault.cam_applied(self)
             self._asset.set_joint_velocity_target(
                 self._cam_vel_applied, joint_ids=self._cam_shaft_joint_ids
             )
@@ -520,6 +547,11 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             self._raw_actions[:] = self._action_history_buf[:, indices.long()]
         else:
             self._raw_actions[:] = clipped_actions
+        fault = getattr(self, "_fault", None)
+        if fault is not None:
+            # Fault injection (default off): the APPLIED action (B1 hold, B2 drop, B3 / B5 delay), the per-step dose
+            # draws and A2's gain write, after the clip, the history push and the delayed read.
+            fault.on_actions(self)
         self._processed_actions = self._raw_actions * self._scale + self._offset
         stress_push = getattr(self, "_stress_push", None)
         if stress_push is not None:

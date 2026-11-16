@@ -1,0 +1,132 @@
+# Fault-injection sweep: the cell table (CHARTER §3) and the rows (CHARTER §4). Read by scripts/make_envs.py, which
+# writes envs/<cell>__<row>[_L090].env from it; hashed into results/pin.json (CHARTER §7.3). Paths are relative to
+# the omni task dir (parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task), as in RT manifests/rows_rt.json;
+# absolute paths are MAIN-checkout outputs / logs (untracked).
+schema: fault_cells/v1
+charter: experiments/2026-11-15_fault_injection/CHARTER.md
+paths_relative_to: parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task
+task: Isaac-Crab-Hex-Omni-Student-Play-v0
+
+checkpoints:
+  C1S:
+    path: /home/nickmagus/krabby/krabby-research/parkour/logs/rsl_rl/crab_hex_omni_student/2026-11-12_15-08-00_RT_ST_s19/model_34499.pt
+    sha256_prefix: 6b48ef33
+    role: student
+  C1S_zero_depth:        # T12 only: a copy of C1S with params/agent.yaml zero_depth: true (scripts/make_zero_depth_ckpt.py)
+    path: /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/ckpt_zero_depth/model_34499.pt
+    sha256_prefix: 6b48ef33
+    role: student
+  c1:                    # report only: B1, B4, A1-A5 + its nominals (CHARTER §4)
+    path: policy/rt_11_p3b_rough/model_29500.pt
+    sha256_prefix: 6d1f29be
+    role: teacher
+
+# The rows. ``onset`` = KRABBY_FAULT_ONSET (s from step 0, CHARTER §3.2); ``pre_onset_last_step`` = the last step
+# that is pre-onset in EVERY env (round(lo / 0.02) - 1, the class-check horizon of CHARTER §5.1).
+rows:
+  suite:
+    manifest: experiments/eval/scenarios_omni.yaml
+    scenario: suite__omni
+    base_env: experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L000_A__suite.env
+    args: [--task, Isaac-Crab-Hex-Omni-Student-Play-v0, --trained-categories, "stand,fwd,side,back,diag,turn,move_turn"]
+    onset: "7.5:11.5"
+    pre_onset_last_step: 374
+  field_light:
+    manifest: experiments/2026-10-07_omni_phase2/scenarios_p2.yaml
+    scenario: field_light__omni
+    base_env: experiments/2026-11-07_rod_speed_dr/envs/T00_nominal_L000_A__field_light.env
+    args: [--task, Isaac-Crab-Hex-Omni-Student-Play-v0]
+    onset: "10.0:60.0"
+    pre_onset_last_step: 499
+  ledge_down:
+    manifest: experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml
+    scenario: rt_ledge_down_b2__omni
+    base_env: experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env
+    args: [--task, Isaac-Crab-Hex-Omni-Student-Play-v0]
+    onset: "9.6:11.0"
+    pre_onset_last_step: 479
+  pits:
+    manifest: experiments/2026-11-10_rough_terrain/manifests/scenarios_rt.yaml
+    scenario: rt_pits_b2__omni
+    base_env: experiments/2026-11-10_rough_terrain/manifests/envs/rt_kind_eval.env
+    args: [--task, Isaac-Crab-Hex-Omni-Student-Play-v0]
+    onset: "9.6:13.4"
+    pre_onset_last_step: 479
+
+# Payload levels. L090 is applied as gate_row's TP_LEVEL_FILE (the rod-speed DR / old-sweep convention): an
+# envs/*_L090.env file carries the same KRABBY_* lines as its L000 twin and NO KRABBY_PAYLOAD_* key (gate_row refuses
+# a level key the env file already sets).
+levels:
+  L000: null
+  L090: experiments/2026-10-16_task4_pipeline/F19/envs/levels/L090.env
+
+seeds: [1, 2]          # es1 every cell; es2 when the es1 worst-row F < 0.5 (CHARTER §4); kind rows es1 + es2
+
+# ``kind_rows``: also ledge_down + pits (permanent perception levels + T12, CHARTER §4). ``c1``: the teacher also runs
+# it (report only, es1, suite + field_light). ``payload``: the level the cell runs at. ``env``: extra KRABBY_* lines
+# (anchors without a fault knob). ``checkpoint``: the C1S checkpoint key (default C1S).
+nominals:
+  - {id: NOM, payload: L000, kind_rows: true, c1: true}
+  - {id: NOM, payload: L090, kind_rows: false, c1: true}
+
+cells:
+  # ---- sensor (22)
+  - {id: S1_0p1, fault: "S1:0.1", family: S1, transient_s: 0.1}
+  - {id: S1_0p5, fault: "S1:0.5", family: S1, transient_s: 0.5}
+  - {id: S1_2, fault: "S1:2", family: S1, transient_s: 2.0}
+  - {id: S1_perm, fault: "S1:perm", family: S1, kind_rows: true}
+  - {id: S2_0p5, fault: "S2:0.5", family: S2, transient_s: 0.5}
+  - {id: S2_2, fault: "S2:2", family: S2, transient_s: 2.0}
+  - {id: S2_perm, fault: "S2:perm", family: S2, kind_rows: true}
+  - {id: S3_0p1, fault: "S3:0.1", family: S3}
+  - {id: S3_0p2, fault: "S3:0.2", family: S3, kind_rows: true}
+  - {id: S4_perm, fault: "S4:perm", family: S4}
+  - {id: S5_0p1, fault: "S5:0.1", family: S5, transient_s: 0.1}
+  - {id: S5_0p5, fault: "S5:0.5", family: S5, transient_s: 0.5}
+  - {id: S5_2, fault: "S5:2", family: S5, transient_s: 2.0}
+  - {id: S6_0p05, fault: "S6:0.05", family: S6}
+  - {id: S6_0p1, fault: "S6:0.1", family: S6}
+  - {id: S8_zero, fault: "S8:zero", family: S8}
+  - {id: S8_held, fault: "S8:held", family: S8}
+  - {id: S10_0p5, fault: "S10:0.5", family: S10, transient_s: 0.5}
+  - {id: S10_2, fault: "S10:2", family: S10, transient_s: 2.0}
+  - {id: S10_perm, fault: "S10:perm", family: S10, kind_rows: true}
+  - {id: S11_2, fault: "S11:2", family: S11, transient_s: 2.0}
+  - {id: S11_perm, fault: "S11:perm", family: S11, kind_rows: true}
+  # ---- the designed compound (3)
+  - {id: Z1_0p5, fault: "Z1:0.5", family: Z1, transient_s: 0.5}
+  - {id: Z1_2, fault: "Z1:2", family: Z1, transient_s: 2.0}
+  - {id: Z1_perm, fault: "Z1:perm", family: Z1, kind_rows: true}
+  # ---- action path (12)
+  - {id: B1_2, fault: "B1:2", family: B1, transient_steps: 2, c1: true}
+  - {id: B1_5, fault: "B1:5", family: B1, transient_steps: 5, c1: true}
+  - {id: B1_10, fault: "B1:10", family: B1, transient_steps: 10, c1: true}
+  - {id: B1_25, fault: "B1:25", family: B1, transient_steps: 25, c1: true}
+  - {id: B2_0p05, fault: "B2:0.05", family: B2}
+  - {id: B2_0p2, fault: "B2:0.2", family: B2}
+  - {id: B3_perm, fault: "B3:perm", family: B3}
+  - {id: B4_0p1, fault: "B4:0.1", family: B4, transient_s: 0.1, c1: true}
+  - {id: B4_0p5, fault: "B4:0.5", family: B4, transient_s: 0.5, c1: true}
+  - {id: B5_perm, fault: "B5:perm", family: B5}
+  - {id: B6_0p1, fault: "B6:0.1", family: B6, transient_s: 0.1}
+  - {id: B6_0p5, fault: "B6:0.5", family: B6, transient_s: 0.5}
+  # ---- actuator (9; left side only, "sim plant, force side not enforced")
+  - {id: A1_front, fault: "A1:front", family: A1, c1: true}
+  - {id: A1_mid, fault: "A1:mid", family: A1, c1: true}
+  - {id: A1_rear, fault: "A1:rear", family: A1, c1: true}
+  - {id: A2_front, fault: "A2:front", family: A2, c1: true}
+  - {id: A2_mid, fault: "A2:mid", family: A2, c1: true}
+  - {id: A2_rear, fault: "A2:rear", family: A2, c1: true}
+  - {id: A3_mid, fault: "A3:mid", family: A3, c1: true}
+  - {id: A4_mid, fault: "A4:mid", family: A4, c1: true}
+  - {id: A5_mid, fault: "A5:mid", family: A5, payload: L090, c1: true}
+  # ---- anchors (4; active from step 0, read on the standard onset table, CHARTER §3.6)
+  - {id: T10b, fault: null, family: anchor, env: {KRABBY_STRESS_VXY_ZERO: "1"}}
+  - {id: T12, fault: null, family: anchor, checkpoint: C1S_zero_depth, kind_rows: true}
+  - {id: S12_30, fault: "S12:30", family: anchor, from_start: true}
+  - {id: D1_1, fault: "D1:1", family: anchor, from_start: true, report_only: true}
+
+# Smoke-only env files (CHARTER §6.1.2; not grid cells): armed but never active -- the onset window lies beyond every
+# row's episode, so the row must be bitwise a nominal of its launch class.
+smokes:
+  - {id: SMK_never, fault: "S1:perm", onset: "3000.0:3001.0", rows: [suite, field_light, ledge_down, pits]}

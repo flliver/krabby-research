@@ -1,0 +1,226 @@
+"""Fault-injection sweep reader (2026-11-15): the pure functions of ``scripts/fault_read.py`` on CPU.
+
+``experiments/2026-11-15_fault_injection/CHARTER.md`` §5 is the spec. Pinned here without Isaac or any stamp:
+
+* the §5.3 verdict rules in order (FALLS before everything; TOLERATED needs lines + ΔF <= 0.03 + R; RECOVERS only for a
+  transient; R report-only -> R not required) and the marginal mark (within 2 episodes of a ΔF threshold);
+* the seed combination (the worse; split; FALLS on es1 alone at F >= 0.5) and the tolerated duration (monotone: the
+  first failing level stops the family, whatever longer levels read);
+* the R windows ([onset + 2 s, onset + 4 s) permanent, [clear + 2 s, clear + 4 s) transient), the in-hold and alive
+  rules, a fall inside the window = not tracking;
+* facing_closed re-anchored at onset (the 0.15 floor, exclusion, clip) and the harness window it is cut from;
+* fall bookkeeping against the onset, the tracking ratio's sub-clip / short-window None.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+REPO = Path(__file__).resolve().parents[2]
+SCRIPT = (REPO / "parkour/parkour_tasks/parkour_tasks/crab_hex_omni_task/experiments/2026-11-15_fault_injection"
+          / "scripts/fault_read.py")
+
+
+@pytest.fixture(scope="module")
+def fr():
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location("fault_read_under_test", str(SCRIPT))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["fault_read_under_test"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# ---------------------------------------------------------------------------------------------- verdict rules
+def test_verdict_rule_order(fr):
+    v = fr.verdict
+    # 1. FALLS beats everything, even passing lines and R
+    assert v(0.11, True, 1.0, True, True) == "FALLS"
+    assert v(0.10, True, 1.0, True, False) == "DEGRADES"          # 0.10 is not > 0.10, but > 0.03
+    assert v(0.10, False, 0.0, True, True) == "DEGRADES"
+    # 2. TOLERATED: lines, ΔF <= 0.03, R >= 0.9
+    assert v(0.03, True, 0.90, True, False) == "TOLERATED"
+    assert v(0.031, True, 1.0, True, False) == "DEGRADES"          # permanent: no RECOVERS rung
+    assert v(0.0, False, 1.0, True, False) == "DEGRADES"           # a failed line
+    assert v(0.0, True, 0.89, True, False) == "DEGRADES"           # R short
+    assert v(0.0, True, None, False, False) == "TOLERATED"         # R report-only -> not required
+    assert v(0.0, True, None, True, False) == "DEGRADES"           # R required but unmeasured
+    # 3. RECOVERS: transient only, ΔF <= 0.05, R >= 0.9 (lines may fail)
+    assert v(0.05, False, 0.95, True, True) == "RECOVERS"
+    assert v(0.04, True, 0.95, True, True) == "RECOVERS"
+    assert v(0.051, True, 0.95, True, True) == "DEGRADES"
+    assert v(0.02, False, 0.85, True, True) == "DEGRADES"
+    assert v(0.02, False, None, False, True) == "RECOVERS"
+    # a negative ΔF (fewer falls than the reference) is not a failure
+    assert v(-0.05, True, 1.0, True, False) == "TOLERATED"
+
+
+def test_marginal_within_two_episodes(fr):
+    m = fr.marginal
+    assert m(0.0, 100, False) == []
+    assert m(0.01, 100, False) == [0.03]                           # 1 vs 3 episodes
+    assert m(0.05, 100, False) == [0.03]                           # 5 vs 3; the 0.05 rung is transient-only
+    assert m(0.05, 100, True) == [0.03, 0.05]
+    assert m(0.12, 100, True) == [0.1]
+    assert m(0.13, 100, True) == []
+    assert m(0.01, 50, False) == [0.03]                            # 0.5 vs 1.5 episodes at n = 50
+    assert m(0.1, 0, True) == []
+
+
+def test_worse_and_combine_seeds(fr):
+    assert fr.worse("TOLERATED", "RECOVERS") == "RECOVERS"
+    assert fr.worse("FALLS", "TOLERATED", "DEGRADES") == "FALLS"
+    c = fr.combine_seeds({1: "TOLERATED", 2: "RECOVERS"})
+    assert c == {"verdict": "RECOVERS", "split": True, "pending": False}
+    assert fr.combine_seeds({1: "DEGRADES", 2: "DEGRADES"})["split"] is False
+    # es2 not run: FALLS stands on es1 only when es1's worst-row F >= 0.5 (CHARTER §4)
+    assert fr.combine_seeds({1: "FALLS"}, 0.6)["pending"] is False
+    assert fr.combine_seeds({1: "FALLS"}, 0.3)["pending"] is True
+    assert fr.combine_seeds({1: "TOLERATED"}, 0.0)["pending"] is True
+    assert fr.combine_seeds({1: None, 2: None})["verdict"] is None
+
+
+def test_tolerated_duration_monotone(fr):
+    td = fr.tolerated_duration
+    lv = [(5, "TOLERATED", False), (25, "RECOVERS", False), (100, "DEGRADES", False)]
+    assert td(lv)["tolerated_steps"] == 25 and td(lv)["stopped_by"] == "DEGRADES"
+    # a shorter failing level stops the family even if a longer level reads TOLERATED
+    lv = [(5, "TOLERATED", False), (25, "FALLS", False), (100, "TOLERATED", False)]
+    assert td(lv)["tolerated_steps"] == 5
+    # order of the input does not matter
+    assert td(list(reversed(lv)))["tolerated_steps"] == 5
+    assert td([(5, "DEGRADES", False)])["tolerated_steps"] is None
+    assert td([(2, "TOLERATED", False), (5, None, True)]) == {"tolerated_steps": 2, "tolerated_s": 2 * fr.DT,
+                                                               "stopped_by": "pending"}
+    every = [(d, "TOLERATED", False) for d in (2, 5, 10, 25)]
+    assert td(every)["tolerated_steps"] == 25 and td(every)["stopped_by"] is None
+    # monotone: lengthening the tolerated prefix never shortens the answer
+    for k in range(5):
+        lv = [(d, "TOLERATED" if i < k else "DEGRADES", False) for i, d in enumerate((2, 5, 10, 25))]
+        got = td(lv)["tolerated_steps"]
+        assert got == ((2, 5, 10, 25)[k - 1] if k else None)
+
+
+# ---------------------------------------------------------------------------------------------- R windows
+def test_r_window(fr):
+    assert fr.r_window(400, None, True) == (500, 600)               # permanent: onset + 2 s .. + 4 s
+    assert fr.r_window(400, 425, False) == (525, 625)               # transient: clear + 2 s .. + 4 s
+    with pytest.raises(TypeError):
+        fr.r_window(400, None, False)                               # a transient needs its clear step
+
+
+def test_r_episode_rules(fr):
+    T = 800
+    sp = np.full(T, 0.25)
+    vx = np.full(T, 0.25)
+    ext = (175, 775)
+    e = fr.r_episode(vx, sp, T, "schedule_complete", 500, 600, ext)
+    assert e == {"inside": True, "alive": True, "ok": True}
+    # window off the end of the hold: not inside (excluded, counted)
+    e = fr.r_episode(vx, sp, T, "schedule_complete", 700, 800, ext)
+    assert e["inside"] is False and e["ok"] is None
+    # fell before the window: not alive (counted in F, not in R)
+    e = fr.r_episode(vx, sp, 450, "fall", 500, 600, ext)
+    assert e["alive"] is False and e["ok"] is None
+    # fell inside the window: alive at its start but not tracking
+    e = fr.r_episode(vx, sp, 550, "fall", 500, 600, ext)
+    assert e["alive"] is True and e["ok"] is False
+    # tracking tolerance 0.25
+    vx2 = vx.copy()
+    vx2[500:600] = 0.25 * 0.74
+    assert fr.r_episode(vx2, sp, T, "schedule_complete", 500, 600, ext)["ok"] is False
+    vx2[500:600] = 0.25 * 0.76
+    assert fr.r_episode(vx2, sp, T, "schedule_complete", 500, 600, ext)["ok"] is True
+    R, n = fr.r_share([{"inside": True, "alive": True, "ok": True}, {"inside": True, "alive": True, "ok": False},
+                       {"inside": False, "alive": True, "ok": None}, {"inside": True, "alive": False, "ok": None}])
+    assert (R, n) == (0.5, 2)
+    assert fr.r_share([]) == (None, 0)
+
+
+def test_field_translate_extents(fr):
+    labels = ["stand", "fwd", "lat_l", "diag", "back", "turn_l90"]
+    seg = np.concatenate([np.full(75, -1), np.full(400, 0), np.full(400, 1), np.full(400, 2), np.full(400, 3),
+                          np.full(400, 4), np.full(600, 5)])
+    ex = fr.field_translate_extents(seg, labels)
+    assert ex == [("fwd", 475, 875), ("lat_l", 875, 1275), ("diag", 1275, 1675), ("back", 1675, 2075)]
+
+
+# ---------------------------------------------------------------------------------------------- facing_closed
+def test_facing_reanchored(fr):
+    err = np.linspace(1.0, 0.1, 100)
+    idx = np.arange(40, 100)
+    v, exc = fr.facing_reanchored(err, idx)
+    e0, e1 = err[40], err[99]
+    assert not exc and v == pytest.approx(1.0 - e1 / e0)
+    # under the floor at onset: excluded (None), never a number
+    small = np.full(100, 0.1)
+    assert fr.facing_reanchored(small, idx) == (None, True)
+    # exactly at the floor: measured, divided by the floor
+    flo = np.full(100, 0.15)
+    flo[-1] = 0.0
+    assert fr.facing_reanchored(flo, idx) == (pytest.approx(1.0), False)
+    # error opened: clipped at -1
+    opened = np.concatenate([np.full(50, 0.2), np.full(50, 3.0)])
+    assert fr.facing_reanchored(opened, idx)[0] == -1.0
+    # sign does not matter (|err|)
+    assert fr.facing_reanchored(-err, idx)[0] == pytest.approx(v)
+    assert fr.facing_reanchored(err, np.arange(0))[0] is None
+
+
+def test_window_idx_matches_harness_mask(fr):
+    seg = np.concatenate([np.full(75, -1), np.full(100, 0), np.full(600, 7)])
+    steady = np.ones(775, bool)
+    steady[175:225] = False
+    idx = fr.window_idx(seg, steady, 7, 775, False, 0)
+    assert idx[0] == 225 and idx[-1] == 774 and idx.size == 550
+    idx = fr.window_idx(seg, steady, 7, 775, False, 400)
+    assert idx[0] == 400 and idx[-1] == 774
+    # a fall trims the last 25 steps (fall_exclusion_s 0.5), the facing window ignores steady
+    idx = fr.window_idx(seg, None, 7, 600, True, 400)
+    assert idx[0] == 400 and idx[-1] == 574
+    assert fr.window_idx(seg, None, 7, 420, True, 400).size == 0
+
+
+def test_fall_info(fr):
+    f = fr.fall_info(775, "schedule_complete", 400)
+    assert f["alive_at_onset"] and not f["post_fall"] and not f["pre_fall"] and f["exposure_steps"] == 375
+    f = fr.fall_info(400, "fall", 400)                              # last step 399 < onset: pre-onset fall
+    assert f["pre_fall"] and not f["alive_at_onset"] and f["exposure_steps"] == 0
+    f = fr.fall_info(401, "fall", 400)                              # fell on the onset step: post-onset, F2
+    assert f["post_fall"] and f["f2"] and f["alive_at_onset"]
+    f = fr.fall_info(501, "fall", 400)                              # fall step 500 = onset + 100: not F2
+    assert f["post_fall"] and not f["f2"]
+
+
+def test_ratio_of(fr):
+    vx, sp = np.full(200, 0.2), np.full(200, 0.25)
+    assert fr.ratio_of(vx, sp, np.arange(0, 100)) == pytest.approx(0.8)
+    assert fr.ratio_of(vx, sp, np.arange(0, 49)) is None            # < min_window_s
+    assert fr.ratio_of(vx, np.full(200, 0.2), np.arange(0, 100)) is None   # cmd <= lin_vel_clip
+
+
+def test_roll_pitch_identity_and_tilt(fr):
+    q = np.tile([1.0, 0.0, 0.0, 0.0], (10, 1))
+    r, p = fr.roll_pitch_rms(q, np.zeros(10), np.arange(10))
+    assert r == 0.0 and p == 0.0
+    a = 0.1                                                         # roll 0.1 rad about body x
+    q = np.tile([np.cos(a / 2), np.sin(a / 2), 0.0, 0.0], (10, 1))
+    r, p = fr.roll_pitch_rms(q, np.zeros(10), np.arange(10))
+    assert r == pytest.approx(0.1) and p == pytest.approx(0.0, abs=1e-12)
+    # travel frame at +pi/2: the body roll is a pitch of the travel frame
+    r2, p2 = fr.roll_pitch_rms(q, np.full(10, np.pi / 2), np.arange(10))
+    assert r2 == pytest.approx(0.0, abs=1e-9) and abs(p2) == pytest.approx(0.1)
+
+
+def test_probe_kind_labels_from_injector(fr):
+    pytest.importorskip("torch")
+    fi = fr.fault_inject()
+    assert fi.probe_kind("a2_gain_post") == "sim"
+    assert fi.probe_kind("a2_applied_torque_absmax") == "model_estimate"
+    tab = fr.onset_table_np(7.5, 11.5, 100, 1, 10)
+    assert tab.shape == (10, 100) and tab.min() >= 375 and tab.max() < 575

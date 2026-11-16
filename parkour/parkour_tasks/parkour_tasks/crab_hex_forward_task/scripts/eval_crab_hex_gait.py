@@ -1248,6 +1248,10 @@ def main() -> None:
                              "(KRABBY_HEX_USD_PATH set in the environment wins over --plant; unset it)")
     contact_sensor = unwrapped.scene.sensors["contact_forces"]
     action_term = unwrapped.action_manager.get_term("joint_pos")
+    # NOTE(fault-injection sweep, 2026-11-15): the env's fault injector (crab_hex_forward_task/mdp/fault_inject.py,
+    # attribute ``fault_inject.ENV_ATTR``), None unless KRABBY_FAULT armed a cell; then every wave start asserts its
+    # wave count and the stamp gets the per-(wave, env) onset + dose-probe sidecar. None: nothing below touches it.
+    fault_inj = getattr(unwrapped, "_fault_injector", None)
 
     # Foot order must match gait_eval.metrics.FOOT_ORDER exactly: getting it wrong silently swaps
     # the tripod sets and yields a plausible but wrong score.
@@ -1535,6 +1539,10 @@ def main() -> None:
     # Task 4 E1: omni_events.payload_run_meta per wave (or the single pass), read after the reset that applied it.
     payload_reads: list = []
     payload_armed = getattr(getattr(env_cfg, "events", None), PAYLOAD_EVENT_NAME, None) is not None
+    if fault_inj is not None:
+        # a sensor / depth / anchor fault acts on the student's inputs only: refused for any other resolved role (the
+        # teacher reads privileged state the injector never touches, so the fault would be silently bypassed)
+        fault_inj.check_role("student" if is_student else ("none" if args_cli.zero_actions else "teacher"))
     print(f"[INFO] scenario={scenario.id} task={scenario.task} envs={num_envs} steps={T} dt={dt:.4f}", flush=True)
 
     for wave in range(n_waves):
@@ -1597,6 +1605,9 @@ def main() -> None:
             # 0 / the single pass, env.reset() above for wave > 0); the read touches no sim state (CPU copies).
             payload_reads.append(payload_run_meta(unwrapped))
             _payload_check_read(payload_reads[-1], wave, payload_armed)
+            if fault_inj is not None:
+                # the injector's own wave count (full explicit resets) must be this wave: its onset-table row
+                fault_inj.check_wave(wave)
 
         if canon_on:
             if canon_lr is None:
@@ -2077,6 +2088,11 @@ def main() -> None:
         # shaped command the body head was handed (cmd_applied).
         body_cmd=_body_cmd_series(route, compiled, host),
     )
+    if fault_inj is not None:
+        # Written before write_run, so complete.json stays the stamp's last file on a suite row.
+        run_meta["fault_inject"] = fault_inj.write_sidecar_into(
+            run_dir, {"scenario_id": scenario.id, "n_waves": int(n_waves), "n_steps_planned": int(T),
+                      "suite": bool(suite_mode), "episode_axis": "wave * num_envs + env"})
     if suite_mode:
         print("[INFO] write_run start", flush=True)
     R.write_run(

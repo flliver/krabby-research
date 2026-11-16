@@ -18,6 +18,7 @@ from parkour_isaaclab.envs.mdp.travel_frame import yaw_error
 from parkour_isaaclab.utils.nonfinite_logging import warn_if_nonfinite
 
 from parkour_tasks.crab_hex_forward_task.mdp import crab_hex_linkage as linkage
+from parkour_tasks.crab_hex_forward_task.mdp.fault_inject import get_injector
 from parkour_tasks.crab_hex_forward_task.mdp.stress_obs import build_stress_obs
 
 # Extra proprio dims vs ``ExtremeParkourObservations``: body-frame planar linear velocity
@@ -106,6 +107,11 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         # NOTE(DR stress sweep, 2026-11-06): sensor-side stress (mdp/stress_obs.py), DEFAULT OFF -- None
         # unless the omni stress knobs wrote ``env.cfg.stress_obs``; None takes the untouched path below.
         self._stress_obs = build_stress_obs(env.cfg, self.device)
+        # NOTE(fault-injection sweep, 2026-11-15): the env's shared fault injector (mdp/fault_inject.py), DEFAULT
+        # OFF -- None unless the omni fault knobs wrote ``env.cfg.fault_inject``; None takes the untouched path.
+        self._fault = get_injector(env)
+        if self._fault is not None:
+            self._fault.register("obs")
 
     def _get_contact_fill(self):
         """Motor-current-sense stance proxy (replaces ground-truth footpad contact).
@@ -254,6 +260,12 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
             # DR stress sweep (default off): raw sensor channels, before the scales and the history push.
             ang_vel, imu_obs, lin_vel_xy, joint_pos_delta, joint_vel, contact_fill = stress_obs(
                 ang_vel, imu_obs, lin_vel_xy, joint_pos_delta, joint_vel, contact_fill
+            )
+        fault = getattr(self, "_fault", None)
+        if fault is not None:
+            # Fault injection (default off): the same raw channels, before the scales and the history push.
+            ang_vel, imu_obs, lin_vel_xy, joint_pos_delta, joint_vel, contact_fill = fault.sensor(
+                env, ang_vel, imu_obs, lin_vel_xy, joint_pos_delta, joint_vel, contact_fill
             )
         obs_buf = torch.cat(
             (

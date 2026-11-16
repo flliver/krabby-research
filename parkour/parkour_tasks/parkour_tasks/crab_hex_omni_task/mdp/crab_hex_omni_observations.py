@@ -810,13 +810,29 @@ class image_features_batched(ManagerTermBase):
             raise ValueError(f"lag must be in [1, buffer_len - 1] = [1, {self.buffer_len - 1}], got {self.lag}")
         self.crop = _check_depth_crop(params.get("crop"))
         self.depth_buffer = torch.zeros(self.num_envs, self.buffer_len, *self.resize, device=self.device)
+        # NOTE(fault-injection sweep, 2026-11-15): the env's shared fault injector (crab_hex_forward_task/mdp/
+        # fault_inject.py, built by the action term; attribute ``fault_inject.ENV_ATTR``), DEFAULT OFF -- absent
+        # unless the omni fault knobs armed a cell; then S10 / S11 / Z1 act on this camera's raw frames at a refresh.
+        self._fault = getattr(env, "_fault_injector", None)
+        if self._fault is not None:
+            self._fault_camera = self._fault.camera_name(params["sensor_cfg"].name)
+            self._fault.register(f"depth:{self._fault_camera}")
+            self._fault.depth_timing(DEPTH_TERM_PERIOD, self.lag)
 
-    def _processed(self, env_ids=None) -> torch.Tensor:
+    def _processed(self, env_ids=None, refresh: bool = False) -> torch.Tensor:
         raw = self.camera_sensor.data.output["distance_to_camera"]
         if env_ids is not None:
             raw = raw[env_ids]
-        return process_depth_batch(raw.squeeze(-1).to(self.device), clip=self.clipping_range,
-                                   resize=self.resize, crop=self.crop)
+        fault = getattr(self, "_fault", None) if refresh else None
+        if fault is None:
+            return process_depth_batch(raw.squeeze(-1).to(self.device), clip=self.clipping_range,
+                                       resize=self.resize, crop=self.crop)
+        # Fault injection (default off; image refreshes only, never the reset refill): the raw metres, before the
+        # normaliser -- the hardware's zero-fill / stale-frame stage.
+        raw = fault.depth_raw(self._env, self._fault_camera, raw.squeeze(-1).to(self.device))
+        image = process_depth_batch(raw, clip=self.clipping_range, resize=self.resize, crop=self.crop)
+        fault.depth_image(self._env, self._fault_camera, image)
+        return image
 
     def reset(self, env_ids=None) -> None:
         if env_ids is None:
@@ -838,5 +854,6 @@ class image_features_batched(ManagerTermBase):
         lag: int | None = None,
     ) -> torch.Tensor:
         if env.common_step_counter % DEPTH_TERM_PERIOD == 0:
-            self.depth_buffer = torch.cat([self.depth_buffer[:, 1:], self._processed().unsqueeze(1)], dim=1)
+            self.depth_buffer = torch.cat([self.depth_buffer[:, 1:], self._processed(refresh=True).unsqueeze(1)],
+                                          dim=1)
         return self.depth_buffer[:, -1 - getattr(self, "lag", 1)]

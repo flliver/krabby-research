@@ -126,8 +126,13 @@ E1_NAMES = {"omni_step", "omni_student_settings", "_role_student", "_ckpt_yaml",
             "_student_runner_knob_check", "_step_mod", "_payload_check_read", "_payload_run_meta_record"}
 
 
+#: The fault-injection sweep's names (2026-11-15, default off: ``fault_inj`` is None unless KRABBY_FAULT armed a cell);
+#: its statements are stripped the same way, so the pin still says "the existing rows run exactly the code they ran".
+FAULT_NAMES = {"fault_inj"}
+
+
 def _mentions_e1(node) -> bool:
-    return any(isinstance(n, ast.Name) and n.id in E1_NAMES for n in ast.walk(node))
+    return any(isinstance(n, ast.Name) and n.id in E1_NAMES | FAULT_NAMES for n in ast.walk(node))
 
 
 class _StripE1(ast.NodeTransformer):
