@@ -70,7 +70,9 @@ SCHEMA = "fault_read/v1"
 
 DT = 0.02
 SCENARIO_ROW = {"suite__omni": "suite", "field_light__omni": "field_light", "rt_ledge_down_b2__omni": "ledge_down",
-                "rt_pits_b2__omni": "pits"}
+                "rt_pits_b2__omni": "pits",
+                # smoke-only short rows (manifests/scenarios_smoke.yaml); launch checks only, never verdicts
+                "smk_suite__omni": "smk_suite", "smk_field_light__omni": "smk_field_light"}
 KIND_ROWS = ("ledge_down", "pits")
 POLICY_OF_SHA = {"6b48ef33": "C1S", "6d1f29be": "c1"}
 NOMINAL_CELLS = ("NOM",)
@@ -124,7 +126,13 @@ def load_cells(path: Path = CELLS_YAML) -> dict:
     for s in doc.get("smokes") or []:
         cells[s["id"]] = dict(s, family="smoke", smoke=True)
     cells["NOM"] = {"id": "NOM", "fault": None, "family": "nominal"}
-    return {"rows": doc["rows"], "cells": cells, "doc": doc}
+    rows = dict(doc["rows"])
+    # Smoke rows: the parent row's onset window and class horizon (smk_field_light's depth smokes use 10.0:14.0,
+    # same lower bound, so the same horizon; fault_queue.py make-smoke-envs).
+    rows.setdefault("smk_suite", dict(rows["suite"], scenario="smk_suite__omni", smoke=True))
+    rows.setdefault("smk_field_light", dict(rows["field_light"], scenario="smk_field_light__omni", onset="10.0:14.0",
+                                            smoke=True))
+    return {"rows": rows, "cells": cells, "doc": doc}
 
 
 def cell_fault_id(cell: dict) -> str | None:
