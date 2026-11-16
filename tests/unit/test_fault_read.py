@@ -404,14 +404,153 @@ def test_dose_pairing_excludes_drift_envs(fr, tmp_path):
         def npz(self, i):
             return tmp_path / f"{i}.npz"
 
-    L = _L(4)
+    L = _L(8)
     for e in L._eps:
         e["n"] = 700
-    onsets = np.full((1, 4), 300)
+    onsets = np.full((1, 8), 300)
     sc = {"kind": "A1", "binding": {}, "waves": [{"wave": 0, "planned_last": None}]}
-    diffs = {0: _d(0, 100), 1: _d(1, 400), 2: _d(2, 410), 3: _d(3, 420)}
+    diffs = {0: _d(0, 100), **{i: _d(i, 390 + 10 * i) for i in range(1, 8)}}
     r = fr.npz_dose_checks(_R(), L, {}, sc, onsets, diffs)
     assert any("diverge before the onset" in e for e in r["errors"])
     r = fr.npz_dose_checks(_R(), L, {}, sc, onsets, diffs, exclude={0})
     assert not any("diverge before the onset" in e for e in r["errors"])
-    assert r["report"]["paired_divergence"]["n"] == 3 and r["report"]["paired_divergence"]["physics_drift_excluded"] == 1
+    assert r["report"]["paired_divergence"]["n"] == 7 and r["report"]["paired_divergence"]["physics_drift_excluded"] == 1
+    assert not r["warnings"]
+
+
+def test_dose_pairing_report_only_below_five_envs(fr, tmp_path):
+    """< 5 non-excluded envs: the pairing check is a warning, not an error."""
+    class _R:
+        def pool(self):
+            class P:
+                def map(self, f, jobs, chunksize=1):
+                    return []
+            return P()
+
+    class _L(_IdLaunch):
+        run_meta = {}
+        stamp = tmp_path
+
+        def npz(self, i):
+            return tmp_path / f"{i}.npz"
+
+    sc = {"kind": "A1", "binding": {}, "waves": [{"wave": 0, "planned_last": None}]}
+    onsets = np.full((1, 8), 300)
+    for n_keep, report_only in ((4, True), (5, False)):
+        L = _L(8)
+        diffs = {i: _d(i, 100) for i in range(8)}                  # everyone diverges before the onset
+        for i in range(n_keep):
+            diffs[i] = _d(i, 100)
+        r = fr.npz_dose_checks(_R(), L, {}, sc, onsets, diffs, exclude=set(range(n_keep, 8)))
+        # the 8 - n_keep excluded are dropped; n_keep non-excluded all diverge early
+        assert r["report"]["paired_divergence"]["n"] == n_keep
+        assert r["report"]["paired_divergence"]["report_only"] is report_only
+        has_err = any("diverge before the onset" in e for e in r["errors"])
+        has_warn = any("diverge before the onset" in e for e in r["warnings"])
+        assert has_err is (not report_only) and has_warn is report_only
+        if report_only:
+            assert any("report-only" in w for w in r["warnings"])
+
+
+# ------------------------------------------------------------------ batch coupling (CHARTER 5.1, 2026-11-16 01:40)
+def _coupling_launch(onsets_row, n_steps=700):
+    L = _IdLaunch(len(onsets_row))
+    for e, on in zip(L._eps, onsets_row):
+        e["n"] = n_steps
+    return L
+
+
+def test_wave_first_onsets_alive_at_onset(fr):
+    # env 2 died at 400 before its onset 450; env 3's onset 900 lies beyond the episode: neither is "reached"
+    L = _coupling_launch([500, 380, 450, 900])
+    L._eps[2]["n"] = 400
+    onsets = np.array([[500, 380, 450, 900]])
+    assert fr.wave_first_onsets(L, onsets) == {0: 380}
+    # the earliest onset belongs to an env that died before reaching it: next-earliest reached counts
+    L._eps[1]["n"] = 380
+    assert fr.wave_first_onsets(L, onsets) == {0: 500}
+    # no env reaches an onset: None without a horizon, horizon + 1 with
+    L = _coupling_launch([150000, 160000])
+    onsets = np.array([[150000, 160000]])
+    assert fr.wave_first_onsets(L, onsets) == {0: None}
+    assert fr.wave_first_onsets(L, onsets, horizon=574) == {0: 575}
+    # a reached onset later than the horizon + 1 is capped by it
+    L = _coupling_launch([600, 650], n_steps=700)
+    assert fr.wave_first_onsets(L, np.array([[600, 650]]), horizon=574) == {0: 575}
+
+
+def test_batch_coupling_the_s2_smoke_case(fr):
+    """Wave-0 onsets 380..574; four envs whose onsets had not arrived diverge together at 543 (physics first):
+    batch coupling, no error, not capped."""
+    onsets = np.array([[380, 400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500, 547, 558, 563, 574]])
+    L = _coupling_launch(list(onsets[0]), n_steps=700)
+    diffs = {i: _d(i, None) for i in range(16)}
+    for i in (12, 13, 14, 15):
+        diffs[i] = _d(i, 543, act_step=544, keys=("applied_torque",))
+    r = fr.identity_read(L, diffs, onsets, gated_waves=(0,), horizon=None)
+    assert r["ok"] and r["n_breaks"] == 0 and r["n_physics_drift"] == 0
+    assert r["n_batch_coupled"] == 4 and r["coupled_idx"] == [12, 13, 14, 15]
+    w = r["per_wave"][0]
+    assert w["n_coupled"] == 4 and w["first_coupled_step"] == 543 and w["first_onset"] == 380
+    assert r["first_onsets"] == {0: 380}
+    # not capped: > MAX_PHYSICS_DRIFT coupled envs are still fine
+    for i in range(1, 12):
+        diffs[i] = _d(i, 385 + i, act_step=None)
+    r = fr.identity_read(L, diffs, onsets)
+    assert r["n_batch_coupled"] >= 12 and r["ok"] and r["n_physics_drift"] == 0
+
+
+def test_batch_coupling_actions_first_is_a_break(fr):
+    onsets = np.array([[380, 547, 558, 563]])
+    L = _coupling_launch(list(onsets[0]))
+    diffs = {0: _d(0, None), 1: _d(1, 543, act_step=543, keys=("actions",)),    # actions at the same step
+             2: _d(2, 520, act_step=500, keys=("actions",)),                    # actions earlier
+             3: {"idx": 3, "step": 0, "keys": ["k"], "struct": True}}           # structural
+    r = fr.identity_read(L, diffs, onsets)
+    assert r["n_batch_coupled"] == 0 and r["n_breaks"] == 3 and not r["ok"]
+
+
+def test_strict_identity_up_to_first_onset(fr):
+    """Before the wave's first onset every env is strict: drift there is drift (capped), actions-first a break;
+    the first-onset env's own divergence at/after its onset is neither."""
+    onsets = np.array([[380, 547, 558, 563, 574]])
+    L = _coupling_launch(list(onsets[0]))
+    diffs = {0: _d(0, 400), 1: _d(1, 379), 2: _d(2, 100, act_step=90, keys=("actions",)), 3: _d(3, None), 4: _d(4, 380)}
+    r = fr.identity_read(L, diffs, onsets)
+    assert r["drift_idx"] == [1] and r["n_physics_drift"] == 1       # step 379 < first onset 380: strict
+    assert [b["idx"] for b in r["breaks"]] == [2]
+    assert r["coupled_idx"] == [4]                                    # step 380 = first onset: coupling zone
+    assert r["per_wave"][0]["first_coupled_step"] == 380
+    # drift above the cap still fails the row
+    dd = {i: _d(i, 50 + i) for i in range(4)}
+    dd[4] = _d(4, None)
+    r = fr.identity_read(L, dd, onsets)
+    assert r["n_physics_drift"] == 4 and not r["ok"]
+
+
+def test_coupling_is_per_wave(fr):
+    """Wave 1's first onset is its own: wave 0's earlier onset does not open wave 1's coupling zone."""
+    class _L2(_IdLaunch):
+        def __init__(self):
+            self._eps = [{"idx": i, "wave": i // 2, "env": i % 2, "n": 700, "reason": "schedule_complete"}
+                         for i in range(4)]
+    L = _L2()
+    onsets = np.array([[100, 300], [500, 520]])
+    diffs = {0: _d(0, None), 1: _d(1, 200), 2: _d(2, 480), 3: _d(3, 480)}
+    r = fr.identity_read(L, diffs, onsets, gated_waves=(0, 1))
+    assert r["first_onsets"] == {0: 100, 1: 500}
+    assert r["coupled_idx"] == [1]                                    # wave 0: 100 <= 200 < 300
+    assert sorted(r["drift_idx"]) == [2, 3]                           # wave 1: 480 < its first onset 500: strict
+    assert r["per_wave"][0]["n_coupled"] == 1 and r["per_wave"][1]["n_coupled"] == 0
+
+
+def test_armed_never_first_onset_is_horizon_plus_one(fr):
+    """No onset reached: the coupling zone is empty (first onset = horizon + 1 = the capped own onset)."""
+    n = 3
+    onsets = np.full((1, n), 150000)
+    L = _IdLaunch(n)
+    diffs = {0: _d(0, 570), 1: _d(1, 574, act_step=574), 2: _d(2, 575)}
+    r = fr.identity_read(L, diffs, onsets, horizon=574)
+    assert r["first_onsets"] == {0: 575}
+    assert r["n_batch_coupled"] == 0 and r["drift_idx"] == [0] and [b["idx"] for b in r["breaks"]] == [1]
+    assert r["per_wave"][0]["first_onset"] == 575

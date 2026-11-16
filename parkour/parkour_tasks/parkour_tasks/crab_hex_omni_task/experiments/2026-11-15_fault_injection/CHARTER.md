@@ -282,3 +282,13 @@ One detached queue runner + log-sentinel watcher; serial.
   counted, kept in net counts (F, lines, R), and dropped from per-episode pairing checks; > 3 per row is a launch
   error; any divergence with actions differing first stays an identity break. The armed-but-never identity horizon
   is the row's latest grid onset (suite 574, field_light 2999, ledge_down 549, pits 669).
+- 2026-11-16 01:40 amendment (before any faulted grid row): smoke stop at FSS_C1S_S2_2_L000.smk_suite.es1 — the
+  four not-yet-faulted envs of a 16-env wave all diverged at the same step (543, applied_torque; actions one step
+  later) after other envs' onsets: the batched GPU simulator couples envs. Per-episode pairing therefore holds
+  strictly only up to each wave's **first onset**. Rule (§5.1, §6.2): identity is strict per env up to
+  min(own onset, wave first onset) − 1 (physics-only drift there capped at 3 per row); after the wave's first
+  onset, a physics-first divergence before an env's own onset is "batch coupling" — counted and reported, not an
+  error — while an action-first divergence is still an identity break. Coupled/drift envs are excluded from the
+  per-episode dose-pairing checks (report-only if < 5 remain). Verdict statistics (F, ΔF, lines, R) are per-side
+  net counts and are unaffected; the REPORT states that faulted episodes are not per-episode paired after the
+  wave's first onset.
