@@ -302,3 +302,11 @@ One detached queue runner + log-sentinel watcher; serial.
   23.25). Null-fault read (results/null_fault/): suite es1 + field_light es1, read as S1_perm, S1_2, S10_2, B1_25,
   B4_0p5 — TOLERATED against both a same-class and a cross-class suite nominal (ΔF 0.000, R 1.000; cross-class
   identity broken, as expected). Grid queued via scripts/chain.sh.
+- 2026-11-17 01:42 (wall clock; the earlier §10 labels use a different clock than the ledger, see REPORT §7):
+  grid complete, no queue stop after the smoke phase. Phases: nominals → es1 → read → es2 → kind → c1 → closing.
+  4 grid launches came back class-unmatched and matched on their one relaunch (§5.1). Two es2 gaps were GPU sharing
+  with another session: a 15.6-min busy-GPU wait, and a requested ≈ 1-h pause between rows (STOP_QUEUE, resumed
+  with PHASES="es2 kind c1 closing"; no row lost). Closing nominal Z is in launch A's class. Ledger total
+  24.31 GPU-h (≈ 24.56 counting the 2 FSD diagnosis launches), cap 27. Departure: the extra nominal launches
+  until both classes appear (§4, PLAN §8.5) were not run, so field_light at 0 kg and L090 have a nominal in
+  one class only. The REPORT discloses it. Full read: 304 launches, 0 launch errors (results/verdicts.md, read.json).
