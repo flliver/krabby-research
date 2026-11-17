@@ -72,25 +72,39 @@ class PairingBroker:
         self._matcher_task = None
 
     async def _matcher_loop(self) -> None:
-        pending: tuple[Role, web.WebSocketResponse, asyncio.Future[None]] | None = None
+        # Separate FIFO queues per role. The previous single-"pending" matcher
+        # re-queued same-role waiters against each other and busy-looped (e.g.
+        # browser refresh + HAL reconnect), wedging the aiohttp event loop so
+        # HTTP and hello_ack stopped working.
+        browsers: list[tuple[web.WebSocketResponse, asyncio.Future[None]]] = []
+        robots: list[tuple[web.WebSocketResponse, asyncio.Future[None]]] = []
         try:
             while True:
-                role, ws, done = await self._inbox.get()
-                if pending is None:
-                    pending = (role, ws, done)
+                while not (browsers and robots):
+                    role, ws, done = await self._inbox.get()
+                    if ws.closed:
+                        if not done.done():
+                            done.set_result(None)
+                        continue
+                    if role == "browser":
+                        browsers.append((ws, done))
+                    else:
+                        robots.append((ws, done))
+                b_ws, b_done = browsers.pop(0)
+                r_ws, r_done = robots.pop(0)
+                if b_ws.closed:
+                    if not b_done.done():
+                        b_done.set_result(None)
+                    if not r_ws.closed:
+                        robots.insert(0, (r_ws, r_done))
+                    elif not r_done.done():
+                        r_done.set_result(None)
                     continue
-                r0, ws0, d0 = pending
-                if r0 == role:
-                    await self._inbox.put((r0, ws0, d0))
-                    pending = (role, ws, done)
+                if r_ws.closed:
+                    if not r_done.done():
+                        r_done.set_result(None)
+                    browsers.insert(0, (b_ws, b_done))
                     continue
-                pending = None
-                if r0 == "browser":
-                    b_ws, r_ws = ws0, ws
-                    b_done, r_done = d0, done
-                else:
-                    b_ws, r_ws = ws, ws0
-                    b_done, r_done = done, d0
                 try:
                     await _relay_ws(b_ws, r_ws)
                 except Exception:
