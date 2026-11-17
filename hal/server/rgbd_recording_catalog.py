@@ -54,6 +54,22 @@ def catalog_channels_from_hal_catalog(
     return out
 
 
+def teleop_bootstrap_ids_from_catalog_channels(
+    channels_by_id: dict[str, tuple[str, ...]],
+) -> tuple[str, ...]:
+    """Teleop stream ids from declared observation channels.
+
+    RGB-capable rows advertise the catalog id (RGB) plus ``*_gray16_depth``.
+    Depth-only rows advertise only ``*_gray16_depth``.
+    """
+    out: list[str] = []
+    for cid, channels in channels_by_id.items():
+        if "rgb" in channels:
+            out.append(cid)
+        out.append(f"{cid}_gray16_depth")
+    return tuple(out)
+
+
 def hal_rgbd_catalog_ids_for_recording() -> tuple[str, ...]:
     """Logical catalog ids for ``/camera/{id}/{channel}`` topics.
 
@@ -77,3 +93,12 @@ def hal_rgbd_catalog_channels_for_recording() -> dict[str, tuple[str, ...]]:
     )
 
     return isaac_hal_rgbd_catalog_channels_for_recording()
+
+
+def hal_teleop_bootstrap_catalog_ids() -> tuple[str, ...]:
+    """Default teleop poll / QoS catalog ids for the active HAL backend.
+
+    Built from :func:`hal_rgbd_catalog_channels_for_recording` via
+    :func:`teleop_bootstrap_ids_from_catalog_channels`.
+    """
+    return teleop_bootstrap_ids_from_catalog_channels(hal_rgbd_catalog_channels_for_recording())

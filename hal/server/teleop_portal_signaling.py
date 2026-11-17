@@ -265,7 +265,13 @@ def start_hal_teleop_signaling_thread(
         catalog_state = _ViewerCatalogIds(bootstrap_sensor_catalog_ids, settings)
         available_sensors = sensor_interface.list_sensors()
         sensors_by_id = {s.id: s for s in available_sensors}
-        available_catalog_ids = [s.id for s in available_sensors]
+        # Offer only streamable ids: RGB rows, or depth previews with depth_range_m.
+        # Bare depth-only catalog rows (e.g. belly_*_tof) lack depth_range_m and fail offer validation.
+        available_catalog_ids = [
+            s.id
+            for s in available_sensors
+            if s.modality != "depth" or (s.extra or {}).get("depth_range_m") is not None
+        ]
 
         def _validate_sensor_pipeline_binding(track_count: int) -> None:
             selected = catalog_state.snapshot_poll_ids()

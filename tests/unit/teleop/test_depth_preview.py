@@ -41,3 +41,14 @@ def test_depth_preview_requires_2d() -> None:
             np.zeros((2, 2, 2), dtype=np.float32),
             depth_range_m=(0.0, 1.0),
         )
+
+
+def test_depth_preview_sen0581_range() -> None:
+    """SEN0581 / ToF teleop preview band is 0.15–1.5 m."""
+    d = np.array([[0.15, 0.825], [1.5, 2.0]], dtype=np.float32)
+    rgb = depth_meters_to_rgb24_u8(d, depth_range_m=(0.15, 1.5))
+    assert rgb.shape == (2, 2, 3)
+    assert int(rgb[0, 0, 0]) == 0
+    assert int(rgb[1, 0, 0]) == 255
+    assert int(rgb[0, 1, 0]) == 127  # midpoint of [0.15, 1.5]
+    assert int(rgb[1, 1, 0]) == 255  # clipped above far

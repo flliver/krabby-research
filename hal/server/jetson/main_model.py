@@ -125,7 +125,9 @@ def main() -> None:
             from teleop.edge.robot_settings import build_teleop_edge_settings
 
             # Bootstrap HAL poll until the browser sends ``catalog_ids`` on hello/offer (portal viewer).
-            teleop_sensor_ids = [hal_server._primary_catalog_id]
+            from hal.server.rgbd_recording_catalog import hal_teleop_bootstrap_catalog_ids
+
+            teleop_sensor_ids = list(hal_teleop_bootstrap_catalog_ids())
             teleop_settings = build_teleop_edge_settings(
                 host_or_url=args.teleop_ip, control_echo_enabled=args.teleop_control_echo
             )
