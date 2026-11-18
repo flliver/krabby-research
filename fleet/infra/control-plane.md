@@ -28,7 +28,7 @@ Prerequisites (venv, deploy credentials, bootstrap): [README.md](README.md).
 | `KrabReportedImages` | `AWS::S3::Bucket` | Destination for agent-reported camera frames (`reported_image` is an S3 reference, not inline shadow bytes). 30-day expiration lifecycle rule; `RemovalPolicy.RETAIN`. |
 | `KrabImageUploadRole` | `AWS::IAM::Role` | Trusted by `credentials.iot.amazonaws.com`; grants `s3:PutObject` on `KrabReportedImages`. |
 | `KrabImageRoleAlias` | `AWS::IoT::RoleAlias` | Lets a device swap its cert for temporary credentials scoped to `KrabImageUploadRole`, via `AssumeRoleWithCertificate`. |
-| `KrabBags` | `AWS::S3::Bucket` | Rosbag segment archive (Intelligent-Tiering, no expiration); `RemovalPolicy.RETAIN`. |
+| `KrabBags` | `AWS::S3::Bucket` | Rosbag segment archive (lifecycle → `INTELLIGENT_TIERING`, no expiration); `RemovalPolicy.RETAIN`. |
 | `KrabBagsUploadRole` | `AWS::IAM::Role` | Trusted by `credentials.iot.amazonaws.com`; PutObject + multipart abort/list on `KrabBags`. |
 | `KrabBagsRoleAlias` | `AWS::IoT::RoleAlias` | Device cert → temp credentials for bag uploads (`AssumeBagsUploadRole` in the device policy). |
 | `KrabEnrollUser` (`krabby-enroll`) | `AWS::IAM::User` | Least-privilege IAM user for `krabby enroll` on the Orin (GetPolicy / DescribeThing / CreateThing / DescribeEndpoint / CreateCertificateFromCsr / AttachPolicy / AttachThingPrincipal). No access key in CDK -- create the key once out-of-band after deploy. |

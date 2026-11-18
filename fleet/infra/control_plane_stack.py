@@ -317,13 +317,24 @@ class ControlPlaneStack(Stack):
             role_arn=image_upload_role.role_arn,
         )
 
-        # Training/rosbag archive. Intelligent-Tiering, no expiration — RETAIN
-        # so stack teardown does not delete fleet driving data.
+        # Training/rosbag archive. Lifecycle → INTELLIGENT_TIERING (Frequent /
+        # Infrequent / Archive Instant), no expiration — RETAIN so stack
+        # teardown does not delete fleet driving data.
+        # Do not use intelligent_tiering_configurations without archive/
+        # deep-archive days: S3 rejects an empty Tierings list (MalformedXML).
         bags_bucket = s3.Bucket(
             self,
             "KrabBags",
-            intelligent_tiering_configurations=[
-                s3.IntelligentTieringConfiguration(name="EntireBucket"),
+            lifecycle_rules=[
+                s3.LifecycleRule(
+                    id="ToIntelligentTiering",
+                    transitions=[
+                        s3.Transition(
+                            storage_class=s3.StorageClass.INTELLIGENT_TIERING,
+                            transition_after=Duration.days(0),
+                        ),
+                    ],
+                ),
             ],
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             encryption=s3.BucketEncryption.S3_MANAGED,
