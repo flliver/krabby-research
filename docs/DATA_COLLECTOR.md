@@ -76,14 +76,21 @@ hal:
 output_dir: "/data/krabby_bags"
 min_free_fraction: 0.10
 rotation_max_bytes: 262144000
-rotation_max_minutes: 30.0
+rotation_max_minutes: 5.0
+camera_encode: "h265"
 rates:
-  images_hz: 10.0
+  default_images_hz: 10.0
+  images_hz_by_catalog_id:
+    front_rgbd: 10.0
+    belly_left_tof: 20.0
+    belly_right_tof: 20.0
+    rear_tof: 20.0
   joints_imu_hz: 50.0
 topics:
   joints_state: true
   joints_command: true
   imu: true
+  base_twist: true
 joint_names: []
 joints_command_source: "previous_action"
 polling_timeout_ms: 10
@@ -93,26 +100,31 @@ polling_timeout_ms: 10
 |------|-----------------|
 | HAL transport | Always enforced from entrypoint runtime endpoints (must match primary `HalClientConfig`; Jetson uses fixed inproc endpoints). |
 | Output | From YAML/default config (`output_dir`) with optional CLI override via **`--data-collector-output-dir`**. |
-| Rates | **`RECORDING_RATES`** — wall-clock caps; actual rate is still bounded by HAL publish rate and **latest-only** `poll()` semantics. |
-| Topics | **`TOPIC_ENABLE`** — booleans for `/joints/*`, `/imu`, and `/base/twist`; catalog cameras are always recorded when present in **`rgbd_by_catalog_id`**. Camera ROS names are **`/camera/{catalog_id}/rgb`** and **`/camera/{catalog_id}/depth`** where **`catalog_id`** is the sensor registry id (e.g. **`front_rgbd`**, not **`front`**). Bags pre-register those topics from **`JETSON_SENSOR_CATALOG`** via **`hal_rgbd_catalog_ids_for_recording()`**. Image **`frame_id`** matches the topic so MCAP/Foxglove stream names align with playback. |
+| Encode | **`camera_encode`**: `"h265"` (default) writes `sensor_msgs/CompressedImage` HEVC; `"raw"` keeps uncompressed `sensor_msgs/Image` for bench work. |
+| Rates | **`RECORDING_RATES`** — per-catalog-id wall-clock caps (`images_hz_by_catalog_id`, else `default_images_hz`); still bounded by HAL publish rate and **latest-only** `poll()`. |
+| Topics | **`TOPIC_ENABLE`** — booleans for `/joints/*`, `/imu`, and `/base/twist`; catalog cameras are always recorded when present in **`rgbd_by_catalog_id`**. With H.265, topics are **`/camera/{catalog_id}/{channel}_h265`**. Bags pre-register from **`hal_rgbd_catalog_channels_for_recording()`** (depth-only catalog rows register only depth). Image **`frame_id`** matches the topic. |
 | Commands | **`joints_command_source`** is only **`previous_action`** in code — `/joints/command` is filled from **`HardwareObservations.previous_action`**, not from a separate tap on `put_joint_command`. |
 | Joints | **`JOINT_NAMES`** — if empty or length mismatch, serialization uses `joint_0`, `joint_1`, … |
 | Polling | **`POLLING_TIMEOUT_MS`** — ZMQ receive timeout per collector poll. |
 
 ## Topic map (HAL → ROS)
 
-| HAL source | ROS topic | Message type |
-|------------|-----------|--------------|
-| `rgbd_by_catalog_id[id].rgb` | `/camera/{id}/rgb` | `sensor_msgs/Image` (`rgb8`, or `mono8` when the catalog row’s RGB is 2D) |
-| `rgbd_by_catalog_id[id].depth` | `/camera/{id}/depth` | `sensor_msgs/Image` (`32FC1`, meters) |
+| HAL source | ROS topic (H.265 default) | Message type |
+|------------|---------------------------|--------------|
+| `rgbd_by_catalog_id[id].rgb` | `/camera/{id}/rgb_h265` | `sensor_msgs/CompressedImage` (`format=hevc`) |
+| `rgbd_by_catalog_id[id].depth` | `/camera/{id}/depth_h265` | `sensor_msgs/CompressedImage` (`format=hevc; range=d_min,d_max`) |
+| same channels with `camera_encode=raw` | `/camera/{id}/rgb`, `/camera/{id}/depth` | `sensor_msgs/Image` (`rgb8`/`mono8`, `32FC1`) |
 | `joint_positions`, `joint_velocities` | `/joints/state` | `sensor_msgs/JointState` |
 | `previous_action` | `/joints/command` | `sensor_msgs/JointState` (positions only; see above) |
 | `base_quat_w`, `base_ang_vel_b` | `/imu` | `sensor_msgs/Imu` — orientation + angular velocity; linear acceleration is zero (not on `HardwareObservations`). |
 | `base_lin_vel_b`, `base_ang_vel_b` | `/base/twist` | `geometry_msgs/TwistStamped` — body-frame linear + angular velocity (e.g. ZED tracking + IMU via Jetson HAL). |
 
+Depth is quantized to 8-bit gray over the catalog `gst_depth_quant_range_m` band before HEVC (about 5.3 mm/step on the 0.15–1.5 m ToF band). Encoding runs on the collector thread (`nvv4l2h265enc` on Jetson when present, else `x265enc`), never on the 100 Hz control path.
+
 ## Playback
 
 - **ROS 2:** `ros2 bag info` / `ros2 bag play` on the bag directory (standard rosbag2 layout under `output_dir`).
+- **H.265 decode / metric depth:** `python -m data_collection.tools.decode_h265 <bag_dir> --catalog-id <id> --channel rgb|depth [--out-dir …]`. Depth reconstructs float32 meters from `format`’s `range=` metadata. `--check-roundtrip` asserts 8-bit quant error stays within one step (no HEVC).
 
 ## Architecture
 
@@ -128,7 +140,11 @@ Under `output_dir`, each **segment** is a standard **rosbag2 v9** directory with
 
 **Disk cap:** `min_free_fraction` is the share of filesystem **total** capacity that must remain free. The max allowed bag bytes is `filesystem_free + bag_bytes_in_output_dir - (min_free_fraction × total)` — existing bags count as reclaimable space. When summed bag size exceeds that limit, **oldest** bags are deleted first. Quota is checked when opening each segment (startup and rotation). Mount `output_dir` on a volume sized for the retention you want.
 
-**Effective sample rate:** `rates.images_hz` and `rates.joints_imu_hz` cap how often the collector samples; together with HAL’s **latest-only** subscriber behavior and the publisher’s own rate, the bag may contain fewer messages than a naive “Hz × duration” estimate.
+**Effective sample rate:** per-catalog `images_hz_for(id)` and `rates.joints_imu_hz` cap how often the collector samples; together with HAL’s **latest-only** subscriber behavior and the publisher’s own rate, the bag may contain fewer messages than a naive “Hz × duration” estimate. Default segment length is **5 minutes** (250 MiB size cap still applies).
+
+## Fleet robots
+
+On a fleet-enrolled Orin, set `"data_collector": true` in `/etc/krabby/locomotion.json`. `krabby run` then passes `--data-collector-output-dir /data/krabby_bags` and bind-mounts host `/var/krabby/bags`. The host-side `krabby agent` offloader uploads closed segments to S3 (see fleet docs); enable offload separately. The release locomotion image must include the `krabby-data-collection` wheel.
 
 ## Configuration semantics
 

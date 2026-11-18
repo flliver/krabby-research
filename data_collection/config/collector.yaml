@@ -15,10 +15,17 @@ output_dir: "/data/krabby_bags"
 
 min_free_fraction: 0.10
 rotation_max_bytes: 262144000
-rotation_max_minutes: 30.0
+rotation_max_minutes: 5.0
+
+camera_encode: "h265"
 
 rates:
-  images_hz: 10.0
+  default_images_hz: 10.0
+  images_hz_by_catalog_id:
+    front_rgbd: 10.0
+    belly_left_tof: 20.0
+    belly_right_tof: 20.0
+    rear_tof: 20.0
   joints_imu_hz: 50.0
 
 topics:

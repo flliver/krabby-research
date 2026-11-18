@@ -17,7 +17,8 @@ FROM nvcr.io/nvidia/pytorch:25.10-py3-igpu
 
 WORKDIR /workspace
 
-# System deps — same as dev image plus avrdude for MCU flashing
+# System deps — same as dev image plus avrdude for MCU flashing.
+# GI typelibs + PyGObject (requirements) enable in-process H.265 recording.
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-dev \
@@ -31,6 +32,15 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gir1.2-gstreamer-1.0 \
+    gir1.2-gst-plugins-base-1.0 \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libgirepository1.0-dev \
+    libglib2.0-dev \
+    pkg-config \
+    gobject-introspection \
     && rm -rf /var/lib/apt/lists/*
 
 # ZED SDK 5.1.1 for L4T 36.4 (JetPack 6.1/6.2) — same version as dev image

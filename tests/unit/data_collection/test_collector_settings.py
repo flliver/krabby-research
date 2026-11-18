@@ -18,7 +18,11 @@ def test_build_data_collector_config_uses_defaults() -> None:
     assert cfg.hal.observation_endpoint == "inproc://hal_observation"
     assert cfg.hal.command_endpoint == "inproc://hal_commands"
     assert cfg.output_dir == DEFAULT_OUTPUT_DIR
-    assert cfg.rates.images_hz == 10.0
+    assert cfg.rates.default_images_hz == 10.0
+    assert cfg.rates.images_hz_for("belly_right_tof") == 20.0
+    assert cfg.rates.images_hz_for("front_rgbd") == 10.0
+    assert cfg.rotation_max_minutes == 5.0
+    assert cfg.camera_encode == "h265"
     assert cfg.joints_command_source == "previous_action"
 
 

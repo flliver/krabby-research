@@ -21,6 +21,15 @@ client_id = "31po2basitdvq1cs2dh99dblep"
 thing_type = "Krab"
 device_policy = "KrabDevicePolicy"
 
+# Rosbag offload (ControlPlaneStack KrabBags). Fill bucket after deploy:
+#   aws cloudformation describe-stacks --stack-name ControlPlaneStack \
+#     --query "Stacks[0].Outputs[?OutputKey=='KrabBagsBucketName'].OutputValue" --output text
+[bags]
+# bucket = ""  # set after ControlPlaneStack deploy
+role_alias = "KrabBagsRoleAlias"
+upload_rate_bytes_per_s = 1000000
+# Device enable flags live in /etc/krabby/locomotion.json (data_collector / bags_offload).
+
 [bench]
 thing_name = "bench-krabby-ci"
 

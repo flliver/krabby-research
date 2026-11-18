@@ -318,11 +318,20 @@ Create the host folder first:
 mkdir -p /path/to/krabby_bags
 ```
 
-Set `--data-collector-output-dir` to enable recording. The mount target must match the same container path:
+Set `--data-collector-output-dir` to enable recording. The mount target must match the same container path. Preferred container path is `/data/krabby_bags` (package default); `/workspace/bags` also works if you mount there:
 
 ```bash
-sudo docker run --rm --runtime=nvidia  -v /path/to/checkpoints:/workspace/checkpoints  -v /path/to/krabby_bags:/workspace/bags  -v /dev:/dev  --privileged  krabby-locomotion:latest  --checkpoint /workspace/checkpoints/unitree_go2_parkour_teacher.pt  --robot go2  --data-collector-output-dir /workspace/bags
+sudo docker run --rm --runtime=nvidia \
+  -v /path/to/checkpoints:/workspace/checkpoints \
+  -v /path/to/krabby_bags:/data/krabby_bags \
+  -v /dev:/dev --privileged \
+  krabby-locomotion:latest \
+  --checkpoint /workspace/checkpoints/unitree_go2_parkour_teacher.pt \
+  --robot go2 \
+  --data-collector-output-dir /data/krabby_bags
 ```
+
+**Fleet / `krabby run`:** set `"data_collector": true` in `/etc/krabby/locomotion.json`. The launcher mounts host `/var/krabby/bags` → `/data/krabby_bags` and passes `--data-collector-output-dir /data/krabby_bags`. Set `"bags_offload": true` so `krabby agent` uploads closed segments to S3 (requires ControlPlane bags role + credential-provider endpoint from enroll).
 
 ### Important: GPU Runtime Flag
 

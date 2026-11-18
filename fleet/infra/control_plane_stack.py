@@ -8,10 +8,12 @@ Creates the shared IoT resources that every enrolled krab uses:
 - Lifecycle/presence event configurations (feeds connectivity indexing)
 - S3 bucket + IAM role + RoleAlias for agent-reported camera frames --
   ``reported_image`` is an S3 reference, not inline shadow bytes
+- S3 bags bucket + upload role + RoleAlias for rosbag segment offload
 - Least-privilege IAM user ``krabby-enroll`` for Orin ``krabby enroll``
   (no access key in CDK -- create the key once out-of-band)
 - CFN exports ``IotAtsEndpoint`` / ``IotCredentialProviderEndpoint`` /
-  ``KrabReportedImagesBucketName`` for enroll / agent / FleetServiceStack
+  ``KrabReportedImagesBucketName`` / ``KrabBagsBucketName`` for enroll /
+  agent / FleetServiceStack
 
 Instance size and EC2 live in FleetServiceStack (later). Secure Tunneling is an
 account service -- no per-resource CDK here.
@@ -38,6 +40,9 @@ KRAB_DEVICE_POLICY = "KrabDevicePolicy"
 # Fixed name so the device policy below can reference it directly to build
 # the rolealias ARN, without querying CDK outputs first.
 KRAB_IMAGE_ROLE_ALIAS = "KrabImageRoleAlias"
+
+# Fixed name for rosbag segment uploads (device policy + krabby offload).
+KRAB_BAGS_ROLE_ALIAS = "KrabBagsRoleAlias"
 
 # Fixed name so operators create access keys against a stable IAM user
 # without querying CDK outputs first.
@@ -117,6 +122,13 @@ def _device_iot_policy_document() -> dict[str, Any]:
                 "Effect": "Allow",
                 "Action": "iot:AssumeRoleWithCertificate",
                 "Resource": f"arn:aws:iot:*:*:rolealias/{KRAB_IMAGE_ROLE_ALIAS}",
+            },
+            {
+                # Same credential-provider path for rosbag segment offload.
+                "Sid": "AssumeBagsUploadRole",
+                "Effect": "Allow",
+                "Action": "iot:AssumeRoleWithCertificate",
+                "Resource": f"arn:aws:iot:*:*:rolealias/{KRAB_BAGS_ROLE_ALIAS}",
             },
             {
                 # SDP/ICE signaling transport between agent and fleet service
@@ -305,6 +317,50 @@ class ControlPlaneStack(Stack):
             role_arn=image_upload_role.role_arn,
         )
 
+        # Training/rosbag archive. Intelligent-Tiering, no expiration — RETAIN
+        # so stack teardown does not delete fleet driving data.
+        bags_bucket = s3.Bucket(
+            self,
+            "KrabBags",
+            intelligent_tiering_configurations=[
+                s3.IntelligentTieringConfiguration(name="EntireBucket"),
+            ],
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            enforce_ssl=True,
+            removal_policy=RemovalPolicy.RETAIN,
+        )
+
+        bags_upload_role = iam.Role(
+            self,
+            "KrabBagsUploadRole",
+            assumed_by=iam.ServicePrincipal("credentials.iot.amazonaws.com"),
+        )
+        # Put for upload; GetObject for post-upload size verify before local delete;
+        # multipart abort/list for resume/recovery.
+        bags_bucket.grant_put(bags_upload_role)
+        bags_bucket.grant_read(bags_upload_role)
+        bags_upload_role.add_to_policy(
+            iam.PolicyStatement(
+                sid="BagsMultipart",
+                actions=[
+                    "s3:AbortMultipartUpload",
+                    "s3:ListMultipartUploadParts",
+                ],
+                resources=[bags_bucket.arn_for_objects("*")],
+            )
+        )
+        # Prefix discipline is by convention in the offloader (<thing-name>/...).
+        # Per-thing IAM conditions via credential-provider thing-name keys were
+        # skipped: they fight the shared role alias pattern used for images.
+
+        iot.CfnRoleAlias(
+            self,
+            "KrabBagsRoleAlias",
+            role_alias=KRAB_BAGS_ROLE_ALIAS,
+            role_arn=bags_upload_role.role_arn,
+        )
+
         # Least-privilege IAM user for `krabby enroll` on the Orin -- operator
         # AWS access key is enroll-time only (shell export, never persisted).
         # Access keys are NOT created here: keys must not live in CloudFormation.
@@ -340,6 +396,14 @@ class ControlPlaneStack(Stack):
                 sid="EnrollDescribeEndpoint",
                 actions=["iot:DescribeEndpoint"],
                 # Account endpoint lookup -- no resource-level ARN exists.
+                resources=["*"],
+            )
+        )
+        enroll_user.add_to_policy(
+            iam.PolicyStatement(
+                sid="EnrollListBagsBucketExport",
+                actions=["cloudformation:ListExports"],
+                # Resolve KrabBagsBucketName into /etc/krabby/iot/config.json at enroll.
                 resources=["*"],
             )
         )
@@ -424,6 +488,19 @@ class ControlPlaneStack(Stack):
             "KrabImageRoleAliasName",
             value=KRAB_IMAGE_ROLE_ALIAS,
             description="IoT role alias name for agent image uploads",
+        )
+        CfnOutput(
+            self,
+            "KrabBagsBucketName",
+            value=bags_bucket.bucket_name,
+            export_name="KrabBagsBucketName",
+            description="S3 bucket for rosbag segments uploaded by krabby offload",
+        )
+        CfnOutput(
+            self,
+            "KrabBagsRoleAliasName",
+            value=KRAB_BAGS_ROLE_ALIAS,
+            description="IoT role alias name for agent bag uploads",
         )
         CfnOutput(
             self,

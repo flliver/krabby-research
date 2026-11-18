@@ -107,7 +107,7 @@ krabby-controller==0.1.2
 krabby-firmware==0.2.9
 ```
 
-`krabby-data-collection` is not yet published to PyPI and is excluded from the production image. Fleet teleop requires **`krabby-teleop-edge`** (pinned in `requirements.release.txt`).
+Fleet teleop requires **`krabby-teleop-edge`**; rosbag recording requires **`krabby-data-collection`** (both pinned in `requirements.release.txt`). Enable recording with `"data_collector": true` in `/etc/krabby/locomotion.json`.
 
 #### Bumping Pins
 

@@ -27,6 +27,7 @@ SHADOW_MAX_AGE_SECS = int(os.environ.get("SHADOW_MAX_AGE_SECS", "180"))
 
 KRAB_THING_TYPE = "Krab"
 KRAB_DEVICE_POLICY = "KrabDevicePolicy"
+KRAB_BAGS_ROLE_ALIAS = "KrabBagsRoleAlias"
 AMAZON_ROOT_CA_URL = "https://www.amazontrust.com/repository/AmazonRootCA1.pem"
 _LOCALPROXY_BIN = "localproxy"
 _TUNNEL_E2E_DEBUG = os.environ.get("TUNNEL_E2E_DEBUG", "").strip().lower() in (
@@ -358,6 +359,26 @@ def test_control_plane_prereqs():
     iot.get_policy(policyName=KRAB_DEVICE_POLICY)
     iot.describe_thing_type(thingTypeName=KRAB_THING_TYPE)
     iot.describe_thing(thingName=BENCH_THING_NAME)
+
+
+def test_control_plane_bags_upload_resources():
+    """Bags bucket export + role alias exist for rosbag offload."""
+    iot = _iot()
+    alias = iot.describe_role_alias(roleAlias=KRAB_BAGS_ROLE_ALIAS)
+    desc = alias.get("roleAliasDescription") or {}
+    assert desc.get("roleAlias") == KRAB_BAGS_ROLE_ALIAS
+
+    pol = iot.get_policy(policyName=KRAB_DEVICE_POLICY)
+    doc = pol.get("policyDocument") or ""
+    doc_s = json.dumps(doc) if isinstance(doc, dict) else str(doc)
+    assert KRAB_BAGS_ROLE_ALIAS in doc_s, "KrabDevicePolicy missing AssumeBagsUploadRole alias"
+
+    cfn = boto3.client("cloudformation", region_name=AWS_REGION)
+    exports = cfn.list_exports().get("Exports") or []
+    bags = next((e for e in exports if e.get("Name") == "KrabBagsBucketName"), None)
+    assert bags and bags.get("Value"), "KrabBagsBucketName CloudFormation export missing"
+    s3 = boto3.client("s3", region_name=AWS_REGION)
+    s3.head_bucket(Bucket=bags["Value"])
 
 
 def test_bench_connectivity_and_shadow_index():

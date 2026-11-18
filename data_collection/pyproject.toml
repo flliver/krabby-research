@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "krabby-data-collection"
-version = "0.1.1"
+version = "0.1.2"
 description = "HAL data collector: rosbag2 (mcap) from HalClient observations"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,4 +35,4 @@ dev = [
 
 [tool.setuptools]
 package-dir = { "data_collection" = "." }
-packages = ["data_collection"]
+packages = ["data_collection", "data_collection.tools"]

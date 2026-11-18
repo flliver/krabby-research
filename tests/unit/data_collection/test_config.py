@@ -20,8 +20,12 @@ def test_load_canonical_collector_yaml() -> None:
     cfg = load_config(_CANONICAL_COLLECTOR_YAML)
     assert cfg.hal.observation_endpoint == "inproc://hal_observation"
     assert cfg.output_dir == Path("/data/krabby_bags")
-    assert cfg.rates.images_hz == 10.0
+    assert cfg.rates.default_images_hz == 10.0
+    assert cfg.rates.images_hz_for("front_rgbd") == 10.0
+    assert cfg.rates.images_hz_for("belly_left_tof") == 20.0
     assert cfg.rates.joints_imu_hz == 50.0
+    assert cfg.camera_encode == "h265"
+    assert cfg.rotation_max_minutes == 5.0
     assert cfg.topics.joints_state is True
     assert cfg.joints_command_source == "previous_action"
 
@@ -37,7 +41,9 @@ def test_load_config_minimal(tmp_path: Path) -> None:
               command_endpoint: inproc://hal_commands
             output_dir: {out}
             rates:
-              images_hz: 5.0
+              default_images_hz: 5.0
+              images_hz_by_catalog_id:
+                belly_left_tof: 20.0
               joints_imu_hz: 20.0
             joint_names: ["j0", "j1"]
             """
@@ -48,10 +54,32 @@ def test_load_config_minimal(tmp_path: Path) -> None:
     assert cfg.hal.observation_endpoint == "inproc://hal_observation"
     assert cfg.hal.command_endpoint == "inproc://hal_commands"
     assert cfg.output_dir == out
-    assert cfg.rates.images_hz == 5.0
+    assert cfg.rates.default_images_hz == 5.0
+    assert cfg.rates.images_hz_for("belly_left_tof") == 20.0
+    assert cfg.rates.images_hz_for("front_rgbd") == 5.0
     assert cfg.rates.joints_imu_hz == 20.0
     assert cfg.joint_names == ("j0", "j1")
     assert cfg.joints_command_source == "previous_action"
+
+
+def test_load_config_legacy_images_hz_key(tmp_path: Path) -> None:
+    p = tmp_path / "collector.yaml"
+    p.write_text(
+        textwrap.dedent(
+            f"""
+            hal:
+              observation_endpoint: inproc://a
+              command_endpoint: inproc://b
+            output_dir: {tmp_path / "bags"}
+            rates:
+              images_hz: 7.5
+              joints_imu_hz: 25.0
+            """
+        ).strip(),
+        encoding="utf-8",
+    )
+    cfg = load_config(p)
+    assert cfg.rates.default_images_hz == 7.5
 
 
 def test_load_config_root_not_mapping(tmp_path: Path) -> None:

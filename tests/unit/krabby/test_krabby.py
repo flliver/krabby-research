@@ -914,6 +914,34 @@ class TestLocomotionConfig:
         assert "--stm" not in argv
         assert lc.default_config()["stm"] is False
 
+    def test_build_hal_argv_data_collector_from_config(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        cfg = lc.default_config()
+        cfg["data_collector"] = True
+        lc.write_config(cfg)
+        argv = lc.build_hal_argv([])
+        assert "--data-collector-output-dir" in argv
+        i = argv.index("--data-collector-output-dir")
+        assert argv[i + 1] == lc.DEFAULT_BAGS_CONTAINER_DIR
+
+    def test_fleet_volume_mounts_bags_when_collector_enabled(self, tmp_path, monkeypatch):
+        import krabby._locomotion_config as lc
+
+        monkeypatch.setattr(lc, "LOCOMOTION_CONFIG_PATH", tmp_path / "locomotion.json")
+        bags = tmp_path / "bags"
+        cfg = lc.default_config()
+        cfg["data_collector"] = True
+        cfg["bags_host_dir"] = str(bags)
+        cfg["zed_resources_host"] = str(tmp_path / "zed-res")
+        cfg["zed_settings_host"] = str(tmp_path / "zed-set")
+        (tmp_path / "zed-res").mkdir()
+        (tmp_path / "zed-set").mkdir()
+        mounts = lc.fleet_volume_mounts(cfg)
+        assert f"{bags}:{lc.DEFAULT_BAGS_CONTAINER_DIR}" in " ".join(mounts)
+        assert bags.is_dir()
+
     def test_build_gamepad_client_argv_stm_from_config(self, tmp_path, monkeypatch):
         import krabby._locomotion_config as lc
 
