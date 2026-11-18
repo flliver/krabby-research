@@ -321,3 +321,8 @@ One detached queue runner + log-sentinel watcher; serial.
   unchanged. Note: Z1 at 0.1 s blanks one raw depth refresh (refresh every 5 steps), so the policy sees one
   blank frame, 0.1–0.2 s after onset (§3.3). The code change moves code_sha off the grid pin; the grid's
   results/pin.json is closed and left as it was. No separate smoke: each row still gets fault_read --check-only.
+- 2026-11-18 follow-up closed: es1 12 rows + es2 12 rows (all 6 cells under F < 0.5), 2.39 GPU-h of the 2.6 cap,
+  0 launch errors, 0 check errors, no relaunch. 21/24 rows class-matched a grid nominal pre-onset (code change
+  neutral); 3 drew an unmatched class and were read against both nominals. Verdicts: S2 0.1 / 0.2 s and Z1 0.1 /
+  0.2 s TOLERATED; B6 2 s RECOVERS; B6 permanent DEGRADES. Tolerated d: S2 0.2 s, Z1 0.2 s, B6 ≥ 2 s. REPORT §9
+  carries the results and the resized 9.3 / 9.4 deadlines (results_followup/verdicts.md, read.json).

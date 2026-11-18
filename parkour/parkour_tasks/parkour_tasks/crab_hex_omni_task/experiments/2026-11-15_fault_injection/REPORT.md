@@ -70,13 +70,13 @@ Notation:
    |---|---|---|---|
    | B1 stale action (rods keep slewing to the old target) | 40, 100, 200, 500 ms | **0.2 s** (10 steps) | 0.5 s FALLS (0.22 / 0.30) |
    | B4 runaway (today: open-loop PWM, no watchdog) | 0.1, 0.5 s | **0.1 s** (5 steps) | 0.5 s FALLS (0.43 / 0.33) |
-   | B6 stop (a watchdog that holds position) | 0.1, 0.5 s | **≥ 0.5 s** (longest tested) | – |
+   | B6 stop (a watchdog that holds position) | 0.1, 0.5 s; follow-up 2 s, permanent | **≥ 2 s** (2 s RECOVERS; follow-up) | permanent DEGRADES (ΔF 0.07 / 0.05, field progress R 0) |
    | S1 vxy → 0 | 0.1, 0.5, 2 s | **0.1 s** | 0.5 s FALLS (0.88, es1) |
-   | S2 vxy held | 0.5, 2 s | **none** (< 0.5 s; shorter levels untested) | 0.5 s DEGRADES (marginal) |
+   | S2 vxy held | 0.5, 2 s; follow-up 0.1, 0.2 s | **0.2 s** (follow-up) | 0.5 s DEGRADES (marginal) |
    | S5 IMU frozen | 0.1, 0.5, 2 s | **≥ 2 s** | – |
    | S10 front depth raw 0 | 0.5, 2 s | **≥ 2 s** | – (permanent DEGRADES) |
    | S11 ToF frozen | 2 s | **≥ 2 s** | – (permanent TOLERATED) |
-   | Z1 ZED loss (S10 + S5 + S2 together) | 0.5, 2 s | **none** (< 0.5 s; shorter levels untested) | 0.5 s DEGRADES (split) |
+   | Z1 ZED loss (S10 + S5 + S2 together) | 0.5, 2 s; follow-up 0.1, 0.2 s | **0.2 s** (follow-up) | 0.5 s DEGRADES (split) |
 
 5. **Z1 is not predictable from its parts.** At 2 s, the parts alone read 0.00 (S5_2), 0.00 (S10_2) and 0.22 / 0.20 (S2_2). Together they read 0.57, with falls on every wave including stand and the turns (`read.json` per-wave F).
 6. **Tie-in to the 2026-11-07 sweep (anchors).**
@@ -223,7 +223,7 @@ Source: `verdicts.md` (Cells, Cell-seeds); the "why" column comes from `read.jso
 
 **Split cells.**
 - **A1_mid.** es1 ΔF is exactly 0.10, which is not > 0.10, so es1 reads DEGRADES. es2 reads 0.15 (FALLS), so the cell is FALLS. Both seeds fail the same 7 lines (tracking side/diag/lat_l/lat_r, turn facing ×3), with R 0.17 / 0.22.
-- **Z1_0p5.** es1 ΔF 0.04 with R 0.98 reads RECOVERS. es2 ΔF 0.09 reads DEGRADES. No line fails on either seed. The cell takes the worse seed: es2 needs −4 episodes to reach RECOVERS, so within ±2 per seed the cell stays DEGRADES or goes to FALLS (es2 +2). Z1 has no tolerated duration, and that is firm.
+- **Z1_0p5.** es1 ΔF 0.04 with R 0.98 reads RECOVERS. es2 ΔF 0.09 reads DEGRADES. No line fails on either seed. The cell takes the worse seed: es2 needs −4 episodes to reach RECOVERS, so within ±2 per seed the cell stays DEGRADES or goes to FALLS (es2 +2). Z1 has no tolerated duration at the grid's levels, and that is firm; the 2026-11-18 follow-up found 0.2 s tolerated (§9, follow-up results).
 
 **Mechanism notes** (from `read.json` per-hand post-onset ratios; report only).
 - **vxy zero overshoots the command.** Under S1_perm, the fwd, back and diag ratios are 1.32–1.99.
@@ -414,11 +414,30 @@ The ledger holds 309 entries. 302 are launches with GPU time; the other 7 are bo
 - 9.3–9.6: all four adopted as recommended (watchdog ≤ 0.1 s into a B6 hold, then sit-down; validity/age bits, VO ≤ 0.1 s and ZED < 0.5 s deadlines, VO bias < 0.1 m/s, a sit-down design; real joint pos/vel + omni obs mapping before any hardware walking; latency ≤ 20 ms, 40 ms hard limit). The 9.3/9.4 deadlines are to be resized by the 9.8 follow-up batch.
 - 9.7 (no trained fault regime now) and 9.9 (recorded locally as ee0fd065; the merge is pending): unchanged.
 
+**Follow-up batch results (2026-11-18, §9.8; CHARTER §10 amendment of 2026-11-18):**
+- Run: 6 cells × {suite, field_light} × es1 + es2 = 24 launches, 2.39 GPU-h of the 2.6 cap, own pin (`results_followup/pin.json`, code_sha 9376f6b10e22), 0 launch errors, 0 check errors. References are the grid's nominals. 21 of 24 rows matched a same-class nominal bitwise before onset (so the knob-level code change is neutral); 3 rows (S2_0p1 es2 field_light, Z1_0p1 es1 field_light, Z1_0p2 es2 field_light) drew a launch class with no same-class nominal and were read against both nominals, as in the grid.
+
+  | Cell | es1 | es2 | Cell verdict | Worst ΔF (es1 / es2) | Lines failed |
+  |---|---|---|---|---|---|
+  | S2 vxy held 0.1 s | TOLERATED | TOLERATED | TOLERATED | 0.00 / 0.00 | – |
+  | S2 vxy held 0.2 s | TOLERATED | TOLERATED | TOLERATED | 0.00 / 0.00 | – |
+  | Z1 ZED loss 0.1 s | TOLERATED | TOLERATED | TOLERATED | 0.00 / 0.01 | – |
+  | Z1 ZED loss 0.2 s | TOLERATED | TOLERATED | TOLERATED | 0.00 / 0.00 | – |
+  | B6 hold 2 s | RECOVERS | RECOVERS | RECOVERS | 0.04 / 0.05 | tracking (all six directions) |
+  | B6 hold permanent | DEGRADES | DEGRADES | DEGRADES | 0.07 / 0.05 | tracking, turn facing; field_light progress R 0 |
+
+- What it changes in 9.3 and 9.4 (inference from these cells; the HAL behaviours are modelled by the knobs, not measured on hardware):
+  - **VO loss:** the policy tolerates a held last value for 0.2 s (S2), but a value forced to 0 only for 0.1 s (S1). So on VO loss the HAL should hold the last velocity and set the invalid bit; the 0.1 s deadline stays the target, with 0.2 s as the hard limit while holding. Never substitute 0.
+  - **ZED grab failure:** tolerated for 0.2 s, DEGRADES at 0.5 s. Tighten the deadline from < 0.5 s to **≤ 0.2 s**.
+  - **Watchdog hold → sit-down:** a position hold is survivable for 2 s (RECOVERS: few extra falls, walking stops tracking), and even a permanent hold adds only 0.05–0.07 falls but makes no progress. So the hold is a safe intermediate state: trip the watchdog in ≤ 0.1 s as decided, and hand over to the sit-down within **2 s**.
+- Not run (as decided): S5 permanent and the front-freeze cell.
+
 
 ## 10. Files
 
 - `PLAN.md` (§1 outcome; §8.1 hardware list at PLAN.md:335–341), `CHARTER.md` (§5.3 verdict rule; §10 amendments at CHARTER.md:258–304), `cells.yaml`.
 - `results/verdicts.md` (Cells, Cell-seeds, Tolerated duration, Kind rows) and `results/read.json` (`cell_seeds[*].verdict_reads`, `rows.*.reads[*].waves`, `checks.*.identity` / `dose_report`, `tolerated_durations`, `classes`, `nominal_checks`, `smoke_checks`).
+- `results_followup/` (the 2026-11-18 follow-up batch: `verdicts.md`, `read.json` over all launches, `queue_ledger.jsonl`, `pin.json`, `ddc_start.json`).
 - `results/queue_ledger.jsonl` (spend, relaunches, the pause), `results/pin.json`, `results/null_fault/`, `results/smoke/`, `results/STOP.2026-11-16_*.json` (smoke stops).
 - Re-read: `isaac_venv/bin/python scripts/fault_read.py --root /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/lr` (CPU). The raw stamps (untracked) are in the main checkout under `parkour/outputs/fault_sweep/lr/`.
 - Tie-ins: `../2026-11-06_dr_stress_sweep/REPORT.md` (:117 T07, :119 T12, :144 T10b), `../2026-11-10_rough_terrain/REPORT.md` (:33, :167), `../2026-11-07_rod_speed_dr/REPORT.md` (:703, :707).
