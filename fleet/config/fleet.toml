@@ -25,7 +25,7 @@ device_policy = "KrabDevicePolicy"
 #   aws cloudformation describe-stacks --stack-name ControlPlaneStack \
 #     --query "Stacks[0].Outputs[?OutputKey=='KrabBagsBucketName'].OutputValue" --output text
 [bags]
-# bucket = ""  # set after ControlPlaneStack deploy
+bucket = "controlplanestack-krabbags1adb796a-pwhkt6yzgph0"
 role_alias = "KrabBagsRoleAlias"
 upload_rate_bytes_per_s = 1000000
 # Device enable flags live in /etc/krabby/locomotion.json (data_collector / bags_offload).
