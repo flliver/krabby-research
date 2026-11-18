@@ -125,6 +125,7 @@ Depth is quantized to 8-bit gray over the catalog `gst_depth_quant_range_m` band
 
 - **ROS 2:** `ros2 bag info` / `ros2 bag play` on the bag directory (standard rosbag2 layout under `output_dir`).
 - **H.265 decode / metric depth:** `python -m data_collection.tools.decode_h265 <bag_dir> --catalog-id <id> --channel rgb|depth [--out-dir …]`. Depth reconstructs float32 meters from `format`’s `range=` metadata. `--check-roundtrip` asserts 8-bit quant error stays within one step (no HEVC).
+- **Training / S3 consumers:** end-to-end download and decode guide in [TRAINING_DATA.md](TRAINING_DATA.md).
 
 ## Architecture
 
