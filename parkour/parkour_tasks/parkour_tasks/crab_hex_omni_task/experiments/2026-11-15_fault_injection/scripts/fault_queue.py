@@ -89,6 +89,10 @@ SUITE_CATS = "stand,fwd,side,back,diag,turn,move_turn"
 SMOKE_SUITE_CATS = "stand,fwd"
 SMOKE_FL_ONSET = "10.0:14.0"         # manifests/scenarios_smoke.yaml header
 PHASES = ("smoke", "nominals", "es1", "es2", "kind", "c1", "closing")
+#: The 2026-11-18 follow-up (CHARTER §10): its own phase, results dir and budget; never in the grid projection.
+FOLLOWUP_PHASE = "followup"
+ALL_PHASES = PHASES + (FOLLOWUP_PHASE,)
+FOLLOWUP_BUDGET_GPU_H = 2.6               # user approval 2026-11-18 (REPORT §9.8)
 CK_TAG = {"C1S": "C1S", "C1S_zero_depth": "C1S", "c1": "c1"}
 
 # Per-row GPU-seconds model (CHARTER §9: ~10.7 min per full suite + field_light cell-seed; kind rows 2.4 GPU-h / 36).
@@ -214,7 +218,8 @@ class Row:
 class Planner:
     def __init__(self, doc: dict | None = None):
         self.doc = doc or load_cells()
-        self.cells = {c["id"]: c for c in self.doc["cells"]}
+        self.cells = {c["id"]: c for c in self.doc["cells"] if not c.get("followup")}
+        self.fu_cells = {c["id"]: c for c in self.doc["cells"] if c.get("followup")}
         self.smokes = {s["id"]: s for s in self.doc.get("smokes") or []}
 
     # ---------------------------------------------------------------- one row
@@ -223,6 +228,8 @@ class Planner:
             return {"id": "NOM"}
         if cell_id in self.smokes:
             return self.smokes[cell_id]
+        if cell_id in self.fu_cells:
+            return self.fu_cells[cell_id]
         if cell_id not in self.cells:
             raise PlanError(f"unknown cell {cell_id!r}")
         return self.cells[cell_id]
@@ -260,10 +267,10 @@ class Planner:
                    manifest, scenario, args, ab(level) if level else None, kind)
 
     def cell_payload(self, cell_id: str) -> str:
-        return self.cells[cell_id].get("payload", "L000")
+        return self.cell_spec(cell_id).get("payload", "L000")
 
     def cell_ck(self, cell_id: str) -> str:
-        return self.cells[cell_id].get("checkpoint", "C1S")
+        return self.cell_spec(cell_id).get("checkpoint", "C1S")
 
     def pair(self, phase, ck_key, cell_id, payload, es, launch=None) -> list:
         return [self.row(phase, ck_key, cell_id, r, payload, es, launch) for r in ("suite", "field_light")]
@@ -271,8 +278,8 @@ class Planner:
     # ---------------------------------------------------------------- the phases
     def plan(self, phase: str, *, es2_cells=None, extra=(), results: Path = RESULTS, strict: bool = True,
              tp_out=None) -> list:
-        if phase not in PHASES:
-            raise PlanError(f"unknown phase {phase!r} (one of {PHASES})")
+        if phase not in ALL_PHASES:
+            raise PlanError(f"unknown phase {phase!r} (one of {ALL_PHASES})")
         return getattr(self, f"plan_{phase}")(es2_cells=es2_cells, extra=extra, results=results, strict=strict,
                                               tp_out=tp_out)
 
@@ -410,6 +417,17 @@ class Planner:
 
     def plan_closing(self, **_):
         return self.pair("closing", "C1S", "NOM", "L000", 1, "Z")
+
+    def plan_followup(self, es2_cells=None, **_):
+        """The 2026-11-18 follow-up: es1 on every follow-up cell; es2 on ``--es2-cells`` (picked from the es1 read
+        by the CHARTER §4 rule, worst-row F < 0.5). References are the grid's nominals in the same slots."""
+        rows = self.grid_rows(FOLLOWUP_PHASE, list(self.fu_cells), 1)
+        if es2_cells:
+            bad = [c for c in es2_cells if c not in self.fu_cells]
+            if bad:
+                raise PlanError(f"--es2-cells: not follow-up cells {bad}")
+            rows += self.grid_rows(FOLLOWUP_PHASE, list(es2_cells), 2)
+        return rows
 
 
 # ============================================================================== smoke env files
@@ -644,7 +662,10 @@ def all_planned(planner: Planner, results: Path, extra=(), es2_cells=None) -> di
 
 def projection(planner: Planner, ledger: Ledger, tp_out: Path, pin, results: Path, extra=(), es2_cells=None) -> dict:
     measured = ledger.measured()
-    plan = all_planned(planner, results, extra, es2_cells)
+    if getattr(planner, "followup_only", False):
+        plan = {FOLLOWUP_PHASE: planner.plan(FOLLOWUP_PHASE, es2_cells=es2_cells)}
+    else:
+        plan = all_planned(planner, results, extra, es2_cells)
     pair_s = (Row.est_s(planner.row("es2", "C1S", "NOM", "suite", "L000", 2, "A"), measured)
               + Row.est_s(planner.row("es2", "C1S", "NOM", "field_light", "L000", 2, "A"), measured))
     per = {}
@@ -800,6 +821,12 @@ def run_phase(a, st) -> int:
     if test_mode and gate_row == GATE_ROW:
         raise PlanError("FS_QUEUE_TEST=1 is for a fake --launcher only")
     planner = Planner()
+    budget = BUDGET_GPU_H
+    if phase == FOLLOWUP_PHASE:
+        if results.resolve() == RESULTS.resolve():
+            raise PlanError("the follow-up runs in its own --results dir (results_followup/), never the grid's")
+        planner.followup_only = True
+        budget = FOLLOWUP_BUDGET_GPU_H
     rows = planner.plan(phase, extra=a.extra, es2_cells=a.es2_cells, results=results, tp_out=tp_out)
     if a.only:
         rows = [r for r in rows if r.label in set(a.only) or r.name in set(a.only)]
@@ -817,7 +844,7 @@ def run_phase(a, st) -> int:
         for p in checkpoint_problems(planner.doc):
             say(f"# (dry) {p}")
         pr = projection(planner, ledger, tp_out, pin, results, a.extra, a.es2_cells)
-        say(f"# (dry) projection {pr['projected_gpu_h']:.2f} GPU-h (spent {pr['spent_gpu_h']:.2f}) cap {BUDGET_GPU_H}")
+        say(f"# (dry) projection {pr['projected_gpu_h']:.2f} GPU-h (spent {pr['spent_gpu_h']:.2f}) cap {budget}")
         missing = [r.env_file for r in rows if not Path(r.env_file).is_file()]
         for m in sorted(set(missing)):
             say(f"# (dry) MISSING env file {m}")
@@ -943,8 +970,8 @@ def run_phase(a, st) -> int:
                                f"{ddc_path} ({ddc0:.1f} -> {d:.1f} GB)")
             pr = projection(planner, ledger, tp_out, pin, results, a.extra, a.es2_cells)
             proj = pr["projected_gpu_h"] + (r.est_s(ledger.measured()) / 3600 if relaunch else 0.0)
-            if proj > BUDGET_GPU_H:
-                reasons.append(f"GPU-h projection {proj:.2f} > {BUDGET_GPU_H:g} (spent {pr['spent_gpu_h']:.2f})")
+            if proj > budget:
+                reasons.append(f"GPU-h projection {proj:.2f} > {budget:g} (spent {pr['spent_gpu_h']:.2f})")
             if reasons:
                 return do_stop(results, phase, r, reasons, {"projection": pr})
             # ---- wait for the GPU (gate_row would wait too; waiting here keeps the wait off the ledger)
@@ -1034,7 +1061,7 @@ def main(argv=None) -> int:
     p.add_argument("--check", action="store_true")
     for name in ("list", "run"):
         p = sub.add_parser(name)
-        p.add_argument("--phase", required=True, choices=PHASES)
+        p.add_argument("--phase", required=True, choices=ALL_PHASES)
         common(p)
         if name == "run":
             p.add_argument("--dry-run", action="store_true", help="print the gate_row commands; launch nothing")

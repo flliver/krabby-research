@@ -2,7 +2,7 @@
 # Fault-injection sweep: start fault_queue.py DETACHED for one phase (setsid nohup; survives the session), and a
 # one-shot log-sentinel watcher. NEVER pgrep / ps in the watcher: the log is the only signal.
 #
-#   bash run_queue.sh PHASE [fault_queue.py run args...]   PHASE = smoke|nominals|es1|es2|kind|c1|closing
+#   bash run_queue.sh PHASE [fault_queue.py run args...]   PHASE = smoke|nominals|es1|es2|kind|c1|closing|followup
 #       e.g. bash run_queue.sh smoke
 #            bash run_queue.sh nominals --extra L000:C
 #            bash run_queue.sh es2 --es2-cells S1_2,S1_perm,...
@@ -45,7 +45,7 @@ if [ "${1:-}" = --wait ]; then
 fi
 
 PHASE=${1:?usage: run_queue.sh PHASE [args] | --wait LOG [MAX_HOURS]}; shift
-case "$PHASE" in smoke|nominals|es1|es2|kind|c1|closing) ;; *) echo "FSQ_LAUNCH refused: unknown phase $PHASE"; exit 2 ;; esac
+case "$PHASE" in smoke|nominals|es1|es2|kind|c1|closing|followup) ;; *) echo "FSQ_LAUNCH refused: unknown phase $PHASE"; exit 2 ;; esac
 for x in "$@"; do
   case "$x" in
     --dry-run|--dry-gate) echo "FSQ_LAUNCH refused: $x runs in the foreground"; exit 2 ;;

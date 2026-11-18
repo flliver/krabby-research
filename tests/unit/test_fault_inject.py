@@ -149,9 +149,9 @@ def test_every_catalog_fault_has_an_injector_kind():
 
 def test_the_catalog_is_the_charter_48_plus_2_anchors():
     n = sum(len(e["levels"]) for e in fk.FAULTS.values())
-    assert n == 48 and len(fk.FAULTS) == 23
-    sizes = {"S1": 4, "S2": 3, "S3": 2, "S4": 1, "S5": 3, "S6": 2, "S8": 2, "S10": 3, "S11": 2, "Z1": 3, "B1": 4, "B2": 2,
-             "B3": 1, "B4": 2, "B5": 1, "B6": 2, "A1": 3, "A2": 3, "A3": 1, "A4": 1, "A5": 1, "S12": 1, "D1": 1}
+    assert n == 54 and len(fk.FAULTS) == 23   # 48 + the 2026-11-18 follow-up 6
+    sizes = {"S1": 4, "S2": 5, "S3": 2, "S4": 1, "S5": 3, "S6": 2, "S8": 2, "S10": 3, "S11": 2, "Z1": 5, "B1": 4, "B2": 2,
+             "B3": 1, "B4": 2, "B5": 1, "B6": 4, "A1": 3, "A2": 3, "A3": 1, "A4": 1, "A5": 1, "S12": 1, "D1": 1}
     assert {k: len(v["levels"]) for k, v in fk.FAULTS.items()} == sizes
     assert {k for k, v in fk.FAULTS.items() if v.get("from_start")} == {"S12", "D1"}
 
@@ -159,7 +159,7 @@ def test_the_catalog_is_the_charter_48_plus_2_anchors():
 def test_cells_yaml_is_the_charter_50_and_every_fault_cell_parses_on_every_row():
     doc = _cells_doc()
     cells = doc["cells"]
-    assert len(cells) == 50 and len({c["id"] for c in cells}) == 50
+    assert len(cells) == 56 and len({c["id"] for c in cells}) == 56   # + 6 follow-up
     seen = set()
     for cell in cells:
         if not cell.get("fault"):
@@ -181,7 +181,7 @@ def test_cells_yaml_is_the_charter_50_and_every_fault_cell_parses_on_every_row()
             else:
                 assert spec["permanent"] and spec["duration_s"] is None and spec["duration_steps"] is None, cell["id"]
         seen.add(cell["fault"])
-    assert len(seen) == 48
+    assert len(seen) == 54
     catalog = {f"{fid}:{lvl}" for fid, e in fk.FAULTS.items() for lvl in e["levels"]}
     assert seen == catalog                                                          # nothing in the catalog is ungridded
     # the anchors without a knob arm nothing in this module
@@ -1988,7 +1988,7 @@ def test_the_env_set_is_exactly_what_cells_yaml_implies():
     # counts: 2 nominals (L000 with kind rows, L090 without), 50 cells x (2 rows + 2 per kind-row cell), 1 smoke x 4 rows
     kind_cells = sum(1 for c in doc["cells"] if c.get("kind_rows"))
     assert kind_cells == 7                                                          # S1/S2 perm, S3 0.2, S10/S11/Z1 perm, T12
-    assert len(expected) == (4 + 2) + (50 * 2 + kind_cells * 2) + 4 == 6 + 114 + 4 + 0
+    assert len(expected) == (4 + 2) + ((50 + 6) * 2 + kind_cells * 2) + 4 == 6 + 126 + 4 + 0   # + 6 follow-up cells
 
 
 def test_every_env_files_krabby_lines_are_base_plus_fault_lines():
@@ -2029,7 +2029,7 @@ def test_every_env_file_parses_at_launch_and_arms_exactly_its_cell():
                                    [float(x) for x in doc["rows"][row]["onset"].split(":")]), p.name
         assert spec["from_start"] == (want.split(":")[0] in ("S12", "D1")), p.name
         n_armed += 1
-    assert n_armed == 4 + (50 - 2) * 2 + sum(1 for c in doc["cells"] if c.get("kind_rows") and c.get("fault")) * 2
+    assert n_armed == 4 + (50 + 6 - 2) * 2 + sum(1 for c in doc["cells"] if c.get("kind_rows") and c.get("fault")) * 2
 
 
 def test_the_t10b_anchor_and_t12_and_l090_conventions():

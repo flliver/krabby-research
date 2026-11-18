@@ -310,3 +310,14 @@ One detached queue runner + log-sentinel watcher; serial.
   24.31 GPU-h (≈ 24.56 counting the 2 FSD diagnosis launches), cap 27. Departure: the extra nominal launches
   until both classes appear (§4, PLAN §8.5) were not run, so field_light at 0 kg and L090 have a nominal in
   one class only. The REPORT discloses it. Full read: 304 launches, 0 launch errors (results/verdicts.md, read.json).
+- 2026-11-18 amendment (user approval of REPORT §9.8, recommended subset): a **follow-up batch** of 6 C1S cells on
+  suite + field_light: S2 at 0.1 / 0.2 s, Z1 at 0.1 / 0.2 s, B6 at 2 s and permanent (S5 permanent and the
+  front-freeze kind cell not run). New catalog levels in `config/crab_hex/fault_knobs.py` (dose code unchanged:
+  durations are generic); cells flagged `followup: true` in cells.yaml, which the grid phases never plan.
+  Runs as `fault_queue.py run --phase followup --results results_followup` with its own pin, ledger and cap
+  (2.6 GPU-h); es1 on all 6, es2 on the cells whose es1 worst-row F < 0.5 (§4 rule), passed as `--es2-cells`.
+  References and launch classes are the grid's own nominals in the same slots (§5.1); a follow-up launch that
+  class-matches a grid nominal pre-onset bitwise also shows the code change is neutral. Verdict rules (§5)
+  unchanged. Note: Z1 at 0.1 s blanks one raw depth refresh (refresh every 5 steps), so the policy sees one
+  blank frame, 0.1–0.2 s after onset (§3.3). The code change moves code_sha off the grid pin; the grid's
+  results/pin.json is closed and left as it was. No separate smoke: each row still gets fault_read --check-only.

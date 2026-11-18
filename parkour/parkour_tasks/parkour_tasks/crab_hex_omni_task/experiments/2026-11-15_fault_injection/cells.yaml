@@ -110,6 +110,14 @@ cells:
   - {id: B5_perm, fault: "B5:perm", family: B5}
   - {id: B6_0p1, fault: "B6:0.1", family: B6, transient_s: 0.1}
   - {id: B6_0p5, fault: "B6:0.5", family: B6, transient_s: 0.5}
+  # ---- the 2026-11-18 follow-up (6; CHARTER §10 amendment): es1/es2 on suite + field_light only, phase
+  # ``followup`` of scripts/fault_queue.py, own results dir results_followup/ (the grid phases never plan these)
+  - {id: S2_0p1, fault: "S2:0.1", family: S2, transient_s: 0.1, followup: true}
+  - {id: S2_0p2, fault: "S2:0.2", family: S2, transient_s: 0.2, followup: true}
+  - {id: Z1_0p1, fault: "Z1:0.1", family: Z1, transient_s: 0.1, followup: true}
+  - {id: Z1_0p2, fault: "Z1:0.2", family: Z1, transient_s: 0.2, followup: true}
+  - {id: B6_2, fault: "B6:2", family: B6, transient_s: 2.0, followup: true}
+  - {id: B6_perm, fault: "B6:perm", family: B6, followup: true}
   # ---- actuator (9; left side only, "sim plant, force side not enforced")
   - {id: A1_front, fault: "A1:front", family: A1, c1: true}
   - {id: A1_mid, fault: "A1:mid", family: A1, c1: true}

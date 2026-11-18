@@ -407,6 +407,14 @@ The ledger holds 309 entries. 302 are launches with GPU time; the other 7 are bo
    - Keeping or deleting the 7 smoke STOP files is your call.
    - A merge needs main's 1 new commit (06c8f8d1) merged in, then a Task 4 relock. Push and PR are yours.
 
+**Decided 2026-11-18 (user):**
+- 9.1: riders = items 1–5, as recommended; no latency rider.
+- 9.2: riders first; an estimator head only if the acceptance rerun still falls.
+- 9.8: run the follow-up batch's S2, Z1 and B6 cells (not S5 permanent, not the front-freeze cell). This needs new knob levels and a CHARTER amendment.
+- 9.3–9.6: all four adopted as recommended (watchdog ≤ 0.1 s into a B6 hold, then sit-down; validity/age bits, VO ≤ 0.1 s and ZED < 0.5 s deadlines, VO bias < 0.1 m/s, a sit-down design; real joint pos/vel + omni obs mapping before any hardware walking; latency ≤ 20 ms, 40 ms hard limit). The 9.3/9.4 deadlines are to be resized by the 9.8 follow-up batch.
+- 9.7 (no trained fault regime now) and 9.9 (recorded locally as ee0fd065; the merge is pending): unchanged.
+
+
 ## 10. Files
 
 - `PLAN.md` (§1 outcome; §8.1 hardware list at PLAN.md:335–341), `CHARTER.md` (§5.3 verdict rule; §10 amendments at CHARTER.md:258–304), `cells.yaml`.

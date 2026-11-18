@@ -55,12 +55,12 @@ S4_SIGMA = 0.2 / math.sqrt(1000.0)
 
 LEGS = {"front": "FL", "mid": "ML", "rear": "RL"}   # LEFT side only (CHARTER §3.5)
 
-#: The catalog (CHARTER §3.3-§3.6). ``levels``: token -> (duration, params). Duration: ``("s", x)`` a transient of x
+#: The catalog (CHARTER §3.3-§3.6; S2/Z1 0.1/0.2 and B6 2/perm = the 2026-11-18 follow-up, CHARTER §10). ``levels``: token -> (duration, params). Duration: ``("s", x)`` a transient of x
 #: seconds, ``("steps", n)`` a transient of n policy steps, ``None`` permanent.
 FAULTS = {
     "S1": {"family": "sensor", "levels": {"0.1": (("s", 0.1), {}), "0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}),
                                           "perm": (None, {})}},
-    "S2": {"family": "sensor", "levels": {"0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}), "perm": (None, {})}},
+    "S2": {"family": "sensor", "levels": {"0.1": (("s", 0.1), {}), "0.2": (("s", 0.2), {}), "0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}), "perm": (None, {})}},
     "S3": {"family": "sensor", "levels": {"0.1": (None, {"bias": 0.1}), "0.2": (None, {"bias": 0.2})}},
     "S4": {"family": "sensor", "levels": {"perm": (None, {"sigma": S4_SIGMA})}},
     "S5": {"family": "sensor", "levels": {"0.1": (("s", 0.1), {}), "0.5": (("s", 0.5), {}), "2": (("s", 2.0), {})}},
@@ -68,14 +68,15 @@ FAULTS = {
     "S8": {"family": "sensor", "levels": {"zero": (None, {"mode": "zero"}), "held": (None, {"mode": "held"})}},
     "S10": {"family": "depth", "levels": {"0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}), "perm": (None, {})}},
     "S11": {"family": "depth", "levels": {"2": (("s", 2.0), {}), "perm": (None, {})}},
-    "Z1": {"family": "compound", "levels": {"0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}), "perm": (None, {})}},
+    "Z1": {"family": "compound", "levels": {"0.1": (("s", 0.1), {}), "0.2": (("s", 0.2), {}), "0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}), "perm": (None, {})}},
     "B1": {"family": "action", "levels": {"2": (("steps", 2), {}), "5": (("steps", 5), {}), "10": (("steps", 10), {}),
                                           "25": (("steps", 25), {})}},
     "B2": {"family": "action", "levels": {"0.05": (None, {"p": 0.05}), "0.2": (None, {"p": 0.2})}},
     "B3": {"family": "action", "levels": {"perm": (None, {"delays": [1, 2, 3]})}},
     "B4": {"family": "action", "levels": {"0.1": (("s", 0.1), {}), "0.5": (("s", 0.5), {})}},
     "B5": {"family": "action", "levels": {"perm": (None, {"delay": 2})}},
-    "B6": {"family": "action", "levels": {"0.1": (("s", 0.1), {}), "0.5": (("s", 0.5), {})}},
+    "B6": {"family": "action", "levels": {"0.1": (("s", 0.1), {}), "0.5": (("s", 0.5), {}), "2": (("s", 2.0), {}),
+                                          "perm": (None, {})}},
     "A1": {"family": "actuator", "levels": {k: (None, {"leg": v}) for k, v in LEGS.items()}},
     "A2": {"family": "actuator", "levels": {k: (None, {"leg": v}) for k, v in LEGS.items()}},
     "A3": {"family": "actuator", "levels": {"mid": (None, {"leg": "ML", "slew_scale": 0.3})}},

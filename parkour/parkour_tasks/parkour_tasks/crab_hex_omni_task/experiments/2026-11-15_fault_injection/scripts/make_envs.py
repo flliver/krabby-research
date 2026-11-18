@@ -115,9 +115,10 @@ def planned(doc: dict) -> dict[str, str]:
         for row in smk["rows"]:
             add(smk["id"], row, "L000", cell_lines(smk, doc["rows"][row], onset=smk["onset"]),
                 f"smoke {smk['id']} = {smk['fault']} armed, onset {smk['onset']} s")
-    n_cells = len(doc["cells"])
-    if n_cells != 50:
-        raise SystemExit(f"cells.yaml lists {n_cells} cells, the CHARTER 50")
+    n_cells = len([c for c in doc["cells"] if not c.get("followup")])
+    n_fu = len([c for c in doc["cells"] if c.get("followup")])
+    if n_cells != 50 or n_fu != 6:
+        raise SystemExit(f"cells.yaml lists {n_cells} grid + {n_fu} follow-up cells, the CHARTER 50 + 6 (2026-11-18)")
     return files
 
 
