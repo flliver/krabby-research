@@ -1,0 +1,15 @@
+{
+ "schema": "fault_queue_stop/v1",
+ "phase": "smoke",
+ "row": "FSS_C1S_S10_2_L000.smk_field_light.es1",
+ "stamp_slot": [
+  "FSS_C1S_S10_2_L000",
+  "smk_field_light__omni",
+  1
+ ],
+ "reasons": [
+  "launch error: fault_read --check-only rc=2 on /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/lr/FSS_C1S_S10_2_L000/smk_field_light__omni/seed001/2026-11-16_05-41-09 (log /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/logs/queue_rows/FSS_C1S_S10_2_L000.smk_field_light.es1.check.log)"
+ ],
+ "at": "2026-11-16T00:42:03",
+ "cleared_by": "hand only (the parent / user): delete this file to let the queue run again"
+}

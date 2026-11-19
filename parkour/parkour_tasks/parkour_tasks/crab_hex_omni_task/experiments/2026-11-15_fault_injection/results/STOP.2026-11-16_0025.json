@@ -1,0 +1,15 @@
+{
+ "schema": "fault_queue_stop/v1",
+ "phase": "smoke",
+ "row": "FSS_C1S_NOM_L000_A.smk_suite.es1",
+ "stamp_slot": [
+  "FSS_C1S_NOM_L000_A",
+  "smk_suite__omni",
+  1
+ ],
+ "reasons": [
+  "fault_read failure: fault_read --check-only rc=1 on /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/lr/FSS_C1S_NOM_L000_A/smk_suite__omni/seed001/2026-11-16_05-21-49 (log /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/logs/queue_rows/FSS_C1S_NOM_L000_A.smk_suite.es1.check.log)"
+ ],
+ "at": "2026-11-16T00:22:52",
+ "cleared_by": "hand only (the parent / user): delete this file to let the queue run again"
+}
