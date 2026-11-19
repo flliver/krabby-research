@@ -1840,6 +1840,19 @@ def apply_omni_knobs(cfg, environ=None) -> None:
     # armed, they add ``events.payload_reset``). Here, before the motion / stroke knobs and the command frame,
     # which stay the last three calls (pinned by the clock-hide and motion-knob suites) and never touch events.
     _pk.apply_payload_knobs(cfg, env)
+    # NOTE(fault-injection sweep, 2026-11-15): the eval-only fault knobs (fault_knobs.py), default off (unset writes
+    # nothing; armed, they write ``cfg.fault_inject`` and nothing else). Right after the payload (A5 checks its 90 kg
+    # event); every stress knob is refused together with a fault (the stress variables are passed in: config modules
+    # may not spell them). Path-loaded HERE, not at module scope, so ``dir(omni_knobs)`` -- the candidates driver's
+    # knob whitelist and the RT neutrality pin -- is unchanged: the sweep launches through gate_row.sh only.
+    fault_knobs = sys.modules.get("crab_hex_omni_fault_knobs")
+    if fault_knobs is None:
+        _fk_spec = importlib.util.spec_from_file_location("crab_hex_omni_fault_knobs",
+                                                          Path(__file__).resolve().parent / "fault_knobs.py")
+        fault_knobs = importlib.util.module_from_spec(_fk_spec)
+        sys.modules["crab_hex_omni_fault_knobs"] = fault_knobs
+        _fk_spec.loader.exec_module(fault_knobs)
+    fault_knobs.apply_fault_knobs(cfg, env, exclusive_with=_srk.STRESS_VARS)
     # NOTE(rough-terrain PLAN step 2, 2026-11-10): the friction contract, default off (unset writes nothing). Before
     # the stress knobs: it refuses the stress sweep's fixed-mu variable (passed in by name: config modules may not
     # spell it), so a stress mu never reaches the replaced material event.

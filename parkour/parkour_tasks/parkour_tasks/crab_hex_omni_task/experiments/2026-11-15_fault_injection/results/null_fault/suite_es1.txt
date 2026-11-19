@@ -1,0 +1,30 @@
+== S1_perm cross-class (A vs B)
+| as cell | es | ΔF worst (where) | R worst (where) | lines failed | identity | verdict |
+|---|---|---|---|---|---|---|
+| S1_perm | 1 | – () | – () | – | BROKEN | – |
+
+== S1_perm same-class (never2 vs B)
+| as cell | es | ΔF worst (where) | R worst (where) | lines failed | identity | verdict |
+|---|---|---|---|---|---|---|
+| S1_perm | 1 | – () | – () | – | ok | – |
+
+== S1_2 cross-class (A vs B)
+| as cell | es | ΔF worst (where) | R worst (where) | lines failed | identity | verdict |
+|---|---|---|---|---|---|---|
+| S1_2 | 1 | – () | – () | – | BROKEN | – |
+
+== S1_2 same-class (never2 vs B)
+| as cell | es | ΔF worst (where) | R worst (where) | lines failed | identity | verdict |
+|---|---|---|---|---|---|---|
+| S1_2 | 1 | – () | – () | – | ok | – |
+
+== B1_25 cross-class (A vs B)
+| as cell | es | ΔF worst (where) | R worst (where) | lines failed | identity | verdict |
+|---|---|---|---|---|---|---|
+| B1_25 | 1 | – () | – () | – | BROKEN | – |
+
+== B1_25 same-class (never2 vs B)
+| as cell | es | ΔF worst (where) | R worst (where) | lines failed | identity | verdict |
+|---|---|---|---|---|---|---|
+| B1_25 | 1 | – () | – () | – | ok | – |
+

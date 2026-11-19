@@ -1,0 +1,5 @@
+DUMPCHECK suite identical=True
+DUMPCHECK field_light identical=True
+DUMPCHECK kind identical=True
+DUMPCHECK L090_suite identical=True
+DUMPCHECK END all_identical=True

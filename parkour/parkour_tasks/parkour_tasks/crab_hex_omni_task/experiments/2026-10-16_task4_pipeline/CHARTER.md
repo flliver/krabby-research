@@ -978,3 +978,11 @@ then run a fresh seed (F19) end to end. This is grant M18 Task 4.
         float64.
       - All 12 differing rows come from the distance line; the edge-length line alone moves no row here.
       - Its comment and complex-input nits are applied.
+- 2026-11-19 relock for the fault-injection-sweep merge (the user's "merge, relock, ... draft a PR"): origin/main
+  16162c09 merged into feat/fault-injection-sweep at 31f9abe5 (main's new commits touch no parkour path).
+  `pipeline.py lock` on the clean merged tree: code_sha 89c1916b -> 9376f6b1, eval_sha cd5ae167 -> 29668608,
+  tools_sha and the 348 locked files unchanged; `check` clean. The moves are the branch's fault-injection hooks
+  (crab_hex_forward_task/mdp/fault_inject.py, observations.py, parkour_actions.py, scripts/eval_crab_hex_gait.py;
+  omni fault_knobs.py, omni_knobs.py, crab_hex_omni_observations.py), all inert unless KRABBY_FAULT is set. The
+  sweep's grid ran at these shas' predecessors and its follow-up at 9376f6b1 / 29668608 (fault sweep CHARTER §10).
+  R18 / F19 / rough-terrain stamps keep their own shas; no re-read.

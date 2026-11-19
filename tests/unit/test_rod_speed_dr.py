@@ -775,9 +775,30 @@ def test_knob_off_reset_is_bitwise_the_pre_change_reset():
         assert torch.equal(after_new, torch.rand(4)), "the knob-off reset consumed a different number of draws"
 
 
+class _StripFaultHooks(ast.NodeTransformer):
+    """The fault-injection sweep's hooks (2026-11-15, DEFAULT OFF) removed: every ``fault = getattr(self, "_fault",
+    None)`` guard and every ``if fault is not None:`` block (no else) -- what is left is the knob-off path, which must
+    still be the pre-change commit's."""
+
+    def generic_visit(self, node):
+        for field_name in ("body", "orelse", "finalbody"):
+            stmts = getattr(node, field_name, None)
+            if isinstance(stmts, list) and stmts and isinstance(stmts[0], ast.stmt):
+                setattr(node, field_name, [self.visit(s) for s in stmts if not self._is_hook(s)])
+        return node
+
+    @staticmethod
+    def _is_hook(s) -> bool:
+        guard = ast.unparse(ast.parse('fault = getattr(self, "_fault", None)'))
+        if isinstance(s, ast.Assign) and ast.unparse(s) == guard:
+            return True
+        return isinstance(s, ast.If) and ast.unparse(s.test) == "fault is not None" and not s.orelse
+
+
 def _method_dump(src: str, name: str) -> str:
     cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == "CrabHexDelayedJointPositionAction")
-    return ast.dump(next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name))
+    fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name)
+    return ast.dump(_StripFaultHooks().visit(fn))
 
 
 @pytest.mark.parametrize("name", ["_apply_pitch_linkage", "process_actions", "apply_actions", "_clip_raw_actions"])

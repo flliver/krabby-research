@@ -1,0 +1,15 @@
+{
+ "schema": "fault_queue_stop/v1",
+ "phase": "smoke",
+ "row": "FS_C1S_SMK_never_L000.rt_pits_b2.es1",
+ "stamp_slot": [
+  "FS_C1S_SMK_never_L000",
+  "rt_pits_b2__omni",
+  1
+ ],
+ "reasons": [
+  "launch error: fault_read --check-only rc=2 on /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/lr/FS_C1S_SMK_never_L000/rt_pits_b2__omni/seed001/2026-11-16_05-14-39 (log /home/nickmagus/krabby/krabby-research/parkour/outputs/fault_sweep/logs/queue_rows/FS_C1S_SMK_never_L000.rt_pits_b2.es1.check.log)"
+ ],
+ "at": "2026-11-16T00:18:26",
+ "cleared_by": "hand only (the parent / user): delete this file to let the queue run again"
+}

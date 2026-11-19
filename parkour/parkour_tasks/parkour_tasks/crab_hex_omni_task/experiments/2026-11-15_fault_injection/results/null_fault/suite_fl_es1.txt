@@ -1,0 +1,20 @@
+== S1_perm same-class suite(never2 vs B) + field_light(never vs A)
+| S1_perm | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | ok | TOLERATED |
+== S1_perm cross-class suite(A vs B) + field_light(never vs A)
+| S1_perm | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | BROKEN | TOLERATED |
+== S1_2 same-class suite(never2 vs B) + field_light(never vs A)
+| S1_2 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | ok | TOLERATED |
+== S1_2 cross-class suite(A vs B) + field_light(never vs A)
+| S1_2 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | BROKEN | TOLERATED |
+== S10_2 same-class suite(never2 vs B) + field_light(never vs A)
+| S10_2 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | ok | TOLERATED |
+== S10_2 cross-class suite(A vs B) + field_light(never vs A)
+| S10_2 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | BROKEN | TOLERATED |
+== B1_25 same-class suite(never2 vs B) + field_light(never vs A)
+| B1_25 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | ok | TOLERATED |
+== B1_25 cross-class suite(A vs B) + field_light(never vs A)
+| B1_25 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | BROKEN | TOLERATED |
+== B4_0p5 same-class suite(never2 vs B) + field_light(never vs A)
+| B4_0p5 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | ok | TOLERATED |
+== B4_0p5 cross-class suite(A vs B) + field_light(never vs A)
+| B4_0p5 | 1 | 0.000 (wave0:stand) | 1.000 (field_light) | – | BROKEN | TOLERATED |
