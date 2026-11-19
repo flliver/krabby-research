@@ -12,6 +12,8 @@ carries three flows for the life of the process:
 3. Teleop signaling: `teleop/{thing}/signaling/in|out` bridged by
    ``krabby.teleop_shim`` to a localhost WebSocket that the existing WebRTC
    edge agent dials (``--teleop-ip 127.0.0.1``). SDP/ICE JSON shape is unchanged.
+4. Bags offload: background worker uploading closed rosbag segments to S3 via
+   the IoT credential provider (pauses while the teleop edge WS is connected).
 
 No flags — everything needed (thing name, endpoint, cert paths) comes from
 what `krabby enroll` already wrote to `_iot.IOT_DIR`.
@@ -202,6 +204,14 @@ def cmd_agent() -> None:
         connection, shadow_client, thing_name, teleop_shim, resubscribe=False
     )
 
+    from krabby.offload import BagsOffloadWorker, load_offload_config
+
+    offload_worker = BagsOffloadWorker(
+        load_offload_config(),
+        teleop_busy=teleop_shim.robot_edge_connected,
+    )
+    offload_worker.start()
+
     print(f"      reporting shadow state every {SHADOW_REPORT_INTERVAL_SECS}s. Ctrl-C to stop.")
     try:
         while True:
@@ -211,6 +221,7 @@ def cmd_agent() -> None:
     except KeyboardInterrupt:
         print("\n[ok]  shutting down")
     finally:
+        offload_worker.stop()
         teleop_shim.stop()
         for proc in _tunnel_procs:
             if proc.poll() is None:

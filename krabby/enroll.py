@@ -110,6 +110,49 @@ def _resolve_ats_endpoint(iot_client) -> str:
     return resp["endpointAddress"]
 
 
+def _resolve_credential_endpoint(iot_client) -> str:
+    resp = iot_client.describe_endpoint(endpointType="iot:CredentialProvider")
+    return resp["endpointAddress"]
+
+
+def _resolve_bags_bucket_from_cfn() -> str | None:
+    """Best-effort: read KrabBagsBucketName export after ControlPlane deploy."""
+    try:
+        import boto3
+
+        cfn = boto3.client("cloudformation")
+        token: str | None = None
+        while True:
+            kwargs = {}
+            if token:
+                kwargs["NextToken"] = token
+            resp = cfn.list_exports(**kwargs)
+            for item in resp.get("Exports") or []:
+                if item.get("Name") == "KrabBagsBucketName":
+                    return str(item["Value"])
+            token = resp.get("NextToken")
+            if not token:
+                break
+    except Exception as exc:
+        print(f"[!]   could not resolve KrabBagsBucketName export: {exc}")
+    return None
+
+
+def _ensure_bags_host_dir() -> None:
+    """Create the host bags directory while enroll still runs as root."""
+    from krabby._locomotion_config import DEFAULT_BAGS_HOST_DIR
+
+    path = Path(DEFAULT_BAGS_HOST_DIR)
+    path.mkdir(parents=True, exist_ok=True)
+    # Kit user / docker need to write bags; keep traversable and writable by others
+    # on a single-user Orin (same pattern as other /var/krabby paths).
+    try:
+        path.chmod(0o755)
+    except OSError:
+        pass
+    print(f"[+]   bags host dir {path}")
+
+
 def _generate_keypair_and_csr(thing_name: str) -> tuple[bytes, bytes]:
     """RSA-2048 keypair + CSR, generated locally. The private key is returned
     only to be written straight to disk by the caller — it is never sent
@@ -208,6 +251,13 @@ def cmd_enroll(
 
     resolved_endpoint = endpoint or _resolve_ats_endpoint(iot_client)
     print(f"[ok]  ATS endpoint: {resolved_endpoint}")
+    credential_endpoint = _resolve_credential_endpoint(iot_client)
+    print(f"[ok]  credential-provider endpoint: {credential_endpoint}")
+    bags_bucket = _resolve_bags_bucket_from_cfn()
+    if bags_bucket:
+        print(f"[ok]  bags bucket: {bags_bucket}")
+    else:
+        print("[!]   bags bucket export not found — set bags_bucket in iot config after deploy")
 
     key_pem, csr_pem = _generate_keypair_and_csr(thing)
     cert_arn, cert_pem = _create_cert_from_csr(iot_client, csr_pem)
@@ -216,7 +266,18 @@ def cmd_enroll(
     print("      fetching Amazon Root CA ...")
     root_ca_pem = _iot.fetch_amazon_root_ca()
 
-    _iot.write_identity(thing, resolved_endpoint, cert_pem, key_pem, root_ca_pem)
+    from krabby.offload import KRAB_BAGS_ROLE_ALIAS
+
+    _iot.write_identity(
+        thing,
+        resolved_endpoint,
+        cert_pem,
+        key_pem,
+        root_ca_pem,
+        credential_endpoint=credential_endpoint,
+        bags_bucket=bags_bucket,
+        bags_role_alias=KRAB_BAGS_ROLE_ALIAS,
+    )
     print(f"[+]   wrote device identity to {_iot.IOT_DIR}")
 
     from krabby._host import _ensure_boot_service
@@ -229,6 +290,7 @@ def cmd_enroll(
         checkpoint_host_dir=locomotion_checkpoint_host_dir,
         teleop_control_echo=locomotion_teleop_control_echo or None,
     )
+    _ensure_bags_host_dir()
 
     ok = _ensure_localproxy_installed()
     ok &= _iot.ensure_agent_service()

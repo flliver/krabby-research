@@ -1,9 +1,9 @@
-# Reuse STM32CubeMX HAL + startup from hardware/PCB-v0.3/Firmware (OpenBLT linker layout).
+# Reuse STM32CubeMX HAL + startup from firmware/stm/uno-v0.3 (OpenBLT linker layout).
 # KRABBY_HW_FIRMWARE defaults there via Makefile / gcc-arm-none-eabi.cmake — update all three
 # if the CubeMX tree moves or is copied under firmware/stm/.
 
 if(NOT KRABBY_HW_FIRMWARE)
-    message(FATAL_ERROR "KRABBY_HW_FIRMWARE must point at hardware/PCB-v0.3/Firmware")
+    message(FATAL_ERROR "KRABBY_HW_FIRMWARE must point at firmware/stm/uno-v0.3")
 endif()
 
 set(_HW "${KRABBY_HW_FIRMWARE}")

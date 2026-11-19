@@ -1,6 +1,6 @@
 # Flash over CAN (OpenBLT)
 
-Leg-board programming uses **OpenBLT** on CAN-FD (see `hardware/PCB-v0.3/Firmware/` for the shipped bootloader layout). Flash traffic is **not** defined in **`krabby.dbc`**; host **`krabby-firmware --stm update`** is not implemented yet.
+Leg-board programming uses **OpenBLT** on CAN-FD (see `firmware/stm/uno-v0.3/` for the shipped bootloader layout). Flash traffic is **not** defined in **`krabby.dbc`**; host **`krabby-firmware --stm update`** is not implemented yet.
 
 ## Purpose
 
@@ -17,7 +17,7 @@ In-field programming of leg-board **application** firmware over CAN-FD using **O
 
 - **Scope:** normal **`update`** flashes **application** only. **`leg_bootloader.elf`** is for factory/recovery (separate CLI flag **`--bootloader`**, manufacturing use); not run on every fleet OTA.
 - **Dual artifact CI:** each release branch build publishes **`leg_app.elf`**, **`leg_bootloader.elf`**, **`leg_app_sha256`**, **`leg_boot_elf_sha256`** via `firmware/manifest.py` and `publish-firmware.yml`.
-- **Memory model (linker scripts in `firmware/stm/` must match the OpenBLT layout in `hardware/PCB-v0.3/Firmware/`):**
+- **Memory model (linker scripts in `firmware/stm/` must match the OpenBLT layout in `firmware/stm/uno-v0.3/`):**
 
 | Region | Flash start | Size | Erased on app OTA |
 |--------|-------------|------|-------------------|

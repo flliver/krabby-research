@@ -13,11 +13,8 @@ WORKDIR /workspace
 
 # Install system dependencies
 #
-# GStreamer: only tools + base/good/ugly here—enough for CLI checks and generic elements. We do NOT
-# install gir1.2-gstreamer-1.0, libgirepository1.0-dev, etc.: this image has no pip PyGObject (see
-# images/locomotion/requirements.txt) and does not run hal gstreamer_runtime pytest; in-process Gst
-# validation lives in krabby-testing-x86 / krabby-isaacsim. On Jetson, hardware encode/decode uses
-# JetPack plugins (e.g. nvv4l2h264enc) and the ZED SDK stack, not the same Ubuntu GI dev chain as sim/CI.
+# GStreamer + GI typelibs so the data collector can H.265-encode via in-process appsrc
+# (PyGObject in requirements.txt). JetPack still supplies nvv4l2h265enc when present.
 RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-dev \
@@ -30,6 +27,15 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav \
+    gir1.2-gstreamer-1.0 \
+    gir1.2-gst-plugins-base-1.0 \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-base1.0-dev \
+    libgirepository1.0-dev \
+    libglib2.0-dev \
+    pkg-config \
+    gobject-introspection \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ZED SDK

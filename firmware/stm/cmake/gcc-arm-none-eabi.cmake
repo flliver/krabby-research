@@ -1,4 +1,4 @@
-# Toolchain for STM32G474 leg firmware (same CPU/FPU flags as hardware/PCB-v0.3/Firmware).
+# Toolchain for STM32G474 leg firmware (same CPU/FPU flags as firmware/stm/uno-v0.3).
 
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR arm)
@@ -30,7 +30,7 @@ set(CMAKE_C_FLAGS_RELEASE "-Os -g0")
 
 if(NOT KRABBY_HW_FIRMWARE)
     get_filename_component(KRABBY_HW_FIRMWARE
-        "${CMAKE_CURRENT_LIST_DIR}/../../../hardware/PCB-v0.3/Firmware" ABSOLUTE)
+        "${CMAKE_CURRENT_LIST_DIR}/../uno-v0.3" ABSOLUTE)
     set(KRABBY_HW_FIRMWARE "${KRABBY_HW_FIRMWARE}" CACHE PATH
         "Reference CubeMX tree (linker + startup + HAL)")
 endif()

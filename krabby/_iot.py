@@ -39,14 +39,31 @@ def fetch_amazon_root_ca() -> bytes:
         return resp.read()
 
 
-def write_identity(thing_name: str, endpoint: str, cert_pem: bytes, key_pem: bytes, root_ca_pem: bytes) -> None:
+def write_identity(
+    thing_name: str,
+    endpoint: str,
+    cert_pem: bytes,
+    key_pem: bytes,
+    root_ca_pem: bytes,
+    *,
+    credential_endpoint: str | None = None,
+    bags_bucket: str | None = None,
+    bags_role_alias: str | None = None,
+) -> None:
     """Persist device identity to IOT_DIR. Called once, by `krabby enroll`."""
     IOT_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(IOT_DIR, 0o700)
 
     CERT_PATH.write_bytes(cert_pem)
     ROOT_CA_PATH.write_bytes(root_ca_pem)
-    CONFIG_PATH.write_text(json.dumps({"thing_name": thing_name, "endpoint": endpoint}, indent=2))
+    cfg: dict = {"thing_name": thing_name, "endpoint": endpoint}
+    if credential_endpoint:
+        cfg["credential_endpoint"] = credential_endpoint
+    if bags_bucket:
+        cfg["bags_bucket"] = bags_bucket
+    if bags_role_alias:
+        cfg["bags_role_alias"] = bags_role_alias
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n")
 
     # Private key never leaves the device and is never world/group readable.
     KEY_PATH.write_bytes(key_pem)

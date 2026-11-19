@@ -30,6 +30,7 @@ def _cfg(tmp: Path) -> DataCollectorConfig:
         hal=HalEndpoints("inproc://a", "inproc://b"),
         output_dir=tmp / "out",
         topics=TopicEnable(),
+        camera_encode="raw",
     )
 
 
@@ -40,6 +41,7 @@ def test_topic_msgtype_catalog_respects_flags() -> None:
         topics=TopicEnable(
             joints_state=False, joints_command=False, imu=False, base_twist=False
         ),
+        camera_encode="raw",
     )
     pairs = _topic_msgtype_catalog(cfg)
     topics = {p[0] for p in pairs}
@@ -48,10 +50,27 @@ def test_topic_msgtype_catalog_respects_flags() -> None:
     assert catalog_camera_topic("front_rgbd", "rgb") in topics
 
 
+def test_topic_msgtype_catalog_h265_suffix() -> None:
+    cfg = DataCollectorConfig(
+        hal=HalEndpoints("x", "y"),
+        output_dir=Path("/tmp/z"),
+        topics=TopicEnable(
+            joints_state=False, joints_command=False, imu=False, base_twist=False
+        ),
+        camera_encode="h265",
+    )
+    pairs = _topic_msgtype_catalog(cfg)
+    topics = {p[0] for p in pairs}
+    assert catalog_camera_topic("front_rgbd", "rgb_h265") in topics
+    assert catalog_camera_topic("belly_left_tof", "depth_h265") in topics
+    assert catalog_camera_topic("belly_left_tof", "rgb_h265") not in topics
+
+
 def test_topic_msgtype_catalog_includes_proprioception() -> None:
     cfg = DataCollectorConfig(
         hal=HalEndpoints("x", "y"),
         output_dir=Path("/tmp/z"),
+        camera_encode="raw",
     )
     pairs = _topic_msgtype_catalog(cfg)
     topics = {p[0] for p in pairs}
@@ -73,7 +92,7 @@ def test_hal_data_collector_run_no_bag_exits(tmp_path: Path) -> None:
 def test_hal_data_collector_run_writes_via_mock(tmp_path: Path) -> None:
     ctx = zmq.Context()
     cfg = _cfg(tmp_path)
-    cfg.rates.images_hz = 1000.0
+    cfg.rates.default_images_hz = 1000.0
     cfg.rates.joints_imu_hz = 1000.0
     coll = HalDataCollector(cfg, ctx)
 
@@ -120,7 +139,7 @@ def test_hal_data_collector_close_bag_oserror_logged(tmp_path: Path, caplog: pyt
 def test_hal_data_collector_run_oserror_stops_loop(tmp_path: Path) -> None:
     ctx = zmq.Context()
     cfg = _cfg(tmp_path)
-    cfg.rates.images_hz = 1000.0
+    cfg.rates.default_images_hz = 1000.0
     cfg.rates.joints_imu_hz = 1000.0
     coll = HalDataCollector(cfg, ctx)
 

@@ -18,6 +18,7 @@ This document is a short checklist for publishing **krabby‑*** packages to PyP
 | `hal-server-isaac-v*` | krabby-hal-server-isaac |
 | `hal-server-jetson-v*` | krabby-hal-server-jetson |
 | `teleop-edge-v*` | krabby-teleop-edge |
+| `data-collection-v*` | krabby-data-collection |
 | `bench-v*` | krabby-bench |
 
 > **Note:** More specific patterns override generic ones. For example, `hal-server-isaac-v0.1.0` → `krabby-hal-server-isaac`, not `krabby-hal-server`.
@@ -55,7 +56,7 @@ This document is a short checklist for publishing **krabby‑*** packages to PyP
 - **Publish in dependency order** so dependents can install from PyPI:
   1. `hal-client-v*`, `hal-server-v*`, `firmware-v*`, `krabby-v*`, `bench-v*` (no internal deps)
   2. `compute-parkour-v*`, `controller-v*`, `hal-tools-v*`
-  3. `hal-server-isaac-v*`, `hal-server-jetson-v*`, `teleop-edge-v*` (required in the locomotion image for fleet `--teleop-ip`)
+  3. `hal-server-isaac-v*`, `hal-server-jetson-v*`, `teleop-edge-v*`, `data-collection-v*` (fleet teleop + rosbag recording in the locomotion image)
 
 ### Before you push a tag (docs and pins)
 
@@ -125,7 +126,7 @@ This mirrors the workflow’s build and test steps only; it does not upload to P
 
 - Reserve each name on PyPI so no one else can use it.
 - Either create a minimal release (e.g. push a tag and let CI publish) or use the PyPI web UI to create the project.
-- Package names to reserve: `krabby-launcher`, `krabby-firmware`, `krabby-hal-client`, `krabby-hal-server`, `krabby-compute-parkour`, `krabby-controller`, `krabby-hal-tools`, `krabby-hal-server-isaac`, `krabby-hal-server-jetson`, `krabby-bench`.
+- Package names to reserve: `krabby-launcher`, `krabby-firmware`, `krabby-hal-client`, `krabby-hal-server`, `krabby-compute-parkour`, `krabby-controller`, `krabby-hal-tools`, `krabby-hal-server-isaac`, `krabby-hal-server-jetson`, `krabby-teleop-edge`, `krabby-data-collection`, `krabby-bench`.
 
 ---
 

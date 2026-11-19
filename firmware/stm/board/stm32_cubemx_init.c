@@ -1,4 +1,4 @@
-/* CubeMX peripheral inits from hardware/PCB-v0.3/Firmware/Src/main.c (regenerate if .ioc changes). */
+/* CubeMX peripheral inits from firmware/stm/uno-v0.3/Src/main.c (regenerate if .ioc changes). */
 #include "stm32_cubemx_init.h"
 #include "main.h"
 #include "stm32_bringup.h"

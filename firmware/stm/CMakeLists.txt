@@ -50,7 +50,7 @@ endif()
 if(KRABBY_STM_BUILD_FIRMWARE)
     if(CMAKE_CROSSCOMPILING)
         if(NOT KRABBY_HW_FIRMWARE)
-            set(KRABBY_HW_FIRMWARE "${CMAKE_CURRENT_SOURCE_DIR}/../../hardware/PCB-v0.3/Firmware" CACHE PATH
+            set(KRABBY_HW_FIRMWARE "${CMAKE_CURRENT_SOURCE_DIR}/uno-v0.3" CACHE PATH
                 "Reference CubeMX tree (linker + startup + HAL)")
         endif()
         include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cubemx_from_hw.cmake)

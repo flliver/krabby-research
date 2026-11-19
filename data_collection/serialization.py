@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional
 
 import numpy as np
 
 if TYPE_CHECKING:
     from rosbags.typesys.store import Typestore
 
-    from data_collection.config import TopicEnable
+    from data_collection.config import CameraEncodeMode, TopicEnable
+    from data_collection.h265_encode import H265FrameEncoder
     from hal.client.data_structures.hardware import HardwareObservations
 
 IMAGE_MSGTYPE = "sensor_msgs/msg/Image"
+COMPRESSED_IMAGE_MSGTYPE = "sensor_msgs/msg/CompressedImage"
 
 JOINTS_STATE_TOPIC = "/joints/state"
 JOINTS_COMMAND_TOPIC = "/joints/command"
@@ -22,6 +24,8 @@ IMU_MSGTYPE = "sensor_msgs/msg/Imu"
 
 BASE_TWIST_TOPIC = "/base/twist"
 BASE_TWIST_MSGTYPE = "geometry_msgs/msg/TwistStamped"
+
+_CAMERA_MSGTYPES = frozenset({IMAGE_MSGTYPE, COMPRESSED_IMAGE_MSGTYPE})
 
 
 def _split_stamp(ns: int) -> tuple[int, int]:
@@ -95,6 +99,44 @@ def serialize_image_depth_32fc1(
         data=np.frombuffer(data, dtype=np.uint8),
     )
     return ts.serialize_cdr(msg, "sensor_msgs/msg/Image")
+
+
+def hevc_format_string(*, depth_range_m: tuple[float, float] | None = None) -> str:
+    """CompressedImage.format for HEVC payloads (optional depth quantization range)."""
+    if depth_range_m is None:
+        return "hevc"
+    lo, hi = float(depth_range_m[0]), float(depth_range_m[1])
+    return f"hevc; range={lo:g},{hi:g}"
+
+
+def parse_hevc_format(fmt: str) -> tuple[str, tuple[float, float] | None]:
+    """Parse ``hevc`` or ``hevc; range=lo,hi`` → (codec, optional range)."""
+    parts = [p.strip() for p in str(fmt).split(";")]
+    codec = parts[0].lower() if parts else ""
+    rng: tuple[float, float] | None = None
+    for part in parts[1:]:
+        if part.lower().startswith("range="):
+            body = part.split("=", 1)[1].strip()
+            lo_s, hi_s = body.split(",", 1)
+            rng = (float(lo_s), float(hi_s))
+    return codec, rng
+
+
+def serialize_compressed_image(
+    ts: "Typestore",
+    stamp_ns: int,
+    frame_id: str,
+    data: bytes,
+    *,
+    format: str,
+) -> bytes:
+    Comp = ts.types[COMPRESSED_IMAGE_MSGTYPE]
+    msg = Comp(
+        header=_header(ts, stamp_ns, frame_id),
+        format=str(format),
+        data=np.frombuffer(data, dtype=np.uint8),
+    )
+    return ts.serialize_cdr(msg, COMPRESSED_IMAGE_MSGTYPE)
 
 
 def serialize_joint_state(
@@ -171,8 +213,14 @@ def serialize_base_twist_stamped(
 
 
 def catalog_camera_topic(catalog_id: str, stream: str) -> str:
-    """ROS topic for one catalog sensor channel (``stream`` is a channel name, e.g. ``rgb``)."""
+    """ROS topic for one catalog sensor channel (``stream`` is e.g. ``rgb`` or ``depth_h265``)."""
     return f"/camera/{catalog_id}/{stream}"
+
+
+def recording_stream_name(channel: str, camera_encode: "CameraEncodeMode") -> str:
+    if camera_encode == "h265":
+        return f"{channel}_h265"
+    return channel
 
 
 def catalog_camera_topic_msgtypes(
@@ -181,6 +229,8 @@ def catalog_camera_topic_msgtypes(
         | list[str]
         | dict[str, tuple[str, ...] | list[str]]
     ),
+    *,
+    camera_encode: "CameraEncodeMode" = "h265",
 ) -> list[tuple[str, str]]:
     """(topic, msgtype) pairs for pre-registering catalog camera channels in rosbag2.
 
@@ -192,8 +242,12 @@ def catalog_camera_topic_msgtypes(
         items = catalog_channels.items()
     else:
         items = ((cid, ("rgb", "depth")) for cid in catalog_channels)
+    msgtype = COMPRESSED_IMAGE_MSGTYPE if camera_encode == "h265" else IMAGE_MSGTYPE
     return [
-        (catalog_camera_topic(cid, stream), IMAGE_MSGTYPE)
+        (
+            catalog_camera_topic(cid, recording_stream_name(stream, camera_encode)),
+            msgtype,
+        )
         for cid, streams in items
         for stream in streams
     ]
@@ -201,6 +255,10 @@ def catalog_camera_topic_msgtypes(
 
 def is_catalog_camera_topic(topic: str) -> bool:
     return topic.startswith("/camera/") and topic.count("/") == 3
+
+
+def is_catalog_camera_msgtype(msgtype: str) -> bool:
+    return msgtype in _CAMERA_MSGTYPES
 
 
 def _serialize_channel_image(
@@ -220,11 +278,50 @@ def _serialize_channel_image(
     raise ValueError(f"unsupported catalog camera channel {channel!r} for topic {topic}")
 
 
+def _serialize_channel_h265(
+    ts: "Typestore",
+    stamp_ns: int,
+    topic: str,
+    catalog_id: str,
+    channel: str,
+    arr: "np.ndarray",
+    encoder: "H265FrameEncoder",
+    fps: float,
+) -> bytes:
+    from data_collection.depth_quant import (
+        depth_quant_range_for_catalog_id,
+        float32_depth_to_gray8,
+    )
+
+    fps_i = max(1, int(round(fps)))
+    stream_id = f"{catalog_id}/{channel}"
+    if channel == "depth":
+        lo, hi = depth_quant_range_for_catalog_id(catalog_id)
+        gray = float32_depth_to_gray8(arr, lo, hi)
+        payload = encoder.encode_gray8(gray, stream_id=stream_id, fps=fps_i)
+        fmt = hevc_format_string(depth_range_m=(lo, hi))
+    elif channel == "rgb":
+        if arr.ndim == 2:
+            # Mono → expand to RGB for the RGB encoder path.
+            rgb = np.stack([arr, arr, arr], axis=-1).astype(np.uint8, copy=False)
+        else:
+            rgb = np.ascontiguousarray(arr, dtype=np.uint8)
+        payload = encoder.encode_rgb(rgb, stream_id=stream_id, fps=fps_i)
+        fmt = hevc_format_string()
+    else:
+        raise ValueError(f"unsupported catalog camera channel {channel!r} for topic {topic}")
+    return serialize_compressed_image(ts, stamp_ns, topic, payload, format=fmt)
+
+
 def observation_to_writes(
     ts: "Typestore",
     obs: "HardwareObservations",
     topics: "TopicEnable",
     joint_names: tuple[str, ...],
+    *,
+    camera_encode: "CameraEncodeMode" = "h265",
+    h265_encoder: Optional["H265FrameEncoder"] = None,
+    images_hz_for: Optional[Callable[[str], float]] = None,
 ) -> list[tuple[str, str, bytes]]:
     """Return list of (topic_name, msg_type, cdr_bytes) for this observation."""
     from hal.client.data_structures.hardware import HardwareObservations
@@ -237,14 +334,23 @@ def observation_to_writes(
     rgbd = obs.rgbd_by_catalog_id or {}
     for cid in sorted(rgbd.keys()):
         entry = rgbd[cid]
-        # Use the ROS topic as frame_id so MCAP/Foxglove stream names match playback topics
-        # (``camera_{id}`` caused viewers to infer ``/camera/front/rgb`` from ``front_rgbd``).
+        hz = float(images_hz_for(cid)) if images_hz_for is not None else 10.0
+        # Use the ROS topic as frame_id so MCAP/Foxglove stream names match playback topics.
         for channel in sorted(entry.channels.keys()):
-            topic = catalog_camera_topic(cid, channel)
-            payload = _serialize_channel_image(
-                ts, t, topic, channel, entry.channels[channel]
-            )
-            out.append((topic, IMAGE_MSGTYPE, payload))
+            stream = recording_stream_name(channel, camera_encode)
+            topic = catalog_camera_topic(cid, stream)
+            if camera_encode == "h265":
+                if h265_encoder is None:
+                    raise ValueError("h265_encoder is required when camera_encode='h265'")
+                payload = _serialize_channel_h265(
+                    ts, t, topic, cid, channel, entry.channels[channel], h265_encoder, hz
+                )
+                out.append((topic, COMPRESSED_IMAGE_MSGTYPE, payload))
+            else:
+                payload = _serialize_channel_image(
+                    ts, t, topic, channel, entry.channels[channel]
+                )
+                out.append((topic, IMAGE_MSGTYPE, payload))
 
     if topics.joints_state:
         out.append(

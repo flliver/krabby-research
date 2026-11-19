@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Produce **`krabby_leg_app.elf`** for STM32G474 leg boards using **`firmware/stm`** plus the reference CubeMX project under **`hardware/PCB-v0.3/Firmware/`**.
+Produce **`krabby_leg_app.elf`** for STM32G474 leg boards using **`firmware/stm`** plus the reference CubeMX project under **`firmware/stm/uno-v0.3/`**.
 
 ## What you need
 
@@ -10,10 +10,10 @@ Produce **`krabby_leg_app.elf`** for STM32G474 leg boards using **`firmware/stm`
 |------|--------|
 | **CMake** | ≥ 3.22 (same as `firmware/Makefile`) |
 | **ARM GNU toolchain** | `arm-none-eabi-gcc`, `arm-none-eabi-g++`, `arm-none-eabi-objcopy` on **`PATH`** |
-| **Repo paths** | `hardware/PCB-v0.3/Firmware/` present (linker, startup, HAL sources) |
+| **Repo paths** | `firmware/stm/uno-v0.3/` present (linker, startup, HAL sources) |
 | **Generated DBC C** | `firmware/stm/dbc/generated/` — run `make -C firmware stm-dbc` if missing |
 
-Ninja is **not** required for `make -C firmware stm-build` (default CMake generator is fine). Full builds inside **`hardware/PCB-v0.3/Firmware/`** may use Ninja; see that tree’s README.
+Ninja is **not** required for `make -C firmware stm-build` (default CMake generator is fine). Full builds inside **`firmware/stm/uno-v0.3/`** may use Ninja; see that tree’s README.
 
 Reference firmware was audited with **ST GNU 14.3.1+st.2**; other recent **arm-none-eabi** GCC 12–14 builds are usually fine.
 
@@ -70,5 +70,5 @@ arm-none-eabi-size firmware/build/stm-leg/krabby_leg_app.elf
 | Topic | Path |
 |--------|------|
 | OpenBLT / flash layout | [FLASH.md](./FLASH.md), `firmware/stm/bootloader/README.md` |
-| Reference motor/bootloader builds | `hardware/PCB-v0.3/Firmware/README.md` |
+| Reference motor/bootloader builds | `firmware/stm/uno-v0.3/README.md` |
 | Board port stubs | `firmware/stm/board/README.md` |

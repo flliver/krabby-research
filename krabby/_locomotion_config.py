@@ -45,6 +45,10 @@ def _config_home() -> Path:
     return Path.home()
 
 
+DEFAULT_BAGS_HOST_DIR = Path("/var/krabby/bags")
+DEFAULT_BAGS_CONTAINER_DIR = "/data/krabby_bags"
+
+
 def default_config() -> dict[str, Any]:
     return {
         "control_source": "portal",
@@ -56,6 +60,11 @@ def default_config() -> dict[str, Any]:
         "zed_resources_host": None,
         "zed_settings_host": None,
         "stm": False,
+        # When true, HAL records to DEFAULT_BAGS_CONTAINER_DIR (host bags mount below).
+        "data_collector": False,
+        "bags_host_dir": str(DEFAULT_BAGS_HOST_DIR),
+        # Host-side agent offloader (separate from in-container collector).
+        "bags_offload": False,
     }
 
 
@@ -163,7 +172,19 @@ def build_hal_argv(extra_args: list[str]) -> list[str]:
     if _has_flag(extra_args, stm_flag) or bool(cfg.get("stm")):
         argv.append(stm_flag)
 
-    skip = {"--control-source", "--robot", "--checkpoint", "--teleop-ip", echo_flag, stm_flag}
+    collector_flag = "--data-collector-output-dir"
+    if _opt_value(extra_args, collector_flag) is None and bool(cfg.get("data_collector")):
+        argv.extend([collector_flag, DEFAULT_BAGS_CONTAINER_DIR])
+
+    skip = {
+        "--control-source",
+        "--robot",
+        "--checkpoint",
+        "--teleop-ip",
+        echo_flag,
+        stm_flag,
+        collector_flag,
+    }
     passthrough: list[str] = []
     i = 0
     while i < len(extra_args):
@@ -214,6 +235,23 @@ def fleet_volume_mounts(cfg: dict[str, Any] | None = None) -> list[str]:
         else:
             ck_host = ckpt_path.parent if ckpt_path.is_absolute() else home / "checkpoints"
         mounts.extend(["-v", f"{ck_host}:/workspace/checkpoints"])
+
+    if bool(cfg.get("data_collector")) or bool(cfg.get("bags_offload")):
+        bags_host = Path(
+            str(cfg.get("bags_host_dir") or DEFAULT_BAGS_HOST_DIR)
+        ).expanduser()
+        try:
+            bags_host.mkdir(parents=True, exist_ok=True)
+        except PermissionError:
+            # Enroll (root) should have created /var/krabby/bags; kit user cannot.
+            if not bags_host.is_dir():
+                print(
+                    f"[err] bags host dir {bags_host} missing and not creatable — "
+                    "run `sudo mkdir -p /var/krabby/bags` or re-enroll",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        mounts.extend(["-v", f"{bags_host}:{DEFAULT_BAGS_CONTAINER_DIR}"])
     return mounts
 
 

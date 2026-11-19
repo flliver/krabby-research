@@ -55,7 +55,7 @@ def test_catalog_image_frame_id_matches_topic() -> None:
     obs.rgbd_by_catalog_id = {
         "front_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep}),
     }
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     rgb_topic = catalog_camera_topic("front_rgbd", "rgb")
     depth_topic = catalog_camera_topic("front_rgbd", "depth")
     rgb_row = next(r for r in rows if r[0] == rgb_topic)
@@ -79,7 +79,7 @@ def test_rgbd_catalog_writes_rgb_and_depth_topics() -> None:
         "belly_right_tof": SensorObservation(channels={"depth": tof}),
         "front_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep}),
     }
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     topics_found = {r[0] for r in rows}
     assert topics_found == {
         catalog_camera_topic("front_rgbd", "rgb"),
@@ -99,7 +99,7 @@ def test_catalog_topic_names_used_for_all_catalog_ids() -> None:
     obs.rgbd_by_catalog_id = {
         "extra_rgbd": SensorObservation(channels={"rgb": rgb, "depth": dep})
     }
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     topics_found = {r[0] for r in rows}
     assert topics_found == {
         catalog_camera_topic("extra_rgbd", "rgb"),
@@ -107,15 +107,32 @@ def test_catalog_topic_names_used_for_all_catalog_ids() -> None:
     }
 
 
-def test_catalog_camera_topic_msgtypes_per_channel_map() -> None:
+def test_catalog_camera_topic_msgtypes_per_channel_map_raw() -> None:
     pairs = catalog_camera_topic_msgtypes(
-        {"front_rgbd": ("rgb", "depth"), "belly_left_tof": ("depth",)}
+        {"front_rgbd": ("rgb", "depth"), "belly_left_tof": ("depth",)},
+        camera_encode="raw",
     )
     topics = {t for t, _ in pairs}
     assert topics == {
         catalog_camera_topic("front_rgbd", "rgb"),
         catalog_camera_topic("front_rgbd", "depth"),
         catalog_camera_topic("belly_left_tof", "depth"),
+    }
+
+
+def test_catalog_camera_topic_msgtypes_h265() -> None:
+    from data_collection.serialization import COMPRESSED_IMAGE_MSGTYPE
+
+    pairs = catalog_camera_topic_msgtypes(
+        {"front_rgbd": ("rgb", "depth"), "belly_left_tof": ("depth",)},
+        camera_encode="h265",
+    )
+    assert all(mt == COMPRESSED_IMAGE_MSGTYPE for _, mt in pairs)
+    topics = {t for t, _ in pairs}
+    assert topics == {
+        catalog_camera_topic("front_rgbd", "rgb_h265"),
+        catalog_camera_topic("front_rgbd", "depth_h265"),
+        catalog_camera_topic("belly_left_tof", "depth_h265"),
     }
 
 
@@ -131,7 +148,7 @@ def test_catalog_mono_rgb_uses_mono8() -> None:
             channels={"rgb": gray, "depth": np.ones((4, 5), dtype=np.float32)}
         ),
     }
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     rgb_row = next(r for r in rows if r[0] == catalog_camera_topic("radar_front", "rgb"))
     img = ts.deserialize_cdr(rgb_row[2], "sensor_msgs/msg/Image")
     assert img.encoding == "mono8"
@@ -143,7 +160,7 @@ def test_base_twist_records_lin_and_ang_vel() -> None:
     obs.base_lin_vel_b = np.array([0.5, -0.1, 0.0], dtype=np.float32)
     obs.base_ang_vel_b = np.array([0.01, 0.02, 0.03], dtype=np.float32)
     topics = TopicEnable(joints_state=False, joints_command=False, imu=False, base_twist=True)
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     twist_row = next(r for r in rows if r[0] == BASE_TWIST_TOPIC)
     msg = ts.deserialize_cdr(twist_row[2], BASE_TWIST_MSGTYPE)
     assert msg.header.frame_id == "base_link"
@@ -157,7 +174,7 @@ def test_imu_and_base_twist_together() -> None:
     obs = create_dummy_hw_obs()
     obs.base_lin_vel_b = np.array([1.0, 0.0, 0.0], dtype=np.float32)
     topics = TopicEnable(joints_state=False, joints_command=False, imu=True, base_twist=True)
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     topics_found = {r[0] for r in rows}
     assert IMU_TOPIC in topics_found
     assert BASE_TWIST_TOPIC in topics_found
@@ -168,8 +185,17 @@ def test_split_stamp_via_header_timestamp() -> None:
     obs = create_dummy_hw_obs()
     obs.timestamp_ns = 3_500_000_123
     topics = TopicEnable(joints_state=False, joints_command=False, imu=True)
-    rows = observation_to_writes(ts, obs, topics, ())
+    rows = observation_to_writes(ts, obs, topics, (), camera_encode="raw")
     imu_row = next(r for r in rows if r[0] == IMU_TOPIC)
     msg = ts.deserialize_cdr(imu_row[2], IMU_MSGTYPE)
     assert msg.header.stamp.sec == 3
     assert msg.header.stamp.nanosec == 500_000_123
+
+
+def test_hevc_format_roundtrip_parse() -> None:
+    from data_collection.serialization import hevc_format_string, parse_hevc_format
+
+    assert parse_hevc_format(hevc_format_string()) == ("hevc", None)
+    codec, rng = parse_hevc_format(hevc_format_string(depth_range_m=(0.15, 1.5)))
+    assert codec == "hevc"
+    assert rng == pytest.approx((0.15, 1.5))

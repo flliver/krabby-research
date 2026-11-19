@@ -6,6 +6,7 @@ from hal.server.isaac.sensor_backend_isaac import (
     ISAAC_HAL_RGBD_CATALOG_CHANNELS,
     ISAAC_HAL_RGBD_CATALOG_IDS,
 )
+from hal.server.rgbd_recording_catalog import teleop_bootstrap_ids_from_catalog_channels
 
 
 def isaac_hal_rgbd_catalog_ids_for_recording() -> tuple[str, ...]:
@@ -24,9 +25,4 @@ def isaac_hal_teleop_bootstrap_catalog_ids() -> tuple[str, ...]:
     RGB-D rows advertise the catalog id (RGB stream) plus ``*_gray16_depth``.
     Depth-only rows advertise only ``*_gray16_depth``.
     """
-    out: list[str] = []
-    for cid, channels in ISAAC_HAL_RGBD_CATALOG_CHANNELS.items():
-        if "rgb" in channels:
-            out.append(cid)
-        out.append(f"{cid}_gray16_depth")
-    return tuple(out)
+    return teleop_bootstrap_ids_from_catalog_channels(ISAAC_HAL_RGBD_CATALOG_CHANNELS)
