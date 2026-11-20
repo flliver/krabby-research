@@ -119,13 +119,13 @@ polling_timeout_ms: 10
 | `base_quat_w`, `base_ang_vel_b` | `/imu` | `sensor_msgs/Imu` — orientation + angular velocity; linear acceleration is zero (not on `HardwareObservations`). |
 | `base_lin_vel_b`, `base_ang_vel_b` | `/base/twist` | `geometry_msgs/TwistStamped` — body-frame linear + angular velocity (e.g. ZED tracking + IMU via Jetson HAL). |
 
-Depth is quantized to 8-bit gray over the catalog `gst_depth_quant_range_m` band before HEVC (about 5.3 mm/step on the 0.15–1.5 m ToF band). Encoding runs on the collector thread (`nvv4l2h265enc` on Jetson when present, else `x265enc`), never on the 100 Hz control path.
+Depth is quantized to 8-bit gray over the catalog `gst_depth_quant_range_m` band before HEVC (about 5.3 mm/step on the 0.15–1.5 m ToF band). Encoding runs on the collector thread (`nvv4l2h265enc` on Jetson when present, else `x265enc`), never on the 100 Hz control path. If NVENC open or encode fails at runtime (e.g. unsupported caps), the encoder **sticks to `x265enc` for the rest of the process** — bags still record; look for fallback log lines rather than treating NVENC errors as a hard stop.
 
 ## Playback
 
 - **ROS 2:** `ros2 bag info` / `ros2 bag play` on the bag directory (standard rosbag2 layout under `output_dir`).
 - **H.265 decode / metric depth:** `python -m data_collection.tools.decode_h265 <bag_dir> --catalog-id <id> --channel rgb|depth [--out-dir …]`. Depth reconstructs float32 meters from `format`’s `range=` metadata. `--check-roundtrip` asserts 8-bit quant error stays within one step (no HEVC).
-- **Training / S3 consumers:** end-to-end download and decode guide in [TRAINING_DATA.md](TRAINING_DATA.md).
+- **Training / S3 consumers:** end-to-end download, replay, and decode guide in [CAMERA_RECORDINGS.md](CAMERA_RECORDINGS.md).
 
 ## Architecture
 
@@ -145,7 +145,7 @@ Under `output_dir`, each **segment** is a standard **rosbag2 v9** directory with
 
 ## Fleet robots
 
-On a fleet-enrolled Orin, set `"data_collector": true` in `/etc/krabby/locomotion.json`. `krabby run` then passes `--data-collector-output-dir /data/krabby_bags` and bind-mounts host `/var/krabby/bags`. The host-side `krabby agent` offloader uploads closed segments to S3 (see fleet docs); enable offload separately. The release locomotion image must include the `krabby-data-collection` wheel.
+On a fleet-enrolled Orin, set `"data_collector": true` in `/etc/krabby/locomotion.json`. `krabby run` then passes `--data-collector-output-dir /data/krabby_bags` and bind-mounts host `/var/krabby/bags`. The host-side `krabby agent` offloader uploads closed segments to S3 when `"bags_offload": true` — download, auth, and replay: [CAMERA_RECORDINGS.md](CAMERA_RECORDINGS.md). The release locomotion image must include the `krabby-data-collection` wheel.
 
 ## Configuration semantics
 

@@ -1,10 +1,10 @@
-# Training data from fleet camera recordings
+# Fleet camera recordings
 
-This guide is for anyone who wants to **use robot camera (and proprioception) recordings for training or offline analysis**: where finished segments live in S3, how access is authorized, how to download them, and how to turn H.265 topics into arrays.
+This guide covers **fleet camera (and proprioception) recordings**: how segments are written on the robot, uploaded to S3, downloaded for offline use, **replayed** with the committed H.265 decode tool, and consumed for training or analysis.
 
 Operator / format detail lives elsewhere — this doc does not restate the full collector contract:
 
-- [DATA_COLLECTOR.md](DATA_COLLECTOR.md) — topics, rates, H.265 encode, bag rotation, `decode_h265`
+- [DATA_COLLECTOR.md](DATA_COLLECTOR.md) — topics, rates, H.265 encode, bag rotation
 - [SENSOR_INTERFACE.md](SENSOR_INTERFACE.md) — catalog cameras and channels
 - [JETSON_DEPLOYMENT.md](JETSON_DEPLOYMENT.md) — enabling collector / offload on a kit
 - [PUBLISHING.md](PUBLISHING.md) — locomotion `release-latest` (must include `krabby-data-collection`)
@@ -19,7 +19,9 @@ Operator / format detail lives elsewhere — this doc does not restate the full 
 
 Each **closed** segment is a **rosbag2 v9 / MCAP** directory (`metadata.yaml` + mcap), default **~5 minutes**. Default content:
 
-- Cameras as H.265 `sensor_msgs/CompressedImage` on `/camera/{catalog_id}/{channel}_h265` (`front_rgbd` RGB+depth @ 10 Hz; ToF depth-only @ 20 Hz).
+- Cameras as H.265 `sensor_msgs/CompressedImage` on `/camera/{catalog_id}/{channel}_h265`:
+  - `front_rgbd` — RGB + depth @ 10 Hz
+  - `belly_left_tof`, `belly_right_tof`, `rear_tof` — depth-only @ 20 Hz
 - Proprioception: `/joints/state`, `/joints/command`, `/imu`, `/base/twist`.
 
 Depth is 8-bit quantized over the catalog meter range before HEVC; decode recovers float32 meters from `format`’s `range=` metadata.
@@ -40,7 +42,9 @@ HAL observations  →  in-process collector  →  /var/krabby/bags/krabby_<seq>_
                    local segment deleted
 ```
 
-**Not** `KrabReportedImages` (small teleop/UI stills). Training archives are **`KrabBags`** only.
+**Not** `KrabReportedImages` (small teleop/UI stills). Camera archives are **`KrabBags`** only.
+
+**Retention:** after a successful upload the robot **deletes the local** segment; objects in **`KrabBags` stay**. The bucket uses an S3 lifecycle rule that moves objects to **Intelligent-Tiering** and has **no expiration** (unlike `KrabReportedImages`, which expires after 30 days). Stack teardown also **RETAIN**s the bucket so fleet driving data is not wiped with the ControlPlane stack.
 
 ---
 
@@ -67,9 +71,9 @@ There are **two different identities**: robots that **upload**, and people/tools
 
 `krabby-enroll` IAM user keys (if you re-enroll) are **only for enrollment APIs**, not for S3 bag traffic.
 
-### 3.2 Download / training (human or CI → S3)
+### 3.2 Download / offline use (human or CI → S3)
 
-Device certs and `KrabBagsUploadRole` are the **upload** path. Training machines typically use a normal **AWS principal** (SSO, IAM user/role, CI OIDC) that has been granted **read** (and optionally list) on `KrabBags`.
+Device certs and `KrabBagsUploadRole` are the **upload** path. Laptops and training machines typically use a normal **AWS principal** (SSO, IAM user/role, CI OIDC) that has been granted **read** (and optionally list) on `KrabBags`.
 
 - Default ControlPlane deploy does **not** automatically grant every AWS account user read access to bags; someone with admin/SSO must use an identity that can `s3:ListBucket` / `s3:GetObject` on that bucket (console, CLI, or a dedicated read role you attach for researchers).
 - Do **not** put device private keys on laptops or training clusters.
@@ -80,7 +84,7 @@ Device certs and `KrabBagsUploadRole` are the **upload** path. Training machines
 | Actor | Authenticates with | Authorized to |
 |-------|--------------------|---------------|
 | Robot offloader | Device X.509 → IoT role alias → temp AWS creds | Put (+ verify Get) on `KrabBags` under shared upload role |
-| Training consumer | Your AWS SSO / IAM / CI role | Whatever read (or write) your admin attached to that principal |
+| Offline consumer | Your AWS SSO / IAM / CI role | Whatever read (or write) your admin attached to that principal |
 | `krabby enroll` | `krabby-enroll` access key (out of band) | IoT enroll APIs + `cloudformation:ListExports` for bucket name — **not** bag Put as the main path |
 
 ---
@@ -130,41 +134,67 @@ After a successful offload, that segment is **removed** from `/var/krabby/bags` 
 
 ---
 
-## 6. Inspect and decode
+## 6. Replay (decode H.265 bags)
 
-Inspect:
+The committed bag replay tool is **`python -m data_collection.tools.decode_h265`**. It reads a closed collector segment, pulls `/camera/{catalog_id}/{channel}_h265` payloads, decodes HEVC, and returns viewable RGB or **metric depth** (float32 meters).
+
+### Inspect the bag (optional)
 
 ```bash
 BAG=~/krabby_bags/${THING}/${DATE}/${SEG}
 ros2 bag info "$BAG"   # if ROS 2 is available
+# ros2 bag play "$BAG"  # generic ROS tooling; H.265 topics stay compressed
 ```
 
-Or list topics with `rosbags` `AnyReader` (no ROS distro required) — see [DATA_COLLECTOR.md](DATA_COLLECTOR.md#playback).
+For listing topics without a ROS distro, use `rosbags` `AnyReader` — see [DATA_COLLECTOR.md](DATA_COLLECTOR.md#playback).
 
-Decode H.265 → `.npy` (`{catalog_id}_{channel}_{NNNNN}.npy`):
+### Decode with `decode_h265`
+
+Needs OpenCV and/or GStreamer (`h265parse` + `avdec_h265`) on the machine running the tool. Install `krabby-data-collection` (and HAL helpers if using the GStreamer fallback path).
+
+**Front RGB** → `.npy` frames (`{catalog_id}_{channel}_{NNNNN}.npy`, uint8 HxWx3 RGB):
 
 ```bash
 python -m data_collection.tools.decode_h265 "$BAG" \
   --catalog-id front_rgbd --channel rgb --out-dir /tmp/front_rgb
+```
 
+**ToF / front depth** → float32 meters HxW (range recovered from each message’s `format` metadata, e.g. `hevc; range=0.15,1.5`):
+
+```bash
 python -m data_collection.tools.decode_h265 "$BAG" \
   --catalog-id belly_left_tof --channel depth --out-dir /tmp/belly_left_depth
 
 python -m data_collection.tools.decode_h265 "$BAG" \
+  --catalog-id front_rgbd --channel depth --out-dir /tmp/front_depth
+```
+
+**Quantization check** (no HEVC; asserts 8-bit depth round-trip stays within one step):
+
+```bash
+python -m data_collection.tools.decode_h265 "$BAG" \
   --catalog-id belly_left_tof --channel depth --check-roundtrip
 ```
 
-Needs OpenCV and/or GStreamer `avdec_h265` on the training machine. Raw `camera_encode: raw` bags use normal image topics; `decode_h265` is for the H.265 path only. Full playback notes: [DATA_COLLECTOR.md](DATA_COLLECTOR.md#playback).
+Raw `camera_encode: raw` bags use normal image topics; `decode_h265` is for the H.265 path only. Collector encode/rotation details: [DATA_COLLECTOR.md](DATA_COLLECTOR.md).
 
 ---
 
 ## 7. Suggested training consumption pattern
 
-No in-tree Dataset class is required. A practical pattern:
+No in-tree Dataset class is required. Each closed segment is a short, time-aligned clip you can treat as one training sample (or split further):
 
-1. List downloaded segment dirs (one bag ≈ one short clip).
-2. Pre-decode with `decode_h265` to `.npy`, or stream with `rosbags` and decode in workers.
-3. Treat depth quantization as part of the sensor model; align modalities by **message timestamps** (do not assume `hz × duration` frame counts).
+| Modality | How to get arrays |
+|----------|-------------------|
+| Front RGB / depth | `decode_h265 … --catalog-id front_rgbd --channel rgb\|depth` |
+| ToF depth (`belly_left_tof`, `belly_right_tof`, `rear_tof`) | `decode_h265 … --channel depth` → float32 meters |
+| Joints / IMU / twist | Read `/joints/*`, `/imu`, `/base/twist` with `rosbags` (or `ros2 bag`) |
+
+Practical pattern:
+
+1. List downloaded segment dirs under `~/krabby_bags/<thing>/<date>/…` (S3 keeps them; re-sync anytime).
+2. Pre-decode cameras with `decode_h265` to `.npy`, or stream with `rosbags` and decode in workers.
+3. Treat 8-bit depth quantization as part of the sensor model; align modalities by **message timestamps** (do not assume `hz × duration` frame counts).
 
 ```python
 from pathlib import Path
@@ -176,18 +206,7 @@ depth = np.load(frames[0])  # float32 meters, HxW
 
 ---
 
-## 8. Checklist for a first training sample
-
-- [ ] Your AWS principal can list/get the bags bucket (§3.2)
-- [ ] Segment exists under `s3://…/<thing>/<date>/<hms>_<seq>/`
-- [ ] Local copy has `metadata.yaml` + mcap
-- [ ] Topics include `*_h265` cameras + joints/imu
-- [ ] `decode_h265` yields RGB and/or float depth
-- [ ] `--check-roundtrip` passes on a depth stream
-
----
-
-## 9. Common issues
+## 8. Common issues
 
 | Symptom | Likely cause |
 |---------|----------------|
@@ -197,4 +216,4 @@ depth = np.load(frames[0])  # float32 meters, HxW
 | Empty local `/var/krabby/bags` but no objects you can see | Offload may have succeeded under another account/prefix, or your principal cannot list the bucket |
 | Can’t decode HEVC | Missing OpenCV/GStreamer decoder plugins |
 | Depth looks stepped / coarse | Expected 8-bit quant over the configured meter range |
-| Wrong bucket | Orphan RETAIN leftover from a failed create — use `fleet.toml` / `KrabBagsBucketName` |
+| NVENC / appsink errors in collector logs but bags keep growing | Sticky fallback to `x265enc` after NVENC open/encode failure — recordings are still valid (see [DATA_COLLECTOR.md](DATA_COLLECTOR.md)) |

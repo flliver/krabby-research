@@ -1,17 +1,17 @@
 # Production image requirements — installed from PyPI (no monorepo source).
 # Krabby packages are pinned exactly; bump by editing the == version and pushing.
-# Publish `data-collection-v0.1.2` before building an image that pins krabby-data-collection.
+# Publish `data-collection-v0.1.3` before building an image that pins krabby-data-collection.
 
 # --- Krabby packages (exact pins) ---
 krabby-hal-client==0.1.2
-krabby-hal-server==0.1.6
-krabby-hal-server-jetson==0.1.9
+krabby-hal-server==0.1.7
+krabby-hal-server-jetson==0.1.10
 krabby-hal-tools==0.1.0
 krabby-compute-parkour==0.1.1
 krabby-controller==0.1.6
 krabby-firmware==0.2.19
 krabby-teleop-edge==0.1.1
-krabby-data-collection==0.1.2
+krabby-data-collection==0.1.3
 
 # --- Runtime dependencies ---
 pyzmq>=25.0.0

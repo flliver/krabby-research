@@ -297,7 +297,7 @@ reference stamp).
 - [HAL_GUIDE.md](HAL_GUIDE.md) -- Hardware Abstraction Layer guide.
 - [SENSOR_INTERFACE.md](SENSOR_INTERFACE.md) -- GStreamer multi-sensor interface (HAL).
 - [DATA_COLLECTOR.md](DATA_COLLECTOR.md) -- HAL data collector (rosbag2 / mcap).
-- [TRAINING_DATA.md](TRAINING_DATA.md) -- consume fleet camera bags from S3 for training.
+- [CAMERA_RECORDINGS.md](CAMERA_RECORDINGS.md) -- fleet camera recordings: S3 download, replay/decode, training use.
 - [JETSON_DEPLOYMENT.md](JETSON_DEPLOYMENT.md) -- Jetson deployment guide.
 - [MAIXSENSE_A075V_SETUP.md](MAIXSENSE_A075V_SETUP.md) -- MaixSense-A075V camera setup on the Jetson.
 - [DOCKER_DEPENDENCIES.md](DOCKER_DEPENDENCIES.md) -- Docker base images and dependencies.
