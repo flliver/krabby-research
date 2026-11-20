@@ -46,7 +46,7 @@ No enroll steps live in this file. Per-device onboarding is only
 [`ENROLL.md`](ENROLL.md) (same path used for Orin cold-start fleet bring-up).
 
 - Enroll one Orin: [`ENROLL.md`](ENROLL.md) — needs
-  **`krabby-launcher` ≥ 0.1.22** (`enroll` / `agent`, fleet teleop signaling, bench `teleop_control_echo`)
+  **`krabby-launcher` ≥ 0.1.26** (`enroll` / `agent`, fleet teleop signaling, bench `teleop_control_echo`)
 - After enroll (agent + fleet HAL / portal teleop): [`FIELD-TELEOP.md`](FIELD-TELEOP.md) —
   enrolled hosts use `krabby run` (not a second enroll guide)
 - One SSH source → one Orin: [`SSH-TUNNEL.md`](SSH-TUNNEL.md)
