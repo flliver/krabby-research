@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-libav \
     gir1.2-gstreamer-1.0 \
@@ -36,7 +37,11 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev \
     pkg-config \
     gobject-introspection \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && test -f /usr/lib/aarch64-linux-gnu/girepository-1.0/Gst-1.0.typelib \
+    && test -f /usr/lib/aarch64-linux-gnu/girepository-1.0/GstApp-1.0.typelib \
+    && gst-inspect-1.0 h265parse >/dev/null \
+    && (gst-inspect-1.0 x265enc >/dev/null || gst-inspect-1.0 nvv4l2h265enc >/dev/null)
 
 # Install ZED SDK
 # Note: ZED SDK is required for ZED camera functionality

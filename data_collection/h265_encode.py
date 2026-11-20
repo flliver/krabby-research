@@ -40,6 +40,9 @@ def build_h265_appsrc_appsink_pipeline(
     """Pipeline string: appsrc name=src → H.265 → appsink name=sink.
 
     Keyframe interval is once per second (``key-int-max`` / ``iframeinterval`` = fps).
+
+    NVENC path forces system-memory NV12 before ``nvvidconv``. Feeding GRAY8/RGB
+    straight into ``nvvidconv`` often fails with ``Transform not supported`` on Jetson.
     """
     fps_i = max(1, int(fps))
     caps = (
@@ -55,7 +58,8 @@ def build_h265_appsrc_appsink_pipeline(
     if nv:
         # iframeinterval = frames between IDR; set to fps for ≥1 keyframe / second.
         enc = (
-            f"videoconvert ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
+            f"videoconvert ! video/x-raw,format=NV12 ! "
+            f"nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
             f"nvv4l2h265enc iframeinterval={fps_i} insert-sps-pps=1 ! h265parse config-interval=-1"
         )
     else:
@@ -88,6 +92,7 @@ class _PipelineSlot:
     appsink: Any
     pts: int
     duration: int
+    use_nvenc: bool
     frame_count: int = 0
 
 
@@ -95,7 +100,10 @@ class H265FrameEncoder:
     """Encode RGB uint8 or GRAY8 frames to HEVC annex-B bytes (collector thread)."""
 
     def __init__(self, *, use_nvenc: bool | None = None) -> None:
-        self._use_nvenc = use_nvenc
+        # None = auto (prefer NVENC when the element exists); True/False force.
+        self._use_nvenc_request = use_nvenc
+        # Sticky disable after NVENC open/encode failure so we permanently use x265.
+        self._nvenc_disabled = False
         # One pipeline per stream id so same-resolution ToF cameras do not share state.
         self._slots: dict[tuple[str, int, int, str, int], _PipelineSlot] = {}
         self._lock = threading.Lock()
@@ -104,12 +112,8 @@ class H265FrameEncoder:
 
     def close(self) -> None:
         with self._lock:
-            for slot in self._slots.values():
-                try:
-                    slot.pipeline.set_state(self._gst.State.NULL)
-                except Exception:
-                    logger.exception("Error nulling H.265 pipeline %s", slot.key)
-            self._slots.clear()
+            for key in list(self._slots):
+                self._close_slot_unlocked(key)
 
     def _ensure_gst(self) -> None:
         if self._gst is not None:
@@ -126,24 +130,38 @@ class H265FrameEncoder:
         self._gst = Gst
         self._gst_app = GstApp
 
-    def _get_slot(
+    def _effective_nvenc(self) -> bool:
+        if self._use_nvenc_request is False or self._nvenc_disabled:
+            return False
+        if self._use_nvenc_request is True:
+            return True
+        return _prefer_nvenc()
+
+    def _close_slot_unlocked(self, key: tuple[str, int, int, str, int]) -> None:
+        slot = self._slots.pop(key, None)
+        if slot is None:
+            return
+        try:
+            slot.pipeline.set_state(self._gst.State.NULL)
+        except Exception:
+            logger.exception("Error nulling H.265 pipeline %s", slot.key)
+
+    def _open_slot_unlocked(
         self,
         stream_id: str,
         width: int,
         height: int,
         format_caps: PixelFormat,
         fps: int,
+        *,
+        use_nvenc: bool,
     ) -> _PipelineSlot:
         self._ensure_gst()
         key = (str(stream_id), int(width), int(height), format_caps, int(fps))
-        slot = self._slots.get(key)
-        if slot is not None:
-            return slot
-
         Gst = self._gst
         GstApp = self._gst_app
         desc = build_h265_appsrc_appsink_pipeline(
-            width, height, fps, format_caps=format_caps, use_nvenc=self._use_nvenc
+            width, height, fps, format_caps=format_caps, use_nvenc=use_nvenc
         )
         pipeline = Gst.parse_launch(desc)
         if pipeline is None:
@@ -159,8 +177,18 @@ class H265FrameEncoder:
 
         ret = pipeline.set_state(Gst.State.PLAYING)
         if ret == Gst.StateChangeReturn.FAILURE:
+            try:
+                pipeline.set_state(Gst.State.NULL)
+            except Exception:
+                pass
             raise RuntimeError("H.265 pipeline set_state(PLAYING) failed")
-        pipeline.get_state(5 * Gst.SECOND)
+        state_ret, _state, _pending = pipeline.get_state(5 * Gst.SECOND)
+        if state_ret == Gst.StateChangeReturn.FAILURE:
+            try:
+                pipeline.set_state(Gst.State.NULL)
+            except Exception:
+                pass
+            raise RuntimeError("H.265 pipeline failed to reach PLAYING")
 
         duration = Gst.SECOND // max(1, int(fps))
         slot = _PipelineSlot(
@@ -170,10 +198,79 @@ class H265FrameEncoder:
             appsink=appsink_el,
             pts=0,
             duration=duration,
+            use_nvenc=use_nvenc,
         )
         self._slots[key] = slot
-        logger.info("Opened H.265 encoder pipeline %s", key)
+        logger.info(
+            "Opened H.265 encoder pipeline %s nvenc=%s",
+            key,
+            use_nvenc,
+        )
         return slot
+
+    def _get_slot(
+        self,
+        stream_id: str,
+        width: int,
+        height: int,
+        format_caps: PixelFormat,
+        fps: int,
+    ) -> _PipelineSlot:
+        key = (str(stream_id), int(width), int(height), format_caps, int(fps))
+        slot = self._slots.get(key)
+        if slot is not None:
+            return slot
+
+        want_nvenc = self._effective_nvenc()
+        try:
+            return self._open_slot_unlocked(
+                stream_id, width, height, format_caps, fps, use_nvenc=want_nvenc
+            )
+        except Exception as exc:
+            if not want_nvenc:
+                raise
+            logger.warning(
+                "NVENC H.265 pipeline open failed (%s); falling back to x265enc: %s",
+                key,
+                exc,
+            )
+            self._nvenc_disabled = True
+            return self._open_slot_unlocked(
+                stream_id, width, height, format_caps, fps, use_nvenc=False
+            )
+
+    def _pull_encoded(
+        self,
+        slot: _PipelineSlot,
+        frame: np.ndarray,
+        *,
+        timeout_s: float,
+    ) -> bytes:
+        Gst = self._gst
+        buf = _numpy_to_buffer(frame, slot.pts, slot.duration, Gst)
+        flow = slot.appsrc.push_buffer(buf)
+        if flow not in (Gst.FlowReturn.OK, Gst.FlowReturn.FLUSHING):
+            raise RuntimeError(f"appsrc push_buffer returned {flow!r}")
+        slot.pts += slot.duration
+        slot.frame_count += 1
+
+        deadline_ns = int(max(timeout_s, 0.1) * Gst.SECOND)
+        sample = slot.appsink.try_pull_sample(deadline_ns)
+        if sample is None:
+            raise TimeoutError(
+                f"appsink timed out waiting for H.265 sample ({slot.key[0]} "
+                f"{slot.key[3]} {slot.key[1]}x{slot.key[2]})"
+            )
+        out_buf = sample.get_buffer()
+        if out_buf is None:
+            raise RuntimeError("appsink sample has no buffer")
+        ok, mapinfo = out_buf.map(Gst.MapFlags.READ)
+        if not ok:
+            raise RuntimeError("failed to map H.265 buffer")
+        try:
+            return bytes(mapinfo.data)
+        finally:
+            out_buf.unmap(mapinfo)
 
     def encode_frame(
         self,
@@ -198,31 +295,21 @@ class H265FrameEncoder:
 
         with self._lock:
             slot = self._get_slot(stream_id, width, height, format_caps, fps)
-            Gst = self._gst
-            buf = _numpy_to_buffer(frame, slot.pts, slot.duration, Gst)
-            flow = slot.appsrc.push_buffer(buf)
-            if flow not in (Gst.FlowReturn.OK, Gst.FlowReturn.FLUSHING):
-                raise RuntimeError(f"appsrc push_buffer returned {flow!r}")
-            slot.pts += slot.duration
-            slot.frame_count += 1
-
-            deadline_ns = int(max(timeout_s, 0.1) * Gst.SECOND)
-            sample = slot.appsink.try_pull_sample(deadline_ns)
-            if sample is None:
-                raise TimeoutError(
-                    f"appsink timed out waiting for H.265 sample ({stream_id} "
-                    f"{format_caps} {width}x{height})"
-                )
-            out_buf = sample.get_buffer()
-            if out_buf is None:
-                raise RuntimeError("appsink sample has no buffer")
-            ok, mapinfo = out_buf.map(Gst.MapFlags.READ)
-            if not ok:
-                raise RuntimeError("failed to map H.265 buffer")
             try:
-                return bytes(mapinfo.data)
-            finally:
-                out_buf.unmap(mapinfo)
+                return self._pull_encoded(slot, frame, timeout_s=timeout_s)
+            except TimeoutError:
+                if not slot.use_nvenc:
+                    raise
+                logger.warning(
+                    "NVENC H.265 encode timed out for %s; falling back to x265enc",
+                    slot.key,
+                )
+                self._nvenc_disabled = True
+                self._close_slot_unlocked(slot.key)
+                slot = self._open_slot_unlocked(
+                    stream_id, width, height, format_caps, fps, use_nvenc=False
+                )
+                return self._pull_encoded(slot, frame, timeout_s=timeout_s)
 
     def encode_rgb(self, rgb: np.ndarray, *, stream_id: str, fps: int = 10) -> bytes:
         return self.encode_frame(rgb, stream_id=stream_id, format_caps="RGB", fps=fps)
