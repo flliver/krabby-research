@@ -1,0 +1,1064 @@
+{
+ "M1 knee curl to stop at hip 0": {
+  "from": [
+   0,
+   785
+  ],
+  "to": [
+   0,
+   -17
+  ],
+  "joint": "knee",
+  "fixed": 0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 785.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 785.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 11.012916564941406,
+    "worst_at": -17.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 12.9354248046875,
+    "primary_at": -17.0,
+    "primary_part": "tibia",
+    "nominal": 12.82463550567627
+   },
+   "table_contact": {
+    "worst": 14.762916564941406,
+    "worst_at": -17.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 16.6854248046875,
+    "primary_at": -17.0,
+    "primary_part": "tibia",
+    "nominal": 16.574634552001953
+   },
+   "floor": {
+    "worst": 14.68590259552002,
+    "worst_at": 217.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 16.86186408996582,
+    "primary_at": 197.0,
+    "primary_part": "tibia",
+    "nominal": 16.803415298461914
+   }
+  },
+  "bottleneck_worst": 2.0981414318084717,
+  "bottleneck_worst_at": 785.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "joint limit",
+  "rule": "rule"
+ },
+ "M2 knee uncurl to switch at hip 0": {
+  "from": [
+   0,
+   -17
+  ],
+  "to": [
+   0,
+   785
+  ],
+  "joint": "knee",
+  "fixed": 0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": -17.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": -17.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 11.012916564941406,
+    "worst_at": -17.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 12.9354248046875,
+    "primary_at": -17.0,
+    "primary_part": "tibia",
+    "nominal": 12.82463550567627
+   },
+   "table_contact": {
+    "worst": 14.762916564941406,
+    "worst_at": -17.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 16.6854248046875,
+    "primary_at": -17.0,
+    "primary_part": "tibia",
+    "nominal": 16.574634552001953
+   },
+   "floor": {
+    "worst": 14.68590259552002,
+    "worst_at": 217.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 16.86186408996582,
+    "primary_at": 197.0,
+    "primary_part": "tibia",
+    "nominal": 16.803415298461914
+   }
+  },
+  "bottleneck_worst": 2.0981414318084717,
+  "bottleneck_worst_at": -17.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "joint limit",
+  "rule": "rule"
+ },
+ "M3 knee switch -> K at hip 0": {
+  "from": [
+   0,
+   785
+  ],
+  "to": [
+   0,
+   264.0
+  ],
+  "joint": "knee",
+  "fixed": 0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 785.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 785.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 11.657636642456055,
+    "worst_at": 785.0,
+    "worst_part": "femur",
+    "worst_member": "corner f-2 k-2 L-0.75 y40 c2",
+    "primary": 32.23149108886719,
+    "primary_at": 264.0,
+    "primary_part": "tibia",
+    "nominal": 31.261093139648438
+   },
+   "table_contact": {
+    "worst": 15.407636642456055,
+    "worst_at": 785.0,
+    "worst_part": "femur",
+    "worst_member": "corner f-2 k-2 L-0.75 y40 c2",
+    "primary": 35.98149108886719,
+    "primary_at": 264.0,
+    "primary_part": "tibia",
+    "nominal": 35.01109313964844
+   },
+   "floor": {
+    "worst": 14.973183631896973,
+    "worst_at": 264.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 17.447906494140625,
+    "primary_at": 264.0,
+    "primary_part": "tibia",
+    "nominal": 17.45494842529297
+   }
+  },
+  "bottleneck_worst": 2.0981414318084717,
+  "bottleneck_worst_at": 785.0,
+  "overshoot_tol_counts": 250.0,
+  "overshoot_limited_by": ">250",
+  "rule": "rule"
+ },
+ "M4 hip 0 -> H at K": {
+  "from": [
+   0,
+   264.0
+  ],
+  "to": [
+   864.0,
+   264.0
+  ],
+  "joint": "hip",
+  "fixed": 264.0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 1.7327920198440552,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 4.067619323730469,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 4.338809490203857
+   },
+   "table_contact": {
+    "worst": 5.482791900634766,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 7.817619323730469,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 8.0888090133667
+   },
+   "floor": {
+    "worst": 2.466327428817749,
+    "worst_at": 739.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c2",
+    "primary": 4.752475738525391,
+    "primary_at": 732.0,
+    "primary_part": "tibia",
+    "nominal": 4.512156009674072
+   }
+  },
+  "bottleneck_worst": 1.7327920198440552,
+  "bottleneck_worst_at": 864.0,
+  "overshoot_tol_counts": 27.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "R1 hip H -> 0 at K (return)": {
+  "from": [
+   864.0,
+   264.0
+  ],
+  "to": [
+   0,
+   264.0
+  ],
+  "joint": "hip",
+  "fixed": 264.0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 1.7327920198440552,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 4.067619323730469,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 4.338809490203857
+   },
+   "table_contact": {
+    "worst": 5.482791900634766,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 7.817619323730469,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 8.0888090133667
+   },
+   "floor": {
+    "worst": 2.466327428817749,
+    "worst_at": 739.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c2",
+    "primary": 4.752475738525391,
+    "primary_at": 732.0,
+    "primary_part": "tibia",
+    "nominal": 4.512156009674072
+   }
+  },
+  "bottleneck_worst": 1.7327920198440552,
+  "bottleneck_worst_at": 864.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "joint limit",
+  "rule": "rule"
+ },
+ "knee band low: hip 0 -> H at K-40": {
+  "from": [
+   0,
+   224.0
+  ],
+  "to": [
+   864.0,
+   224.0
+  ],
+  "joint": "hip",
+  "fixed": 224.0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 0.47548866271972656,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 2.626718044281006,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 2.950963258743286
+   },
+   "table_contact": {
+    "worst": 4.225488662719727,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 6.376718044281006,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 6.700963497161865
+   },
+   "floor": {
+    "worst": 5.000172138214111,
+    "worst_at": 674.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": 7.3219804763793945,
+    "primary_at": 684.0,
+    "primary_part": "tibia",
+    "nominal": 7.05198335647583
+   }
+  },
+  "bottleneck_worst": 0.47548866271972656,
+  "bottleneck_worst_at": 864.0,
+  "overshoot_tol_counts": 8.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "knee band high: hip 0 -> H at K+40": {
+  "from": [
+   0,
+   304.0
+  ],
+  "to": [
+   864.0,
+   304.0
+  ],
+  "joint": "hip",
+  "fixed": 304.0,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 3.374423027038574,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 5.8852715492248535,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 6.0717010498046875
+   },
+   "table_contact": {
+    "worst": 7.124423027038574,
+    "worst_at": 864.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 9.635272026062012,
+    "primary_at": 864.0,
+    "primary_part": "tibia",
+    "nominal": 9.821701049804688
+   },
+   "floor": {
+    "worst": 0.0017965856241062284,
+    "worst_at": 764.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": 2.243576765060425,
+    "primary_at": 774.0,
+    "primary_part": "tibia",
+    "nominal": 2.039306163787842
+   }
+  },
+  "bottleneck_worst": 0.0017965856241062284,
+  "bottleneck_worst_at": 764.0,
+  "overshoot_tol_counts": 46.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "knee at H: K -> K-48 (tolerance probe down)": {
+  "from": [
+   864.0,
+   264.0
+  ],
+  "to": [
+   864.0,
+   216.0
+  ],
+  "joint": "knee",
+  "fixed": 864.0,
+  "margins": {
+   "body": {
+    "worst": 2.603926420211792,
+    "worst_at": 264.0,
+    "worst_part": "femur",
+    "worst_member": "corner f-2 k-2 L-0.75 y40 c0",
+    "primary": 3.288092613220215,
+    "primary_at": 264.0,
+    "primary_part": "femur",
+    "nominal": 3.0911686420440674
+   },
+   "table": {
+    "worst": 0.27223286032676697,
+    "worst_at": 216.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 2.385981798171997,
+    "primary_at": 216.0,
+    "primary_part": "tibia",
+    "nominal": 2.7171077728271484
+   },
+   "table_contact": {
+    "worst": 4.022233009338379,
+    "worst_at": 216.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 6.135982036590576,
+    "primary_at": 216.0,
+    "primary_part": "tibia",
+    "nominal": 6.467107772827148
+   },
+   "floor": {
+    "worst": 3.1120405197143555,
+    "worst_at": 264.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f+2 k+2 L+0.75 y0 c2",
+    "primary": 5.922305583953857,
+    "primary_at": 264.0,
+    "primary_part": "tibia",
+    "nominal": 5.670956611633301
+   }
+  },
+  "bottleneck_worst": 0.27223286032676697,
+  "bottleneck_worst_at": 216.0,
+  "overshoot_tol_counts": 11.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "knee at H: K -> K+48 (tolerance probe up)": {
+  "from": [
+   864.0,
+   264.0
+  ],
+  "to": [
+   864.0,
+   312.0
+  ],
+  "joint": "knee",
+  "fixed": 864.0,
+  "margins": {
+   "body": {
+    "worst": 2.603926420211792,
+    "worst_at": 264.0,
+    "worst_part": "femur",
+    "worst_member": "corner f-2 k-2 L-0.75 y40 c0",
+    "primary": 3.288092613220215,
+    "primary_at": 264.0,
+    "primary_part": "femur",
+    "nominal": 3.0911686420440674
+   },
+   "table": {
+    "worst": 1.7327920198440552,
+    "worst_at": 264.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 4.067619323730469,
+    "primary_at": 264.0,
+    "primary_part": "tibia",
+    "nominal": 4.338809490203857
+   },
+   "table_contact": {
+    "worst": 5.482791900634766,
+    "worst_at": 264.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 7.817619323730469,
+    "primary_at": 264.0,
+    "primary_part": "tibia",
+    "nominal": 8.0888090133667
+   },
+   "floor": {
+    "worst": -0.30096858739852905,
+    "worst_at": 312.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f+2 k+2 L+0.75 y0 c2",
+    "primary": 2.2972640991210938,
+    "primary_at": 312.0,
+    "primary_part": "tibia",
+    "nominal": 2.093351364135742
+   }
+  },
+  "bottleneck_worst": -0.30096858739852905,
+  "bottleneck_worst_at": 312.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "floor (tibia)",
+  "rule": "rule"
+ },
+ "ALT A hip 0 -> 880 at 272": {
+  "from": [
+   0,
+   272
+  ],
+  "to": [
+   880,
+   272
+  ],
+  "joint": "hip",
+  "fixed": 272,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 0.9995468854904175,
+    "worst_at": 880.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 3.3505330085754395,
+    "primary_at": 880.0,
+    "primary_part": "tibia",
+    "nominal": 3.639941692352295
+   },
+   "table_contact": {
+    "worst": 4.749547004699707,
+    "worst_at": 880.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 7.1005330085754395,
+    "primary_at": 880.0,
+    "primary_part": "tibia",
+    "nominal": 7.389941692352295
+   },
+   "floor": {
+    "worst": 1.966927409172058,
+    "worst_at": 781.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f+2 k+2 L+0.75 y0 c2",
+    "primary": 4.244787693023682,
+    "primary_at": 741.0,
+    "primary_part": "tibia",
+    "nominal": 4.011271953582764
+   }
+  },
+  "bottleneck_worst": 0.9995468854904175,
+  "bottleneck_worst_at": 880.0,
+  "overshoot_tol_counts": 15.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "ALT A hip 0 -> 904 at 296 (max single-K)": {
+  "from": [
+   0,
+   296
+  ],
+  "to": [
+   904,
+   296
+  ],
+  "joint": "hip",
+  "fixed": 296,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 0.22671514749526978,
+    "worst_at": 904.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 2.6580421924591064,
+    "primary_at": 904.0,
+    "primary_part": "tibia",
+    "nominal": 2.9547929763793945
+   },
+   "table_contact": {
+    "worst": 3.976715087890625,
+    "worst_at": 904.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 6.4080424308776855,
+    "primary_at": 904.0,
+    "primary_part": "tibia",
+    "nominal": 6.7047929763793945
+   },
+   "floor": {
+    "worst": 0.48776713013648987,
+    "worst_at": 756.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": 2.7389488220214844,
+    "primary_at": 766.0,
+    "primary_part": "tibia",
+    "nominal": 2.527125835418701
+   }
+  },
+  "bottleneck_worst": 0.22671514749526978,
+  "bottleneck_worst_at": 904.0,
+  "overshoot_tol_counts": 3.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "ALT B1 hip 0 -> 896 at 296": {
+  "from": [
+   0,
+   296
+  ],
+  "to": [
+   896,
+   296
+  ],
+  "joint": "hip",
+  "fixed": 296,
+  "margins": {
+   "body": {
+    "worst": 2.0981414318084717,
+    "worst_at": 0.0,
+    "worst_part": "femur",
+    "worst_member": "corner f+2 k-2 L-0.75 y40 c2",
+    "primary": 2.831367015838623,
+    "primary_at": 0.0,
+    "primary_part": "femur",
+    "nominal": 2.6570823192596436
+   },
+   "table": {
+    "worst": 0.7883822321891785,
+    "worst_at": 896.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 3.2303824424743652,
+    "primary_at": 896.0,
+    "primary_part": "tibia",
+    "nominal": 3.5092058181762695
+   },
+   "table_contact": {
+    "worst": 4.538382053375244,
+    "worst_at": 896.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 6.980382442474365,
+    "primary_at": 896.0,
+    "primary_part": "tibia",
+    "nominal": 7.2592058181762695
+   },
+   "floor": {
+    "worst": 0.48776713013648987,
+    "worst_at": 756.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": 2.7389488220214844,
+    "primary_at": 766.0,
+    "primary_part": "tibia",
+    "nominal": 2.527125835418701
+   }
+  },
+  "bottleneck_worst": 0.48776713013648987,
+  "bottleneck_worst_at": 756.0,
+  "overshoot_tol_counts": 11.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "ALT B2 knee 296 -> 312 at 896": {
+  "from": [
+   896,
+   296
+  ],
+  "to": [
+   896,
+   312
+  ],
+  "joint": "knee",
+  "fixed": 896,
+  "margins": {
+   "body": {
+    "worst": 2.427826404571533,
+    "worst_at": 296.0,
+    "worst_part": "femur",
+    "worst_member": "corner f-2 k-2 L-0.75 y40 c0",
+    "primary": 3.053605079650879,
+    "primary_at": 296.0,
+    "primary_part": "femur",
+    "nominal": 2.8662242889404297
+   },
+   "table": {
+    "worst": 0.7883822321891785,
+    "worst_at": 296.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 3.2303824424743652,
+    "primary_at": 296.0,
+    "primary_part": "tibia",
+    "nominal": 3.5092058181762695
+   },
+   "table_contact": {
+    "worst": 4.538382053375244,
+    "worst_at": 296.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 6.980382442474365,
+    "primary_at": 296.0,
+    "primary_part": "tibia",
+    "nominal": 7.2592058181762695
+   },
+   "floor": {
+    "worst": 0.07560606300830841,
+    "worst_at": 312.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f+2 k+2 L+0.75 y0 c2",
+    "primary": 2.8525378704071045,
+    "primary_at": 312.0,
+    "primary_part": "tibia",
+    "nominal": 2.654062032699585
+   }
+  },
+  "bottleneck_worst": 0.07560606300830841,
+  "bottleneck_worst_at": 312.0,
+  "overshoot_tol_counts": 1.0,
+  "overshoot_limited_by": "floor (tibia)",
+  "rule": "rule"
+ },
+ "ALT B3 hip 896 -> 912 at 312": {
+  "from": [
+   896,
+   312
+  ],
+  "to": [
+   912,
+   312
+  ],
+  "joint": "hip",
+  "fixed": 312,
+  "margins": {
+   "body": {
+    "worst": 2.3307480812072754,
+    "worst_at": 912.0,
+    "worst_part": "femur",
+    "worst_member": "mc:125",
+    "primary": 2.931248426437378,
+    "primary_at": 912.0,
+    "primary_part": "femur",
+    "nominal": 2.748664140701294
+   },
+   "table": {
+    "worst": 0.234778493642807,
+    "worst_at": 912.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 2.7317185401916504,
+    "primary_at": 912.0,
+    "primary_part": "tibia",
+    "nominal": 3.01430344581604
+   },
+   "table_contact": {
+    "worst": 3.98477840423584,
+    "worst_at": 912.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 6.48171854019165,
+    "primary_at": 912.0,
+    "primary_part": "tibia",
+    "nominal": 6.764303684234619
+   },
+   "floor": {
+    "worst": 0.07560606300830841,
+    "worst_at": 896.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f+2 k+2 L+0.75 y0 c2",
+    "primary": 2.8525378704071045,
+    "primary_at": 896.0,
+    "primary_part": "tibia",
+    "nominal": 2.654062032699585
+   }
+  },
+  "bottleneck_worst": 0.07560606300830841,
+  "bottleneck_worst_at": 896.0,
+  "overshoot_tol_counts": 3.0,
+  "overshoot_limited_by": "table (tibia)",
+  "rule": "rule"
+ },
+ "HARD tuck hip 0 -> 990 at 56 (edge rule)": {
+  "from": [
+   0,
+   56
+  ],
+  "to": [
+   990,
+   56
+  ],
+  "joint": "hip",
+  "fixed": 56,
+  "margins": {
+   "body": {
+    "worst": 0.3832719624042511,
+    "worst_at": 990.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L+0.75 y0 c0",
+    "primary": 1.803091287612915,
+    "primary_at": 990.0,
+    "primary_part": "tibia",
+    "nominal": 1.9132893085479736
+   },
+   "table": {
+    "worst": -3.5759873390197754,
+    "worst_at": 990.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -1.735616683959961,
+    "primary_at": 990.0,
+    "primary_part": "tibia",
+    "nominal": -1.4166990518569946
+   },
+   "table_contact": {
+    "worst": 0.1740126758813858,
+    "worst_at": 990.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": 2.014383316040039,
+    "primary_at": 990.0,
+    "primary_part": "tibia",
+    "nominal": 2.333300828933716
+   },
+   "floor": {
+    "worst": 10.052919387817383,
+    "worst_at": 990.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L-0.75 y0 c0",
+    "primary": 11.536158561706543,
+    "primary_at": 990.0,
+    "primary_part": "tibia",
+    "nominal": 11.526836395263672
+   }
+  },
+  "bottleneck_worst": 0.1740126758813858,
+  "bottleneck_worst_at": 990.0,
+  "overshoot_tol_counts": 9.0,
+  "overshoot_limited_by": "body (tibia)",
+  "rule": "hard"
+ },
+ "HOLLOW hip 0 -> 1069 at 184": {
+  "from": [
+   0,
+   184
+  ],
+  "to": [
+   1069,
+   184
+  ],
+  "joint": "hip",
+  "fixed": 184,
+  "margins": {
+   "body": {
+    "worst": 1.184695839881897,
+    "worst_at": 1069.0,
+    "worst_part": "femur",
+    "worst_member": "mc:118",
+    "primary": 1.5741477012634277,
+    "primary_at": 1069.0,
+    "primary_part": "femur",
+    "nominal": 1.4401053190231323
+   },
+   "table": {
+    "worst": -9.635207176208496,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -7.605681896209717,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": -7.054251194000244
+   },
+   "table_contact": {
+    "worst": -5.885206699371338,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -3.8556816577911377,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": -3.304251194000244
+   },
+   "floor": {
+    "worst": 7.571091651916504,
+    "worst_at": 658.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f+2 k+2 L+0.75 y0 c0",
+    "primary": 9.052498817443848,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": 9.018613815307617
+   }
+  },
+  "bottleneck_worst": 1.184695839881897,
+  "bottleneck_worst_at": 1069.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "joint limit",
+  "rule": "hollow"
+ },
+ "HOLLOW hip 0 -> 1069 at 157": {
+  "from": [
+   0,
+   157
+  ],
+  "to": [
+   1069,
+   157
+  ],
+  "joint": "hip",
+  "fixed": 157,
+  "margins": {
+   "body": {
+    "worst": 1.184695839881897,
+    "worst_at": 1069.0,
+    "worst_part": "femur",
+    "worst_member": "mc:118",
+    "primary": 1.5741477012634277,
+    "primary_at": 1069.0,
+    "primary_part": "femur",
+    "nominal": 1.4401053190231323
+   },
+   "table": {
+    "worst": -8.8265962600708,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -6.811356067657471,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": -6.304366111755371
+   },
+   "table_contact": {
+    "worst": -5.076595783233643,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -3.0613558292388916,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": -2.554365873336792
+   },
+   "floor": {
+    "worst": 7.476247310638428,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k-2 L-0.75 y0 c0",
+    "primary": 8.811760902404785,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": 8.777851104736328
+   }
+  },
+  "bottleneck_worst": 1.184695839881897,
+  "bottleneck_worst_at": 1069.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "joint limit",
+  "rule": "hollow"
+ },
+ "HOLLOW hip 0 -> 1069 at 216": {
+  "from": [
+   0,
+   216
+  ],
+  "to": [
+   1069,
+   216
+  ],
+  "joint": "hip",
+  "fixed": 216,
+  "margins": {
+   "body": {
+    "worst": 1.184695839881897,
+    "worst_at": 1069.0,
+    "worst_part": "femur",
+    "worst_member": "mc:118",
+    "primary": 1.5741477012634277,
+    "primary_at": 1069.0,
+    "primary_part": "femur",
+    "nominal": 1.4401053190231323
+   },
+   "table": {
+    "worst": -10.37704849243164,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -8.333565711975098,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": -7.7396979331970215
+   },
+   "table_contact": {
+    "worst": -6.627048492431641,
+    "worst_at": 1069.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": -4.583565711975098,
+    "primary_at": 1069.0,
+    "primary_part": "tibia",
+    "nominal": -3.9896976947784424
+   },
+   "floor": {
+    "worst": 5.512502670288086,
+    "worst_at": 663.0,
+    "worst_part": "tibia",
+    "worst_member": "corner f-2 k+2 L+0.75 y0 c0",
+    "primary": 7.840089797973633,
+    "primary_at": 674.0,
+    "primary_part": "tibia",
+    "nominal": 7.565226078033447
+   }
+  },
+  "bottleneck_worst": 1.184695839881897,
+  "bottleneck_worst_at": 1069.0,
+  "overshoot_tol_counts": 0.0,
+  "overshoot_limited_by": "joint limit",
+  "rule": "hollow"
+ }
+}

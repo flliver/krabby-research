@@ -1,0 +1,392 @@
+{
+ "detector": {
+  "moves": [
+   {
+    "n": 0,
+    "joint": "FLKL (start-up press P1)",
+    "drive": "+PWM 80 extend, curl (not leaving)",
+    "truth": "press at curl end, no motion",
+    "verdict": "Still k=20 e=0 (unarmed). Raw trace is None only because the host stopped at exactly 20 frames; padded gives Still",
+    "correct": true,
+    "note": "0/10 variants and 0/20 random dithers flip it"
+   },
+   {
+    "n": 0,
+    "joint": "FLHL (start-up press P2)",
+    "drive": "-PWM 80 retract, curl",
+    "truth": "press at curl switch, no motion",
+    "verdict": "Still k=20 e=0 (unarmed)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random"
+   },
+   {
+    "n": 1,
+    "joint": "FLKL",
+    "drive": "-PWM 128 retract, uncurl (leaving)",
+    "truth": "limit switch at 781",
+    "verdict": "Switch k=211 at 781 (armed k=34, fast arrival, current 80 vs reference 150 = 0.53)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random. Lands on the exact count"
+   },
+   {
+    "n": 2,
+    "joint": "FLKL",
+    "drive": "+PWM 128 extend, curl",
+    "truth": "mechanical stop (count 3)",
+    "verdict": "Stop k=167 at 766 of 779 (median 150 vs iRef 108 = 1.39)",
+    "correct": true,
+    "note": "0/10 flips (decision 765-767). Fires 13 edges and about 1.3 s before the last count: the knee creeps into a compliant stop at high current, so the Stop lands about 13 edges short of the final count"
+   },
+   {
+    "n": 3,
+    "joint": "FLKL",
+    "drive": "-PWM 128 retract, uncurl",
+    "truth": "limit switch at 781",
+    "verdict": "Switch k=205 at 778 of 779 (70/150)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random"
+   },
+   {
+    "n": 4,
+    "joint": "FLKL",
+    "drive": "+PWM 128 extend, curl",
+    "truth": "mechanical stop (count 6)",
+    "verdict": "Stop k=165 at 761 of 775 (160/106 = 1.51)",
+    "correct": true,
+    "note": "0/10 flips (decision 758-762). Same as move 2: about 14 edges short of the final count"
+   },
+   {
+    "n": 5,
+    "joint": "FLKL",
+    "drive": "-PWM 128 retract, uncurl",
+    "truth": "no end (host stopped near 204)",
+    "verdict": "none (armed k=23, no false end)",
+    "correct": true,
+    "note": "Control. 0/10 flips, 0/20 random"
+   },
+   {
+    "n": 6,
+    "joint": "FLHL",
+    "drive": "+PWM 128 extend, uncurl (leaving)",
+    "truth": "extend limit switch at 1070",
+    "verdict": "Stop k=261 at 1069 (median 150 vs iRef 120, exactly at the 125% threshold)",
+    "correct": true,
+    "note": "R2: the switch end is caught by the Stop rule through a small current rise (15-17 vs 12-13) just before the switch opens. 0/10 flips: d5/d9/random variants fire one sample later at 1070 while the current is still high. Margin: shrinking the last 20 pre-switch currents by 15% turns it into Stuck (fine at 10%)"
+   },
+   {
+    "n": 7,
+    "joint": "FLHL",
+    "drive": "-PWM 128 retract, curl",
+    "truth": "curl limit switch at 0 (1070 edges)",
+    "verdict": "Switch k=336 at 1070 (80/130 = 0.62)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random"
+   },
+   {
+    "n": 8,
+    "joint": "FLHL",
+    "drive": "+PWM 128 extend, uncurl",
+    "truth": "extend limit switch at 1070",
+    "verdict": "Stop k=242 at 1070 (140/107 = 1.31)",
+    "correct": true,
+    "note": "R2. 0/10 flips, 0/20 random. Fragile: shrinking the pre-switch currents by 5% turns it into Stuck (at 3% it still fires Stop)"
+   },
+   {
+    "n": 9,
+    "joint": "FLHL",
+    "drive": "-PWM 128 retract, curl",
+    "truth": "curl limit switch at 0",
+    "verdict": "Switch k=330 at 1070 (90/130 = 0.69)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random"
+   },
+   {
+    "n": 10,
+    "joint": "FLHL",
+    "drive": "+PWM 128 extend, uncurl",
+    "truth": "extend limit switch at 1070",
+    "verdict": "Stop k=240 at 1070 (160/107 = 1.50)",
+    "correct": true,
+    "note": "R2. 0/10 flips. Survives a 15% smaller pre-switch bump"
+   },
+   {
+    "n": 11,
+    "joint": "FLHL",
+    "drive": "-PWM 80 retract, curl",
+    "truth": "stall mid-stroke at 841 for lack of force (not an end)",
+    "verdict": "Stuck k=186 at 222 of 229 (armed k=18, vRef 14, normal 34)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random. It fires during the slow creep (222 to 229 over the next 4 s). Later-start probe (cuts 0-188): Stuck for cuts 0-58 (start 52 or more edges before the final count of 229); Still, accepted as an end, for every cut of 59 or more (start 51 or fewer edges from it), identical boundary in all 11 variants"
+   },
+   {
+    "n": 12,
+    "joint": "FLHL",
+    "drive": "-PWM 150 retract, curl",
+    "truth": "curl limit switch at 0 (841 edges)",
+    "verdict": "Switch k=224 at 841 (80/130)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random"
+   },
+   {
+    "n": 13,
+    "joint": "FLHL",
+    "drive": "+PWM 128 extend, uncurl",
+    "truth": "no end (host stop near 109)",
+    "verdict": "none (armed k=20)",
+    "correct": true,
+    "note": "Control. 0 flips"
+   },
+   {
+    "n": 14,
+    "joint": "FLHL",
+    "drive": "-PWM 128 retract, curl",
+    "truth": "SHORT drive (109) into curl switch",
+    "verdict": "Switch k=38 at 109 (armed k=28, normal 6, fast-arrival 90/120 = 0.75)",
+    "correct": true,
+    "note": "0/10 flips, 0/20 random. Probe cuts 0-16 (109 down to 36 edges): Switch for 65-109 edges, unarmed Still for 36-61. All 187 runs (17 cuts x 11 variants) end exactly at the switch count, so it is homed correctly"
+   },
+   {
+    "n": 15,
+    "joint": "FLKL",
+    "drive": "+PWM 128 extend, curl",
+    "truth": "no end (host stop near 88)",
+    "verdict": "none (armed k=23)",
+    "correct": true,
+    "note": "Control. 0 flips"
+   },
+   {
+    "n": 16,
+    "joint": "FLKL",
+    "drive": "+PWM 128 extend, curl",
+    "truth": "SHORT drive (84-85) into mechanical stop",
+    "verdict": "Stop k=50 at 84 of 85 (armed k=25, normal 0, 180/130 = 1.38)",
+    "correct": true,
+    "note": "0/10 flips (decision 82-84), 0/20 random. Probe cuts 0-38 (85 down to 19 edges): Stop for 35-85, Still for 19-39 (where Stop and Still meet, d9 and ilead flip 1-2 cuts between them; both are ends). Every run ends within 3 edges of the stop, so it is homed correctly"
+   },
+   {
+    "n": 17,
+    "joint": "FLHL",
+    "drive": "-PWM 150 retract, curl",
+    "truth": "home press at curl switch, no motion",
+    "verdict": "Still k=20 e=0",
+    "correct": true,
+    "note": "0 flips"
+   },
+   {
+    "n": 18,
+    "joint": "FLKL",
+    "drive": "+PWM 128 extend, curl",
+    "truth": "home press at stop (about 2 counts)",
+    "verdict": "Still k=20 e=2",
+    "correct": true,
+    "note": "0 flips (e 1-2)"
+   }
+  ],
+  "robustness": "Method. Each move runs from its first nonzero J to J 0. Each FRONT frame (measured at 19.45 Hz) becomes one detector sample: e is the signed drive edges from field 9, i = 10 x the integer current, and rampDone means |pwm| has reached the move PWM. Moves that end at an end, or at the stall, are padded with 3 s of held count (the host stopped them after 1 s). The firmware's CalibrationEndDetector::sample() is the unmodified repo header, built natively with g++ in krabby-fwtest. There are 10 deterministic variants per move: +5 and +9 tenths (+0.5 and +0.9 count); current lagging or leading the edges by one sample; the drive starting one sample early or late; resampling onto a 50 ms grid; and three sub-frame phase offsets with interpolated edges. There are also 20 random U{0..9} tenth dithers.\n\nResults. All 20 moves give the right class under the nominal reconstruction: ends are accepted, the three host-stopped drives stay none, and the PWM-80 stall is Stuck. No deterministic variant and no random dither flips any verdict. Decision positions move by 0-3 edges at most.\n\nWeak spots.\n(1) R2. The hip EXTEND switch (moves 6, 8, 10) is caught only as Stop: the current rises 25-50% just before the switch opens, and the switch's drop has to come after the 3-sample Stop hold. Move 6 decides at exactly 125% (150/120). Shrinking that pre-switch bump by 5% (move 8) or 15% (move 6) turns the verdict into Stuck, which would fail the drive.\n(2) Knee curl Stops (moves 2 and 4) fire 13-14 edges and about 1.3 s before the final count. The knee is creeping into a compliant stop, so a Stop-based home sits about 13 edges off the hard limit.\n(3) PWM-80 stall probe (move 11). From the full start it is Stuck at 222 (armed, its last forward edge 40 or more samples after arming, so the short-curl Still cannot apply). Starting the replay 59 or more frames later, that is 51 or fewer edges before the final count of 229 (original count 178 or more), it never arms, because the creep runs at or below 4 edges per 200 ms. The documented unarmed curl rule then calls it Still, an accepted end. With 25 or fewer edges left it fires at about k=20, just 7-11 edges into the drive. The boundary sits at the same frame in all 11 variants because it depends on edges only, not current. This is the by-design unarmed behaviour, not the armed short-curl V1 path; on this trace V1's 110-125-edge window was not reproduced.\n(4) Short drives 14 and 16 home correctly from every later start: 14 gives Switch down to 65 edges and Still below that, always exactly at the switch count; 16 gives Stop down to 35 edges and Still below that, within 3 edges of the stop.\n\nCaveats. The host ramp (10 PWM steps every 50-60 ms, with pauses) is slower than the firmware ramp (5 every 20 ms). The current is truncated telemetry avgIS, not the firmware's 50 ms boxcar.\n\nFiles are in C:/Users/nickm/AppData/Local/Temp/claude/78c86551260afdf9/720ce176-f876-4a62-9959-4e2b88a4d5da/scratchpad/endtest-replay/detector-replay/: gen.py, h.cpp, run.sh, out.txt, analyze.py, bump.py, out_bump.txt.",
+  "summary": "I replayed all 20 FL moves through the repo's CalibrationEndDetector (unmodified header, built natively in Docker): the two start-up presses, ground-truth moves 1-16 and the two home presses. The nominal reconstruction gets every one right, and none of the 10 deterministic or 20 random variants flips a verdict.\n- **Knee uncurl (1, 3):** Switch.\n- **Knee curl (2, 4):** Stop, but fired about 13 edges before the final count.\n- **Hip retract (7, 9, 12, 14):** Switch.\n- **Hip extend to its switch (6, 8, 10):** caught as Stop, not Switch (R2). It relies on a small current bump just before the switch opens; on move 6 the current sits exactly at the 125% threshold, and a 5-15% smaller bump makes it Stuck.\n- **PWM-80 stall (11):** Stuck at 222, correctly not an end. In the later-start probe it is accepted as Still from every start within 51 edges of the final count (229). That is the unarmed creep rule, since the joint never reaches arming speed, not the armed short-curl V1 path; the boundary is at the same frame in all 11 variants.\n- **Short drives (14, 16):** homed correctly from every start: 14 at the switch count, 16 within 3 edges of the stop.\n- **Host-stopped drives (5, 13, 15):** none, as they should be.\n- **Presses:** Still."
+ },
+ "calibration": {
+  "moves": [
+   {
+    "n": 0,
+    "joint": "FLKL + FLHL",
+    "drive": "Start-up presses at PWM 80 (both joints already at their curl ends). Replayed as C SEEK 80 with both homes proven.",
+    "truth": "No motion; not a new end.",
+    "verdict": "Both drives end as a plain stall after 1.03 s (\"END FLKL curl hall=0 travel=0\", \"END FLHL curl hall=0 travel=0\"). Both are accepted at the proven home, with no re-home and no nudge.",
+    "correct": true,
+    "note": "576/576 de-jittered variants and 576/576 raw-timestamp variants agree."
+   },
+   {
+    "n": 1,
+    "joint": "FLKL",
+    "drive": "Uncurl (-PWM, retract) from the stop to the limit switch at 781. Replayed as SWEEP step 4, first repetition.",
+    "truth": "Limit switch at ~781.",
+    "verdict": "Switch end: \"END FLKL uncurl hall=-781 travel=-781 by=switch cur=78/162\". The drive stops 0.38 s after the count stops, at exactly 781. The uncurl end is staged as min=-781.",
+    "correct": true,
+    "note": "by=switch in all 1152 variants. Current is 46-65% of the reference against the slow-arrival threshold of 70%."
+   },
+   {
+    "n": 2,
+    "joint": "FLKL",
+    "drive": "Curl (+PWM, extend) 779 edges from the switch into the mechanical stop. Replayed as SEEK step 0 (fresh and homed) and as SWEEP step 5.",
+    "truth": "Mechanical stop; the knee pressed in to out 2-3.",
+    "verdict": "Stop end: \"END FLKL curl hall=-13 travel=768 by=stop cur=167/107\". The drive stops at 8.68 s, 11-15 edges before the pressed-in position (knee rests at out 13-17). Fresh boot: \"HOME FLKL count=13\". Home already proven: accepted without re-home (13-17 short, tolerance 40). In SWEEP: \"JOINT FLKL min=-781 max=0 edges\".",
+    "correct": true,
+    "note": "by=stop in all 1152 variants. The home lands 11-15 edges shallower than a full press; with raw host timestamps (unreliable speeds) it can land up to 36 edges shallow, just inside the 40-edge tolerance."
+   },
+   {
+    "n": 3,
+    "joint": "FLKL",
+    "drive": "Uncurl to the limit switch, second repetition (778 edges). Replayed as SWEEP step 4.",
+    "truth": "Limit switch at 781.",
+    "verdict": "Switch end: \"END FLKL uncurl hall=-781 travel=-778 by=switch cur=84/156\". The drive stops 0.36 s after arrival, at 781.",
+    "correct": true,
+    "note": "by=switch in all 1152 variants (46-63% of reference)."
+   },
+   {
+    "n": 4,
+    "joint": "FLKL",
+    "drive": "Curl 775 edges into the mechanical stop, second repetition. Replayed as SEEK step 0 and SWEEP step 5.",
+    "truth": "Mechanical stop; the knee pressed in to out 6.",
+    "verdict": "Stop end: \"END FLKL curl hall=-20 travel=761 by=stop cur=169/112\". The drive stops at 8.53 s with the knee at out 18-21, 12-15 edges before the pressed-in position. Fresh boot: \"HOME FLKL count=20\". Homed: accepted without re-home. In SWEEP: \"JOINT FLKL min=-781 max=0 edges\".",
+    "correct": true,
+    "note": "by=stop in all 1152 variants (knee rests at out 18-25 across both time bases)."
+   },
+   {
+    "n": 5,
+    "joint": "FLKL",
+    "drive": "Uncurl to ~204, stopped by the host at a count.",
+    "truth": "No end.",
+    "verdict": "No calibration equivalent: the firmware never stops a knee at a count. Its start was used as the knee nudge-out response. With it, a fresh-boot knee at its stop is nudged 12 edges in 0.50 s (coasts to 14-17 out), curls back 16 edges to a plain stall, and gets \"HOME FLKL count=1\".",
+    "correct": true,
+    "note": "Used only as the nudge-out trace; the firmware never drove past its recorded part."
+   },
+   {
+    "n": 6,
+    "joint": "FLHL",
+    "drive": "Extend (+PWM) from the curl switch to the extend limit switch at 1070, first repetition. Replayed as SWEEP step 2 as designed, and with the sweep target raised to 1500 in a scratch copy.",
+    "truth": "Extend limit switch at 1070 (count stops dead, current drops to 7-8).",
+    "verdict": "As designed: the fixed sweep stops the hip at 700 edges after 8.67 s; it coasts to ~709 (\"END FLHL uncurl hall=709 travel=709\", no end kind). The curl back then ends \"by=switch cur=89/127\" at the home and prints \"JOINT FLHL min=0 max=700 edges (fixed sweep)\". The extend switch is never reached (370 edges short). What-if full extend: the STOP rule fires at the switch, \"END FLHL uncurl hall=1070 travel=1070 by=stop cur=168/128\", 0.10 s after the count stops.",
+    "correct": true,
+    "note": "As designed it is correct. In the what-if the position is right but the end is labelled a mechanical stop, not a switch (open finding R2). It fires only because the current rises about 30-40% over the last ~25 edges before the switch opens. With that rise removed (synthetic) the result is \"by=stuck cur=75/128\" and \"FAIL FLHL stuck mid-stroke after 1070 edges at PWM 128: raise PWM or check load\"."
+   },
+   {
+    "n": 7,
+    "joint": "FLHL",
+    "drive": "Retract (-PWM) 1070 edges into the curl limit switch. Replayed as SEEK step 1 (fresh and homed); its last 709 edges as SWEEP step 3.",
+    "truth": "Curl limit switch at 0.",
+    "verdict": "Switch end: \"END FLHL curl hall=0 travel=-1070 by=switch cur=85/128\". The drive stops 0.19 s after the count stops, at out 0. Fresh boot: \"HOME FLHL count=0\". Homed: accepted without re-home.",
+    "correct": true,
+    "note": "by=switch in all 1152 variants (62-74% of reference against the 88% threshold)."
+   },
+   {
+    "n": 8,
+    "joint": "FLHL",
+    "drive": "Extend to the extend switch, second repetition. Replayed as SWEEP step 2 and the what-if full extend.",
+    "truth": "Extend limit switch at 1070.",
+    "verdict": "As designed: stops at 700 edges after 7.96 s, coasts to ~709, then the curl back ends by=switch and prints \"JOINT FLHL min=0 max=700 edges (fixed sweep)\". What-if full extend: \"END FLHL uncurl hall=1070 travel=1070 by=stop cur=152/113\".",
+    "correct": true,
+    "note": "Same as move 6. The what-if gives by=stop in all 1152 variants (stops at 1067-1070); flattened current gives by=stuck and the stuck mid-stroke failure."
+   },
+   {
+    "n": 9,
+    "joint": "FLHL",
+    "drive": "Retract 1070 edges into the curl switch, second repetition. Replayed as SEEK step 1 and as the SWEEP step 3 tail.",
+    "truth": "Curl limit switch at 0.",
+    "verdict": "Switch end: \"END FLHL curl hall=0 travel=-1070 by=switch cur=102/130\". The drive stops 0.17 s after arrival; \"HOME FLHL count=0\" on a fresh boot. As the SWEEP curl back from 709: \"by=switch cur=103/130\".",
+    "correct": true,
+    "note": "by=switch in all 1152 variants (65-88% of reference). This is the thinnest switch margin of the long hip curls."
+   },
+   {
+    "n": 10,
+    "joint": "FLHL",
+    "drive": "Extend to the extend switch, third repetition. Replayed as SWEEP step 2 and the what-if full extend.",
+    "truth": "Extend limit switch at 1070.",
+    "verdict": "As designed: stops at 700 edges after 7.92 s, coasts to 709-711; limits come out [0, 700]. What-if full extend: \"END FLHL uncurl hall=1070 travel=1070 by=stop cur=151/114\"; the drive stops at 1069 and coasts 1.",
+    "correct": true,
+    "note": "Same as move 6; by=stop in all 1152 what-if variants."
+   },
+   {
+    "n": 11,
+    "joint": "FLHL",
+    "drive": "Retract at PWM 80 from 1070, as recorded. Replayed as SEEK step 1 with the firmware at PWM 80 and at 128, hip fresh and homed.",
+    "truth": "Mid-stroke stall at 841 for lack of force; not an end.",
+    "verdict": "Not taken as an end. The detector arms on the early running phase, then decides \"END FLHL curl hall=849 travel=-221 by=stuck cur=116/98\" at 9.18 s, 8 edges before the hip finally stopped creeping. The pass fails \"CAL FRONT FAIL FLHL stuck mid-stroke after 221 edges at PWM 80: raise PWM or check load\". No home is set, a proven home is cleared, and the partner joint does not move.",
+    "correct": true,
+    "note": "1152/1152 variants. Same result with a previously proven home, and with the firmware at PWM 128 (the message then says \"at PWM 128\")."
+   },
+   {
+    "n": 11.1,
+    "joint": "FLHL",
+    "drive": "Rerun of C SEEK 80 from where move 11's run gave up (hip at out 849, unhomed).",
+    "truth": "Still mid-stroke; the real curl switch is 848 edges away. The hip must not be homed here.",
+    "verdict": "The V1 failure reproduces, on a knife edge. The curl press moves 2 edges and ends as a plain stall (no motion, no home), so the firmware nudges out 24 edges and curls back. If the nudge ended 26 or more edges out (2 or more edges of coast), the return makes 25-30 edges, ends as a plain stall and is accepted: \"END FLHL curl hall=848 travel=-30\", \"HOME FLHL count=-848\". If the nudge ended at 24-25, the return stalls early and fails \"FAIL FLHL curled back only 9 edges after its nudge\".",
+    "correct": false,
+    "note": "The 1152 variants split 576 homed at 848 and 576 failed, decided only by the coast. This hip coasted 8 edges after its one in-motion stop at 128 (move 13); the constants file quotes 0-2 at PWM 80. The nudge-out trace is a proxy (move 13, PWM 128); the return plays move 11's own approach to the stall."
+   },
+   {
+    "n": 11.2,
+    "joint": "FLHL",
+    "drive": "V1 sweep: unhomed hip starting N edges out from the move-11 stall point (N = 0..229), C SEEK at 80 and at 128, 12 variants per N.",
+    "truth": "Mid-stroke stall; no home should ever be set.",
+    "verdict": "N = 0-1: fails \"curled back only\". N = 2-31: press, nudge and return, then HOME at out 848-849 (wrong). N = 32-59 (firmware at 80) or 32-66 (at 128): the unarmed curl makes 12 or more edges, ends as a plain stall and is homed at out 848-864 (wrong). N = 67 at 128: 4 of 12 variants end \"by=switch cur=94/107\" and home at 864 (wrong); the other 8 end by=stuck. N of 60 and above (80) or 68 and above (128): by=stuck and the pass fails (correct).",
+    "correct": false,
+    "note": "On this trace the window is about 2-66 edges, narrower than the earlier review's 110-125, because this stall decelerates over ~12 s."
+   },
+   {
+    "n": 11.3,
+    "joint": "FLHL",
+    "drive": "Rerun at 128 or 150 after the PWM-80 failure, answered by move 12 (hip placed at 841, where move 12 was recorded from).",
+    "truth": "With enough force the hip pulls in to its curl switch at 0.",
+    "verdict": "Switch end: \"END FLHL curl hall=0 travel=-841 by=switch cur=85/135\", then \"HOME FLHL count=0\".",
+    "correct": true,
+    "note": "1152/1152 variants. The log has no start-from-rest at 841 at PWM 128; move 12 (150) stands in for it."
+   },
+   {
+    "n": 12,
+    "joint": "FLHL",
+    "drive": "Retract at PWM 150 from 841 into the curl switch. Replayed as SEEK step 1 with the firmware at 150 and at 128.",
+    "truth": "Curl limit switch at 0.",
+    "verdict": "Switch end: \"END FLHL curl hall=0 travel=-841 by=switch cur=85/135\". The drive stops 0.19 s after arrival; \"HOME FLHL count=0\" when fresh, accepted without re-home when homed.",
+    "correct": true,
+    "note": "by=switch in all variants (60-78% of reference)."
+   },
+   {
+    "n": 13,
+    "joint": "FLHL",
+    "drive": "Extend to ~109, stopped by the host at a count.",
+    "truth": "No end.",
+    "verdict": "No calibration equivalent. Its start was used as the hip nudge-out response: 24 edges in 0.57 s, then a coast of up to 7.",
+    "correct": true,
+    "note": "Used only as the nudge-out trace (also as the proxy for the PWM-80 nudge in 11.1 and 11.2)."
+   },
+   {
+    "n": 14,
+    "joint": "FLHL",
+    "drive": "Short retract of 109 edges at 128 into the curl switch. Replayed as SEEK step 1.",
+    "truth": "Curl limit switch at 0, reached by a short drive.",
+    "verdict": "Switch end: \"END FLHL curl hall=0 travel=-109 by=switch cur=96/116\". The drive stops after 1.98 s, 0.18 s after the count stops. Fresh boot: \"HOME FLHL count=0\". Homed: accepted without re-home.",
+    "correct": true,
+    "note": "by=switch in all 1152 variants (76-88% of reference on the de-jittered base, close to the 88% threshold). The detector armed despite the short run, so it did not fall back to the plain-stall rule."
+   },
+   {
+    "n": 15,
+    "joint": "FLKL",
+    "drive": "Curl to ~88, stopped by the host at a count.",
+    "truth": "No end.",
+    "verdict": "No calibration equivalent; not replayed as a drive.",
+    "correct": true,
+    "note": "Not used."
+   },
+   {
+    "n": 16,
+    "joint": "FLKL",
+    "drive": "Short curl of ~84 edges at 128 into the mechanical stop. Replayed as SEEK step 0, fresh and homed.",
+    "truth": "Mechanical stop at out 3-4, reached by a short drive.",
+    "verdict": "Stop end: \"END FLKL curl hall=-4 travel=84 by=stop cur=182/136\". The drive stops at 2.63 s, 0-3 edges before the pressed-in position (knee at out 4-6). Fresh boot: \"HOME FLKL count=4\". Homed: accepted without re-home.",
+    "correct": true,
+    "note": "by=stop in all 1152 variants."
+   },
+   {
+    "n": 17,
+    "joint": "FLHL",
+    "drive": "Home press at the curl switch (no motion). Replayed as SEEK step 1, homed and fresh.",
+    "truth": "Already at the curl switch.",
+    "verdict": "Homed: plain stall after 1.03 s (\"END FLHL curl hall=0 travel=0\"), accepted without re-home. Fresh boot: no motion, so the hip is nudged out 24 edges (coasts to 24-31) and curled back; the return ends by=switch (\"cur=79/99\") or as a plain stall, then \"HOME FLHL count=0\".",
+    "correct": true,
+    "note": "The fresh-boot return is a plain stall in 450 and by=switch in 126 of the 576 de-jittered variants; all home at out 0."
+   },
+   {
+    "n": 18,
+    "joint": "FLKL",
+    "drive": "Home press at the mechanical stop (3 edges deeper). Replayed as SEEK step 0 and SWEEP step 0, homed and fresh.",
+    "truth": "Already at the stop.",
+    "verdict": "Homed: plain stall after 1.03 s (\"END FLKL curl hall=-3 travel=1\"), accepted without re-home. Fresh boot: knee nudge of 12-14 edges, return of 16 edges to a plain stall, then \"HOME FLKL count=1\".",
+    "correct": true,
+    "note": "1152/1152 variants."
+   }
+  ],
+  "robustness": "The firmware is the working tree at b11cc9ef, unmodified, built natively in krabby-fwtest; the repo was mounted read-only and git status is unchanged. The full-extend what-if uses a scratch copy of the headers with only CAL_HIP_SWEEP_EDGES changed from 700 to 1500.\n\nThe plant answers every drive the firmware starts with this log's own count and current trace for the matching real move, from where the joint is. Every scenario ran under 1152 variants:\n- two time bases (de-jittered frame times, and raw host RX times, which arrive in bursts with gaps up to 359 ms);\n- firmware loop of 1, 2 or 5 ms;\n- 0, 0.5 or 0.9 counts added to the integer-truncated current;\n- current held per frame or interpolated;\n- the host's ramp as recorded, or compressed to the firmware's 0.52 s;\n- four sample phases;\n- coast after an in-motion stop on or off;\n- short hip returns spliced from rest or played as a trace tail.\n\nOutcome classes (end kind, home, fail) were identical across all variants for every real end. Only numbers moved: the knee's stop home lands 11-15 edges shallow on the de-jittered base and up to 36 on raw timestamps.\n\nThree results are not robust:\n- **PWM-80 rerun (11.1):** it flips between a wrong home at 848 and a safe \"curled back only\" failure on 2 edges of nudge coast. Its nudge-out trace is a PWM-128 proxy.\n- **V1 boundary (11.2):** at N = 67 the result flips between by=stuck and by=switch with the current truncation offset.\n- **Extend switch (what-if only):** by=stop depends on the current rise before the switch; with it flattened the pass fails stuck mid-stroke.\n\nLimits of the replay:\n- The joint moves as recorded under the host's ramp (0.6-1.2 s to full PWM), and telemetry is ~20 Hz integer current.\n- When the firmware stops earlier than the host did, the remaining motion is a simple coast model.\n- Only the FL leg is covered; leg B's steps are not simulated, so runs are cut once leg A is accepted and the limits reported are the staged values. The firmware saves only after leg B.\n- The knee was ~204 edges out during the hip moves, whereas calibration moves the hip with the knee curled.\n- There is no PWM-128 mid-stroke stall and no start-from-rest at 841 at PWM 128 in this log.\n\nFiles are in C:/Users/nickm/AppData/Local/Temp/claude/78c86551260afdf9/720ce176-f876-4a62-9959-4e2b88a4d5da/scratchpad/endtest-replay/cal-level/:\n- calsim.cpp, parse_log.py, build.sh, variants.sh, v1sweep.sh, summ.py\n- out/base_verbose.txt, out/base_whatif_verbose.txt, out/summary_dejit.txt, out/summary_rawts.txt, out/variants.txt, out/variants_whatif.txt, out/v1.txt, out/v1_examples.txt",
+  "summary": "The firmware's own LegCalibration gets every real end in this log right at PWM 128, but the V1 scenario reproduces: after the PWM-80 stall, a rerun at 80 can home the hip mid-stroke, 848 edges from its real switch.\n\n- **Knee curl into its stop (moves 2, 4, 16):** by=stop every time. The fresh-boot home lands 11-15 edges shallower than the pressed-in position on the long curls and 0-3 on the short one, inside the 40-edge tolerance.\n- **Knee uncurl to its switch (1, 3):** by=switch at exactly 781, about 0.37 s after the count stops. A leg-A SWEEP stages the knee limits as [-781, 0].\n- **Hip curl into its switch (7, 9, 12, 14):** by=switch at out 0, 0.17-0.19 s after the count stops, including the short 109-edge drive. It homes at 0 on a fresh boot and keeps a proven home.\n- **Hip sweep (6, 8, 10):** as designed, the firmware stops at 700 edges, coasts to about 709 and stages [0, 700]; it never reaches the extend switch at 1070. With the sweep target raised in a scratch copy, the STOP rule does fire at the real extend switch (by=stop at 1069-1070). That is the right position with the wrong label, and it depends on a 30-40% current rise in the last ~25 edges; with that rise flattened the pass fails \"stuck mid-stroke after 1070 edges\". R2 stays open.\n- **PWM-80 stall as recorded (11):** correctly rejected. The firmware ends by=stuck after 221 edges and fails \"FLHL stuck mid-stroke after 221 edges at PWM 80: raise PWM or check load\", with no home set.\n- **Rerun from the stall point at 80:** press, nudge, return. It either homes the hip at out 848 (\"HOME FLHL count=-848\") or fails \"curled back only 9 edges after its nudge\", decided by about 2 edges of nudge coast.\n- **V1 window on this trace:** an unhomed hip starting about 2-66 edges out from the stall is homed there (plain stall, or by=switch in one boundary case). From 60-68 edges and beyond it fails stuck, correctly.\n- **Rerun at 128/150 (move 12's trace):** homes correctly at 0.\n\nLeg B is not simulated, so the limits are staged values; the firmware saves only after leg B. The rerun's nudge-out is a PWM-128 proxy trace."
+ }
+}

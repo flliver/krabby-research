@@ -1,0 +1,113 @@
+{
+ "review": {
+  "verdict": "Not ready for a robot run: two detector defects reproduced on real robot traces must be fixed first (F1 false limit-switch end, F2 false \"stuck mid-stroke\" on short drives), and F3 needs the owner's decision.",
+  "summary": "The gates pass, but replaying today's PWM 128 robot logs (which the design did not use) through the firmware's detector exposes two defects.\n\n**What I checked**\n- Native tests: 47/47 pass in Docker.\n- AVR build only, no upload: REV 3 uses 77028 B flash with 3377 B static RAM free; REV 2 has 3399 B free.\n- `arduino.ino` and `telemetry.cpp` sha1 are unchanged.\n- The design replay reproduces 39/40 on the two endcur logs.\n- T insets (8/25), partner gates, yaw rule, EEPROM layout and the default-128 text are as designed.\n- I opened no COM port, flashed nothing, committed nothing and edited nothing in the repo.\n\n**What fails**\n- **F1 (high):** a real FR hip curl at PWM 128 that stalled 878 edges short of its limit switch is reported as `by=switch`. On the first curl after power-up that sets the hip home there, so T's hip range lands past the body contact.\n- **F2 (medium):** a healthy knee whose curl drive is only about 50-130 edges long arms while it is already slowing into its stop and fails \"stuck mid-stroke\". This shows in 4 of 5 PWM 128 knee traces.\n- **F3 (medium, owner decision):** the knee nudge cap moved from 80 to 128, and the documented blind-knee bound (about 58 edges) is contradicted by today's own log (72 edges after 1.0 s).\n- **F4-F8 (low):** slow drives that never arm, the RAM gate not seeing the heap, the blind hip return margin, test blind spots, and two text nits.\n\nA one-line fix for F1 is verified on all logs; F2 still needs design work.\n\nMy replay scripts and the candidate fix are in `C:\\Users\\nickm\\AppData\\Local\\Temp\\claude\\78c86551260afdf9\\720ce176-f876-4a62-9959-4e2b88a4d5da\\scratchpad\\ced-review` (`replay_other.py`, `short_drive.py`, `h.cpp`, `seqs.txt`, `seqs2.txt`, `fix\\detector.py`).",
+  "findings": [
+   {
+    "id": "F1",
+    "severity": "high",
+    "title": "A real mid-stroke hip stall at PWM 128 is accepted as a limit-switch end",
+    "where": "firmware/arduino/src/actuator/calibration_end_detector.h:186-206 (slow-arrival switch rule); firmware/arduino/src/actuator/leg_calibration.h:1137-1147 (curl with motion is accepted and homed)",
+    "scenario": "Trace: C:\\Users\\nickm\\AppData\\Local\\Temp\\claude\\78c86551260afdf9\\720ce176-f876-4a62-9959-4e2b88a4d5da\\scratchpad\\clearance-FR-115750.log, the FRHL curl at -128 starting t=173.8 s. The hip started pressed against the body (count -1070), ran 192 edges, then stalled at -878 with the current rising from 15 to 21-31. It was not at its switch: fr-recover-120231.log needed PWM 150 and 878 more edges to reach the real one.\n\nThe stall current wobbles between 17 and 31. Three frames in a row at 17 are at or below 70% of the 20-sample median (25) and below that window's minimum (18), so the slow-arrival rule fires. The firmware's own class, compiled from the working tree and fed this trace, returns `Switch at k=104 edges=191 cur=170/250`. Stuck would only have fired 5 samples later. The 17 is above the running level (iRef 161), so it is not a switch-open level.\n\nConsequence in `finishMove`: on the first curl after power-up the hip is not proven, so the move is accepted and `setHome` puts the home 878 edges from the real curl end. T's hip range [8, 675] then means 886-1553 real edges out, past the body contact at about 941-1070. A Curl-only run passes like this. A full run then drives the 700-edge sweep into the body before failing.\n\nThis contradicts the design claim that crawl stalls dip only to 0.82-0.91 and never below the reference minimum. The telemetry is integer-truncated, so at tenths resolution this case is borderline, but it is the same data type the goldens were tuned on.",
+    "fix": "Require a slow-arrival switch to also be below the running level, for example `worst * 100 <= 90 * iRef_` in addition to the 70% and below-minimum tests. A real switch-open level is below running; a stalled motor is above it.\n\nI checked this in a patched copy of the Python reference (`ced-review\\fix\\detector.py`): all 40 goldens keep their verdict, the 5 real switch ends in today's other PWM 128/150 logs are still found (one a sample or two later), and this trace becomes stuck.\n\nAdd this trace, and the other PWM 128 logs from today, to the parity fixture with expected verdict Stuck."
+   },
+   {
+    "id": "F2",
+    "severity": "medium",
+    "title": "A healthy joint that starts about 50-130 edges from its curl end fails \"stuck mid-stroke\"",
+    "where": "firmware/arduino/src/actuator/calibration_end_detector.h:329-338 (arming) and :210-216 (stop rule against iRef); tests/native/firmware/arduino/host_calibration_timeline.hpp:557-594",
+    "scenario": "If the drive is short, the six arming samples fall inside the deceleration into the stop. iRef is then learned from the already-raised stall current and vRef from the falling speed. No later sample counts as normal running, so the references never recover, \"125% of iRef\" is never reached, and the drive ends Stuck after pressing about 1 s at full PWM.\n\nI reproduced this by taking real curl-end traces and starting the drive later in the same approach. The firmware class on those sequences:\n- FLKL at 120: `Stuck at k=47 edges=49 cur=170/170`\n- FLKL at 150: `Stuck at k=50 edges=82 cur=240/190`\n- FLHL at 120: `Stuck at k=46 edges=75 cur=80/100` (the reference window shrinks to 5 samples, giving 8/9 = 0.89 against the 0.88 threshold)\n\nOn today's PWM 128 knee curls, 4 of 5 traces have a contiguous stuck band:\n- clearance-FL-121754: total drive 67-72 edges\n- clearance-FR-115750: 79-97 edges\n- hipend-FL-115546: 96-133 edges\n- rodscale-knee_back_hip_out: 49-65 edges\n\nThose jog ramps took about 1.1 s; with the firmware's 0.52 s ramp the band sits somewhat lower.\n\nResult on the robot: the run fails `<j> stuck mid-stroke after <n> edges at PWM 128: raise PWM or check load` on a healthy knee and clears its home. This is likely after a jog off the curl end or a T position near the curl side. A retry passes because the joint is then at its end. The nudge returns (about 20-30 edges) stay below the band.",
+    "fix": "Do not let a drive be judged Stuck on references learned during its end approach. Options: arm only on steady speed, or fall back to the plain-stall (Still) verdict when the stall begins within about 1 s of arming.\n\nI tried two simple variants and neither is clean:\n- Arming only when the newest speed is at least 75% of the arm window's maximum removes the band in 3 of the 4 PWM 128 traces, but turns two goldens from Stop into Still and leaves the band in hipend-FL.\n- Counting normal-running samples makes the F1 stall accepted again.\n\nThis needs a design pass with these short-drive sequences added as goldens. Also add a timeline case for ends reached 0.8-1.5 s after the start; the current check skips anything under 1.2 s."
+   },
+   {
+    "id": "F3",
+    "severity": "medium",
+    "title": "Knee nudge now runs at up to PWM 128, and its documented blind bound is contradicted by today's log",
+    "where": "firmware/arduino/src/actuator/calibration_constants.h:112-117 and :132 (CAL_KNEE_NUDGE_MAX_PWM = CAL_DEFAULT_PWM); firmware/SETUP.md:249; tests/native/firmware/arduino/host_calibration_timeline.hpp:62-73 (kSpecBlindKneeNudgeMaxEdges = 49)",
+    "scenario": "The owner's decision 4 says the knee nudge stays as is. Because the cap is tied to the default, it silently moved from 80 to 128. The nudge is the one move allowed before the hip is proven curled.\n\nThe code comments, SETUP.md and the timeline spec say a blind knee (dead hall A) ends \"up to about 58 edges out\", from an estimated 77 edges/s, \"not measured\". It was measured this morning: in rodscale-knee_out-114217.log, FLKL at 128 from its curl end (ramp 0.64 s, slower than the firmware's 0.52 s) had moved 72 edges at 1.0 s. FR knees ran about 120 edges/s at 128 and moved 6-9 more edges after a stop (clearance-FR: 166 to 175).\n\nSo a blind knee nudge at 128 ends about 80-90 edges out, not 58, against 41 at PWM 80. SETUP.md also says \"its hip stays curled, so this is harmless\", but the nudge happens before the hip is proven curled.\n\nThe design's reason for raising the cap is real: FRKL could not break free at 80 or 100.",
+    "fix": "Put the choice to the owner: accept about 90 edges for a blind knee at 128, or cap the nudge lower (about 110) and accept that some knees may fail no-feedback.\n\nEither way, re-derive kSpecBlindKneeNudgeMaxEdges, the calibration_constants.h comment and SETUP.md line 249 from the PWM 128 logs, and drop \"its hip stays curled\"."
+   },
+   {
+    "id": "F4",
+    "severity": "low",
+    "title": "Slow drives that never arm still accept a stall as an end, on a shorter window than before",
+    "where": "firmware/arduino/src/actuator/calibration_end_detector.h:316-322 and :331-338; firmware/gui/app.py:100-102; docs/GLOSSARY.md:64",
+    "scenario": "Arming needs 20 edges/s for 300 ms. At PWM 40-50 hips run 10-20 edges/s (SETUP.md), so with `C 45` the detector never arms.\n\nAn unarmed curl ends Still on any 500 ms sliding window with fewer than 3 edges (6 edges/s). The old rule was a 1 s window (3 edges/s) after a 1.5 s grace. A hip curling at 10 edges/s that pauses 0.5 s mid-stroke, after at least 12 edges, is accepted as its curl end and homed there with no `by=` token.\n\nThe GUI help says a slow run \"stops it as stuck mid-stroke\" and the glossary says a stall with no signature is \"never taken as an end\". That is not true for drives that never arm. CAL_PWM_MIN is still 40.",
+    "fix": "Raise CAL_PWM_MIN to about 110 (the design already recommends it; it is the owner's call). Otherwise keep the 1000 ms window for unarmed drives that have already moved 12 edges or more, and correct the GUI and glossary text to say that below arming speed ends are found by stall only."
+   },
+   {
+    "id": "F5",
+    "severity": "low",
+    "title": "The 3000-byte RAM gate does not see the detector",
+    "where": "firmware/arduino/arduino.ino:107 (`new ActuatorManager`); firmware/arduino/actuator_manager.h:1082 (LegCalibration member)",
+    "scenario": "The manager is heap-allocated. The disassembly shows its malloc size going from 110 to 256 bytes (+146), while the compile-time figure moved only 2 bytes (3379 to 3377 free on REV 3). The design expected about 3240.\n\nAfter setup the heap holds 6 x 82 + 256 bytes plus headers, about 762 B. Real room for the stack is about 2615 B; it was about 2750 B before this change. That is not a failure by itself: the detector's deepest stack use is about 40 B.",
+    "fix": "Report free RAM as the static figure minus the setup heap (sizeof ActuatorManager plus 6 x sizeof LinearActuator), or make the manager static so the linker figure includes it. Then decide whether the 3000 B floor refers to that number."
+   },
+   {
+    "id": "F6",
+    "severity": "low",
+    "title": "A blind hip's return no longer has margin to get back to its curl end",
+    "where": "firmware/arduino/src/actuator/leg_calibration.h:734-738 (minStill = nudge drive time)",
+    "scenario": "A hip with no hall feedback is nudged out for the 2 s cap, then returned for exactly as long. Before, the return ran ramp + 2.5 s.\n\nAt PWM 128 the logs show hips uncurling 134-144 edges in 2.0 s but curling back only 112-131 in 2.0 s (175-187 in 3.0 s). The hip is left about 10-30 edges out when the run fails no-feedback, with no \"not driven back\" warning.",
+    "fix": "Give a return that saw no edges 25-50% more time than its nudge (for example the nudge time plus CAL_STALL_WINDOW_MS). At the switch the motor is cut anyway."
+   },
+   {
+    "id": "F7",
+    "severity": "low",
+    "title": "Tests and goldens miss the cases above",
+    "where": "tests/native/firmware/arduino/src/actuator/robot_end_current_replay.hpp; tests/native/firmware/arduino/src/actuator/test_calibration_end_detector.cpp; tests/native/firmware/arduino/host_calibration_timeline.hpp:586",
+    "scenario": "The earlier mutation run shows the suite does catch removal of each rule. The gaps are in the data:\n- The parity fixture holds only the two endcur logs. The design says \"there is no data at PWM 128 itself\", but eight logs from today contain PWM 128 moves (clearance-FL/FR, hipend-FL, rodscale-*, fr-recover), including the F1 stall.\n- The synthetic stuck cases use flat or lightly noisy current. None models a retract stall whose current swings 17-31, which is what defeats the below-minimum guard.\n- The timeline end checks skip every end reached within 1.2 s of the drive start, which is where F2 lives.",
+    "fix": "Regenerate the fixture from all of today's logs with expected verdicts (F1 trace = Stuck). Add a synthetic retract stall with +-30% current ripple, and short-drive cases built from real approach tails."
+   },
+   {
+    "id": "F8",
+    "severity": "low",
+    "title": "Text nits",
+    "where": "firmware/krabby_mcu.py:203; firmware/arduino/src/actuator/calibration_end_detector.h",
+    "scenario": "The module docstring still gives `C 80` / `C SEEK 80` as the examples; decision 1 asks for 128 wherever a calibration speed is suggested. The new header calibration_end_detector.h is LF-only while its neighbours leg_calibration.h and calibration_constants.h are CRLF.",
+    "fix": "Change the examples to 128 and convert the new header to CRLF to match its directory."
+   }
+  ]
+ },
+ "fix": {
+  "summary": "I checked all eight findings against the code and fixed each one. All gates pass on the final tree: Docker all (47/47 native, coverage 98.4% lines / 91.5% branches, arduino.ino 100/100, 1147 Python tests). The AVR Rev 3 build leaves 3377 B free and Rev 2 leaves 3399 B. The two protected files are unchanged (arduino.ino 31a15639\u2026, telemetry.cpp d59aa784\u2026). I committed nothing, flashed nothing and opened no serial port. I tested a copy of the design's Python reference with these fixes against every real move (40 end-current goldens, 42 moves from today's PWM 128/150 logs, 147 quicktest moves) and 2895 shortened real end approaches. Then I ported the fixes to C++, and the C++ matches the Python sample for sample.\n\nF1 (confirmed): a slow-arrival switch now also needs the current at or below 90% of iRef (CAL_END_SWITCH_SLOW_IREF_PCT). The FRHL trace (clearance-FR-115750#7) is now Stuck at k=109 instead of Switch at k=104. Only one other real verdict moved: the FLKL uncurl in rodscale-knee_out fires one sample later.\n\nF2 (confirmed; I did the design pass): this only changes moves that would otherwise end Stuck, so no existing Switch or Stop verdict changes. A curl that stalls with fewer than 12 normal-speed samples since arming (CAL_END_SHORT_NORMAL_SAMPLES), and whose last forward edge came fewer than 40 samples after arming (CAL_END_SHORT_RUN_SAMPLES), now ends Still, the plain stall. A retracting curl only gets this when its median current is at or below iRef, so a motor stalled mid-stroke stays Stuck. Uncurls are never affected. On full traces, the design rule called 51 of 2895 shortened approaches stuck; the new rule calls none, and all 40 goldens keep their verdicts. The real short ends had at most 6 normal samples and 33 samples to their last edge; the long FRKL curl at PWM 80 (27 normal samples) and the FRHL stall (7 normal samples, last edge 71 samples after arming, current above iRef) stay Stuck.\n\nF3 (confirmed): the code still caps the knee nudge at 128. The blind-knee numbers are re-derived from today's PWM 128 logs: up to about 95 edges out, against the old claim of 58. kSpecBlindKneeNudgeMaxEdges went from 49 to 95. I removed \"its hip stays curled\" from SETUP.md and from the comments.\n\nF4 (confirmed): an unarmed curl that has made 12 or more edges now uses the 1000 ms stall window instead of 500 ms. The GUI help, the glossary and SETUP.md now say that slow drives, and curls that start close to their end, find their end by stall alone. CAL_PWM_MIN is still 40.\n\nF5 (confirmed): the manager is now 257 bytes on the heap (0x101) and each LinearActuator 82 bytes, about 763 B of heap after setup including malloc headers. That leaves about 2614 B for the stack on Rev 3 and 2636 B on Rev 2, against the compile-time figures of 3377 / 3399. Before this change it was about 2763 B. I did not make the manager static, because arduino.ino must stay byte-identical.\n\nF6 (confirmed): a Return whose nudge showed no evidence now drives at least the nudge time plus CAL_STALL_WINDOW_MS, so a blind hip curls back for 3 s instead of 2 s.\n\nF7: the replay fixture now holds 94 moves and 8560 samples, in three groups:\n- the 40 end-current goldens;\n- the 42 moves from today's logs, with the FRHL trace expected Stuck;\n- 12 real end approaches started later in the same approach (11 expected Still, plus the shortened FRHL stall expected Stuck).\n\nNew detector tests cover:\n- the FRHL trace;\n- the short-curl replays and the PWM 128 runs by end kind;\n- a retracting stall whose current swings \u00b130%;\n- short and long synthetic curls, and the retract current guard;\n- a slow curl that pauses mid-stroke.\n\nThe timeline now:\n- has a per-rod taper length;\n- judges presses and arrivals at the calibration PWM;\n- checks ends reached within 1.2 s (they must stop within 1150 ms);\n- has a new test where hips and knees start 15-200 edges from their curl end.\n\nI updated two leg tests for F4 and F6. Each fix was reverted one at a time and at least one test failed every time (log: scratchpad\\fix-mutation.log).\n\nF8 (confirmed): the krabby_mcu docstring examples now use 128, with a new test. calibration_end_detector.h is now CRLF.\n\nScratch tools are in C:\\Users\\nickm\\AppData\\Local\\Temp\\claude\\78c86551260afdf9\\720ce176-f876-4a62-9959-4e2b88a4d5da\\scratchpad\\ced-fix (detector.py, evaluate.py, gen_fixture.py, mutate.py).",
+  "files_changed": [
+   "C:\\Users\\nickm\\krabby\\krabby-research\\firmware\\arduino\\src\\actuator\\calibration_end_detector.h",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\firmware\\arduino\\src\\actuator\\calibration_constants.h",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\firmware\\arduino\\src\\actuator\\leg_calibration.h",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\firmware\\gui\\app.py",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\firmware\\krabby_mcu.py",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\firmware\\SETUP.md",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\docs\\GLOSSARY.md",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\native\\firmware\\arduino\\src\\actuator\\robot_end_current_replay.hpp",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\native\\firmware\\arduino\\src\\actuator\\test_calibration_end_detector.cpp",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\native\\firmware\\arduino\\src\\actuator\\test_leg_calibration.cpp",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\native\\firmware\\arduino\\host_calibration_timeline.hpp",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\native\\firmware\\arduino\\test_host_calibration_timeline.cpp",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\unit\\firmware\\test_setup_doc_calibration.py",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\unit\\firmware\\test_gui_calibration.py",
+   "C:\\Users\\nickm\\krabby\\krabby-research\\tests\\unit\\firmware\\test_krabby_mcu_calibration.py"
+  ],
+  "tests": [
+   "Docker all: native 47/47 passed; coverage 98.4% lines / 91.5% branches, arduino.ino 100% lines and branches; py 1147 passed (log: scratchpad\\fix-all-1.log)",
+   "AVR arduino:avr:mega REV=3: 3377 B free (compile-time figure; about 2614 B left for the stack after the 763 B setup heap)",
+   "AVR arduino:avr:mega REV=2: 3399 B free (compile-time figure; about 2636 B after the setup heap)",
+   "Protected sha1 unchanged: arduino.ino 31a15639f9662ebd278bf8aa486141b905d705e4, telemetry.cpp d59aa784ad7e821c825342ab6ab82c1b48b8d412",
+   "Mutation check: reverting each fix (F1 guard; F2 fallback, retract guard, normal count, run bound; F4 window; F6 margin) makes at least one test fail every time (scratchpad\\fix-mutation.log)",
+   "Python reference replay: 40/40 goldens, 42/42 moves from today's logs (FRHL trace = stuck), 2895/2895 shortened approaches not stuck, quicktests 146/147 (the one miss is a press the host stopped at 1.45 s)"
+  ],
+  "green": true,
+  "open_risks": [
+   "F1 holds only on real data: synthetic shortened FRHL stalls (20 of 117 cut points) are still taken as a switch, because when a whole drive is a rising-current crawl, iRef is learned during the crawl. Lowering CAL_END_SWITCH_SLOW_PCT to 65 would catch those cut points; it was not changed, because real slow arrivals reach 0.615 and the margin is thin.",
+   "F2 brings back the old plain-stall behaviour for short curls: a curl that hits an obstacle within about 2 s of arming, after a running phase too short to judge, is homed there, the same as before the detector. A retracting curl whose current rose above running still fails stuck.",
+   "F4 trade-off: a curl that has moved 12 or more edges (including a knee Return) now presses its end about 0.5 s longer before ending Still.",
+   "F5: counting the setup heap, free RAM is about 2614 B (Rev 3) and 2636 B (Rev 2), under a 3000 B floor if the floor is meant to include the heap. Before this change it was about 2763 B.",
+   "The PWM 128 replays use telemetry truncated to whole counts; the firmware sees tenths, so verdicts near a threshold may differ on the robot. Nothing has been run on the robot."
+  ],
+  "needs_decision": [
+   "F3: keep the knee nudge cap at 128 (a blind knee can end up to about 95 edges out before its hip is proven curled), or lower it to about 110 and accept that some stored knees (FRKL did not break free at 80 or 100) may fail no-feedback.",
+   "F4: raise CAL_PWM_MIN from 40 to about 110 so every calibration drive can arm, or keep 40 with the new 1000 ms stall window and the corrected help text.",
+   "F5: should the 3000 B RAM floor apply to the compile-time figure (3377 / 3399, passes) or to the figure after the setup heap (about 2614 / 2636, fails, and already failed before this change at about 2763)?"
+  ]
+ }
+}

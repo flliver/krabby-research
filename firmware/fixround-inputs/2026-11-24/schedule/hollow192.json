@@ -1,0 +1,39 @@
+{
+ "body": {
+  "worst": 1.184695839881897,
+  "worst_at": 1069.0,
+  "primary": 1.5741477012634277,
+  "nominal": 1.4401053190231323,
+  "first_neg_worst": null,
+  "first_neg_primary": null,
+  "first_neg_nominal": null
+ },
+ "table": {
+  "worst": -9.84183406829834,
+  "worst_at": 1069.0,
+  "primary": -7.809207916259766,
+  "nominal": -7.245835781097412,
+  "first_neg_worst": 859.0,
+  "first_neg_primary": 900.0,
+  "first_neg_nominal": 908.0
+ },
+ "table_contact": {
+  "worst": -6.09183406829834,
+  "worst_at": 1069.0,
+  "primary": -4.059207916259766,
+  "nominal": -3.495835542678833,
+  "first_neg_worst": 938.0,
+  "first_neg_primary": 976.0,
+  "first_neg_nominal": 986.0
+ },
+ "floor": {
+  "worst": 7.055648326873779,
+  "worst_at": 650.0,
+  "primary": 9.128449440002441,
+  "nominal": 9.094375610351562,
+  "first_neg_worst": null,
+  "first_neg_primary": null,
+  "first_neg_nominal": null
+ },
+ "tibia_body_worst": 6.856561183929443
+}

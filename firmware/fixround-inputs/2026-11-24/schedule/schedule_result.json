@@ -1,0 +1,61 @@
+{
+ "corridor": {
+  "body": "ensemble-worst gap >= 0 (planning target >= 1 in)",
+  "table": "parts below the table top at x >= -10 (13.75 edge - 2 off-centre - 1.75)",
+  "floor": ">= 3 in above floor (floor -34 +-0.5)",
+  "ensemble": "334 members: yaw-0 refit (primary), nominal, 32 corners, 300 random; yaw 0-40, femur/knee maps +-2 deg, L_toe +-0.75, pivot +-0.25, compliance 0..+2"
+ },
+ "h_max_solid": {
+  "worst_rule_staircase": 912,
+  "worst_rule_single_knee": 904,
+  "primary_only_rule": 968,
+  "worst_actual_edge_no_margin": 992,
+  "extend_switch_1069": "unreachable"
+ },
+ "schedule": {
+  "K": 264,
+  "H": 864,
+  "moves": [
+   "knee curl to stop at hip 0",
+   "knee uncurl to switch 785",
+   "knee 785 -> 264",
+   "hip 0 -> 864 at knee 264",
+   "return: hip 864 -> 0 (curl switch) at knee 264",
+   "knee free at hip 0"
+  ],
+  "bottleneck_worst": 1.73,
+  "binding": "table rule, tibia toe at hip 864 (toe x -8.3 worst, -5.8 primary)",
+  "floor_worst": 2.47,
+  "floor_at": 739,
+  "hip_overshoot_counts": 27,
+  "knee_band_for_sweep": [
+   224,
+   304
+  ],
+  "knee_at_H_band": [
+   216,
+   306
+  ]
+ },
+ "hollow_table_full_sweep_knee": 192,
+ "files": [
+  "ens_grid.py",
+  "grids.npz",
+  "reach.py",
+  "reach.log",
+  "sched.py",
+  "sched.log",
+  "cand.py",
+  "cand.log",
+  "fine.py",
+  "verify.py",
+  "verify.log",
+  "verify.json",
+  "envelope.py",
+  "envelope.log",
+  "hollow.py",
+  "hollow.log",
+  "hollow192.py",
+  "hollow192.log"
+ ]
+}
