@@ -58,12 +58,14 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
       self-locking screw, exactly like the yaw linkage emulator) -- static holding is
       free on hardware, so speed, not torque, is the binding constraint that must be
       enforced here.
-    - The knee actuator spans hip -> tibia across the femur, so the knee's rod length is
-      commanded (policy knee channel interpreted at the DEFAULT hip angle) and its joint
-      target is re-solved from the hip's COMMANDED trajectory every substep (target-side
-      coupling; see NOTE(coupling-stability) below): pitching the femur swings the knee
-      as the hardware linkage does. The rod-window clamp also makes the unreachable
-      joint-space corner (hip full-down + knee full-fold) physically unreachable in sim.
+    - The knee's rod length is commanded (policy knee channel interpreted at the DEFAULT hip
+      angle). What the hip does to the knee depends on ``knee_mount`` (NOTE(knee-mount)):
+      on the legacy ``"hip_plate"`` mount (the default) the actuator spans hip -> tibia
+      across the femur, so the joint target is re-solved from the hip's COMMANDED trajectory
+      every substep (target-side coupling; see NOTE(coupling-stability) below) and the
+      rod-window clamp makes the joint-space corner (hip full-down + knee full-fold)
+      unreachable. On the ``"femur"`` mount -- the hardware -- the actuator rides on the
+      femur: the knee target follows the knee rod alone and the corner is reachable.
     - Right legs (FR/MR/RR) carry a 180-deg Z joint-frame flip: their knee sign is
       mirrored into the linkage's left-leg convention and back.
     """
@@ -152,6 +154,12 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             device=self.device,
         )
         self._rod_sync_needed = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        # NOTE(knee-mount, 2026-11-24): where the knee actuator's rear end is anchored
+        # (``crab_hex_linkage.KNEE_MOUNTS``), read off an attribute the shipped cfgs do not carry. Unset =
+        # ``"hip_plate"``, the legacy coupled model every recorded run trained on (bit-identical path).
+        # ``"femur"`` is the hardware (the owner saw the knee actuator ride on the upper leg): the knee
+        # target follows the knee rod alone. Public: the current-sense proxy reads the same mount.
+        self.knee_mount = linkage.check_knee_mount(getattr(cfg, "knee_mount", None))
         # Last-substep rod speeds (m/s), exposed for the motor-current-sense observation
         # proxy (a lead-screw motor draws current only while DRIVING; static holding is
         # free -- the worm-drive dead zone the current-sense obs must model honestly).
@@ -369,6 +377,9 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         """Linear-actuator layer for hip-pitch + knee: rod-length clamp + speed slew +
         hip->knee coupling. Runs every physics substep (dt = env.physics_dt)."""
         dt = self._env.physics_dt
+        # NOTE(knee-mount): every knee linkage call below takes the mount; the legacy default
+        # "hip_plate" runs the coupled functions unchanged, "femur" makes them hip-independent.
+        knee_mount = getattr(self, "knee_mount", linkage.DEFAULT_KNEE_MOUNT)
         theta_h_live = self._asset.data.joint_pos[:, self._pitch_joint_ids]
         theta_k_live = self._asset.data.joint_pos[:, self._knee_joint_ids] * self._knee_sign
         if not torch.isfinite(theta_h_live).all() or not torch.isfinite(theta_k_live).all():
@@ -380,7 +391,7 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             sync = self._rod_sync_needed
             self._hip_rod_len[sync] = linkage.hip_actuator_length(theta_h_live[sync])
             self._knee_rod_len[sync] = linkage.knee_actuator_length(
-                theta_h_live[sync], theta_k_live[sync]
+                theta_h_live[sync], theta_k_live[sync], mount=knee_mount
             )
             if self._lpf_alpha is not None:
                 self._hip_rod_cmd_lpf[sync] = self._hip_rod_len[sync]
@@ -412,8 +423,10 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         self._asset.set_joint_position_target(theta_h_tgt, joint_ids=self._pitch_joint_ids)
         self._asset.set_joint_velocity_target(omega_h_tgt, joint_ids=self._pitch_joint_ids)
 
-        # --- knee: rod command interpreted at the DEFAULT hip angle, re-solved at the
-        # hip's TARGET angle (the hardware coupling), window clamp, loaded-speed slew ---
+        # --- knee: rod command interpreted at the DEFAULT hip angle, window clamp,
+        # loaded-speed slew, then the joint target solved from the rod. On the legacy
+        # "hip_plate" mount that solve is at the hip's TARGET angle (the coupling); on the
+        # "femur" mount (the hardware) it ignores the hip and the coupling term below is 0. ---
         # NOTE(coupling-stability): the coupling is computed from the hip's COMMANDED
         # trajectory (theta_h_tgt from the rod state above), never the live joint state.
         # A first implementation used theta_h_live and destabilized the zero-action
@@ -425,7 +438,7 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
         # by construction (targets evolve only at rod speed).
         theta_h_default = self._asset.data.default_joint_pos[:, self._pitch_joint_ids]
         theta_k_cmd = self._processed_actions[:, self._knee_action_cols] * self._knee_sign
-        lam_k_cmd = linkage.knee_actuator_length(theta_h_default, theta_k_cmd).clamp(
+        lam_k_cmd = linkage.knee_actuator_length(theta_h_default, theta_k_cmd, mount=knee_mount).clamp(
             linkage.KNEE_LEN_MIN_M, linkage.KNEE_LEN_MAX_M
         )
         if self._lpf_alpha is not None:
@@ -439,11 +452,11 @@ class CrabHexDelayedJointPositionAction(DelayedJointPositionAction):
             dlam_k = fault.rod_dlam(self, "knee", lam_k_cmd, self._knee_rod_len, dlam_k, max_step_k)
         self._knee_rod_len += dlam_k
         self.knee_rod_speed = dlam_k / dt
-        theta_k_tgt = linkage.knee_angle_from_length(self._knee_rod_len, theta_h_tgt)
+        theta_k_tgt = linkage.knee_angle_from_length(self._knee_rod_len, theta_h_tgt, mount=knee_mount)
         # Velocity feedforward: rod motion plus the hip-coupling term at constant rod
-        # length, both evaluated on the commanded trajectory.
-        ma_k = linkage.knee_moment_arm(theta_h_tgt, theta_k_tgt).clamp_min(1e-4)
-        coupling = linkage.knee_hip_coupling(theta_h_tgt, theta_k_tgt)
+        # length, both evaluated on the commanded trajectory (coupling = 0 on the femur).
+        ma_k = linkage.knee_moment_arm(theta_h_tgt, theta_k_tgt, mount=knee_mount).clamp_min(1e-4)
+        coupling = linkage.knee_hip_coupling(theta_h_tgt, theta_k_tgt, mount=knee_mount)
         omega_k_tgt = (dlam_k / dt - coupling * omega_h_tgt) / ma_k
         self._asset.set_joint_position_target(
             theta_k_tgt * self._knee_sign, joint_ids=self._knee_joint_ids

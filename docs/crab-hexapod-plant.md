@@ -66,6 +66,14 @@ joint-limit conventions are all in the same module; the docstring records the pr
 number (CAD vs as-built) and what superseded what. Do not copy numbers from this table into code;
 import the module.
 
+**Knee actuator mount (2026-11-24).** On the robot the knee actuator's rear end rides on the femur
+(owner observation), so a held knee rod holds the knee angle while the hip pitches. The training
+linkage ([crab_hex_linkage.py](../parkour/parkour_tasks/parkour_tasks/crab_hex_forward_task/mdp/crab_hex_linkage.py))
+still defaults to the legacy `hip_plate` mount, which couples the knee to the hip. Every head trained
+so far used it. `femur` is selected by the action cfg attribute `knee_mount`; it is not yet part of
+plant selection. The knee actuator's mass is still booked to the hip link, in the dimensions module
+and in the USDs.
+
 ## 3. Spawn height
 
 `KRABBY_HEX_SPAWN_Z=1.085` (m) is the articulation spawn height read by the scene config

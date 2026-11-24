@@ -132,7 +132,9 @@ class CrabHexParkourObservations(ExtremeParkourObservations):
         # Moment arms are magnitude-symmetric, so the right legs' knee sign flip only
         # matters for the knee angle fed into the linkage; use |theta_k| convention-free.
         ma_h = linkage.hip_moment_arm(theta_h).clamp_min(1e-4)
-        ma_k = linkage.knee_moment_arm(theta_h, theta_k.abs()).clamp_min(1e-4)
+        # The knee lever of the action term's knee mount (legacy hip plate unless it says femur).
+        knee_mount = getattr(action_term, "knee_mount", linkage.DEFAULT_KNEE_MOUNT)
+        ma_k = linkage.knee_moment_arm(theta_h, theta_k.abs(), mount=knee_mount).clamp_min(1e-4)
         force_h = tau[:, self._pitch_joint_ids].abs() / ma_h / linkage.HIP_FORCE_N
         force_k = tau[:, self._knee_joint_ids].abs() / ma_k / linkage.KNEE_FORCE_N
         gate_h = (

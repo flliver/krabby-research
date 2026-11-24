@@ -795,10 +795,27 @@ class _StripFaultHooks(ast.NodeTransformer):
         return isinstance(s, ast.If) and ast.unparse(s.test) == "fault is not None" and not s.orelse
 
 
+class _StripKneeMount(ast.NodeTransformer):
+    """The knee-mount switch (2026-11-24, default the legacy ``"hip_plate"``) removed: the ``knee_mount =
+    getattr(self, "knee_mount", linkage.DEFAULT_KNEE_MOUNT)`` guard and every ``mount=knee_mount`` keyword. What is
+    left must still be the pre-change commit's; that the hip-plate mount runs the unchanged functions bit for bit is
+    pinned in ``test_crab_hex_knee_mount.py``."""
+
+    GUARD = ast.unparse(ast.parse('knee_mount = getattr(self, "knee_mount", linkage.DEFAULT_KNEE_MOUNT)'))
+
+    def visit_Assign(self, node):
+        return None if ast.unparse(node) == self.GUARD else self.generic_visit(node)
+
+    def visit_Call(self, node):
+        node.keywords = [k for k in node.keywords
+                         if not (k.arg == "mount" and isinstance(k.value, ast.Name) and k.value.id == "knee_mount")]
+        return self.generic_visit(node)
+
+
 def _method_dump(src: str, name: str) -> str:
     cls = next(n for n in ast.parse(src).body if isinstance(n, ast.ClassDef) and n.name == "CrabHexDelayedJointPositionAction")
     fn = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name)
-    return ast.dump(_StripFaultHooks().visit(fn))
+    return ast.dump(_StripKneeMount().visit(_StripFaultHooks().visit(fn)))
 
 
 @pytest.mark.parametrize("name", ["_apply_pitch_linkage", "process_actions", "apply_actions", "_clip_raw_actions"])

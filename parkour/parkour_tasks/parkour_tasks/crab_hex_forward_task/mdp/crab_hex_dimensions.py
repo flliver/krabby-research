@@ -219,6 +219,9 @@ _TIBIA_PLY_KG = _ply_mass_kg(
 )
 
 # Both actuator bodies ride on the hip beam (anchored on its top edge).
+# NOTE(knee-mount, 2026-11-24): on the robot the KNEE actuator rides on the femur, not the hip
+# plate (crab_hex_linkage.KNEE_MOUNT_FEMUR). Its mass is still booked to the hip link here and
+# in the generated USD; moving it to the femur is a plant (asset) change, not yet made.
 _RAW_LINK_KG = {
     "hip": _HIP_PLY_KG + HIP_ACTUATOR["mass_kg_est"] + KNEE_ACTUATOR["mass_kg_est"],
     "femur": _FEMUR_PLY_KG,
