@@ -5,7 +5,7 @@
 static constexpr uint16_t EEPROM_CAPACITY_BYTES = 4096;
 
 static constexpr uint16_t EEPROM_ACTUATOR_CAL_ADDR = 0;
-static constexpr uint16_t EEPROM_ACTUATOR_CAL_SIZE = 26;
+static constexpr uint16_t EEPROM_ACTUATOR_CAL_SIZE = 30;  // CalData v2 (actuator_manager.h)
 static constexpr uint16_t EEPROM_ACTUATOR_CAL_NEXT_ADDR =
     EEPROM_ACTUATOR_CAL_ADDR + EEPROM_ACTUATOR_CAL_SIZE;
 

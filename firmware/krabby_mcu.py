@@ -1,10 +1,13 @@
+import math
 import os
 import sys
 import serial
 import time
 import threading
 import logging
-from typing import Dict, Optional
+from collections import deque
+from numbers import Integral
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 from firmware.interfaces.battery_telemetry import BatteryTelemetry
 from firmware.interfaces.imu_telemetry import ImuTelemetry
 from firmware.interfaces.joint_telemetry import JointTelemetry
@@ -56,6 +59,199 @@ JOINT_GROUP_NAMES = (
     ("RIGHT", ["RRHY", "RRHL", "RRKL", "MRHY", "MRHL", "MRKL"]),
 )
 
+# --- Auto-calibration -------------------------------------------------------
+# These mirror firmware/arduino/src/actuator/calibration_constants.h. A unit test
+# (tests/unit/firmware/test_krabby_mcu_calibration.py) parses that header and fails
+# if any value below drifts from it.
+CAL_PWM_MIN = 40  # firmware CAL_PWM_MIN: slowest accepted calibration speed
+CAL_PWM_MAX = 150  # firmware CAL_PWM_MAX: fastest accepted calibration speed
+CAL_DEFAULT_PWM = 128  # firmware CAL_DEFAULT_PWM: speed used when none is given
+CAL_PASS_SEEK = "SEEK"  # curl every leg (knee, then hip); saves nothing
+# Exercise each hip and knee, one at a time, and save its limits: a knee over its
+# full stroke with its hip curled; a hall hip out CAL_HIP_SWEEP_EDGES and back.
+CAL_PASS_SWEEP = "SWEEP"
+CAL_PASS_NAMES = (CAL_PASS_SEEK, CAL_PASS_SWEEP)  # run order when both are requested
+# Fixed hall hip sweep (PROVISIONAL, about 70%): with its knee curled, a full hip
+# uncurl presses the curled tibia against the bottom of the robot (FLHL stopped
+# there at 941-1003 edges), so SWEEP takes a hall hip out this many edges and back
+# and saves its range as [0, CAL_HIP_SWEEP_EDGES]. Pot hips still sweep end to end.
+CAL_HIP_SWEEP_EDGES = 700
+# Verification nudge bounds in hall edges. A curled knee springs out a few more
+# edges after its nudge stops (5-9 measured), so a knee nudge ends about 18-21 out.
+CAL_HIP_NUDGE_EDGES = 24
+CAL_KNEE_NUDGE_EDGES = 12
+# Bounds a measured hall knee stroke must fall inside (PROVISIONAL: one knee, FLKL,
+# measured 776 edges).
+CAL_HALL_MIN_STROKE_EDGES = 450
+CAL_HALL_MAX_STROKE_EDGES = 1500
+
+# Curl direction, confirmed on the robot and identical on all six legs: the HIP
+# curls by RETRACTING (-PWM) and the KNEE curls by EXTENDING (+PWM). The firmware
+# keeps +PWM = extend, -PWM = retract. Source of truth:
+# CAL_HIP_CURL_PWM_SIGN / CAL_KNEE_CURL_PWM_SIGN in calibration_constants.h.
+CAL_HIP_CURL_PWM_SIGN = -1
+CAL_KNEE_CURL_PWM_SIGN = +1
+# Joint-name suffix -> curl PWM sign. Names end HY (yaw), HL (hip), KL (knee). Yaw is
+# deliberately absent: calibration never moves it, so it has no curl direction.
+JOINT_CURL_PWM_SIGN = {
+    "HL": CAL_HIP_CURL_PWM_SIGN,
+    "KL": CAL_KNEE_CURL_PWM_SIGN,
+}
+# How many recent CAL lines the SDK keeps for UIs.
+CAL_RECENT_LINES = 64
+CAL_LINE_PREFIX = "CAL "
+# EEPROM load/save messages printed by the firmware (no "CAL " prefix, so they never
+# enter the CAL deque). Logged at info level so an ignored record is visible.
+EEPROM_LINE_PREFIXES = ("Calibration ", "No calibration record", "Limits saved")
+
+# --- Per-joint sensor state (SENS lines) ------------------------------------
+# "SENS <ROLE> <NAME>:<c> ..." comes from quadrature-hall firmware (design 6.4):
+#   ? unknown   P pot   e encoder, not homed   x encoder, home lost
+#   s encoder homed, no stroke known (needs a full calibration)
+#   E encoder homed with a stroke (ready for T)
+# Old firmware and Rev 2 boards never print it; sensor_state() is then None.
+SENS_LINE_PREFIX = "SENS "
+SENSOR_STATE_CODES = "?PexsE"
+# States in which a hip or knee has a usable position (pot, or encoder homed with a stroke).
+SENSOR_READY_STATES = ("P", "E")
+# States only a full calibration (SEEK + SWEEP) gives a position: "s" (homed, no saved
+# stroke) and "?" (no sensor kind yet: a fresh flash, or an ignored, corrupt or invalid
+# record). Curl only homes an encoder but never saves a stroke or a kind.
+FULL_CALIBRATION_STATES = ("s", "?")
+# Joint-name suffixes that Neutral may move: hips (HL) and knees (KL), never yaw (HY).
+NEUTRAL_JOINT_SUFFIXES = ("HL", "KL")
+
+
+def curl_pwm_sign(joint_name: str) -> Optional[int]:
+    """-1 / +1 = sign of the PWM that curls this joint; None for yaw or unknown."""
+    return JOINT_CURL_PWM_SIGN.get(str(joint_name).strip().upper()[-2:])
+
+
+def is_hip_or_knee(joint_name: str) -> bool:
+    """True for names ending HL (hip) or KL (knee); yaw (HY) and anything else are False."""
+    return str(joint_name).strip().upper()[-2:] in NEUTRAL_JOINT_SUFFIXES
+
+
+def curl_button(joint_name: str) -> Optional[str]:
+    """Which jog button curls this joint: "retract" (hip), "extend" (knee) or None."""
+    sign = curl_pwm_sign(joint_name)
+    if sign is None:
+        return None
+    return "retract" if sign < 0 else "extend"
+
+
+def validate_calibration_pwm(pwm: object) -> int:
+    """Return ``pwm`` as an int in [CAL_PWM_MIN, CAL_PWM_MAX] or raise ValueError.
+
+    Only real integers are accepted (no bool, no float, no string), so a bad value
+    can never be silently turned into a different speed.
+    """
+    if isinstance(pwm, bool) or not isinstance(pwm, Integral):
+        raise ValueError(
+            f"calibration speed must be an integer {CAL_PWM_MIN}-{CAL_PWM_MAX}, got {pwm!r}"
+        )
+    value = int(pwm)
+    if not CAL_PWM_MIN <= value <= CAL_PWM_MAX:
+        raise ValueError(
+            f"calibration speed must be {CAL_PWM_MIN}-{CAL_PWM_MAX}, got {value}"
+        )
+    return value
+
+
+def parse_calibration_pwm(text: str) -> int:
+    """Parse text typed by a person (GUI field). Digits only, then the same range check."""
+    stripped = str(text).strip()
+    if not stripped.isascii() or not stripped.isdigit():
+        raise ValueError(
+            f"calibration speed must be a whole number {CAL_PWM_MIN}-{CAL_PWM_MAX}"
+        )
+    return validate_calibration_pwm(int(stripped))
+
+
+def _normalize_calibration_passes(
+    passes: Union[None, str, Iterable[str]],
+) -> tuple:
+    if passes is None:
+        return CAL_PASS_NAMES
+    if isinstance(passes, str):
+        items = [passes]
+    else:
+        try:
+            items = list(passes)
+        except TypeError:
+            raise ValueError(
+                f"calibration passes must be SEEK and/or SWEEP, got {passes!r}"
+            ) from None
+    chosen = set()
+    for item in items:
+        name = item.strip().upper() if isinstance(item, str) else None
+        if name not in CAL_PASS_NAMES:
+            raise ValueError(
+                f"unknown calibration pass {item!r}; use {' or '.join(CAL_PASS_NAMES)}"
+            )
+        chosen.add(name)
+    if not chosen:
+        raise ValueError("calibration needs at least one pass (SEEK and/or SWEEP)")
+    return tuple(name for name in CAL_PASS_NAMES if name in chosen)
+
+
+def build_calibrate_command(
+    pwm: Optional[int] = None, passes: Union[None, str, Iterable[str]] = None
+) -> str:
+    """Wire text (no newline) for the firmware ``C [SEEK|SWEEP] [pwm]`` command.
+
+    ``C`` / ``C 128`` run SEEK then SWEEP; ``C SEEK 128`` / ``C SWEEP 128`` run one pass.
+    Raises ValueError for a speed outside 40-150 or an unknown pass.
+    """
+    parts = ["C"]
+    chosen = _normalize_calibration_passes(passes)
+    if len(chosen) == 1:
+        parts.append(chosen[0])
+    if pwm is not None:
+        parts.append(str(validate_calibration_pwm(pwm)))
+    return " ".join(parts)
+
+
+def cal_robot_finished(line: Optional[str]) -> bool:
+    """True for the leader's end-of-run lines: CAL ROBOT DONE / FAIL / ABORTED / ERROR.
+
+    BUSY is not an end: it means another run is still going. Per-board lines
+    (``CAL FRONT PASS_DONE ...``) are never an end either.
+    """
+    words = line.split() if line else []
+    return (
+        len(words) >= 3
+        and words[0] == "CAL"
+        and words[1] == "ROBOT"
+        and words[2] in ("DONE", "FAIL", "ABORTED", "ERROR")
+    )
+
+
+def cal_status_line(lines: Sequence[str]) -> Optional[str]:
+    """The line a UI should show for a run: its robot end line once there is one, else the newest.
+
+    The leader prints ``CAL ROBOT FAIL|ABORTED ...`` after sending H to the followers,
+    so a follower's ``CAL <ROLE> ABORTED H`` can arrive after it; the robot line is
+    still the run's result.
+    """
+    for line in reversed(lines):
+        if cal_robot_finished(line):
+            return line
+    return lines[-1] if lines else None
+
+
+def cal_line_state(line: Optional[str]) -> str:
+    """Classify a CAL line for display: "fail", "done" or "running" ("" for None)."""
+    if not line:
+        return ""
+    words = line.split()
+    event = words[2] if len(words) > 2 else ""
+    if event in ("FAIL", "ABORTED", "ERROR", "BUSY"):
+        return "fail"
+    if words[1:3] == ["ROBOT", "DONE"]:
+        return "done"
+    return "running"
+
 
 class KrabbyMCUSDK:
     def __init__(self, target: McuSerialTarget | None = None, baud=DEFAULT_BAUD):
@@ -82,6 +278,16 @@ class KrabbyMCUSDK:
         self.last_error = None
         self.last_cmd: Dict[str, Optional[float]] = {}
         self._last_ver_line: Optional[str] = None
+        # Recent "CAL <ROLE> ..." status lines from the calibration routine. Written by
+        # the reader thread, read by UIs, so every access holds _cal_lock. These lines
+        # never reach the telemetry parser.
+        self._cal_lock = threading.Lock()
+        self._cal_lines: deque = deque(maxlen=CAL_RECENT_LINES)
+        self._cal_line_count = 0
+        # Latest SENS state code per joint name; empty until a SENS line arrives.
+        # Written by the reader thread, read by UIs, so every access holds _sensor_lock.
+        self._sensor_lock = threading.Lock()
+        self.joint_sensor_state: Dict[str, str] = {}
         # Last time a telemetry line was seen per role prefix (FRONT/UNKWN/LEFT/RIGHT).
         self.role_last_seen: Dict[str, float] = {}
 
@@ -104,6 +310,11 @@ class KrabbyMCUSDK:
             # session" rather than "something, once".
             self.imu = None
             self.battery = None
+            # The board counters (and so every homed state) may have reset, so telemetry
+            # and SENS states from a prior connection are not trusted either.
+            self.joints.clear()
+            with self._sensor_lock:
+                self.joint_sensor_state.clear()
             self.thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.thread.start()
             logger.info("Connected to %s", self.target)
@@ -142,17 +353,29 @@ class KrabbyMCUSDK:
                     print(f"[serial rx] {line}", file=sys.stderr, flush=True)
                 elif logger.isEnabledFor(logging.DEBUG):
                     logger.debug("serial rx: %s", line)
+                if line.startswith(CAL_LINE_PREFIX):
+                    # Calibration status, not telemetry: keep it away from the parser.
+                    self._record_cal_line(line)
+                    logger.info("[MCU] %s", line)
+                    continue
                 role = TelemetryFrame.role_from_line(line)
                 if role is not None:
                     self._parse_telemetry_line(line)
                     self.last_feedback_ts = time.time()
                     self.role_last_seen[role] = self.last_feedback_ts
+                elif line.startswith(SENS_LINE_PREFIX):
+                    self._record_sensor_line(line)
                 elif line.startswith("VER "):
                     self._last_ver_line = line
                 elif line.startswith("ERR "):
                     # Firmware error lines (e.g. ERR FWD LEFT: line overflow…).
                     logger.error("[MCU] %s", line)
-                elif "Krabby" in line or "CAL" in line or "Saved" in line:
+                elif (
+                    "Krabby" in line
+                    or "CAL" in line
+                    or "Saved" in line
+                    or line.startswith(EEPROM_LINE_PREFIXES)
+                ):
                     logger.info(f"[MCU] {line}")
 
             except (serial.SerialException, AttributeError) as e:
@@ -168,6 +391,104 @@ class KrabbyMCUSDK:
                 self.last_error = exc
                 self.running = False
                 break
+
+    def _record_cal_line(self, line: str) -> None:
+        with self._cal_lock:
+            self._cal_lines.append(line)
+            self._cal_line_count += 1
+
+    def recent_cal_lines(self, limit: Optional[int] = None) -> List[str]:
+        """Newest-last copy of the recent ``CAL ...`` lines (at most ``limit`` of them)."""
+        with self._cal_lock:
+            lines = list(self._cal_lines)
+        if limit is not None:
+            lines = lines[-limit:] if limit > 0 else []
+        return lines
+
+    @property
+    def latest_cal_line(self) -> Optional[str]:
+        """The newest ``CAL ...`` line, or None if none arrived since the last clear."""
+        with self._cal_lock:
+            return self._cal_lines[-1] if self._cal_lines else None
+
+    @property
+    def cal_line_count(self) -> int:
+        """Total CAL lines seen this session (keeps rising after the buffer wraps)."""
+        with self._cal_lock:
+            return self._cal_line_count
+
+    def clear_cal_lines(self) -> None:
+        with self._cal_lock:
+            self._cal_lines.clear()
+
+    def _record_sensor_line(self, line: str) -> None:
+        """Store the state of every well-formed ``NAME:c`` token of a SENS line.
+
+        Format: ``SENS <ROLE> <NAME>:<c> ...``. A token whose name is not alphanumeric
+        or whose code is not one of ``?PexsE`` is skipped; the rest of the line is kept.
+        """
+        tokens = line.split()
+        if len(tokens) < 3 or tokens[0] != SENS_LINE_PREFIX.strip():
+            return
+        parsed: Dict[str, str] = {}
+        for token in tokens[2:]:  # tokens[1] is the board role
+            name, sep, code = token.partition(":")
+            if not sep or not name.isascii() or not name.isalnum():
+                continue
+            if len(code) != 1 or code not in SENSOR_STATE_CODES:
+                continue
+            parsed[name] = code
+        if not parsed:
+            return
+        with self._sensor_lock:
+            changed = {
+                name: (self.joint_sensor_state.get(name), code)
+                for name, code in parsed.items()
+                if self.joint_sensor_state.get(name) != code
+            }
+            self.joint_sensor_state.update(parsed)
+        for name, (old, new) in changed.items():
+            logger.info("[MCU] sensor %s: %s -> %s", name, old or "-", new)
+
+    def sensor_state(self, name: str) -> Optional[str]:
+        """Latest SENS code for a joint, or None when no SENS line named it."""
+        with self._sensor_lock:
+            return self.joint_sensor_state.get(str(name).strip().upper())
+
+    def sensor_states(self) -> Dict[str, str]:
+        """Copy of every joint's latest SENS code (empty on firmware without SENS)."""
+        with self._sensor_lock:
+            return dict(self.joint_sensor_state)
+
+    def position_ready(self, name: str) -> bool:
+        """True when T may be sent to this joint: a hip or knee with a finite position.
+
+        With no SENS line seen for the joint (old firmware, Rev 2 boards) the finite
+        position decides. Otherwise the state must also be pot (P) or encoder ready (E).
+        """
+        name = str(name).strip().upper()
+        if not is_hip_or_knee(name):
+            return False
+        jt = self.joints.get(name)
+        if jt is None or not math.isfinite(jt.pos):
+            return False
+        state = self.sensor_state(name)
+        return state is None or state in SENSOR_READY_STATES
+
+    def neutral_targets(self, value: float = 0.5) -> tuple[Dict[str, float], List[str]]:
+        """(targets, skipped): ``value`` for every ready hip and knee, and the hips and
+        knees left out because they have no position yet. Yaws are in neither."""
+        targets: Dict[str, float] = {}
+        skipped: List[str] = []
+        for _, names in JOINT_GROUP_NAMES:
+            for name in names:
+                if not is_hip_or_knee(name):
+                    continue
+                if self.position_ready(name):
+                    targets[name] = value
+                else:
+                    skipped.append(name)
+        return targets, skipped
 
     def _parse_telemetry_line(self, line: str):
         parsed = TelemetryFrame.parse_line(line)
@@ -261,12 +582,26 @@ class KrabbyMCUSDK:
             time.sleep(0.02)
         return None
 
-    def send_command_calibrate(self):
+    def send_command_calibrate(
+        self,
+        pwm: Optional[int] = None,
+        passes: Union[None, str, Iterable[str]] = None,
+    ) -> Optional[str]:
+        """Start robot calibration: ``C``, ``C 128``, ``C SEEK 128``, ``C SWEEP``, ...
+
+        ``pwm`` is the calibration speed (integer 40-150; None = firmware default 128).
+        ``passes`` is None (SEEK then SWEEP), "SEEK", "SWEEP", or an iterable of those.
+        Invalid values raise ValueError before anything is written, even when the port
+        is closed. Returns the command text sent, or None if there is no open port.
+        """
+        command = build_calibrate_command(pwm, passes)
         if not self.ser or not self.ser.is_open:
-            return
-        self.ser.write(b"C\n")
+            return None
+        self.clear_cal_lines()  # so a UI never shows a previous run's line as current
+        self.ser.write((command + "\n").encode("utf-8"))
         self.ser.flush()
-        logger.info("CMD -> AUTO-CALIBRATE (C)")
+        logger.info("CMD -> AUTO-CALIBRATE (%s)", command)
+        return command
 
     def send_command_joints_hold(self):
         """

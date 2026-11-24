@@ -10,7 +10,12 @@ static volatile int32_t g_hallEdgeCount[6];
 
 /////9/24/2026-DKE
 /*
- * 1x Quadrature decoding for six encoders using two pin-change interrupts.
+ * x2 quadrature decoding for six encoders using two pin-change interrupts: an
+ * edge is counted on both edges of A, with the direction taken from B.
+ *
+ * Sign: on hips and knees the count rises on retract and falls on extend (the
+ * FRHY yaw counts the other way). The firmware's position frame applies
+ * ACTUATOR_HALL_EXTEND_COUNT_SIGN.
  *
  * Pin mapping:
  *
@@ -26,7 +31,9 @@ static volatile int32_t g_hallEdgeCount[6];
  * PCINT2 handles encoders 3-5 using PORTK A inputs.
  *
  * Each ISR samples the A and B ports once. Previous A, current A, and
- * current B are packed into a 3-bit index. EncoderLookupTable converts
+ * current B are packed into a 3-bit index. The previous A ports are seeded in
+ * hallHwInit, before the interrupts are enabled, so an idle channel does not
+ * count a spurious edge at the first interrupt. EncoderLookupTable converts
  * the index directly to -1, 0, or +1. Unchanged A inputs return 0,
  * eliminating explicit per-encoder change tests and branches.
  * This is very close to the theoretical max speed this can be done on this hardware.
@@ -51,6 +58,10 @@ static const int8_t EncoderLookupTable[8] =
 static const uint8_t kHallPinsA[6] = { 50, 51, 52, A12, A13, A14 };
 static const uint8_t kHallPinsB[6] = { A0, A1, A2, A3, A4, A5 };
 
+// Previous PINB / PINK levels for the ISRs below.
+static uint8_t s_lastPortB;
+static uint8_t s_lastPortK;
+
 void hallHwInit()
 {
     for (uint8_t i = 0; i < 6; i++)
@@ -60,6 +71,14 @@ void hallHwInit()
         pinMode(kHallPinsA[i], INPUT_PULLUP);
         pinMode(kHallPinsB[i], INPUT_PULLUP);
     }
+
+    // Let the pull-ups settle, then seed the previous levels with the interrupts off.
+    delayMicroseconds(10);
+    const uint8_t oldSreg = SREG;
+    cli();
+    s_lastPortB = PINB;
+    s_lastPortK = PINK;
+    SREG = oldSreg;
 
     PCMSK0 |= 0x0E;       // PB1-PB3, encoders 0-2 A
     PCICR  |= _BV(PCIE0);
@@ -74,8 +93,7 @@ ISR(PCINT0_vect)
 {
     uint8_t nowA = PINB;
     uint8_t nowB = PINF;
-
-    static uint8_t lastA = 0;
+    const uint8_t lastA = s_lastPortB;
 
     g_hallEdgeCount[0] += EncoderLookupTable[
         ((lastA & _BV(PB3)) >> 1) |
@@ -94,7 +112,7 @@ ISR(PCINT0_vect)
         ( nowA  & _BV(PB1))       |
         ((nowB  & _BV(PF2)) >> 2)
     ];
-    lastA = nowA;
+    s_lastPortB = nowA;
 }
 
 
@@ -102,8 +120,7 @@ ISR(PCINT2_vect)
 {
     uint8_t nowA = PINK;
     uint8_t nowB = PINF;
-
-    static uint8_t lastA = 0;
+    const uint8_t lastA = s_lastPortK;
 
     g_hallEdgeCount[3] += EncoderLookupTable[
         ((lastA & _BV(PK4)) >> 2) |
@@ -123,7 +140,7 @@ ISR(PCINT2_vect)
         ((nowB  & _BV(PF5)) >> 5)
     ];
 
-    lastA = nowA;
+    s_lastPortK = nowA;
 }
 
 
@@ -221,6 +238,15 @@ void hallHwInit()
 }
 
 #endif
+
+bool hallHwHasQuadrature()
+{
+#if KRABBY_PIN_REV == 3
+    return true;
+#else
+    return false;
+#endif
+}
 
 int32_t hallHwGetEdgeCount(uint8_t hallSlot)
 {

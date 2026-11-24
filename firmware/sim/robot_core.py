@@ -12,12 +12,13 @@ import torch
 from firmware.sim.cam_hip_slave import apply_cam_hip_slave, build_cam_hip_slave_binding
 from firmware.sim.host_bridge import HostActuatorBridge, load_host_bridge
 from firmware.sim.isaac_scene import advance_sim, physics_step_ms
-from firmware.sim.hall_readback import retarget_hall_baselines_when_idle
+from firmware.sim.hall_readback import retarget_hall_baselines_when_idle, sync_hall_b_levels
 from firmware.sim.plant_readback import PlantReadbackView
 from firmware.sim.pot_autocal_plant import (
     advance_travel_from_pwm,
     default_travel_fractions,
     sync_pot_reads_from_travel,
+    travel_step_for_config,
 )
 from firmware.sim.pot_readback import sync_pot_analog_reads, sync_sensor_reads
 from firmware.sim.pin_state import PinStateModel
@@ -42,6 +43,8 @@ class RobotCore:
     _cam_hip_slave: Any = field(default=None, init=False, repr=False)
     _cam_hip_slave_resolved: bool = field(default=False, init=False, repr=False)
     _cal_pot_travel: dict[str, float] = field(default_factory=dict, init=False, repr=False)
+    # Current-sense ADC of the calibration plant (the end detector reads pin_is).
+    _cal_currents: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _step_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     @classmethod
@@ -73,10 +76,14 @@ class RobotCore:
         self._cam_hip_slave = None
         self._cam_hip_slave_resolved = False
         self._cal_pot_travel = default_travel_fractions(self.actuators)
+        self._cal_currents = {}
         if self.config is not None:
             self.bridge.set_hall_edges_per_full_travel(
                 self.config.hall_edges_per_full_travel
             )
+            # The reset cleared it; the firmware reads it when it first sets up.
+            if self.config.quadrature:
+                self.bridge.board_set_hall_quadrature(self.config.board_id, True)
         for actuator in self.actuators:
             band = actuator.pot_band
             if band is None:
@@ -127,11 +134,25 @@ class RobotCore:
             self.pin_state.analog_write(pwm_l, self.bridge.pin_pwm(pwm_l))
             self.pin_state.digital_write(pin_en, self.bridge.pin_digital(pin_en))
 
+    @property
+    def _board_id(self) -> int:
+        return self.config.board_id if self.config is not None else 0
+
+    def _sync_hall_b_levels(self) -> None:
+        if self.config is not None and self.config.quadrature:
+            sync_hall_b_levels(self.bridge, self.actuators)
+
     def tick_firmware_without_physics(self, *, process_usb_serial: bool = False) -> None:
         """Run one firmware control tick without advancing Isaac physics."""
         plant = PlantReadbackView.from_articulation(self.articulation)
         if self.bridge.firmware_calibration_active():
-            sync_pot_reads_from_travel(self.bridge, self.actuators, self._cal_pot_travel)
+            sync_pot_reads_from_travel(
+                self.bridge,
+                self.actuators,
+                self._cal_pot_travel,
+                board_id=self._board_id,
+                currents=self._cal_currents,
+            )
         else:
             sync_sensor_reads(
                 self.bridge,
@@ -139,6 +160,7 @@ class RobotCore:
                 plant,
                 wrench_body_index_by_actuator=self._wrench_body_indices_cached(),
             )
+            self._sync_hall_b_levels()
         self.bridge.advance_millis(physics_step_ms(self.env))
         if process_usb_serial:
             self.bridge.firmware_loop_once()
@@ -146,7 +168,16 @@ class RobotCore:
             self.bridge.update_all()
         self.record_drive_pins_to_pin_state()
         if self.bridge.firmware_calibration_active():
-            advance_travel_from_pwm(self.actuators, self.pin_state, self._cal_pot_travel)
+            # Hall actuators count edges from the calibration plant's travel.
+            advance_travel_from_pwm(
+                self.actuators,
+                self.pin_state,
+                self._cal_pot_travel,
+                step=travel_step_for_config(self.config),
+                bridge=self.bridge,
+                board_id=self._board_id,
+                currents=self._cal_currents,
+            )
 
     def step(self, *, process_usb_serial: bool = False) -> Any:
         with self._step_lock:
@@ -165,6 +196,7 @@ class RobotCore:
                 self._slave_body_hip_after_physics()
                 plant = PlantReadbackView.from_articulation(self.articulation)
                 sync_pot_analog_reads(self.bridge, self.actuators, plant)
+                self._sync_hall_b_levels()
                 retarget_hall_baselines_when_idle(
                     self.bridge,
                     self.actuators,

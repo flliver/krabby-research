@@ -16,6 +16,14 @@ void threeBoardFirmwareSetup();
 void threeBoardFirmwareLoopOnce();
 void singleLeaderEighteenFirmwareLoopOnce();
 void threeBoardFirmwareResetLoopState();
+/** True while the multi-board leader's robot calibration or any board's pass runs. */
+bool threeBoardCalibrationActive();
+
+/**
+ * Most recent SENS state code ('?', 'P', 'e', 'x', 's', 'E') printed for a joint by
+ * any board, or '\0' when none has been seen. Cleared by threeBoardFirmwareResetLoopState.
+ */
+char threeBoardSensorState(const char *name);
 
 int threeBoardActuatorCommandPwm(const char *name);
 LinearActuator *findThreeBoardActuator(const char *name);

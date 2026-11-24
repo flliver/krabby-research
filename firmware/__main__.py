@@ -9,7 +9,13 @@ import logging
 import time
 from typing import NoReturn, Optional
 
-from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply, logger
+from firmware.krabby_mcu import (
+    FULL_CALIBRATION_STATES,
+    KrabbyMCUSDK,
+    cal_robot_finished,
+    logger,
+    parse_ver_reply,
+)
 
 # Joint order per leg pair: LKL, LHL, LHY, RHY, RHL, RKL
 JOINTS_FRONT = ["FLKL", "FLHL", "FLHY", "FRHY", "FRHL", "FRKL"]
@@ -63,6 +69,90 @@ def _log_jog(jog_cmds):
         logger.info("JOG  %s", parts)
     else:
         logger.info("JOG  (hold)")
+
+
+NEUTRAL_NEEDS_FULL_RUN = (
+    "Neutral: no hip or knee has a position yet - run auto-calibrate (9) with the "
+    "robot on its stand"
+)
+NEUTRAL_NEEDS_CURL_ONLY = (
+    "Neutral: no hip or knee has a position yet - home them with Calibrate > Curl only "
+    "in the GUI (the menu has no Curl only key; 9 is the full run, on the stand only)"
+)
+
+
+def neutral_message(sent: int, skipped: list, states: Optional[dict] = None) -> str:
+    """What to tell the person after key 0; empty when every hip and knee was sent.
+
+    ``states`` are the SENS codes. When nothing was sent and every skipped joint only
+    needs homing (e or x), the advice is Curl only, never the full run of key 9.
+    """
+    if sent == 0:
+        states = states or {}
+        if states and not any(states.get(n) in FULL_CALIBRATION_STATES for n in skipped):
+            return NEUTRAL_NEEDS_CURL_ONLY
+        return NEUTRAL_NEEDS_FULL_RUN
+    if skipped:
+        return f"Neutral sent to {sent} joints; no position, skipped: {', '.join(skipped)}"
+    return ""
+
+
+def _sensor_states(mcu) -> dict:
+    """SENS codes by joint name; empty for firmware or test doubles without them."""
+    getter = getattr(mcu, "sensor_states", None)
+    states = getter() if callable(getter) else None
+    return states if isinstance(states, dict) else {}
+
+
+class CalibrationWatch:
+    """Tracks a calibration started from the menu so the key loop does not break it.
+
+    The loop streams a ``B`` jog frame every 40 ms, and the firmware aborts calibration
+    on every ``B`` (also an all-zero one). While a run is active the loop therefore
+    sends no jog frames; it resumes when the leader reports the run over
+    (``CAL ROBOT DONE|FAIL|ABORTED|ERROR``), when no ``CAL`` line answers the start
+    command within ``NO_REPLY_S`` (firmware that predates the CAL lines), or when the
+    person presses a jog key (which then deliberately aborts the run).
+    """
+
+    NO_REPLY_S = 10.0
+
+    def __init__(self, mcu, clock=None):
+        self._mcu = mcu
+        self._clock = clock if clock is not None else time.monotonic
+        self.active = False
+        self._started_at = 0.0
+        self._count_at_start = 0
+
+    def start(self) -> None:
+        self.active = True
+        self._started_at = self._clock()
+        self._count_at_start = self._mcu.cal_line_count
+
+    def stop(self) -> None:
+        self.active = False
+
+    def poll(self) -> Optional[str]:
+        """Return a message when the run has ended (and mark it inactive), else None."""
+        if not self.active:
+            return None
+        # Every line since start(), not just the newest: the leader prints its
+        # end line after sending H, so a still-running follower's
+        # "CAL <ROLE> ABORTED H" can arrive right after "CAL ROBOT FAIL ...".
+        count = self._mcu.cal_line_count
+        new_lines = count - self._count_at_start
+        if new_lines > 0:
+            for line in self._mcu.recent_cal_lines(new_lines):
+                if cal_robot_finished(line):
+                    self.active = False
+                    return line
+        if (
+            count == self._count_at_start
+            and self._clock() - self._started_at > self.NO_REPLY_S
+        ):
+            self.active = False
+            return f"no CAL reply within {self.NO_REPLY_S:.0f} s; resuming jog control"
+        return None
 
 
 class _Parser(argparse.ArgumentParser):
@@ -137,27 +227,59 @@ def main():
         print("Extend: Q W E R T Y  |  Retract: A S D F G H")
         print("Hold 1: LEFT set  |  Hold 2: RIGHT set  |  Hold 1+2: all 18  |  No 1/2: FRONT")
         print("0: Neutral (0.5)  |  9: Auto-calibrate  |  V: firmware version  |  ESC: Quit")
+        print("0 moves only hips and knees that have a position (never yaw); it names the")
+        print("ones it skips. Encoder joints must be homed after every power-up with")
+        print("Calibrate > Curl only in the GUI (this menu has no Curl only key), then use")
+        print("Neutral there: reopening the port can reset FRONT and lose its homes.")
+        print("9 is the FULL calibration: it curls the whole robot, then sweeps one joint at")
+        print("a time (yaw is not moved) and saves the limits: each knee fully out and back")
+        print("with its hip curled, each hip out about 70% and back (a curled tibia meets the")
+        print("body beyond that). Flash all three boards together with the same firmware.")
+        print("It runs at PWM 128 and stops each end as soon as the motor current and motion show")
+        print("it; a joint that stalls with no end signature is reported as stuck mid-stroke.")
+        print("Run 9 only with the robot on its stand; a hip or knee resting fully curled is")
+        print("nudged out a little and straight back first. Any jog key or ESC stops it.")
         print()
 
         prev_jog = {}
+        neutral_note = None  # last "0" message, so holding the key does not repeat it
+        cal_watch = CalibrationWatch(mcu)
 
         while True:
             _read_keys()
 
             if _quit:
                 logger.info("ESC — quitting")
+                if cal_watch.active:
+                    mcu.send_command_joints_hold()  # stop the run before we disconnect
                 break
             if is_pressed("0"):
-                mcu.send_command_joints({
-                    "FLHY": 0.5, "FRHY": 0.5, "FLHL": 0.5, "FLKL": 0.5, "FRHL": 0.5, "FRKL": 0.5,
-                    "RLHY": 0.5, "MLHY": 0.5, "RLHL": 0.5, "RLKL": 0.5, "MLHL": 0.5, "MLKL": 0.5,
-                    "RRHY": 0.5, "MRHY": 0.5, "RRHL": 0.5, "RRKL": 0.5, "MRHL": 0.5, "MRKL": 0.5,
-                })
+                targets, skipped = mcu.neutral_targets(0.5)
+                if targets:
+                    mcu.send_command_joints(targets)
+                note = neutral_message(len(targets), skipped, _sensor_states(mcu))
+                if note and note != neutral_note:
+                    print(note)
+                neutral_note = note
                 time.sleep(0.3)  # debounce
                 continue
+            neutral_note = None
             if is_pressed("9"):
-                print("WARNING: This will move ALL limbs to find limits.")
-                mcu.send_command_calibrate()
+                print("WARNING: This moves the hips and knees to find their limits, one")
+                print("joint at a time (curl first, then a sweep; yaw is not moved).")
+                print("Run it with the robot on its stand. A hip or knee resting fully curled")
+                print("is nudged out a little and straight back so its sensor can be checked")
+                print("(at most 24 hall counts for a hip, 12 for a knee; a curled knee then")
+                print("springs out a little more, to about 20). A joint that still")
+                print("shows no movement stops the run, and the run names it.")
+                print("Hips go out about 70% and back, knees fully out and back. If it stops")
+                print("with 'no SENS', flash all three boards with the same firmware, or wait")
+                print("a few seconds after connecting and press 9 again. If a knee stops with")
+                print("'curled back only', press 9 again (do not re-curl it first).")
+                print("Press any jog key or ESC to stop it.")
+                cal_watch.start()  # before sending, so an instant reply is counted
+                if mcu.send_command_calibrate() is None:
+                    cal_watch.stop()
                 time.sleep(0.5)
                 continue
             if is_pressed("v"):
@@ -171,6 +293,18 @@ def main():
                     logger.warning("VER  no response from MCU")
                 time.sleep(0.3)
                 continue
+
+            if cal_watch.active:
+                if any(is_pressed(k) for k in EXTEND_KEYS + RETRACT_KEYS):
+                    # The jog frame sent below aborts the run on the firmware.
+                    cal_watch.stop()
+                    logger.warning("CAL  jog key pressed: calibration aborted")
+                else:
+                    # No jog frames while it runs: any B would abort calibration.
+                    if (message := cal_watch.poll()) is not None:
+                        logger.info("CAL  run over: %s", message)
+                    time.sleep(0.04)
+                    continue
 
             key1 = is_pressed("1")
             key2 = is_pressed("2")

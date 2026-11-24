@@ -19,12 +19,15 @@
 #include "command.h"
 #include "actuator_manager.h"
 #include "src/actuator/actuator_role_names.h"
+#include "src/actuator/calibration_command_dispatch.h"
+#include "src/actuator/robot_calibration.h"
 #include "src/imu/imu_constants.h"
 #include "src/telemetry.h"
 #include "src/power_monitor/ina228_adapter.h"
 #include "src/power_monitor/power_calibration.h"
 #include "src/power_monitor/power_measurement.h"
 #include "src/cli/power_calibration_command.h"
+#include "src/cli/actuator_calibration_command.h"
 #include "src/power_monitor/power_monitor_constants.h"
 #include "version.h"
 #include "src/controller/board_role_election.hpp"
@@ -102,6 +105,75 @@ static void instantiateActuatorsForRole(BoardRole role)
     for (size_t i = 0; i < ACT_COUNT; i++)
         boardActuators[i] = new LinearActuator(names[i], ACTUATOR_SLOTS[i], ACTUATOR_CONFIG);
     actuatorManager = new ActuatorManager(boardActuators, ACT_COUNT);
+}
+
+// Wires the leader's robot calibration (src/actuator/robot_calibration.h) to
+// this board's actuators and serial links. Runs FRONT, then LEFT, then RIGHT,
+// one board at a time.
+class SketchRobotCalibrationHooks final : public RobotCalibrationHooks
+{
+public:
+    uint32_t nowMs() override { return millis(); }
+    CalibrationTextSink &out() override
+    {
+        usb_.setOutput(mainSerial);
+        return usb_;
+    }
+    const char *localRoleLabel() override { return boardRoleLabel(currentRole); }
+    CalibrationTextSink *followerLink(BoardRole role) override
+    {
+        left_.setOutput(leftSerial);
+        right_.setOutput(rightSerial);
+        if (role == ROLE_LEFT && leftSerial)
+            return &left_;
+        if (role == ROLE_RIGHT && rightSerial)
+            return &right_;
+        return nullptr;
+    }
+    bool startLocalPass(uint8_t pass, int pwm) override
+    {
+        return actuatorManager->startCalibration(pass, pwm);
+    }
+    bool isLocalRunning() override { return actuatorManager->isCalibrating(); }
+    LegCalibrationOutcome localOutcome() override { return actuatorManager->calibrationOutcome(); }
+    void printLocalFailure(CalibrationTextSink &out) override
+    {
+        actuatorManager->printCalibrationFailure(out);
+    }
+    void abortLocal(char cause) override { actuatorManager->abortCalibration(cause); }
+    void stopLocalMotors() override { actuatorManager->holdAll(); }
+
+private:
+    PrintCalibrationSink usb_;
+    PrintCalibrationSink left_;
+    PrintCalibrationSink right_;
+};
+
+RobotCalibration robotCalibration;
+SketchRobotCalibrationHooks robotCalibrationHooks;
+
+// H, J, B and T stop calibration before they run (calibration_command_dispatch.h).
+static void abortCalibrationForCommand(char command)
+{
+    abortBoardCalibrationForCommand(robotCalibration, robotCalibrationHooks, *actuatorManager, command);
+}
+
+// Leader: every complete line received from a follower, after it was forwarded.
+static void noteFollowerLine(BoardRole role, const char *line)
+{
+    robotCalibration.onFollowerLine(robotCalibrationHooks, role, line);
+}
+
+// C [ACTUATOR] [SEEK|SWEEP] [pwm]. The leader runs the whole robot; a follower
+// runs the passes it was sent on its own six actuators and never forwards
+// (calibration_command_dispatch.h).
+static void handleActuatorCalibrationCommand(
+    ActuatorCalibrationCommandKind kind,
+    const ActuatorCalibrationRequest &request)
+{
+    PrintCalibrationSink out(mainSerial);
+    dispatchActuatorCalibrationCommand(currentRole, kind, request, out,
+        robotCalibration, robotCalibrationHooks, *actuatorManager);
 }
 
 const size_t CMD_BUF_SIZE = 18;
@@ -287,8 +359,9 @@ static void printPowerCalibrationUsage()
     Serial.println(F("  C PWR_SENSE ?"));
 }
 
-// The leading 'C' has been consumed. Bare C calibrates the board's actuators;
-// C PWR_SENSE calibrates the leader's power monitors without forwarding.
+// The leading 'C' has been consumed. C [ACTUATOR] [SEEK|SWEEP] [pwm] calibrates
+// the actuators (see handleActuatorCalibrationCommand); C PWR_SENSE calibrates
+// the leader's power monitors without forwarding.
 // Invalid numeric references are rejected before calibration is persisted.
 static void handleCalibrationCommand(const String& line)
 {
@@ -306,11 +379,12 @@ static void handleCalibrationCommand(const String& line)
         ++tokenCount;
     }
 
-    if (isActuatorCalibrationCommand(tokenCount, tokens))
+    ActuatorCalibrationRequest request = {CAL_PASS_ALL, CAL_DEFAULT_PWM};
+    const ActuatorCalibrationCommandKind actuatorCommand =
+        parseActuatorCalibrationCommand(tokenCount, tokens, request);
+    if (actuatorCommand != ActuatorCalibrationCommandKind::PowerSensor)
     {
-        actuatorManager->startAutoCalibration();
-        if (leftSerial) leftSerial->println(CALIBRATION_COMMAND_PREFIX);
-        if (rightSerial) rightSerial->println(CALIBRATION_COMMAND_PREFIX);
+        handleActuatorCalibrationCommand(actuatorCommand, request);
         return;
     }
 
@@ -486,6 +560,7 @@ void forwardFullLines(
             {
                 to->println(partial);
                 updateActuatorStatusFromTelemetry(partial, boardRole);
+                noteFollowerLine(boardRole, partial);
             }
             *partialPos = 0;
             continue;
@@ -571,6 +646,7 @@ void setup()
 {
     Serial.begin(BAUD_RATE);
     determineRole();
+    actuatorManager->setCalibrationOutput(mainSerial, currentRole);
 
     actuatorManager->initAll();
     hallHwInit();
@@ -578,6 +654,10 @@ void setup()
 
     if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
     {
+        // A leader that reset (DTR auto-reset, brown-out) forgets any robot
+        // calibration it was running; stop a follower still running its pass.
+        if (leftSerial)  leftSerial->println("H");
+        if (rightSerial) rightSerial->println("H");
         pinMode(STATUS_LED_PIN, OUTPUT);
         digitalWrite(STATUS_LED_PIN, LOW);
         imuSetup();
@@ -593,7 +673,8 @@ void setup()
 }
 
 // Read lines from a follower serial until one starts with "VER "; discard telemetry lines.
-static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
+// CAL lines are forwarded and seen by the robot calibration so V cannot swallow them.
+static String readVerLine(HardwareSerial* port, BoardRole role, unsigned long timeout_ms)
 {
     unsigned long deadline = millis() + timeout_ms;
     String line = "";
@@ -604,6 +685,11 @@ static String readVerLine(HardwareSerial* port, unsigned long timeout_ms)
         if (c == '\n')
         {
             if (line.startsWith("VER ")) return line;
+            if (line.startsWith("CAL "))
+            {
+                mainSerial->println(line);
+                noteFollowerLine(role, line.c_str());
+            }
             line = "";
             continue;
         }
@@ -638,6 +724,7 @@ void loop()
         if (cmdType == 'T')
         {
             mainSerial->read();
+            abortCalibrationForCommand('T');
             String payload = mainSerial->readStringUntil('\n');
             size_t cmdCount = parseCommands(payload, cmdBuf, CMD_BUF_SIZE);
             // Keeping it simple, we send all commands to all actuator managers, and let each actuator manager ignore any commands that aren't for them
@@ -648,6 +735,7 @@ void loop()
         else if (cmdType == 'B')
         {
             mainSerial->read();
+            abortCalibrationForCommand('B');
             // Read the whole line first; token-by-token reads could spin forever on a truncated line.
             String payload = mainSerial->readStringUntil('\n');
             int i = 0;
@@ -669,6 +757,7 @@ void loop()
             // legacy "J <name> <pwm>" forward still parses instead of yielding an
             // empty name / pwm 0 (which left followers dead while FRONT still jogged).
             mainSerial->read();
+            abortCalibrationForCommand('J');
             while (mainSerial->available() && mainSerial->peek() == ' ')
                 mainSerial->read();
             String name = mainSerial->readStringUntil(' ');
@@ -686,6 +775,7 @@ void loop()
         else if (cmdType == 'H')
         {
             mainSerial->read();
+            abortCalibrationForCommand('H');
             mainSerial->readStringUntil('\n');
             actuatorManager->holdAll();
             if (leftSerial)  leftSerial->println("H");
@@ -712,16 +802,19 @@ void loop()
                 String lVer = "-", lBranch = "-", lCommit = "-";
                 String rVer = "-", rBranch = "-", rCommit = "-";
 
-                if (leftSerial)
+                // While calibrating, answer for the leader alone: querying the
+                // followers could split a CAL line and stalls the loop.
+                const bool queryFollowers = shouldQueryFollowerVersions(robotCalibration);
+                if (leftSerial && queryFollowers)
                 {
                     leftSerial->println("V");
-                    String reply = readVerLine(leftSerial, 300);
+                    String reply = readVerLine(leftSerial, ROLE_LEFT, 300);
                     parseVerToken(reply, lVer, lBranch, lCommit);
                 }
-                if (rightSerial)
+                if (rightSerial && queryFollowers)
                 {
                     rightSerial->println("V");
-                    String reply = readVerLine(rightSerial, 300);
+                    String reply = readVerLine(rightSerial, ROLE_RIGHT, 300);
                     parseVerToken(reply, rVer, rBranch, rCommit);
                 }
 
@@ -748,6 +841,7 @@ void loop()
     forwardFullLines(rightSerial, mainSerial, rightPartial, TELEMETRY_LINE_MAX, &rightPartialPos, ROLE_RIGHT);
 
     actuatorManager->updateAll();
+    robotCalibration.update(robotCalibrationHooks);  // no-op unless the leader is calibrating
 
     if (currentRole == ROLE_FRONT || currentRole == ROLE_UNKNOWN)
     {

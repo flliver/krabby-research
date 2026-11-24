@@ -43,6 +43,7 @@ public:
         output += stream.str();
     }
     void println(const char *value) { print(value); output += '\n'; }
+    void println() { output += '\n'; }
 };
 
 namespace fakeArduino

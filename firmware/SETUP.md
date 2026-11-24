@@ -24,7 +24,7 @@ This firmware drives a full leg pair (Left & Right) consisting of **6 Motors**.
 * **RPWM / R_EN** = Right (Extend/Forward).
 * **LPWM / L_EN** = Left (Retract/Reverse).
 
-| Board     | Joint         | PWM (R, L)       | EN    | Potentiometer | Current Sense | HallA  |
+| Board     | Joint         | PWM (R, L)       | EN    | Pot / Hall B  | Current Sense | HallA  |
 | :-------- | :------------ | :--------------- | :---- | :------------ | :------------ | :----- |
 | **FL**    | Yaw (LHY)     | D2, D3           | D22   | A0            | A6            | D50    |
 |           | Hip (LHL)     | D4, D5           | D24   | A1            | A7            | D51    |
@@ -32,6 +32,8 @@ This firmware drives a full leg pair (Left & Right) consisting of **6 Motors**.
 | **FR**    | Yaw (RHY)     | D8, D9           | D23   | A3            | A9            | A12    |
 |           | Hip (RHL)     | D10, D11         | D25   | A4            | A10           | A13    |
 |           | Knee (RKL)    | D12, D13         | D27   | A5            | A11           | A14    |
+
+**Sensors on this robot:** the hips and knees are **hall-encoder actuators** (quadrature: hall A on the HallA pin, hall B on the analog pin in the "Pot / Hall B" column). The analog pins A0-A5 only act as a potentiometer input on an actuator that has a pot. Each joint's kind is auto-detected during calibration (see Feature 1). The hall inputs are connected on hips and knees; the yaws are not calibrated.
 
 **Note:** Ensure all Enable (EN) pins are connected and driven HIGH when driving, otherwise calibration will get 'lost' as it will not know where joint positions are.
 
@@ -83,7 +85,8 @@ Telemetry is sent as **newline-terminated lines** over serial. The Python side p
 
 - **Line format:** `<ROLE>; <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf>; <name> ...; ...`
 - **Role prefix:** One of `FRONT`, `UNKNOWN`, `LEFT`, `RIGHT` (no semicolon inside the role).
-- **Segment format:** Each joint segment is 10 space-separated values: joint name, position (0–1), pot raw, current raw, enable L/R, PWM L/R, safety, and composed connection state (`0` unknown, `1` connected, `2` disconnected). The parser still accepts legacy 9-field segments.
+- **Segment format:** Each joint segment is 10 space-separated values: joint name, position (0–1, or `nan` when the joint has no position), pot raw (on a hall actuator this is the hall-B analog level, not a position), current raw, enable L/R, PWM L/R, the **signed hall count** (field 9), and composed connection state (`0` unknown, `1` connected, `2` disconnected). The parser still accepts legacy 9-field segments.
+- **Field 9 (hall count):** on Rev 3 this is the signed quadrature count of the joint's hall slot (x2, both edges of A). On hips and knees **retract counts up** and extend counts down; the FRHY yaw counts the other way. It is the raw count since power-up, not re-zeroed at a home, so it resets at every boot. Position control uses the homed frame instead (see Feature 1). On Rev 1 the count has no direction; Rev 2 has no halls.
 - **Example:** `FRONT; FLHY 0.723 740 694 0 0 0 0 0 1;FLHL 0.723 740 691 ...`
 
 On the Arduino side, telemetry is built in **telemetry_manager.h** (struct `JointTelemetry`, `appendTo()`). The old standalone `joint_telemetry.h` was removed; all telemetry formatting and collection lives in `telemetry_manager.h` and `actuator_manager.h`.
@@ -106,7 +109,7 @@ Wiring is selected at **compile time** in **`arduino/board_pins.h`** (`#define K
   - Compile only: `make -C firmware compile-firmware`.
   - See **`firmware/Makefile`** for **`ARDUINO_CLI`**, **`FQBN`**, **`PIN_REV`**.
 
-Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime.
+Flash each Mega with the image that matches **that** board’s wiring. All three boards use the same sketch; role is elected at runtime. **Flash all three boards together** from the same build: the hall-encoder calibration and the v2 EEPROM record need every board to run it, and an old follower would run the pot-only routine on hall joints. A Rev 3 leader refuses to start a calibration while a linked follower has sent no `SENS` line since the leader booted (`CAL ROBOT FAIL <role>: no SENS: ...`, see Feature 1).
 
 Today, **LEFT** and **RIGHT** must each have their **own USB** cable to the host (or hub) when you flash them — same as FRONT. Runtime control still only needs Orin USB to FRONT (followers use UART). **Planned:** a future update path will flash LEFT/RIGHT through the leader so updating FRONT also updates the followers, without plugging USB into LEFT/RIGHT for that step.
 
@@ -193,21 +196,209 @@ python -m firmware.gui
 
 | Address | Size | Purpose |
 |---------|------|---------|
-| 0–25 | 26 bytes | `CalData` struct — calibration min/max for 6 actuators + magic word (`0xDEADBEEF`) |
-| 26–31 | 6 bytes | Reserved (alignment gap) |
+| 0–29 | 30 bytes | `CalData` v2 — min/max (int16) for 6 actuators at 0–11 and 12–23, magic `0xCA2B` at 24, 2-bit sensor kind per joint at 26 (bits 2j..2j+1: 0 unknown, 1 pot, 2 hall; bits 12–15 zero), checksum at 28 (sum of bytes 0–27 XOR `0x5A5A`) |
+| 30–31 | 2 bytes | Reserved (alignment gap) |
 | 32 | 1 byte | Role magic sentinel (`0xAB`) — written once after first successful role election |
 | 33 | 1 byte | `BoardRole` value: `1`=FRONT, `2`=LEFT, `3`=RIGHT |
+
+Pot limits are ADC readings; hall limits are frame edges (hall hip `0..700`, the fixed sweep; knee `-S..0`). On load each joint is validated: a hall hip only as exactly `0..700` (`CAL_HIP_SWEEP_EDGES`), a hall knee as `-S..0` with `S` within 450-1500. A hall hip record saved by an earlier build (its measured stroke) is rejected with `Calibration joint <name> invalid: defaults`, so **run `C` again after flashing this build**. A v1 record (magic `0xCA1B`, 26 bytes, pot only) is ignored on quadrature builds (run calibration again) and read as all-pot elsewhere. On a quadrature build a v2 record that stores any yaw as pot can only come from a build without halls (which saves every joint as pot), so it is ignored as a whole: every joint stays unknown until `C`. Only a completed SWEEP writes the record. The save clears the magic first, writes the rest, and writes the magic last, so a save cut short by a power loss leaves no record (defaults) rather than a mix of old and new values. The load result is printed as one of the lines in the Feature 1 operator-line table.
 
 The role bytes survive power cycles. On each boot, the board prints `ROLE_HINT: LEFT/RIGHT/FRONT` immediately before the 3-second role-election window. `krabby-firmware show` reads this hint so follower boards can be labeled correctly even when probed individually (when they would otherwise appear as `ROLE_UNKNOWN` and show as "front").
 
 Role bytes are only written when a valid role is elected (FRONT, LEFT, or RIGHT). A board that times out as ROLE_UNKNOWN does not update EEPROM, preserving the last valid role.
 
-### Feature 1: Auto-Calibration (Run Once)
-The robot now calibrates itself automatically and saves limits to EEPROM.
- - Select Option 2 (Auto-Calibrate) in the menu.
- - Stand Back: The robot will perform the safety sequence:
-    - Yaw Left -> Yaw Right -> Hip Up -> Knee Out -> Knee In -> Hip Down.
- - Result: Limits are saved. You do not need to repeat this after rebooting.
+### Feature 1: Auto-Calibration
+
+On this robot the hips and knees are **hall-encoder actuators**. Their counts are relative, so each hip and knee must be **homed** (curled to its end) after every power-up before position control works, and a full calibration (SEEK then SWEEP) measures each one's range and saves it: each knee fully out and back with its hip curled, each hip **about 70% out (700 edges) and back**, not to full extension, because with its knee curled a full hip uncurl presses the curled tibia against the bottom of the robot. The firmware also supports pot actuators (Rev 2 boards, or a pot fitted on a Rev 3 slot); each joint's sensor kind is **detected automatically** during the run (see "How a sensor is recognised"). The run is slow, curls the whole robot first, and moves exactly one actuator at a time. Stand clear anyway, and keep a hand on **Hold All**: it stops the calibration immediately (see "Stopping it" below).
+
+**Operator rules (read these first)**
+
+ 1. **Flash all three boards together**, from the same build. An old follower would run the old pot-only routine on hall joints and drive them to random stops. The robot-level run is only safe on a matched set (see also section 4.3). A Rev 3 leader checks this as far as it can: it refuses to start while a linked follower has sent no `SENS` line since the leader booted (`CAL ROBOT FAIL <role>: no SENS: flash all three boards with the same firmware, or wait a few seconds after connecting`), and nothing moves. Followers print `SENS` at boot and every 2 s, so right after connecting wait a few seconds before `C`. The check cannot see a follower reflashed with old firmware later in the same leader session.
+ 2. **No jogging is needed before Curl only.** After a power-up most hips and knees rest fully curled (the legs are stored that way). A hip or knee resting fully curled is nudged out a little and straight back so its sensor can be checked (at most 24 hall counts for a hip, 12 for a knee). A curled knee springs out 5-9 more counts after its nudge stops, so a knee nudge ends about 18-21 counts out; that is expected and accepted. A joint that still shows no movement stops the run, and the run names it in its `CAL ROBOT FAIL` line; nothing else moves after it.
+ 3. **Run the full calibration with the robot on its stand**, legs clear of the ground and anything else. After a power-up the first curl cannot tell an obstacle from the curl end, so a leg curled against the ground would be taken as its home. The SWEEP checks catch a wrong home later, but only the stand makes the run harmless.
+ 4. **Watch the first move of any newly fitted or rewired actuator with Hold All ready.** If the motor and the sensor are both reversed, every sensor check passes: "curl" runs to the uncurl end and is accepted. No firmware check can see that; a person watching can.
+ 5. After each power-up run **Curl only** (GUI) before **Neutral** or any `T` target. Until a joint is homed its `pos` is `nan` and a `T` to it is refused.
+
+**Start it**
+
+ - Keyboard menu (`python -m firmware`): press `9`. This sends a bare `C`: the **full** calibration (SEEK then SWEEP, which takes each knee fully out and back and each hip about 70% out and back, and saves) at the default speed, so press it only with the robot on its stand (rule 3). The menu has no Curl only key: to home the encoders after a power-up, use Curl only in the GUI, and stay in the GUI for Neutral (reopening the port can reset FRONT and lose its homes).
+ - Joint GUI: the **Calibrate** button (Mega path). Its dialog has a **Curl only** box that runs just the curl pass (`C SEEK <pwm>`) on all three boards and saves nothing. Use it after every power-up to home the encoders. Keep the GUI open between a curl-only run and the full run, because reopening the port can reset the FRONT board on some hosts (see the DTR note below), and a reset leader forgets the run and every home.
+ - Any serial terminal on the leader's USB port (250000 baud), one line per command:
+
+| Command | What it does |
+| :------ | :----------- |
+| `C` | SEEK pass, then SWEEP pass, at the default speed (PWM 128) |
+| `C <pwm>` | Same, at PWM magnitude `<pwm>` (integer, 40-150) |
+| `C SEEK [pwm]` | SEEK pass only: curl every leg and home the encoders. Never saves anything |
+| `C SWEEP [pwm]` | SWEEP pass only (it still curls each leg first) |
+| `C PWR_SENSE ...` | Unchanged: power-monitor calibration, handled by the leader only, never forwarded |
+
+A bad speed (non-numeric, or outside 40-150) or any other malformed `C` line is rejected with `CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150` and nothing moves. (The old `C ?` / `C VOLTAGE ...` usage help for the power calibration is gone: only `C PWR_SENSE ...` reaches it.) `C ACTUATOR [SEEK|SWEEP] [pwm]` is still accepted as an alias. A `C` sent while a calibration is already running is ignored and answered with `CAL ROBOT BUSY` (`CAL <ROLE> BUSY` from a follower).
+
+**What moves, in what order**
+
+The leader (FRONT, or a lone board with no role) orchestrates the whole robot. For each requested pass, in order SEEK then SWEEP, it runs the pass on FRONT, then LEFT, then RIGHT, strictly one board at a time, so **every board has curled before any SWEEP starts** and only one actuator on the whole robot is ever driven. It sends `C SEEK <pwm>` / `C SWEEP <pwm>` to a follower over its UART link and waits for that follower's `PASS_DONE`. A follower with no link is skipped with `CAL ROBOT SKIP <LEFT|RIGHT> no link`. The SEEK still runs on the linked boards, but a SWEEP never starts while one follower has a link and the other has none: the robot fails `CAL ROBOT FAIL <role>: no link, no SWEEP until every board is linked` before the first SWEEP move. A leader with no follower links at all (a single board on the bench) still runs its SWEEP.
+
+On each board the six actuators are, in index order, leg A yaw, hip, knee, then leg B yaw, hip, knee. **The yaw joints are never driven** (yaw calibration will be re-added later); their stored limits are left as they were, and on Rev 3 they stay `?` (no position) and refuse `T`.
+
+ - **Curl direction** (the same on all six legs): the **hip curls by retracting** (negative PWM) and the **knee curls by extending** (positive PWM). The firmware convention is +PWM = extend, -PWM = retract.
+ - **SEEK pass**, leg A then leg B: knee to curl end, then hip to curl end.
+ - **SWEEP pass**, leg A then leg B: knee to curl end, hip to curl end (both normally finish at once, since the leg is already curled), then hip uncurl, hip back to curl end, knee to uncurl end, knee back to curl end.
+ - **Fixed hip sweep (hall hips).** The hip uncurl drives out from the hip's proven curl end until it has made 700 drive edges (`CAL_HIP_SWEEP_EDGES`, provisional, about 70% of the 941-1003 edges at which FLHL's curled tibia met the body), then stops and settles. It never runs to a stall. If the hip stops before 700 edges (the end detector sees a mechanical-stop signature: the drive slows while its current rises), the step fails with `<j> stopped <n> edges short of its 700-edge sweep: obstacle?`; the hip is left where it stopped (at most 700 edges out, knee curled, home cleared) for you to jog back. The curl back must leave the sweep end by at least 450 edges and end no more than 40 edges short of the home. The saved range is `[0, 700]`, so `T` can never drive a hip beyond the swept 70%. **Limitation:** a pot hip (a build or board without quadrature halls) still sweeps to its end, with its knee curled, so on such a robot a curled tibia can still meet the body. Knees always sweep their full stroke with the hip curled (FLKL: no collision at full knee extension with its hip curled).
+ - **Partner rule.** A hip never moves unless its knee was proven curled in this run, and a knee only leaves its curl end with its hip proven curled. A failed step stops the pass before the partner joint moves.
+ - The one exception is the **knee nudge** (`CAL_OPT_KNEE_NUDGE`), approved by the robot's owner on 2026-11-23 and the shipped default (`CAL_DEFAULT_OPTIONS = CAL_OPT_KNEE_NUDGE` in `calibration_constants.h`): a knee curl that shows no motion is followed by a nudge out of at most 12 edges (1 s cap, never faster than PWM 128, the default, whatever the `C` speed), then a full curl straight back, before its hip is proven. A stored knee needs 0.36-0.77 s of drive to break free of its curl end and reached 12 edges 0.67-1.0 s after the start (FLKL, 2026-11-23), so there is no earlier no-edge stop: a knee with no hall feedback (hall A dead, cable off) runs blind to the 1 s cap at no more than PWM 128, so it can end **up to about 95 edges out** if it breaks free at once (measured 2026-11-24: FLKL driven out of its curl end at 128 had moved 72 edges 1.0 s after its drive started, with a ramp slower than the firmware's; the FR knees run about 120-130 edges/s at 128 and coast 3-9 edges after a stop; at PWM 80 this was about 41), is curled back and fails `no feedback` before its hip moves. Its hip is not proven curled at that point (the nudge is the one move allowed before that), so the knee nudge's PWM cap trades this blind reach against breaking a stored knee free: FRKL could not break free at 80 or 100. Whether to keep the cap at 128 or lower it to about 110 is the owner's call. The 12-edge and 18-21-edge figures below hold only for a knee whose hall works. After the drive stops a curled knee **springs out 5-9 more edges**, so a 12-edge nudge ends about 18-21 edges out; the owner accepted this, and those spring edges count toward the 12 edges of evidence (read after the 0.3 s settle). The curl back is accepted when it moved at least 2 edges toward curl and stalls no more than 40 edges short of where the knee rested before the nudge: a knee parked by a GUI jog (PWM 200) rests about 17 edges deeper than PWM 80 reaches (about 7 deeper than PWM 128 reaches) and at PWM 80 came back only about 5 edges. A knee whose curl back stalls inside the 40 edges but moved fewer than 2 fails `<j> curled back only <n> edges after its nudge`. At PWM 80 this happened once for a knee parked by the GUI's PWM 200 curl, at the low end of its spring-out (5-6 edges): the nudge already ended at its calibration-speed curl end (at the default PWM 128 the host simulation no longer shows it). It then rests there, and the next Curl only passes; just run Curl only again, without re-curling the knee at PWM 200. Every `C` run uses it. It is still a build-time default: neither the `C` command nor the GUI can change it. A build with `CAL_DEFAULT_OPTIONS = 0` is strict: there a knee with no motion fails `<j> no motion seen: jog it off its curl end, then retry` instead.
+ - **Hip nudge.** A hip curl that shows no motion is not accepted on its own. The hip is driven out at most 24 edges (2 s cap), then a full curl back. If a hip or knee nudge itself shows no feedback, the curl back still runs before the run fails. If a run ends while a joint is nudged out (a wiring fault found during the nudge, or `H`), the leg is not driven back: the board prints `CAL <ROLE> WARN <j> nudged out, not driven back: jog it to its curl end` just before its `FAIL` or `ABORTED` line. The `MOVE <j> nudge` line announces each nudge, and **Hold All** stops a nudge at once like any other move.
+
+**How a sensor is recognised**
+
+Each hip and knee is classified from evidence, never from the pot reading alone. On a Rev 3 board the analog pins A0-A5 (the "pot" pins) are **hall channel B** on the hips and knees, so they swing between the rails whenever the joint moves.
+
+ - **Hall**: 12 or more edges counted in the driven direction while driving. 12 or more edges **against** the drive fails the move at once (`hall counts the wrong way`), in any phase.
+ - **Pot**: decided only from two snapshots taken with the motor stopped (each the mean of 4 direct reads): both must lie in 32..990, the move must have counted at most 1 edge, and the reading must have travelled at least 30 counts toward the drive. A pot whose end reads below 32 or above 990 cannot be told apart from hall B on Rev 3 and fails `no feedback` or `no motion` (visible and safe).
+ - **Unknown**: no evidence yet. Such a joint is never accepted as curled on that move.
+ - A kind decision or change is announced with `CAL <ROLE> SENSOR <j> hall|pot`. Without a quadrature board (Rev 2) every joint is a pot.
+
+**How fast and how an end is found**
+
+ - Default speed is PWM 128 (range 40-150; the owner's choice of 2026-11-24, was 80). **Calibrate at the default PWM 128.** At PWM 80 the FR knee could not break free of its curl end (nor at 100), knee uncurls stalled short of their switch, and the FR knee's curl end showed almost no current rise; at 120 and 150 every front-leg end showed its signature. Below about PWM 110 a healthy joint may stall short of its end and fail `<j> stuck mid-stroke after <n> edges at PWM <p>: raise PWM or check load`, and below 128 a stored joint may not break free during its nudge and then fails `<j> no feedback at PWM <p>: check sensor cable, or calibrate at PWM 128`. Each move ramps up from 0 in steps of 5 every 20 ms (0.52 s to 128) and never exceeds the requested PWM. A full stroke can still take several seconds.
+ - **End detection (hall joints on Rev 3 boards).** Every hall (or not yet classified) hip and knee drive but the nudge out is ended by the end detector (`calibration_end_detector.h`), from the hall count and the motor current (`IS`, 10 x the smoothed reading, sampled every 50 ms), and the motor stops at once instead of pressing for seconds. Once a drive has run (at least 20 edges/s for 0.3 s, from 0.2 s after the ramp), the PWM sign picks the rule. **Retracting** (a hip curl, a knee uncurl) the rod's end is the actuator's internal **limit switch**: the count stops dead and the current drops to the joint's switch-open level, so the end is called 150 ms after the last edge once the current is at least 12% below its running median (a joint that arrives crawling needs 30%, a new low, and at least 10% below its running level: FRHL curling at 128 from the body stalled 878 edges short of its switch with its current wobbling above running, 2026-11-24, and that is stuck, not a switch). **Extending** (a knee curl) the end is the leg's **mechanical stop**: the speed falls below 25% of running while the current rises at least 25% over its running median for 3 samples. The END line names it: `... by=switch cur=<a>/<b>` or `... by=stop cur=<a>/<b>` (tenths of an IS count: the current at the decision and its reference). A drive that stalls with neither signature is **stuck mid-stroke** (`by=stuck`): it is never accepted as an end, the pass fails `<j> stuck mid-stroke after <n> edges at PWM <p>: raise PWM or check load` and nothing else moves. A drive that never ran (a press of a joint already at its end, a short curl back, a joint slower than 20 edges/s such as a hip at PWM 40-50) ends as before on its count alone: a curl after at least 1 s of drive (the curl back after a nudge at least as long as the nudge drove, and 1 s longer when the nudge saw no edges: joints curl back slower than they uncurl) with fewer than 3 edges in 0.5 s, or in 1 s once it has made 12 edges (a slow joint's pause is not its end), so a joint already at its end finishes in about 1 s (was about 3 s); an uncurl gets the old 1.5 s + 1 s break-free allowance after the ramp. So below arming speed an end is found by stall alone, and a slow joint that pauses for over a second can still pass for being at its end. A curl that starts about 50-130 edges from its end arms while already slowing into it, so it has no running phase either: when it stalls with fewer than 12 normal-speed samples since arming and its last edge within 2 s of arming, it ends as a plain stall (no `by=`) instead of failing stuck, unless it is retracting and its current rose above running (a hip stalled mid-stroke stays stuck). A hall hip's SWEEP uncurl stops at 700 edges, not at an end. Proven pot joints and builds without quadrature halls keep the window rule: after the ramp a 1.5 s grace period, then 1 s windows that must each move a pot 3 counts of its smoothed reading (a hall joint 3 edges). After any stop it waits 0.3 s and reads the end. While a joint is not proven Pot, the hall-B level on its pot pin is never used to stop, classify or fail a move.
+ - Each move has a hard 120 s timeout. The longest move measured at PWM 80 took 36 s (FLHL curling back from about 1000 edges), so it has margin; moves at the default PWM 128 are faster. It also ends a joint that keeps creeping (an edge at least every 0.4 s is never stuck). The leader gives up on a silent follower after 135 s with no `CAL` line from it.
+ - **A curl move that moved and then stalled is accepted as the curl end** (12 or more edges, or 30 counts). Stated plainly, this is a limit: after a power-up an obstacle looks the same as the end, which is why the full run belongs on the stand. A curl with **no** motion is accepted only at a curl end proven earlier this boot (within the tolerance below; a hall joint resting deeper moves its home there); a joint with a proven curl end that rests more than the tolerance short of it fails `stopped <n> edges short` with no nudge. Only a joint with no proven curl end is nudged (a strict build fails a knee instead).
+ - Once a joint has a home from this boot, later curls are checked one-sided: ending more than 40 edges (30 counts for a pot) **short** of it fails (`stopped <n> edges short of its curl end`); ending deeper is accepted and moves the home (`WARN <j> home moved <n> edges`).
+
+**Homing, position and `T`**
+
+ - Encoder joints use a frame where a **higher value means more extended**: `x = -(count - home)`. The hip curl end is 0 and a hall hip's limits are `[0, 700]` (its fixed sweep, not its stroke); the knee curl end is 0 and its limits are `[-S, 0]`, with `S` the measured stroke in edges.
+ - A joint is homed in RAM when its curl is proven (`CAL <ROLE> HOME <j> count=<raw>`). **The counts and every home reset at each power-up and board reset**, so Curl only is needed every time.
+ - An encoder joint's `pos` is a number only when it has a home from this boot **and** a stroke from a saved SWEEP; otherwise `pos` is `nan` and a `T` to it is refused (one `ERR T refused <names> (no position)` line per board per second). Yaws and never-classified joints are refused the same way. The GUI Neutral button and the menu `0` key send only to hips and knees that have a position and name the ones they skip.
+ - Encoder `T` is capped at PWM 150, with a 12-edge deadband and targets kept inside the ends calibration recorded: 8 edges inside the retracted end (a limit switch: the hip curl end, the knee uncurl end) and 25 edges inside the extended end (the knee's compliant leg stop, which a harder push enters deeper, or the hip sweep end). A `T` stall guard (both kinds) stops a joint that moves less than 3 in 1 s at PWM 60 or more (`ERR STALL <name>`; an encoder also loses its home). Driven at PWM 20-59, a joint that moves less than 3 in 3 s is stopped quietly (no `ERR` line, the home is kept). After an `ERR STALL` trip the joint stays stopped while any `T` in the stopped direction is sent (a held key such as menu `0`, a streaming host): it is not driven again and no `T refused` line is printed, until a `T` that reverses the drive, a jog (`J`/`B`) or Hold (`H`) re-arms it. After a quiet stop only the same `T`, or one whose target is within 12 edges of the stopped target on the same side, keeps the joint stopped; a different target drives again (still covered by the stall guard), and a reversing `T`, a jog or `H` also re-arm it. A range guard clears an encoder home that is clearly wrong (`ERR HOME <name> lost`). Both guards run only outside calibration. A hall hip's `T` range is the swept `[0, 700]`, so with the insets its targets run 8..675 edges and `T 0..1` covers only the swept 70%. A homed hall hip may be jogged beyond its sweep: its range guard allows up to about **1560 edges** (the 1500-edge maximum stroke plus the 60-edge margin) before it clears the home (`ERR HOME <hip> lost`, then `T` is refused until the next Curl only or `C`). The curled tibia meets the body at about 941-1003 edges, so do not jog a hip with a curled knee that far.
+
+**Results and saving**
+
+ - For each hip and knee, `min` and `max` are the stops in the joint's own units. Pot: the ADC reading at the retracted and extended ends (the existing `CalData` meaning). Hall: frame edges, hip `0 .. 700` (fixed sweep; its JOINT line ends `edges (fixed sweep)`), knee `-S .. 0`.
+ - Hall knee strokes are checked: the stroke must lie between 450 and 1500 edges (provisional: one knee measured, FLKL 776 edges; otherwise `stroke <n> edges, outside 450-1500`), a stroke under 85% of the saved stroke fails (`stroke <n> edges, saved <m>: obstacle?`), and a stroke that differs from the saved one by more than max(30, 10%) prints `WARN <j> stroke <old> -> <new> edges`. These checks do not apply to hall hips, whose range is the fixed sweep.
+ - Results are staged during the pass. A board writes its limits to EEPROM only when its **SWEEP pass completes with no failure** (`PASS_DONE SWEEP saved`). SEEK-only runs never save. Any failure or abort leaves that board's saved and in-RAM limits as they were (boards that already finished their SWEEP keep what they saved). A failed hall joint loses its home; an abort (`H`) keeps it, because the counts keep tracking.
+ - A reversed pot no longer warns and saves: it fails `pot moves the wrong way: check motor or pot end wires`, because accepting a wrong-way "curl" would let a partner move next to an unproven joint.
+ - The record is 30 bytes (v2) and is reloaded at boot (see "EEPROM address layout"). However calibration ends, every actuator is stopped and has no position target, so nothing starts holding or moving afterwards.
+
+**Stopping it**
+
+`H` (Hold All), `J` and `B` (jog) and `T` (position targets) each **abort calibration immediately**: all motors off, nothing saved, `CAL ROBOT ABORTED <letter>` on the leader. The leader sends `H` to the followers first, then handles and forwards the command as usual, so a jog sent after an abort still works. In the GUI, **Hold All** sends `H`. `V` (version) and `C PWR_SENSE ...` keep working during calibration; while a calibration runs, `V` answers for the leader only (`-` for each follower), because asking the followers would stall the loop and could split a follower's `CAL` line.
+
+If a follower reports `FAIL`, `ABORTED`, `BUSY` or `ERROR`, or goes silent past the watchdog, the leader sends `H` to every follower, stops its own motors and prints `CAL ROBOT FAIL <role>: <reason>` (the reason is cut at 78 characters).
+
+A leader that resets (USB DTR auto-reset when a program opens its port, or a brown-out) forgets the run; at boot it sends `H` to both follower links, so a follower still running its pass stops. A follower that reports a `MOVE` outside its turn is treated the same way: during a run it fails the robot (`CAL ROBOT FAIL <role>: MOVE outside its turn`), and with no run active the leader sends that follower `H` and prints the same line.
+
+**Known limit: a dropped follower link.** `H` cannot reach a follower whose UART link has dropped. That follower finishes or fails its own pass under its own bounds (each move at most 120 s, one joint at a time, curl first, hip nudge at most 2 s, knee nudge at most 1 s, a hall hip's sweep at most 700 edges). The power switch is the backstop.
+
+**Status lines**
+
+Each board prints one `CAL <ROLE> <event>` line per event on its main serial (USB on the leader, UART uplink on followers); the leader forwards follower lines to the host. `<ROLE>` is `FRONT`, `LEFT`, `RIGHT` (a lone board with no elected role prints `UNKWN`). They are never parsed as telemetry. `<j>` is a joint name such as `FLHL`; `<n>` and `<p>` are integers.
+
+| Line | Meaning |
+| :--- | :------ |
+| `CAL <ROLE> PASS SEEK pwm=<p>` / `PASS SWEEP pwm=<p>` | Board pass starts |
+| `CAL <ROLE> MOVE <j> curl\|uncurl\|nudge` | A move starts (`nudge` is the verification nudge) |
+| `CAL <ROLE> SENSOR <j> hall\|pot[ (was hall\|pot)]` | The joint's sensor kind was decided (or changed) |
+| `CAL <ROLE> END <j> <dir> hall=<frame> travel=<frame delta>` | A move ended on a hall joint. `<dir>` is `curl`, `uncurl` or `nudge`; travel is signed, in frame edges |
+| `CAL <ROLE> END <j> <dir> hall=<frame> travel=<frame delta> pot=<snap>` | Same, for a joint with no evidence yet (kind still unknown); `pot` is the at-rest snapshot |
+| `CAL <ROLE> END <j> <dir> pot=<end> travel=<end-start>` | A move ended on a pot joint (signed travel in pot counts) |
+| `CAL <ROLE> HOME <j> count=<raw>` | The encoder home was set at this raw count |
+| `CAL <ROLE> WARN <j> home moved <n> edges` (or `counts`) | A curl ended deeper than the home from this boot; the home moved |
+| `CAL <ROLE> WARN <j> stroke <old> -> <new> edges` | The new stroke differs from the saved one by more than max(30, 10%) |
+| `CAL <ROLE> WARN <j> nudged out, not driven back: jog it to its curl end` | Printed just before a `FAIL` or `ABORTED` line when the run ended during a nudge. Jog that joint back to its curl end |
+| `CAL <ROLE> JOINT <j> min=<a> max=<b>[ edges]` | A joint's result (SWEEP); the `edges` suffix marks a hall joint |
+| `CAL <ROLE> JOINT <hip> min=0 max=700 edges (fixed sweep)` | A hall hip's result: its range is the fixed 700-edge sweep, not a measured stroke |
+| `CAL <ROLE> PASS_DONE SEEK` / `PASS_DONE SWEEP saved` | Board finished the pass |
+| `CAL <ROLE> FAIL <reason>` | A step failed; the motor is stopped and the partner joint is not moved. Reasons are in the table below |
+| `CAL <ROLE> ABORTED <H\|J\|B\|T>` | Stopped by a command |
+| `CAL <ROLE> BUSY` / `CAL <ROLE> ERROR usage: ...` | Follower rejected a `C` line |
+| `CAL ROBOT START pwm=<p> passes=SEEK,SWEEP\|SEEK\|SWEEP` | Leader starts |
+| `CAL ROBOT SKIP <LEFT\|RIGHT> no link` | Follower link absent (printed once per pass) |
+| `CAL ROBOT DONE` | Everything finished |
+| `CAL ROBOT FAIL <role>: <reason>` | Robot calibration stopped on a failure |
+| `CAL ROBOT FAIL <role>: no link, no SWEEP until every board is linked` | One follower is linked and the other is not: no SWEEP runs. Fix the link and run `C` again |
+| `CAL ROBOT FAIL <role>: no SENS: flash all three boards with the same firmware, or wait a few seconds after connecting` | Rev 3 leader only, at start: that linked follower has sent no `SENS` line since the leader booted (other firmware, or connected a moment ago). Nothing moved and there is no `START` line. Wait a few seconds and run `C` again. If it repeats: check that board's own output (its USB port, or its startup lines) for `ROLE: UNKNOWN` (no role elected, so it never prints `SENS` on the link); power-cycle or reset all three boards together and wait a few seconds; reflash all three boards with the same build only if `SENS` is still missing. This line is longer than the other `CAL ROBOT FAIL` lines (about 117 characters); the GUI and the menu show it whole |
+| `CAL ROBOT ABORTED <cause>` / `BUSY` / `ERROR ...` | Aborted by a command / `C` while running / bad `C` line |
+
+The old reversed-pot `WARN` is gone (see "Results and saving").
+
+**Failure reasons** (`CAL <ROLE> FAIL <reason>`; the reason is at most 78 characters). The unit is `edges` for a hall or unclassified joint and `counts` for a pot.
+
+| Reason | Meaning and what to do |
+| :----- | :--------------------- |
+| `<j> pot not connected` | A proven pot's pin reads open. Nothing moved. Check the pot cable |
+| `<j> <curl\|uncurl>: no end of travel in 120 s` | The move timed out; motor stopped, nothing saved. Check for a stuck sensor or an obstacle. If the stroke is simply long for the speed, the timeout (`CAL_MOVE_TIMEOUT_MS`, see the measurement below) must be raised in the firmware; do not raise the calibration speed to fit it |
+| `<j> barely moved (<n> edges) at PWM <p>: check hall wiring or raise speed` | An uncurl travelled too little, or a nudge counted a few edges but too few to prove the sensor (a slow joint rather than a dead cable). A pot says `counts` and `check pot wiring` |
+| `<j> did not reach its curl end (hall=<n>)` / `(pot=<n>)` | A curl stalled short of its curl end |
+| `<j> hall counts the wrong way: check motor or hall A/B wiring` | The count ran against the drive. Reversed motor polarity and reversed hall A/B look the same |
+| `<j> pot moves the wrong way: check motor or pot end wires` | The pot travelled against the drive |
+| `<j> no feedback: no hall edges, pot not moving (check sensor cable)` | Neither sensor showed anything (a hip or knee, after its nudge and curl back) |
+| `<j> no motor current at PWM <p>: check motor wiring` | No motor current was seen while driven |
+| `<j> no motion seen: jog it off its curl end, then retry` | Strict builds only (`CAL_DEFAULT_OPTIONS = 0`): a knee showed no motion (probably resting fully curled). Jog it off its curl end and retry. The shipped build nudges such a knee instead |
+| `<j> no feedback at PWM <p>: check sensor cable, or calibrate at PWM 128` | As `no feedback`, but the run's speed `<p>` was below the default PWM 128, where a stored joint may not break free during its nudge (FRKL could not at 80 or 100). Run `C` (or Curl only) again at the default PWM 128; if it repeats there, check the sensor cable |
+| `<j> stopped <n> edges short of its curl end` (or `counts`) | A curl ended short of a curl end proven this boot (with or without motion): an obstacle? After a nudge, the curl back stopped more than 40 edges (30 counts) short of where the joint rested before the nudge. Clear the obstacle, jog it to its curl end and retry |
+| `<j> curled back only <n> edges after its nudge` (or `counts`) | After a nudge, the curl back stalled within 40 edges of where the joint rested but moved too little toward curl (a knee fewer than 2 edges, a hip fewer than 12): a joint that cannot curl may be stuck mid-stroke, so its hip is not moved. For a knee parked by the GUI's PWM 200 curl this can happen once, at the low end of its spring-out: the knee now rests at its calibration-speed curl end, so **just run Curl only again** (do not re-curl it at PWM 200). If it repeats, look for something holding the joint |
+| `<j> stopped <n> edges short of its 700-edge sweep: obstacle?` | A hall hip stopped making progress before its fixed 700-edge sweep (`<n>` edges short). Something is in the way (the leg, the stand, the body). The hip is left out where it stopped, with its knee curled; clear the obstacle, jog the hip back to its curl end and run `C` again |
+| `<j> stuck mid-stroke after <n> edges at PWM <p>: raise PWM or check load` | A hall drive ran and then stalled with no end signature (no limit-switch current drop when retracting, no current rise when extending): an obstacle, a joint too weak at this speed (below about PWM 110), a hall dropout, or a bypassed limit switch. It is never taken as an end: the joint's home is cleared, the motor is stopped and the partner joint is not moved. Run `C` at the default PWM 128; if it repeats there, look for what holds the joint and check its hall cable |
+| `<j> stroke <n> edges, outside 450-1500` | A hall knee's measured stroke is outside the bounds (printed from the constants) |
+| `<j> stroke <n> edges, saved <m>: obstacle?` | A hall knee's stroke is under 85% of the saved one |
+| `<j> partner not proven curled` | Guard only: the partner gate refused a move. It should not occur through the step table |
+
+**Board operator lines (outside calibration)**
+
+These go through the same output as the `CAL` lines (USB on the leader; a follower's go to the leader, which forwards them). None starts with `CAL `.
+
+| Line | Meaning |
+| :--- | :------ |
+| `SENS <ROLE> <NAME>:<c> <NAME>:<c> ...` | Rev 3 (quadrature) builds only. Printed at boot, on any change and every 2 s, one token per actuator in index order. `<c>` is `?` unknown, `P` pot, `e` encoder not homed, `s` homed but no saved stroke, `x` home lost, `E` encoder ready (homed with a stroke). The host GUI reads this, so it survives a reconnect |
+| `ERR STALL <name>` | The `T` stall guard stopped the joint at PWM 60 or more (an encoder also loses its home). The quiet stop at PWM 20-59 prints nothing |
+| `ERR HOME <name> lost (x=<frame>)` | The range guard found the encoder frame clearly outside the stroke and cleared the home |
+| `ERR T refused <name> ... (no position)` | A `T` target was refused for the named joints. At most once a second per board |
+| `Calibration v2 loaded` | The v2 EEPROM record was valid and applied |
+| `Calibration v1 loaded` | A v1 record was migrated (builds without quadrature halls: all pots) |
+| `Calibration v1 ignored: run C` | A v1 record was ignored (quadrature builds) |
+| `Calibration from a build without halls ignored: run C` | A v2 record with a pot yaw, written by a build without halls, was ignored (quadrature builds) |
+| `Calibration record corrupt: defaults` | A v2 magic with a bad check or reserved bits; defaults are used |
+| `Calibration joint <name> invalid: defaults` | That joint's stored values failed validation and were reset. Every hall hip record saved by a build before the fixed 700-edge sweep is rejected this way: run `C` again |
+| `No calibration record: defaults` | Nothing usable in EEPROM |
+| `Limits saved` | A SWEEP wrote the record (the `CAL <ROLE> PASS_DONE SWEEP saved` line confirms the same thing for every board) |
+
+The host SDK logs `ERR ...` lines as errors and keeps the `SENS` states. It logs the EEPROM messages above (`Calibration ...`, `No calibration record: defaults`, `Limits saved`) at info level. A board prints its load line only at its own boot, so a follower's load line is seen only when that follower resets while the leader is connected; the `SENS` states (`?` after an ignored or missing record) show the result at any time.
+
+**GUI**
+
+The joint grid has a **Sensor** column (`POT`, `ENC`, `ENC unhomed`, `ENC no stroke`, `ENC home lost`, or `?`), and a banner `Encoder joints not ready: <names>. Run Calibrate > Curl only` shows while any hip or knee is `e`, `s` or `x`. Hips and knees at `?` (after a fresh flash, or with an ignored, corrupt or invalid record) are listed first as `Sensor not yet detected: <names>`. The banner says `full calibration` instead of `Curl only` when any listed joint is `s` or `?`, because Curl only never saves a stroke or a sensor kind. Neutral sends only to joints that have a position, and when it reaches none it names the same run as the banner. The **Hall** column is telemetry field 9, the **signed hall count** (see section 2.2).
+
+**First-time measurement and acceptance (with you at the robot)**
+
+The stroke bounds, the fixed hip sweep and the encoder gains are provisional: they rest on one leg (FLHL and FLKL, measured 2026-11-23, below). Do the measurement and the acceptance run yourself, with the GUI, and keep agents and scripts off the COM port.
+
+ - **Measurement** (done 2026-11-23 on the front-left leg, robot on its stand, firmware before the fixed hip sweep, scripted jogs at PWM 80 ramped 0 to 80 in 0.32 s; repeat on other legs with the GUI jog, which runs at PWM 200 only, so there record the full stroke in edges and the edges per second at PWM 200; for timeouts at PWM 40 assume 10 edges/s for a hip). Results:
+   - Knee FLKL, hip curled: full stroke **776 edges**; about 34 edges/s uncurling (retract) and 60 edges/s curling (extend) at PWM 80. No collision at full knee extension with the hip curled. The stroke bounds 450-1500 are about 0.6 and 2 times this one knee (provisional until more knees are measured).
+   - Hip FLHL, knee curled: a full hip uncurl ends with the **curled tibia pressing up against the bottom of the robot** (one run was stopped by hand for it). The hip stopped at 941 edges with the knee 24 edges off its curl end and at 1003 edges with the knee curled tight: that is body contact, not the actuator's end. About 70% (700 edges) clears the body, hence `CAL_HIP_SWEEP_EDGES = 700`. Hip about 45 edges/s extending and 21-30 edges/s retracting; it returns exactly to its curl end (limit switch).
+   - Knee curl end at PWM 80 varies from 3 to 24 edges with the approach (a full-stroke approach tapers and stops shallower). A PWM 200 curl (the GUI jog) parks the knee about 17 edges deeper than PWM 80 reaches.
+   - Knee nudge from a curled knee: the first count came 0.36-0.77 s after the drive started (it has to break free), 12 edges were reached 0.67-1.0 s after the start, and after the drive stopped the knee sprang out 5-9 more edges (a 12-edge nudge ended 18-21 edges out). Return at PWM 80: 14 edges back from a knee parked at the PWM 80 end, only 5 from one parked by a PWM 200 curl (it stalls at the PWM 80 curl end).
+   - Hip nudge from its curled end: 24 edges reached at 1.31 s; it returned exactly to its curl end.
+   - Motor current (IS) at an end at PWM 80 is 8-14, the same as while moving (9-12): at PWM 80 the ends showed only in the counts.
+   - Longest move at PWM 80: 36 s (the hip curling back from about 1000 edges), so the 120 s move timeout has margin. For a run at PWM 40, use the slow rates logged earlier on this robot (only 10-20 edges/s for a hip at PWM 40-50, so 10 edges/s): a 776-edge knee then takes about 78 s and a 700-edge hip sweep about 70 s, inside 120 s but without the 2x margin that PWM 80 has.
+   - Still unmeasured: the hip actuator's own end, the other legs, the stall current at PWM 40 and 150. Finish with each jogged joint back at its curl end.
+ - **End-current measurement** (2026-11-24, front legs on the stand, firmware hallcal-1123, scripted jogs at PWM 80, 120 and 150; the `current` field is the smoothed IS reading, about 20 frames/s). The hip curl end and the knee uncurl end are the actuator's **limit switch**: the count stops dead and the current drops from its running level (FL hip 10-13, FR hip 15-17) to the joint's driven-but-switch-open level (FL hip 7-8, FRHL 11; knees 7.0 within 0.1 s), with almost no slowdown before. The knee curl end (rod extended into the leg's own stop, no switch) is a **compliant mechanical stop**: the speed collapses over the last 0.3-0.5 s while the current rises (FL +30%; FR +11% at 80, +60% at 120, +80% at 150), and harder pushes end deeper (FL 15/3/-5 edges at 80/120/150). Frame-to-frame noise is about +-3-5 counts, and running is only 2-8 counts above switch-open. At PWM 80 FLKL uncurls stalled about 100 edges out and FRKL stalled 18 short of its switch with flat current (a stall with no signature), and FRKL could not break free of its curl end at 80 or 100. Replayed through the end detector (40 moves): every switch end at 120/150 is found 0.11-0.22 s after the count stopped and recorded exactly there, every knee curl end 0-5 edges shallower than its final creep, no running move ever fires, and the FR knee curl at 80 (current +11%) is called stuck mid-stroke. Follower boards have not been traced yet: read the `by=` / `cur=` tokens of the END lines on the first full run.
+ - **Acceptance** (after flashing all three boards together with this build; any hall hip record from an earlier build is rejected at boot with `Calibration joint <hip> invalid: defaults`, so the full calibration in step 4 is required):
+   1. Boot: `SENS` shows `?` or `e` for the hips and knees, and with nothing moving the Hall counts stay at 0 (no stray +-1 on idle joints). On this first boot after the flash, while the hips and knees show `?`, the **Pot** column (hall B on Rev 3, with its pull-up now kept on) must read below 32 or above 990 on all 12 hips and knees: the pot classifier relies on hall B resting outside 32..990. Stop and report any joint that reads inside that band. Once a joint shows `e` its Pot cell is blank; its hall-B level is then only in field 3 of its telemetry segment (the `serial rx` lines of `python -m firmware.gui --debug`).
+   2. Wait a few seconds after connecting (until `SENS` lines from LEFT and RIGHT show in the grid), then Curl only with the knees parked fully curled, and press Hold All during the first nudge (`MOVE FLKL nudge`): it stops at once (`CAL ROBOT ABORTED H`) and nothing moves after. A `CAL ROBOT FAIL <role>: no SENS: ...` line instead means that board has not been heard (not given time, no role elected, or other firmware): follow the troubleshooting in the `no SENS` row of the calibration line table (check that board for `ROLE: UNKNOWN`, reset all three together, reflash all three only if `SENS` is still missing).
+   3. Curl only again, no jogging, knees still parked: each parked knee shows `MOVE <j> nudge`, ends about 20 edges out (the spring), curls back and is homed (`HOME <j>`), each parked hip the same (24 edges, exactly back), and every hip and knee reads `s` or `E`. No knee with a working hall goes out further than about 21 edges before its hip is homed (a knee with hall A dead runs blind to its 1 s cap, up to about 95 edges out at PWM 128 before its hip is proven curled, and fails `no feedback`). A knee that fails `curled back only <n> edges after its nudge` (parked at PWM 200, low spring-out) is accepted behaviour: run Curl only once more, without re-curling it, and it must pass.
+   4. Full calibration on the stand: each hip goes out about 700 edges and back with its knee curled, and the curled tibia never touches the body (watch FLHL first, with Hold All ready); each knee goes fully out and back with its hip curled. The hip JOINT lines read `min=0 max=700 edges (fixed sweep)`, each knee stroke is plausible (about 776 edges, inside 450-1500), and the count sign holds on all 12 hips and knees (retract counts up).
+   5. `T` to one joint, near its curl end. The GUI has no single-joint `T` control (its Neutral button sends 0.5 to every joint), so use a serial terminal on FRONT's USB port (250000 baud). **Opening a port resets the board and clears every home: run Curl only again after any port reopen** (in the terminal, `C SEEK`, and wait for `CAL ROBOT DONE`). Then send `T FLHL 0.1` (the hip about 70 edges out of its curl end), and after it settles `T FLHL 0.03` (about 21 edges out: targets stay 8 edges inside the hip's curl end); then `T FLKL 0.9` (the knee about 78 edges out of its curl end on a 776-edge stroke; a knee's curl end is `T 1`, which stops 25 edges short of the leg stop) and `T FLKL 1`. These targets start each drive with an error of about 60-80 edges, so it starts near the PWM 60-80 at which a stored joint breaks free (encoder `T` commands about 1 PWM per edge of error). Each must stop within about 20 edges of its target (the drive stops below PWM 20, which is 20 edges of error) with no `ERR STALL`, or be stopped quietly after 3 s with no `ERR` line (a small error commands PWM 20-59, which may not break a stored joint free). A quiet stop holds only that target: re-sending it keeps the joint stopped, while `H`, a jog or a different `T` re-arms it. Encoder `T` drives at up to PWM 150 (the calibration runs at PWM 128), so keep these first targets close to the curl end and Hold All (`H`) ready. Close the terminal and Curl only again from the GUI before step 6.
+   6. Then Neutral for the whole robot.
+
+**Where the constants live**
+
+All calibration constants, including the curl signs (`CAL_HIP_CURL_PWM_SIGN = -1`, `CAL_KNEE_CURL_PWM_SIGN = +1`), the speed limits, the hall thresholds, the nudge bounds, the stroke bounds and the option bits, are in `firmware/arduino/src/actuator/calibration_constants.h` (the encoder gains and `T` guards are in `actuator_constants.h`). If a leg ever curls the wrong way, change the sign there. The sensor classifiers are in `src/actuator/joint_sensor.h`. The per-board sequencer is `src/actuator/leg_calibration.h`, the leader's robot-level sequencer is `src/actuator/robot_calibration.h`, the sketch's command glue (the `C` dispatch, the H/J/B/T abort, the `V` guard; shared with the host sim) is `src/actuator/calibration_command_dispatch.h`, and the `C` parser is `src/cli/actuator_calibration_command.h`.
+
+**GUI jog buttons**
+
+The Joint GUI's **Retract** and **Extend** buttons send -PWM and +PWM respectively, matching the firmware. To curl a leg by hand, press Retract on the hip and Extend on the knee. A parked knee needs no jog before calibration: the run nudges it.
 
 ### Feature 2: Manual Jog Mode
  - Select Option 3 (Jog Mode).
@@ -216,8 +407,9 @@ The robot now calibrates itself automatically and saves limits to EEPROM.
  - Release keys to stop immediately.
 
 ### Feature 3: Neutral Pose
- - Select Option 1.
- - Robot moves all joints to center (0.5). Useful to verify calibration accuracy.
+ - Select Option 1 (menu key `0`), or the GUI **Neutral (0.5)** button.
+ - Robot moves the hips and knees that have a position to center (0.5). Useful to verify calibration accuracy.
+ - Yaws are never sent, and hips and knees without a position (encoders not homed after a power-up, or no saved stroke) are skipped and named. Run Curl only first (Feature 1), or the full calibration on the stand for joints at `s` or `?`; the message after Neutral names the run.
 
 ---
 
@@ -285,6 +477,8 @@ krabby-firmware update release/0.2.0          # specific branch
 krabby-firmware update /dev/ttyACM1           # specific port, latest release
 krabby-firmware update release/0.2.0 /dev/ttyACM2  # specific branch + port
 ```
+
+Flash all three boards together before running calibration: a mixed set runs the old pot-only routine on the hall joints of an old follower. A Rev 3 leader refuses the run while a linked follower has sent no `SENS` line (`CAL ROBOT FAIL <role>: no SENS: ...`). After flashing, run `C` on the stand again: hall hip records from earlier builds are rejected.
 
 Do not interrupt mid-update. If the serial device disappears afterward, follow **Board vanishes during or after upload** above before assuming the board is bricked.
 
@@ -407,8 +601,8 @@ only bytes 40–65. Constants live in `src/imu/imu_constants.h`; the
 
 | Bytes | Size | Owner | Contents |
 | :--- | ---: | :--- | :--- |
-| 0–25 | 26 | Joint calibration (`CalData`, pre-existing) | per-actuator min/max for 6 actuators + magic word `0xDEADBEEF` |
-| 26–31 | 6 | — | unused (pre-existing alignment gap) |
+| 0–29 | 30 | Joint calibration (`CalData` v2) | per-actuator min/max (int16) for 6 actuators, magic `0xCA2B` at 24, sensor kinds at 26, checksum at 28 |
+| 30–31 | 2 | — | unused (alignment gap) |
 | 32 | 1 | Role election (pre-existing, M14) | role magic sentinel `0xAB` |
 | 33 | 1 | Role election (pre-existing, M14) | `BoardRole` value (1=FRONT, 2=LEFT, 3=RIGHT) |
 | 34–39 | 6 | — | unused gap left before the M16 block |

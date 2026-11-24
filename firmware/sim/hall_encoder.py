@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any
 
 _SCALE_JSON = Path(__file__).with_name("hall_encoder_scale.json")
+
+# ACTUATOR_HALL_EXTEND_COUNT_SIGN (firmware/arduino/src/actuator/actuator_constants.h):
+# on the robot's hips and knees retract counts up and extend (+PWM) counts down.
+HALL_EXTEND_COUNT_SIGN = -1
 _FALLBACK_EDGES_PER_FULL_TRAVEL = 3200
 _FALLBACK_STM_COUNTS_PER_FULL_TRAVEL = 6400
 
@@ -64,6 +68,23 @@ def edges_for_angle_delta(
     if abs_delta_rad <= 0.0:
         return 0
     return int(round(abs_delta_rad / joint_span_rad * edges_per_full_travel))
+
+
+def signed_edges_for_angle_delta(
+    delta_rad: float,
+    joint_span_rad: float,
+    *,
+    edges_per_full_travel: int = DEFAULT_HALL_EDGES_PER_FULL_TRAVEL,
+) -> int:
+    """Signed count change for a joint-angle change: a rising angle extends and counts down."""
+    edges = edges_for_angle_delta(
+        abs(delta_rad),
+        joint_span_rad,
+        edges_per_full_travel=edges_per_full_travel,
+    )
+    if delta_rad < 0.0:
+        edges = -edges
+    return HALL_EXTEND_COUNT_SIGN * edges
 
 
 def edges_per_radian(

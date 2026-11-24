@@ -1,4 +1,8 @@
-"""Host hall shim: ``saf`` edges track Isaac joint travel."""
+"""Host hall shim: ``saf`` edges track Isaac joint travel.
+
+Counts are signed as on the robot: a rising joint angle (+PWM, extension) counts
+down and retracting counts up (ACTUATOR_HALL_EXTEND_COUNT_SIGN = -1).
+"""
 
 from __future__ import annotations
 
@@ -41,7 +45,8 @@ def test_stop_to_stop_travel_matches_configured_hall_edges(front_board_rig):
     _write_joint_angle(robot, joint_index, hi)
     core.step()
 
-    edges = core.bridge.hall_edge_count(hall_slot) - at_lo
+    # lo -> hi extends, so the count falls by the configured edges.
+    edges = at_lo - core.bridge.hall_edge_count(hall_slot)
     expected = config.hall_edges_per_full_travel
     tol = max(HALL_TOLERANCE_MIN, int(HALL_TOLERANCE_FRAC * expected))
     assert abs(edges - expected) <= tol, f"got {edges}, expected {expected} ± {tol}"
@@ -65,7 +70,7 @@ def test_hall_count_holds_when_joint_is_stationary(front_board_rig):
     assert core.bridge.hall_edge_count(hall_slot) == frozen
 
 
-def test_jog_increases_hall_monotonically(front_board_rig):
+def test_extend_jog_counts_hall_down_monotonically(front_board_rig):
     core, robot, config, indices = front_board_rig
     joint_index = indices[config.slot_by_firmware_id(SLOT).isaac_joint_name]
     hall_slot = _hall_slot(config, SLOT)
@@ -80,9 +85,35 @@ def test_jog_increases_hall_monotonically(front_board_rig):
     for _ in range(40):
         core.step()
         count = core.bridge.hall_edge_count(hall_slot)
-        assert count >= last
+        assert count <= last
         last = count
 
     moved = robot.data.joint_pos[0, joint_index].item() - start_pos
     assert moved > 0.04
+    assert last < start - 50
+
+
+def test_retract_jog_counts_hall_up_monotonically(front_board_rig):
+    core, robot, config, indices = front_board_rig
+    joint_index = indices[config.slot_by_firmware_id(SLOT).isaac_joint_name]
+    hall_slot = _hall_slot(config, SLOT)
+
+    limits = robot.data.soft_joint_pos_limits[0, joint_index]
+    park_at_default_pose(core, robot)
+    # Mid-span, so the retract has room whatever the default pose is.
+    _write_joint_angle(robot, joint_index, 0.5 * (limits[0].item() + limits[1].item()))
+    core.step()
+    start = core.bridge.hall_edge_count(hall_slot)
+    start_pos = robot.data.joint_pos[0, joint_index].item()
+
+    core.jog(SLOT, -255)
+    last = start
+    for _ in range(40):
+        core.step()
+        count = core.bridge.hall_edge_count(hall_slot)
+        assert count >= last
+        last = count
+
+    moved = robot.data.joint_pos[0, joint_index].item() - start_pos
+    assert moved < -0.04
     assert last > start + 50

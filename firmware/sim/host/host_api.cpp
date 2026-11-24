@@ -82,8 +82,7 @@ extern "C" void krabby_host_reset(void)
     krabby::sim::host::setThreeBoardFirmwareLoopEnabled(false);
     krabby::sim::host::setSingleLeaderEighteenJointEnabled(false);
     s_initialized = false;
-    s_manager.calState = ActuatorManager::CAL_IDLE;
-    s_manager.stateTimer = 0;
+    s_manager.resetCalibration();
 }
 
 extern "C" void krabby_host_handle_jog(const char *actuator_name, int pwm)
@@ -165,13 +164,83 @@ extern "C" void krabby_host_set_hall_edges_per_full_travel(uint32_t edges)
     krabby::sim::setHallEdgesPerFullTravel(edges);
 }
 
+namespace {
+
+bool validBoardId(int board_id) { return board_id >= 0 && board_id < krabby::sim::kPinStateBoardCount; }
+
+// The hall sync functions act on the board whose firmware is running (the active pin board).
+class ScopedActiveBoard
+{
+public:
+    explicit ScopedActiveBoard(int board_id) : previous_(krabby::sim::pinState().activeBoard())
+    {
+        krabby::sim::pinState().setActiveBoard(board_id);
+    }
+    ~ScopedActiveBoard() { krabby::sim::pinState().setActiveBoard(previous_); }
+    ScopedActiveBoard(const ScopedActiveBoard &) = delete;
+    ScopedActiveBoard &operator=(const ScopedActiveBoard &) = delete;
+
+private:
+    int previous_;
+};
+
+}  // namespace
+
+extern "C" void krabby_host_board_sync_hall_joint(
+    int board_id,
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad)
+{
+    if (!validBoardId(board_id)) return;
+    ScopedActiveBoard board(board_id);
+    krabby::sim::hallSimSyncJointAngle(hall_slot, angle_rad, lower_rad, upper_rad);
+}
+
+extern "C" void krabby_host_board_retarget_hall_joint(
+    int board_id,
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad)
+{
+    if (!validBoardId(board_id)) return;
+    ScopedActiveBoard board(board_id);
+    krabby::sim::hallSimRetargetJointAngle(hall_slot, angle_rad, lower_rad, upper_rad);
+}
+
+extern "C" void krabby_host_board_set_hall_edge_count(
+    int board_id,
+    uint8_t hall_slot,
+    int32_t count)
+{
+    krabby::sim::hallSimSetEdgeCount(board_id, hall_slot, count);
+}
+
+extern "C" int32_t krabby_host_board_hall_edge_count(int board_id, uint8_t hall_slot)
+{
+    return krabby::sim::hallSimEdgeCountBoard(board_id, hall_slot);
+}
+
+extern "C" void krabby_host_board_set_hall_quadrature(int board_id, int on)
+{
+    krabby::sim::hallSimSetQuadrature(board_id, on != 0);
+}
+
+extern "C" void krabby_host_set_board_analog_read(int board_id, int pin, int value, int open)
+{
+    krabby::sim::pinState().setBoardAnalogOverride(board_id, pin, value, open != 0);
+}
+
+// The single-board API is board 0 (FRONT).
 extern "C" void krabby_host_sync_hall_joint(
     uint8_t hall_slot,
     float angle_rad,
     float lower_rad,
     float upper_rad)
 {
-    krabby::sim::hallSimSyncJointAngle(hall_slot, angle_rad, lower_rad, upper_rad);
+    krabby_host_board_sync_hall_joint(0, hall_slot, angle_rad, lower_rad, upper_rad);
 }
 
 extern "C" void krabby_host_retarget_hall_joint(
@@ -180,12 +249,12 @@ extern "C" void krabby_host_retarget_hall_joint(
     float lower_rad,
     float upper_rad)
 {
-    krabby::sim::hallSimRetargetJointAngle(hall_slot, angle_rad, lower_rad, upper_rad);
+    krabby_host_board_retarget_hall_joint(0, hall_slot, angle_rad, lower_rad, upper_rad);
 }
 
 extern "C" int32_t krabby_host_hall_edge_count(uint8_t hall_slot)
 {
-    return static_cast<int32_t>(krabby::sim::hallSimEdgeCount(hall_slot));
+    return krabby_host_board_hall_edge_count(0, hall_slot);
 }
 
 extern "C" uint8_t krabby_host_eeprom_read(int addr)
@@ -298,6 +367,41 @@ extern "C" void krabby_host_enable_single_leader_eighteen_joint(int enabled)
 extern "C" int krabby_host_three_board_actuator_command_pwm(const char *actuator_name)
 {
     return krabby::sim::host::threeBoardActuatorCommandPwm(actuator_name);
+}
+
+extern "C" int krabby_host_three_board_actuator_has_target(const char *actuator_name)
+{
+    const LinearActuator *actuator = krabby::sim::host::findThreeBoardActuator(actuator_name);
+    if (actuator == nullptr) return -1;
+    return actuator->hasTarget ? 1 : 0;
+}
+
+extern "C" int krabby_host_three_board_actuator_min_stop(const char *actuator_name)
+{
+    const LinearActuator *actuator = krabby::sim::host::findThreeBoardActuator(actuator_name);
+    return actuator == nullptr ? -1 : actuator->minStop;
+}
+
+extern "C" int krabby_host_three_board_actuator_max_stop(const char *actuator_name)
+{
+    const LinearActuator *actuator = krabby::sim::host::findThreeBoardActuator(actuator_name);
+    return actuator == nullptr ? -1 : actuator->maxStop;
+}
+
+extern "C" char krabby_host_three_board_sensor_state(const char *actuator_name)
+{
+    return krabby::sim::host::threeBoardSensorState(actuator_name);
+}
+
+extern "C" void krabby_host_three_board_set_actuator_stops(
+    const char *actuator_name,
+    int min_stop,
+    int max_stop)
+{
+    LinearActuator *actuator = krabby::sim::host::findThreeBoardActuator(actuator_name);
+    if (actuator == nullptr) return;
+    actuator->minStop = min_stop;
+    actuator->maxStop = max_stop;
 }
 
 extern "C" int krabby_host_board_usb_pop_tx_line(int board_id, char *buf, int buf_len)

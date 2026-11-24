@@ -24,6 +24,7 @@ void krabby_host_advance_millis(unsigned long delta_ms);
 unsigned long krabby_host_millis(void);
 
 void krabby_host_set_hall_edges_per_full_travel(uint32_t edges);
+/* Single-board hall API: acts on board 0 (FRONT). Counts are signed (retract counts up). */
 void krabby_host_sync_hall_joint(
     uint8_t hall_slot,
     float angle_rad,
@@ -35,6 +36,28 @@ void krabby_host_retarget_hall_joint(
     float lower_rad,
     float upper_rad);
 int32_t krabby_host_hall_edge_count(uint8_t hall_slot);
+/* Per-board hall API (board ids 0/1/2 = FRONT/LEFT/RIGHT; out-of-range ids are ignored). */
+void krabby_host_board_sync_hall_joint(
+    int board_id,
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad);
+void krabby_host_board_retarget_hall_joint(
+    int board_id,
+    uint8_t hall_slot,
+    float angle_rad,
+    float lower_rad,
+    float upper_rad);
+void krabby_host_board_set_hall_edge_count(int board_id, uint8_t hall_slot, int32_t count);
+int32_t krabby_host_board_hall_edge_count(int board_id, uint8_t hall_slot);
+/** Board reports signed quadrature counts (hallHwHasQuadrature()); off on every board by default. */
+void krabby_host_board_set_hall_quadrature(int board_id, int on);
+/**
+ * analogRead(pin) on one board returns value; with open != 0 the pin reads near the rail
+ * while it is in INPUT_PULLUP (an unconnected input).
+ */
+void krabby_host_set_board_analog_read(int board_id, int pin, int value, int open);
 
 uint8_t krabby_host_eeprom_read(int addr);
 void krabby_host_eeprom_update(int addr, uint8_t value);
@@ -53,7 +76,7 @@ void krabby_host_serial_usb_println(const char *text);
 void krabby_host_firmware_setup(void);
 void krabby_host_firmware_loop_once(void);
 void krabby_host_firmware_reset_loop_state(void);
-/** Non-zero while ``ActuatorManager`` auto-cal state machine is running. */
+/** Non-zero while a robot calibration or any board's calibration pass is running. */
 int krabby_host_firmware_calibration_active(void);
 
 /** Run cooperative SYNC election for FRONT/LEFT/RIGHT (board ids 0/1/2). */
@@ -71,6 +94,20 @@ void krabby_host_enable_three_board_firmware_loop(int enabled);
 void krabby_host_enable_single_leader_eighteen_joint(int enabled);
 /** Signed PWM for a named actuator on FRONT/LEFT/RIGHT managers (-255..255). */
 int krabby_host_three_board_actuator_command_pwm(const char *actuator_name);
+/** Position-hold flag of a FRONT/LEFT/RIGHT actuator (1/0), -1 for an unknown name. */
+int krabby_host_three_board_actuator_has_target(const char *actuator_name);
+/** minStop / maxStop of a FRONT/LEFT/RIGHT actuator, -1 for an unknown name. */
+int krabby_host_three_board_actuator_min_stop(const char *actuator_name);
+int krabby_host_three_board_actuator_max_stop(const char *actuator_name);
+/**
+ * Latest SENS state code ('?', 'P', 'e', 'x', 's', 'E') any board printed for a FRONT/LEFT/RIGHT
+ * actuator, or 0 when none has been seen or the name is unknown.
+ */
+char krabby_host_three_board_sensor_state(const char *actuator_name);
+void krabby_host_three_board_set_actuator_stops(
+    const char *actuator_name,
+    int min_stop,
+    int max_stop);
 
 /** Test hooks: sim I2C presence and OLED framebuffer fingerprint (host I2C E2E tests). */
 void krabby_host_i2c_set_device_present(uint8_t address, int present);

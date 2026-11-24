@@ -22,8 +22,11 @@ pytestmark = pytest.mark.isaacsim
 SLOT = "FLHL"
 EEPROM_ROLE_ADDR = 32
 EEPROM_ROLE_MAGIC = 0xAB
-CAL_MAGIC = 0xDEADBEEF
-CAL_DATA_MAGIC_OFFSET = 6 * 4 + 6 * 4
+# ActuatorManager::CAL_DATA_MAGIC (v2): 16-bit, after six int16 minimums and maximums,
+# then the sensor bits at 26 and the check at 28 (the 30-byte CalData record, the
+# same on the Mega and the host build).
+CAL_MAGIC = 0xCA2B
+CAL_DATA_MAGIC_OFFSET = 6 * 2 + 6 * 2
 JOG_STEPS = 40
 LIFT_SETTLE_STEPS = 120
 LIFT_JOG_STEPS = 200
@@ -108,10 +111,10 @@ def test_eeprom_calibration_save_load_round_trip(front_board_rig):
     core.bridge.save_calibration()
 
     magic = struct.unpack_from(
-        "<I",
+        "<H",
         bytes(
             core.bridge.eeprom_read(i)
-            for i in range(CAL_DATA_MAGIC_OFFSET, CAL_DATA_MAGIC_OFFSET + 4)
+            for i in range(CAL_DATA_MAGIC_OFFSET, CAL_DATA_MAGIC_OFFSET + 2)
         ),
     )[0]
     assert magic == CAL_MAGIC
@@ -123,7 +126,7 @@ def test_eeprom_calibration_save_load_round_trip(front_board_rig):
     assert core.bridge.actuator_max_stop(actuator) == max_stop
 
 
-def test_hall_edges_advance_on_pwm_jog(front_board_rig):
+def test_hall_edges_count_down_on_extend_jog(front_board_rig):
     core, robot, config, indices = front_board_rig
     hall_slot = config.slot_by_firmware_id(SLOT).slot_index
     joint_index = indices[config.slot_by_firmware_id(SLOT).isaac_joint_name]
@@ -137,7 +140,8 @@ def test_hall_edges_advance_on_pwm_jog(front_board_rig):
     for _ in range(JOG_STEPS):
         core.step()
 
-    assert core.bridge.hall_edge_count(hall_slot) > start
+    # +PWM extends, which counts down on the robot's hips and knees.
+    assert core.bridge.hall_edge_count(hall_slot) < start
     assert robot.data.joint_pos[0, joint_index].item() > start_pos + 0.04
 
 
@@ -220,7 +224,7 @@ def test_pwm_jog_changes_pot_hall_and_pin_is(front_board_rig):
         core.step()
 
     assert core.bridge.analog_read(slot.pin_pot) > pot0
-    assert core.bridge.hall_edge_count(hall_slot) > hall0
+    assert core.bridge.hall_edge_count(hall_slot) < hall0  # extending counts down
     assert core.bridge.analog_read(slot.pin_is) >= is0
 
 

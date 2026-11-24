@@ -1,11 +1,15 @@
 #include "hall_hw.h"
 
 #include "hall_sim.hpp"
+#include "pin_state.hpp"
 
-void hallHwInit() { krabby::sim::resetHallSim(); }
+// The counts belong to the board whose firmware is running (pinState().activeBoard()).
+void hallHwInit() { krabby::sim::hallSimResetActiveBoard(); }
 
-int32_t hallHwGetEdgeCount(uint8_t hallSlot)
+int32_t hallHwGetEdgeCount(uint8_t hallSlot) { return krabby::sim::hallSimEdgeCount(hallSlot); }
+
+// Per-board flag, false unless a test turns it on (Rev 3 reports true on hardware).
+bool hallHwHasQuadrature()
 {
-    if (hallSlot >= 6) return 0;
-    return static_cast<int32_t>(krabby::sim::hallSimEdgeCount(hallSlot));
+    return krabby::sim::hallSimQuadrature(krabby::sim::pinState().activeBoard());
 }

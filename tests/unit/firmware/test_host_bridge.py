@@ -71,3 +71,76 @@ def test_eeprom_and_calibration_round_trip_via_host_api(host):
     host.load_calibration()
     assert host.actuator_min_stop("FLHY") == 150
     assert host.actuator_max_stop("FLHY") == 850
+
+
+def test_hall_counts_are_signed_and_kept_per_board(host):
+    host.reset()
+    # A rising angle extends and counts down (retract counts up).
+    host.board_sync_hall_joint(1, 2, 0.0, 0.0, 1.0)
+    host.board_sync_hall_joint(1, 2, 0.5, 0.0, 1.0)
+    extended = host.board_hall_edge_count(1, 2)
+    assert extended < 0
+    host.board_sync_hall_joint(1, 2, 0.25, 0.0, 1.0)
+    assert extended < host.board_hall_edge_count(1, 2) < 0
+    # Other boards and the single-board API (board 0) are untouched.
+    assert host.board_hall_edge_count(0, 2) == 0
+    assert host.board_hall_edge_count(2, 2) == 0
+    assert host.hall_edge_count(2) == 0
+
+    host.board_set_hall_edge_count(0, 4, -1234)
+    assert host.hall_edge_count(4) == -1234
+    assert host.board_hall_edge_count(0, 4) == -1234
+    host.board_set_hall_edge_count(2, 4, 2**31 - 1)
+    assert host.board_hall_edge_count(2, 4) == 2**31 - 1
+
+    host.sync_hall_joint(3, 1.0, 0.0, 1.0)
+    host.sync_hall_joint(3, 0.0, 0.0, 1.0)
+    assert host.hall_edge_count(3) > 0  # retracting counts up on board 0
+
+
+def test_retarget_moves_the_baseline_without_counting(host):
+    host.reset()
+    host.board_sync_hall_joint(2, 1, 0.2, 0.0, 1.0)
+    host.board_retarget_hall_joint(2, 1, 0.8, 0.0, 1.0)
+    assert host.board_hall_edge_count(2, 1) == 0
+    host.board_sync_hall_joint(2, 1, 0.8, 0.0, 1.0)
+    assert host.board_hall_edge_count(2, 1) == 0
+
+
+def _usb_text_after_boot(host) -> str:
+    """USB output over one SENS period (2 s) after setup."""
+    host.firmware_setup()
+    chars = []
+    for _ in range(210):
+        host.advance_millis(10)
+        host.firmware_loop_once()
+        while host.serial_usb_tx_available():
+            chars.append(chr(host.serial_usb_tx_read()))
+    return "".join(chars)
+
+
+def test_quadrature_flag_defaults_off_and_reset_clears_it(host):
+    config = SimulatedRobotConfig.rev3_hall()
+    host.reset()
+    host.board_set_hall_quadrature(config.board_id, True)
+    assert "SENS FRONT FLHY:?" in _usb_text_after_boot(host)
+
+    # A reset makes the board non-quadrature again: no SENS line.
+    host.reset()
+    assert "SENS " not in _usb_text_after_boot(host)
+
+
+def test_board_analog_read_reads_one_board_and_open_inputs_float_high(host):
+    host.reset()
+    host.set_analog_read(5, 300)
+    host.set_board_analog_read(0, 5, 700)
+    assert host.analog_read(5) == 700
+    host.set_board_analog_read(0, 5, 700, open_input=True)
+    # Not in INPUT_PULLUP yet, so the open input still reads its value.
+    assert host.analog_read(5) == 700
+
+
+def test_three_board_sensor_state_is_none_before_any_sens_line(host):
+    host.reset()
+    assert host.three_board_sensor_state("FLHL") is None
+    assert host.three_board_sensor_state("NOPE") is None

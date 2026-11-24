@@ -80,6 +80,36 @@ class HostActuatorBridge:
         self._lib.krabby_host_retarget_hall_joint.restype = None
         self._lib.krabby_host_hall_edge_count.argtypes = [ctypes.c_uint8]
         self._lib.krabby_host_hall_edge_count.restype = ctypes.c_int32
+        board_hall_joint_args = [
+            ctypes.c_int,
+            ctypes.c_uint8,
+            ctypes.c_float,
+            ctypes.c_float,
+            ctypes.c_float,
+        ]
+        self._lib.krabby_host_board_sync_hall_joint.argtypes = board_hall_joint_args
+        self._lib.krabby_host_board_sync_hall_joint.restype = None
+        self._lib.krabby_host_board_retarget_hall_joint.argtypes = board_hall_joint_args
+        self._lib.krabby_host_board_retarget_hall_joint.restype = None
+        self._lib.krabby_host_board_set_hall_edge_count.argtypes = [
+            ctypes.c_int,
+            ctypes.c_uint8,
+            ctypes.c_int32,
+        ]
+        self._lib.krabby_host_board_set_hall_edge_count.restype = None
+        self._lib.krabby_host_board_hall_edge_count.argtypes = [ctypes.c_int, ctypes.c_uint8]
+        self._lib.krabby_host_board_hall_edge_count.restype = ctypes.c_int32
+        self._lib.krabby_host_board_set_hall_quadrature.argtypes = [ctypes.c_int, ctypes.c_int]
+        self._lib.krabby_host_board_set_hall_quadrature.restype = None
+        self._lib.krabby_host_set_board_analog_read.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        self._lib.krabby_host_set_board_analog_read.restype = None
+        self._lib.krabby_host_three_board_sensor_state.argtypes = [ctypes.c_char_p]
+        self._lib.krabby_host_three_board_sensor_state.restype = ctypes.c_char
         self._lib.krabby_host_eeprom_read.argtypes = [ctypes.c_int]
         self._lib.krabby_host_eeprom_read.restype = ctypes.c_uint8
         self._lib.krabby_host_eeprom_update.argtypes = [ctypes.c_int, ctypes.c_uint8]
@@ -241,7 +271,82 @@ class HostActuatorBridge:
         )
 
     def hall_edge_count(self, hall_slot: int) -> int:
+        """Signed count of board 0 (FRONT); retract counts up, extend counts down."""
         return int(self._lib.krabby_host_hall_edge_count(int(hall_slot)))
+
+    def board_sync_hall_joint(
+        self,
+        board_id: int,
+        hall_slot: int,
+        angle_rad: float,
+        lower_rad: float,
+        upper_rad: float,
+    ) -> None:
+        """Add signed edges for one board's joint-angle change (rising angle counts down)."""
+        self._lib.krabby_host_board_sync_hall_joint(
+            int(board_id),
+            int(hall_slot),
+            float(angle_rad),
+            float(lower_rad),
+            float(upper_rad),
+        )
+
+    def board_retarget_hall_joint(
+        self,
+        board_id: int,
+        hall_slot: int,
+        angle_rad: float,
+        lower_rad: float,
+        upper_rad: float,
+    ) -> None:
+        self._lib.krabby_host_board_retarget_hall_joint(
+            int(board_id),
+            int(hall_slot),
+            float(angle_rad),
+            float(lower_rad),
+            float(upper_rad),
+        )
+
+    def board_set_hall_edge_count(self, board_id: int, hall_slot: int, count: int) -> None:
+        self._lib.krabby_host_board_set_hall_edge_count(
+            int(board_id),
+            int(hall_slot),
+            int(count),
+        )
+
+    def board_hall_edge_count(self, board_id: int, hall_slot: int) -> int:
+        return int(self._lib.krabby_host_board_hall_edge_count(int(board_id), int(hall_slot)))
+
+    def board_set_hall_quadrature(self, board_id: int, on: bool = True) -> None:
+        """What ``hallHwHasQuadrature()`` reports on a board (off by default).
+
+        ``reset()`` clears it: set it after a reset and before the first firmware
+        setup or loop, which initialise the joints' sensor kinds from it.
+        """
+        self._lib.krabby_host_board_set_hall_quadrature(int(board_id), 1 if on else 0)
+
+    def set_board_analog_read(
+        self,
+        board_id: int,
+        pin: int,
+        value: int,
+        *,
+        open_input: bool = False,
+    ) -> None:
+        """analogRead(pin) on one board; an open input reads near the rail under INPUT_PULLUP."""
+        self._lib.krabby_host_set_board_analog_read(
+            int(board_id),
+            int(pin),
+            int(value),
+            1 if open_input else 0,
+        )
+
+    def three_board_sensor_state(self, actuator_name: str) -> str | None:
+        """Last SENS code ('?', 'P', 'e', 'x', 's', 'E') a board printed for a joint, or None."""
+        code = self._lib.krabby_host_three_board_sensor_state(actuator_name.encode("ascii"))
+        if code in (b"", b"\x00"):
+            return None
+        return code.decode("ascii")
 
     def eeprom_read(self, addr: int) -> int:
         return int(self._lib.krabby_host_eeprom_read(int(addr)))

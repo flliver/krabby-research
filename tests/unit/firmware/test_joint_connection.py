@@ -1,6 +1,8 @@
 """Actuator connection-state telemetry tests."""
 import math
 
+import pytest
+
 from firmware.interfaces.joint_telemetry import (
     ActuatorConnection,
     JointTelemetry,
@@ -167,3 +169,49 @@ class TestConnectionStateField:
         jt = JointTelemetry.from_tokens((self.NINE + " 2").split())
         assert jt.connected is False
         assert jt.connection_state is ActuatorConnection.DISCONNECTED
+
+
+class TestHallEdges:
+    """Field 9 is the raw hall edge count; on quadrature builds it is signed."""
+
+    def test_hall_edges_aliases_saf(self):
+        jt = JointTelemetry.from_tokens("FLHL 0.500 300 10 1 1 0 80 412".split())
+        assert jt.saf == 412
+        assert jt.hall_edges == 412
+
+    @pytest.mark.parametrize("count", [-1, -27, -658, -20000, -32768])
+    def test_negative_counts_parse_and_alias(self, count):
+        jt = JointTelemetry.from_tokens(f"FLHL 0.250 512 10 1 1 80 0 {count}".split())
+        assert jt is not None
+        assert jt.saf == count
+        assert jt.hall_edges == count
+
+    def test_negative_count_keeps_the_other_fields_and_the_connection_state(self):
+        jt = JointTelemetry.from_tokens("FLKL 0.250 512 10 1 1 80 0 -144 1".split())
+        assert (jt.name, jt.pos, jt.pot, jt.current) == ("FLKL", 0.25, 512, 10)
+        assert jt.hall_edges == -144
+        assert jt.connection_state is ActuatorConnection.CONNECTED
+        assert jt.connected is True
+
+    def test_unhomed_encoder_segment_is_disconnected_but_keeps_its_count(self):
+        # An unhomed encoder joint prints nan with state 2 and the live raw count.
+        jt = JointTelemetry.from_tokens("FLHL nan 812 0 1 1 0 0 -37 2".split())
+        assert jt.connected is False
+        assert math.isnan(jt.pos)
+        assert jt.pot == 812  # hall-B level, diagnostic only
+        assert jt.hall_edges == -37
+
+    def test_negative_count_in_a_full_line(self):
+        frame = TelemetryFrame.parse_line(
+            "FRONT; FLHL 0.500 300 10 1 1 0 80 -5; FLKL nan 810 0 0 0 0 0 7 2"
+        )
+        by_name = {jt.name: jt for jt in frame.joints}
+        assert by_name["FLHL"].hall_edges == -5
+        assert by_name["FLKL"].hall_edges == 7
+
+    def test_non_integer_count_is_rejected(self):
+        assert JointTelemetry.from_tokens("FLHL 0.5 300 10 1 1 0 80 1.5".split()) is None
+
+    def test_format_compact_prints_the_signed_count(self):
+        jt = JointTelemetry.from_tokens("FLHL 0.500 300 10 1 1 0 80 -5".split())
+        assert jt.format_compact().endswith(",-5")

@@ -10,11 +10,18 @@ struct FakeEEPROM
 
     unsigned char bytes[kSize] = {};
     unsigned int writes = 0;
+    // Power-loss simulation for put(): -1 writes everything; otherwise at most
+    // this many changed bytes are written (in address order, as the AVR core's
+    // put updates byte by byte) and the rest are dropped and counted.
+    int writeBudget = -1;
+    unsigned int droppedBytes = 0;
 
     void clear()
     {
         std::memset(bytes, 0, sizeof(bytes));
         writes = 0;
+        writeBudget = -1;
+        droppedBytes = 0;
     }
 
     uint8_t read(int address) const
@@ -41,7 +48,19 @@ struct FakeEEPROM
     template <typename T> void put(int address, const T &value)
     {
         if (address < 0 || static_cast<size_t>(address) + sizeof(T) > kSize) return;
-        std::memcpy(bytes + address, &value, sizeof(value));
+        const unsigned char *source = reinterpret_cast<const unsigned char *>(&value);
+        for (size_t i = 0; i < sizeof(T); ++i)
+        {
+            unsigned char &target = bytes[static_cast<size_t>(address) + i];
+            if (target == source[i]) continue;
+            if (writeBudget == 0)
+            {
+                ++droppedBytes;
+                continue;
+            }
+            if (writeBudget > 0) --writeBudget;
+            target = source[i];
+        }
         ++writes;
     }
 

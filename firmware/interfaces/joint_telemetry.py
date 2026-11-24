@@ -6,6 +6,9 @@ from typing import Tuple, Optional
 # Must match actuator_manager.h telemetry output.
 # Segment format: <name> <pos> <pot> <current> <enL> <enR> <pwmL> <pwmR> <saf> [<connection>]
 # connection: locally composed state, 0 unknown / 1 connected / 2 disconnected.
+# Field 9 (saf) is the raw hall edge count: signed on quadrature builds (retract counts
+# up, so it can be negative), unsigned and direction-less on Rev 1 boards. Field 3
+# (pot) is the pot reading, or the hall-B level on a hall joint (diagnostic only).
 
 
 class ActuatorConnection(IntEnum):
@@ -54,6 +57,11 @@ class JointTelemetry:
             )
         except ValueError:
             return None
+
+    @property
+    def hall_edges(self) -> int:
+        """The hall edge count (telemetry field 9); alias of ``saf``."""
+        return self.saf
 
     @property
     def connected(self) -> bool:

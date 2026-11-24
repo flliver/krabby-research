@@ -64,6 +64,7 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/src/actuator/test_actuator_status
     arduino/src/actuator/test_actuator_identity
     arduino/src/actuator/test_actuator_role_names
+    arduino/src/actuator/test_joint_sensor
     arduino/test_board_pins
     arduino/test_host_arduino_shim
     arduino/test_host_eeprom
@@ -78,12 +79,18 @@ set(KRABBY_FIRMWARE_NATIVE_TESTS
     arduino/test_host_three_board_leader_relay
     arduino/test_host_single_leader_eighteen
     arduino/test_host_firmware_loop
+    arduino/test_host_calibration_timeline
     arduino/test_host_hall_scale
     arduino/test_host_actuator_link
     arduino/src/actuator/test_actuator_pot_tracker
+    arduino/src/actuator/test_calibration_end_detector
+    arduino/src/actuator/test_leg_calibration
+    arduino/src/actuator/test_robot_calibration
+    arduino/src/actuator/test_calibration_command_dispatch
     arduino/src/controller/test_board_role
     arduino/src/controller/test_controller_freshness_tracker
     arduino/src/cli/test_power_calibration_command
+    arduino/src/cli/test_actuator_calibration_command
     arduino/src/power_monitor/test_battery_telemetry
     arduino/src/power_monitor/test_ina228_adapter
     arduino/src/power_monitor/test_power_calibration
@@ -147,6 +154,11 @@ target_include_directories(
 target_link_libraries(test_host_firmware_loop PRIVATE krabby_host)
 target_include_directories(
     test_host_firmware_loop
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
+)
+target_link_libraries(test_host_calibration_timeline PRIVATE krabby_host)
+target_include_directories(
+    test_host_calibration_timeline
     PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../../firmware/sim/host"
 )
 target_link_libraries(test_host_hall_scale PRIVATE krabby_sim_host)

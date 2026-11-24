@@ -3,6 +3,8 @@ import time
 import pytest
 from unittest.mock import Mock
 
+from firmware import krabby_mcu
+from firmware.interfaces.joint_telemetry import JointTelemetry
 from firmware.krabby_mcu import KrabbyMCUSDK, parse_ver_reply
 
 
@@ -107,3 +109,85 @@ class TestReadVersion:
         t.join()
 
         assert result == "VER fresh fresh fresh"
+
+
+class _QuietSerial:
+    """A port that never has data: the reader loop ends on its first read."""
+
+    def __init__(self, owner):
+        self._owner = owner
+        self.is_open = True
+        self.written = []
+
+    def readline(self):
+        self._owner.running = False
+        return b""
+
+    def write(self, data):
+        self.written.append(data)
+
+    def flush(self):
+        pass
+
+    def cancel_read(self):
+        pass
+
+    def close(self):
+        self.is_open = False
+
+
+class TestConnectClearsHostState:
+    """A new connection starts with no telemetry and no SENS states (design 8.2)."""
+
+    def _connect(self, monkeypatch, sdk):
+        monkeypatch.setattr(krabby_mcu.time, "sleep", lambda _s: None)
+        port = _QuietSerial(sdk)
+        sdk.target = Mock()
+        sdk.target.open.return_value = port
+        assert sdk.connect() is True
+        sdk.thread.join(timeout=2.0)
+        return port
+
+    def test_joints_and_sensor_states_are_cleared(self, monkeypatch):
+        sdk = KrabbyMCUSDK(target=Mock())
+        sdk.joints["FLHL"] = JointTelemetry(
+            name="FLHL", pos=0.5, pot=500, current=0, en=(0, 0), pwm=(0, 0), saf=10
+        )
+        sdk.joint_sensor_state["FLHL"] = "E"
+        sdk.imu = object()
+        sdk.battery = object()
+        self._connect(monkeypatch, sdk)
+        assert sdk.joints == {}
+        assert sdk.joint_sensor_state == {}
+        assert sdk.sensor_state("FLHL") is None
+        assert sdk.imu is None and sdk.battery is None
+
+    def test_a_reconnect_does_not_keep_a_ready_joint(self, monkeypatch):
+        sdk = KrabbyMCUSDK(target=Mock())
+        sdk.joints["FLHL"] = JointTelemetry(
+            name="FLHL", pos=0.5, pot=500, current=0, en=(0, 0), pwm=(0, 0), saf=10
+        )
+        sdk.joint_sensor_state["FLHL"] = "E"
+        assert sdk.position_ready("FLHL")
+        self._connect(monkeypatch, sdk)
+        assert not sdk.position_ready("FLHL")
+        assert sdk.neutral_targets()[0] == {}
+
+    def test_connect_still_sends_hold(self, monkeypatch):
+        sdk = KrabbyMCUSDK(target=Mock())
+        port = self._connect(monkeypatch, sdk)
+        assert port.written == [b"H\n"]
+
+    def test_failed_connect_leaves_state_alone(self, monkeypatch):
+        monkeypatch.setattr(krabby_mcu.time, "sleep", lambda _s: None)
+        sdk = KrabbyMCUSDK(target=Mock())
+        sdk.target.open.side_effect = OSError("no port")
+        sdk.joint_sensor_state["FLHL"] = "E"
+        assert sdk.connect() is False
+        assert sdk.sensor_state("FLHL") == "E"
+
+    def test_states_learned_after_connect_are_kept(self, monkeypatch):
+        sdk = KrabbyMCUSDK(target=Mock())
+        self._connect(monkeypatch, sdk)
+        sdk._record_sensor_line("SENS FRONT FLHL:e")
+        assert sdk.sensor_state("FLHL") == "e"

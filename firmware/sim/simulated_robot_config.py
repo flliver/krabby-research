@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Sequence
 
 from firmware.sim.hall_encoder import DEFAULT_HALL_EDGES_PER_FULL_TRAVEL
@@ -17,6 +17,29 @@ from firmware.sim.pot_calibration import (
 # and ACT_LIST_FRONT wiring in firmware/arduino/arduino.ino.
 
 
+# Position sensor fitted to a slot's actuator. A hall actuator's pot pin carries
+# its hall B line (see firmware/sim/pot_autocal_plant.py).
+SENSOR_POT = "pot"
+SENSOR_HALL = "hall"
+SLOT_SENSORS = (SENSOR_POT, SENSOR_HALL)
+
+# Hall edges from one stroke end to the other in the calibration plant. Knees:
+# FLKL's measured full stroke with its hip curled (2026-11-23), inside the
+# firmware's provisional CAL_HALL_MIN_STROKE_EDGES..CAL_HALL_MAX_STROKE_EDGES
+# (450..1500). This is not hall_encoder_scale.json's edges_per_full_travel, which
+# maps an Isaac joint's radians to edges.
+DEFAULT_HALL_EDGES_PER_STROKE = 776
+# Hall hips in the plant. FLHL counted 941-1003 edges from its curl end before its
+# curled tibia pressed against the bottom of the robot, which is not the actuator's
+# own end; that end was not measured. The plant has no body, so this placeholder is
+# simply longer than that reach. SWEEP stops a hall hip after CAL_HIP_SWEEP_EDGES
+# (700) anyway, and saves [0, 700].
+DEFAULT_HALL_HIP_EDGES_PER_STROKE = 1100
+
+# Board ids of the host sim (krabby_host_board_* functions): FRONT, LEFT, RIGHT.
+BOARD_ID_BY_ROLE = {"FRONT": 0, "LEFT": 1, "RIGHT": 2}
+
+
 @dataclass(frozen=True, slots=True)
 class SimulatedSlotConfig:
     """One H-bridge slot: drive pins, pot/IS analog pins, firmware name, Isaac joint."""
@@ -25,14 +48,28 @@ class SimulatedSlotConfig:
     pin_pwm_r: int
     pin_pwm_l: int
     pin_en: int
-    pin_pot: int  # potentiometer (analogRead)
+    pin_pot: int  # potentiometer (analogRead); hall B on a hall actuator
     pin_is: int  # current sense (analogRead)
     firmware_actuator_id: str  # e.g. FLHY - matches LinearActuator name / telemetry
     isaac_joint_name: str  # USD PhysicsRevoluteJoint name on the loaded hex plant
+    sensor: str = SENSOR_POT  # SENSOR_POT or SENSOR_HALL
+    hall_edges_per_stroke: int = DEFAULT_HALL_EDGES_PER_STROKE
+
+    def __post_init__(self) -> None:
+        if self.sensor not in SLOT_SENSORS:
+            raise ValueError(f"unknown slot sensor: {self.sensor!r}")
+        if self.hall_edges_per_stroke <= 0:
+            raise ValueError(
+                f"hall_edges_per_stroke must be > 0: {self.hall_edges_per_stroke}"
+            )
 
     @property
     def drive_pins(self) -> tuple[int, int, int]:
         return (self.pin_pwm_r, self.pin_pwm_l, self.pin_en)
+
+    @property
+    def is_hall(self) -> bool:
+        return self.sensor == SENSOR_HALL
 
 
 def isaac_joint_name_for_firmware_id(firmware_actuator_id: str) -> str:
@@ -118,11 +155,53 @@ _FRONT_BOARD_REV3_SLOTS: tuple[SimulatedSlotConfig, ...] = (
     SimulatedSlotConfig(5, 12, 13, 27, 5, 11, "FRKL", "FR_Femur_Tibia_RevoluteJoint"),
 )
 
+_FRONT_BOARD_FIRMWARE_IDS = tuple(s.firmware_actuator_id for s in _FRONT_BOARD_REV3_SLOTS)
+
 # LEFT / RIGHT - ACT_LIST_LEFT / ACT_LIST_RIGHT in arduino.ino
 _LEFT_BOARD_FIRMWARE_IDS = ("RLHY", "RLHL", "RLKL", "MLHY", "MLHL", "MLKL")
 _RIGHT_BOARD_FIRMWARE_IDS = ("RRHY", "RRHL", "RRKL", "MRHY", "MRHL", "MRKL")
 _LEFT_BOARD_REV3_SLOTS = _rev3_slots_for_firmware_ids(_LEFT_BOARD_FIRMWARE_IDS)
 _RIGHT_BOARD_REV3_SLOTS = _rev3_slots_for_firmware_ids(_RIGHT_BOARD_FIRMWARE_IDS)
+_SLOTS_BY_ROLE: dict[str, tuple[SimulatedSlotConfig, ...]] = {
+    "FRONT": _FRONT_BOARD_REV3_SLOTS,
+    "LEFT": _LEFT_BOARD_REV3_SLOTS,
+    "RIGHT": _RIGHT_BOARD_REV3_SLOTS,
+}
+
+
+def board_id_for_firmware_id(firmware_actuator_id: str) -> int:
+    """Host sim board (0 FRONT, 1 LEFT, 2 RIGHT) whose firmware drives this actuator."""
+    for role, slots in _SLOTS_BY_ROLE.items():
+        if any(slot.firmware_actuator_id == firmware_actuator_id for slot in slots):
+            return BOARD_ID_BY_ROLE[role]
+    raise KeyError(f"unknown firmware actuator id: {firmware_actuator_id!r}")
+
+
+def default_hall_edges_per_stroke(firmware_actuator_id: str) -> int:
+    """Plant stroke of a hall slot: hips DEFAULT_HALL_HIP_EDGES_PER_STROKE, else the knee's."""
+    if firmware_actuator_id[2:] == "HL":
+        return DEFAULT_HALL_HIP_EDGES_PER_STROKE
+    return DEFAULT_HALL_EDGES_PER_STROKE
+
+
+def _with_sensors(
+    slots: Sequence[SimulatedSlotConfig],
+    sensor_for_id: Callable[[str], str],
+    hall_edges_per_stroke: int | None,
+) -> tuple[SimulatedSlotConfig, ...]:
+    """``hall_edges_per_stroke`` None gives each slot its default (hip or knee)."""
+    return tuple(
+        replace(
+            slot,
+            sensor=sensor_for_id(slot.firmware_actuator_id),
+            hall_edges_per_stroke=(
+                default_hall_edges_per_stroke(slot.firmware_actuator_id)
+                if hall_edges_per_stroke is None
+                else hall_edges_per_stroke
+            ),
+        )
+        for slot in slots
+    )
 
 # Leg-major order aligned with hal/server/robot_definition_krabby_hex.py mcu_joints naming.
 KRABBY_HEX_FIRMWARE_ACTUATOR_IDS: tuple[str, ...] = (
@@ -155,13 +234,18 @@ ISAAC_LEG_JOINT_PATTERN = "{leg}_.*_RevoluteJoint"
 
 @dataclass(frozen=True, slots=True)
 class SimulatedRobotConfig:
-    """Six-slot FRONT-board robot (open-loop drive path; sensor readback wired separately)."""
+    """Six-slot FRONT-board robot (open-loop drive path; sensor readback wired separately).
+
+    ``quadrature`` is what ``hallHwHasQuadrature()`` reports on this board in the
+    host sim. It is off by default, so the pot tests and goldens keep their meaning.
+    """
 
     pin_revision_label: str
     board_role: str
     slots: tuple[SimulatedSlotConfig, ...]
     pot_bands: tuple[PotCalibrationBand, ...]
     hall_edges_per_full_travel: int = DEFAULT_HALL_EDGES_PER_FULL_TRAVEL
+    quadrature: bool = False
 
     @classmethod
     def _board_rev3(
@@ -222,6 +306,83 @@ class SimulatedRobotConfig:
             pot_calibration_seed=pot_calibration_seed,
             hall_edges_per_full_travel=hall_edges_per_full_travel,
         )
+
+    @classmethod
+    def rev2_pot(
+        cls,
+        *,
+        board_role: str = "FRONT",
+        pot_calibration_seed: int = DEFAULT_POT_CALIBRATION_SEED,
+    ) -> SimulatedRobotConfig:
+        """Every slot a pot, no quadrature halls (Rev 2 behaviour on the Rev 3 pin map)."""
+        return cls._board_rev3(
+            board_role=board_role,
+            slots=_SLOTS_BY_ROLE[board_role],
+            pot_calibration_seed=pot_calibration_seed,
+        )
+
+    @classmethod
+    def rev3_hall(
+        cls,
+        *,
+        board_role: str = "FRONT",
+        pot_calibration_seed: int = DEFAULT_POT_CALIBRATION_SEED,
+        hall_edges_per_stroke: int | None = None,
+    ) -> SimulatedRobotConfig:
+        """Every slot a hall encoder (yaws too) on a quadrature board, as on the robot.
+
+        ``hall_edges_per_stroke`` sets every slot's plant stroke; None gives hips
+        DEFAULT_HALL_HIP_EDGES_PER_STROKE and the other slots DEFAULT_HALL_EDGES_PER_STROKE.
+        """
+        slots = _with_sensors(
+            _SLOTS_BY_ROLE[board_role],
+            lambda _aid: SENSOR_HALL,
+            hall_edges_per_stroke,
+        )
+        return replace(
+            cls._board_rev3(
+                board_role=board_role,
+                slots=slots,
+                pot_calibration_seed=pot_calibration_seed,
+            ),
+            quadrature=True,
+        )
+
+    @classmethod
+    def mixed(
+        cls,
+        *,
+        board_role: str = "FRONT",
+        pot_calibration_seed: int = DEFAULT_POT_CALIBRATION_SEED,
+        hall_edges_per_stroke: int | None = None,
+    ) -> SimulatedRobotConfig:
+        """Quadrature board with one leg of each kind: first leg hall, second leg pot."""
+        slots = _SLOTS_BY_ROLE[board_role]
+        hall_leg = slots[0].firmware_actuator_id[:2]
+        mixed_slots = _with_sensors(
+            slots,
+            lambda aid: SENSOR_HALL if aid[:2] == hall_leg else SENSOR_POT,
+            hall_edges_per_stroke,
+        )
+        return replace(
+            cls._board_rev3(
+                board_role=board_role,
+                slots=mixed_slots,
+                pot_calibration_seed=pot_calibration_seed,
+            ),
+            quadrature=True,
+        )
+
+    @property
+    def board_id(self) -> int:
+        """Host sim board id (0 FRONT, 1 LEFT, 2 RIGHT)."""
+        return BOARD_ID_BY_ROLE[self.board_role]
+
+    def hall_slots(self) -> tuple[SimulatedSlotConfig, ...]:
+        return tuple(slot for slot in self.slots if slot.is_hall)
+
+    def pot_slots(self) -> tuple[SimulatedSlotConfig, ...]:
+        return tuple(slot for slot in self.slots if not slot.is_hall)
 
     def pot_band_for_slot(self, slot_index: int) -> PotCalibrationBand:
         for slot, band in zip(self.slots, self.pot_bands, strict=True):

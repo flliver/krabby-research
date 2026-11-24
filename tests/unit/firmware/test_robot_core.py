@@ -58,6 +58,9 @@ class FakeHostBridge:
     def set_hall_edges_per_full_travel(self, edges: int) -> None:
         self.calls.append(f"set_hall_edges_per_full_travel:{edges}")
 
+    def board_set_hall_quadrature(self, board_id: int, on: bool = True) -> None:
+        self.calls.append(f"board_set_hall_quadrature:{board_id}:{on}")
+
     def firmware_setup(self) -> None:
         self.calls.append("firmware_setup")
 
@@ -182,3 +185,30 @@ def test_reset_clears_clock_and_pin_state(core):
 
     assert loop.millis() == 0
     assert loop.pin_state.pwm_duty(loop.actuators[1].slot.pin_pwm_r) == 0
+
+
+def _core_for(config):
+    joint_index_for_name = {name: i for i, name in enumerate(config.isaac_joint_names())}
+    return RobotCore.front_board(
+        env=_fake_env(),
+        articulation=RecordedArticulation(),
+        joint_index_for_name=joint_index_for_name,
+        bridge=FakeHostBridge(),
+        config=config,
+        advance=lambda env: "stepped",
+    )
+
+
+def test_reset_leaves_the_default_board_without_quadrature(core):
+    loop, _, _ = core
+    loop.reset()
+    assert not any(c.startswith("board_set_hall_quadrature") for c in loop.bridge.calls)
+
+
+@pytest.mark.parametrize("factory", [SimulatedRobotConfig.rev3_hall, SimulatedRobotConfig.mixed])
+def test_reset_turns_quadrature_on_after_the_host_reset(factory):
+    loop = _core_for(factory())
+    loop.reset()
+    calls = loop.bridge.calls
+    assert "board_set_hall_quadrature:0:True" in calls
+    assert calls.index("reset") < calls.index("board_set_hall_quadrature:0:True")
