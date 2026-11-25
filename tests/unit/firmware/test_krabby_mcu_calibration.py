@@ -540,6 +540,8 @@ HALL_FAIL_LINES = [
     "CAL FRONT FAIL FLHL not back at its curl switch (hall=212): jog it home",
     "CAL FRONT FAIL FLHL and its knee must both be hall encoders",
     "CAL FRONT FAIL FLHL stuck mid-stroke after 612 edges at PWM 150: raise PWM or check load",
+    "CAL FRONT FAIL FLHL no edges and no switch signature at PWM 128: check hall cable or load",
+    "CAL FRONT FAIL FLHL out at 700 edges: jog it to its curl end first",
     "CAL FRONT FAIL FLHL partner not proven curled",
 ]
 

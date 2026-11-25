@@ -1752,7 +1752,7 @@ static void test_single_board_dead_hall_sensor_fails_without_a_partner_move()
         {1, false, false, true, false, true,
          "CAL FRONT FAIL FLHL no feedback: no hall edges, pot not moving (check sensor cable)"},
         {1, true, false, false, false, false,
-         "CAL FRONT FAIL FLHL stuck mid-stroke after 0 edges at PWM 128: raise PWM or check load"},
+         "CAL FRONT FAIL FLHL no edges and no switch signature at PWM 128: check hall cable or load"},
         {2, true, false, false, true, false,
          "CAL FRONT FAIL FLKL no motion seen: jog it off its curl end, then retry"},
     };
@@ -2288,7 +2288,8 @@ static void test_single_board_hip_stalled_mid_stroke_is_never_homed_there()
 
     // Rerun from the stall point: its knee curls back from its park (the hip is
     // 229 edges out, inside the any-knee zone), then the hip presses at its
-    // stall, its current up and wobbling: stuck again, no HOME.
+    // stall, its current up and wobbling: no edge and no switch signature,
+    // failed again, no HOME.
     g_log.clear();
     size_t firstMove = timeline.moves.size();
     writeUsb("C\n");
@@ -2297,7 +2298,9 @@ static void test_single_board_hip_stalled_mid_stroke_is_never_homed_there()
     assertNoViolations(timeline);
     std::vector<ExpectedMove> rerun = {{0, 2, kSpecKneeCurlSign}, {0, 1, kSpecHipCurlSign}};
     assertMoves(timeline, rerun, firstMove);
-    TEST_ASSERT_TRUE_MESSAGE(findLineStarting("CAL FRONT FAIL FLHL stuck mid-stroke after ") != nullptr,
+    TEST_ASSERT_TRUE_MESSAGE(
+        findLineStarting("CAL FRONT FAIL FLHL no edges and no switch signature at PWM 128: check hall cable or load") !=
+            nullptr,
         joinedLog().c_str());
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT HOME FLHL "));
 
@@ -2318,6 +2321,44 @@ static void test_single_board_hip_stalled_mid_stroke_is_never_homed_there()
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT HOME FLHL "));
     TEST_ASSERT_TRUE(timeline.eepromChanges.empty());
     TEST_ASSERT_TRUE_MESSAGE(std::fabs(hip.edgesOut(1) - 229.0) < 1e-6, std::to_string(hip.edgesOut(1)).c_str());
+    assertAllStoppedWithoutTargets(timeline, 1);
+}
+
+// A run that fails with its hip out past 560 (here FLHL's curl back from its
+// sweep runs out of force 700 edges out, its knee still parked) leaves the hip
+// there. The next C must not curl the knee out of its park with the hip out
+// (the stand envelope): the hip is known out by its kept home, so the run
+// fails at once, naming the hip and where it is, and nothing moves.
+static void test_single_board_rerun_with_the_hip_left_out_moves_nothing()
+{
+    Timeline timeline;
+    timeline.quadrature[0] = true;
+    timeline.setHallRods(0, 0);
+    timeline.requestedPwm = 128;
+    bootSingleBoard(timeline);
+    Rod &hip = timeline.rods[0][1];
+
+    writeUsb("C\n");
+    assertRunUntil(timeline, "CAL FRONT MOVE FLHL uncurl sweep", 300000);
+    hip.curlStallEdges = 700.0;  // from here on its curl runs out of force 700 edges out
+    runUntilLineStarting(timeline, "CAL ROBOT FAIL FRONT: FLHL ", 300000);
+    runFor(timeline, 2000);
+    assertNoViolations(timeline);
+    TEST_ASSERT_TRUE_MESSAGE(std::fabs(hip.edgesOut(1) - 700.0) < 1e-6, std::to_string(hip.edgesOut(1)).c_str());
+    TEST_ASSERT_TRUE_MESSAGE(findLineStarting("CAL FRONT WARN FLHL left out at 700 edges") != nullptr,
+        joinedLog().c_str());
+
+    g_log.clear();
+    const size_t firstMove = timeline.moves.size();
+    writeUsb("C\n");
+    runUntilLineStarting(timeline, "CAL ROBOT FAIL FRONT: FLHL ", 300000);
+    runFor(timeline, 2000);
+    assertNoViolations(timeline);
+    TEST_ASSERT_EQUAL_UINT(firstMove, timeline.moves.size());
+    TEST_ASSERT_TRUE_MESSAGE(hasLine("CAL FRONT FAIL FLHL out at 700 edges: jog it to its curl end first"),
+        joinedLog().c_str());
+    TEST_ASSERT_TRUE(findLineStarting("CAL FRONT MOVE ") == nullptr);
+    TEST_ASSERT_TRUE(timeline.eepromChanges.empty());
     assertAllStoppedWithoutTargets(timeline, 1);
 }
 
@@ -2612,6 +2653,7 @@ int main()
     RUN_TEST(test_single_board_robot_like_actuators_calibrate_without_touching_the_body);
     RUN_TEST(test_single_board_hip_curl_without_a_switch_drop_fails_stuck);
     RUN_TEST(test_single_board_hip_stalled_mid_stroke_is_never_homed_there);
+    RUN_TEST(test_single_board_rerun_with_the_hip_left_out_moves_nothing);
     RUN_TEST(test_single_board_short_curls_into_their_ends_home_every_joint);
     RUN_TEST(test_timeline_body_contact_invariant_catches_a_full_hip_uncurl);
     RUN_TEST(test_timeline_envelope_invariant_catches_unsafe_hip_and_knee_moves);

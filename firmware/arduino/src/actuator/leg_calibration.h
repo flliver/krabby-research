@@ -171,6 +171,7 @@ enum class LegCalibrationFailure : uint8_t
     ParkShort,       // the knee's park drive ended before its target: obstacle
     NotRetracted,    // after an obstacle the hip did not reach its curl switch
     TableSafeNeedsHall,  // a hall hip whose knee is not a hall encoder: no table-safe park
+    HipOut,          // a knee would move while its hip is known to be beyond CAL_HIP_ANY_KNEE_EDGES
 };
 
 enum class LegCalibrationMovePhase : uint8_t
@@ -294,7 +295,9 @@ inline void printLegCalibrationUnit(CalibrationTextSink &out, bool pot)
 // kind sets the units: counts for Pot, edges otherwise. curl: the failed move's
 // direction; value, value2: the failure's numbers (Aborted: value is the cause);
 // pwm: the calibration PWM. Each fits CAL_ROBOT_REASON_MAX_CHARS with a
-// 4-character joint name and 5-digit signed numbers.
+// 4-character joint name and 5-digit signed numbers, except SweepShort, which
+// fits with the values the sequencer gives it (at most its target plus the
+// coast: the hollow-stand worst case is exactly 78).
 inline void printLegCalibrationFailureReason(
     CalibrationTextSink &out,
     LegCalibrationFailure failure,
@@ -442,7 +445,21 @@ inline void printLegCalibrationFailureReason(
         case LegCalibrationFailure::TableSafeNeedsHall:
             out.printFlash(KRABBY_FLASH_LITERAL(" and its knee must both be hall encoders"));
             return;
+        case LegCalibrationFailure::HipOut:
+            out.printFlash(KRABBY_FLASH_LITERAL(" out at "));
+            out.printNumber(value);
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges: jog it to its curl end first"));
+            return;
         case LegCalibrationFailure::StuckMidStroke:
+            // No edge at all: a joint that did not move, or a dead hall cable
+            // (the motor driving a blind joint shows no switch-open current).
+            if (value >= -CAL_POT_DETECT_MAX_EDGES && value <= CAL_POT_DETECT_MAX_EDGES)
+            {
+                out.printFlash(KRABBY_FLASH_LITERAL(" no edges and no switch signature at PWM "));
+                out.printNumber(pwm);
+                out.printFlash(KRABBY_FLASH_LITERAL(": check hall cable or load"));
+                return;
+            }
             out.printFlash(KRABBY_FLASH_LITERAL(" stuck mid-stroke after "));
             out.printNumber(value);
             out.printFlash(KRABBY_FLASH_LITERAL(" edges at PWM "));
@@ -595,6 +612,9 @@ public:
         parkedMask_ = 0;
         verifiedMask_ = 0;
         reportedMask_ = 0;
+        // The last run's drive is over: no WARN may name it.
+        stage_ = LegCalibrationMoveStage::Normal;
+        action_ = LegCalibrationAction::Seek;
         repeated_ = false;
         failure_ = LegCalibrationFailure::None;
         failJoint_ = nullptr;
@@ -920,6 +940,20 @@ private:
             fail(plant, gate, 0);
             return;
         }
+        // A knee never moves while its hall hip is known to be out past
+        // CAL_HIP_ANY_KNEE_EDGES (homed this boot, or by its kept home): a run
+        // that failed or was aborted with the hip out on its sweep leaves it
+        // there, and the next run's first step curls the knee.
+        if (!isLegCalibrationHip(joint_))
+        {
+            const uint8_t hip = static_cast<uint8_t>(joint_ - LEG_CALIBRATION_KNEE_OFFSET + LEG_CALIBRATION_HIP_OFFSET);
+            int32_t hipPosition = 0;
+            if (knownHallPosition(plant, hip, hipPosition) && hipPosition > CAL_HIP_ANY_KNEE_EDGES)
+            {
+                fail(plant, LegCalibrationFailure::HipOut, hipPosition, 0, hip);
+                return;
+            }
+        }
 
         curledMask_ &= static_cast<uint8_t>(~(1U << joint_));
         parkedMask_ &= static_cast<uint8_t>(~(1U << joint_));
@@ -1046,13 +1080,33 @@ private:
         return now - moveStartMs_ >= (hip ? CAL_HIP_NUDGE_MAX_MS : CAL_KNEE_NUDGE_MAX_MS);
     }
 
-    // A run that ends while a hip is out on its table-safe sweep (or retract)
-    // or a knee is out on its park leaves the leg off its curl ends:
-    // "CAL <ROLE> WARN <j> left out at <x> edges: jog it to its curl end".
+    // The hall frame position of joint, when it is known: homed this boot, or
+    // a kept home (a home proven this boot that a failure cleared).
+    bool knownHallPosition(LegCalibrationPlant &plant, uint8_t joint, int32_t &position)
+    {
+        if (plant.sensor(joint) != JointSensor::Hall)
+            return false;
+        if (plant.isHomed(joint))
+        {
+            position = plant.position(joint);
+            return true;
+        }
+        if ((keptMask_ & (1U << joint)) == 0)
+            return false;
+        position = static_cast<int32_t>(ACTUATOR_HALL_EXTEND_COUNT_SIGN) * (plant.hallCount(joint) - keptHome_[joint]);
+        return true;
+    }
+
+    // A run that ends while a hip is out on its table-safe sweep, its retract or
+    // its curl back (SWEEP step 5), or a knee is out on its park, leaves the leg
+    // off its curl ends: "CAL <ROLE> WARN <j> left out at <x> edges: jog it to
+    // its curl end".
     void warnIfLeftOut(LegCalibrationPlant &plant)
     {
         const bool out = stage_ == LegCalibrationMoveStage::Retract ||
-                         (stage_ == LegCalibrationMoveStage::Normal && action_ != LegCalibrationAction::Seek);
+                         (stage_ == LegCalibrationMoveStage::Normal && action_ != LegCalibrationAction::Seek) ||
+                         (stage_ == LegCalibrationMoveStage::Normal && pass_ == CAL_PASS_SWEEP && tableSafe_ &&
+                          legStep_ == 5 && isLegCalibrationHip(joint_));
         if (!out)
             return;
         CalibrationTextSink &text = plant.out();
@@ -1279,8 +1333,11 @@ private:
 
         // A stall with no end signature (on a drive into a limit switch: no
         // switch-open current) is never an end: the pass stops before the
-        // partner joint moves.
-        if (endKind_ == CalibrationEnd::Stuck)
+        // partner joint moves. A curl back after a nudge that proved nothing,
+        // or that changed the joint's kind, fails as (4a) says instead.
+        const bool returnUnproven = stage_ == LegCalibrationMoveStage::Return &&
+                                    (nudgeKind_ == JointSensor::Unknown || kind != nudgeKind_);
+        if (endKind_ == CalibrationEnd::Stuck && !returnUnproven)
         {
             fail(plant, LegCalibrationFailure::StuckMidStroke, driveEdges);
             return;

@@ -118,6 +118,10 @@ static constexpr int CAL_KNEE_PARK_BAND_MIN_EDGES = 244;
 static constexpr int CAL_KNEE_PARK_BAND_MAX_EDGES = 280;
 static constexpr int CAL_HIP_SWEEP_EDGES = 840;
 static constexpr int CAL_HIP_REHOME_TOLERANCE_EDGES = 10;
+// Up to this hip position any knee is clear of the body, the table and the
+// floor (the schedule's stand envelope, worst case); beyond it the knee must
+// stay parked, so a knee never moves while its hip is known to be further out.
+static constexpr int CAL_HIP_ANY_KNEE_EDGES = 560;
 // The hip's saved range is [0, CAL_HIP_STROKE_EDGES]: its curl switch to its
 // extend switch, FL measured switch to switch 3 of 3 on 2026-11-24 (it matches
 // the 203.2 mm label at 5.26 counts/mm). It is derived, not switch-verified:
