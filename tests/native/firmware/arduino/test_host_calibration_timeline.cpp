@@ -73,8 +73,8 @@ namespace
 // One firmware loop per tick. The robot's leader loop runs about every 3 ms
 // (2026-11-24 design spec: its IS filter, alpha 0.1 per loop, settles in about
 // 30 ms); at 10 ms the filter would lag about three times as long and the end
-// detector's floor, taken 150-200 ms into a drive, would read about 20% low,
-// which no robot trace shows. 5 ms keeps the filter within 5% by then and
+// detector's floor, taken 200-250 ms into a drive, would read about 10-15%
+// low, which no robot trace shows. 5 ms keeps the filter within 5% by then and
 // divides the 20 ms ramp step and the 50 ms detector sample.
 constexpr uint32_t kTickMs = 5;
 // The record's magic and check, written out (actuator_manager.h CalData v2).
@@ -1722,16 +1722,75 @@ static void test_single_board_rev3_pot_robot_classifies_then_repeats_each_step()
     assertAllStoppedWithoutTargets(timeline, 1);
 }
 
-// A hall sensor that gives no usable feedback. A hip parked at its curl end
-// presses its switch (the switch-open signature, no count) and is nudged,
-// stopped 1 s after it started with no edge counted (R4: not driven on blind
-// to its 2 s cap, toward the body), driven blind back to its curl end, then
-// fails NoFeedback. A blind hip left mid-stroke curls on blind into its
-// switch, but its count never stops (it never started), so the detector judges
-// it once the drive allows (1 s) while its current is still falling: no
-// switch-open signature yet, so stuck mid-stroke, never a home (before the fix
-// round it was nudged). On a strict run (options 0) a knee fails NoMotion. The
-// default-path dead knee is the next test.
+// A Rev 3 board whose saved record says pots, fitted with hall encoders (the
+// pots swapped out): each hip and knee starts its first step as a proven Pot,
+// windowed. Its first hall edges make it Hall, and that drive is stopped and
+// driven again under the end detector (a hall end needs its signature; a
+// window checks none). The run then goes on as an all-hall board: table-safe
+// SWEEP, canonical hall record.
+static void test_single_board_saved_pots_that_count_hall_edges_are_driven_again_under_the_detector()
+{
+    Timeline timeline;
+    timeline.quadrature[0] = true;
+    timeline.setHallRods(0, 0);
+    timeline.requestedPwm = 128;
+    // A Rev 3 record (yaws Unknown) of pot hips and knees, 150-850.
+    HostCalData record = {};
+    for (int joint = 0; joint < kJoints; ++joint)
+    {
+        if (calibration_timeline::isYaw(joint)) continue;
+        record.minVals[joint] = 150;
+        record.maxVals[joint] = 850;
+    }
+    record.magic = kSpecCalMagic;
+    record.sensorBits = kPotHipsAndKneesBits;
+    record.check = calDataCheck(record);
+    std::memcpy(EEPROM.boards[0].bytes, &record, sizeof(record));
+    bootSingleBoard(timeline);
+    TEST_ASSERT_TRUE_MESSAGE(hasOtherLine("Calibration v2 loaded"), joinedOther().c_str());
+    TEST_ASSERT_EQUAL_STRING("SENS FRONT FLHY:? FLHL:P FLKL:P FRHY:? FRHL:P FRKL:P", lastSensLine("FRONT").c_str());
+
+    writeUsb("C\n");
+    assertRunUntil(timeline, "CAL ROBOT DONE", 600000);
+    runFor(timeline, 3000);
+
+    assertNoViolations(timeline);
+    std::vector<ExpectedMove> expected;
+    for (int leg = 0; leg < 2; ++leg)
+    {
+        const int hip = 3 * leg + 1;
+        const int knee = 3 * leg + 2;
+        expected.push_back({0, knee, kSpecKneeCurlSign});  // windowed, as a pot
+        expected.push_back({0, knee, kSpecKneeCurlSign});  // again, under the detector
+        expected.push_back({0, hip, kSpecHipCurlSign});
+        expected.push_back({0, hip, kSpecHipCurlSign});
+        expected.push_back({0, knee, kSpecKneeCurlSign});
+    }
+    appendSweep(expected, 0, true);
+    assertMoves(timeline, expected);
+    TEST_ASSERT_TRUE(hasLine("CAL FRONT SENSOR FLKL hall (was pot)"));
+    TEST_ASSERT_TRUE(hasLine("CAL FRONT SENSOR FRHL hall (was pot)"));
+    // The windowed drive stops at the hall evidence (12 edges), with no END
+    // line, far short of its curl end; the drive again reaches it and ends by
+    // the detector's signature.
+    TEST_ASSERT_TRUE_MESSAGE(moveEdges(timeline, timeline.moves[0]) < 30.0,
+        std::to_string(moveEdges(timeline, timeline.moves[0])).c_str());
+    TEST_ASSERT_TRUE_MESSAGE(findLineStarting("CAL FRONT END FLKL curl hall=350 travel=338 by=stop ") != nullptr,
+        joinedLog().c_str());
+    TEST_ASSERT_TRUE(findLineStarting("CAL FRONT END FLHL curl hall=-350 travel=-338 by=switch ") != nullptr);
+    TEST_ASSERT_EQUAL_UINT(1, timeline.eepromChanges.size());
+    assertCanonicalHallRecord(0, 698, 702);
+    assertAllStoppedWithoutTargets(timeline, 1);
+}
+
+// A hall sensor that gives no usable feedback. A hip, parked at its curl end or
+// curling blind into it from mid-stroke, shows no edge: its curl press goes on
+// as a curl with no motion (an unproven home), so it is nudged, stopped 1 s
+// after it started with no edge counted (R4: not driven on blind to its 2 s
+// cap, toward the body), driven blind back to its curl end (the return needs
+// the switch-open signature), then fails NoFeedback; never a home. On a strict
+// run (options 0) a knee fails NoMotion. The default-path dead knee is the
+// next test.
 static void test_single_board_dead_hall_sensor_fails_without_a_partner_move()
 {
     struct DeadCase
@@ -1752,7 +1811,7 @@ static void test_single_board_dead_hall_sensor_fails_without_a_partner_move()
         {1, false, false, true, false, true,
          "CAL FRONT FAIL FLHL no feedback: no hall edges, pot not moving (check sensor cable)"},
         {1, true, false, false, false, false,
-         "CAL FRONT FAIL FLHL no edges and no switch signature at PWM 128: check hall cable or load"},
+         "CAL FRONT FAIL FLHL no feedback: no hall edges, pot not moving (check sensor cable)"},
         {2, true, false, false, true, false,
          "CAL FRONT FAIL FLKL no motion seen: jog it off its curl end, then retry"},
     };
@@ -1783,16 +1842,12 @@ static void test_single_board_dead_hall_sensor_fails_without_a_partner_move()
         assertNoViolations(timeline);
         std::vector<ExpectedMove> expected;
         expected.push_back({0, 2, kSpecKneeCurlSign});
-        if (dead.joint == 1 && dead.parked)
-            appendNudged(expected, 0, 1);
-        else if (dead.joint == 1)
-            expected.push_back({0, 1, kSpecHipCurlSign});
+        if (dead.joint == 1) appendNudged(expected, 0, 1);
         assertMoves(timeline, expected);
         TEST_ASSERT_TRUE(findLineStarting("CAL FRONT HOME FLHL") == nullptr);
         if (dead.joint == 1)
-            TEST_ASSERT_TRUE_MESSAGE(timeline.rods[0][1].isAtCurlEnd(1), dead.failLine);
-        if (dead.joint == 1 && dead.parked)
         {
+            TEST_ASSERT_TRUE_MESSAGE(timeline.rods[0][1].isAtCurlEnd(1), dead.failLine);
             // Blind: the nudge stopped at its 1 s blind bound (its drive began
             // one 20 ms ramp step after the move), and the curl back still
             // drove at least as long before the failure.
@@ -2089,7 +2144,7 @@ static void test_single_board_obstacle_on_the_hip_sweep_retracts_then_fails_swee
     appendSeek(expected, 0);
     std::vector<ExpectedMove> sweep;
     appendSweepLeg(sweep, 0, 0, true);
-    expected.insert(expected.end(), sweep.begin(), sweep.begin() + 5);  // up to the hip's sweep
+    expected.insert(expected.end(), sweep.begin(), sweep.begin() + 6);  // up to the hip's sweep
     expected.push_back({0, 1, kSpecHipCurlSign});                       // its retract
     assertMoves(timeline, expected);
     TEST_ASSERT_TRUE_MESSAGE(hasLine("CAL FRONT WARN FLHL stopped at 420 edges: retracting"), joinedLog().c_str());
@@ -2254,9 +2309,10 @@ static void test_single_board_hip_curl_without_a_switch_drop_fails_stuck()
 // homed there. Here FLHL's curl back from its 840-edge sweep runs out of force
 // 229 edges out: its current rises and wobbles, so the run fails "stuck
 // mid-stroke" and keeps the home it proved (V1). A rerun from the stall point
-// fails stuck again. A rerun whose stall reads flat at the switch-open level
+// (a press with no edge: the detector's stuck goes on as a no-motion curl)
+// and one whose stall reads flat at the switch-open level
 // (the worst case: the detector cannot tell it from an open switch, and takes
-// it as a plain stall at the switch) is caught by the kept home: it fails
+// it as a plain stall at the switch) are caught by the kept home: both fail
 // "stopped 229 edges short of its curl end". No run sets a HOME there and
 // nothing is saved; the hip stays below 560 edges, so its knee may curl.
 static void test_single_board_hip_stalled_mid_stroke_is_never_homed_there()
@@ -2288,8 +2344,9 @@ static void test_single_board_hip_stalled_mid_stroke_is_never_homed_there()
 
     // Rerun from the stall point: its knee curls back from its park (the hip is
     // 229 edges out, inside the any-knee zone), then the hip presses at its
-    // stall, its current up and wobbling: no edge and no switch signature,
-    // failed again, no HOME.
+    // stall, its current up and wobbling: no edge and no switch signature (the
+    // detector says stuck), so it goes on as a curl with no motion, judged
+    // against the kept home: "stopped 229 edges short", no HOME.
     g_log.clear();
     size_t firstMove = timeline.moves.size();
     writeUsb("C\n");
@@ -2298,14 +2355,13 @@ static void test_single_board_hip_stalled_mid_stroke_is_never_homed_there()
     assertNoViolations(timeline);
     std::vector<ExpectedMove> rerun = {{0, 2, kSpecKneeCurlSign}, {0, 1, kSpecHipCurlSign}};
     assertMoves(timeline, rerun, firstMove);
-    TEST_ASSERT_TRUE_MESSAGE(
-        findLineStarting("CAL FRONT FAIL FLHL no edges and no switch signature at PWM 128: check hall cable or load") !=
-            nullptr,
-        joinedLog().c_str());
+    TEST_ASSERT_TRUE_MESSAGE(hasLine("CAL FRONT FAIL FLHL stopped 229 edges short of its curl end"), joinedLog().c_str());
+    TEST_ASSERT_TRUE(findLineStarting("CAL FRONT END FLHL curl hall=229 travel=0 by=stuck ") != nullptr);
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT HOME FLHL "));
 
-    // The same rerun with the stall reading flat at its switch-open level: the
-    // kept home names the shortfall instead of homing the hip there.
+    // The same rerun with the stall reading flat at its switch-open level (a
+    // plain stall at the switch for the detector): the kept home names the
+    // shortfall again instead of homing the hip there.
     hip.stallLooksOpen = true;
     g_log.clear();
     firstMove = timeline.moves.size();
@@ -2359,6 +2415,106 @@ static void test_single_board_rerun_with_the_hip_left_out_moves_nothing()
         joinedLog().c_str());
     TEST_ASSERT_TRUE(findLineStarting("CAL FRONT MOVE ") == nullptr);
     TEST_ASSERT_TRUE(timeline.eepromChanges.empty());
+    assertAllStoppedWithoutTargets(timeline, 1);
+}
+
+// A SWEEP run on its own (C SWEEP) straight after boot, FLHL resting 1000
+// edges out, beyond the body contact, with FLKL 350 edges out. Nothing is known
+// of the hip yet, so the knee's first curl runs: it stops on the body 83 edges
+// short of its stop and is homed there. With its hip curled, the knee's second
+// curl (step 2) goes 83 edges deeper and re-homes it ("WARN FLKL home moved"),
+// so the park counts from the real stop: it lands inside its band and the
+// sweep keeps the envelope. No envelope invariant fires.
+static void test_single_board_sweep_only_with_the_hip_beyond_the_body_rehomes_the_knee_before_its_park()
+{
+    Timeline timeline;
+    timeline.quadrature[0] = true;
+    timeline.setHallRods(0, 0);
+    Rod &hip = timeline.rods[0][1];
+    Rod &knee = timeline.rods[0][2];
+    hip.position = hip.low + 1000.0 / hip.edgesPerCount;
+    timeline.requestedPwm = 128;
+    bootSingleBoard(timeline);
+    TEST_ASSERT_TRUE(std::fabs(knee.edgesOut(2) - 350.0) < 1e-6);
+
+    writeUsb("C SWEEP\n");
+    assertRunUntil(timeline, "CAL ROBOT DONE", 600000);
+    runFor(timeline, 3000);
+
+    assertNoViolations(timeline);
+    std::vector<ExpectedMove> expected;
+    appendSweep(expected, 0, true);
+    assertMoves(timeline, expected);
+    // The first knee curl stopped on the body, 24 + 59 edges out.
+    const Move &first = timeline.moves[0];
+    const double firstOut = (knee.high - first.endPosition) * knee.edgesPerCount;
+    TEST_ASSERT_TRUE_MESSAGE(std::fabs(firstOut - 83.0) <= 2.0, std::to_string(firstOut).c_str());
+    const LoggedLine *moved = findLineStarting("CAL FRONT WARN FLKL home moved ");
+    TEST_ASSERT_NOT_NULL_MESSAGE(moved, joinedLog().c_str());
+    const long movedBy = std::strtol(moved->text.c_str() + std::string("CAL FRONT WARN FLKL home moved ").size(), nullptr, 10);
+    TEST_ASSERT_TRUE_MESSAGE(movedBy >= 81 && movedBy <= 85, moved->text.c_str());
+    // The re-home came on the third move (step 2), before the knee's uncurl and park.
+    const LoggedLine *uncurl = findLine("CAL FRONT MOVE FLKL uncurl");
+    TEST_ASSERT_NOT_NULL(uncurl);
+    TEST_ASSERT_TRUE(moved->ms <= uncurl->ms);
+    const LoggedLine *park = findLineStarting("CAL FRONT PARK FLKL hall=");
+    TEST_ASSERT_NOT_NULL_MESSAGE(park, joinedLog().c_str());
+    const long x = std::strtol(park->text.c_str() + std::string("CAL FRONT PARK FLKL hall=").size(), nullptr, 10);
+    TEST_ASSERT_TRUE_MESSAGE(x <= -kSpecKneeParkBandMinEdges && x >= -kSpecKneeParkBandMaxEdges, park->text.c_str());
+    TEST_ASSERT_TRUE_MESSAGE(timeline.furthestOutEdges(0, 4) <= kSpecHipSweepEdges + kSpecHipSweepCoastEdges,
+        std::to_string(timeline.furthestOutEdges(0, 4)).c_str());
+    TEST_ASSERT_EQUAL_UINT(1, timeline.eepromChanges.size());
+    assertCanonicalHallRecord(0, 698, 702);
+    TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT FAIL "));
+    assertAllStoppedWithoutTargets(timeline, 1);
+}
+
+// A hip whose home a T guard cleared while it was out past 560: FLHL, homed by
+// a C SEEK with a saved record, is sent by T toward 0.9 of its stroke and
+// blocked 700 edges out. The T stall guard stops it and marks its home lost
+// (ERR STALL, SENS 'x'), but its frame still reads 700. The next C refuses
+// before its knee moves (HipOut), moves nothing, saves nothing and leaves the
+// hip's state as it was; no invariant fires.
+static void test_single_board_hip_left_out_by_the_t_stall_guard_refuses_the_next_run()
+{
+    Timeline timeline;
+    timeline.quadrature[0] = true;
+    timeline.setHallRods(0, 0);
+    timeline.requestedPwm = 128;
+    writeHallRecord(0, kSpecHipStrokeEdges, 700);
+    bootSingleBoard(timeline);
+    writeUsb("C SEEK\n");
+    assertRunUntil(timeline, "CAL ROBOT DONE", 300000);
+    runFor(timeline, 500);
+    assertNoViolations(timeline);
+    TEST_ASSERT_EQUAL_STRING("SENS FRONT FLHY:? FLHL:E FLKL:E FRHY:? FRHL:E FRKL:E", lastSensLine("FRONT").c_str());
+
+    // T is not calibration: the position loop drives, the envelope is not its job.
+    timeline.requestedPwm = 0;
+    Rod &hip = timeline.rods[0][1];
+    hip.obstacleEdges = 700.0;
+    g_other.clear();
+    writeUsb("T FLHL 0.900\n");
+    runFor(timeline, 6000);
+    TEST_ASSERT_TRUE_MESSAGE(hasOtherLine("ERR STALL FLHL"), joinedOther().c_str());
+    TEST_ASSERT_EQUAL_INT(0, timeline.drivenCount());
+    TEST_ASSERT_TRUE_MESSAGE(std::fabs(hip.edgesOut(1) - 700.0) < 1e-6, std::to_string(hip.edgesOut(1)).c_str());
+    TEST_ASSERT_EQUAL_STRING("SENS FRONT FLHY:? FLHL:x FLKL:E FRHY:? FRHL:E FRKL:E", lastSensLine("FRONT").c_str());
+
+    timeline.requestedPwm = 128;
+    g_log.clear();
+    timeline.resetEepromTracking();
+    const size_t firstMove = timeline.moves.size();
+    writeUsb("C\n");
+    runUntilLineStarting(timeline, "CAL ROBOT FAIL FRONT: FLHL ", 300000);
+    runFor(timeline, 2000);
+    assertNoViolations(timeline);
+    TEST_ASSERT_TRUE_MESSAGE(hasLine("CAL FRONT FAIL FLHL out at 700 edges: jog it to its curl end first"),
+        joinedLog().c_str());
+    TEST_ASSERT_EQUAL_UINT(firstMove, timeline.moves.size());
+    TEST_ASSERT_TRUE(findLineStarting("CAL FRONT MOVE ") == nullptr);
+    TEST_ASSERT_TRUE(timeline.eepromChanges.empty());
+    TEST_ASSERT_EQUAL_STRING("SENS FRONT FLHY:? FLHL:x FLKL:E FRHY:? FRHL:E FRKL:E", lastSensLine("FRONT").c_str());
     assertAllStoppedWithoutTargets(timeline, 1);
 }
 
@@ -2644,6 +2800,7 @@ int main()
     RUN_TEST(test_timeline_knee_nudge_invariant_catches_unbounded_knee_moves);
     RUN_TEST(test_single_board_hall_b_jump_before_the_first_edge_is_not_pot_motion);
     RUN_TEST(test_single_board_rev3_pot_robot_classifies_then_repeats_each_step);
+    RUN_TEST(test_single_board_saved_pots_that_count_hall_edges_are_driven_again_under_the_detector);
     RUN_TEST(test_single_board_dead_hall_sensor_fails_without_a_partner_move);
     RUN_TEST(test_single_board_dead_hall_stored_knee_nudge_runs_to_its_cap_then_fails);
     RUN_TEST(test_single_board_robot_like_stored_knees_pass_curl_only_at_every_measured_spring);
@@ -2654,6 +2811,8 @@ int main()
     RUN_TEST(test_single_board_hip_curl_without_a_switch_drop_fails_stuck);
     RUN_TEST(test_single_board_hip_stalled_mid_stroke_is_never_homed_there);
     RUN_TEST(test_single_board_rerun_with_the_hip_left_out_moves_nothing);
+    RUN_TEST(test_single_board_sweep_only_with_the_hip_beyond_the_body_rehomes_the_knee_before_its_park);
+    RUN_TEST(test_single_board_hip_left_out_by_the_t_stall_guard_refuses_the_next_run);
     RUN_TEST(test_single_board_short_curls_into_their_ends_home_every_joint);
     RUN_TEST(test_timeline_body_contact_invariant_catches_a_full_hip_uncurl);
     RUN_TEST(test_timeline_envelope_invariant_catches_unsafe_hip_and_knee_moves);
