@@ -2,24 +2,26 @@
 
 Built on the desktop build host (fractal-ubuntu) on 2026-11-25. They are build-only: nothing was flashed and no serial port was opened.
 
-- **Source:** branch `feat/hall-calibration-end-detection-fixround`, commit `dc98f280`. The hexes are committed in the commit after it.
+These replace the first hallcal-1125 build (source `dc98f280`, Rev 3 sha256 `f89578c0…`, Rev 2 `0e9cdec7…`), which is superseded. This build adds the host check's fixes: the knee stroke guard before the park (F1), the deeper re-home WARN, and items a-f.
+
+- **Source:** branch `feat/hall-calibration-end-detection-fixround`, commit `0a7d3177`. The hexes are committed in the commit after it.
 - **Version strings,** checked with `strings` on each `.elf`:
   - `KRABBY_FW_VERSION` = `hallcal-1125`;
   - `KRABBY_FW_BRANCH` = `feat/hall-calibration-end-detection-fixround`;
-  - `KRABBY_FW_COMMIT` = `dc98f280`.
+  - `KRABBY_FW_COMMIT` = `0a7d3177`.
 
   They come from a temporary `firmware/arduino/version.h`, restored with `git checkout` after each build. The committed file still reads "dev-local".
 
 | File | Board | sha256 | Flash | RAM (static) | Free RAM (compile-time) |
 |---|---|---|---|---|---|
-| `hallcal-1125_rev3.hex` | PIN_REV 3 (quadrature halls) | `f89578c0c90ccbaf1f94cd32f1b9db085182949a37b8acef97f475368fb36b47` | 82,610 B | 4,881 B | 3,311 B |
-| `hallcal-1125_rev2.hex` | PIN_REV 2 (pots only) | `0e9cdec7ac0cd33cad5f7b069bad242479ab16ede5a247732722782c7bdd223e` | 79,820 B | 4,859 B | 3,333 B |
+| `hallcal-1125_rev3.hex` | PIN_REV 3 (quadrature halls) | `d0746e84544c94b81d90d1b6e683308694c0449441a4648bd42bff756c062751` | 83,018 B | 4,881 B | 3,311 B |
+| `hallcal-1125_rev2.hex` | PIN_REV 2 (pots only) | `378a4890f9f03894a060aff9727c558d0087f5689588378a61e44678d6727366` | 80,228 B | 4,859 B | 3,333 B |
 
 **Untagged comparison** (same commit, the committed "dev-local" `version.h`):
-- Rev 3: 82,554 B flash, 4,825 B RAM, 3,367 B free.
-- Rev 2: 79,764 B flash, 4,803 B RAM, 3,389 B free.
+- Rev 3: 82,962 B flash, 4,825 B RAM, 3,367 B free.
+- Rev 2: 80,172 B flash, 4,803 B RAM, 3,389 B free.
 
-The tagged builds are 56 B larger in both flash and RAM, which is the size of the three version strings. Free RAM stays above the 3,000 B floor, which applies to the compile-time figure (owner decision F5).
+The tagged builds are 56 B larger in flash and 56 B in RAM, which is the size of the three version strings. Free RAM stays above the 3,000 B floor, which applies to the compile-time figure (owner decision F5).
 
 ## Build command
 
