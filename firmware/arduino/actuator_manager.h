@@ -21,16 +21,20 @@
 // sensor says which one the joint has (src/actuator/joint_sensor.h). Pot joints
 // read avgPot as today. Hall (and Unknown) joints use the encoder frame
 // x = ACTUATOR_HALL_EXTEND_COUNT_SIGN * (count - hallHome), higher = more
-// extended: the hip curl end is 0 with limits [0, CAL_HIP_SWEEP_EDGES] (the
-// fixed sweep, not its full stroke), the knee curl end is 0 with limits
-// [-S, 0]. The counts restart at every boot, so a Hall joint has a
+// extended: the hip curl end (its curl switch) is 0 with limits
+// [0, CAL_HIP_STROKE_EDGES] (its extend switch, derived from FL's measured
+// stroke unless a hollow-stand sweep found it), the knee curl end is 0 with
+// limits [-S, 0]. The counts restart at every boot, so a Hall joint has a
 // position only after a curl proved its home this boot (ACTUATOR_FLAG_HOMED) and
 // a saved SWEEP gave its stroke (ACTUATOR_FLAG_LIMITS_VALID). Unknown joints
 // never have a position. On builds without quadrature halls every joint is Pot.
 // Hall T targets stay ACTUATOR_ENC_SWITCH_INSET_EDGES inside minStop (the
-// retracted end, an actuator limit switch) and ACTUATOR_ENC_STOP_INSET_EDGES
-// inside maxStop (the knee's compliant leg stop, or the hip sweep end): hip
-// [8, 675], knee [-S + 8, -25].
+// retracted end, an actuator limit switch) and, inside maxStop,
+// ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES for a hip (its extend switch, a hall
+// joint with minStop 0) or ACTUATOR_ENC_STOP_INSET_EDGES for a knee (its
+// compliant leg stop, maxStop 0): hip [8, 1059], knee [-S + 8, -25]. Nothing
+// here keeps a hip clear of the body, a stand or the floor at a given knee:
+// with the knee curled the tibia meets the body at about hip 941-1003.
 class LinearActuator
 {
 public:
@@ -302,6 +306,9 @@ public:
         return KRABBY_FLASH_CHAR(KRABBY_FLASH_LITERAL("?PexsE") + sensorState());
     }
 
+    // A hall range of the hip form [0, N] (a knee's is [-S, 0]).
+    bool isHallHipRange() const { return minStop == 0 && maxStop > 0; }
+
     // Set position target (T command only). Only this sets hasTarget = true.
     // Refused (false) for NaN or without a position; a refusal stops an active target.
     // The stall guard window restarts only for a new target (none before) or one
@@ -324,7 +331,8 @@ public:
         if (sensor == JointSensor::Hall)
             target = constrain(target,
                                (long)minStop + ACTUATOR_ENC_SWITCH_INSET_EDGES,
-                               (long)maxStop - ACTUATOR_ENC_STOP_INSET_EDGES);
+                               (long)maxStop - (isHallHipRange() ? ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES
+                                                                 : ACTUATOR_ENC_STOP_INSET_EDGES));
         const long pos = getRawPos();
         if (stallLatchSign != 0)
         {
@@ -392,17 +400,13 @@ public:
                 setSensor(JointSensor::Unknown);
         }
 
-        // Range guard: a homed encoder clearly outside its stroke has a wrong home.
-        // A hall hip's range is its fixed sweep [0, CAL_HIP_SWEEP_EDGES], about
-        // 70% of its reach (a knee's range is [-S, 0]): it may be jogged beyond
-        // it, so its upper bound is the largest plausible stroke instead.
+        // Range guard: a homed encoder clearly outside its stroke has a wrong
+        // home. A hall hip's range is its whole stroke, curl switch to extend
+        // switch [0, CAL_HIP_STROKE_EDGES], a knee's [-S, 0].
         if (sensor == JointSensor::Hall && isPositionReadable())
         {
             const int x = hallPosition();
-            const int upper = (minStop == 0 && maxStop == CAL_HIP_SWEEP_EDGES)
-                ? CAL_HALL_MAX_STROKE_EDGES
-                : maxStop;
-            if (x < minStop - ACTUATOR_ENC_RANGE_MARGIN_EDGES || x > upper + ACTUATOR_ENC_RANGE_MARGIN_EDGES)
+            if (x < minStop - ACTUATOR_ENC_RANGE_MARGIN_EDGES || x > maxStop + ACTUATOR_ENC_RANGE_MARGIN_EDGES)
             {
                 clearHome();
                 encFlags |= ACTUATOR_FLAG_ERR_HOME;
@@ -695,7 +699,7 @@ public:
     {
         // TODO: Should be stored with Joint information, so that when joints change this changes, not hardcoded here
         int16_t minVals[6];   // 0   Pot: ADC; Hall: frame edges (hip 0, knee -S)
-        int16_t maxVals[6];   // 12  Pot: ADC; Hall: hip CAL_HIP_SWEEP_EDGES, knee 0
+        int16_t maxVals[6];   // 12  Pot: ADC; Hall: hip its stroke (CAL_HIP_STROKE_EDGES: derived), knee 0
         uint16_t magic;       // 24  CAL_DATA_MAGIC (v1: CAL_DATA_MAGIC_V1, same offset)
         uint16_t sensorBits;  // 26  joint j at bits 2j..2j+1 (JointSensor; 3 reads as Unknown); bits 12-15 zero
         uint16_t check;       // 28  calDataCheck()
@@ -819,6 +823,11 @@ public:
                 printJointInvalid(a.getName());
             }
             applyStoredJoint(a, kind, valid && kind != JointSensor::Unknown, lo, hi);
+            if (valid && kind == JointSensor::Hall && i % LEG_CALIBRATION_JOINTS_PER_LEG == LEG_CALIBRATION_HIP_OFFSET &&
+                hi == CAL_HIP_STROKE_EDGES)
+            {
+                printHipExtendDerived(a.getName());
+            }
         }
 
         if (foreign)
@@ -909,10 +918,11 @@ private:
     }
 
     // A stored joint is used only when its limits fit its kind: a pot inside the
-    // ADC range; on a quadrature build, a hall hip with exactly the fixed sweep
-    // [0, CAL_HIP_SWEEP_EDGES] (a SWEEP saves nothing else, so T never drives a
-    // hip past it) and a hall knee [-S, 0] with a plausible stroke S. Unknown
-    // carries no limits.
+    // ADC range; on a quadrature build, a hall hip [0, N] with N its stroke as a
+    // table-safe SWEEP saves it (CAL_HIP_STROKE_EDGES, derived, or an extend
+    // switch a hollow-stand sweep found within the tolerance of it; an older
+    // record's fixed 700-edge sweep is invalid: run C) and a hall knee [-S, 0]
+    // with a plausible stroke S. Unknown carries no limits.
     static bool isValidStoredJoint(JointSensor kind, uint8_t joint, int lo, int hi, bool quadrature)
     {
         if (kind == JointSensor::Pot)
@@ -923,7 +933,8 @@ private:
             return false;
         const uint8_t offset = joint % LEG_CALIBRATION_JOINTS_PER_LEG;
         if (offset == LEG_CALIBRATION_HIP_OFFSET)
-            return lo == 0 && hi == CAL_HIP_SWEEP_EDGES;
+            return lo == 0 && hi >= CAL_HIP_STROKE_EDGES - CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES &&
+                   hi <= CAL_HIP_STROKE_EDGES + CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES;
         const long stroke = (long)hi - lo;
         return offset == LEG_CALIBRATION_KNEE_OFFSET && hi == 0 &&
                stroke >= CAL_HALL_MIN_STROKE_EDGES && stroke <= CAL_HALL_MAX_STROKE_EDGES;
@@ -954,6 +965,19 @@ private:
         if (calibrationSink.output() == nullptr)
             return;
         calibrationSink.printFlash(flashText);
+        calibrationSink.endLine();
+    }
+
+    // "Calibration joint <name> extend derived (<N> edges): not switch-verified"
+    void printHipExtendDerived(const char *jointName)
+    {
+        if (calibrationSink.output() == nullptr)
+            return;
+        calibrationSink.printFlash(KRABBY_FLASH_LITERAL("Calibration joint "));
+        calibrationSink.printText(jointName);
+        calibrationSink.printFlash(KRABBY_FLASH_LITERAL(" extend derived ("));
+        calibrationSink.printNumber(CAL_HIP_STROKE_EDGES);
+        calibrationSink.printFlash(KRABBY_FLASH_LITERAL(" edges): not switch-verified"));
         calibrationSink.endLine();
     }
 

@@ -13,17 +13,31 @@
 // indices follow the board's actuator order: 0 = leg-A yaw, 1 = leg-A hip,
 // 2 = leg-A knee, 3 = leg-B yaw, 4 = leg-B hip, 5 = leg-B knee.
 //
-// SEEK pass, for leg A then leg B: knee -> curl end; hip -> curl end.
-// SWEEP pass, for leg A then leg B: knee -> curl end; hip -> curl end;
-//   hip -> uncurl end; hip -> curl end; knee -> uncurl end; knee -> curl end.
-// A hall hip's uncurl is a fixed sweep: it stops after CAL_HIP_SWEEP_EDGES
-// drive edges from its proven curl end (a curled tibia meets the body before
-// the hip's own end), fails if it stalls first, and saves [0, CAL_HIP_SWEEP_EDGES]
-// with no stroke checks. A pot hip (builds without quadrature) still runs to
-// its uncurl end. Knees always sweep their full stroke, with their hip curled.
-// A hip only moves with its knee proven curled in this run, and a knee only
-// leaves its curl end with its hip proven curled (legCalibrationPartnerReady;
-// the knee nudge, CAL_OPT_KNEE_NUDGE and on by default, is the one exception).
+// SEEK pass, for leg A then leg B: knee -> curl end; hip -> curl end; knee ->
+//   curl end again (R3: a knee curled first while its hip rested extended may
+//   have stopped on the body; curled again with its hip curled it is proven,
+//   and a deeper end moves its home, "home moved").
+// SWEEP pass, for leg A then leg B, table-safe (a hall hip, the robot's legs;
+//   calibration_constants.h CAL_KNEE_PARK_EDGES): knee -> curl end; hip ->
+//   curl end (home 0); knee -> uncurl end (its switch); knee -> park (by count
+//   to -CAL_KNEE_PARK_EDGES, then checked inside its band); hip -> sweep (by
+//   count to CAL_HIP_SWEEP_EDGES with the knee held parked: any end before it,
+//   or the knee leaving its band, is an obstacle, and the hip retracts to its
+//   curl switch and the pass fails, with no retry); hip -> curl end (it must
+//   re-home within CAL_HIP_REHOME_TOLERANCE_EDGES of 0, else lost counts);
+//   knee -> curl end. The hip saves [0, CAL_HIP_STROKE_EDGES] (its extend
+//   switch derived from FL's measured stroke, not switch-verified) and the knee
+//   [-S, 0]. The hip's extend switch is never sought, except by the
+//   opt-in hollow-stand sweep (CAL_OPT_HOLLOW_STAND), which parks the knee at
+//   -CAL_KNEE_HOLLOW_PARK_EDGES and sweeps the hip on to its switch.
+// A pot hip (builds without quadrature halls) keeps the earlier order: knee ->
+//   curl end; hip -> curl end; hip -> uncurl end; hip -> curl end; knee ->
+//   uncurl end; knee -> curl end.
+// A hip moves only with its knee proven curled or proven parked in this run,
+// and a table-safe hip sweep only with its knee parked; a knee leaves its curl
+// end (uncurl, park) or curls back from its park only with its hip proven
+// curled (legCalibrationPartnerReady; the knee nudge, CAL_OPT_KNEE_NUDGE and on
+// by default, is the one exception).
 //
 // Sensors (joint_sensor.h): each hip and knee is a pot, a hall encoder, or not
 // known yet. While driven, CAL_HALL_DETECT_EDGES edges in the driven direction
@@ -35,13 +49,15 @@
 // One move: stop everything; ramp |PWM| from 0 by CAL_PWM_RAMP_STEP every
 // CAL_PWM_RAMP_INTERVAL_MS up to the calibration PWM. On quadrature builds a
 // joint not proven Pot (every drive but the nudge out) then runs until the end
-// detector (calibration_end_detector.h) decides: a retracting rod's limit
-// switch (count stopped, current dropped: "by=switch"), an extending rod's
-// mechanical stop (speed collapsed, current rose: "by=stop"), a stall with
-// neither signature after a running phase ("by=stuck": the pass fails "stuck
-// mid-stroke"), or, for a drive that never ran (a press at an end, a short
-// return, a joint slower than arming speed) or a curl that armed only in its
-// own end approach, a plain stall. Otherwise (proven pot, builds without quadrature),
+// detector (calibration_end_detector.h) decides: a limit switch (count
+// stopped, current dropped to the switch-open level: "by=switch"), an
+// extending rod's mechanical stop (speed collapsed, current rose: "by=stop"),
+// a stall with neither signature ("by=stuck": the pass fails "stuck
+// mid-stroke"; on a drive into a limit switch that includes every stall
+// without the switch-open signature, however short the drive), or, for an
+// extend drive that never ran or armed only in its own end approach, or a
+// switch-end drive that shows the switch-open signature, a plain stall. A
+// park or sweep also stops at its count. Otherwise (proven pot, builds without quadrature),
 // after CAL_START_GRACE_MS every CAL_STALL_WINDOW_MS window must advance the
 // joint in the driven direction (a proven pot by CAL_STALL_MIN_PROGRESS counts
 // of its smoothed reading, any other joint by CAL_HALL_STALL_MIN_EDGES edges);
@@ -50,16 +66,22 @@
 // it started fails.
 //
 // A curl that moved (CAL_HALL_CURL_EVIDENCE_EDGES edges or CAL_MIN_TRAVEL_COUNTS
-// counts) and then stalled is at its curl end; after a boot an obstacle looks
-// the same. A curl with no motion is accepted only at a curl end proven earlier
-// (a hall home from this boot, a pot end read on an earlier accepted curl, or a
-// measured pot limit). Otherwise a hip gets a verification nudge (out, then a
-// full curl back) and a knee fails (or, with CAL_OPT_KNEE_NUDGE, gets a shorter
-// nudge at no more than CAL_KNEE_NUDGE_MAX_PWM; a hall knee's curl back then
-// needs only CAL_KNEE_RETURN_MIN_EDGES of motion, since a knee parked deeper
-// than the calibration PWM reaches comes back only a few edges). Ending more
-// than the curl-end tolerance short of a curl end proven earlier fails, with or
-// without motion; ending deeper is accepted and moves a hall home. A failed pass stops before the partner joint moves. A failure or
+// counts) and then stopped at its end is at its curl end (a hip's: at its limit
+// switch, shown by the switch-open current; a knee's at its stop: after a boot
+// an obstacle looks the same). A curl with no motion is accepted only at a curl
+// end proven earlier (a hall home from this boot, kept through a failed run as
+// below, a pot end read on an earlier accepted curl, or a measured pot limit).
+// Otherwise a hip gets a verification nudge (out at no more than
+// CAL_HIP_NUDGE_MAX_PWM, then a full curl back) and a knee fails (or, with
+// CAL_OPT_KNEE_NUDGE, gets a shorter nudge at no more than
+// CAL_KNEE_NUDGE_MAX_PWM; a hall knee's curl back then needs only
+// CAL_KNEE_RETURN_MIN_EDGES of motion, since a knee parked deeper than the
+// calibration PWM reaches comes back only a few edges). Ending more than the
+// curl-end tolerance short of a curl end proven earlier fails, with or without
+// motion; ending deeper is accepted and moves a hall home. A failed hall
+// joint's home is cleared, but kept as the reference of its later curls in
+// this boot (V1): a rerun that ends far short of it fails instead of homing
+// there. A failed pass stops before the partner joint moves. A failure or
 // abort that leaves a joint nudged out says so (WARN). Only a completed SWEEP
 // saves.
 
@@ -140,10 +162,15 @@ enum class LegCalibrationFailure : uint8_t
     NoCurlBack,
     StrokeOutOfRange,
     StrokeShort,
-    SweepShort,
+    SweepShort,      // the hip sweep ended before its target: obstacle (retracted)
     StuckMidStroke,
     PartnerNotCurled,
     Aborted,
+    LostCounts,      // a hip switch (curl or extend) found away from where its counts put it
+    KneeOutOfBand,   // a parked knee outside its band (after its park, or during the hip sweep)
+    ParkShort,       // the knee's park drive ended before its target: obstacle
+    NotRetracted,    // after an obstacle the hip did not reach its curl switch
+    TableSafeNeedsHall,  // a hall hip whose knee is not a hall encoder: no table-safe park
 };
 
 enum class LegCalibrationMovePhase : uint8_t
@@ -161,19 +188,51 @@ enum class LegCalibrationMoveStage : uint8_t
     Normal,    // a step's move
     NudgeOut,  // the verification nudge away from the curl end
     Return,    // the full curl back after a nudge
+    Retract,   // a hip's curl back to its switch after an obstacle (the pass then fails)
+};
+
+// What a step's drive does: run to an end (Seek), or stop at a count (Park: a
+// knee to its table-safe park; Sweep: a hip's table-safe sweep).
+enum class LegCalibrationAction : uint8_t
+{
+    Seek,
+    Park,
+    Sweep,
 };
 
 static constexpr uint8_t LEG_CALIBRATION_JOINT_COUNT = 6;
 static constexpr uint8_t LEG_CALIBRATION_JOINTS_PER_LEG = 3;
 static constexpr uint8_t LEG_CALIBRATION_HIP_OFFSET = 1;
 static constexpr uint8_t LEG_CALIBRATION_KNEE_OFFSET = 2;
-static constexpr uint8_t LEG_CALIBRATION_SEEK_STEPS_PER_LEG = 2;
-static constexpr uint8_t LEG_CALIBRATION_SWEEP_STEPS_PER_LEG = 6;
+static constexpr uint8_t LEG_CALIBRATION_SEEK_STEPS_PER_LEG = 3;
+// Table-safe SWEEP of a hall-hip leg, and the earlier SWEEP of a pot-hip leg.
+static constexpr uint8_t LEG_CALIBRATION_SWEEP_STEPS_PER_LEG = 7;
+static constexpr uint8_t LEG_CALIBRATION_POT_SWEEP_STEPS_PER_LEG = 6;
 static constexpr uint8_t LEG_CALIBRATION_LEG_COUNT = 2;
 
 inline bool isLegCalibrationHip(uint8_t joint)
 {
     return joint % LEG_CALIBRATION_JOINTS_PER_LEG == LEG_CALIBRATION_HIP_OFFSET;
+}
+
+// The knee of joint's leg (a hip's partner).
+inline uint8_t legCalibrationKneeOf(uint8_t joint)
+{
+    return static_cast<uint8_t>(joint - joint % LEG_CALIBRATION_JOINTS_PER_LEG + LEG_CALIBRATION_KNEE_OFFSET);
+}
+
+// The park of a knee in the hall frame ([-S, 0]): its target and band, in
+// edges (negative: uncurled from the curl stop). hollow: the hollow-stand park.
+inline int legCalibrationParkTarget(bool hollow)
+{
+    return -(hollow ? CAL_KNEE_HOLLOW_PARK_EDGES : CAL_KNEE_PARK_EDGES);
+}
+
+inline bool isLegCalibrationParkInBand(int32_t position, bool hollow)
+{
+    const int32_t out = -position;
+    return hollow ? out >= CAL_KNEE_HOLLOW_BAND_MIN_EDGES && out <= CAL_KNEE_HOLLOW_BAND_MAX_EDGES
+                  : out >= CAL_KNEE_PARK_BAND_MIN_EDGES && out <= CAL_KNEE_PARK_BAND_MAX_EDGES;
 }
 
 // PWM sign that moves joint toward its curl end (curl) or away from it.
@@ -185,21 +244,36 @@ inline int legCalibrationPwmSign(uint8_t joint, bool curl)
     return curl ? curlSign : -curlSign;
 }
 
-// Whether joint may be driven (curl or not; isNudge: a verification nudge out)
-// given the joints proven curled in this run (curledMask) and the options: a
-// hip only with its knee curled; a knee curls freely and leaves its curl end
-// only with its hip curled, or as a nudge with CAL_OPT_KNEE_NUDGE.
+// Whether joint may be driven (curl or not; isNudge: a verification nudge out;
+// action: a Park or Sweep step's drive, else Seek) given the joints proven
+// curled (curledMask) and the knees proven parked (parkedMask) in this run, and
+// the options. A hip: its table-safe sweep only with its knee parked; any
+// other uncurl (a pot hip's) only with its knee curled; a curl, return,
+// retract or nudge with its knee curled or parked. A knee: a curl freely
+// (unless it is parked); its park, its uncurl, and a curl back from its park
+// only with its hip curled; a nudge with CAL_OPT_KNEE_NUDGE.
 inline bool legCalibrationPartnerReady(
     uint8_t curledMask,
+    uint8_t parkedMask,
     uint8_t joint,
     bool curl,
     bool isNudge,
+    LegCalibrationAction action,
     uint8_t options)
 {
     const uint8_t base = joint - joint % LEG_CALIBRATION_JOINTS_PER_LEG;
+    const uint8_t kneeBit = static_cast<uint8_t>(1U << (base + LEG_CALIBRATION_KNEE_OFFSET));
     if (isLegCalibrationHip(joint))
-        return (curledMask & (1U << (base + LEG_CALIBRATION_KNEE_OFFSET))) != 0;
-    if (curl)
+    {
+        const bool kneeCurled = (curledMask & kneeBit) != 0;
+        const bool kneeParked = (parkedMask & kneeBit) != 0;
+        if (action == LegCalibrationAction::Sweep)
+            return kneeParked;
+        if (!curl && !isNudge)
+            return kneeCurled;
+        return kneeCurled || kneeParked;
+    }
+    if (curl && action != LegCalibrationAction::Park && (parkedMask & kneeBit) == 0)
         return true;
     if (isNudge && (options & CAL_OPT_KNEE_NUDGE) != 0)
         return true;
@@ -329,11 +403,44 @@ inline void printLegCalibrationFailureReason(
             out.printFlash(KRABBY_FLASH_LITERAL(": obstacle?"));
             return;
         case LegCalibrationFailure::SweepShort:
+            // value: edges short of the sweep's target; value2: the target.
             out.printFlash(KRABBY_FLASH_LITERAL(" stopped "));
             out.printNumber(value);
             out.printFlash(KRABBY_FLASH_LITERAL(" edges short of its "));
-            out.printNumber(CAL_HIP_SWEEP_EDGES);
-            out.printFlash(KRABBY_FLASH_LITERAL("-edge sweep: obstacle?"));
+            out.printNumber(value2);
+            out.printFlash(KRABBY_FLASH_LITERAL("-edge sweep: obstacle? check its home"));
+            return;
+        case LegCalibrationFailure::LostCounts:
+            // value: where the switch was found; value2: where it was expected.
+            out.printFlash(KRABBY_FLASH_LITERAL(" lost counts: switch at "));
+            out.printNumber(value);
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges, expected "));
+            out.printNumber(value2);
+            return;
+        case LegCalibrationFailure::KneeOutOfBand:
+            // value: the knee's position; value2: 1 for the hollow-stand band.
+            out.printFlash(KRABBY_FLASH_LITERAL(" at "));
+            out.printNumber(value);
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges, outside its park band "));
+            out.printNumber(-(value2 != 0 ? CAL_KNEE_HOLLOW_BAND_MAX_EDGES : CAL_KNEE_PARK_BAND_MAX_EDGES));
+            out.printFlash(KRABBY_FLASH_LITERAL(".."));
+            out.printNumber(-(value2 != 0 ? CAL_KNEE_HOLLOW_BAND_MIN_EDGES : CAL_KNEE_PARK_BAND_MIN_EDGES));
+            return;
+        case LegCalibrationFailure::ParkShort:
+            // value: edges short of the park; value2: the park target.
+            out.printFlash(KRABBY_FLASH_LITERAL(" stopped "));
+            out.printNumber(value);
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges short of its park at "));
+            out.printNumber(value2);
+            out.printFlash(KRABBY_FLASH_LITERAL(": obstacle?"));
+            return;
+        case LegCalibrationFailure::NotRetracted:
+            out.printFlash(KRABBY_FLASH_LITERAL(" not back at its curl switch (hall="));
+            out.printNumber(value);
+            out.printFlash(KRABBY_FLASH_LITERAL("): jog it home"));
+            return;
+        case LegCalibrationFailure::TableSafeNeedsHall:
+            out.printFlash(KRABBY_FLASH_LITERAL(" and its knee must both be hall encoders"));
             return;
         case LegCalibrationFailure::StuckMidStroke:
             out.printFlash(KRABBY_FLASH_LITERAL(" stuck mid-stroke after "));
@@ -348,43 +455,56 @@ inline void printLegCalibrationFailureReason(
     }
 }
 
-inline uint8_t legCalibrationStepCount(uint8_t pass)
+// Steps per leg of `pass`; tableSafe (SWEEP): the leg's hip is a hall hip.
+inline uint8_t legCalibrationLegStepCount(uint8_t pass, bool tableSafe)
 {
-    return LEG_CALIBRATION_LEG_COUNT * (pass == CAL_PASS_SEEK
-        ? LEG_CALIBRATION_SEEK_STEPS_PER_LEG
-        : LEG_CALIBRATION_SWEEP_STEPS_PER_LEG);
+    if (pass == CAL_PASS_SEEK)
+        return LEG_CALIBRATION_SEEK_STEPS_PER_LEG;
+    return tableSafe ? LEG_CALIBRATION_SWEEP_STEPS_PER_LEG : LEG_CALIBRATION_POT_SWEEP_STEPS_PER_LEG;
 }
 
 struct LegCalibrationStep
 {
-    uint8_t joint;
+    uint8_t joint;   // within the leg: LEG_CALIBRATION_HIP_OFFSET or _KNEE_OFFSET
     bool curl;
     // SWEEP only: this move completes the joint's uncurl-and-back measurement.
     bool completesJoint;
+    LegCalibrationAction action;
 };
 
-// Step `step` (0-based) of `pass` (CAL_PASS_SEEK or CAL_PASS_SWEEP).
-inline LegCalibrationStep legCalibrationStep(uint8_t pass, uint8_t step)
+// Step `legStep` (0-based) of one leg in `pass` (CAL_PASS_SEEK or
+// CAL_PASS_SWEEP); tableSafe (SWEEP): the table-safe order of a hall-hip leg.
+inline LegCalibrationStep legCalibrationStep(uint8_t pass, uint8_t legStep, bool tableSafe)
 {
-    const uint8_t perLeg = pass == CAL_PASS_SEEK
-        ? LEG_CALIBRATION_SEEK_STEPS_PER_LEG
-        : LEG_CALIBRATION_SWEEP_STEPS_PER_LEG;
-    const uint8_t base = (step / perLeg) * LEG_CALIBRATION_JOINTS_PER_LEG;
-    const uint8_t k = step % perLeg;
+    static constexpr uint8_t H = LEG_CALIBRATION_HIP_OFFSET;
+    static constexpr uint8_t K = LEG_CALIBRATION_KNEE_OFFSET;
     LegCalibrationStep result;
+    result.completesJoint = false;
+    result.action = LegCalibrationAction::Seek;
+    result.curl = true;
     if (pass == CAL_PASS_SEEK)
     {
-        // knee curl, hip curl
-        result.joint = base + (k == 0 ? LEG_CALIBRATION_KNEE_OFFSET : LEG_CALIBRATION_HIP_OFFSET);
-        result.curl = true;
-        result.completesJoint = false;
+        // knee curl, hip curl, knee curl
+        result.joint = legStep == 1 ? H : K;
+        return result;
+    }
+    if (tableSafe)
+    {
+        // knee curl, hip curl, knee uncurl, knee park, hip sweep, hip curl, knee curl
+        static const uint8_t kJoint[LEG_CALIBRATION_SWEEP_STEPS_PER_LEG] = {K, H, K, K, H, H, K};
+        result.joint = kJoint[legStep < LEG_CALIBRATION_SWEEP_STEPS_PER_LEG ? legStep : 0];
+        result.curl = legStep != 2 && legStep != 4;
+        result.completesJoint = legStep == 5 || legStep == 6;
+        result.action = legStep == 3 ? LegCalibrationAction::Park
+            : legStep == 4           ? LegCalibrationAction::Sweep
+                                     : LegCalibrationAction::Seek;
         return result;
     }
     // knee curl, hip curl, hip uncurl, hip curl, knee uncurl, knee curl
-    const bool isHip = k >= 1 && k <= 3;
-    result.joint = base + (isHip ? LEG_CALIBRATION_HIP_OFFSET : LEG_CALIBRATION_KNEE_OFFSET);
-    result.curl = k != 2 && k != 4;
-    result.completesJoint = k == 3 || k == 5;
+    const bool isHip = legStep >= 1 && legStep <= 3;
+    result.joint = isHip ? H : K;
+    result.curl = legStep != 2 && legStep != 4;
+    result.completesJoint = legStep == 3 || legStep == 5;
     return result;
 }
 
@@ -403,6 +523,18 @@ public:
         passes_ = 0;
         pass_ = 0;
         step_ = 0;
+        leg_ = 0;
+        legStep_ = 0;
+        tableSafe_ = false;
+        action_ = LegCalibrationAction::Seek;
+        parkedMask_ = 0;
+        keptMask_ = 0;
+        verifiedMask_ = 0;
+        pendingFailure_ = LegCalibrationFailure::None;
+        pendingValue_ = 0;
+        pendingValue2_ = 0;
+        pendingJoint_ = 0;
+        kneeLeft_ = false;
         pwm_ = 0;
         options_ = 0;
         joint_ = 0;
@@ -437,6 +569,7 @@ public:
             stagedMin_[joint] = 0;
             stagedMax_[joint] = 0;
             curlEnd_[joint] = 0;
+            keptHome_[joint] = 0;
         }
     }
 
@@ -459,6 +592,8 @@ public:
         pwm_ = static_cast<uint8_t>(pwm);
         options_ = options;
         curledMask_ = 0;
+        parkedMask_ = 0;
+        verifiedMask_ = 0;
         reportedMask_ = 0;
         repeated_ = false;
         failure_ = LegCalibrationFailure::None;
@@ -489,13 +624,28 @@ public:
                 stopToSettle(plant, now);
                 return;
             }
-            // A hall hip's fixed sweep stops at its target, never at a stall.
-            if (isHallHipSweep(plant) &&
-                hallDriveEdges(sign_, plant.hallCount(joint_) - startHall_) >= CAL_HIP_SWEEP_EDGES)
+            // A park or a table-safe sweep stops at its count. During the
+            // sweep the knee must stay inside its park band.
+            if (stage_ == LegCalibrationMoveStage::Normal && action_ != LegCalibrationAction::Seek)
             {
-                sweepReached_ = true;
-                stopToSettle(plant, now);
-                return;
+                const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
+                const int32_t x = plant.position(joint_);
+                const bool reached = action_ == LegCalibrationAction::Sweep
+                    ? x >= sweepTarget()
+                    : x >= legCalibrationParkTarget(hollow);
+                if (reached)
+                {
+                    sweepReached_ = true;
+                    stopToSettle(plant, now);
+                    return;
+                }
+                if (action_ == LegCalibrationAction::Sweep &&
+                    !isLegCalibrationParkInBand(plant.position(legCalibrationKneeOf(joint_)), hollow))
+                {
+                    kneeLeft_ = true;
+                    stopToSettle(plant, now);
+                    return;
+                }
             }
             if (detecting_ && (phase_ == LegCalibrationMovePhase::Ramp ||
                                phase_ == LegCalibrationMovePhase::Detect))
@@ -584,6 +734,7 @@ public:
             return false;
         plant.stopAll();
         warnIfNudgedOut(plant);
+        warnIfLeftOut(plant);
         failure_ = LegCalibrationFailure::Aborted;
         failJoint_ = nullptr;
         failValue_ = cause;
@@ -609,9 +760,16 @@ public:
     bool isRunning() const { return outcome_ == LegCalibrationOutcome::Running; }
     LegCalibrationOutcome outcome() const { return outcome_; }
     LegCalibrationFailure failure() const { return failure_; }
-    // Current pass bit (CAL_PASS_SEEK / CAL_PASS_SWEEP) and step within it.
+    // Current pass bit (CAL_PASS_SEEK / CAL_PASS_SWEEP), the steps begun in it
+    // before the current one, and the current leg (0 = A) and its step.
     uint8_t currentPass() const { return pass_; }
     uint8_t currentStep() const { return step_; }
+    uint8_t currentLeg() const { return leg_; }
+    uint8_t currentLegStep() const { return legStep_; }
+    // The current leg's SWEEP runs the table-safe order (its hip is a hall hip).
+    bool isTableSafeLeg() const { return tableSafe_; }
+    // What the current (or last) step's drive does.
+    LegCalibrationAction currentAction() const { return action_; }
     // Joint of the current (or last) move and its direction.
     uint8_t currentJoint() const { return joint_; }
     bool isCurrentMoveCurl() const { return curl_; }
@@ -632,9 +790,19 @@ public:
     // end in this run and it has not been driven since.
     uint8_t curledMask() const { return curledMask_; }
     bool isJointCurled(uint8_t joint) const { return (curledMask_ & (1U << joint)) != 0; }
+    // Bit j set: knee j was parked (inside its band) in this run and has not
+    // been driven since.
+    uint8_t parkedMask() const { return parkedMask_; }
+    // Bit j set: hall joint j failed while homed this boot; keptHome(j) is the
+    // raw count of that home, the reference of its later curls.
+    uint8_t keptHomeMask() const { return keptMask_; }
+    int32_t keptHome(uint8_t joint) const { return keptHome_[joint]; }
+    // Bit j set: hip j's extend switch was found by the hollow-stand sweep.
+    uint8_t switchVerifiedMask() const { return verifiedMask_; }
     // Staged end readings of the running pass: min = end reached with -PWM,
-    // max = with +PWM; for a hall joint, canonical [0, CAL_HIP_SWEEP_EDGES] (hip) or [-S, 0] (knee)
-    // once it completes.
+    // max = with +PWM; for a hall joint, canonical [0, CAL_HIP_STROKE_EDGES] (hip;
+    // a hollow-stand sweep's extend switch instead) or [-S, 0] (knee) once it
+    // completes.
     int stagedMin(uint8_t joint) const { return stagedMin_[joint]; }
     int stagedMax(uint8_t joint) const { return stagedMax_[joint]; }
 
@@ -678,6 +846,9 @@ private:
     {
         pass_ = pass;
         step_ = 0;
+        leg_ = 0;
+        legStep_ = 0;
+        tableSafe_ = false;
         CalibrationTextSink &out = plant.out();
         printPrefix(plant, out);
         out.printFlash(pass_ == CAL_PASS_SEEK
@@ -688,14 +859,45 @@ private:
         beginMove(plant);
     }
 
+    // The current step of the pass.
+    LegCalibrationStep currentStepOf() const
+    {
+        return legCalibrationStep(pass_, legStep_, tableSafe_);
+    }
+
     void beginMove(LegCalibrationPlant &plant)
     {
-        const LegCalibrationStep step = legCalibrationStep(pass_, step_);
-        joint_ = step.joint;
+        const uint8_t base = static_cast<uint8_t>(leg_ * LEG_CALIBRATION_JOINTS_PER_LEG);
+        // The SWEEP orders agree up to the hip's curl; from there a hall hip
+        // takes the table-safe order (its knee must be a hall encoder too).
+        if (pass_ == CAL_PASS_SWEEP && legStep_ == 2)
+        {
+            const uint8_t hip = static_cast<uint8_t>(base + LEG_CALIBRATION_HIP_OFFSET);
+            tableSafe_ = plant.sensor(hip) == JointSensor::Hall;
+            if (tableSafe_ && plant.sensor(static_cast<uint8_t>(base + LEG_CALIBRATION_KNEE_OFFSET)) != JointSensor::Hall)
+            {
+                joint_ = hip;
+                fail(plant, LegCalibrationFailure::TableSafeNeedsHall, 0);
+                return;
+            }
+        }
+        const LegCalibrationStep step = currentStepOf();
+        joint_ = static_cast<uint8_t>(base + step.joint);
+        action_ = step.action;
         beginDrive(plant, LegCalibrationMoveStage::Normal, step.curl);
     }
 
-    // Every drive of joint_ starts here: a step's move, a nudge or a return.
+    // The table-safe sweep's stop count: CAL_HIP_SWEEP_EDGES, or for the
+    // hollow-stand sweep the furthest its extend switch may be.
+    int32_t sweepTarget() const
+    {
+        return (options_ & CAL_OPT_HOLLOW_STAND) != 0
+            ? CAL_HIP_STROKE_EDGES + CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES
+            : CAL_HIP_SWEEP_EDGES;
+    }
+
+    // Every drive of joint_ starts here: a step's move, a nudge, a return or a
+    // retract.
     void beginDrive(LegCalibrationPlant &plant, LegCalibrationMoveStage stage, bool curl)
     {
         curl_ = curl;
@@ -703,9 +905,12 @@ private:
         plant.stopAll();
         // The partner gate cannot fail through the step table; it guards the
         // table. The pot-open probe applies to proven Pot joints only.
+        const LegCalibrationAction action = stage == LegCalibrationMoveStage::Normal
+            ? action_
+            : LegCalibrationAction::Seek;
         const LegCalibrationFailure gate =
-            !legCalibrationPartnerReady(curledMask_, joint_, curl_,
-                                        stage == LegCalibrationMoveStage::NudgeOut, options_)
+            !legCalibrationPartnerReady(curledMask_, parkedMask_, joint_, curl_,
+                                        stage == LegCalibrationMoveStage::NudgeOut, action, options_)
                 ? LegCalibrationFailure::PartnerNotCurled
             : plant.sensor(joint_) == JointSensor::Pot && plant.isPotOpen(joint_)
                 ? LegCalibrationFailure::PotNotConnected
@@ -717,7 +922,9 @@ private:
         }
 
         curledMask_ &= static_cast<uint8_t>(~(1U << joint_));
+        parkedMask_ &= static_cast<uint8_t>(~(1U << joint_));
         sweepReached_ = false;
+        kneeLeft_ = false;
         startHall_ = plant.hallCount(joint_);
         startSnap_ = plant.potSnapshot(joint_);
         startPot_ = plant.rawPot(joint_);
@@ -744,7 +951,8 @@ private:
             if (nudged > minStill)
                 minStill = nudged;
         }
-        end_.begin(moveStartMs_, sign_ < 0, !curl_, minStill);
+        // A hip's extended end is a limit switch too (R2).
+        end_.begin(moveStartMs_, sign_ < 0, !curl_, minStill, isLegCalibrationHip(joint_) && sign_ > 0);
 
         CalibrationTextSink &out = plant.out();
         printJointLine(plant, out, KRABBY_FLASH_LITERAL("MOVE "));
@@ -753,6 +961,12 @@ private:
             out.printFlash(KRABBY_FLASH_LITERAL("nudge"));
         else
             printLegCalibrationDirection(out, curl_);
+        if (stage == LegCalibrationMoveStage::Retract)
+            out.printFlash(KRABBY_FLASH_LITERAL(" retract"));
+        else if (stage == LegCalibrationMoveStage::Normal && action_ == LegCalibrationAction::Park)
+            out.printFlash(KRABBY_FLASH_LITERAL(" park"));
+        else if (stage == LegCalibrationMoveStage::Normal && action_ == LegCalibrationAction::Sweep)
+            out.printFlash(KRABBY_FLASH_LITERAL(" sweep"));
         out.endLine();
     }
 
@@ -795,27 +1009,22 @@ private:
     }
 
     // PWM magnitude the current drive ramps to: the calibration PWM, but never
-    // more than CAL_KNEE_NUDGE_MAX_PWM for a knee nudge.
+    // more than CAL_KNEE_NUDGE_MAX_PWM for a knee nudge or CAL_HIP_NUDGE_MAX_PWM
+    // for a hip nudge.
     uint8_t movePwm() const
     {
-        if (stage_ == LegCalibrationMoveStage::NudgeOut && !isLegCalibrationHip(joint_) &&
-            pwm_ > CAL_KNEE_NUDGE_MAX_PWM)
+        if (stage_ == LegCalibrationMoveStage::NudgeOut)
         {
-            return static_cast<uint8_t>(CAL_KNEE_NUDGE_MAX_PWM);
+            const int cap = isLegCalibrationHip(joint_) ? CAL_HIP_NUDGE_MAX_PWM : CAL_KNEE_NUDGE_MAX_PWM;
+            if (pwm_ > cap)
+                return static_cast<uint8_t>(cap);
         }
         return pwm_;
     }
 
-    // The SWEEP hip uncurl of a hall hip (Normal uncurls exist only in SWEEP):
-    // a fixed sweep of CAL_HIP_SWEEP_EDGES drive edges from its curl end.
-    bool isHallHipSweep(LegCalibrationPlant &plant) const
-    {
-        return !curl_ && stage_ == LegCalibrationMoveStage::Normal &&
-               isLegCalibrationHip(joint_) && plant.sensor(joint_) == JointSensor::Hall;
-    }
-
     // The verification nudge has gone far enough, or reached its time cap. A
-    // knee with no hall feedback runs to its 1 s cap (calibration_constants.h).
+    // knee with no hall feedback runs to its 1 s cap, a hip with no hall edge
+    // stops at CAL_HIP_NUDGE_BLIND_MS (calibration_constants.h).
     bool nudgeDone(LegCalibrationPlant &plant, uint32_t now)
     {
         const bool hip = isLegCalibrationHip(joint_);
@@ -827,11 +1036,31 @@ private:
         }
         else if (plant.hasQuadratureHall())
         {
-            const int32_t edges = hallDriveEdges(sign_, plant.hallCount(joint_) - startHall_);
+            const int32_t delta = plant.hallCount(joint_) - startHall_;
+            const int32_t edges = hallDriveEdges(sign_, delta);
             if (edges >= (hip ? CAL_HIP_NUDGE_EDGES : CAL_KNEE_NUDGE_EDGES))
+                return true;
+            if (hip && magnitude(delta) <= CAL_POT_DETECT_MAX_EDGES && now - moveStartMs_ >= CAL_HIP_NUDGE_BLIND_MS)
                 return true;
         }
         return now - moveStartMs_ >= (hip ? CAL_HIP_NUDGE_MAX_MS : CAL_KNEE_NUDGE_MAX_MS);
+    }
+
+    // A run that ends while a hip is out on its table-safe sweep (or retract)
+    // or a knee is out on its park leaves the leg off its curl ends:
+    // "CAL <ROLE> WARN <j> left out at <x> edges: jog it to its curl end".
+    void warnIfLeftOut(LegCalibrationPlant &plant)
+    {
+        const bool out = stage_ == LegCalibrationMoveStage::Retract ||
+                         (stage_ == LegCalibrationMoveStage::Normal && action_ != LegCalibrationAction::Seek);
+        if (!out)
+            return;
+        CalibrationTextSink &text = plant.out();
+        printWarnPrefix(plant, text);
+        text.printFlash(KRABBY_FLASH_LITERAL(" left out at "));
+        text.printNumber(plant.position(joint_));
+        text.printFlash(KRABBY_FLASH_LITERAL(" edges: jog it to its curl end"));
+        text.endLine();
     }
 
     // A run that ends during a nudge (before its return was driven) leaves the
@@ -941,13 +1170,29 @@ private:
             out.printNumber(endSnap);
         }
         // Detector ends: " by=switch|stop|stuck cur=<current>/<reference>" in
-        // tenths of an IS count (a plain stall prints nothing).
+        // tenths of an IS count, then on a drive into a limit switch (a
+        // retract, a hip extend) " floor=<floor>"; a plain stall prints
+        // nothing, or on such a drive " open=<current>/<floor>" (it showed the
+        // switch-open signature).
+        const bool switchEnd = sign_ < 0 || isLegCalibrationHip(joint_);
         if (endKind_ == CalibrationEnd::Switch || endKind_ == CalibrationEnd::Stop ||
             endKind_ == CalibrationEnd::Stuck)
         {
             out.printFlash(endKind_ == CalibrationEnd::Switch ? KRABBY_FLASH_LITERAL(" by=switch cur=")
                            : endKind_ == CalibrationEnd::Stop ? KRABBY_FLASH_LITERAL(" by=stop cur=")
                                                               : KRABBY_FLASH_LITERAL(" by=stuck cur="));
+            out.printNumber(static_cast<long>(end_.endCurrent()));
+            out.printChar('/');
+            out.printNumber(static_cast<long>(end_.endReference()));
+            if (switchEnd && end_.currentFloor() != 0xFFFFU)
+            {
+                out.printFlash(KRABBY_FLASH_LITERAL(" floor="));
+                out.printNumber(static_cast<long>(end_.currentFloor()));
+            }
+        }
+        else if (endKind_ == CalibrationEnd::Still && switchEnd && end_.currentFloor() != 0xFFFFU)
+        {
+            out.printFlash(KRABBY_FLASH_LITERAL(" open="));
             out.printNumber(static_cast<long>(end_.endCurrent()));
             out.printChar('/');
             out.printNumber(static_cast<long>(end_.endReference()));
@@ -1014,27 +1259,37 @@ private:
         }
         printEnd(plant, kind, endPos, travel, endSnap);
 
-        // A stall with neither end signature after a running phase is never
-        // an end: the pass stops before the partner joint moves.
+        // A retract after an obstacle, a park and a table-safe sweep each
+        // settle their own way.
+        if (stage_ == LegCalibrationMoveStage::Retract)
+        {
+            finishRetract(plant, endPos);
+            return;
+        }
+        if (stage_ == LegCalibrationMoveStage::Normal && action_ == LegCalibrationAction::Park)
+        {
+            finishPark(plant, endPos);
+            return;
+        }
+        if (stage_ == LegCalibrationMoveStage::Normal && action_ == LegCalibrationAction::Sweep)
+        {
+            finishSweep(plant, endPos);
+            return;
+        }
+
+        // A stall with no end signature (on a drive into a limit switch: no
+        // switch-open current) is never an end: the pass stops before the
+        // partner joint moves.
         if (endKind_ == CalibrationEnd::Stuck)
         {
             fail(plant, LegCalibrationFailure::StuckMidStroke, driveEdges);
             return;
         }
 
-        // (3) Uncurl: stage the end it reached. A hall hip's fixed sweep must
-        // have reached its target: stopping short of it is an obstacle.
+        // (3) Uncurl (a knee's, or a pot hip's): stage the end it reached.
         if (!curl_)
         {
-            if (isHallHipSweep(plant))
-            {
-                if (!sweepReached_)
-                {
-                    fail(plant, LegCalibrationFailure::SweepShort, CAL_HIP_SWEEP_EDGES - driveEdges);
-                    return;
-                }
-            }
-            else if (!motion)
+            if (!motion)
             {
                 fail(plant, LegCalibrationFailure::BarelyMoved,
                      kind == JointSensor::Pot ? magnitude(travel) : driveEdges);
@@ -1045,12 +1300,23 @@ private:
             return;
         }
 
-        // (4) Curl: compare with the curl end proven earlier, if any.
+        // (4) Curl: compare with the curl end proven earlier, if any: a hall
+        // home from this boot, or one kept through a failed run (kept: the
+        // joint is homed again where it is accepted).
         bool proven = false;
+        bool kept = false;
         int32_t reference = 0;
+        int32_t fromReference = endPos;
         if (kind == JointSensor::Hall)
         {
             proven = plant.isHomed(j);
+            if (!proven && (keptMask_ & (1U << j)) != 0)
+            {
+                proven = true;
+                kept = true;
+                fromReference = static_cast<int32_t>(ACTUATOR_HALL_EXTEND_COUNT_SIGN) *
+                                (plant.hallCount(j) - keptHome_[j]);
+            }
         }
         else if (kind == JointSensor::Pot)
         {
@@ -1058,7 +1324,7 @@ private:
             reference = curlEnd_[j];
         }
         // > 0: stopped short of the reference; < 0: deeper.
-        const int32_t shortBy = -sign_ * (endPos - reference);
+        const int32_t shortBy = -sign_ * (fromReference - reference);
         const int32_t tolerance = curlEndTolerance(kind);
 
         // (4a) The curl back after a nudge: it must stall within the tolerance
@@ -1110,12 +1376,20 @@ private:
         }
 
         // (4b) The SWEEP curl that completes the joint (back from its uncurl end).
-        if (pass_ == CAL_PASS_SWEEP && legCalibrationStep(pass_, step_).completesJoint)
+        if (pass_ == CAL_PASS_SWEEP && currentStepOf().completesJoint)
         {
             const int32_t uncurlEnd = sign_ > 0 ? stagedMin_[j] : stagedMax_[j];
-            if (!proven || sign_ * (endPos - uncurlEnd) < minimumLeave(kind))
+            if (!proven || kept || sign_ * (endPos - uncurlEnd) < minimumLeave(kind))
             {
                 fail(plant, LegCalibrationFailure::NotAtCurlEnd, endPos);
+                return;
+            }
+            const bool hallHip = kind == JointSensor::Hall && isLegCalibrationHip(j);
+            // A table-safe hip comes back to its curl switch: where its counts
+            // put the home, or they were lost.
+            if (hallHip && magnitude(shortBy) > CAL_HIP_REHOME_TOLERANCE_EDGES)
+            {
+                fail(plant, LegCalibrationFailure::LostCounts, endPos, 0);
                 return;
             }
             if (shortBy > tolerance)
@@ -1127,11 +1401,13 @@ private:
             {
                 stageEnd(endPos);
             }
-            else if (isLegCalibrationHip(j))
+            else if (hallHip)
             {
-                // The fixed sweep's range: no stroke to check.
+                // Its curl switch to its extend switch: found by a hollow-stand
+                // sweep, else derived (CAL_HIP_STROKE_EDGES).
                 stagedMin_[j] = 0;
-                stagedMax_[j] = CAL_HIP_SWEEP_EDGES;
+                if ((verifiedMask_ & (1U << j)) == 0)
+                    stagedMax_[j] = CAL_HIP_STROKE_EDGES;
             }
             else if (!checkAndStageStroke(plant, uncurlEnd, endPos, shortBy))
             {
@@ -1152,7 +1428,7 @@ private:
             }
             if (proven)
                 warnIfHomeMoved(plant, kind, shortBy, tolerance);
-            accept(plant, endPos, kind == JointSensor::Hall && (!proven || shortBy < 0));
+            accept(plant, endPos, kind == JointSensor::Hall && (!proven || kept || shortBy < 0));
             return;
         }
         // No motion: only at a curl end proven earlier. More than the tolerance
@@ -1168,7 +1444,7 @@ private:
         if (proven && (kind != JointSensor::Pot || shortBy >= -tolerance))
         {
             warnIfHomeMoved(plant, kind, shortBy, tolerance);
-            accept(plant, endPos, kind == JointSensor::Hall && shortBy < 0);
+            accept(plant, endPos, kind == JointSensor::Hall && (kept || shortBy < 0));
             return;
         }
         int limit = 0;
@@ -1231,6 +1507,112 @@ private:
         beginDrive(plant, LegCalibrationMoveStage::Return, true);
     }
 
+    // The knee's park settled: it must have reached its target (any detector
+    // end before it is an obstacle) and rest inside its band. "CAL <ROLE> PARK
+    // <j> hall=<x> target=<t> (FL values)".
+    void finishPark(LegCalibrationPlant &plant, int32_t endPos)
+    {
+        const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
+        const int target = legCalibrationParkTarget(hollow);
+        if (!sweepReached_)
+        {
+            fail(plant, LegCalibrationFailure::ParkShort, target - endPos, target);
+            return;
+        }
+        if (!isLegCalibrationParkInBand(endPos, hollow))
+        {
+            fail(plant, LegCalibrationFailure::KneeOutOfBand, endPos, hollow ? 1 : 0);
+            return;
+        }
+        parkedMask_ |= static_cast<uint8_t>(1U << joint_);
+        CalibrationTextSink &out = plant.out();
+        printJointLine(plant, out, KRABBY_FLASH_LITERAL("PARK "));
+        out.printFlash(KRABBY_FLASH_LITERAL(" hall="));
+        out.printNumber(endPos);
+        out.printFlash(KRABBY_FLASH_LITERAL(" target="));
+        out.printNumber(target);
+        out.printFlash(KRABBY_FLASH_LITERAL(" (FL values)"));
+        out.endLine();
+        advance(plant);
+    }
+
+    // The table-safe hip sweep settled. Reaching its count is the solid-stand
+    // sweep's end (staged as the uncurl end); the hollow-stand sweep must find
+    // its extend switch instead, within the tolerance of CAL_HIP_STROKE_EDGES.
+    // Anything else (an obstacle's stop or stall, the knee leaving its band, an
+    // extend switch found where the counts do not put it) retracts the hip to
+    // its curl switch, and the pass then fails.
+    void finishSweep(LegCalibrationPlant &plant, int32_t endPos)
+    {
+        const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
+        const int32_t target = sweepTarget();
+        if (kneeLeft_)
+        {
+            const uint8_t knee = legCalibrationKneeOf(joint_);
+            retractAfter(plant, LegCalibrationFailure::KneeOutOfBand, plant.position(knee), hollow ? 1 : 0, knee);
+            return;
+        }
+        const bool atSwitch = endKind_ == CalibrationEnd::Switch || endKind_ == CalibrationEnd::Still;
+        if (sweepReached_ && !hollow)
+        {
+            stageEnd(endPos);
+            advance(plant);
+            return;
+        }
+        if (sweepReached_ || atSwitch)
+        {
+            if (!sweepReached_ && hollow &&
+                magnitude(endPos - CAL_HIP_STROKE_EDGES) <= CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES)
+            {
+                verifiedMask_ |= static_cast<uint8_t>(1U << joint_);
+                stageEnd(endPos);
+                advance(plant);
+                return;
+            }
+            retractAfter(plant, LegCalibrationFailure::LostCounts, endPos, CAL_HIP_STROKE_EDGES, joint_);
+            return;
+        }
+        retractAfter(plant, LegCalibrationFailure::SweepShort, target - endPos, static_cast<int>(target), joint_);
+    }
+
+    // "CAL <ROLE> WARN <j> stopped at <x> edges: retracting" and the hip's
+    // curl back to its switch; the pass then fails with `failure` (see
+    // finishRetract).
+    void retractAfter(LegCalibrationPlant &plant, LegCalibrationFailure failure, int32_t value,
+                      int value2, uint8_t failJoint)
+    {
+        pendingFailure_ = failure;
+        pendingValue_ = value;
+        pendingValue2_ = value2;
+        pendingJoint_ = failJoint;
+        CalibrationTextSink &out = plant.out();
+        printWarnPrefix(plant, out);
+        out.printFlash(KRABBY_FLASH_LITERAL(" stopped at "));
+        out.printNumber(plant.position(joint_));
+        out.printFlash(KRABBY_FLASH_LITERAL(" edges: retracting"));
+        out.endLine();
+        beginDrive(plant, LegCalibrationMoveStage::Retract, true);
+    }
+
+    // The retract settled: at its curl switch (the detector's switch or
+    // switch-open stall, within the curl-end tolerance of its home) the pass
+    // fails with the obstacle's failure; otherwise "not back at its curl
+    // switch" (jog it home).
+    void finishRetract(LegCalibrationPlant &plant, int32_t endPos)
+    {
+        const bool home = (endKind_ == CalibrationEnd::Switch || endKind_ == CalibrationEnd::Still) &&
+                          magnitude(endPos) <= CAL_HALL_CURL_END_TOLERANCE_EDGES;
+        if (!home)
+        {
+            fail(plant, LegCalibrationFailure::NotRetracted, endPos);
+            return;
+        }
+        // Back at its curl switch: not left out.
+        stage_ = LegCalibrationMoveStage::Normal;
+        action_ = LegCalibrationAction::Seek;
+        fail(plant, pendingFailure_, pendingValue_, pendingValue2_, pendingJoint_);
+    }
+
     // Stage the end reached: min with -PWM, max with +PWM.
     void stageEnd(int32_t endPos)
     {
@@ -1284,6 +1666,7 @@ private:
         if (home)
         {
             plant.setHome(j);
+            keptMask_ &= static_cast<uint8_t>(~(1U << j));
             CalibrationTextSink &out = plant.out();
             printJointLine(plant, out, KRABBY_FLASH_LITERAL("HOME "));
             out.printFlash(KRABBY_FLASH_LITERAL(" count="));
@@ -1296,7 +1679,7 @@ private:
             curlEndKnownMask_ |= static_cast<uint8_t>(1U << j);
             curlEnd_[j] = static_cast<int>(endPos);
         }
-        if (!(pass_ == CAL_PASS_SWEEP && legCalibrationStep(pass_, step_).completesJoint))
+        if (!(pass_ == CAL_PASS_SWEEP && currentStepOf().completesJoint))
             stageEnd(endPos);
         advance(plant);
     }
@@ -1304,8 +1687,15 @@ private:
     void advance(LegCalibrationPlant &plant)
     {
         ++step_;
+        ++legStep_;
         repeated_ = false;
-        if (step_ < legCalibrationStepCount(pass_))
+        if (legStep_ >= legCalibrationLegStepCount(pass_, tableSafe_))
+        {
+            ++leg_;
+            legStep_ = 0;
+            tableSafe_ = false;
+        }
+        if (leg_ < LEG_CALIBRATION_LEG_COUNT)
         {
             beginMove(plant);
             return;
@@ -1313,6 +1703,9 @@ private:
         finishPass(plant);
     }
 
+    // "CAL <ROLE> JOINT <j> min=<a> max=<b>[ edges...]": a hall hip's extend
+    // end is derived from FL's measured stroke unless a hollow-stand sweep
+    // found its switch.
     void reportJoint(LegCalibrationPlant &plant, JointSensor kind)
     {
         CalibrationTextSink &out = plant.out();
@@ -1323,9 +1716,10 @@ private:
         out.printNumber(stagedMax_[joint_]);
         if (kind == JointSensor::Hall)
         {
-            out.printFlash(isLegCalibrationHip(joint_)
-                ? KRABBY_FLASH_LITERAL(" edges (fixed sweep)")
-                : KRABBY_FLASH_LITERAL(" edges"));
+            out.printFlash(!isLegCalibrationHip(joint_) ? KRABBY_FLASH_LITERAL(" edges")
+                           : (verifiedMask_ & (1U << joint_)) != 0
+                               ? KRABBY_FLASH_LITERAL(" edges (extend switch-verified)")
+                               : KRABBY_FLASH_LITERAL(" edges (extend derived from FL, not switch-verified)"));
         }
         out.endLine();
     }
@@ -1361,21 +1755,44 @@ private:
         finish(plant);
     }
 
-    // A failed joint is not trusted: its hall home is cleared (an abort keeps it).
+    // A failed joint (joint_, or failJoint) is not trusted: its hall home is
+    // cleared (an abort keeps it). A home proven this boot is kept as the
+    // reference of the joint's later curls (V1: a rerun that stops far short of
+    // it fails instead of homing there), unless its counts were lost.
     void fail(LegCalibrationPlant &plant, LegCalibrationFailure failure, int32_t value,
               int value2 = 0)
     {
+        fail(plant, failure, value, value2, joint_);
+    }
+
+    void fail(LegCalibrationPlant &plant, LegCalibrationFailure failure, int32_t value, int value2,
+              uint8_t failJoint)
+    {
         plant.stopAll();
         warnIfNudgedOut(plant);
+        warnIfLeftOut(plant);
         failure_ = failure;
-        failJoint_ = plant.jointName(joint_);
-        failKind_ = plant.sensor(joint_);
+        failJoint_ = plant.jointName(failJoint);
+        failKind_ = plant.sensor(failJoint);
         failCurl_ = curl_;
         failValue_ = value;
         failValue2_ = value2;
         outcome_ = LegCalibrationOutcome::Failed;
         if (failKind_ == JointSensor::Hall)
-            plant.clearHome(joint_);
+        {
+            const uint8_t bit = static_cast<uint8_t>(1U << failJoint);
+            if (failure == LegCalibrationFailure::LostCounts)
+            {
+                keptMask_ &= static_cast<uint8_t>(~bit);
+            }
+            else if (plant.isHomed(failJoint))
+            {
+                keptHome_[failJoint] = plant.hallCount(failJoint) -
+                    static_cast<int32_t>(ACTUATOR_HALL_EXTEND_COUNT_SIGN) * plant.position(failJoint);
+                keptMask_ |= bit;
+            }
+            plant.clearHome(failJoint);
+        }
         CalibrationTextSink &out = plant.out();
         printPrefix(plant, out);
         out.printFlash(KRABBY_FLASH_LITERAL("FAIL "));
@@ -1395,7 +1812,20 @@ private:
     LegCalibrationMoveStage stage_;
     uint8_t passes_;
     uint8_t pass_;
-    uint8_t step_;
+    uint8_t step_;      // steps begun in this pass before the current one
+    uint8_t leg_;       // 0 = leg A, 1 = leg B
+    uint8_t legStep_;   // the current leg's step (legCalibrationStep)
+    bool tableSafe_;    // the current leg's SWEEP runs the table-safe order
+    LegCalibrationAction action_;  // the current step's action
+    uint8_t parkedMask_;  // knees parked in band this run, not driven since
+    uint8_t keptMask_;    // hall joints whose home this boot is kept after a failure
+    uint8_t verifiedMask_;  // hips whose extend switch the hollow-stand sweep found
+    // The obstacle failure a retract ends in (finishRetract).
+    LegCalibrationFailure pendingFailure_;
+    int32_t pendingValue_;
+    int pendingValue2_;
+    uint8_t pendingJoint_;
+    bool kneeLeft_;  // the sweep stopped because its knee left its park band
     uint8_t pwm_;
     uint8_t options_;      // CAL_OPT_* bits of this run
     uint8_t joint_;
@@ -1436,4 +1866,5 @@ private:
     int stagedMin_[LEG_CALIBRATION_JOINT_COUNT];
     int stagedMax_[LEG_CALIBRATION_JOINT_COUNT];
     int curlEnd_[LEG_CALIBRATION_JOINT_COUNT];
+    int32_t keptHome_[LEG_CALIBRATION_JOINT_COUNT];  // raw count of a kept home
 };

@@ -13,8 +13,12 @@
 // free of its curl end (nor at 100), FLKL and FRKL uncurls stalled short of
 // their switch, and the FR knee's curl end showed only an 11% current rise. At
 // 120 and 150 every end of the front legs showed its current signature.
+// CAL_PWM_MIN 110 (owner decision F4, 2026-11-24): PWM 80 stalls mid-stroke
+// with no current signature on today's supply (FLHL 229 edges short of its
+// curl switch, clearance-FL-173941), and below about 110 drives may never
+// reach arming speed.
 static constexpr int CAL_DEFAULT_PWM = 128;
-static constexpr int CAL_PWM_MIN = 40;
+static constexpr int CAL_PWM_MIN = 110;
 static constexpr int CAL_PWM_MAX = 150;
 
 // Soft start: the magnitude climbs from 0 by this step every interval, never
@@ -87,19 +91,50 @@ static constexpr int CAL_HALL_CURL_END_TOLERANCE_EDGES = 40;
 // Stroke bounds in edges: a knee's measured stroke must fall inside them, and the
 // minimum is also the least a knee uncurl, or any SWEEP curl back, must travel.
 // PROVISIONAL: one knee measured (FLKL, full stroke 776 edges with its hip
-// curled, 2026-11-23): about 0.6 x and 2 x that stroke. Hall hips have no
-// measured stroke: they sweep CAL_HIP_SWEEP_EDGES.
+// curled, 2026-11-23): about 0.6 x and 2 x that stroke. A hall hip's stroke is
+// not measured by calibration on a solid stand: it is CAL_HIP_STROKE_EDGES.
 static constexpr int CAL_HALL_MIN_STROKE_EDGES = 450;
 static constexpr int CAL_HALL_MAX_STROKE_EDGES = 1500;
-// Fixed hall hip sweep: in SWEEP a hall hip uncurls from its proven curl end
-// until it has made this many drive edges, then stops (it never runs to a
-// stall), and its saved range is [0, CAL_HIP_SWEEP_EDGES], so T never drives it
-// further. With its knee curled, a full hip uncurl presses the curled tibia
-// against the bottom of the robot: FLHL stopped there at 941 edges (knee 24
-// edges off its curl end) and 1003 edges (knee curled tight). PROVISIONAL:
-// about 70% of that reach (the owner's "fixed 70% for now", 2026-11-23). Pot
-// hips (builds without quadrature halls) still sweep to their end.
-static constexpr int CAL_HIP_SWEEP_EDGES = 700;
+// Table-safe SWEEP of a hall leg (fix round 2026-11-24, from the FL leg's
+// measured geometry: firmware/fixround-inputs/2026-11-24, table-safe-schedule):
+// with its hip proven curled (0) the knee curls to its stop, uncurls to its
+// switch (about 785 out) and parks CAL_KNEE_PARK_EDGES out of its curl stop
+// (the knee frame is [-S, 0], so it parks at -264), inside
+// [CAL_KNEE_PARK_BAND_MIN_EDGES, CAL_KNEE_PARK_BAND_MAX_EDGES] out. With the
+// knee held there the hip sweeps by count to CAL_HIP_SWEEP_EDGES and comes
+// back to its curl switch, which must read within
+// CAL_HIP_REHOME_TOLERANCE_EDGES of 0 (else lost counts); the knee moves again
+// only once its hip is home. Any end of the hip sweep before its target is an
+// obstacle: the hip retracts to its curl switch and the pass fails, with no
+// retry. The model's worst case allows 864; a robot check at 866 put the toe
+// about 5 in from the table side against about 8 in modelled, so 840 keeps
+// margin. With the knee curled the tibia meets the body at 941-1003, and no
+// knee setting keeps the leg clear of the belly, a solid table and the floor at
+// the hip's extend switch: calibration never seeks it on a solid stand.
+// PROVISIONAL: only FL is modelled; every leg uses FL's values (flagged per leg
+// in the PARK and JOINT lines).
+static constexpr int CAL_KNEE_PARK_EDGES = 264;
+static constexpr int CAL_KNEE_PARK_BAND_MIN_EDGES = 244;
+static constexpr int CAL_KNEE_PARK_BAND_MAX_EDGES = 280;
+static constexpr int CAL_HIP_SWEEP_EDGES = 840;
+static constexpr int CAL_HIP_REHOME_TOLERANCE_EDGES = 10;
+// The hip's saved range is [0, CAL_HIP_STROKE_EDGES]: its curl switch to its
+// extend switch, FL measured switch to switch 3 of 3 on 2026-11-24 (it matches
+// the 203.2 mm label at 5.26 counts/mm). It is derived, not switch-verified:
+// T stays ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES short of it. An extend switch
+// found more than CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES short of (or past) it
+// means lost counts.
+static constexpr int CAL_HIP_STROKE_EDGES = 1069;
+static constexpr int CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES = 20;
+// Optional "hollow stand" sweep (CAL_OPT_HOLLOW_STAND, off by default, a build
+// opt-in only): the knee parks CAL_KNEE_HOLLOW_PARK_EDGES out (band
+// CAL_KNEE_HOLLOW_BAND_MIN/MAX_EDGES) and the hip sweeps on to its extend
+// switch, which the detector must find within the tolerance of
+// CAL_HIP_STROKE_EDGES; that leg's range is then switch-verified. On a solid
+// table this sweep drives the toe into the table's side: never on one.
+static constexpr int CAL_KNEE_HOLLOW_PARK_EDGES = 192;
+static constexpr int CAL_KNEE_HOLLOW_BAND_MIN_EDGES = 157;
+static constexpr int CAL_KNEE_HOLLOW_BAND_MAX_EDGES = 232;
 
 // Verification nudge of a joint that shows no motion on its curl: out, then a
 // full curl back. A hip nudge runs 24 edges or 2000 ms from nudge start (ramp
@@ -135,6 +170,16 @@ static constexpr int CAL_POT_NUDGE_COUNTS = 30;
 // 110) would shorten it, but a knee that cannot break free then fails
 // NoFeedback. The owner's choice.
 static constexpr int CAL_KNEE_NUDGE_MAX_PWM = CAL_DEFAULT_PWM;
+// R4: the hip nudge never ramps past this PWM either (C 150 nudges at 128),
+// and a hip nudge that has counted no edge (at most CAL_POT_DETECT_MAX_EDGES)
+// CAL_HIP_NUDGE_BLIND_MS after it started stops there instead of driving on to
+// CAL_HIP_NUDGE_MAX_MS: a blind hip (hall A dead) with its knee curled would
+// otherwise drive out about 140 edges in 2 s at 128 (hips at 128 uncurl
+// 134-144 edges in 2.0 s), toward where the curled tibia meets the body. A
+// healthy hip counts its first edges within about 0.3 s and makes its 24 edges
+// in about 0.6 s at 128 (clearance-FL-173941#14).
+static constexpr int CAL_HIP_NUDGE_MAX_PWM = CAL_DEFAULT_PWM;
+static constexpr uint32_t CAL_HIP_NUDGE_BLIND_MS = 1000;
 // The curl back after a hall knee nudge is accepted when it stalls no more than
 // CAL_HALL_CURL_END_TOLERANCE_EDGES short of where the knee rested before the
 // nudge and moved at least this many edges toward curl: any motion beyond the
@@ -283,11 +328,22 @@ static constexpr int CAL_HALLB_REST_HIGH_MIN = 1013;
 // straight back): the one approved exception to "a knee moves only with its hip
 // curled".
 static constexpr uint8_t CAL_OPT_KNEE_NUDGE = 0x01;
-static constexpr uint8_t CAL_OPT_ALL = CAL_OPT_KNEE_NUDGE;
+// The "hollow stand" SWEEP (see CAL_KNEE_HOLLOW_PARK_EDGES): the hip sweeps on
+// to its extend switch with the knee parked at the hollow-stand knee, and its
+// range becomes switch-verified. Off by default; only a build with
+// -DKRABBY_CAL_HOLLOW_STAND=1 runs it from the C command (there is no command
+// token, so it cannot be typed by mistake on a solid stand).
+static constexpr uint8_t CAL_OPT_HOLLOW_STAND = 0x02;
+static constexpr uint8_t CAL_OPT_ALL = CAL_OPT_KNEE_NUDGE | CAL_OPT_HOLLOW_STAND;
+#ifndef KRABBY_CAL_HOLLOW_STAND
+#define KRABBY_CAL_HOLLOW_STAND 0
+#endif
 // Shipped default, used by every C command run (the command cannot change it):
-// the knee nudge, approved by the robot's owner on 2026-11-23. The strict path
-// (no knee nudge) is options 0, passed explicitly to startCalibration.
-static constexpr uint8_t CAL_DEFAULT_OPTIONS = CAL_OPT_KNEE_NUDGE;
+// the knee nudge, approved by the robot's owner on 2026-11-23, and the
+// table-safe (solid stand) hip sweep. The strict path (no knee nudge) is
+// options 0, passed explicitly to startCalibration.
+static constexpr uint8_t CAL_DEFAULT_OPTIONS =
+    CAL_OPT_KNEE_NUDGE | (KRABBY_CAL_HOLLOW_STAND ? CAL_OPT_HOLLOW_STAND : 0);
 
 // Pass selection bits: SEEK curls every leg, SWEEP measures each hip and knee.
 static constexpr uint8_t CAL_PASS_SEEK = 0x01;
@@ -398,5 +454,22 @@ static_assert(CAL_HIP_SWEEP_EDGES >= CAL_HALL_MIN_STROKE_EDGES &&
               "the hip sweep must leave room for the curl back's minimum travel and fit the stroke bounds");
 static_assert(CAL_HIP_SWEEP_EDGES > CAL_HIP_NUDGE_EDGES + CAL_HALL_CURL_END_TOLERANCE_EDGES,
               "the hip sweep must exceed a nudge plus the curl-end tolerance");
+static_assert(CAL_HIP_SWEEP_EDGES < CAL_HIP_STROKE_EDGES - CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES &&
+                  CAL_HIP_STROKE_EDGES + CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES <= CAL_HALL_MAX_STROKE_EDGES &&
+                  CAL_HIP_STROKE_EDGES >= CAL_HALL_MIN_STROKE_EDGES,
+              "the hip sweep must stop short of the extend switch, whose stroke fits the bounds");
+static_assert(CAL_HIP_REHOME_TOLERANCE_EDGES > 0 &&
+                  CAL_HIP_REHOME_TOLERANCE_EDGES <= ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES,
+              "lost counts within the re-home tolerance must not reach the extend switch");
+static_assert(CAL_KNEE_PARK_BAND_MIN_EDGES < CAL_KNEE_PARK_EDGES &&
+                  CAL_KNEE_PARK_EDGES < CAL_KNEE_PARK_BAND_MAX_EDGES &&
+                  CAL_KNEE_HOLLOW_BAND_MIN_EDGES < CAL_KNEE_HOLLOW_PARK_EDGES &&
+                  CAL_KNEE_HOLLOW_PARK_EDGES < CAL_KNEE_HOLLOW_BAND_MAX_EDGES &&
+                  CAL_KNEE_PARK_BAND_MAX_EDGES + ACTUATOR_ENC_SWITCH_INSET_EDGES < CAL_HALL_MIN_STROKE_EDGES &&
+                  CAL_KNEE_HOLLOW_BAND_MIN_EDGES > ACTUATOR_ENC_STOP_INSET_EDGES,
+              "a knee park band must hold its park and lie inside the knee's stroke");
+static_assert(CAL_HIP_NUDGE_MAX_PWM >= CAL_PWM_MIN && CAL_HIP_NUDGE_MAX_PWM <= CAL_PWM_MAX &&
+                  CAL_HIP_NUDGE_BLIND_MS < CAL_HIP_NUDGE_MAX_MS,
+              "the hip nudge cap must be a valid calibration PWM, its blind stop before its time cap");
 static_assert((CAL_DEFAULT_OPTIONS & ~CAL_OPT_ALL) == 0,
               "the default options contain an unknown bit");

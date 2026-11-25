@@ -27,9 +27,15 @@ static constexpr int ACTUATOR_ENC_MAX_PWM = 150;
 // overshoot only opens the switch): ACTUATOR_ENC_SWITCH_INSET_EDGES inside it.
 // The maxStop side is the knee's compliant leg stop (recorded 0-5 edges
 // shallower than a hard push ends; 150 pushes 10-20 edges deeper than 80,
-// 2026-11-24) or the hip sweep end: ACTUATOR_ENC_STOP_INSET_EDGES inside it.
+// 2026-11-24): ACTUATOR_ENC_STOP_INSET_EDGES inside it; or a hip's extend
+// switch: ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES inside it.
 static constexpr int ACTUATOR_ENC_SWITCH_INSET_EDGES = 8;
 static constexpr int ACTUATOR_ENC_STOP_INSET_EDGES = 25;
+// A hall hip's maxStop is its extend switch, derived as home +
+// CAL_HIP_STROKE_EDGES (not switch-verified): T stays this far inside it, so
+// the switch remains a hardware backstop (fix round 2026-11-24: "soft limit
+// about 10 counts short").
+static constexpr int ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES = 10;
 // A homed encoder reading this far outside its stroke clears the home.
 static constexpr int ACTUATOR_ENC_RANGE_MARGIN_EDGES = 60;
 
