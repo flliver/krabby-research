@@ -217,6 +217,55 @@ static constexpr uint8_t CAL_END_SHORT_RUN_SAMPLES = 40;
 // its curl end, as it was not before the detector.
 static constexpr uint32_t CAL_END_STILL_WINDOW_MS = 500;
 static constexpr uint32_t CAL_END_STILL_MIN_DRIVE_MS = 1000;
+// Switch-open signature (V1/R1, 2026-11-24 fix round). Once a limit switch
+// opens the motor stops conducting and the current sits flat at the IS
+// channel's offset: FL hip and knee 7-8 counts, FRHL 11, every switch end of
+// the FL end test (clearance-FL-173941) and of fr-recover flat to within one
+// count. The same channel reads that offset at the start of each drive, with
+// EN high and the PWM still low (a running motor adds 2-9 counts, a stalled
+// one more: FL at PWM 80 sat at 9-14 counts 229 edges short of its curl
+// switch, FRHL at 128 at 17-31, 878 short). The floor is the lowest current of
+// samples CAL_END_FLOOR_FIRST_SAMPLE (the IS has settled 150-200 ms after EN
+// went high) through the ramp, at least through CAL_END_FLOOR_LAST_MIN_SAMPLE.
+// switchOpen: the last CAL_END_OPEN_SAMPLES currents at most
+// CAL_END_OPEN_MARGIN_TENTHS above the floor (FRHL's IS reaches its 11 only
+// about 150 ms after EN goes high, so its floor reads up to 1 count low) and
+// within CAL_END_OPEN_FLAT_TENTHS of each other.
+static constexpr uint8_t CAL_END_FLOOR_FIRST_SAMPLE = 3;
+static constexpr uint8_t CAL_END_FLOOR_LAST_MIN_SAMPLE = 4;
+static constexpr uint8_t CAL_END_OPEN_SAMPLES = 6;
+static constexpr uint16_t CAL_END_OPEN_MARGIN_TENTHS = 15;
+static constexpr uint16_t CAL_END_OPEN_FLAT_TENTHS = 10;
+// An unarmed stall of a switch-end drive is judged once the count has been
+// still this many samples: the current takes about 3 samples to fall to the
+// switch-open level after the count stops, and switchOpen then looks at the
+// CAL_END_OPEN_SAMPLES after it.
+static constexpr uint8_t CAL_END_OPEN_SETTLE_SAMPLES = 9;
+// V3: on a switch-end drive Stuck needs CAL_END_SWITCH_STUCK_STILL_MS without
+// a forward edge (CAL_END_STUCK_STILL_MS elsewhere), so the switch's drop and
+// its switchOpen samples come first, and it waits on while the newest current
+// is more than CAL_END_FALL_TENTHS below the higher of the two before it (a
+// switch drop in progress: FLKL crawling into its switch at PWM 120 dropped
+// 10, 8, 7 counts starting 0.41 s after its last edge, endcur-111808#10) or
+// already sits within CAL_END_OPEN_MARGIN_TENTHS of the floor (the motor is
+// not pressing: switchOpen is due), but no longer than
+// CAL_END_STUCK_STILL_MAX_MS without a forward edge.
+static constexpr uint32_t CAL_END_SWITCH_STUCK_STILL_MS = 600;
+static constexpr uint16_t CAL_END_FALL_TENTHS = 5;
+static constexpr uint32_t CAL_END_STUCK_STILL_MAX_MS = 1000;
+// V3: the arrival speed of a switch stop is the fastest of the speeds at the
+// last forward edge and this many samples before it (FLHL curling into its
+// switch at 120 turned slow when its last edge came one sample late,
+// endcur-111808#17).
+static constexpr uint8_t CAL_END_ARRIVE_LOOKBACK_SAMPLES = 2;
+// R2: a hip's extended end is a limit switch too (FLHL 3 of 3 on 2026-11-24:
+// 11-12 counts falling to 7-8 at 1070, after a 25-50% rise over its last
+// edges). On a hip extend the stop rule (then an obstacle) also needs the
+// count still CAL_END_SWITCH_STOP_STILL_SAMPLES samples, so the switch can
+// show its drop first, unless its streak reaches
+// CAL_END_SWITCH_STOP_LONG_SAMPLES (an obstacle the hip still creeps into).
+static constexpr uint8_t CAL_END_SWITCH_STOP_STILL_SAMPLES = 5;
+static constexpr uint8_t CAL_END_SWITCH_STOP_LONG_SAMPLES = 8;
 
 // Pot evidence on quadrature builds, read at rest (mean of direct reads). The
 // analog pins also carry hall B, which rests at 0-19 or 1013-1020, so a pot has
@@ -323,6 +372,21 @@ static_assert(CAL_END_SWITCH_SLOW_IREF_PCT < 100 && CAL_END_SHORT_NORMAL_SAMPLES
               "a slow switch opens below the running level; the short-curl bounds must be positive");
 static_assert(CAL_HIP_NUDGE_MAX_MS + CAL_STALL_WINDOW_MS < 0xFFFFUL,
               "a blind Return's minimum drive time must fit uint16");
+static_assert(CAL_END_OPEN_SAMPLES >= 2 && CAL_END_OPEN_SAMPLES < CAL_END_RING &&
+                  CAL_END_OPEN_SETTLE_SAMPLES >= CAL_END_SWITCH_STILL_SAMPLES + CAL_END_OPEN_SAMPLES &&
+                  CAL_END_FLOOR_FIRST_SAMPLE <= CAL_END_FLOOR_LAST_MIN_SAMPLE &&
+                  CAL_END_FLOOR_LAST_MIN_SAMPLE < CAL_STALL_WINDOW_MS / CAL_END_SAMPLE_MS,
+              "the switch-open test must fit the ring and follow the floor");
+static_assert(CAL_END_SWITCH_STUCK_STILL_MS >= CAL_END_STUCK_STILL_MS &&
+                  CAL_END_SWITCH_STUCK_STILL_MS / CAL_END_SAMPLE_MS > CAL_END_OPEN_SETTLE_SAMPLES &&
+                  CAL_END_STUCK_STILL_MAX_MS > CAL_END_SWITCH_STUCK_STILL_MS &&
+                  CAL_END_STUCK_STILL_MAX_MS <= CAL_STALL_WINDOW_MS,
+              "the falling-current wait must be bounded inside the stall window");
+static_assert(CAL_END_SWITCH_STILL_SAMPLES + CAL_END_ARRIVE_LOOKBACK_SAMPLES + 4 < CAL_END_RING,
+              "the arrival lookback must fit the ring");
+static_assert(CAL_END_SWITCH_STOP_STILL_SAMPLES > CAL_END_SWITCH_STILL_SAMPLES &&
+                  CAL_END_SWITCH_STOP_LONG_SAMPLES > CAL_END_STOP_HOLD_SAMPLES,
+              "a hip extend's stop must leave its switch time to show");
 static_assert(CAL_HALL_MIN_STROKE_EDGES < CAL_HALL_MAX_STROKE_EDGES,
               "the stroke bounds are empty");
 static_assert(CAL_HALL_MAX_STROKE_EDGES + ACTUATOR_ENC_RANGE_MARGIN_EDGES <=

@@ -18,18 +18,37 @@
 // v = e_k - e_(k-4): edges per 200 ms. Forward progress is a new maximum of e
 // (a bounce back at a stop is not progress); still = samples since the last one.
 //
+// The switch-open signature (2026-11-24, every hip and knee limit switch on the
+// FL and FR legs): once an actuator's internal limit switch opens, the motor no
+// longer conducts and the current sits flat at the IS channel's own offset
+// (FL 7-8 counts, FRHL 11), the level it also reads at the start of a drive
+// while the motor draws almost nothing. A motor stalled mid-stroke still
+// conducts: its current sits above that level and wobbles (FL at PWM 80: 9-14;
+// FRHL at 128: 17-31). So the detector keeps the drive's floor, the lowest
+// current of samples CAL_END_FLOOR_FIRST_SAMPLE.. through the ramp (the PWM
+// still low, the IS settled after EN went high), and a switch end must show
+// the last CAL_END_OPEN_SAMPLES currents at most CAL_END_OPEN_MARGIN_TENTHS
+// above that floor and within CAL_END_OPEN_FLAT_TENTHS of each other
+// (switchOpen). It is measured per drive, so it needs no per-joint table.
+//
 // Unarmed (no running phase yet: a press of a joint already at its end, a
-// short return, a joint slower than arming speed), only stall rules apply, so
-// such a drive's end is found by stall alone, as before the detector:
-//   curl drive:   Still once the ramp is done, k * 50 >= minStillMs, and fewer
-//                 than CAL_HALL_STALL_MIN_EDGES edges in the last
+// short return, a joint slower than arming speed), only stall rules apply:
+//   curl drive:   a stall once the ramp is done, k * 50 >= minStillMs, and
+//                 fewer than CAL_HALL_STALL_MIN_EDGES edges in the last
 //                 CAL_END_STILL_WINDOW_MS (k >= 10), or in the last
 //                 CAL_STALL_WINDOW_MS (k >= 20) once the drive has made
 //                 CAL_HALL_CURL_EVIDENCE_EDGES edges (a slow joint pausing
 //                 0.5 s mid-stroke is not at its end).
-//   uncurl drive: Still CAL_START_GRACE_MS + CAL_STALL_WINDOW_MS after the
+//   uncurl drive: a stall CAL_START_GRACE_MS + CAL_STALL_WINDOW_MS after the
 //                 ramp with fewer than CAL_HALL_STALL_MIN_EDGES edges in the
 //                 last CAL_STALL_WINDOW_MS (the time a joint has to break free).
+//   A stall of an extend drive ends Still (by stall alone, as before the
+//   detector: a knee's leg stop or an obstacle). A stall of a drive into a
+//   limit switch (a retract, or a hip extend) waits until the count has been
+//   still CAL_END_OPEN_SETTLE_SAMPLES samples, then ends Still only with the
+//   switch-open signature and Stuck without it: a hip curl that never reached
+//   running speed (a press mid-stroke, a nudge return, a start close to a stall
+//   point) is never taken as its home on a stall alone.
 // Arming: from CAL_END_LEARN_DELAY_MS after the ramp, CAL_END_ARM_SAMPLES
 // samples in a row with v >= CAL_END_RUN_MIN_EDGES and at least
 // CAL_HALL_CURL_EVIDENCE_EDGES drive edges. Then iRef = median of those six
@@ -37,28 +56,41 @@
 // speed (v >= CAL_END_RUN_MIN_EDGES and >= CAL_END_NORMAL_SPEED_PCT of vRef)
 // moves iRef by at most CAL_END_IREF_STEP toward its current and raises vRef to
 // its speed (peak hold).
-// Armed, the PWM sign picks the end rule:
-//   retract (-PWM, the rod's limit switch): Switch once still >= 3 and the
+// Armed, the drive's end kinds pick the rules:
+//   switch end (a retract into the rod's limit switch, and a hip extend: its
+//     extended end is a limit switch too): Switch once still >= 3, the
 //     highest of the last 3 currents is <= 88% of the reference (the median of
 //     up to 20 samples before the last forward edge), or after a slow arrival
-//     (speed at the last edge < 50% of vRef: a crawl into the switch) <= 70%,
-//     below every reference sample and <= 90% of iRef (a switch opens below
-//     the running level; a stalled motor's current wobbles above it).
-//   extend (+PWM, a mechanical stop): Stop after 3 samples in a row with
-//     v <= 25% of vRef and the median of the last 4 currents >= 125% of iRef.
+//     (the fastest of the speeds at the last forward edge and the two samples
+//     before it < 50% of vRef: a crawl into the switch) <= 70%, below every
+//     reference sample and <= 90% of iRef, and the current shows switchOpen.
+//   extend (+PWM: a knee's mechanical stop, or for a hip an obstacle): Stop
+//     after 3 samples in a row with v <= 25% of vRef and the median of the last
+//     4 currents >= 125% of iRef. On a hip extend (its end a switch) the Stop
+//     also needs the count still CAL_END_SWITCH_STOP_STILL_SAMPLES samples,
+//     unless the streak reaches CAL_END_SWITCH_STOP_LONG_SAMPLES (a creeping
+//     obstacle): the current rises 25-50% in the last edges before the hip's
+//     extend switch opens (2026-11-24, FLHL 3 of 3), and the switch must get
+//     the chance to show its drop first.
 //   either: Stuck once k >= 20, fewer than CAL_HALL_STALL_MIN_EDGES edges in
-//     the last 1000 ms and no forward edge for CAL_END_STUCK_STILL_MS. A stall
-//     with neither signature after a running phase is never an end.
+//     the last 1000 ms and no forward edge for CAL_END_STUCK_STILL_MS
+//     (CAL_END_SWITCH_STUCK_STILL_MS on a switch-end drive, which also waits
+//     while the current is still falling, a switch drop in progress, or
+//     already sits at the floor, up to CAL_END_STUCK_STILL_MAX_MS). A stall with neither signature after a
+//     running phase is never an end.
 //   Short curl drive: a curl that armed in its own end approach (the joint
 //     started 50-130 edges from its end, so the six arming samples fall in the
 //     deceleration into it and iRef and vRef are already the end's) has no
 //     running phase to judge a signature against. Such a stall (fewer than
 //     CAL_END_SHORT_NORMAL_SAMPLES normal-speed samples since arming, its last
 //     forward edge fewer than CAL_END_SHORT_RUN_SAMPLES samples after arming)
-//     ends Still, the plain stall of an unarmed drive, unless it is a retract
-//     whose median current is above iRef (a stalled motor, never a switch).
-// The Python reference this matches sample for sample, and the robot traces it
-// was tuned on (2026-11-24), are named in the native test.
+//     ends Still, the plain stall, on an extend drive (a knee's leg stop: an
+//     obstacle on a knee curl looks the same), and on a switch-end drive only
+//     with switchOpen, else Stuck.
+// So a stall is taken as an end without a signature only on an extend drive:
+// a knee curl (an obstacle there looks like the leg stop) or a hip sweep,
+// which the sequencer then treats as an obstacle. The robot traces this was
+// checked against (2026-11-23/24) are named in the native test.
 
 // The detector's current from a smoothed IS reading (avgIS): round(10 * avgIS),
 // clamped to [0, 65535].
@@ -75,10 +107,10 @@ inline uint16_t calibrationCurrentTenths(float avgIS)
 enum class CalibrationEnd : uint8_t
 {
     None,
-    Switch,  // armed retract: the count stopped and the current dropped
+    Switch,  // armed switch end: the count stopped, the current dropped to switch-open
     Stop,    // armed extend: the speed collapsed and the current rose
-    Stuck,   // armed: no progress and no end signature
-    Still,   // unarmed or a short curl: no progress (stall-only rule, as before the detector)
+    Stuck,   // no progress and no end signature (a switch-end stall without switch-open)
+    Still,   // a stall without a running phase to judge (extend), or one at switch-open
 };
 
 class CalibrationEndDetector
@@ -89,10 +121,15 @@ public:
     // A new drive starting at nowMs. retract: -PWM (limit-switch end), else the
     // extend rules. leaving: an uncurl (it must break free of the curl end).
     // minStillMs: the least drive time before an unarmed curl may end Still.
-    void begin(uint32_t nowMs, bool retract, bool leaving, uint32_t minStillMs)
+    // extendSwitch: an extend drive whose end is also a limit switch (a hip:
+    // the switch rule and switchOpen apply as on a retract, besides the stop
+    // rule, which then means an obstacle).
+    void begin(uint32_t nowMs, bool retract, bool leaving, uint32_t minStillMs,
+               bool extendSwitch = false)
     {
         retract_ = retract;
         leaving_ = leaving;
+        switchEnd_ = retract || extendSwitch;
         const uint32_t samples = minStillMs / CAL_END_SAMPLE_MS + (minStillMs % CAL_END_SAMPLE_MS != 0 ? 1U : 0U);
         minStillSamples_ = samples > 0xFFFFUL ? 0xFFFFU : static_cast<uint16_t>(samples);
         nextSampleMs_ = nowMs + CAL_END_SAMPLE_MS;
@@ -116,6 +153,7 @@ public:
         stopRef_ = 0;
         stopMin_ = 0;
         stopFast_ = false;
+        floor_ = 0xFFFFU;
         endCurrent_ = 0;
         endReference_ = 0;
         for (uint8_t n = 0; n < CAL_END_RING; ++n)
@@ -170,6 +208,13 @@ public:
             lastForward_ = k;
             stopRefValid_ = false;
         }
+        // The floor: from CAL_END_FLOOR_FIRST_SAMPLE through the sample that
+        // completes the ramp (at least through CAL_END_FLOOR_LAST_MIN_SAMPLE).
+        if (k >= CAL_END_FLOOR_FIRST_SAMPLE &&
+            (!rampSeen_ || k <= CAL_END_FLOOR_LAST_MIN_SAMPLE) && currentTenths < floor_)
+        {
+            floor_ = currentTenths;
+        }
         if (!rampSeen_)
         {
             if (!rampDone)
@@ -198,8 +243,9 @@ public:
                 ++normalSamples_;
         }
         const uint16_t med4 = medianBack(0, 4, nullptr);
+        const uint16_t still = static_cast<uint16_t>(k - (hasForward_ ? lastForward_ : 0));
 
-        if (retract_)
+        if (switchEnd_)
         {
             const uint16_t last = hasForward_ ? lastForward_ : kArm_;
             if (k - last >= CAL_END_SWITCH_STILL_SAMPLES)
@@ -218,33 +264,48 @@ public:
                     (stopFast_ ||
                      (worst < stopMin_ &&
                       static_cast<uint32_t>(worst) * 100UL <=
-                          static_cast<uint32_t>(CAL_END_SWITCH_SLOW_IREF_PCT) * iRef_)))
+                          static_cast<uint32_t>(CAL_END_SWITCH_SLOW_IREF_PCT) * iRef_)) &&
+                    switchOpen())
                 {
                     return decide(CalibrationEnd::Switch, worst, stopRef_);
                 }
             }
         }
-        else
+        if (!retract_)
         {
             const bool slow = v * 100 <=
                 static_cast<int32_t>(CAL_END_STOP_SPEED_PCT) * vRef_;
             const bool hot = static_cast<uint32_t>(med4) * 100UL >=
                 static_cast<uint32_t>(CAL_END_STOP_CURRENT_PCT) * iRef_;
             stopStreak_ = slow && hot ? static_cast<uint8_t>(stopStreak_ + 1U) : 0;
-            if (stopStreak_ >= CAL_END_STOP_HOLD_SAMPLES)
+            // A hip extend (switchEnd_) gives its extend switch the chance to
+            // show its drop before the rising current counts as an obstacle.
+            if (stopStreak_ >= CAL_END_STOP_HOLD_SAMPLES &&
+                (!switchEnd_ || still >= CAL_END_SWITCH_STOP_STILL_SAMPLES ||
+                 stopStreak_ >= CAL_END_SWITCH_STOP_LONG_SAMPLES))
+            {
                 return decide(CalibrationEnd::Stop, med4, iRef_);
+            }
         }
 
-        const uint16_t still = static_cast<uint16_t>(k - (hasForward_ ? lastForward_ : 0));
         if (k >= kStallSamples && progressOver(kStallSamples) < CAL_HALL_STALL_MIN_EDGES &&
-            static_cast<uint32_t>(still) * CAL_END_SAMPLE_MS >= CAL_END_STUCK_STILL_MS)
+            static_cast<uint32_t>(still) * CAL_END_SAMPLE_MS >=
+                (switchEnd_ ? CAL_END_SWITCH_STUCK_STILL_MS : CAL_END_STUCK_STILL_MS))
         {
+            // A switch drop in progress, or a current already down at the
+            // floor (not pressing): wait, bounded, for switchOpen's verdict.
+            if (switchEnd_ && (currentFalling() || atFloor()) &&
+                static_cast<uint32_t>(still) * CAL_END_SAMPLE_MS < CAL_END_STUCK_STILL_MAX_MS)
+            {
+                return CalibrationEnd::None;
+            }
             const uint16_t ran = static_cast<uint16_t>(
                 (hasForward_ && lastForward_ > kArm_ ? lastForward_ : kArm_) - kArm_);
             if (!leaving_ && normalSamples_ < CAL_END_SHORT_NORMAL_SAMPLES &&
-                ran < CAL_END_SHORT_RUN_SAMPLES && (!retract_ || med4 <= iRef_))
+                ran < CAL_END_SHORT_RUN_SAMPLES &&
+                (!switchEnd_ || (med4 <= iRef_ && switchOpen())))
             {
-                return decide(CalibrationEnd::Still, med4, iRef_);
+                return decide(CalibrationEnd::Still, med4, switchEnd_ ? floor_ : iRef_);
             }
             return decide(CalibrationEnd::Stuck, med4, iRef_);
         }
@@ -264,10 +325,17 @@ public:
     int32_t speedReference() const { return vRef_; }
     // The decision's current and the reference it was compared with (tenths):
     // Switch: the highest of the last 3 samples / the frozen stop reference;
-    // Stop, Stuck and a short curl's Still: the median of the last 4 samples /
-    // iRef; an unarmed Still: 0 / 0.
+    // Stop and Stuck: the median of the last 4 samples / iRef; a short curl's
+    // Still: the median of the last 4 / iRef (extend) or the floor (switch
+    // end); an unarmed drive's Still or Stuck: the highest of the last
+    // CAL_END_OPEN_SAMPLES / the floor (0 / 0 for an extend drive's Still).
     uint16_t endCurrent() const { return endCurrent_; }
     uint16_t endReference() const { return endReference_; }
+    // The drive's floor (tenths; 65535 until sample CAL_END_FLOOR_FIRST_SAMPLE).
+    uint16_t currentFloor() const { return floor_; }
+    // The last CAL_END_OPEN_SAMPLES currents sit flat at the floor (the
+    // switch-open signature).
+    bool isSwitchOpen() const { return switchOpen(); }
 
 private:
     static constexpr uint16_t kStallSamples =
@@ -340,18 +408,88 @@ private:
         return sorted[CAL_END_ARM_SAMPLES / 2];
     }
 
+    // The highest and lowest of the last CAL_END_OPEN_SAMPLES currents.
+    void openSpan(uint16_t &high, uint16_t &low) const
+    {
+        high = 0;
+        low = 0xFFFFU;
+        for (uint8_t back = 0; back < CAL_END_OPEN_SAMPLES; ++back)
+        {
+            const uint16_t value = current_[slot(back)];
+            if (value > high)
+                high = value;
+            if (value < low)
+                low = value;
+        }
+    }
+
+    // The switch-open signature: the last CAL_END_OPEN_SAMPLES currents within
+    // CAL_END_OPEN_FLAT_TENTHS of each other and at most
+    // CAL_END_OPEN_MARGIN_TENTHS above the floor. Needs a floor and enough
+    // samples (callers judge only after CAL_END_OPEN_SAMPLES samples).
+    bool switchOpen() const
+    {
+        if (floor_ == 0xFFFFU || count_ < CAL_END_OPEN_SAMPLES)
+            return false;
+        uint16_t high = 0;
+        uint16_t low = 0;
+        openSpan(high, low);
+        return static_cast<uint32_t>(high) <= static_cast<uint32_t>(floor_) + CAL_END_OPEN_MARGIN_TENTHS &&
+               high - low <= CAL_END_OPEN_FLAT_TENTHS;
+    }
+
+    // The newest current is at most CAL_END_OPEN_MARGIN_TENTHS above the floor.
+    bool atFloor() const
+    {
+        return floor_ != 0xFFFFU &&
+               static_cast<uint32_t>(current_[slot(0)]) <= static_cast<uint32_t>(floor_) + CAL_END_OPEN_MARGIN_TENTHS;
+    }
+
+    // The newest current is more than CAL_END_FALL_TENTHS below the higher of
+    // the two before it.
+    bool currentFalling() const
+    {
+        const uint16_t newest = current_[slot(0)];
+        const uint16_t one = current_[slot(1)];
+        const uint16_t two = current_[slot(2)];
+        const uint16_t before = one > two ? one : two;
+        return static_cast<uint32_t>(newest) + CAL_END_FALL_TENTHS < before;
+    }
+
+    // An unarmed stall: Still on an extend drive; on a switch-end drive, once
+    // the count has been still CAL_END_OPEN_SETTLE_SAMPLES, Still with the
+    // switch-open signature and Stuck without it.
+    CalibrationEnd unarmedStall(uint16_t k)
+    {
+        if (!switchEnd_)
+            return decide(CalibrationEnd::Still, 0, 0);
+        const uint16_t still = static_cast<uint16_t>(k - (hasForward_ ? lastForward_ : 0));
+        if (still < CAL_END_OPEN_SETTLE_SAMPLES)
+            return CalibrationEnd::None;
+        uint16_t high = 0;
+        uint16_t low = 0;
+        openSpan(high, low);
+        return decide(switchOpen() ? CalibrationEnd::Still : CalibrationEnd::Stuck, high, floor_);
+    }
+
     CalibrationEnd unarmed(uint16_t k, uint16_t sinceRamp, int32_t v, int16_t e)
     {
         if (!leaving_)
         {
             const uint16_t window = e >= CAL_HALL_CURL_EVIDENCE_EDGES ? kStallSamples : kStillWindowSamples;
             if (k >= minStillSamples_ && k >= window && progressOver(window) < CAL_HALL_STALL_MIN_EDGES)
-                return decide(CalibrationEnd::Still, 0, 0);
+            {
+                const CalibrationEnd kind = unarmedStall(k);
+                if (kind != CalibrationEnd::None)
+                    return kind;
+            }
         }
         else if (sinceRamp >= kUncurlStillSamples &&
                  progressOver(kStallSamples) < CAL_HALL_STALL_MIN_EDGES)
         {
-            return decide(CalibrationEnd::Still, 0, 0);
+            const CalibrationEnd kind = unarmedStall(k);
+            if (kind != CalibrationEnd::None)
+                return kind;
         }
         if (sinceRamp < kLearnSamples)
             return CalibrationEnd::None;
@@ -383,10 +521,22 @@ private:
         const uint16_t hi = last > lo ? last : static_cast<uint16_t>(lo + 1U);
         const uint8_t n = static_cast<uint8_t>(hi - lo);
         stopRef_ = medianBack(static_cast<uint16_t>(k - (hi - 1U)), n, &stopMin_);
-        // A last forward edge older than the ring (only after a large bounce
-        // back before arming) counts as a slow arrival.
+        // The arrival speed: the fastest of the speeds at the last forward edge
+        // and the CAL_END_ARRIVE_LOOKBACK_SAMPLES samples before it, so that one
+        // straggling edge a sample late does not turn a fast arrival into a
+        // slow one. A last forward edge older than the ring (only after a large
+        // bounce back before arming) counts as a slow arrival.
         const uint16_t since = static_cast<uint16_t>(k - last);
-        const int32_t arrive = since + 4U < CAL_END_RING ? speedAt(k, since) : 0;
+        int32_t arrive = 0;
+        for (uint8_t extra = 0; extra <= CAL_END_ARRIVE_LOOKBACK_SAMPLES; ++extra)
+        {
+            const uint16_t back = static_cast<uint16_t>(since + extra);
+            if (back + 4U >= CAL_END_RING)
+                break;
+            const int32_t speed = speedAt(k, back);
+            if (speed > arrive)
+                arrive = speed;
+        }
         stopFast_ = arrive * 100 >=
             static_cast<int32_t>(CAL_END_ARRIVE_FAST_PCT) * vRef_;
         stopRefValid_ = true;
@@ -414,6 +564,7 @@ private:
     uint16_t stopMin_;
     uint16_t endCurrent_;
     uint16_t endReference_;
+    uint16_t floor_;
     int32_t vRef_;
     int16_t eMax_;
     uint8_t head_;
@@ -422,6 +573,7 @@ private:
     uint8_t normalSamples_;
     bool retract_;
     bool leaving_;
+    bool switchEnd_;  // a retract, or a hip extend: the end is a limit switch
     bool rampSeen_;
     bool hasForward_;
     bool armed_;
