@@ -174,8 +174,8 @@ def test_knee_never_moves_while_its_hip_is_known_out(setup_text):
 
 def test_no_motion_curl_press_is_not_failed_stuck(setup_text):
     step = _line_starting(setup_text, "- **A curl press that shows no motion at all**")
-    assert "no switch-open current is handled as a curl with no motion" in step
-    assert "else the nudge, whose return needs the switch-open signature" in step
+    assert "no switch-open current is not failed, and never accepted on its own" in step
+    assert "otherwise the joint gets its verification nudge, whose return needs the switch-open signature" in step
     assert "reads a count high is not failed `stuck`" in step
 
 
@@ -238,8 +238,9 @@ def test_end_detector_and_default_speed_are_documented(setup_text):
     assert "measures that level itself in its first samples" in switch
     assert "FL 7-8 counts, FRHL 11" in switch
     assert "at least 10% below its running level" in switch
-    assert "**Any stall without the signature fails `stuck mid-stroke`, however short the drive**" in switch
-    assert "a press of a joint at its end, a nudge return, a start next to the stall point" in switch
+    assert "**A stall without the signature is never taken as the end, however short the drive**" in switch
+    assert "goes on to the joint's verification nudge, whose return must show the signature" in switch
+    assert "(a nudge return, a start next to the stall point)" in switch
     knee = _line_starting(setup_text, "- **A knee curl**")
     assert "**mechanical stop**" in knee
     assert "an obstacle on a knee curl looks the same" in knee.lower()

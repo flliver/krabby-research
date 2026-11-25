@@ -813,7 +813,8 @@ static void test_switch_slow_arrival_crawl()
 }
 
 // A one-edge bounce back after the stop neither restarts the stop nor turns the
-// fast arrival into a slow one (a slow arrival would need <= 70%).
+// fast arrival into a slow one (a slow arrival would also need the current
+// below every reference sample).
 static void test_switch_bounce_back_keeps_the_stop()
 {
     std::vector<Sample> samples;
@@ -1636,23 +1637,41 @@ static void test_switch_end_stuck_waits_for_a_falling_current()
 }
 
 // V3: the arrival speed is the fastest of the speeds at the last forward edge
-// and the two samples before it. A fast hip whose last edge straggles a sample
-// late still arrives fast: an 85% drop is a switch (a slow arrival would need
-// 70%).
+// and the two samples before it. A fast hip whose last edge straggles two
+// samples late still arrives fast: an 85% drop flat at the floor is a switch. A slow
+// arrival would also need the current below every reference sample, and one
+// reference sample here dipped to 100 (below the switch-open 102), so judged
+// slow it would be stuck.
 static void test_arrival_speed_looks_back_two_samples()
 {
     std::vector<Sample> samples;
     int e = 0;
     run(samples, e, 10, 0, 102);  // ramp at the offset
     run(samples, e, 40, 5, 120);
+    samples[samples.size() - 6].i = 100;  // one low reference sample
+    samples.push_back({e, 120});
     samples.push_back({e, 120});
     ++e;
-    samples.push_back({e, 115});  // one straggling edge
+    samples.push_back({e, 115});  // one straggling edge, two samples late
     run(samples, e, 20, 0, 102);
     CalibrationEndDetector detector = started(true, false);
     const Outcome got = feed(detector, samples, 10);
     assertKind(CalibrationEnd::Switch, got, "straggling last edge");
     TEST_ASSERT_EQUAL_INT(e, got.edges);
+}
+
+// The unarmed wait for switchOpen is bounded: a press whose current stays at
+// its floor but never flat (80 / 94 around a floor of 80) is judged at k = 20,
+// waits 10 more samples, and is stuck at k = 30.
+static void test_unarmed_wait_for_switch_open_is_bounded()
+{
+    std::vector<Sample> samples;
+    for (int k = 0; k < 10; ++k) samples.push_back({0, 80});
+    for (int k = 0; k < 60; ++k) samples.push_back({0, k % 2 == 0 ? 80 : 94});
+    CalibrationEndDetector detector = started(true, false);
+    const Outcome got = feed(detector, samples, 10);
+    assertKind(CalibrationEnd::Stuck, got, "press at the floor, never flat");
+    TEST_ASSERT_EQUAL_INT(20 + CAL_END_OPEN_WAIT_SAMPLES, got.k);
 }
 
 // calibrationCurrentTenths: round(10 * avgIS), clamped.
@@ -1688,6 +1707,7 @@ int main()
     RUN_TEST(test_hip_extend_switch_before_its_stop_rule);
     RUN_TEST(test_switch_end_stuck_waits_for_a_falling_current);
     RUN_TEST(test_arrival_speed_looks_back_two_samples);
+    RUN_TEST(test_unarmed_wait_for_switch_open_is_bounded);
     RUN_TEST(test_unarmed_slow_curl_pause_is_not_an_end);
     RUN_TEST(test_switch_fast_arrival_fires_at_six_switch_open_samples);
     RUN_TEST(test_switch_fast_arrival_with_a_transition_sample);

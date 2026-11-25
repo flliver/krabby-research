@@ -47,9 +47,11 @@
 //   limit switch (a retract, or a hip extend) waits until the count has been
 //   still CAL_END_OPEN_SETTLE_SAMPLES samples, then ends Still only with the
 //   switch-open signature and Stuck without it (judged again for up to
-//   CAL_END_OPEN_WAIT_SAMPLES while its current is at the floor or falling): a hip curl that never reached
-//   running speed (a press mid-stroke, a nudge return, a start close to a stall
-//   point) is never taken as its home on a stall alone.
+//   CAL_END_OPEN_WAIT_SAMPLES while its current is at the floor or falling): a
+//   hip curl that never reached running speed (a press mid-stroke, a nudge
+//   return, a start close to a stall point) is never taken as its home on a
+//   stall alone. (The sequencer sends a Stuck press that counted no edge at
+//   all to its verification nudge instead of failing it.)
 // Arming: from CAL_END_LEARN_DELAY_MS after the ramp, CAL_END_ARM_SAMPLES
 // samples in a row with v >= CAL_END_RUN_MIN_EDGES and at least
 // CAL_HALL_CURL_EVIDENCE_EDGES drive edges. Then iRef = median of those six

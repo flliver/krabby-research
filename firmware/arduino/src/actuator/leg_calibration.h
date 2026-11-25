@@ -56,9 +56,11 @@
 // extending rod's mechanical stop (speed collapsed, current rose: "by=stop"),
 // a stall with neither signature ("by=stuck": the pass fails "stuck
 // mid-stroke"; on a drive into a limit switch that includes every stall
-// without the switch-open signature, however short the drive), or, for an
-// extend drive that never ran or armed only in its own end approach, or a
-// switch-end drive that shows the switch-open signature, a plain stall. A
+// without the switch-open signature, however short the drive, except a curl
+// press that counted no edge at all: it is never accepted on its own, the
+// joint gets its verification nudge, whose return needs the signature), or,
+// for an extend drive that never ran or armed only in its own end approach,
+// or a switch-end drive that shows the switch-open signature, a plain stall. A
 // park or sweep also stops at its count. Otherwise (proven pot, builds without quadrature),
 // after CAL_START_GRACE_MS every CAL_STALL_WINDOW_MS window must advance the
 // joint in the driven direction (a proven pot by CAL_STALL_MIN_PROGRESS counts
@@ -620,9 +622,11 @@ public:
         parkedMask_ = 0;
         verifiedMask_ = 0;
         reportedMask_ = 0;
-        // The last run's drive is over: no WARN may name it.
+        // The last run's drive is over: no WARN may name it, and no restart
+        // left from an aborted one may drive its first move twice.
         stage_ = LegCalibrationMoveStage::Normal;
         action_ = LegCalibrationAction::Seek;
+        restartUnderDetector_ = false;
         repeated_ = false;
         failure_ = LegCalibrationFailure::None;
         failJoint_ = nullptr;
@@ -763,6 +767,7 @@ public:
         plant.stopAll();
         warnIfNudgedOut(plant);
         warnIfLeftOut(plant);
+        restartUnderDetector_ = false;
         failure_ = LegCalibrationFailure::Aborted;
         failJoint_ = nullptr;
         failValue_ = cause;
@@ -1372,14 +1377,17 @@ private:
         // or that changed the joint's kind, fails as (4a) says instead.
         const bool returnUnproven = stage_ == LegCalibrationMoveStage::Return &&
                                     (nudgeKind_ == JointSensor::Unknown || kind != nudgeKind_);
-        // A step's curl press that showed no motion at all (no edge) cannot
-        // tell an open switch whose current reads a count high from a stall:
-        // it goes on as a curl with no motion (a home proven earlier, within
-        // its tolerance; else the nudge, whose return needs the signature).
-        const bool pressWithoutMotion = stage_ == LegCalibrationMoveStage::Normal && curl_ &&
-                                        action_ == LegCalibrationAction::Seek &&
-                                        magnitude(driveEdges) <= CAL_POT_DETECT_MAX_EDGES;
-        if (endKind_ == CalibrationEnd::Stuck && !returnUnproven && !pressWithoutMotion)
+        // A step's curl press that counted no edge at all cannot tell an open
+        // switch whose current reads a count high from a stall: it is not
+        // failed, but never accepted on its own either. Short of a home proven
+        // earlier by more than the tolerance it fails as any curl does; else
+        // the joint gets its verification nudge, whose return must show the
+        // signature (and is homed only there).
+        const bool stuckPress = endKind_ == CalibrationEnd::Stuck &&
+                                stage_ == LegCalibrationMoveStage::Normal && curl_ &&
+                                action_ == LegCalibrationAction::Seek &&
+                                magnitude(driveEdges) <= CAL_POT_DETECT_MAX_EDGES;
+        if (endKind_ == CalibrationEnd::Stuck && !returnUnproven && !stuckPress)
         {
             fail(plant, LegCalibrationFailure::StuckMidStroke, driveEdges);
             return;
@@ -1540,7 +1548,7 @@ private:
             fail(plant, LegCalibrationFailure::ShortOfCurlEnd, shortBy);
             return;
         }
-        if (proven && (kind != JointSensor::Pot || shortBy >= -tolerance))
+        if (proven && !stuckPress && (kind != JointSensor::Pot || shortBy >= -tolerance))
         {
             warnIfHomeMoved(plant, kind, shortBy, tolerance);
             accept(plant, endPos, kind == JointSensor::Hall && (kept || shortBy < 0));

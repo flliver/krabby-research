@@ -3794,31 +3794,52 @@ static void test_sweep_on_its_own_recurls_the_knee_before_its_park()
 }
 
 // A step's curl press that counts no edge cannot tell an open switch whose
-// current reads a count high from a stall, so the detector's Stuck there goes
-// on as a curl with no motion: a hip homed this boot resting 30 edges out
-// (within the 40-edge tolerance), stalled with its current raised and
-// wobbling, is accepted without a nudge or a new HOME. (Unproven, the same
-// press is nudged and its return must show the signature:
-// test_hip_stall_without_switch_open_current_is_never_homed; more than 40
-// out it fails ShortOfCurlEnd: test_curl_without_motion_short_of_a_home_proven_this_boot_fails.)
-static void test_press_without_motion_goes_on_as_a_curl_without_motion()
+// current reads a count high from a stall, so the detector's Stuck there is not
+// failed, but never accepted on its own either: the hip gets its verification
+// nudge, whose return must show the switch-open signature. A hip homed this
+// boot (or with a kept home) resting 30 edges out (inside the 40-edge
+// tolerance), jammed toward curl with its current raised, is nudged out 24 and
+// its return stalls back at 30 without the signature: stuck mid-stroke, no
+// HOME. (More than 40 out it fails ShortOfCurlEnd without a nudge:
+// test_curl_without_motion_short_of_a_home_proven_this_boot_fails.)
+static void test_stuck_press_without_motion_is_never_accepted_on_its_own()
 {
-    FakePlant plant;
-    LegCalibration calibration;
-    seekHall(calibration, plant);
-    plant.extension[1] = 30;
-    plant.stuck[1] = true;
-    const size_t mark = plant.output.lines().size();
-    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, CAL_DEFAULT_OPTIONS));
-    runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() { return calibration.currentStep() >= 2; });
-    TEST_ASSERT_TRUE_MESSAGE(calibration.isRunning(), plant.output.text.c_str());
-    TEST_ASSERT_TRUE(plant.output.hasEnd("CAL FRONT END FLHL curl hall=30 travel=0", "stuck"));
-    TEST_ASSERT_TRUE(calibration.isJointCurled(1));
-    TEST_ASSERT_EQUAL_INT(0, countFrom(plant.output, mark, "CAL FRONT MOVE FLHL nudge"));
-    TEST_ASSERT_EQUAL_INT(0, countFrom(plant.output, mark, "CAL FRONT HOME FLHL"));
-    TEST_ASSERT_EQUAL_INT(0, countFrom(plant.output, mark, "CAL FRONT FAIL"));
-    TEST_ASSERT_TRUE(plant.homed[1]);
-    TEST_ASSERT_EQUAL_INT(0, plant.home[1]);
+    for (int kept = 0; kept < 2; ++kept)
+    {
+        FakePlant plant;
+        LegCalibration calibration;
+        seekHall(calibration, plant);
+        if (kept != 0)
+        {
+            // Fail the homed hip once (stalled 300 out): its home is kept.
+            plant.extension[1] = 300;
+            plant.stuck[1] = true;
+            TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
+            runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+            TEST_ASSERT_FALSE(plant.homed[1]);
+            TEST_ASSERT_EQUAL_UINT(0x02, calibration.keptHomeMask());
+            plant.stuck[1] = false;
+        }
+        plant.extension[1] = 30;
+        plant.stallSign[1] = -1;  // jammed toward curl, free outward
+        const size_t mark = plant.output.lines().size();
+        TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, CAL_DEFAULT_OPTIONS));
+        runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+        const std::string label = std::string(kept != 0 ? "kept" : "homed") + "\n" + plant.output.text;
+        assertFailure(calibration, LegCalibrationFailure::StuckMidStroke);
+        TEST_ASSERT_TRUE_MESSAGE(plant.output.hasEnd("CAL FRONT END FLHL curl hall=30 travel=0", "stuck"),
+                                 label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(1, countFrom(plant.output, mark, "CAL FRONT MOVE FLHL nudge"), label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(0, countFrom(plant.output, mark, "CAL FRONT HOME FLHL"), label.c_str());
+        // Its return stalls where the jam holds it (no edge back: the
+        // reason names the cable or the load).
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(
+            "CAL FRONT FAIL FLHL no edges and no switch signature at PWM 128: check hall cable or load",
+            plant.output.last().c_str(), label.c_str());
+        TEST_ASSERT_FALSE(plant.homed[1]);
+        TEST_ASSERT_EQUAL_UINT(0x02, calibration.keptHomeMask());
+        TEST_ASSERT_EQUAL_INT(0, plant.pwm[2]);
+    }
 }
 
 // ------------------------------------------------- kept home and V1 (no home on a stall)
@@ -4661,7 +4682,7 @@ int main()
     RUN_TEST(test_knee_never_moves_while_its_hip_is_known_out);
     RUN_TEST(test_knee_never_moves_while_its_hip_reads_out_from_a_lost_home);
     RUN_TEST(test_sweep_on_its_own_recurls_the_knee_before_its_park);
-    RUN_TEST(test_press_without_motion_goes_on_as_a_curl_without_motion);
+    RUN_TEST(test_stuck_press_without_motion_is_never_accepted_on_its_own);
     RUN_TEST(test_kept_home_judges_the_rerun_curls_of_a_failed_hall_hip);
     RUN_TEST(test_hip_stall_without_switch_open_current_is_never_homed);
     RUN_TEST(test_hip_nudge_is_capped_and_a_blind_one_stops_at_one_second);
