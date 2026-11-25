@@ -1433,8 +1433,9 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
     TEST_ASSERT_TRUE(contains(rig.output.output, "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)\n"));
 
     // One leg's moves, in the order the table-safe schedule runs them: SEEK is
-    // knee curl, hip curl, knee curl; SWEEP is knee curl, hip curl, knee uncurl,
-    // knee park (to -264, flagged as FL's values), hip sweep (to 840 edges, by
+    // knee curl, hip curl, knee curl; SWEEP is knee curl, hip curl, knee curl
+    // again (its home proven before the park counts from it), knee uncurl, knee
+    // park (to -264, flagged as FL's values), hip sweep (to 840 edges, by
     // count), hip curl (which proves the home again and saves the derived
     // stroke), knee curl (which saves the knee's).
     static const char *const kFlLegOrder[] = {
@@ -1447,6 +1448,7 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
         "CAL FRONT PASS SWEEP pwm=128\n",
         "CAL FRONT MOVE FLKL curl\n",
         "CAL FRONT MOVE FLHL curl\n",
+        "CAL FRONT MOVE FLKL curl\n",
         "CAL FRONT MOVE FLKL uncurl\n",
         "CAL FRONT MOVE FLKL curl park\n",
         "CAL FRONT PARK FLKL hall=-262 target=-264 (FL values)\n",
@@ -1465,6 +1467,10 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
         TEST_ASSERT_TRUE_MESSAGE(at != std::string::npos, (std::string("missing in order: ") + line).c_str());
         cursor = at + 1;
     }
+    // FLKL curls: two in SEEK, then three in SWEEP (before the hip, before the
+    // uncurl, after the hip's curl back); the park is its own move line.
+    TEST_ASSERT_EQUAL_UINT(5, occurrences(rig.output.output, "MOVE FLKL curl\n"));
+    TEST_ASSERT_EQUAL_UINT(1, occurrences(rig.output.output, "MOVE FLKL uncurl\n"));
     TEST_ASSERT_EQUAL_UINT(2, occurrences(rig.output.output, " curl park\n"));
     TEST_ASSERT_EQUAL_UINT(2, occurrences(rig.output.output, " uncurl sweep\n"));
     TEST_ASSERT_FALSE(contains(rig.output.output, "WARN"));
@@ -1559,6 +1565,102 @@ static void test_calibration_requires_six_actuators_and_an_output()
     TEST_ASSERT_EQUAL_UINT8(CAL_OPT_KNEE_NUDGE, rig.manager.calibrationSequencer().options());
 }
 
+// A C run's first move is a knee curl. When the leg's hall hip had its home
+// cleared by a guard while it reads far out, the knee must not move: the run is
+// refused with "FLHL out at <x> edges: jog it to its curl end first" and no
+// MOVE line. A hip that reads 560 edges or less is not "out".
+// travelHomed: the rod's travel (edges) when its home was set; travelNow: where
+// it reads afterwards; hi: the hip's stroke (a small one lets the range guard
+// trip within the rig's 1000-edge rod).
+static void runWithLostHipHome(int travelHomed, int travelNow, int hi, bool expectRefused)
+{
+    setUp();
+    g_fakeQuadrature = true;
+    CalibrationRig rig(true);
+    rig.travel[1] = travelHomed;
+    g_fakeHallCount[1] = kHallCountOffset - travelHomed;
+    makeReadyHall(*rig.acts[1], 0, hi);
+    rig.travel[1] = travelNow;
+    g_fakeHallCount[1] = kHallCountOffset - travelNow;
+    rig.manager.updateAll();  // the range guard clears the home
+    const std::string label = "home@" + std::to_string(travelHomed) + " now@" + std::to_string(travelNow);
+    TEST_ASSERT_TRUE_MESSAGE(rig.acts[1]->encFlags & ACTUATOR_FLAG_HOME_LOST, label.c_str());
+    const int x = travelNow - travelHomed;
+
+    TEST_ASSERT_TRUE(rig.manager.startCalibration(CAL_PASS_SEEK, CAL_DEFAULT_PWM));
+    for (int i = 0; i < 40; ++i) rig.tick();
+    const std::string failLine = "CAL FRONT FAIL FLHL out at " + std::to_string(x) +
+        " edges: jog it to its curl end first\n";
+    if (expectRefused)
+    {
+        TEST_ASSERT_FALSE_MESSAGE(rig.manager.isCalibrating(), label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(LegCalibrationOutcome::Failed),
+            static_cast<int>(rig.manager.calibrationOutcome()), label.c_str());
+        TEST_ASSERT_TRUE_MESSAGE(contains(rig.output.output, failLine.c_str()), (label + "\n" + rig.output.output).c_str());
+        TEST_ASSERT_FALSE_MESSAGE(contains(rig.output.output, "MOVE"), (label + "\n" + rig.output.output).c_str());
+        for (int joint = 0; joint < 6; ++joint) TEST_ASSERT_EQUAL_INT(0, rig.signedPwm(joint));
+        // The refusal moved nothing: no home was cleared by it, no loss added.
+        TEST_ASSERT_TRUE(rig.acts[1]->encFlags & ACTUATOR_FLAG_HOME_LOST);
+    }
+    else
+    {
+        TEST_ASSERT_FALSE_MESSAGE(contains(rig.output.output, "jog it to its curl end first"), (label + "\n" + rig.output.output).c_str());
+        TEST_ASSERT_TRUE_MESSAGE(contains(rig.output.output, "CAL FRONT MOVE FLKL curl\n"), (label + "\n" + rig.output.output).c_str());
+    }
+}
+
+static void test_calibration_refuses_a_knee_move_while_its_hip_reads_out_with_a_lost_home()
+{
+    // Past the range by more than its 60-edge margin, far out: refused.
+    runWithLostHipHome(0, 800, 700, true);     // x = 800 > 560
+    runWithLostHipHome(0, 1000, 700, true);
+    // The boundary: 560 is not out (the guard still trips on a [0, 400] hip), 561 is.
+    runWithLostHipHome(0, 560, 400, false);
+    runWithLostHipHome(0, 561, 400, true);
+    // Lost behind its home (reads negative): not out, the knee curl goes ahead.
+    runWithLostHipHome(100, 0, 700, false);    // x = -100 < -60
+}
+
+// The plant's isHomeLost: false before any home, false while homed, true after a
+// guard (the range guard or the T stall guard) cleared the home, false again
+// once the joint is re-homed.
+static void test_plant_home_lost_follows_the_guards()
+{
+    g_fakeQuadrature = true;
+    CalibrationRig rig(true);
+    ActuatorManager::CalibrationPlant plant(rig.manager);
+    for (int joint = 0; joint < 6; ++joint) TEST_ASSERT_FALSE(plant.isHomeLost(joint));
+
+    // Range guard on hip 1: homed (no loss), then read 61 edges past its range.
+    rig.acts[1]->setSensor(JointSensor::Hall);
+    TEST_ASSERT_FALSE(plant.isHomeLost(1));  // a hall joint with no home yet
+    makeReadyHall(*rig.acts[1], 0, CAL_HIP_STROKE_EDGES);
+    TEST_ASSERT_FALSE(plant.isHomeLost(1));
+    rig.manager.updateAll();
+    TEST_ASSERT_FALSE(plant.isHomeLost(1));
+    g_fakeHallCount[1] = rig.acts[1]->hallHome - (CAL_HIP_STROKE_EDGES + ACTUATOR_ENC_RANGE_MARGIN_EDGES + 1);
+    rig.manager.updateAll();
+    TEST_ASSERT_FALSE(plant.isHomed(1));
+    TEST_ASSERT_TRUE(plant.isHomeLost(1));
+    plant.setHome(1);
+    TEST_ASSERT_FALSE(plant.isHomeLost(1));
+
+    // T stall guard on hip 4: driven at full PWM for a second with no edge.
+    makeReadyHall(*rig.acts[4], 0, CAL_HIP_STROKE_EDGES);
+    TEST_ASSERT_FALSE(plant.isHomeLost(4));
+    TEST_ASSERT_TRUE(rig.acts[4]->setTarget(0.5f));
+    for (int i = 0; i < 150 && rig.acts[4]->hasTarget; ++i)
+    {
+        now += 10;
+        rig.manager.updateAll();
+    }
+    TEST_ASSERT_TRUE(contains(rig.output.output, "ERR STALL"));
+    TEST_ASSERT_FALSE(plant.isHomed(4));
+    TEST_ASSERT_TRUE(plant.isHomeLost(4));
+    // The other joints were never homed, so none of them reads as lost.
+    for (int joint : {0, 2, 3, 5}) TEST_ASSERT_FALSE(plant.isHomeLost(joint));
+}
+
 // Every plant method reaches the right actuator state.
 static void test_calibration_plant_forwards_to_the_actuators()
 {
@@ -1586,8 +1688,10 @@ static void test_calibration_plant_forwards_to_the_actuators()
     plant.setHome(1);
     TEST_ASSERT_TRUE(plant.isHomed(1));
     TEST_ASSERT_EQUAL_INT(0, plant.position(1));
+    TEST_ASSERT_FALSE(plant.isHomeLost(1));  // a live home is not a lost one
     plant.clearHome(1);
     TEST_ASSERT_FALSE(plant.isHomed(1));
+    TEST_ASSERT_TRUE(plant.isHomeLost(1));
     TEST_ASSERT_EQUAL_CHAR('x', rig.acts[1]->sensorStateCode());
 
     // The end detector's current: round(10 * avgIS), clamped.
@@ -2104,6 +2208,8 @@ int main()
     RUN_TEST(test_hold_aborts_calibration_and_motors_stay_off);
     RUN_TEST(test_calibration_requires_six_actuators_and_an_output);
     RUN_TEST(test_calibration_plant_forwards_to_the_actuators);
+    RUN_TEST(test_plant_home_lost_follows_the_guards);
+    RUN_TEST(test_calibration_refuses_a_knee_move_while_its_hip_reads_out_with_a_lost_home);
     RUN_TEST(test_save_and_load_round_trip);
     RUN_TEST(test_load_v2_record_applies_kinds_limits_and_pin_modes);
     RUN_TEST(test_load_rejects_corrupt_v2_records);
