@@ -122,7 +122,7 @@ static void test_constants_match_the_design()
     TEST_ASSERT_EQUAL_INT(20, CAL_END_SWITCH_REF_SAMPLES);
     TEST_ASSERT_EQUAL_INT(50, CAL_END_ARRIVE_FAST_PCT);
     TEST_ASSERT_EQUAL_INT(88, CAL_END_SWITCH_FAST_PCT);
-    TEST_ASSERT_EQUAL_INT(70, CAL_END_SWITCH_SLOW_PCT);
+    TEST_ASSERT_EQUAL_INT(88, CAL_END_SWITCH_SLOW_PCT);
     TEST_ASSERT_EQUAL_INT(90, CAL_END_SWITCH_SLOW_IREF_PCT);
     TEST_ASSERT_EQUAL_INT(12, CAL_END_SHORT_NORMAL_SAMPLES);
     TEST_ASSERT_EQUAL_INT(40, CAL_END_SHORT_RUN_SAMPLES);
@@ -133,8 +133,9 @@ static void test_constants_match_the_design()
     TEST_ASSERT_EQUAL_UINT32(500, CAL_END_STILL_WINDOW_MS);
     TEST_ASSERT_EQUAL_UINT32(1000, CAL_END_STILL_MIN_DRIVE_MS);
     // The fix round (V1/R1, R2, V3).
-    TEST_ASSERT_EQUAL_INT(3, CAL_END_FLOOR_FIRST_SAMPLE);
-    TEST_ASSERT_EQUAL_INT(4, CAL_END_FLOOR_LAST_MIN_SAMPLE);
+    TEST_ASSERT_EQUAL_INT(4, CAL_END_FLOOR_FIRST_SAMPLE);
+    TEST_ASSERT_EQUAL_INT(5, CAL_END_FLOOR_LAST_MIN_SAMPLE);
+    TEST_ASSERT_EQUAL_INT(10, CAL_END_OPEN_WAIT_SAMPLES);
     TEST_ASSERT_EQUAL_INT(6, CAL_END_OPEN_SAMPLES);
     TEST_ASSERT_EQUAL_UINT16(15, CAL_END_OPEN_MARGIN_TENTHS);
     TEST_ASSERT_EQUAL_UINT16(10, CAL_END_OPEN_FLAT_TENTHS);
@@ -283,6 +284,125 @@ static void test_robot_trace_regression()
     TEST_ASSERT_EQUAL_INT(48, count[static_cast<int>(RobotEndGroup::Morning)]);
     TEST_ASSERT_EQUAL_INT(48, count[static_cast<int>(RobotEndGroup::Clearance)]);
     TEST_ASSERT_EQUAL_INT(75, count[static_cast<int>(RobotEndGroup::QuickTest)]);
+}
+
+// The verdicts of the review-fix reference (the Python detector of the first
+// fix stage, firmware/fixround-inputs/2026-11-24/tools/ced-fix) for the 82 robot
+// moves the earlier fixture held, independent of this firmware. A move this
+// fix round changed names its new verdict and why; every other must agree.
+struct ReferenceVerdict
+{
+    const char *name;
+    CalibrationEnd reference;
+    CalibrationEnd now;  // the same unless the fix round changed it
+    const char *why;
+};
+static const ReferenceVerdict kReferenceVerdicts[] = {
+    {"endcur-111808#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"endcur-111808#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"endcur-111808#2", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"endcur-111808#3", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-111808#4", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"endcur-111808#5", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-111808#6", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"endcur-111808#7", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-111808#8", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"endcur-111808#9", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-111808#10", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-111808#11", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-111808#12", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-111808#13", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-111808#14", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-111808#15", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-111808#16", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-111808#17", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-111808#18", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-111808#19", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-112315#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"endcur-112315#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"endcur-112315#2", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-112315#3", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"endcur-112315#4", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-112315#5", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-112315#6", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-112315#7", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-112315#8", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"endcur-112315#9", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-112315#10", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-112315#11", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-112315#12", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-112315#13", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"endcur-112315#14", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-112315#15", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-112315#16", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-112315#17", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"endcur-112315#18", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"endcur-112315#19", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"clearance-FL-115032#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FL-115032#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FL-115032#2", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-115032#3", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-115032#4", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-115032#5", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-115032#6", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-115032#7", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-115032#8", CalibrationEnd::Stop, CalibrationEnd::None, "a hip extend into the body at PWM 80: its stop waits for the count to be still 5 samples (R2), after the log ends"},
+    {"clearance-FL-115032#9", CalibrationEnd::Still, CalibrationEnd::Stuck, "a hip extend stall at PWM 80 without the switch-open level: an obstacle either way"},
+    {"clearance-FL-121754#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FL-121754#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FL-121754#2", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-121754#3", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FL-121754#4", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"clearance-FL-121754#5", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"clearance-FL-121754#6", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"clearance-FL-140513#0", CalibrationEnd::None, CalibrationEnd::Still, "a knee press whose count had stopped: now held 3 s, the plain stall"},
+    {"clearance-FL-140513#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FR-115750#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FR-115750#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"clearance-FR-115750#2", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FR-115750#3", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FR-115750#4", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FR-115750#5", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"clearance-FR-115750#6", CalibrationEnd::Stuck, CalibrationEnd::Switch, "R2: FRHL extended into its extend switch, flat at 11"},
+    {"clearance-FR-115750#7", CalibrationEnd::Stuck, CalibrationEnd::Stuck, nullptr},
+    {"clearance-FR-115750#8", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"fr-recover-120231#0", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"fr-recover-120231#1", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"fr-recover-120231#2", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"hipend-FL-115546#0", CalibrationEnd::Stuck, CalibrationEnd::Switch, "R2: FLHL extended 29 edges into its extend switch"},
+    {"hipend-FL-115546#1", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"hipend-FL-115546#2", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"rodscale-hip_back-114914#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"rodscale-hip_back-114914#1", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+    {"rodscale-knee_back_hip_out-114339#0", CalibrationEnd::Stop, CalibrationEnd::Stop, nullptr},
+    {"rodscale-knee_back_hip_out-114339#1", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"rodscale-knee_back_hip_out-114339#2", CalibrationEnd::None, CalibrationEnd::None, nullptr},
+    {"rodscale-knee_out-114217#0", CalibrationEnd::Still, CalibrationEnd::Still, nullptr},
+    {"rodscale-knee_out-114217#1", CalibrationEnd::None, CalibrationEnd::Still, "a hip press at its curl switch whose count had stopped: held 3 s, switch-open"},
+    {"rodscale-knee_out-114217#2", CalibrationEnd::Switch, CalibrationEnd::Switch, nullptr},
+};
+
+// The earlier reference agrees with this firmware on every move it judged,
+// except the six this fix round changed on purpose (R2's extend switches, the
+// hip extend obstacles, presses now held 3 s), each named with its reason.
+static void test_robot_moves_agree_with_the_earlier_reference()
+{
+    int changed = 0;
+    for (const ReferenceVerdict &ref : kReferenceVerdicts)
+    {
+        const RobotEndMove &move = robotMove(ref.name);
+        CalibrationEndDetector detector;
+        const Outcome got = replay(move, detector);
+        const std::string label = moveLabel(move, got);
+        assertKind(ref.now, got, label.c_str());
+        if (ref.now != ref.reference)
+        {
+            TEST_ASSERT_NOT_NULL_MESSAGE(ref.why, label.c_str());
+            ++changed;
+        }
+    }
+    TEST_ASSERT_EQUAL_INT(82, static_cast<int>(sizeof(kReferenceVerdicts) / sizeof(kReferenceVerdicts[0])));
+    TEST_ASSERT_EQUAL_INT(6, changed);
 }
 
 // The FL end test of 2026-11-24 (clearance-FL-173941), the fix round's replay
@@ -487,6 +607,30 @@ static void test_v3_switch_ends_survive_their_perturbations()
     while (late[last].e != deepest)
         ++last;
     late[last].e = late[last - 1].e;
+    // Every current raised alike (+0, +0.5, +0.9 count), and, which moves the
+    // switch-open level against the floor, only the currents after the last
+    // edge raised half a count.
+    const auto tailRaised = [](std::vector<RobotEndSample> samples) {
+        int16_t deepestE = 0;
+        for (const RobotEndSample &sample : samples)
+            if (sample.e > deepestE) deepestE = sample.e;
+        bool after = false;
+        for (RobotEndSample &sample : samples)
+        {
+            if (after) sample.i = static_cast<uint16_t>(sample.i + 5);
+            if (sample.e == deepestE) after = true;
+        }
+        return samples;
+    };
+    {
+        CalibrationEndDetector a;
+        assertKind(CalibrationEnd::Switch,
+                   replaySamples(knee, robotEndReplaySamples(tailRaised(unblipped), true), a),
+                   "FLKL crawl, blip removed, switch-open level +0.5 count");
+        CalibrationEndDetector b;
+        assertKind(CalibrationEnd::Switch, replaySamples(hip, robotEndReplaySamples(tailRaised(late), true), b),
+                   "FLHL curl, last edge late, switch-open level +0.5 count");
+    }
     for (int offset : {0, 5, 9})
     {
         CalibrationEndDetector a;
@@ -541,11 +685,13 @@ static void test_short_curls_into_their_end_are_not_stuck()
 
 // Every robot move by end kind: no retract decision is a stop; a knee's extend
 // decision is never a switch; every switch, and every Still of a drive into a
-// limit switch (a retract, a hip extend), shows the switch-open signature; every
-// knee curl that reached its stop at PWM 120-150 is a stop or the plain stall.
+// limit switch (a retract, a hip extend), shows the switch-open signature (a
+// consistency check: the rules require it); every knee curl at PWM 120-150
+// whose count stopped before the host stopped it is a stop or the plain stall.
 static void test_robot_moves_by_end_kind()
 {
     int switchOpenEnds = 0;
+    int kneeCurlEnds = 0;
     for (size_t m = 0; m < kRobotEndMoveCount; ++m)
     {
         const RobotEndMove &move = kRobotEndMoves[m];
@@ -562,8 +708,16 @@ static void test_robot_moves_by_end_kind()
             TEST_ASSERT_TRUE_MESSAGE(detector.isSwitchOpen(), label.c_str());
             ++switchOpenEnds;
         }
+        const bool knee = std::string(move.joint).substr(2) == "KL";
+        if (knee && move.curl && move.pwm >= 120 && move.stopped)
+        {
+            TEST_ASSERT_TRUE_MESSAGE(got.kind == CalibrationEnd::Stop || got.kind == CalibrationEnd::Still,
+                                     label.c_str());
+            ++kneeCurlEnds;
+        }
     }
     TEST_ASSERT_TRUE(switchOpenEnds > 50);
+    TEST_ASSERT_TRUE(kneeCurlEnds >= 10);
 }
 
 // Switch-end plant, fast arrival: a ramp at the channel's offset (80, the
@@ -1276,17 +1430,17 @@ static void test_unarmed_slow_curl_pause_is_not_an_end()
 }
 
 // The floor and the switch-open signature: the floor is the lowest current of
-// samples 3 through the one that completes the ramp (at least through 4); it
-// reads 65535 before sample 3. switchOpen: the last 6 currents within 10 tenths
+// samples 4 through the one that completes the ramp (at least through 5); it
+// reads 65535 before sample 4. switchOpen: the last 6 currents within 10 tenths
 // of each other and at most 15 above the floor.
 static void test_floor_and_switch_open_signature()
 {
-    // The IS settles after EN goes high (20, 50, 70), then the ramp climbs.
+    // The IS settles after EN goes high (20, 50, 70, 75), then the ramp climbs.
     CalibrationEndDetector detector = started(true, false);
-    static const int rise[] = {20, 50, 70, 80, 90, 100, 110, 120};
-    for (int k = 0; k < 8; ++k)
+    static const int rise[] = {20, 50, 70, 75, 80, 90, 100, 110, 120};
+    for (int k = 0; k < 9; ++k)
     {
-        detector.sample(0, static_cast<uint16_t>(rise[k]), k >= 7);
+        detector.sample(0, static_cast<uint16_t>(rise[k]), k >= 8);
         if (k < CAL_END_FLOOR_FIRST_SAMPLE)
             TEST_ASSERT_EQUAL_UINT16(0xFFFFU, detector.currentFloor());
     }
@@ -1294,11 +1448,11 @@ static void test_floor_and_switch_open_signature()
     // After the ramp a lower current no longer moves the floor.
     detector.sample(0, 40, true);
     TEST_ASSERT_EQUAL_UINT16(80, detector.currentFloor());
-    // A ramp done at once still takes samples 3 and 4.
+    // A ramp done at once still takes samples 4 and 5, and only those.
     CalibrationEndDetector early = started(true, false);
-    static const int quick[] = {30, 60, 90, 85, 95, 50};
-    for (int k = 0; k < 6; ++k) early.sample(0, static_cast<uint16_t>(quick[k]), true);
-    TEST_ASSERT_EQUAL_UINT16(85, early.currentFloor());
+    static const int quick[] = {30, 60, 70, 75, 95, 90, 40};
+    for (int k = 0; k < 7; ++k) early.sample(0, static_cast<uint16_t>(quick[k]), true);
+    TEST_ASSERT_EQUAL_UINT16(90, early.currentFloor());
 
     struct Window
     {
@@ -1335,10 +1489,11 @@ static void test_unarmed_switch_end_stall_needs_switch_open()
         int level;
         int wobble;
         CalibrationEnd want;
+        int latestK;  // the stall is judged at k = 20; at the floor it may wait 10 more
     };
     static const Press presses[] = {
-        {80, 0, CalibrationEnd::Still}, {90, 4, CalibrationEnd::Still},
-        {110, 0, CalibrationEnd::Stuck}, {85, 20, CalibrationEnd::Stuck},
+        {80, 0, CalibrationEnd::Still, 20}, {90, 4, CalibrationEnd::Still, 20},
+        {110, 0, CalibrationEnd::Stuck, 20}, {85, 20, CalibrationEnd::Stuck, 20 + CAL_END_OPEN_WAIT_SAMPLES},
     };
     for (const Press &press : presses)
     {
@@ -1349,7 +1504,7 @@ static void test_unarmed_switch_end_stall_needs_switch_open()
         CalibrationEndDetector detector = started(true, false);
         const Outcome got = feed(detector, samples, 10);
         assertKind(press.want, got, ("press at " + std::to_string(press.level)).c_str());
-        TEST_ASSERT_EQUAL_INT(20, got.k);
+        TEST_ASSERT_TRUE(got.k >= 20 && got.k <= press.latestK);
         TEST_ASSERT_EQUAL_UINT16(80, detector.endReference());
         TEST_ASSERT_FALSE(detector.isArmed());
         // The same press of a knee curl (extend: its stop has no switch).
@@ -1516,6 +1671,7 @@ int main()
     UNITY_BEGIN();
     RUN_TEST(test_constants_match_the_design);
     RUN_TEST(test_robot_trace_regression);
+    RUN_TEST(test_robot_moves_agree_with_the_earlier_reference);
     RUN_TEST(test_fl_end_test_goldens);
     RUN_TEST(test_pwm80_stall_at_841_every_later_start_is_stuck);
     RUN_TEST(test_frhl_878_stall_every_later_start_is_stuck);

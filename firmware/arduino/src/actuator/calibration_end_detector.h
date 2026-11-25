@@ -46,7 +46,8 @@
 //   detector: a knee's leg stop or an obstacle). A stall of a drive into a
 //   limit switch (a retract, or a hip extend) waits until the count has been
 //   still CAL_END_OPEN_SETTLE_SAMPLES samples, then ends Still only with the
-//   switch-open signature and Stuck without it: a hip curl that never reached
+//   switch-open signature and Stuck without it (judged again for up to
+//   CAL_END_OPEN_WAIT_SAMPLES while its current is at the floor or falling): a hip curl that never reached
 //   running speed (a press mid-stroke, a nudge return, a start close to a stall
 //   point) is never taken as its home on a stall alone.
 // Arming: from CAL_END_LEARN_DELAY_MS after the ramp, CAL_END_ARM_SAMPLES
@@ -62,7 +63,7 @@
 //     highest of the last 3 currents is <= 88% of the reference (the median of
 //     up to 20 samples before the last forward edge), or after a slow arrival
 //     (the fastest of the speeds at the last forward edge and the two samples
-//     before it < 50% of vRef: a crawl into the switch) <= 70%, below every
+//     before it < 50% of vRef: a crawl into the switch) also below every
 //     reference sample and <= 90% of iRef, and the current shows switchOpen.
 //   extend (+PWM: a knee's mechanical stop, or for a hip an obstacle): Stop
 //     after 3 samples in a row with v <= 25% of vRef and the median of the last
@@ -154,6 +155,7 @@ public:
         stopMin_ = 0;
         stopFast_ = false;
         floor_ = 0xFFFFU;
+        openWait_ = 0;
         endCurrent_ = 0;
         endReference_ = 0;
         for (uint8_t n = 0; n < CAL_END_RING; ++n)
@@ -469,7 +471,14 @@ private:
         uint16_t high = 0;
         uint16_t low = 0;
         openSpan(high, low);
-        return decide(switchOpen() ? CalibrationEnd::Still : CalibrationEnd::Stuck, high, floor_);
+        if (switchOpen())
+            return decide(CalibrationEnd::Still, high, floor_);
+        if ((atFloor() || currentFalling()) && openWait_ < CAL_END_OPEN_WAIT_SAMPLES)
+        {
+            ++openWait_;
+            return CalibrationEnd::None;
+        }
+        return decide(CalibrationEnd::Stuck, high, floor_);
     }
 
     CalibrationEnd unarmed(uint16_t k, uint16_t sinceRamp, int32_t v, int16_t e)
@@ -571,6 +580,7 @@ private:
     uint8_t runStreak_;
     uint8_t stopStreak_;
     uint8_t normalSamples_;
+    uint8_t openWait_;  // samples an unarmed switch-end stall waited for switchOpen
     bool retract_;
     bool leaving_;
     bool switchEnd_;  // a retract, or a hip extend: the end is a limit switch

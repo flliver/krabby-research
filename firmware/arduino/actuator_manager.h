@@ -862,6 +862,7 @@ public:
         bool isHomed(uint8_t joint) override { return (act(joint).encFlags & ACTUATOR_FLAG_HOMED) != 0; }
         void setHome(uint8_t joint) override { act(joint).setHome(); }
         void clearHome(uint8_t joint) override { act(joint).clearHome(); }
+        bool isHomeLost(uint8_t joint) override { return (act(joint).encFlags & ACTUATOR_FLAG_HOME_LOST) != 0; }
         // round(10 * avgIS): the end detector's current, in tenths of an IS count.
         uint16_t motorCurrentTenths(uint8_t joint) override
         {

@@ -217,22 +217,28 @@ static constexpr int CAL_END_RUN_MIN_EDGES = 4;          // per 200 ms (20 edges
 static constexpr uint8_t CAL_END_ARM_SAMPLES = 6;        // running samples in a row to arm (300 ms)
 static constexpr int CAL_END_NORMAL_SPEED_PCT = 75;      // of vRef: the sample updates the references
 static constexpr int CAL_END_IREF_STEP = 3;              // iRef moves at most this per sample
-// Switch end (retract): the count still for 3 samples (150 ms); reference =
-// median (and min) of the 20 samples (1 s) before the last forward edge, frozen
-// per stop. A fast arrival (speed at that edge >= 50% of vRef) ends when the
-// highest of the last 3 currents is <= 88% of it (hips drop 20-40%); a slow one
-// (a joint crawling into its switch with its current raised: knee uncurls, and
-// hips curling back from deep, at 0.50-0.62 of the reference) at <= 70%, below
-// the reference minimum and <= 90% of iRef. A switch opens below the running
+// Switch end (a retract, or a hip extend): the count still for 3 samples
+// (150 ms); reference = median (and min) of the 20 samples (1 s) before the
+// last forward edge, frozen per stop. It ends when the highest of the last 3
+// currents is <= 88% of it (hips drop 20-40%), after a slow arrival (a joint
+// crawling into its switch with its current raised: knee uncurls, hips curling
+// back from deep, a hip slowing into its extend switch) also below the
+// reference minimum and <= 90% of iRef, and in every case only with the
+// switch-open signature (switchOpen, below). A switch opens below the running
 // level; a motor stalled mid-stroke draws more: FRHL curling at 128 from the
 // body stalled 878 edges short of its switch (2026-11-24) with its current
 // wobbling 17-31 counts over a running level of 16, and three samples at 17
-// were 68% of the reference and below its minimum, but above 90% of iRef.
+// were 68% of the reference and below its minimum, but above 90% of iRef and
+// never flat at its floor.
 static constexpr uint8_t CAL_END_SWITCH_STILL_SAMPLES = 3;
 static constexpr uint8_t CAL_END_SWITCH_REF_SAMPLES = 20;
 static constexpr int CAL_END_ARRIVE_FAST_PCT = 50;
 static constexpr int CAL_END_SWITCH_FAST_PCT = 88;
-static constexpr int CAL_END_SWITCH_SLOW_PCT = 70;
+// A slow arrival needs the same 88% drop (it was 70% before the switch-open
+// signature existed: FLHL slows into its extend switch, then sits at 85% of
+// its pre-stop current, flat at the switch-open level) plus the two guards
+// below.
+static constexpr int CAL_END_SWITCH_SLOW_PCT = 88;
 static constexpr int CAL_END_SWITCH_SLOW_IREF_PCT = 90;
 // Mechanical stop (extend): 3 samples in a row with the speed <= 25% of vRef
 // and the median of the last 4 currents >= 125% of iRef.
@@ -274,14 +280,17 @@ static constexpr uint32_t CAL_END_STILL_MIN_DRIVE_MS = 1000;
 // EN high and the PWM still low (a running motor adds 2-9 counts, a stalled
 // one more: FL at PWM 80 sat at 9-14 counts 229 edges short of its curl
 // switch, FRHL at 128 at 17-31, 878 short). The floor is the lowest current of
-// samples CAL_END_FLOOR_FIRST_SAMPLE (the IS has settled 150-200 ms after EN
-// went high) through the ramp, at least through CAL_END_FLOOR_LAST_MIN_SAMPLE.
+// samples CAL_END_FLOOR_FIRST_SAMPLE (200-250 ms after EN went high: FL's
+// channel reads its offset less a count until about 200 ms, FRHL's until about
+// 150 ms) through the ramp, at least through CAL_END_FLOOR_LAST_MIN_SAMPLE; the
+// PWM there is still about 50-60, so a stall's floor stays well under its
+// current at full PWM.
 // switchOpen: the last CAL_END_OPEN_SAMPLES currents at most
 // CAL_END_OPEN_MARGIN_TENTHS above the floor (FRHL's IS reaches its 11 only
 // about 150 ms after EN goes high, so its floor reads up to 1 count low) and
 // within CAL_END_OPEN_FLAT_TENTHS of each other.
-static constexpr uint8_t CAL_END_FLOOR_FIRST_SAMPLE = 3;
-static constexpr uint8_t CAL_END_FLOOR_LAST_MIN_SAMPLE = 4;
+static constexpr uint8_t CAL_END_FLOOR_FIRST_SAMPLE = 4;
+static constexpr uint8_t CAL_END_FLOOR_LAST_MIN_SAMPLE = 5;
 static constexpr uint8_t CAL_END_OPEN_SAMPLES = 6;
 static constexpr uint16_t CAL_END_OPEN_MARGIN_TENTHS = 15;
 static constexpr uint16_t CAL_END_OPEN_FLAT_TENTHS = 10;
@@ -290,6 +299,12 @@ static constexpr uint16_t CAL_END_OPEN_FLAT_TENTHS = 10;
 // switch-open level after the count stops, and switchOpen then looks at the
 // CAL_END_OPEN_SAMPLES after it.
 static constexpr uint8_t CAL_END_OPEN_SETTLE_SAMPLES = 9;
+// An unarmed stall of a switch-end drive that does not show switchOpen yet is
+// judged again on each later sample while its newest current is at the floor
+// (within CAL_END_OPEN_MARGIN_TENTHS) or still falling, up to this many
+// samples, before it is Stuck: a press at an open switch whose IS is still
+// creeping up by a count is not a stall.
+static constexpr uint8_t CAL_END_OPEN_WAIT_SAMPLES = 10;
 // V3: on a switch-end drive Stuck needs CAL_END_SWITCH_STUCK_STILL_MS without
 // a forward edge (CAL_END_STUCK_STILL_MS elsewhere), so the switch's drop and
 // its switchOpen samples come first, and it waits on while the newest current
@@ -422,7 +437,7 @@ static_assert(CAL_END_SWITCH_STILL_SAMPLES >= 1 && CAL_END_STOP_HOLD_SAMPLES >= 
                   CAL_END_SWITCH_REF_SAMPLES >= CAL_END_ARM_SAMPLES &&
                   CAL_END_SWITCH_REF_SAMPLES >= 4,
               "end detector counts must be positive and fit the median buffer");
-static_assert(CAL_END_SWITCH_SLOW_PCT < CAL_END_SWITCH_FAST_PCT && CAL_END_SWITCH_FAST_PCT < 100 &&
+static_assert(CAL_END_SWITCH_SLOW_PCT <= CAL_END_SWITCH_FAST_PCT && CAL_END_SWITCH_FAST_PCT < 100 &&
                   CAL_END_STOP_CURRENT_PCT > 100 && CAL_END_STOP_SPEED_PCT < CAL_END_NORMAL_SPEED_PCT,
               "end signatures: a switch drops the current, a stop raises it and slows the joint");
 static_assert(CAL_END_STUCK_STILL_MS < CAL_STALL_WINDOW_MS,
