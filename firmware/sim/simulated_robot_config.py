@@ -23,18 +23,20 @@ SENSOR_POT = "pot"
 SENSOR_HALL = "hall"
 SLOT_SENSORS = (SENSOR_POT, SENSOR_HALL)
 
-# Hall edges from one stroke end to the other in the calibration plant. Knees:
-# FLKL's measured full stroke with its hip curled (2026-11-23), inside the
+# Hall edges from one stroke end to the other in the calibration plant. Knees: about
+# 785 from the leg stop to the uncurl switch (FLKL measured 776 with its hip curled,
+# 2026-11-23), inside the
 # firmware's provisional CAL_HALL_MIN_STROKE_EDGES..CAL_HALL_MAX_STROKE_EDGES
 # (450..1500). This is not hall_encoder_scale.json's edges_per_full_travel, which
 # maps an Isaac joint's radians to edges.
-DEFAULT_HALL_EDGES_PER_STROKE = 776
-# Hall hips in the plant. FLHL counted 941-1003 edges from its curl end before its
-# curled tibia pressed against the bottom of the robot, which is not the actuator's
-# own end; that end was not measured. The plant has no body, so this placeholder is
-# simply longer than that reach. SWEEP stops a hall hip after CAL_HIP_SWEEP_EDGES
-# (700) anyway, and saves [0, 700].
-DEFAULT_HALL_HIP_EDGES_PER_STROKE = 1100
+DEFAULT_HALL_EDGES_PER_STROKE = 785
+# Hall hips in the plant: the actuator's curl switch to its extend switch, 1069 edges
+# (FL measured switch to switch 3 of 3, 2026-11-24; CAL_HIP_STROKE_EDGES in
+# calibration_constants.h, the range a hall hip is saved with). The plant has no
+# body, so the curled tibia meeting it at 941-1003 edges is modelled only where a
+# test asks for it (``extend_stops``). SWEEP drives a hall hip out only
+# CAL_HIP_SWEEP_EDGES (840, with its knee parked), never to its extend switch.
+DEFAULT_HALL_HIP_EDGES_PER_STROKE = 1069
 
 # Board ids of the host sim (krabby_host_board_* functions): FRONT, LEFT, RIGHT.
 BOARD_ID_BY_ROLE = {"FRONT": 0, "LEFT": 1, "RIGHT": 2}

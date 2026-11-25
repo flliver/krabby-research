@@ -114,8 +114,13 @@ def test_mcu_emitter_calibrate_command(host):
     [
         (b"C 120\n", "CAL ROBOT START pwm=120 passes=SEEK,SWEEP"),
         (b"C SEEK\n", "CAL ROBOT START pwm=128 passes=SEEK"),
-        (b"C SWEEP 40\n", "CAL ROBOT START pwm=40 passes=SWEEP"),
-        (b"C 151\n", "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150"),
+        (b"C SWEEP 110\n", "CAL ROBOT START pwm=110 passes=SWEEP"),
+        (b"C 150\n", "CAL ROBOT START pwm=150 passes=SEEK,SWEEP"),
+        # PWM 110-150 only (owner decision F4): 40 and 80 stall mid-stroke.
+        (b"C 109\n", "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150"),
+        (b"C SWEEP 80\n", "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150"),
+        (b"C 40\n", "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150"),
+        (b"C 151\n", "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150"),
     ],
 )
 def test_mcu_emitter_calibrate_command_forms(host, wire, start):

@@ -12,10 +12,16 @@ or above ``AUTOCAL_PWM_DRIVE_THRESHOLD`` extends it by one step per firmware loo
   near ``HALL_B_REST_LOW_ADC`` or ``HALL_B_REST_HIGH_ADC``.
 - Every actuator's current-sense pin (``pin_is``) reads what the 2026-11-24 end
   current runs measured, which the firmware's calibration end detector needs: 0
-  undriven, ``CAL_PLANT_IS_RUN_ADC`` while driven, ``CAL_PLANT_IS_SWITCH_OPEN_ADC``
-  driven back into the retracted end (the actuator's limit switch opens) and
-  ``CAL_PLANT_IS_STALL_ADC`` pressed into an extended end that stops it (the
-  stroke end, an ``extend_stops`` obstacle, a stored knee's curl end).
+  undriven; while driven the joint's switch-open level
+  (``CAL_PLANT_IS_SWITCH_OPEN_ADC``, the IS channel's own offset) plus a running
+  increment that grows with |PWM| (``CAL_PLANT_IS_RUN_INCREMENT_ADC`` at PWM 128);
+  the switch-open level itself once a limit switch opens (driven back into the
+  retracted end, or a hall hip driven into its extended end: its extend switch
+  too); and ``CAL_PLANT_IS_STALL_ADC`` pressed into an extended end that stops it
+  (a knee's leg stop, an ``extend_stops`` obstacle, a stored knee's curl end). The
+  detector's floor is the lowest current of its samples 3..ramp end and a limit
+  switch end must read flat at most 1.5 counts above it, so the switch-open level
+  sits at the bottom of the ramp's levels.
 
 Two optional models make ``CalibrationTravelPlant`` behave like the robot where the
 calibration depends on it (both off by default, so the goldens keep their meaning):
@@ -51,8 +57,9 @@ AUTOCAL_TRAVEL_STEP = 0.06
 # windows sees no motion: a knee is then nudged (the shipped default; a strict run,
 # options 0, fails it NoMotion).
 AUTOCAL_QUADRATURE_TRAVEL_STEP = 0.0015
-# Below the slowest calibration speed (CAL_PWM_MIN = 40 in calibration_constants.h),
-# so ``C 40`` moves the plant too; the firmware ramps |PWM| up from 0 in steps of 5.
+# Below the slowest calibration speed (CAL_PWM_MIN = 110 in calibration_constants.h),
+# so every accepted ``C`` moves the plant too; the firmware ramps |PWM| up from 0 in
+# steps of 5.
 AUTOCAL_PWM_DRIVE_THRESHOLD = 20
 
 # Hall B rest levels seen on the robot (CAL_HALLB_REST_LOW_MAX / HIGH_MIN are 19 / 1013).
@@ -65,11 +72,16 @@ INT32_MAX = 2**31 - 1
 # One host firmware loop (the plant advances once per loop).
 PLANT_TICK_MS = 10
 
-# Current-sense ADC (avgIS units) of a driven actuator: running, driven into its
-# retracted end (limit switch open: 7-11 on the robot) and pressed into an
-# extended end (13-24 at a knee's leg stop), 2026-11-24.
-CAL_PLANT_IS_RUN_ADC = 12
+# Current-sense ADC (avgIS units) of a driven actuator, 2026-11-24: with its limit
+# switch open it sits at the channel's own offset (7-11 on the robot); a conducting
+# motor reads that level plus a running increment that grows with |PWM|; pressed
+# into an extended end it reads higher (13-24 at a knee's leg stop).
 CAL_PLANT_IS_SWITCH_OPEN_ADC = 8
+# The running increment at PWM 128 (the default); it scales with |PWM| (and PWM 150
+# reads about 5), so CAL_PLANT_IS_RUN_ADC is the level at PWM 128.
+CAL_PLANT_IS_RUN_INCREMENT_ADC = 4
+CAL_PLANT_IS_RUN_PWM = 128
+CAL_PLANT_IS_RUN_ADC = CAL_PLANT_IS_SWITCH_OPEN_ADC + CAL_PLANT_IS_RUN_INCREMENT_ADC
 CAL_PLANT_IS_STALL_ADC = 18
 
 
@@ -155,15 +167,38 @@ def add_hall_edges(bridge: HallCountBridge, board_id: int, hall_slot: int, delta
     return count
 
 
-def calibration_is_adc(signed_pwm: int, old_travel: float, new_travel: float) -> int:
-    """Current-sense ADC after one plant step of a drive of ``signed_pwm``."""
+def running_is_adc(signed_pwm: int) -> int:
+    """Current-sense ADC of a conducting motor: switch-open level + an increment of |PWM|."""
+    increment = CAL_PLANT_IS_RUN_INCREMENT_ADC * abs(signed_pwm) / CAL_PLANT_IS_RUN_PWM
+    return CAL_PLANT_IS_SWITCH_OPEN_ADC + int(round(increment))
+
+
+def calibration_is_adc(
+    signed_pwm: int,
+    old_travel: float,
+    new_travel: float,
+    *,
+    extend_switch: bool = False,
+) -> int:
+    """Current-sense ADC after one plant step of a drive of ``signed_pwm``.
+
+    ``extend_switch``: the actuator's extended end is a limit switch too (a hall hip),
+    so driven into it the level falls to switch-open instead of rising.
+    """
     if signed_pwm == 0:
         return 0
     if signed_pwm < 0 and new_travel <= 0.0:
         return CAL_PLANT_IS_SWITCH_OPEN_ADC
     if signed_pwm >= AUTOCAL_PWM_DRIVE_THRESHOLD and new_travel <= old_travel:
+        if extend_switch and new_travel >= 1.0:
+            return CAL_PLANT_IS_SWITCH_OPEN_ADC
         return CAL_PLANT_IS_STALL_ADC
-    return CAL_PLANT_IS_RUN_ADC
+    return running_is_adc(signed_pwm)
+
+
+def is_hall_hip(slot: SimulatedSlotConfig) -> bool:
+    """A hall hip (``*HL``): its extended end is a limit switch, as its curl end is."""
+    return slot.is_hall and slot.firmware_actuator_id[2:] == "HL"
 
 
 def default_travel_fractions(actuators: Sequence[SimulatedActuator]) -> dict[str, float]:
@@ -229,7 +264,9 @@ def advance_travel_from_pwm(
         moved = advance_travel(frac, cmd, step)
         travel[aid] = moved
         if currents is not None:
-            currents[aid] = calibration_is_adc(cmd, frac, moved)
+            currents[aid] = calibration_is_adc(
+                cmd, frac, moved, extend_switch=is_hall_hip(slot)
+            )
         if bridge is not None and slot.is_hall:
             delta = hall_count_delta(frac, moved, slot.hall_edges_per_stroke)
             add_hall_edges(bridge, board_id, slot.slot_index, delta)
@@ -338,7 +375,9 @@ class CalibrationTravelPlant:
             if stop is not None and moved > frac:
                 moved = max(frac, min(moved, stop))
             self.travel[aid] = moved
-            self.current_adc[aid] = calibration_is_adc(cmd, frac, moved)
+            self.current_adc[aid] = calibration_is_adc(
+                cmd, frac, moved, extend_switch=is_hall_hip(slot)
+            )
             if slot.is_hall:
                 delta = hall_count_delta(frac, moved, slot.hall_edges_per_stroke)
                 add_hall_edges(bridge, self.board_id, slot.slot_index, delta)

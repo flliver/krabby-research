@@ -150,12 +150,15 @@ def test_rev3_hall_is_all_hall_on_a_quadrature_board():
 
 
 def test_default_hall_strokes_follow_the_robot():
-    # Knees: FLKL measured 776 edges, inside CAL_HALL_MIN/MAX_STROKE_EDGES (450..1500).
-    assert DEFAULT_HALL_EDGES_PER_STROKE == 776
+    # Knees: about 785 edges (FLKL measured 776 with its hip curled), inside
+    # CAL_HALL_MIN/MAX_STROKE_EDGES (450..1500).
+    assert DEFAULT_HALL_EDGES_PER_STROKE == 785
     assert 450 <= DEFAULT_HALL_EDGES_PER_STROKE <= 1500
-    # Hips: longer than the 941-1003 edges FLHL reached before its curled tibia met the
-    # body, so the fixed 700-edge sweep (CAL_HIP_SWEEP_EDGES) never reaches the end.
-    assert DEFAULT_HALL_HIP_EDGES_PER_STROKE > 1003
+    # Hips: the actuator's curl switch to its extend switch, CAL_HIP_STROKE_EDGES (1069,
+    # FL measured switch to switch), so the table-safe 840-edge sweep
+    # (CAL_HIP_SWEEP_EDGES) stops well short of the extend switch.
+    assert DEFAULT_HALL_HIP_EDGES_PER_STROKE == 1069
+    assert DEFAULT_HALL_HIP_EDGES_PER_STROKE > 840
     # Independent of the Isaac radians-to-edges scale.
     assert DEFAULT_HALL_EDGES_PER_FULL_TRAVEL == 3200
 

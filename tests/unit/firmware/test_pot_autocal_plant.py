@@ -9,6 +9,7 @@ from firmware.sim.pot_autocal_plant import (
     AUTOCAL_QUADRATURE_TRAVEL_STEP,
     AUTOCAL_TRAVEL_STEP,
     CAL_PLANT_IS_RUN_ADC,
+    CAL_PLANT_IS_RUN_INCREMENT_ADC,
     CAL_PLANT_IS_STALL_ADC,
     CAL_PLANT_IS_SWITCH_OPEN_ADC,
     HALL_B_REST_HIGH_ADC,
@@ -21,6 +22,7 @@ from firmware.sim.pot_autocal_plant import (
     advance_travel,
     advance_travel_from_pwm,
     calibration_is_adc,
+    running_is_adc,
     default_travel_fractions,
     hall_b_level,
     hall_count_delta,
@@ -227,9 +229,11 @@ def test_advance_travel_from_pwm_counts_hall_edges_with_a_bridge():
 
 
 def test_current_sense_levels_follow_the_end_currents_of_2026_11_24():
-    # 0 undriven; running; a retracted end is the limit switch (current drops);
-    # an extended end that stops the rod raises the current.
+    # 0 undriven; a conducting motor reads the switch-open level plus a running
+    # increment that grows with |PWM|; a retracted end is the limit switch (the level
+    # falls back to switch-open); an extended end that stops the rod raises it.
     assert (CAL_PLANT_IS_SWITCH_OPEN_ADC, CAL_PLANT_IS_RUN_ADC, CAL_PLANT_IS_STALL_ADC) == (8, 12, 18)
+    assert CAL_PLANT_IS_RUN_ADC == CAL_PLANT_IS_SWITCH_OPEN_ADC + CAL_PLANT_IS_RUN_INCREMENT_ADC
     assert calibration_is_adc(0, 0.5, 0.5) == 0
     assert calibration_is_adc(128, 0.5, 0.6) == CAL_PLANT_IS_RUN_ADC
     assert calibration_is_adc(-128, 0.5, 0.4) == CAL_PLANT_IS_RUN_ADC
@@ -237,10 +241,37 @@ def test_current_sense_levels_follow_the_end_currents_of_2026_11_24():
     assert calibration_is_adc(-128, 0.0, 0.0) == CAL_PLANT_IS_SWITCH_OPEN_ADC
     assert calibration_is_adc(128, 1.0, 1.0) == CAL_PLANT_IS_STALL_ADC
     assert calibration_is_adc(128, 0.7, 0.7) == CAL_PLANT_IS_STALL_ADC  # an obstacle
-    # Below the drive threshold the rod does not move: driven, not stalled.
-    assert calibration_is_adc(AUTOCAL_PWM_DRIVE_THRESHOLD - 1, 0.5, 0.5) == CAL_PLANT_IS_RUN_ADC
+    # Below the drive threshold the rod does not move: driven, not stalled, at about
+    # the switch-open level (a soft start's first loops).
+    soft = calibration_is_adc(AUTOCAL_PWM_DRIVE_THRESHOLD - 1, 0.5, 0.5)
+    assert CAL_PLANT_IS_SWITCH_OPEN_ADC <= soft <= CAL_PLANT_IS_SWITCH_OPEN_ADC + 1
     # A retract held at its start (a knee breaking free) is not at the switch.
     assert calibration_is_adc(-128, 1.0, 1.0) == CAL_PLANT_IS_RUN_ADC
+
+
+def test_running_current_grows_with_pwm_and_a_limit_switch_end_sits_at_the_floor():
+    # The detector's floor is the lowest current of its samples 3..ramp end (the soft
+    # start, PWM well below the move PWM); a switch end must read flat at most 1.5
+    # counts above it, which the switch-open level (below every running level) meets.
+    levels = [running_is_adc(pwm) for pwm in (20, 60, 110, 128, 150)]
+    assert levels == sorted(levels)
+    assert levels[0] <= CAL_PLANT_IS_SWITCH_OPEN_ADC + 1
+    assert running_is_adc(128) == CAL_PLANT_IS_RUN_ADC
+    assert running_is_adc(-150) == running_is_adc(150) > running_is_adc(110)
+    # The stall is above the running level at every calibration PWM (110-150) by more
+    # than the stop rule's 125%.
+    for pwm in (110, 128, 150):
+        assert CAL_PLANT_IS_STALL_ADC * 100 >= 125 * running_is_adc(pwm)
+        # ... and the switch-open level is below 88% of it (the switch rule).
+        assert CAL_PLANT_IS_SWITCH_OPEN_ADC * 100 <= 88 * running_is_adc(pwm)
+
+
+def test_a_hall_hip_driven_into_its_extend_switch_reads_switch_open_not_stalled():
+    # A hip's extended end is a limit switch too; other extended ends and obstacles stall.
+    assert calibration_is_adc(128, 0.99, 1.0, extend_switch=True) == CAL_PLANT_IS_RUN_ADC
+    assert calibration_is_adc(128, 1.0, 1.0, extend_switch=True) == CAL_PLANT_IS_SWITCH_OPEN_ADC
+    assert calibration_is_adc(128, 1.0, 1.0) == CAL_PLANT_IS_STALL_ADC
+    assert calibration_is_adc(128, 0.7, 0.7, extend_switch=True) == CAL_PLANT_IS_STALL_ADC
 
 
 def test_plant_writes_the_current_sense_pin_after_each_step():
@@ -269,6 +300,21 @@ def test_plant_writes_the_current_sense_pin_after_each_step():
     assert board.pots[hip.pin_is] == 0
     assert plant.travel["FLKL"] == 1.0
     assert board.pots[knee.pin_is] == CAL_PLANT_IS_STALL_ADC
+
+
+def test_plant_reads_switch_open_at_a_hall_hips_extend_end_and_stall_at_a_knees():
+    config = SimulatedRobotConfig.rev3_hall(hall_edges_per_stroke=1000)
+    plant = CalibrationTravelPlant(config, travel={"FLHL": 0.99, "FLKL": 0.99}, step=0.01)
+    board = FakeBoard()
+    hip = config.slot_by_firmware_id("FLHL")
+    knee = config.slot_by_firmware_id("FLKL")
+    board.drive(hip, 128)
+    board.drive(knee, 128)
+    plant.advance(board)  # reaches the end
+    plant.advance(board)  # driven into it
+    assert plant.travel["FLHL"] == plant.travel["FLKL"] == 1.0
+    assert plant.current_adc["FLHL"] == CAL_PLANT_IS_SWITCH_OPEN_ADC
+    assert plant.current_adc["FLKL"] == CAL_PLANT_IS_STALL_ADC
 
 
 def test_robot_core_path_writes_the_current_sense_pin():
