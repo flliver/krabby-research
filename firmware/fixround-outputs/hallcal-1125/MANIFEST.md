@@ -4,30 +4,30 @@ Built on the desktop build host (fractal-ubuntu) on 2026-11-25. They are build-o
 
 These replace every earlier hallcal-1125 build, all superseded:
 - `dc98f280`: Rev 3 sha256 `f89578c0…`, Rev 2 `0e9cdec7…`;
-- `0a7d3177`: Rev 3 `d0746e84…`, Rev 2 `378a4890…`;
-- `bf500eea`: Rev 3 `9e0cfdcc…`, Rev 2 `76e3ea14…`.
+- `0a7d3177` and `bf500eea`: Rev 3 `d0746e84…` / `9e0cfdcc…`, Rev 2 `378a4890…` / `76e3ea14…` (a 761 home-relative knee bound);
+- `0f2d199d`: Rev 3 `c55b5585…`, Rev 2 `a4242632…` (quiet band 769-801).
 
-The interim builds had a 761 home-relative knee bound. This build adds:
-- the host's F1 design: the knee parks 521 from its proven uncurl switch, with a two-level travel window (quiet 769-801, WARN to 745-825, FAIL beyond);
+This build adds:
+- the host's F1 design with its amendment: the knee parks 521 from its proven uncurl switch, its travel is quiet at 765-801 (S - 521 inside 244-280), WARNs at 745-764 or 802-825, and fails beyond, before the park;
 - the knee-frame check and the extend-switch label;
 - items a-f.
 
-- **Source:** branch `feat/hall-calibration-end-detection-fixround`, commit `0f2d199d`. The hexes are committed in the commit after it.
+- **Source:** branch `feat/hall-calibration-end-detection-fixround`, commit `6cb51640`. The hexes are committed in the commit after it.
 - **Version strings,** checked with `strings` on each `.elf`:
   - `KRABBY_FW_VERSION` = `hallcal-1125`;
   - `KRABBY_FW_BRANCH` = `feat/hall-calibration-end-detection-fixround`;
-  - `KRABBY_FW_COMMIT` = `0f2d199d`.
+  - `KRABBY_FW_COMMIT` = `6cb51640`.
 
   They come from a temporary `firmware/arduino/version.h`, restored with `git checkout` after each build. The committed file still reads "dev-local".
 
 | File | Board | sha256 | Flash | RAM (static) | Free RAM (compile-time) |
 |---|---|---|---|---|---|
-| `hallcal-1125_rev3.hex` | PIN_REV 3 (quadrature halls) | `c55b5585d2cc9986cdbec3be3506b5e95a8776633365d2a6a6e27a83c98d1444` | 85,016 B | 4,881 B | 3,311 B |
-| `hallcal-1125_rev2.hex` | PIN_REV 2 (pots only) | `a4242632aa8edf9764163d95c47e40b92c6297d9eeeff0d4270b043d6df1ac72` | 82,200 B | 4,859 B | 3,333 B |
+| `hallcal-1125_rev3.hex` | PIN_REV 3 (quadrature halls) | `d1d33cea508645a2f1fb5c9be62b8228bb2dfdc3b2f34f7a835d639b362f7c21` | 85,024 B | 4,881 B | 3,311 B |
+| `hallcal-1125_rev2.hex` | PIN_REV 2 (pots only) | `b08ebb7cb87d38dcc2f2da408e664c68193e9daaccd85bbdaaa12903b345d770` | 82,208 B | 4,859 B | 3,333 B |
 
 **Untagged comparison** (same commit, the committed "dev-local" `version.h`):
-- Rev 3: 84,960 B flash, 4,825 B RAM, 3,367 B free.
-- Rev 2: 82,144 B flash, 4,803 B RAM, 3,389 B free.
+- Rev 3: 84,968 B flash, 4,825 B RAM, 3,367 B free.
+- Rev 2: 82,152 B flash, 4,803 B RAM, 3,389 B free.
 
 The tagged builds are 56 B larger in flash and 56 B in RAM, which is the size of the three version strings. Free RAM stays above the 3,000 B floor, which applies to the compile-time figure (owner decision F5).
 
