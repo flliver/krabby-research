@@ -264,6 +264,49 @@ class TestMenuLoopDuringCalibration:
         assert mcu.events[-1] == ("hold",)
         assert mcu.jog_frames() == []
 
+    def test_neutral_is_refused_while_a_run_is_active(self, monkeypatch, capsys):
+        # Host review R3-1 (c): key 0 mid-run would send T, which aborts the run on
+        # the firmware and drives the joints it has out. Refused, once per press,
+        # with no neutral_targets() query and no T.
+        steps = [
+            lambda m, p: (p.clear(), m.say("CAL ROBOT START pwm=128 passes=SEEK,SWEEP")),
+            lambda m, p: p.add("0"),  # pressed mid-run
+            lambda m, p: None,  # still held
+            lambda m, p: p.discard("0"),
+        ]
+        mcu = _run_menu(monkeypatch, steps, initial_pressed={"9"})
+        names = [e[0] for e in mcu.events]
+        assert "neutral_targets" not in names and "T" not in names
+        assert mcu.jog_frames() == []  # the run was not aborted either
+        out = capsys.readouterr().out
+        assert out.count(menu.NEUTRAL_DURING_CALIBRATION) == 1
+        assert "jog key or ESC" in menu.NEUTRAL_DURING_CALIBRATION
+
+    def test_neutral_works_again_once_the_run_has_ended(self, monkeypatch):
+        steps = [
+            lambda m, p: (p.clear(), m.say("CAL ROBOT START pwm=128 passes=SEEK,SWEEP")),
+            lambda m, p: m.say("CAL ROBOT DONE"),
+            lambda m, p: p.add("0"),
+            lambda m, p: p.discard("0"),
+        ]
+        mcu = _FakeMenuMcu()
+        mcu.neutral = ({"FLHL": 0.5}, [])
+        mcu = _run_menu(monkeypatch, steps, initial_pressed={"9"}, mcu=mcu)
+        assert ("T", {"FLHL": 0.5}) in mcu.events
+
+    def test_neutral_pressed_as_the_run_ends_is_sent(self, monkeypatch):
+        # The end line arrives with key 0 already down: the press polls the watch,
+        # sees the run over, and sends.
+        steps = [
+            lambda m, p: (p.clear(), m.say("CAL ROBOT START pwm=128 passes=SEEK,SWEEP")),
+            lambda m, p: (m.say("CAL ROBOT FAIL FRONT: FLKL no motion"), p.add("0")),
+            lambda m, p: p.discard("0"),
+        ]
+        mcu = _FakeMenuMcu()
+        mcu.neutral = ({"FLHL": 0.5}, [])
+        mcu = _run_menu(monkeypatch, steps, initial_pressed={"9"}, mcu=mcu)
+        assert ("T", {"FLHL": 0.5}) in mcu.events
+
     def test_esc_without_a_run_sends_no_hold(self, monkeypatch):
         mcu = _run_menu(monkeypatch, [lambda m, p: None])
         assert ("hold",) not in mcu.events

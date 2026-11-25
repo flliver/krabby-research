@@ -75,6 +75,13 @@ NEUTRAL_NEEDS_FULL_RUN = (
     "Neutral: no hip or knee has a position yet - run auto-calibrate (9) with the "
     "robot on its stand"
 )
+# Key 0 during a calibration run started here: refused, as the GUI's Neutral is. A T
+# command would abort the run on the firmware and then drive joints the run has out
+# (a hip mid-sweep, its knee parked).
+NEUTRAL_DURING_CALIBRATION = (
+    "Neutral: a calibration run is in progress - wait for it to end, or press a jog "
+    "key or ESC to stop it"
+)
 NEUTRAL_NEEDS_CURL_ONLY = (
     "Neutral: no hip or knee has a position yet - home them with Calibrate > Curl only "
     "in the GUI (the menu has no Curl only key; 9 is the full run, on the stand only)"
@@ -260,6 +267,15 @@ def main():
                     mcu.send_command_joints_hold()  # stop the run before we disconnect
                 break
             if is_pressed("0"):
+                if cal_watch.active and (message := cal_watch.poll()) is not None:
+                    logger.info("CAL  run over: %s", message)
+                if cal_watch.active:
+                    # Refused (once per press) until the run's end line, a jog key or ESC.
+                    if neutral_note != NEUTRAL_DURING_CALIBRATION:
+                        print(NEUTRAL_DURING_CALIBRATION)
+                    neutral_note = NEUTRAL_DURING_CALIBRATION
+                    time.sleep(0.3)  # debounce
+                    continue
                 targets, skipped = mcu.neutral_targets(0.5)
                 if targets:
                     mcu.send_command_joints(targets)

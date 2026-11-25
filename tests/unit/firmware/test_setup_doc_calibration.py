@@ -127,6 +127,16 @@ def test_hollow_stand_sweep_is_optional_and_never_on_a_solid_table(setup_text):
     assert "**Never on a solid table**" in step and "940-985" in step
 
 
+def test_park_is_described_in_the_switch_frame_and_neutral_waits_for_a_run(setup_text):
+    # Host review of 1f219ca4: no "parked 264 edges out" left; the park counts
+    # from the uncurl switch, and Neutral is refused while a run is in progress.
+    assert "parked 264 edges out" not in setup_text
+    assert "the knee is parked **521 edges in from its uncurl switch**" in setup_text
+    assert "knee parked 521 edges in from its uncurl switch, 264 out of its curl stop on FL's 785" in setup_text
+    assert "`<t>` is the park in the knee's home frame, `<switch> + 521`" in setup_text
+    assert "their Neutral (the GUI button, menu key `0`) is refused" in setup_text
+
+
 def test_knee_curl_at_its_extend_switch_is_labelled_not_ruled(setup_text):
     # Host F1 design (8): no new rule, a label, and an open decision.
     step = _line_starting(setup_text, "- **A knee curl that reaches its actuator's extend switch**")
@@ -147,7 +157,7 @@ def test_obstacle_handling_and_failure_reasons(setup_text):
         "| `<j> stroke <S> edges (FL 745-825): obstacle or bind at its curl end?` |",
         "| `<j> home changed during its park: run C again` |",
         "| `<j> stuck after <n> edges, switch open: extend switch before the stop?` |",
-        "| `<j> stopped <n> edges short of its park at -264: obstacle?` |",
+        "| `<j> stopped <n> edges short of its park at <t>: obstacle?` |",
         "| `<j> not back at its curl switch (hall=<x>): jog it home` |",
         "| `<j> and its knee must both be hall encoders` |",
     ):
