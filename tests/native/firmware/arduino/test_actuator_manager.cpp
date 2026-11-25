@@ -1240,9 +1240,13 @@ static void test_refused_targets_beyond_thirty_two_actuators()
 // Rod travel limits of the calibration rig's plant (pot counts).
 constexpr int kRigLow = 100;
 constexpr int kRigHigh = 900;
-// Hall rig: rods travel 0..kHallStroke edges; count = kHallCountOffset - travel
-// (extend counts down). Hall B rests high on the pot pin.
+// Hall rig: hips travel 0..kHallStroke edges, knees 0..kHallKneeStroke (FL's
+// CAL_KNEE_STROKE_EDGES: the table-safe SWEEP's knee travel window is 745-825);
+// count = kHallCountOffset - travel (extend counts down). Hall B rests high on
+// the pot pin.
 constexpr int kHallStroke = 1000;
+constexpr int kHallKneeStroke = CAL_KNEE_STROKE_EDGES;
+inline int hallStrokeOf(int joint) { return joint % 3 == 2 ? kHallKneeStroke : kHallStroke; }
 constexpr int kHallCountOffset = 37;
 constexpr int kHallBRest = 1016;
 
@@ -1300,11 +1304,11 @@ struct CalibrationRig
             const int drive = signedPwm(joint);
             if (hall)
             {
-                travel[joint] = std::max(0, std::min(kHallStroke, travel[joint] + drive / 40));
+                travel[joint] = std::max(0, std::min(hallStrokeOf(joint), travel[joint] + drive / 40));
                 g_fakeHallCount[joint] = kHallCountOffset - travel[joint];
                 analog[5 * joint + 3] = drive == 0                          ? 0
                     : drive < 0 && travel[joint] == 0                       ? 8
-                    : drive > 0 && travel[joint] == kHallStroke             ? 18
+                    : drive > 0 && travel[joint] == hallStrokeOf(joint)     ? 18
                                                                             : 12;
                 continue;
             }
@@ -1414,12 +1418,12 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
     for (int joint : {2, 5})
     {
         assertKind(JointSensor::Hall, *rig.acts[joint]);
-        TEST_ASSERT_EQUAL_INT(-kHallStroke, rig.acts[joint]->minStop);
+        TEST_ASSERT_EQUAL_INT(-kHallKneeStroke, rig.acts[joint]->minStop);
         TEST_ASSERT_EQUAL_INT(0, rig.acts[joint]->maxStop);
-        TEST_ASSERT_EQUAL_INT(kHallCountOffset - kHallStroke, rig.acts[joint]->hallHome);
+        TEST_ASSERT_EQUAL_INT(kHallCountOffset - kHallKneeStroke, rig.acts[joint]->hallHome);
         TEST_ASSERT_EQUAL_FLOAT(1.0f, rig.acts[joint]->getPos());
     }
-    TEST_ASSERT_TRUE(contains(rig.output.output, "CAL FRONT HOME FLKL count=-963\n"));
+    TEST_ASSERT_TRUE(contains(rig.output.output, "CAL FRONT HOME FLKL count=-748\n"));
     TEST_ASSERT_TRUE(contains(rig.output.output, "SENS FRONT FLHY:? FLHL:E FLKL:E FRHY:? FRHL:E FRKL:E\n"));
     // Saved: v2 with the kinds (hips and knees Hall, yaws Unknown).
     TEST_ASSERT_EQUAL_UINT(3, EEPROM.writes);  // magic cleared, record, magic
@@ -1429,13 +1433,13 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
     TEST_ASSERT_EQUAL_HEX16(0x0A28, saved.sensorBits);
     TEST_ASSERT_EQUAL_HEX16(ActuatorManager::calDataCheck(saved), saved.check);
     TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, saved.maxVals[1]);
-    TEST_ASSERT_EQUAL_INT(-kHallStroke, saved.minVals[2]);
+    TEST_ASSERT_EQUAL_INT(-kHallKneeStroke, saved.minVals[2]);
     TEST_ASSERT_TRUE(contains(rig.output.output, "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)\n"));
 
     // One leg's moves, in the order the table-safe schedule runs them: SEEK is
     // knee curl, hip curl, knee curl; SWEEP is knee curl, hip curl, knee curl
-    // again (its home proven before the park counts from it), knee uncurl, knee
-    // park (to -264, flagged as FL's values), hip sweep (to 840 edges, by
+    // again, knee uncurl (its travel judged, the KNEE line), knee park (521 from
+    // its switch: -264 at a 785 travel, flagged as FL's values), hip sweep (to 840 edges, by
     // count), hip curl (which proves the home again and saves the derived
     // stroke), knee curl (which saves the knee's).
     static const char *const kFlLegOrder[] = {
@@ -1450,21 +1454,24 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
         "CAL FRONT MOVE FLHL curl\n",
         "CAL FRONT MOVE FLKL curl\n",
         "CAL FRONT MOVE FLKL uncurl\n",
+        "CAL FRONT KNEE FLKL home=-748 sw=37 travel=785 park=-264 pwm=128 (FL 785)\n",
         "CAL FRONT MOVE FLKL curl park\n",
-        "CAL FRONT PARK FLKL hall=-262 target=-264 (FL values)\n",
+        "CAL FRONT PARK FLKL hall=-263 fromSwitch=522 target=-264 (FL values)\n",
         "CAL FRONT MOVE FLHL uncurl sweep\n",
         "CAL FRONT END FLHL uncurl hall=840 travel=840\n",
+        "CAL FRONT KNEE FLKL sweep fromSwitch=522..522\n",
         "CAL FRONT MOVE FLHL curl\n",
         "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)\n",
         "CAL FRONT MOVE FLKL curl\n",
-        "CAL FRONT JOINT FLKL min=-1000 max=0 edges\n",
+        "CAL FRONT JOINT FLKL min=-785 max=0 edges\n",
         "CAL FRONT MOVE FRKL curl\n",
     };
     size_t cursor = 0;
     for (const char *line : kFlLegOrder)
     {
         const size_t at = rig.output.output.find(line, cursor);
-        TEST_ASSERT_TRUE_MESSAGE(at != std::string::npos, (std::string("missing in order: ") + line).c_str());
+        TEST_ASSERT_TRUE_MESSAGE(at != std::string::npos,
+                                 (std::string("missing in order: ") + line + rig.output.output).c_str());
         cursor = at + 1;
     }
     // FLKL curls: two in SEEK, then three in SWEEP (before the hip, before the

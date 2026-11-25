@@ -407,7 +407,8 @@ class TestMenuNeutralKey:
         out = " ".join(capsys.readouterr().out.split())
         assert "(per leg: knee, hip, knee again)" in out
         assert (
-            "Each leg: knee curl, hip curl, knee curl, knee uncurl, knee park 264 counts out, "
+            "Each leg: knee curl, hip curl, knee curl, knee uncurl (its travel checked), "
+            "knee park 521 counts in from its switch (264 out on the front-left leg), "
             "hip sweep to 840 with the knee parked, hip back to its curl switch, knee curl."
         ) in out
         assert "The hip's extend limit (1069) is derived, not switch-verified." in out

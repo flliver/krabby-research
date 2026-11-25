@@ -116,28 +116,36 @@ static constexpr int CAL_HALL_MAX_STROKE_EDGES = 1500;
 static constexpr int CAL_KNEE_PARK_EDGES = 264;
 static constexpr int CAL_KNEE_PARK_BAND_MIN_EDGES = 244;
 static constexpr int CAL_KNEE_PARK_BAND_MAX_EDGES = 280;
-// The knee's stroke, its curl stop to its switch: FL measured 785 on
-// 2026-11-24 (schedule k1). The park is counted from the knee's home, so a
-// knee homed d edges short of its stop (an obstacle or a bind at its curl
-// end) measures CAL_KNEE_STROKE_EDGES - d from its home to its
-// switch and parks d edges further out than its home says. Before its park the
-// table-safe SWEEP fails a knee whose home-to-switch stroke is under
-// CAL_KNEE_STROKE_MIN_EDGES (d over CAL_KNEE_STROKE_SHORT_MAX_EDGES); the hip
-// has not moved then. Why 24 and not the band's own 16: the stop is
-// compliant, so where a healthy knee stops depends on the drive (a PWM 200
-// curl parks FLKL 17 edges deeper than PWM 80 reaches, 2026-11-23: the host
-// plant's FL knee, its 785 counted from that park, reads 768 at the guard; on
-// the end test at 128 its long presses stopped 775-779 from its switch, and
-// the firmware's Stop homes after the re-curls land 0-7 short of a press:
-// about 768-779), so 16 would fail healthy knees. 24 keeps the true park at most
-// 288 out: the band's 280 is the knee-map-spread worst case, the schedule's
-// own assumptions keep margin to 292, and at 304 the toe is still 1.3 in off
-// the floor (table-safe-schedule check, point 3). The hollow stand's band
-// (157-232) holds it too.
-// PROVISIONAL: FL's values, used for every leg (flagged in the FAIL line).
+// The knee parks in its switch frame (host F1 design, 2026-11-25). The numbers
+// above are at FL's stroke CAL_KNEE_STROKE_EDGES (785, its curl stop to its
+// switch); the schedule's knee model counts from the switch (KNEE_SWITCH =
+// 785: the k1 angles were jogged where the switch read exactly 785). The
+// uncurl switch repeats within 0-1 count in a boot (FL 781/781 and 790/790, FR
+// 789/789), while the curl stop moves by up to about 24 counts with PWM and
+// approach. So the knee parks CAL_KNEE_SWITCH_PARK_EDGES toward curl from the
+// switch its own uncurl proved this run (a raw count: no home is involved),
+// and must stay inside [CAL_KNEE_SWITCH_BAND_MIN_EDGES,
+// CAL_KNEE_SWITCH_BAND_MAX_EDGES] of it, at its park and on every loop of the
+// hip sweep: at a 785 stroke exactly -264 in [-280, -244].
 static constexpr int CAL_KNEE_STROKE_EDGES = 785;
-static constexpr int CAL_KNEE_STROKE_SHORT_MAX_EDGES = 24;
-static constexpr int CAL_KNEE_STROKE_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_STROKE_SHORT_MAX_EDGES;
+static constexpr int CAL_KNEE_SWITCH_PARK_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_PARK_EDGES;
+static constexpr int CAL_KNEE_SWITCH_BAND_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_PARK_BAND_MAX_EDGES;
+static constexpr int CAL_KNEE_SWITCH_BAND_MAX_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_PARK_BAND_MIN_EDGES;
+// The knee's travel S (its home to its switch), checked at its uncurl, before
+// its park: within CAL_KNEE_TRAVEL_QUIET_EDGES of 785 (769..801) silent;
+// further but within CAL_HALL_CURL_END_TOLERANCE_EDGES (745..768, 802..825) a
+// WARN, as the park is still right in the switch frame but T and Neutral on
+// that knee are off by 785 - S; beyond that the pass fails before the park
+// (the hip at its curl switch, the knee at its uncurl switch, nothing saved):
+// a home that far off its stop is an obstacle or a bind at its curl end. FL's
+// switch-ended travels: 778-789 stop to switch and 775-781 switch to stop at
+// PWM 120-150 (2026-11-24); FR 788-789.
+// PROVISIONAL: FL's values, used for every leg (flagged in the KNEE line).
+static constexpr int CAL_KNEE_TRAVEL_QUIET_EDGES = 16;
+static constexpr int CAL_KNEE_TRAVEL_QUIET_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_TRAVEL_QUIET_EDGES;
+static constexpr int CAL_KNEE_TRAVEL_QUIET_MAX_EDGES = CAL_KNEE_STROKE_EDGES + CAL_KNEE_TRAVEL_QUIET_EDGES;
+static constexpr int CAL_KNEE_TRAVEL_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_HALL_CURL_END_TOLERANCE_EDGES;
+static constexpr int CAL_KNEE_TRAVEL_MAX_EDGES = CAL_KNEE_STROKE_EDGES + CAL_HALL_CURL_END_TOLERANCE_EDGES;
 static constexpr int CAL_HIP_SWEEP_EDGES = 840;
 static constexpr int CAL_HIP_REHOME_TOLERANCE_EDGES = 10;
 // Up to this hip position any knee is clear of the body, the table and the
@@ -161,6 +169,10 @@ static constexpr int CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES = 20;
 static constexpr int CAL_KNEE_HOLLOW_PARK_EDGES = 192;
 static constexpr int CAL_KNEE_HOLLOW_BAND_MIN_EDGES = 157;
 static constexpr int CAL_KNEE_HOLLOW_BAND_MAX_EDGES = 232;
+// The hollow-stand park in the switch frame (at a 785 stroke -192 in [-232, -157]).
+static constexpr int CAL_KNEE_HOLLOW_SWITCH_PARK_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_HOLLOW_PARK_EDGES;
+static constexpr int CAL_KNEE_HOLLOW_SWITCH_BAND_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_HOLLOW_BAND_MAX_EDGES;
+static constexpr int CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_HOLLOW_BAND_MIN_EDGES;
 
 // Verification nudge of a joint that shows no motion on its curl: out, then a
 // full curl back. A hip nudge runs 24 edges or 2000 ms from nudge start (ramp
@@ -502,12 +514,19 @@ static_assert(CAL_HIP_SWEEP_EDGES < CAL_HIP_STROKE_EDGES - CAL_HIP_EXTEND_SWITCH
 static_assert(CAL_HIP_REHOME_TOLERANCE_EDGES > 0 &&
                   CAL_HIP_REHOME_TOLERANCE_EDGES <= ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES,
               "lost counts within the re-home tolerance must not reach the extend switch");
-static_assert(CAL_KNEE_STROKE_MIN_EDGES == 761 && CAL_KNEE_STROKE_MIN_EDGES > CAL_HALL_MIN_STROKE_EDGES &&
-                  CAL_KNEE_STROKE_EDGES < CAL_HALL_MAX_STROKE_EDGES &&
-                  CAL_KNEE_STROKE_SHORT_MAX_EDGES >= CAL_KNEE_PARK_BAND_MAX_EDGES - CAL_KNEE_PARK_EDGES &&
-                  CAL_KNEE_PARK_EDGES + CAL_KNEE_STROKE_SHORT_MAX_EDGES <= 292 &&
-                  CAL_KNEE_HOLLOW_PARK_EDGES + CAL_KNEE_STROKE_SHORT_MAX_EDGES <= CAL_KNEE_HOLLOW_BAND_MAX_EDGES,
-              "a knee homed short of its stop by more than the allowance fails before its park");
+static_assert(CAL_KNEE_SWITCH_PARK_EDGES == 521 && CAL_KNEE_SWITCH_BAND_MIN_EDGES == 505 &&
+                  CAL_KNEE_SWITCH_BAND_MAX_EDGES == 541 && CAL_KNEE_HOLLOW_SWITCH_PARK_EDGES == 593 &&
+                  CAL_KNEE_HOLLOW_SWITCH_BAND_MIN_EDGES == 553 && CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES == 628,
+              "the switch-frame park and bands are FL's (at a 785 stroke: -264 in -280..-244, -192 in -232..-157)");
+static_assert(CAL_KNEE_TRAVEL_QUIET_MIN_EDGES == 769 && CAL_KNEE_TRAVEL_QUIET_MAX_EDGES == 801 &&
+                  CAL_KNEE_TRAVEL_MIN_EDGES == 745 && CAL_KNEE_TRAVEL_MAX_EDGES == 825,
+              "the knee travel window is FL's 785: quiet 769-801, fail below 745 or above 825");
+static_assert(CAL_KNEE_TRAVEL_MIN_EDGES >= CAL_HALL_MIN_STROKE_EDGES &&
+                  CAL_KNEE_TRAVEL_MAX_EDGES <= CAL_HALL_MAX_STROKE_EDGES,
+              "a knee travel the window accepts is a valid stroke");
+static_assert(CAL_KNEE_TRAVEL_MIN_EDGES - CAL_KNEE_SWITCH_BAND_MAX_EDGES > ACTUATOR_ENC_STOP_INSET_EDGES &&
+                  CAL_KNEE_TRAVEL_MIN_EDGES - CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES > ACTUATOR_ENC_STOP_INSET_EDGES,
+              "at the shortest accepted travel a parked knee stays clear of its curl stop's inset");
 static_assert(CAL_KNEE_PARK_BAND_MIN_EDGES < CAL_KNEE_PARK_EDGES &&
                   CAL_KNEE_PARK_EDGES < CAL_KNEE_PARK_BAND_MAX_EDGES &&
                   CAL_KNEE_HOLLOW_BAND_MIN_EDGES < CAL_KNEE_HOLLOW_PARK_EDGES &&

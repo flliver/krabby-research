@@ -240,12 +240,15 @@ class TestCalibrateExplanationEncoders:
     def test_sweep_order_is_table_safe(self):
         text = " ".join(CALIBRATE_EXPLANATION.split())
         assert (
-            "knee curl, hip curl (home 0), knee curl again, knee uncurl to its switch, knee park "
-            f"{app.CAL_KNEE_PARK_EDGES} counts out of its curl stop, hip sweep to "
+            "knee curl, hip curl (home 0), knee curl again, knee uncurl to its switch (its travel "
+            "from its home is checked: a warning, or a failure before anything else moves, if it "
+            "is far from the front-left leg's), knee park "
+            f"{app.CAL_KNEE_SWITCH_PARK_EDGES} counts in from that switch ({app.CAL_KNEE_PARK_EDGES} "
+            "out of its curl stop on the front-left leg), hip sweep to "
             f"{app.CAL_HIP_SWEEP_EDGES} hall counts with the knee held there, hip back to "
             "its curl switch" in text
         )
-        assert (app.CAL_KNEE_PARK_EDGES, app.CAL_HIP_SWEEP_EDGES) == (264, 840)
+        assert (app.CAL_KNEE_SWITCH_PARK_EDGES, app.CAL_KNEE_PARK_EDGES, app.CAL_HIP_SWEEP_EDGES) == (521, 264, 840)
         assert "within 10 counts of 0, else counts were lost" in text
         assert text.endswith("nothing for the board in progress.")
         assert "knee curl. The hip moves past 560 counts only with its knee parked" in text

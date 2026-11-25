@@ -53,6 +53,9 @@ using calibration_timeline::kSpecHipSweepCoastEdges;
 using calibration_timeline::kSpecHipSweepEdges;
 using calibration_timeline::kSpecKneeParkBandMaxEdges;
 using calibration_timeline::kSpecKneeParkBandMinEdges;
+using calibration_timeline::kSpecKneeSwitchBandMaxEdges;
+using calibration_timeline::kSpecKneeSwitchBandMinEdges;
+using calibration_timeline::kSpecKneeSwitchParkEdges;
 using calibration_timeline::kSpecNudgeMaxPwm;
 using calibration_timeline::kSpecKneeNudgeMaxEdges;
 using calibration_timeline::kSpecBlindKneeNudgeMaxEdges;
@@ -854,7 +857,7 @@ static void test_all_hall_robot_from_mid_stroke_homes_and_saves_canonical_stroke
         for (int joint = 0; joint < kJoints; ++joint)
         {
             Rod &rod = timeline.rods[board][joint];
-            rod.edgesPerCount = 1.0 + 0.5 * board;  // strokes 785 (FLKL's, setHallRods), 1050, 1400 edges
+            rod.edgesPerCount = 1.0 + 0.5 * board;  // knee strokes all FLKL's 785 edges (setHallRods)
             rod.kneeTaper = true;
             rod.kneeCompliance = true;
         }
@@ -884,7 +887,7 @@ static void test_all_hall_robot_from_mid_stroke_homes_and_saves_canonical_stroke
     TEST_ASSERT_EQUAL_UINT(3, timeline.eepromChanges.size());
     for (int board = 0; board < kBoards; ++board)
     {
-        const int stroke = board == 0 ? 785 : static_cast<int>(700 * (1.0 + 0.5 * board));
+        const int stroke = 785;
         // A knee's end is up to 17 edges deeper at PWM 120.
         assertCanonicalHallRecord(board, stroke - 2, stroke + 30);
         TEST_ASSERT_EQUAL_STRING("?EE?EE", sensorStates(board).c_str());
@@ -920,7 +923,7 @@ static void test_all_hall_robot_from_mid_stroke_homes_and_saves_canonical_stroke
                 std::to_string(furthest).c_str());
         }
     }
-    TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT WARN "));
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, countLinesStarting("CAL FRONT WARN "), joinedLog().c_str());
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL LEFT WARN "));
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL RIGHT WARN "));
     for (const LoggedLine &line : g_log)
@@ -2225,15 +2228,24 @@ static void test_single_board_robot_like_actuators_calibrate_without_touching_th
             std::to_string(timeline.furthestOutEdges(0, hip)).c_str());
         TEST_ASSERT_TRUE(timeline.furthestOutEdges(0, hip) >= kSpecHipSweepEdges);
     }
-    // Each knee parked inside its band ("PARK <knee> hall=<x> target=-264").
+    // Each knee parked inside its band in its switch frame ("PARK <knee>
+    // hall=<x> fromSwitch=<f> target=<switch + 521>"); its travel (776 nominal
+    // plus 18 of compliance at PWM 128) is in the quiet window.
     for (const char *knee : {"FLKL", "FRKL"})
     {
         const LoggedLine *park = findLineStarting(std::string("CAL FRONT PARK ") + knee + " hall=");
         TEST_ASSERT_NOT_NULL_MESSAGE(park, joinedLog().c_str());
-        const std::string prefix = std::string("CAL FRONT PARK ") + knee + " hall=";
-        const long x = std::strtol(park->text.c_str() + prefix.size(), nullptr, 10);
-        TEST_ASSERT_TRUE_MESSAGE(x <= -kSpecKneeParkBandMinEdges && x >= -kSpecKneeParkBandMaxEdges, park->text.c_str());
-        TEST_ASSERT_TRUE_MESSAGE(park->text.find(" target=-264 (FL values)") != std::string::npos, park->text.c_str());
+        long x = 0, fromSwitch = 0, target = 0;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(3, std::sscanf(park->text.c_str() + std::strlen("CAL FRONT PARK FLKL "),
+            "hall=%ld fromSwitch=%ld target=%ld", &x, &fromSwitch, &target), park->text.c_str());
+        TEST_ASSERT_TRUE_MESSAGE(fromSwitch >= kSpecKneeSwitchBandMinEdges && fromSwitch <= kSpecKneeSwitchBandMaxEdges,
+                                 park->text.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(x - fromSwitch + kSpecKneeSwitchParkEdges, target, park->text.c_str());
+        TEST_ASSERT_TRUE_MESSAGE(park->text.find(" (FL values)") != std::string::npos, park->text.c_str());
+        const LoggedLine *travel = findLineStarting(std::string("CAL FRONT KNEE ") + knee + " home=");
+        TEST_ASSERT_NOT_NULL(travel);
+        const long s = std::strtol(std::strstr(travel->text.c_str(), " travel=") + 8, nullptr, 10);
+        TEST_ASSERT_TRUE_MESSAGE(s >= 769 && s <= 801, travel->text.c_str());
     }
     TEST_ASSERT_TRUE(hasLine("CAL FRONT MOVE FLKL curl park"));
     TEST_ASSERT_TRUE(hasLine("CAL FRONT MOVE FLHL uncurl sweep"));

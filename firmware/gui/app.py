@@ -14,6 +14,7 @@ from firmware.krabby_mcu import (
     CAL_HIP_SWEEP_EDGES,
     CAL_KNEE_NUDGE_EDGES,
     CAL_KNEE_PARK_EDGES,
+    CAL_KNEE_SWITCH_PARK_EDGES,
     CAL_PWM_MAX,
     CAL_PWM_MIN,
     DEFAULT_BAUD,
@@ -68,7 +69,7 @@ NEUTRAL_DURING_CALIBRATION_NOTE = (
 
 # Calibrate dialog (Mega path). The curl directions quoted here come from
 # firmware.krabby_mcu.curl_button(), which mirrors calibration_constants.h.
-# The counts quoted here are CAL_KNEE_PARK_EDGES, CAL_HIP_SWEEP_EDGES,
+# The counts quoted here are CAL_KNEE_SWITCH_PARK_EDGES, CAL_KNEE_PARK_EDGES, CAL_HIP_SWEEP_EDGES,
 # CAL_HIP_STROKE_EDGES, CAL_HIP_NUDGE_EDGES and CAL_KNEE_NUDGE_EDGES; the knee nudge is
 # the shipped default (CAL_DEFAULT_OPTIONS). A curled knee springs out 5-9 counts after
 # its nudge stops (measured on FLKL).
@@ -82,8 +83,11 @@ CALIBRATE_EXPLANATION = (
     "on Retract, the knee on Extend. The second knee curl is the proven one: it can "
     "move the knee's home deeper (a warning says so).\n"
     "2. Sweep: only after the whole robot is curled, each leg is swept in a table-safe "
-    "order: knee curl, hip curl (home 0), knee curl again, knee uncurl to its switch, knee park "
-    f"{CAL_KNEE_PARK_EDGES} counts out of its curl stop, hip sweep to "
+    "order: knee curl, hip curl (home 0), knee curl again, knee uncurl to its switch (its "
+    "travel from its home is checked: a warning, or a failure before anything else moves, "
+    "if it is far from the front-left leg's), knee park "
+    f"{CAL_KNEE_SWITCH_PARK_EDGES} counts in from that switch ({CAL_KNEE_PARK_EDGES} out of "
+    "its curl stop on the front-left leg), hip sweep to "
     f"{CAL_HIP_SWEEP_EDGES} hall counts with the knee held there, hip back to its curl "
     "switch (it must read within 10 counts of 0, else counts were lost), knee curl. "
     "The hip moves past 560 counts only with its knee parked, and a knee never moves while its hip is known to be out past 560 counts (the run then says to jog the hip to its curl end first). If the hip or the knee "

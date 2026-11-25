@@ -142,6 +142,11 @@ constexpr int kSpecHipStrokeEdges = 1069;
 constexpr double kSpecKneeParkEdges = 264.0;
 constexpr double kSpecKneeParkBandMinEdges = 244.0;
 constexpr double kSpecKneeParkBandMaxEdges = 280.0;
+// The same park in the knee's switch frame (edges toward curl from its proven
+// uncurl switch: CAL_KNEE_SWITCH_PARK_EDGES and its band), wherever its home is.
+constexpr long kSpecKneeSwitchParkEdges = 521;
+constexpr long kSpecKneeSwitchBandMinEdges = 505;
+constexpr long kSpecKneeSwitchBandMaxEdges = 541;
 constexpr double kSpecHipAnyKneeMaxEdges = 560.0;
 // How far a hip may coast past its 840-edge sweep. The schedule's worst case
 // tolerates 27 counts of overshoot past its own 864 target (the table rule at
@@ -182,9 +187,9 @@ constexpr double kAfterStopCountsPerMs = 0.1;
 // with the knee curled: the curled tibia meets the body at 941 edges (fact 2:
 // FLHL stopped at 941 with its knee 24 edges off its curl end, 1003 curled tight).
 constexpr double kHallHipStrokeEdges = 1069.0;
-// Hall knees (setHallRods): at least FLKL's stroke, curl stop to switch, 785
-// edges (CAL_KNEE_STROKE_EDGES): the table-safe SWEEP fails a knee more than
-// 24 edges shorter before its park (an obstacle or a bind at its curl end).
+// Hall knees (setHallRods): FLKL's stroke, curl stop to switch, 785 edges
+// (CAL_KNEE_STROKE_EDGES): the table-safe SWEEP fails a knee whose travel is
+// outside 745-825 before its park, and WARNs outside 769-801.
 constexpr double kHallKneeStrokeEdges = 785.0;
 constexpr double kBodyContactEdges = 941.0;
 // With its hip at the body contact a knee 24 edges off its curl end touches the
@@ -481,8 +486,10 @@ public:
     // Sets every hip and knee of boards [firstBoard, lastBoard] to a hall rod.
     // Hips get FLHL's 1069-edge stroke, longer than their reach with the knee
     // curled, where the curled tibia meets the body (call after setting
-    // edgesPerCount). Knees keep their stroke (700 counts by default) when it
-    // is at least FLKL's 785 edges, else get FLKL's (its switch moved out).
+    // edgesPerCount). Knees get FLKL's 785-edge stroke (their switch moved to
+    // fit), whatever their edgesPerCount; a compliant knee (set kneeCompliance
+    // first) 785 at PWM 120: nominally 17 less, so 785-789 at 120-150, as FL's
+    // switch-ended travels (778-789).
     void setHallRods(int firstBoard, int lastBoard)
     {
         for (int board = firstBoard; board <= lastBoard; ++board)
@@ -493,8 +500,8 @@ public:
                 rod.sensor = RodSensor::Hall;
                 if (!isHip(joint))
                 {
-                    const double kneeStroke = kHallKneeStrokeEdges / rod.edgesPerCount;
-                    if (rod.high - rod.low < kneeStroke) rod.low = rod.high - kneeStroke;
+                    rod.low = rod.high - (kHallKneeStrokeEdges - (rod.kneeCompliance ? kKneeComplianceEdges : 0.0)) /
+                                             rod.edgesPerCount;
                     continue;
                 }
                 rod.high = rod.low + kHallHipStrokeEdges / rod.edgesPerCount;

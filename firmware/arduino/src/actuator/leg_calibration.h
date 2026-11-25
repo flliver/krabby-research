@@ -21,17 +21,22 @@
 //   calibration_constants.h CAL_KNEE_PARK_EDGES): knee -> curl end; hip ->
 //   curl end (home 0); knee -> curl end again (as in SEEK: with its hip curled
 //   its home is proven before the park counts from it, also for a SWEEP run
-//   on its own); knee -> uncurl end (its switch); knee -> park (by count
-//   to -CAL_KNEE_PARK_EDGES, then checked inside its band); hip -> sweep (by
-//   count to CAL_HIP_SWEEP_EDGES with the knee held parked: any end before it,
-//   or the knee leaving its band, is an obstacle, and the hip retracts to its
-//   curl switch and the pass fails, with no retry); hip -> curl end (it must
-//   re-home within CAL_HIP_REHOME_TOLERANCE_EDGES of 0, else lost counts);
+//   on its own); knee -> uncurl end (its switch: the switch frame, a raw
+//   count; its travel S from its home is judged, KNEE line, quiet within
+//   CAL_KNEE_TRAVEL_QUIET_EDGES of 785, a WARN out to 745-825, a failure
+//   beyond); knee -> park (by count to CAL_KNEE_SWITCH_PARK_EDGES from that
+//   switch, then checked inside its band, in the switch frame); hip -> sweep
+//   (by count to CAL_HIP_SWEEP_EDGES with the knee held parked: any end
+//   before it, or the knee leaving its band, is an obstacle, and the hip
+//   retracts to its curl switch and the pass fails, with no retry); hip ->
+//   curl end (it must re-home within CAL_HIP_REHOME_TOLERANCE_EDGES of 0, else
+//   lost counts; the knee's home must not have changed since its uncurl);
 //   knee -> curl end. The hip saves [0, CAL_HIP_STROKE_EDGES] (its extend
 //   switch derived from FL's measured stroke, not switch-verified) and the knee
 //   [-S, 0]. The hip's extend switch is never sought, except by the
-//   opt-in hollow-stand sweep (CAL_OPT_HOLLOW_STAND), which parks the knee at
-//   -CAL_KNEE_HOLLOW_PARK_EDGES and sweeps the hip on to its switch.
+//   opt-in hollow-stand sweep (CAL_OPT_HOLLOW_STAND), which parks the knee
+//   CAL_KNEE_HOLLOW_SWITCH_PARK_EDGES from its switch and sweeps the hip on to
+//   its switch.
 // A pot hip (builds without quadrature halls) keeps the earlier order: knee ->
 //   curl end; hip -> curl end; hip -> uncurl end; hip -> curl end; knee ->
 //   uncurl end; knee -> curl end.
@@ -180,7 +185,8 @@ enum class LegCalibrationFailure : uint8_t
     NotRetracted,    // after an obstacle the hip did not reach its curl switch
     TableSafeNeedsHall,  // a hall hip whose knee is not a hall encoder: no table-safe park
     HipOut,          // a knee would move while its hip is known to be beyond CAL_HIP_ANY_KNEE_EDGES
-    KneeStrokeShort, // a table-safe knee's home-to-switch stroke is short: its home is short of its curl end
+    KneeTravelOutOfRange,  // a table-safe knee's home-to-switch travel is outside CAL_KNEE_TRAVEL_MIN/MAX_EDGES
+    KneeFrameMoved,        // a parked knee's home changed between its uncurl and its hip's curl back
 };
 
 enum class LegCalibrationMovePhase : uint8_t
@@ -231,19 +237,43 @@ inline uint8_t legCalibrationKneeOf(uint8_t joint)
     return static_cast<uint8_t>(joint - joint % LEG_CALIBRATION_JOINTS_PER_LEG + LEG_CALIBRATION_KNEE_OFFSET);
 }
 
-// The park of a knee in the hall frame ([-S, 0]): its target and band, in
-// edges (negative: uncurled from the curl stop). hollow: the hollow-stand park.
-inline int legCalibrationParkTarget(bool hollow)
+// The knee's park in its switch frame: edges toward curl from the uncurl
+// switch its own uncurl proved this run. hollow: the hollow-stand park.
+constexpr int32_t legCalibrationParkFromSwitch(bool hollow)
 {
-    return -(hollow ? CAL_KNEE_HOLLOW_PARK_EDGES : CAL_KNEE_PARK_EDGES);
+    return hollow ? CAL_KNEE_HOLLOW_SWITCH_PARK_EDGES : CAL_KNEE_SWITCH_PARK_EDGES;
 }
 
-inline bool isLegCalibrationParkInBand(int32_t position, bool hollow)
+// A knee `fromSwitch` edges toward curl from its switch is inside its park band
+// (the one test of its park and of the hip sweep's knee watch).
+constexpr bool isLegCalibrationKneeInBand(int32_t fromSwitch, bool hollow)
 {
-    const int32_t out = -position;
-    return hollow ? out >= CAL_KNEE_HOLLOW_BAND_MIN_EDGES && out <= CAL_KNEE_HOLLOW_BAND_MAX_EDGES
-                  : out >= CAL_KNEE_PARK_BAND_MIN_EDGES && out <= CAL_KNEE_PARK_BAND_MAX_EDGES;
+    return hollow ? fromSwitch >= CAL_KNEE_HOLLOW_SWITCH_BAND_MIN_EDGES &&
+                        fromSwitch <= CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES
+                  : fromSwitch >= CAL_KNEE_SWITCH_BAND_MIN_EDGES && fromSwitch <= CAL_KNEE_SWITCH_BAND_MAX_EDGES;
 }
+
+// The park in the knee's home frame ([-S, 0]) for its switch at switchPosition
+// (-S, the knee's travel negated).
+constexpr int32_t legCalibrationParkPosition(int32_t switchPosition, bool hollow)
+{
+    return switchPosition + legCalibrationParkFromSwitch(hollow);
+}
+
+// At FL's 785 stroke the switch frame is the old home-frame park: -264 in
+// -280..-244 (hollow: -192 in -232..-157).
+static_assert(legCalibrationParkPosition(-CAL_KNEE_STROKE_EDGES, false) == -264 &&
+                  legCalibrationParkPosition(-CAL_KNEE_STROKE_EDGES, true) == -192,
+              "a 785 stroke parks at -264 (hollow -192)");
+static_assert(isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 280, false) &&
+                  isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 244, false) &&
+                  !isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 281, false) &&
+                  !isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 243, false) &&
+                  isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 232, true) &&
+                  isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 157, true) &&
+                  !isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 233, true) &&
+                  !isLegCalibrationKneeInBand(CAL_KNEE_STROKE_EDGES - 156, true),
+              "at a 785 stroke the band is -280..-244 (hollow -232..-157)");
 
 // PWM sign that moves joint toward its curl end (curl) or away from it.
 inline int legCalibrationPwmSign(uint8_t joint, bool curl)
@@ -430,13 +460,14 @@ inline void printLegCalibrationFailureReason(
             out.printNumber(value2);
             return;
         case LegCalibrationFailure::KneeOutOfBand:
-            // value: the knee's position; value2: 1 for the hollow-stand band.
+            // value: the knee's edges toward curl from its switch; value2: 1 for
+            // the hollow-stand band.
             out.printFlash(KRABBY_FLASH_LITERAL(" at "));
             out.printNumber(value);
-            out.printFlash(KRABBY_FLASH_LITERAL(" edges, outside its park band "));
-            out.printNumber(-(value2 != 0 ? CAL_KNEE_HOLLOW_BAND_MAX_EDGES : CAL_KNEE_PARK_BAND_MAX_EDGES));
+            out.printFlash(KRABBY_FLASH_LITERAL(" from its switch, outside its park band "));
+            out.printNumber(value2 != 0 ? CAL_KNEE_HOLLOW_SWITCH_BAND_MIN_EDGES : CAL_KNEE_SWITCH_BAND_MIN_EDGES);
             out.printFlash(KRABBY_FLASH_LITERAL(".."));
-            out.printNumber(-(value2 != 0 ? CAL_KNEE_HOLLOW_BAND_MIN_EDGES : CAL_KNEE_PARK_BAND_MIN_EDGES));
+            out.printNumber(value2 != 0 ? CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES : CAL_KNEE_SWITCH_BAND_MAX_EDGES);
             return;
         case LegCalibrationFailure::ParkShort:
             // value: edges short of the park; value2: the park target.
@@ -454,13 +485,18 @@ inline void printLegCalibrationFailureReason(
         case LegCalibrationFailure::TableSafeNeedsHall:
             out.printFlash(KRABBY_FLASH_LITERAL(" and its knee must both be hall encoders"));
             return;
-        case LegCalibrationFailure::KneeStrokeShort:
-            // value: the knee's home-to-switch stroke.
-            out.printFlash(KRABBY_FLASH_LITERAL(" stroke "));
+        case LegCalibrationFailure::KneeTravelOutOfRange:
+            // value: the knee's home-to-switch travel.
+            out.printFlash(KRABBY_FLASH_LITERAL(" travel "));
             out.printNumber(value);
-            out.printFlash(KRABBY_FLASH_LITERAL(" edges < "));
-            out.printNumber(CAL_KNEE_STROKE_MIN_EDGES);
-            out.printFlash(KRABBY_FLASH_LITERAL(" (FL): obstacle or bind at its curl end?"));
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges, outside FL "));
+            out.printNumber(CAL_KNEE_TRAVEL_MIN_EDGES);
+            out.printChar('-');
+            out.printNumber(CAL_KNEE_TRAVEL_MAX_EDGES);
+            out.printFlash(KRABBY_FLASH_LITERAL(": check its curl end"));
+            return;
+        case LegCalibrationFailure::KneeFrameMoved:
+            out.printFlash(KRABBY_FLASH_LITERAL(" home changed during its park: run C again"));
             return;
         case LegCalibrationFailure::HipOut:
             out.printFlash(KRABBY_FLASH_LITERAL(" out at "));
@@ -468,6 +504,15 @@ inline void printLegCalibrationFailureReason(
             out.printFlash(KRABBY_FLASH_LITERAL(" edges: jog it to its curl end first"));
             return;
         case LegCalibrationFailure::StuckMidStroke:
+            // value2 1: a knee curl that stalled at the switch-open current,
+            // its actuator perhaps at its extend switch before the leg's stop.
+            if (value2 != 0)
+            {
+                out.printFlash(KRABBY_FLASH_LITERAL(" stuck after "));
+                out.printNumber(value);
+                out.printFlash(KRABBY_FLASH_LITERAL(" edges, switch open: extend switch before the stop?"));
+                return;
+            }
             // No edge at all: a joint that did not move, or a dead hall cable
             // (the motor driving a blind joint shows no switch-open current).
             if (value >= -CAL_POT_DETECT_MAX_EDGES && value <= CAL_POT_DETECT_MAX_EDGES)
@@ -570,6 +615,10 @@ public:
         pendingValue2_ = 0;
         pendingJoint_ = 0;
         kneeLeft_ = false;
+        switchRaw_ = 0;
+        kneeHomeRaw_ = 0;
+        sweepKneeMin_ = 0;
+        sweepKneeMax_ = 0;
         restartUnderDetector_ = false;
         pwm_ = 0;
         options_ = 0;
@@ -670,18 +719,26 @@ public:
             if (stage_ == LegCalibrationMoveStage::Normal && action_ != LegCalibrationAction::Seek)
             {
                 const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
-                const int32_t x = plant.position(joint_);
-                const bool reached = action_ == LegCalibrationAction::Sweep
-                    ? x >= sweepTarget()
-                    : x >= legCalibrationParkTarget(hollow);
+                const bool sweep = action_ == LegCalibrationAction::Sweep;
+                // The knee in its switch frame: the one parking, or the one
+                // the sweep watches (its range over the sweep is reported).
+                const int32_t knee = kneeFromSwitch(plant, sweep ? legCalibrationKneeOf(joint_) : joint_);
+                if (sweep)
+                {
+                    if (knee < sweepKneeMin_)
+                        sweepKneeMin_ = knee;
+                    if (knee > sweepKneeMax_)
+                        sweepKneeMax_ = knee;
+                }
+                const bool reached = sweep ? plant.position(joint_) >= sweepTarget()
+                                           : knee >= legCalibrationParkFromSwitch(hollow);
                 if (reached)
                 {
                     sweepReached_ = true;
                     stopToSettle(plant, now);
                     return;
                 }
-                if (action_ == LegCalibrationAction::Sweep &&
-                    !isLegCalibrationParkInBand(plant.position(legCalibrationKneeOf(joint_)), hollow))
+                if (sweep && !isLegCalibrationKneeInBand(knee, hollow))
                 {
                     kneeLeft_ = true;
                     stopToSettle(plant, now);
@@ -867,9 +924,15 @@ private:
     // "CAL <ROLE> <word><joint>" without line end.
     void printJointLine(LegCalibrationPlant &plant, CalibrationTextSink &out, const char *flashWord)
     {
+        printJointLine(plant, out, flashWord, joint_);
+    }
+
+    void printJointLine(LegCalibrationPlant &plant, CalibrationTextSink &out, const char *flashWord,
+                        uint8_t joint)
+    {
         printPrefix(plant, out);
         out.printFlash(flashWord);
-        out.printText(plant.jointName(joint_));
+        out.printText(plant.jointName(joint));
     }
 
     static int32_t magnitude(int32_t value) { return value < 0 ? -value : value; }
@@ -1273,6 +1336,7 @@ private:
         // nothing, or on such a drive " open=<current>/<floor>" (it showed the
         // switch-open signature).
         const bool switchEnd = sign_ < 0 || isLegCalibrationHip(joint_);
+        const bool kneeCurl = detecting_ && curl_ && !isLegCalibrationHip(joint_);
         if (endKind_ == CalibrationEnd::Switch || endKind_ == CalibrationEnd::Stop ||
             endKind_ == CalibrationEnd::Stuck)
         {
@@ -1282,7 +1346,8 @@ private:
             out.printNumber(static_cast<long>(end_.endCurrent()));
             out.printChar('/');
             out.printNumber(static_cast<long>(end_.endReference()));
-            if (switchEnd && end_.currentFloor() != 0xFFFFU)
+            if ((switchEnd || (kneeCurl && endKind_ == CalibrationEnd::Stuck)) &&
+                end_.currentFloor() != 0xFFFFU)
             {
                 out.printFlash(KRABBY_FLASH_LITERAL(" floor="));
                 out.printNumber(static_cast<long>(end_.currentFloor()));
@@ -1295,6 +1360,25 @@ private:
             out.printChar('/');
             out.printNumber(static_cast<long>(end_.endReference()));
         }
+        else if (endKind_ == CalibrationEnd::Still && kneeCurl)
+        {
+            // A knee curl's plain stall: its current, the reference, and the
+            // drive's floor (an unarmed stall has no decision current: the
+            // newest sample's).
+            out.printFlash(KRABBY_FLASH_LITERAL(" cur="));
+            out.printNumber(static_cast<long>(end_.endCurrent() != 0 ? end_.endCurrent() : end_.lastSampleCurrent()));
+            out.printChar('/');
+            out.printNumber(static_cast<long>(end_.endReference()));
+            if (end_.currentFloor() != 0xFFFFU)
+            {
+                out.printFlash(KRABBY_FLASH_LITERAL(" floor="));
+                out.printNumber(static_cast<long>(end_.currentFloor()));
+            }
+        }
+        // A knee curl that stalled (Still or Stuck) at the switch-open current:
+        // its actuator may have reached its extend switch before the leg's stop.
+        if ((endKind_ == CalibrationEnd::Still || endKind_ == CalibrationEnd::Stuck) && isKneeCurlAtSwitchOpen())
+            out.printFlash(KRABBY_FLASH_LITERAL(" open=1"));
         out.endLine();
     }
 
@@ -1399,7 +1483,8 @@ private:
                                 magnitude(driveEdges) <= CAL_POT_DETECT_MAX_EDGES;
         if (endKind_ == CalibrationEnd::Stuck && !returnUnproven && !stuckPress)
         {
-            fail(plant, LegCalibrationFailure::StuckMidStroke, driveEdges);
+            fail(plant, LegCalibrationFailure::StuckMidStroke, driveEdges,
+                 isKneeCurlAtSwitchOpen() ? 1 : 0);
             return;
         }
 
@@ -1412,15 +1497,11 @@ private:
                      kind == JointSensor::Pot ? magnitude(travel) : driveEdges);
                 return;
             }
-            // A table-safe knee's uncurl, before its park: a home-to-switch
-            // stroke short of FL's by more than CAL_KNEE_STROKE_SHORT_MAX_EDGES
-            // puts the home short of its curl end (an obstacle, a bind), and
-            // the park, counted from that home, out of its band. Fail before
-            // the knee parks or the hip sweeps.
+            // A table-safe knee at its uncurl switch, before its park: record
+            // the switch frame and judge its travel (checkKneeTravel).
             if (pass_ == CAL_PASS_SWEEP && tableSafe_ && kind == JointSensor::Hall &&
-                !isLegCalibrationHip(j) && magnitude(endPos) < CAL_KNEE_STROKE_MIN_EDGES)
+                !isLegCalibrationHip(j) && !checkKneeTravel(plant, endPos))
             {
-                fail(plant, LegCalibrationFailure::KneeStrokeShort, magnitude(endPos));
                 return;
             }
             stageEnd(endPos);
@@ -1523,6 +1604,13 @@ private:
             if (shortBy > tolerance)
             {
                 fail(plant, LegCalibrationFailure::ShortOfCurlEnd, shortBy);
+                return;
+            }
+            // The hip is back: its knee's frame must be the one its uncurl
+            // proved (no knee home may move from the uncurl to here).
+            if (hallHip && tableSafe_ && !isKneeFrameIntact(plant, legCalibrationKneeOf(j)))
+            {
+                fail(plant, LegCalibrationFailure::KneeFrameMoved, 0, 0, legCalibrationKneeOf(j));
                 return;
             }
             if (kind != JointSensor::Hall)
@@ -1655,27 +1743,118 @@ private:
     void finishPark(LegCalibrationPlant &plant, int32_t endPos)
     {
         const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
-        const int target = legCalibrationParkTarget(hollow);
-        if (!sweepReached_)
+        if (!isKneeFrameIntact(plant, joint_))
         {
-            fail(plant, LegCalibrationFailure::ParkShort, target - endPos, target);
+            fail(plant, LegCalibrationFailure::KneeFrameMoved, 0);
             return;
         }
-        if (!isLegCalibrationParkInBand(endPos, hollow))
+        const int32_t fromSwitch = kneeFromSwitch(plant, joint_);
+        const int32_t park = legCalibrationParkFromSwitch(hollow);
+        // The park in the home frame, for the operator (hall=).
+        const int32_t target = legCalibrationParkPosition(endPos - fromSwitch, hollow);
+        if (!sweepReached_)
         {
-            fail(plant, LegCalibrationFailure::KneeOutOfBand, endPos, hollow ? 1 : 0);
+            fail(plant, LegCalibrationFailure::ParkShort, park - fromSwitch, static_cast<int>(target));
+            return;
+        }
+        if (!isLegCalibrationKneeInBand(fromSwitch, hollow))
+        {
+            fail(plant, LegCalibrationFailure::KneeOutOfBand, fromSwitch, hollow ? 1 : 0);
             return;
         }
         parkedMask_ |= static_cast<uint8_t>(1U << joint_);
+        sweepKneeMin_ = fromSwitch;
+        sweepKneeMax_ = fromSwitch;
         CalibrationTextSink &out = plant.out();
         printJointLine(plant, out, KRABBY_FLASH_LITERAL("PARK "));
         out.printFlash(KRABBY_FLASH_LITERAL(" hall="));
         out.printNumber(endPos);
+        out.printFlash(KRABBY_FLASH_LITERAL(" fromSwitch="));
+        out.printNumber(fromSwitch);
         out.printFlash(KRABBY_FLASH_LITERAL(" target="));
         out.printNumber(target);
         out.printFlash(KRABBY_FLASH_LITERAL(" (FL values)"));
         out.endLine();
         advance(plant);
+    }
+
+    // The knee's edges toward curl from the switch its uncurl proved this run
+    // (raw counts: its home plays no part).
+    int32_t kneeFromSwitch(LegCalibrationPlant &plant, uint8_t knee) const
+    {
+        return static_cast<int32_t>(ACTUATOR_HALL_EXTEND_COUNT_SIGN) * (plant.hallCount(knee) - switchRaw_);
+    }
+
+    // A joint's home as a raw count (its position 0).
+    static int32_t rawHome(LegCalibrationPlant &plant, uint8_t joint)
+    {
+        return plant.hallCount(joint) - static_cast<int32_t>(ACTUATOR_HALL_EXTEND_COUNT_SIGN) * plant.position(joint);
+    }
+
+    // The knee's home is still the one it had at its uncurl.
+    bool isKneeFrameIntact(LegCalibrationPlant &plant, uint8_t knee) const
+    {
+        return plant.isHomed(knee) && rawHome(plant, knee) == kneeHomeRaw_;
+    }
+
+    // The move that just ended was a hall knee's curl under the detector, and
+    // its current sat at the switch-open level (its actuator perhaps at its
+    // extend switch before the leg's stop).
+    bool isKneeCurlAtSwitchOpen() const
+    {
+        return detecting_ && curl_ && !isLegCalibrationHip(joint_) && end_.isSwitchOpen();
+    }
+
+    // A table-safe knee at its uncurl switch (SWEEP step 3, before its park):
+    // records its switch and home as raw counts (the park's frame), prints
+    // "CAL <ROLE> KNEE <j> home=<raw> sw=<raw> travel=<S> park=<p> pwm=<pwm>
+    // (FL 785)" (park in the home frame, as the PARK line's hall=), then judges
+    // its travel S: outside CAL_KNEE_TRAVEL_MIN/MAX_EDGES the pass fails before
+    // the park; outside the quiet band "WARN <j> travel <S> edges, outside FL
+    // 769-801: T and Neutral off by <785 - S>". Returns false when the pass
+    // failed.
+    bool checkKneeTravel(LegCalibrationPlant &plant, int32_t endPos)
+    {
+        const uint8_t j = joint_;
+        const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
+        switchRaw_ = plant.hallCount(j);
+        kneeHomeRaw_ = rawHome(plant, j);
+        const int32_t travel = -endPos;
+        CalibrationTextSink &out = plant.out();
+        printJointLine(plant, out, KRABBY_FLASH_LITERAL("KNEE "));
+        out.printFlash(KRABBY_FLASH_LITERAL(" home="));
+        out.printNumber(kneeHomeRaw_);
+        out.printFlash(KRABBY_FLASH_LITERAL(" sw="));
+        out.printNumber(switchRaw_);
+        out.printFlash(KRABBY_FLASH_LITERAL(" travel="));
+        out.printNumber(travel);
+        out.printFlash(KRABBY_FLASH_LITERAL(" park="));
+        out.printNumber(legCalibrationParkPosition(endPos, hollow));
+        out.printFlash(KRABBY_FLASH_LITERAL(" pwm="));
+        out.printNumber(static_cast<long>(pwm_));
+        out.printFlash(KRABBY_FLASH_LITERAL(" (FL "));
+        out.printNumber(CAL_KNEE_STROKE_EDGES);
+        out.printChar(')');
+        out.endLine();
+        if (travel < CAL_KNEE_TRAVEL_MIN_EDGES || travel > CAL_KNEE_TRAVEL_MAX_EDGES)
+        {
+            fail(plant, LegCalibrationFailure::KneeTravelOutOfRange, travel);
+            return false;
+        }
+        if (travel < CAL_KNEE_TRAVEL_QUIET_MIN_EDGES || travel > CAL_KNEE_TRAVEL_QUIET_MAX_EDGES)
+        {
+            printWarnPrefix(plant, out);
+            out.printFlash(KRABBY_FLASH_LITERAL(" travel "));
+            out.printNumber(travel);
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges, outside FL "));
+            out.printNumber(CAL_KNEE_TRAVEL_QUIET_MIN_EDGES);
+            out.printChar('-');
+            out.printNumber(CAL_KNEE_TRAVEL_QUIET_MAX_EDGES);
+            out.printFlash(KRABBY_FLASH_LITERAL(": T and Neutral off by "));
+            out.printNumber(CAL_KNEE_STROKE_EDGES - travel);
+            out.endLine();
+        }
+        return true;
     }
 
     // The table-safe hip sweep settled. Reaching its count is the solid-stand
@@ -1688,10 +1867,20 @@ private:
     {
         const bool hollow = (options_ & CAL_OPT_HOLLOW_STAND) != 0;
         const int32_t target = sweepTarget();
+        const uint8_t knee = legCalibrationKneeOf(joint_);
+        // "CAL <ROLE> KNEE <knee> sweep fromSwitch=<min>..<max>": where the
+        // parked knee sat, in its switch frame, over the whole sweep.
+        CalibrationTextSink &out = plant.out();
+        printJointLine(plant, out, KRABBY_FLASH_LITERAL("KNEE "), knee);
+        out.printFlash(KRABBY_FLASH_LITERAL(" sweep fromSwitch="));
+        out.printNumber(sweepKneeMin_);
+        out.printFlash(KRABBY_FLASH_LITERAL(".."));
+        out.printNumber(sweepKneeMax_);
+        out.endLine();
         if (kneeLeft_)
         {
-            const uint8_t knee = legCalibrationKneeOf(joint_);
-            retractAfter(plant, LegCalibrationFailure::KneeOutOfBand, plant.position(knee), hollow ? 1 : 0, knee);
+            retractAfter(plant, LegCalibrationFailure::KneeOutOfBand, kneeFromSwitch(plant, knee), hollow ? 1 : 0,
+                         knee);
             return;
         }
         const bool atSwitch = endKind_ == CalibrationEnd::Switch || endKind_ == CalibrationEnd::Still;
@@ -1969,6 +2158,10 @@ private:
     int pendingValue2_;
     uint8_t pendingJoint_;
     bool kneeLeft_;  // the sweep stopped because its knee left its park band
+    int32_t switchRaw_;    // the parking knee's uncurl switch, raw count (its switch frame)
+    int32_t kneeHomeRaw_;  // that knee's home at its uncurl, raw count
+    int32_t sweepKneeMin_;  // the knee's switch-frame range over the hip sweep
+    int32_t sweepKneeMax_;
     bool restartUnderDetector_;  // a windowed drive turned Hall: drive the step again
     uint8_t pwm_;
     uint8_t options_;      // CAL_OPT_* bits of this run

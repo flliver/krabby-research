@@ -426,7 +426,27 @@ def _assert_saved_calibration(host, run: _Run, config) -> None:
         assert abs(limits[1] - band.max_adc) <= ADC_TOLERANCE, aid
 
 
-PARK_LINE = re.compile(r"^CAL FRONT PARK \w+ hall=(-?\d+) target=(-?\d+) \(FL values\)$")
+# "PARK <knee> hall=<x> fromSwitch=<f> target=<t>": the knee parks in its switch
+# frame, CAL_KNEE_SWITCH_PARK_EDGES (521) toward curl from the switch its uncurl
+# proved, inside CAL_KNEE_SWITCH_BAND_EDGES; target is that park in its home frame.
+PARK_LINE = re.compile(r"^CAL FRONT PARK \w+ hall=(-?\d+) fromSwitch=(-?\d+) target=(-?\d+) \(FL values\)$")
+CAL_KNEE_SWITCH_PARK_EDGES = 521
+CAL_KNEE_SWITCH_BAND_EDGES = (505, 541)
+# A knee whose travel (home to switch) is outside FL's quiet 769-801 WARNs and parks.
+KNEE_TRAVEL_WARN = re.compile(r"^CAL FRONT WARN (\w+KL) travel (\d+) edges, outside FL 769-801: T and Neutral off by (-?\d+)$")
+
+
+def _unexpected(lines: list[str], travel: int | None = None) -> list[str]:
+    """FAIL and WARN lines, less each knee's travel WARN for ``travel`` (when given)."""
+    out = []
+    for line in lines:
+        if " FAIL " not in line and " WARN " not in line:
+            continue
+        match = KNEE_TRAVEL_WARN.match(line)
+        if travel is not None and match and int(match.group(2)) == travel and int(match.group(3)) == 785 - travel:
+            continue
+        out.append(line)
+    return out
 
 
 def _full_calibration(host, config, *, wire: bytes = b"C\n", max_pwm: int = 128) -> _Run:
@@ -506,8 +526,10 @@ def test_calibration_curls_then_sweeps_one_joint_at_a_time_and_saves_limits(host
         assert len(park) == 1, park
         match = PARK_LINE.match(park[0])
         assert match, park[0]
-        assert int(match.group(1)) in range(-CAL_KNEE_PARK_BAND_EDGES[1], -CAL_KNEE_PARK_BAND_EDGES[0] + 1)
-        assert int(match.group(2)) == -CAL_KNEE_PARK_EDGES
+        hall, from_switch, target = (int(match.group(n)) for n in (1, 2, 3))
+        assert CAL_KNEE_SWITCH_BAND_EDGES[0] <= from_switch <= CAL_KNEE_SWITCH_BAND_EDGES[1], park[0]
+        # A 785-edge knee: its switch at -785, so the park is the old -264.
+        assert target == hall - from_switch + CAL_KNEE_SWITCH_PARK_EDGES == -CAL_KNEE_PARK_EDGES, park[0]
         assert lines.index(park[0]) < lines.index(f"CAL FRONT MOVE {hip} uncurl sweep")
 
     _assert_saved_calibration(host, run, config)
@@ -1004,7 +1026,8 @@ def _assert_short_spring_knees_fail_once_then_pass(host, run: _Run) -> None:
     # Each knee failed exactly once; then the full run passed and saved.
     assert sorted(failed) == sorted(knee_hip), failed
     assert run.violations == []
-    assert not any(" FAIL " in line or " WARN " in line for line in lines), lines
+    # Each knee's travel WARN (768: its PWM 80 curl end) is the only WARN.
+    assert _unexpected(lines, 768) == [], lines
     assert run.eeprom_magic() == CAL_MAGIC
     for hip, _knee in LEGS:
         assert (host.actuator_min_stop(hip), host.actuator_max_stop(hip)) == (0, CAL_HIP_STROKE_EDGES)
@@ -1040,7 +1063,13 @@ def test_robot_like_stored_legs_calibrate_with_the_knee_spring(host, park, sprin
 
     assert run.violations == []
     lines = run.cal_lines()
-    assert not any(" FAIL " in line or " WARN " in line for line in lines), lines
+    # This plant's PWM 128 curl end is its PWM 80 one, 17 short of the 785 it
+    # counts from its PWM 200 park: each knee's travel reads 768 and WARNs (T
+    # and Neutral off by 17); nothing else warns or fails.
+    travel = _hall_stroke(config, "FLKL") - knee_model.weak_curl_end_edges
+    assert travel == 768
+    assert _unexpected(lines, travel) == []
+    assert sum(1 for line in lines if KNEE_TRAVEL_WARN.match(line)) == len(LEGS)
     moves = [line.removeprefix("CAL FRONT MOVE ") for line in lines if " MOVE " in line]
     seek = []
     for hip, knee in LEGS:
@@ -1073,10 +1102,11 @@ def test_robot_like_stored_legs_calibrate_with_the_knee_spring(host, park, sprin
             CAL_HIP_STROKE_EDGES,
         )
         assert f"CAL FRONT JOINT {hip} min=0 max={CAL_HIP_STROKE_EDGES}{_joint_suffix(config, hip)}" in lines
-        # The knee parked inside its band (-264, within the knee's curl-end offset).
+        # The knee parked inside its band in its switch frame (521 from its
+        # switch, whatever its home): its true 264 out of its PWM 200 park.
         park = next(line for line in lines if line.startswith(f"CAL FRONT PARK {knee} "))
-        parked_at = int(PARK_LINE.match(park).group(1))
-        assert -CAL_KNEE_PARK_BAND_EDGES[1] <= parked_at <= -CAL_KNEE_PARK_BAND_EDGES[0], park
+        from_switch = int(PARK_LINE.match(park).group(2))
+        assert CAL_KNEE_SWITCH_BAND_EDGES[0] <= from_switch <= CAL_KNEE_SWITCH_BAND_EDGES[1], park
         knee_min, knee_max = host.actuator_min_stop(knee), host.actuator_max_stop(knee)
         stroke = _hall_stroke(config, knee)
         assert knee_max == 0

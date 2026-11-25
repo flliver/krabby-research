@@ -71,10 +71,16 @@ def test_table_safe_sweep_and_its_pot_limitation_are_documented(setup_text):
         "knee curl;",
         "hip curl (home 0);",
         "knee curl again, as in SEEK: with its hip curled the knee's home is proven before the park counts from it, also when SWEEP runs on its own",
-        "knee uncurl to its limit switch (about 785 edges out on FL). Its stroke from its home must be **at least 761 edges**",
-        "fails `<knee> stroke <n> edges < 761 (FL): obstacle or bind at its curl end?` before the park, with the hip still at its curl switch",
-        "**264 edges out of its curl stop** (firmware position -264)",
-        "inside the band 244-280 edges out (`-280..-244`)",
+        "knee uncurl to its limit switch (about 785 edges out on FL). The board records that switch (a raw count) as the knee's **switch frame**",
+        "`CAL <ROLE> KNEE <knee> home=<raw> sw=<raw> travel=<S> park=<p> pwm=<pwm> (FL 785)`, every run, so the first run records all six knees",
+        "**769-801**: silent;",
+        "**745-768 or 802-825**: `WARN <knee> travel <S> edges, outside FL 769-801: T and Neutral off by <785 - S>`",
+        "**under 745 or over 825**: the pass fails `<knee> travel <S> edges, outside FL 745-825: check its curl end` here, before the park, with the hip at its curl switch",
+        "the knee curls back until it is **521 edges in from its switch**",
+        "must sit inside **505-541 from its switch** (at 785: `-280..-244`)",
+        "`CAL <ROLE> PARK <knee> hall=<x> fromSwitch=<f> target=<t> (FL values)`",
+        "`CAL <ROLE> KNEE <knee> sweep fromSwitch=<min>..<max>`",
+        "the pass fails `<knee> home changed during its park: run C again`",
         "**by count to 840 edges**",
         "within **10 edges of 0**",
         "knee curl (this completes the knee, as before). If it ends deeper than the knee's home, the home moves there with `WARN <knee> home moved <n> edges deeper after its park`",
@@ -109,7 +115,7 @@ def test_derived_extend_limit_and_all_legs_use_fl_values(setup_text):
     assert "`T` stays 10 edges short of it" in step and "8..1059" in step
     assert "Old `[0, 700]` hip records are invalid: run `C`" in step
     legs = _line_starting(setup_text, "- **All six legs use FL's values**")
-    assert "knee stroke 785, knee park 264, hip sweep 840, hip stroke 1069" in legs
+    assert "knee stroke 785 and its travel window 745-825, knee park 521 from its switch, hip sweep 840, hip stroke 1069" in legs
     assert "Verify each leg" in legs
 
 
@@ -121,6 +127,14 @@ def test_hollow_stand_sweep_is_optional_and_never_on_a_solid_table(setup_text):
     assert "**Never on a solid table**" in step and "940-985" in step
 
 
+def test_knee_curl_at_its_extend_switch_is_labelled_not_ruled(setup_text):
+    # Host F1 design (8): no new rule, a label, and an open decision.
+    step = _line_starting(setup_text, "- **A knee curl that reaches its actuator's extend switch**")
+    assert "The detector has no rule for it" in step
+    assert "Either way its END line ends ` open=1`" in step
+    assert "an open decision for the owner" in step
+
+
 def test_obstacle_handling_and_failure_reasons(setup_text):
     step = _line_starting(setup_text, "- **Obstacles.**")
     assert "`WARN <hip> stopped at <x> edges: retracting`" in step
@@ -129,10 +143,12 @@ def test_obstacle_handling_and_failure_reasons(setup_text):
     for reason in (
         "| `<j> stopped <n> edges short of its 840-edge sweep: obstacle? check its home` |",
         "| `<j> lost counts: switch at <x> edges, expected 1069` (or `expected 0`) |",
-        "| `<j> at <x> edges, outside its park band -280..-244` |",
+        "| `<j> at <f> from its switch, outside its park band 505..541` |",
+        "| `<j> travel <S> edges, outside FL 745-825: check its curl end` |",
+        "| `<j> home changed during its park: run C again` |",
+        "| `<j> stuck after <n> edges, switch open: extend switch before the stop?` |",
         "| `<j> stopped <n> edges short of its park at -264: obstacle?` |",
         "| `<j> not back at its curl switch (hall=<x>): jog it home` |",
-        "| `<j> stroke <n> edges < 761 (FL): obstacle or bind at its curl end?` |",
         "| `<j> and its knee must both be hall encoders` |",
     ):
         assert reason in setup_text, reason
@@ -278,7 +294,7 @@ def test_acceptance_needs_a_new_full_run_and_watches_the_tibia(setup_text):
     assert "Calibration joint <hip> invalid: defaults" in entry
     step = _line_starting(setup_text, "4. Full calibration on the stand:")
     assert "jog every hip inside 0-560 and every knee to its curl end" in step
-    assert "the knee parks 264 edges out" in step
+    assert "parks 521 edges in from its switch (`PARK ... fromSwitch=521`" in step
     assert "each hip goes out 840 edges and back with its knee parked" in step
     assert "never touches the table or the body" in step
     assert "`min=0 max=1069 edges (extend derived from FL, not switch-verified)`" in step
