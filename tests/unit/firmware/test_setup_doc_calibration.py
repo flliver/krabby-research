@@ -64,11 +64,13 @@ def test_table_safe_sweep_and_its_pot_limitation_are_documented(setup_text):
     assert "never sought on a solid stand" in step
     assert "no knee setting keeps the leg clear of the belly, the table and the floor" in step
     order = _line_starting(setup_text, "- **SWEEP pass**")
-    assert "table-safe order" in order
+    assert "table-safe order" in order and "eight steps per leg" in order
+    assert "seven steps" not in setup_text
     seq = setup_text[setup_text.index("- **SWEEP pass**"):setup_text.index("- **Table-safe hip sweep")]
     for part in (
         "knee curl;",
         "hip curl (home 0);",
+        "knee curl again, as in SEEK: with its hip curled the knee's home is proven before the park counts from it, also when SWEEP runs on its own",
         "knee uncurl to its limit switch (about 785 edges out on FL);",
         "**264 edges out of its curl stop** (firmware position -264)",
         "inside the band 244-280 edges out (`-280..-244`)",
@@ -158,6 +160,47 @@ def test_nudges_caps_and_recovery(setup_text):
     assert "Reset the board" in rec and "only if the joint was really moved by hand" in rec
     kept = _line_starting(setup_text, "- **Kept home.**")
     assert "raw home count is kept" in kept
+
+
+def test_knee_never_moves_while_its_hip_is_known_out(setup_text):
+    step = _line_starting(setup_text, "- **A knee never moves while its hall hip is known to be out past 560 edges.**")
+    assert "homed this boot, kept after a failure (the kept home), or a home that a guard cleared" in step
+    assert "`<hip> out at <x> edges: jog it to its curl end first`" in step
+    assert "nothing moves and the hip keeps its home" in step
+    assert "not checked, so operator rule 6 still applies" in step
+    row = _line_starting(setup_text, "| `<j> out at <x> edges: jog it to its curl end first` |")
+    assert "HipOut" in row and "nothing moved" in row
+
+
+def test_no_motion_curl_press_is_not_failed_stuck(setup_text):
+    step = _line_starting(setup_text, "- **A curl press that shows no motion at all**")
+    assert "no switch-open current is handled as a curl with no motion" in step
+    assert "else the nudge, whose return needs the switch-open signature" in step
+    assert "reads a count high is not failed `stuck`" in step
+
+
+def test_switch_end_timing_is_the_six_flat_samples(setup_text):
+    assert "150 ms after the last edge" not in setup_text
+    assert "0.11-0.22 s" not in setup_text
+    assert setup_text.count("about 0.3-0.5 s after the count stop") == 2
+    assert "six samples flat at the floor; harmless, the switch has already cut the motor" in setup_text
+
+
+def test_neutral_and_t_keep_hips_at_or_below_560_on_a_stand(setup_text):
+    neutral = _line_starting(setup_text, "- Robot moves the hips and knees that have a position to center (0.5).")
+    assert "about 534 edges" in neutral and "about 392 edges out" in neutral
+    assert "at or below 560 edges" in neutral
+    assert "open decision" in neutral and "8..1059" in neutral
+    assert "941-1003" in neutral
+    step = _line_starting(setup_text, "6. Then Neutral for the whole robot.")
+    assert "(it was 350)" in step and "at or below 560 edges" in step
+    assert "Neutral's own 534 is inside that limit" in step
+
+
+def test_calibrate_at_128_and_110_to_127_is_not_validated(setup_text):
+    step = _line_starting(setup_text, "- Default speed is PWM 128;")
+    assert "110-127 is not validated on the robot" in step
+    assert "the stall evidence is at 80 and 128" in step
 
 
 def test_rules_before_any_c_jog_hips_and_knees(setup_text):

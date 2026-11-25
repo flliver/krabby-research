@@ -407,7 +407,7 @@ class TestMenuNeutralKey:
         out = " ".join(capsys.readouterr().out.split())
         assert "(per leg: knee, hip, knee again)" in out
         assert (
-            "Each leg: knee curl, hip curl, knee uncurl, knee park 264 counts out, "
+            "Each leg: knee curl, hip curl, knee curl, knee uncurl, knee park 264 counts out, "
             "hip sweep to 840 with the knee parked, hip back to its curl switch, knee curl."
         ) in out
         assert "The hip's extend limit (1069) is derived, not switch-verified." in out
@@ -415,6 +415,9 @@ class TestMenuNeutralKey:
         assert "70%" not in out and "end to end" not in out
         assert "Before 9, jog every hip inside 0-560 and every knee to its curl end." in out
         assert "Flash all three boards together with the same firmware." in out
+        # Neutral on a solid stand: hips stay at or below 560 counts until the owner decides.
+        assert "sends every hip to about 534 counts and every knee to mid-stroke" in out
+        assert "keep hip targets at or below 560 counts" in out
 
     def test_calibrate_warning_mentions_the_nudge_and_the_stand(self, monkeypatch, capsys):
         steps = [lambda m, p: p.clear(), lambda m, p: m.say("CAL ROBOT DONE")]

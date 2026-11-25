@@ -240,7 +240,7 @@ class TestCalibrateExplanationEncoders:
     def test_sweep_order_is_table_safe(self):
         text = " ".join(CALIBRATE_EXPLANATION.split())
         assert (
-            "knee curl, hip curl (home 0), knee uncurl to its switch, knee park "
+            "knee curl, hip curl (home 0), knee curl again, knee uncurl to its switch, knee park "
             f"{app.CAL_KNEE_PARK_EDGES} counts out of its curl stop, hip sweep to "
             f"{app.CAL_HIP_SWEEP_EDGES} hall counts with the knee held there, hip back to "
             "its curl switch" in text
@@ -250,6 +250,17 @@ class TestCalibrateExplanationEncoders:
         assert text.endswith("nothing for the board in progress.")
         assert "knee curl. The hip moves past 560 counts only with its knee parked" in text
         assert "no automatic retry" in text
+        assert (
+            "a knee never moves while its hip is known to be out past 560 counts" in text
+        )
+        assert "jog the hip to its curl end first" in text
+
+    def test_neutral_note_keeps_hips_at_or_below_560_on_a_stand(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert "Neutral sends every hall hip to about 534 counts" in text
+        assert "every knee to mid-stroke" in text
+        assert "keep hip targets at or below 560 counts" in text
+        assert "stand envelope" in text
 
     def test_old_sweep_claims_are_gone(self):
         text = " ".join(CALIBRATE_EXPLANATION.split())
@@ -279,6 +290,7 @@ class TestCalibrateExplanationEncoders:
         assert f"Use the default speed (PWM {app.CAL_DEFAULT_PWM})" in text
         assert app.CAL_DEFAULT_PWM == 128
         assert f"the range is {app.CAL_PWM_MIN}-{app.CAL_PWM_MAX}" in text
+        assert f"{app.CAL_PWM_MIN}-{app.CAL_DEFAULT_PWM - 1} is not validated on the robot" in text
         assert "PWM 80 stalled mid-stroke with no current signature" in text
         assert f"nothing below {app.CAL_PWM_MIN} is accepted" in text
         assert 'If a knee stops with "curled back only", run Curl only again.' in text
