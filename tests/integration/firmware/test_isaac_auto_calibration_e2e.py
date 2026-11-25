@@ -1,10 +1,11 @@
 """Isaac: ``C`` runs the robot calibration (SEEK, then SWEEP) on the FRONT board's sim joints.
 
-The single FRONT board curls each leg (knee, then hip), then sweeps each hip and
-knee one joint at a time between its sim pot limits and saves them; the yaws are
-never driven and keep their stops. The hall variant runs the same on a quadrature
-board whose hips and knees are hall encoders and saves canonical strokes in edges
-(a hall hip saves its fixed CAL_HIP_SWEEP_EDGES sweep, not its stroke).
+The single FRONT board curls each leg (knee, hip, knee again), then sweeps each hip
+and knee one joint at a time between its sim pot limits and saves them; the yaws are
+never driven and keep their stops. The hall variant runs the table-safe order on a
+quadrature board whose hips and knees are hall encoders (knee parked at -264, hip
+swept by count to CAL_HIP_SWEEP_EDGES = 840 and back) and saves canonical strokes in
+edges (a hall hip saves its derived CAL_HIP_STROKE_EDGES = 1069, not a measured one).
 """
 
 from __future__ import annotations
@@ -21,15 +22,16 @@ pytestmark = pytest.mark.isaacsim
 CAL_MAGIC = 0xCA2B
 CAL_DATA_MAGIC_OFFSET = 6 * 2 + 6 * 2
 CAL_DATA_SENSOR_BITS_OFFSET = CAL_DATA_MAGIC_OFFSET + 2
-# CAL_HIP_SWEEP_EDGES (calibration_constants.h): a hall hip's fixed SWEEP and saved max.
-CAL_HIP_SWEEP_EDGES = 700
+# CAL_HIP_STROKE_EDGES (calibration_constants.h): a hall hip's saved max (derived).
+CAL_HIP_STROKE_EDGES = 1069
 # Isaac counts a joint's whole span as hall_edges_per_full_travel edges. The JSON
 # scale (3200) is above CAL_HALL_MAX_STROKE_EDGES (1500), so a knee would fail its
-# stroke check; use a span inside 450..1500 and longer than the hip's 700 sweep.
+# stroke check; use a span inside 450..1500 and longer than the hip's 840 sweep.
 ISAAC_HALL_EDGES_PER_FULL_TRAVEL = 1100
-# SEEK curls 4 joints and SWEEP moves 12; a hip nudge (with its return) or the
-# repeat after a late pot classification adds moves.
-MIN_MOVES = 4 + 12
+# SEEK curls 6 joints (knee, hip, knee per leg) and SWEEP moves 12 (pot legs; 14 for
+# the table-safe hall legs); a hip nudge (with its return) or the repeat after a late
+# pot classification adds moves.
+MIN_MOVES = 6 + 12
 # Filtered pot at a hard stop can lag the band endpoint by a few counts.
 ADC_TOLERANCE = 28
 # Each move lasts at least ramp + grace + one stall window (~3 s) and a full
@@ -210,10 +212,10 @@ def test_hall_robot_calibration_saves_canonical_strokes(front_board_rig):
             assert limits == (0, 0), aid
             continue
         stroke = slot.hall_edges_per_stroke
-        # Curl end at 0: a hall hip sweeps a fixed CAL_HIP_SWEEP_EDGES (0..+700),
-        # knees their full stroke (-S..0).
+        # Curl end at 0: a hall hip saves its derived stroke (0..+1069), knees
+        # their full stroke (-S..0).
         if aid[2:] == "HL":
-            expected, suffix = (0, CAL_HIP_SWEEP_EDGES), " edges (fixed sweep)"
+            expected, suffix = (0, CAL_HIP_STROKE_EDGES), " edges (extend derived from FL, not switch-verified)"
         else:
             expected, suffix = (-stroke, 0), " edges"
         assert limits == expected, aid
