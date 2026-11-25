@@ -180,6 +180,7 @@ enum class LegCalibrationFailure : uint8_t
     NotRetracted,    // after an obstacle the hip did not reach its curl switch
     TableSafeNeedsHall,  // a hall hip whose knee is not a hall encoder: no table-safe park
     HipOut,          // a knee would move while its hip is known to be beyond CAL_HIP_ANY_KNEE_EDGES
+    KneeStrokeShort, // a table-safe knee's home-to-switch stroke is short: its home is short of its curl end
 };
 
 enum class LegCalibrationMovePhase : uint8_t
@@ -452,6 +453,14 @@ inline void printLegCalibrationFailureReason(
             return;
         case LegCalibrationFailure::TableSafeNeedsHall:
             out.printFlash(KRABBY_FLASH_LITERAL(" and its knee must both be hall encoders"));
+            return;
+        case LegCalibrationFailure::KneeStrokeShort:
+            // value: the knee's home-to-switch stroke.
+            out.printFlash(KRABBY_FLASH_LITERAL(" stroke "));
+            out.printNumber(value);
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges < "));
+            out.printNumber(CAL_KNEE_STROKE_MIN_EDGES);
+            out.printFlash(KRABBY_FLASH_LITERAL(" (FL): obstacle or bind at its curl end?"));
             return;
         case LegCalibrationFailure::HipOut:
             out.printFlash(KRABBY_FLASH_LITERAL(" out at "));
@@ -767,7 +776,8 @@ public:
         plant.stopAll();
         warnIfNudgedOut(plant);
         warnIfLeftOut(plant);
-        restartUnderDetector_ = false;
+        // A restart pending here is dropped by the next start() (nothing
+        // reads it while the run is not Running).
         failure_ = LegCalibrationFailure::Aborted;
         failJoint_ = nullptr;
         failValue_ = cause;
@@ -1402,6 +1412,17 @@ private:
                      kind == JointSensor::Pot ? magnitude(travel) : driveEdges);
                 return;
             }
+            // A table-safe knee's uncurl, before its park: a home-to-switch
+            // stroke short of FL's by more than CAL_KNEE_STROKE_SHORT_MAX_EDGES
+            // puts the home short of its curl end (an obstacle, a bind), and
+            // the park, counted from that home, out of its band. Fail before
+            // the knee parks or the hip sweeps.
+            if (pass_ == CAL_PASS_SWEEP && tableSafe_ && kind == JointSensor::Hall &&
+                !isLegCalibrationHip(j) && magnitude(endPos) < CAL_KNEE_STROKE_MIN_EDGES)
+            {
+                fail(plant, LegCalibrationFailure::KneeStrokeShort, magnitude(endPos));
+                return;
+            }
             stageEnd(endPos);
             advance(plant);
             return;
@@ -1519,6 +1540,20 @@ private:
             else if (!checkAndStageStroke(plant, uncurlEnd, endPos, shortBy))
             {
                 return;
+            }
+            else if (shortBy < 0)
+            {
+                // Re-homed deeper here: its uncurl (and a table-safe knee's
+                // park) counted from a shallower home. "CAL <ROLE> WARN <j>
+                // home moved <n> edges deeper[ after its park]".
+                CalibrationTextSink &out = plant.out();
+                printWarnPrefix(plant, out);
+                out.printFlash(KRABBY_FLASH_LITERAL(" home moved "));
+                out.printNumber(-shortBy);
+                out.printFlash(KRABBY_FLASH_LITERAL(" edges deeper"));
+                if (tableSafe_)
+                    out.printFlash(KRABBY_FLASH_LITERAL(" after its park"));
+                out.endLine();
             }
             reportJoint(plant, kind);
             accept(plant, endPos, kind == JointSensor::Hall && shortBy < 0);

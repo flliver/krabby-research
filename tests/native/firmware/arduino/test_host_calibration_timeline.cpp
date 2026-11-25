@@ -854,7 +854,7 @@ static void test_all_hall_robot_from_mid_stroke_homes_and_saves_canonical_stroke
         for (int joint = 0; joint < kJoints; ++joint)
         {
             Rod &rod = timeline.rods[board][joint];
-            rod.edgesPerCount = 1.0 + 0.5 * board;  // strokes 700, 1050, 1400 edges
+            rod.edgesPerCount = 1.0 + 0.5 * board;  // strokes 785 (FLKL's, setHallRods), 1050, 1400 edges
             rod.kneeTaper = true;
             rod.kneeCompliance = true;
         }
@@ -884,7 +884,7 @@ static void test_all_hall_robot_from_mid_stroke_homes_and_saves_canonical_stroke
     TEST_ASSERT_EQUAL_UINT(3, timeline.eepromChanges.size());
     for (int board = 0; board < kBoards; ++board)
     {
-        const int stroke = static_cast<int>(700 * (1.0 + 0.5 * board));
+        const int stroke = board == 0 ? 785 : static_cast<int>(700 * (1.0 + 0.5 * board));
         // A knee's end is up to 17 edges deeper at PWM 120.
         assertCanonicalHallRecord(board, stroke - 2, stroke + 30);
         TEST_ASSERT_EQUAL_STRING("?EE?EE", sensorStates(board).c_str());
@@ -1006,7 +1006,7 @@ static void test_all_hall_robot_parked_curled_nudges_every_joint_then_saves()
     TEST_ASSERT_EQUAL_UINT(3, timeline.eepromChanges.size());
     for (int board = 0; board < kBoards; ++board)
     {
-        assertCanonicalHallRecord(board, 698, 702);
+        assertCanonicalHallRecord(board, 783, 787);
         TEST_ASSERT_EQUAL_STRING("?EE?EE", sensorStates(board).c_str());
     }
     TEST_ASSERT_TRUE_MESSAGE(hasLine("CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"),
@@ -1026,6 +1026,7 @@ static void test_mixed_robot_classifies_each_joint_and_saves_its_kind()
     timeline.rods[2][1].sensor = RodSensor::Hall;
     timeline.rods[2][1].high = timeline.rods[2][1].low + calibration_timeline::kHallHipStrokeEdges;
     timeline.rods[2][2].sensor = RodSensor::Hall;
+    timeline.rods[2][2].low = timeline.rods[2][2].high - calibration_timeline::kHallKneeStrokeEdges;
     // Slow pots: the first, hall-windowed attempt stops well before the end.
     for (int joint : {1, 2, 4, 5}) timeline.rods[1][joint].speedScale = 0.25;
     timeline.rods[2][4].speedScale = 0.25;
@@ -1068,7 +1069,7 @@ static void test_mixed_robot_classifies_each_joint_and_saves_its_kind()
     TEST_ASSERT_EQUAL_INT(4, countLinesStarting("CAL LEFT SENSOR "));
 
     TEST_ASSERT_EQUAL_UINT(3, timeline.eepromChanges.size());
-    assertCanonicalHallRecord(0, 698, 702);
+    assertCanonicalHallRecord(0, 783, 787);
     const HostCalData left = readCalData(1);
     TEST_ASSERT_EQUAL_HEX16(kPotHipsAndKneesBits, left.sensorBits);
     TEST_ASSERT_INT_WITHIN(1, 150, left.minVals[1]);
@@ -1078,7 +1079,7 @@ static void test_mixed_robot_classifies_each_joint_and_saves_its_kind()
     TEST_ASSERT_EQUAL_HEX16(kHallLegAPotLegBBits, right.sensorBits);
     TEST_ASSERT_EQUAL_INT(0, right.minVals[1]);
     TEST_ASSERT_EQUAL_INT(kSpecHipStrokeEdges, right.maxVals[1]);  // the hip's derived stroke
-    TEST_ASSERT_INT_WITHIN(2, -700, right.minVals[2]);
+    TEST_ASSERT_INT_WITHIN(2, -785, right.minVals[2]);
     TEST_ASSERT_EQUAL_INT(0, right.maxVals[2]);
     for (int joint = 4; joint <= 5; ++joint)
     {
@@ -1542,7 +1543,7 @@ static void test_single_board_parked_curled_strict_needs_knee_jogs_then_saves()
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT MOVE FLKL nudge"));
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT MOVE FRKL nudge"));
     TEST_ASSERT_EQUAL_UINT(1, timeline.eepromChanges.size());
-    assertCanonicalHallRecord(0, 698, 702);
+    assertCanonicalHallRecord(0, 783, 787);
     assertAllStoppedWithoutTargets(timeline, 1);
 }
 
@@ -1587,7 +1588,7 @@ static void test_single_board_parked_curled_with_knee_nudge_option_homes_every_j
         TEST_ASSERT_TRUE_MESSAGE(moveEdges(timeline, nudge) > 11, std::to_string(moveEdges(timeline, nudge)).c_str());
     }
     TEST_ASSERT_EQUAL_UINT(1, timeline.eepromChanges.size());
-    assertCanonicalHallRecord(0, 698, 702);
+    assertCanonicalHallRecord(0, 783, 787);
     TEST_ASSERT_EQUAL_STRING("SENS FRONT FLHY:? FLHL:E FLKL:E FRHY:? FRHL:E FRKL:E",
         lastSensLine("FRONT").c_str());
     assertAllStoppedWithoutTargets(timeline, 1);
@@ -1779,7 +1780,7 @@ static void test_single_board_saved_pots_that_count_hall_edges_are_driven_again_
         joinedLog().c_str());
     TEST_ASSERT_TRUE(findLineStarting("CAL FRONT END FLHL curl hall=-350 travel=-338 by=switch ") != nullptr);
     TEST_ASSERT_EQUAL_UINT(1, timeline.eepromChanges.size());
-    assertCanonicalHallRecord(0, 698, 702);
+    assertCanonicalHallRecord(0, 783, 787);
     assertAllStoppedWithoutTargets(timeline, 1);
 }
 
@@ -2464,7 +2465,7 @@ static void test_single_board_sweep_only_with_the_hip_beyond_the_body_rehomes_th
     TEST_ASSERT_TRUE_MESSAGE(timeline.furthestOutEdges(0, 4) <= kSpecHipSweepEdges + kSpecHipSweepCoastEdges,
         std::to_string(timeline.furthestOutEdges(0, 4)).c_str());
     TEST_ASSERT_EQUAL_UINT(1, timeline.eepromChanges.size());
-    assertCanonicalHallRecord(0, 698, 702);
+    assertCanonicalHallRecord(0, 783, 787);
     TEST_ASSERT_EQUAL_INT(0, countLinesStarting("CAL FRONT FAIL "));
     assertAllStoppedWithoutTargets(timeline, 1);
 }

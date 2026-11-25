@@ -86,6 +86,13 @@ CAL_PASS_NAMES = (CAL_PASS_SEEK, CAL_PASS_SWEEP)  # run order when both are requ
 CAL_KNEE_PARK_EDGES = 264
 CAL_KNEE_PARK_BAND_MIN_EDGES = 244
 CAL_KNEE_PARK_BAND_MAX_EDGES = 280
+# FL's knee stroke, curl stop (its PWM 200 park) to switch. Before its park a
+# table-safe knee whose stroke from its home is more than
+# CAL_KNEE_STROKE_SHORT_MAX_EDGES short of it fails: its home is short of its
+# curl stop (an obstacle or a bind there).
+CAL_KNEE_STROKE_EDGES = 785
+CAL_KNEE_STROKE_SHORT_MAX_EDGES = 24
+CAL_KNEE_STROKE_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_STROKE_SHORT_MAX_EDGES
 CAL_HIP_SWEEP_EDGES = 840
 CAL_HIP_STROKE_EDGES = 1069
 # Verification nudge bounds in hall edges. A curled knee springs out a few more

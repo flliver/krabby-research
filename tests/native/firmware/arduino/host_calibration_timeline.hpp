@@ -182,6 +182,10 @@ constexpr double kAfterStopCountsPerMs = 0.1;
 // with the knee curled: the curled tibia meets the body at 941 edges (fact 2:
 // FLHL stopped at 941 with its knee 24 edges off its curl end, 1003 curled tight).
 constexpr double kHallHipStrokeEdges = 1069.0;
+// Hall knees (setHallRods): at least FLKL's stroke, curl stop to switch, 785
+// edges (CAL_KNEE_STROKE_EDGES): the table-safe SWEEP fails a knee more than
+// 24 edges shorter before its park (an obstacle or a bind at its curl end).
+constexpr double kHallKneeStrokeEdges = 785.0;
 constexpr double kBodyContactEdges = 941.0;
 // With its hip at the body contact a knee 24 edges off its curl end touches the
 // body (fact 2); a hip further out stops the knee's curl further out, here one
@@ -477,7 +481,8 @@ public:
     // Sets every hip and knee of boards [firstBoard, lastBoard] to a hall rod.
     // Hips get FLHL's 1069-edge stroke, longer than their reach with the knee
     // curled, where the curled tibia meets the body (call after setting
-    // edgesPerCount). Knees keep their stroke (700 counts by default).
+    // edgesPerCount). Knees keep their stroke (700 counts by default) when it
+    // is at least FLKL's 785 edges, else get FLKL's (its switch moved out).
     void setHallRods(int firstBoard, int lastBoard)
     {
         for (int board = firstBoard; board <= lastBoard; ++board)
@@ -486,7 +491,12 @@ public:
                 if (isYaw(joint)) continue;
                 Rod &rod = rods[board][joint];
                 rod.sensor = RodSensor::Hall;
-                if (!isHip(joint)) continue;
+                if (!isHip(joint))
+                {
+                    const double kneeStroke = kHallKneeStrokeEdges / rod.edgesPerCount;
+                    if (rod.high - rod.low < kneeStroke) rod.low = rod.high - kneeStroke;
+                    continue;
+                }
                 rod.high = rod.low + kHallHipStrokeEdges / rod.edgesPerCount;
                 rod.bodyContactEdges = kBodyContactEdges;
             }

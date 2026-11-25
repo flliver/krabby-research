@@ -71,12 +71,13 @@ def test_table_safe_sweep_and_its_pot_limitation_are_documented(setup_text):
         "knee curl;",
         "hip curl (home 0);",
         "knee curl again, as in SEEK: with its hip curled the knee's home is proven before the park counts from it, also when SWEEP runs on its own",
-        "knee uncurl to its limit switch (about 785 edges out on FL);",
+        "knee uncurl to its limit switch (about 785 edges out on FL). Its stroke from its home must be **at least 761 edges**",
+        "fails `<knee> stroke <n> edges < 761 (FL): obstacle or bind at its curl end?` before the park, with the hip still at its curl switch",
         "**264 edges out of its curl stop** (firmware position -264)",
         "inside the band 244-280 edges out (`-280..-244`)",
         "**by count to 840 edges**",
         "within **10 edges of 0**",
-        "knee curl (this completes the knee, as before).",
+        "knee curl (this completes the knee, as before). If it ends deeper than the knee's home, the home moves there with `WARN <knee> home moved <n> edges deeper after its park`",
     ):
         assert part in seq, part
     # A pot hip keeps the old order.
@@ -108,7 +109,7 @@ def test_derived_extend_limit_and_all_legs_use_fl_values(setup_text):
     assert "`T` stays 10 edges short of it" in step and "8..1059" in step
     assert "Old `[0, 700]` hip records are invalid: run `C`" in step
     legs = _line_starting(setup_text, "- **All six legs use FL's values**")
-    assert "knee park 264, hip sweep 840, stroke 1069" in legs
+    assert "knee stroke 785, knee park 264, hip sweep 840, hip stroke 1069" in legs
     assert "Verify each leg" in legs
 
 
@@ -131,6 +132,7 @@ def test_obstacle_handling_and_failure_reasons(setup_text):
         "| `<j> at <x> edges, outside its park band -280..-244` |",
         "| `<j> stopped <n> edges short of its park at -264: obstacle?` |",
         "| `<j> not back at its curl switch (hall=<x>): jog it home` |",
+        "| `<j> stroke <n> edges < 761 (FL): obstacle or bind at its curl end?` |",
         "| `<j> and its knee must both be hall encoders` |",
     ):
         assert reason in setup_text, reason
@@ -245,7 +247,11 @@ def test_end_detector_and_default_speed_are_documented(setup_text):
     assert "**mechanical stop**" in knee
     assert "an obstacle on a knee curl looks the same" in knee.lower()
     assert "second curl (SEEK) and the SWEEP re-curl catch it" in knee
-    assert "treats any stall as an obstacle" in _line_starting(setup_text, "- **A hip sweep**")
+    hip_extend = _line_starting(setup_text, "- **A hip extend**")
+    # Host check of 78e18136 (a): the hip-extend stop rule applies on every hip sweep.
+    assert "(every hip sweep, on any stand)" in hip_extend and "hollow stand" not in hip_extend
+    assert "needs the count still for 0.25 s (5 samples, unless the rise lasts 8 samples)" in hip_extend
+    assert "On a hip sweep every end before its target, of any kind, is an obstacle." in hip_extend
     names = _line_starting(setup_text, "- The END line names the kind:")
     assert "by=switch cur=<a>/<b> floor=<f>" in names and "by=stop cur=<a>/<b>" in names
     assert "` open=<a>/<f>`" in names

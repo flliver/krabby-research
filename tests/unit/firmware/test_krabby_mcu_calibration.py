@@ -75,6 +75,8 @@ class TestConstantsMatchFirmware:
             ("CAL_KNEE_PARK_EDGES", krabby_mcu.CAL_KNEE_PARK_EDGES),
             ("CAL_KNEE_PARK_BAND_MIN_EDGES", krabby_mcu.CAL_KNEE_PARK_BAND_MIN_EDGES),
             ("CAL_KNEE_PARK_BAND_MAX_EDGES", krabby_mcu.CAL_KNEE_PARK_BAND_MAX_EDGES),
+            ("CAL_KNEE_STROKE_EDGES", krabby_mcu.CAL_KNEE_STROKE_EDGES),
+            ("CAL_KNEE_STROKE_SHORT_MAX_EDGES", krabby_mcu.CAL_KNEE_STROKE_SHORT_MAX_EDGES),
             ("CAL_HIP_NUDGE_EDGES", krabby_mcu.CAL_HIP_NUDGE_EDGES),
             ("CAL_KNEE_NUDGE_EDGES", krabby_mcu.CAL_KNEE_NUDGE_EDGES),
             ("CAL_HALL_MIN_STROKE_EDGES", krabby_mcu.CAL_HALL_MIN_STROKE_EDGES),
@@ -104,6 +106,8 @@ class TestConstantsMatchFirmware:
             < krabby_mcu.CAL_KNEE_PARK_BAND_MAX_EDGES
         )
         assert krabby_mcu.CAL_HIP_SWEEP_EDGES < krabby_mcu.CAL_HIP_STROKE_EDGES
+        # F1: a knee stroke under 761 (785 less 24) fails before its park.
+        assert (krabby_mcu.CAL_KNEE_STROKE_EDGES, krabby_mcu.CAL_KNEE_STROKE_MIN_EDGES) == (785, 761)
 
 
 class TestCurlMapping:
@@ -537,6 +541,7 @@ HALL_FAIL_LINES = [
     "CAL FRONT FAIL FLHL lost counts: switch at 14 edges, expected 0",
     "CAL FRONT FAIL FLKL at -300 edges, outside its park band -280..-244",
     "CAL FRONT FAIL FLKL stopped 40 edges short of its park at -264: obstacle?",
+    "CAL FRONT FAIL FLKL stroke 685 edges < 761 (FL): obstacle or bind at its curl end?",
     "CAL FRONT FAIL FLHL not back at its curl switch (hall=212): jog it home",
     "CAL FRONT FAIL FLHL and its knee must both be hall encoders",
     "CAL FRONT FAIL FLHL stuck mid-stroke after 612 edges at PWM 150: raise PWM or check load",

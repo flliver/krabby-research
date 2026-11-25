@@ -116,6 +116,27 @@ static constexpr int CAL_HALL_MAX_STROKE_EDGES = 1500;
 static constexpr int CAL_KNEE_PARK_EDGES = 264;
 static constexpr int CAL_KNEE_PARK_BAND_MIN_EDGES = 244;
 static constexpr int CAL_KNEE_PARK_BAND_MAX_EDGES = 280;
+// The knee's stroke, its curl stop to its switch: FL measured 785 on
+// 2026-11-24 from its deepest (PWM 200) park. The park is counted from the
+// knee's home, so a knee homed d edges short of that stop (an obstacle or a
+// bind at its curl end) measures CAL_KNEE_STROKE_EDGES - d from its home to its
+// switch and parks d edges further out than its home says. Before its park the
+// table-safe SWEEP fails a knee whose home-to-switch stroke is under
+// CAL_KNEE_STROKE_MIN_EDGES (d over CAL_KNEE_STROKE_SHORT_MAX_EDGES); the hip
+// has not moved then. Why 24 and not the band's own 16: a healthy knee at the
+// calibration PWM already stops short of its PWM 200 park (17 edges at PWM 80
+// on 2026-11-23, so the host plant's FL knee reads 768; on the end test at
+// 128 its long presses stopped 775-779 from its switch, and the firmware's
+// Stop homes after the re-curls land 0-7 short of a press: about 768-779 at
+// the guard), so 16 would fail healthy knees. 24 keeps the true park at most
+// 288 out: the band's 280 is the knee-map-spread worst case, the schedule's
+// own assumptions keep margin to 292, and at 304 the toe is still 1.3 in off
+// the floor (table-safe-schedule check, point 3). The hollow stand's band
+// (157-232) holds it too.
+// PROVISIONAL: FL's values, used for every leg (flagged in the FAIL line).
+static constexpr int CAL_KNEE_STROKE_EDGES = 785;
+static constexpr int CAL_KNEE_STROKE_SHORT_MAX_EDGES = 24;
+static constexpr int CAL_KNEE_STROKE_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_STROKE_SHORT_MAX_EDGES;
 static constexpr int CAL_HIP_SWEEP_EDGES = 840;
 static constexpr int CAL_HIP_REHOME_TOLERANCE_EDGES = 10;
 // Up to this hip position any knee is clear of the body, the table and the
@@ -480,6 +501,12 @@ static_assert(CAL_HIP_SWEEP_EDGES < CAL_HIP_STROKE_EDGES - CAL_HIP_EXTEND_SWITCH
 static_assert(CAL_HIP_REHOME_TOLERANCE_EDGES > 0 &&
                   CAL_HIP_REHOME_TOLERANCE_EDGES <= ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES,
               "lost counts within the re-home tolerance must not reach the extend switch");
+static_assert(CAL_KNEE_STROKE_MIN_EDGES == 761 && CAL_KNEE_STROKE_MIN_EDGES > CAL_HALL_MIN_STROKE_EDGES &&
+                  CAL_KNEE_STROKE_EDGES < CAL_HALL_MAX_STROKE_EDGES &&
+                  CAL_KNEE_STROKE_SHORT_MAX_EDGES >= CAL_KNEE_PARK_BAND_MAX_EDGES - CAL_KNEE_PARK_EDGES &&
+                  CAL_KNEE_PARK_EDGES + CAL_KNEE_STROKE_SHORT_MAX_EDGES <= 292 &&
+                  CAL_KNEE_HOLLOW_PARK_EDGES + CAL_KNEE_STROKE_SHORT_MAX_EDGES <= CAL_KNEE_HOLLOW_BAND_MAX_EDGES,
+              "a knee homed short of its stop by more than the allowance fails before its park");
 static_assert(CAL_KNEE_PARK_BAND_MIN_EDGES < CAL_KNEE_PARK_EDGES &&
                   CAL_KNEE_PARK_EDGES < CAL_KNEE_PARK_BAND_MAX_EDGES &&
                   CAL_KNEE_HOLLOW_BAND_MIN_EDGES < CAL_KNEE_HOLLOW_PARK_EDGES &&
