@@ -432,8 +432,8 @@ def _assert_saved_calibration(host, run: _Run, config) -> None:
 PARK_LINE = re.compile(r"^CAL FRONT PARK \w+ hall=(-?\d+) fromSwitch=(-?\d+) target=(-?\d+) \(FL values\)$")
 CAL_KNEE_SWITCH_PARK_EDGES = 521
 CAL_KNEE_SWITCH_BAND_EDGES = (505, 541)
-# A knee whose travel (home to switch) is outside FL's quiet 769-801 WARNs and parks.
-KNEE_TRAVEL_WARN = re.compile(r"^CAL FRONT WARN (\w+KL) travel (\d+) edges, outside FL 769-801: T and Neutral off by (-?\d+)$")
+# A knee whose travel (home to switch) is outside FL's quiet 765-801 WARNs and parks.
+KNEE_TRAVEL_WARN = re.compile(r"^CAL FRONT WARN (\w+KL) travel (\d+) edges, outside FL 765-801: T and Neutral off by (-?\d+)$")
 
 
 def _unexpected(lines: list[str], travel: int | None = None) -> list[str]:
@@ -1026,8 +1026,8 @@ def _assert_short_spring_knees_fail_once_then_pass(host, run: _Run) -> None:
     # Each knee failed exactly once; then the full run passed and saved.
     assert sorted(failed) == sorted(knee_hip), failed
     assert run.violations == []
-    # Each knee's travel WARN (768: its PWM 80 curl end) is the only WARN.
-    assert _unexpected(lines, 768) == [], lines
+    # Its knees' travels (768: their PWM 80 curl end) are quiet: no WARN.
+    assert _unexpected(lines) == [], lines
     assert run.eeprom_magic() == CAL_MAGIC
     for hip, _knee in LEGS:
         assert (host.actuator_min_stop(hip), host.actuator_max_stop(hip)) == (0, CAL_HIP_STROKE_EDGES)
@@ -1064,12 +1064,12 @@ def test_robot_like_stored_legs_calibrate_with_the_knee_spring(host, park, sprin
     assert run.violations == []
     lines = run.cal_lines()
     # This plant's PWM 128 curl end is its PWM 80 one, 17 short of the 785 it
-    # counts from its PWM 200 park: each knee's travel reads 768 and WARNs (T
-    # and Neutral off by 17); nothing else warns or fails.
+    # counts from its PWM 200 park: each knee's travel reads 768, inside the
+    # quiet 765-801 (768 - 521 = 247, inside 244-280): nothing warns or fails.
     travel = _hall_stroke(config, "FLKL") - knee_model.weak_curl_end_edges
     assert travel == 768
-    assert _unexpected(lines, travel) == []
-    assert sum(1 for line in lines if KNEE_TRAVEL_WARN.match(line)) == len(LEGS)
+    assert any(f" travel={travel} " in line for line in lines if " KNEE " in line), lines
+    assert _unexpected(lines) == []
     moves = [line.removeprefix("CAL FRONT MOVE ") for line in lines if " MOVE " in line]
     seek = []
     for hip, knee in LEGS:

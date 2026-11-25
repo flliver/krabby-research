@@ -189,7 +189,7 @@ constexpr double kAfterStopCountsPerMs = 0.1;
 constexpr double kHallHipStrokeEdges = 1069.0;
 // Hall knees (setHallRods): FLKL's stroke, curl stop to switch, 785 edges
 // (CAL_KNEE_STROKE_EDGES): the table-safe SWEEP fails a knee whose travel is
-// outside 745-825 before its park, and WARNs outside 769-801.
+// outside 745-825 before its park, and WARNs outside 765-801.
 constexpr double kHallKneeStrokeEdges = 785.0;
 constexpr double kBodyContactEdges = 941.0;
 // With its hip at the body contact a knee 24 edges off its curl end touches the

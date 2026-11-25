@@ -132,18 +132,19 @@ static constexpr int CAL_KNEE_SWITCH_PARK_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KN
 static constexpr int CAL_KNEE_SWITCH_BAND_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_PARK_BAND_MAX_EDGES;
 static constexpr int CAL_KNEE_SWITCH_BAND_MAX_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_PARK_BAND_MIN_EDGES;
 // The knee's travel S (its home to its switch), checked at its uncurl, before
-// its park: within CAL_KNEE_TRAVEL_QUIET_EDGES of 785 (769..801) silent;
-// further but within CAL_HALL_CURL_END_TOLERANCE_EDGES (745..768, 802..825) a
-// WARN, as the park is still right in the switch frame but T and Neutral on
-// that knee are off by 785 - S; beyond that the pass fails before the park
-// (the hip at its curl switch, the knee at its uncurl switch, nothing saved):
-// a home that far off its stop is an obstacle or a bind at its curl end. FL's
-// switch-ended travels: 778-789 stop to switch and 775-781 switch to stop at
-// PWM 120-150 (2026-11-24); FR 788-789.
-// PROVISIONAL: FL's values, used for every leg (flagged in the KNEE line).
-static constexpr int CAL_KNEE_TRAVEL_QUIET_EDGES = 16;
-static constexpr int CAL_KNEE_TRAVEL_QUIET_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_KNEE_TRAVEL_QUIET_EDGES;
-static constexpr int CAL_KNEE_TRAVEL_QUIET_MAX_EDGES = CAL_KNEE_STROKE_EDGES + CAL_KNEE_TRAVEL_QUIET_EDGES;
+// its park. Silent while S - CAL_KNEE_SWITCH_PARK_EDGES lies in the home-frame
+// band [CAL_KNEE_PARK_BAND_MIN_EDGES, CAL_KNEE_PARK_BAND_MAX_EDGES] (765..801):
+// then the park is inside its band even if the stop frame were the true one.
+// Outside that but within CAL_HALL_CURL_END_TOLERANCE_EDGES of 785 (745..764,
+// 802..825) a WARN: the park is still right in the switch frame, but T and
+// Neutral on that knee are off by 785 - S. Beyond that the pass fails before
+// the park (the hip at its curl switch, the knee at its uncurl switch, nothing
+// saved): a home that far off its stop is an obstacle or a bind at its curl
+// end. FL's switch-ended travels: 778-789 stop to switch and 775-781 switch to
+// stop at PWM 120-150 (2026-11-24); FR 788-789.
+// PROVISIONAL: FL's values, used for every leg (flagged FL in its lines).
+static constexpr int CAL_KNEE_TRAVEL_QUIET_MIN_EDGES = CAL_KNEE_SWITCH_PARK_EDGES + CAL_KNEE_PARK_BAND_MIN_EDGES;
+static constexpr int CAL_KNEE_TRAVEL_QUIET_MAX_EDGES = CAL_KNEE_SWITCH_PARK_EDGES + CAL_KNEE_PARK_BAND_MAX_EDGES;
 static constexpr int CAL_KNEE_TRAVEL_MIN_EDGES = CAL_KNEE_STROKE_EDGES - CAL_HALL_CURL_END_TOLERANCE_EDGES;
 static constexpr int CAL_KNEE_TRAVEL_MAX_EDGES = CAL_KNEE_STROKE_EDGES + CAL_HALL_CURL_END_TOLERANCE_EDGES;
 static constexpr int CAL_HIP_SWEEP_EDGES = 840;
@@ -518,9 +519,12 @@ static_assert(CAL_KNEE_SWITCH_PARK_EDGES == 521 && CAL_KNEE_SWITCH_BAND_MIN_EDGE
                   CAL_KNEE_SWITCH_BAND_MAX_EDGES == 541 && CAL_KNEE_HOLLOW_SWITCH_PARK_EDGES == 593 &&
                   CAL_KNEE_HOLLOW_SWITCH_BAND_MIN_EDGES == 553 && CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES == 628,
               "the switch-frame park and bands are FL's (at a 785 stroke: -264 in -280..-244, -192 in -232..-157)");
-static_assert(CAL_KNEE_TRAVEL_QUIET_MIN_EDGES == 769 && CAL_KNEE_TRAVEL_QUIET_MAX_EDGES == 801 &&
+static_assert(CAL_KNEE_TRAVEL_QUIET_MIN_EDGES == 765 && CAL_KNEE_TRAVEL_QUIET_MAX_EDGES == 801 &&
                   CAL_KNEE_TRAVEL_MIN_EDGES == 745 && CAL_KNEE_TRAVEL_MAX_EDGES == 825,
-              "the knee travel window is FL's 785: quiet 769-801, fail below 745 or above 825");
+              "the knee travel window is FL's 785: quiet 765-801, fail below 745 or above 825");
+static_assert(CAL_KNEE_TRAVEL_MIN_EDGES < CAL_KNEE_TRAVEL_QUIET_MIN_EDGES &&
+                  CAL_KNEE_TRAVEL_QUIET_MAX_EDGES < CAL_KNEE_TRAVEL_MAX_EDGES,
+              "the quiet band lies inside the accepted travels");
 static_assert(CAL_KNEE_TRAVEL_MIN_EDGES >= CAL_HALL_MIN_STROKE_EDGES &&
                   CAL_KNEE_TRAVEL_MAX_EDGES <= CAL_HALL_MAX_STROKE_EDGES,
               "a knee travel the window accepts is a valid stroke");

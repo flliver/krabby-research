@@ -2245,7 +2245,7 @@ static void test_single_board_robot_like_actuators_calibrate_without_touching_th
         const LoggedLine *travel = findLineStarting(std::string("CAL FRONT KNEE ") + knee + " home=");
         TEST_ASSERT_NOT_NULL(travel);
         const long s = std::strtol(std::strstr(travel->text.c_str(), " travel=") + 8, nullptr, 10);
-        TEST_ASSERT_TRUE_MESSAGE(s >= 769 && s <= 801, travel->text.c_str());
+        TEST_ASSERT_TRUE_MESSAGE(s >= 765 && s <= 801, travel->text.c_str());
     }
     TEST_ASSERT_TRUE(hasLine("CAL FRONT MOVE FLKL curl park"));
     TEST_ASSERT_TRUE(hasLine("CAL FRONT MOVE FLHL uncurl sweep"));

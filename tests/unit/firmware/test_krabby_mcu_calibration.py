@@ -76,7 +76,6 @@ class TestConstantsMatchFirmware:
             ("CAL_KNEE_PARK_BAND_MIN_EDGES", krabby_mcu.CAL_KNEE_PARK_BAND_MIN_EDGES),
             ("CAL_KNEE_PARK_BAND_MAX_EDGES", krabby_mcu.CAL_KNEE_PARK_BAND_MAX_EDGES),
             ("CAL_KNEE_STROKE_EDGES", krabby_mcu.CAL_KNEE_STROKE_EDGES),
-            ("CAL_KNEE_TRAVEL_QUIET_EDGES", krabby_mcu.CAL_KNEE_TRAVEL_QUIET_EDGES),
             ("CAL_HALL_CURL_END_TOLERANCE_EDGES", krabby_mcu.CAL_KNEE_TRAVEL_LIMITS[1] - krabby_mcu.CAL_KNEE_STROKE_EDGES),
             ("CAL_HIP_NUDGE_EDGES", krabby_mcu.CAL_HIP_NUDGE_EDGES),
             ("CAL_KNEE_NUDGE_EDGES", krabby_mcu.CAL_KNEE_NUDGE_EDGES),
@@ -108,11 +107,11 @@ class TestConstantsMatchFirmware:
         )
         assert krabby_mcu.CAL_HIP_SWEEP_EDGES < krabby_mcu.CAL_HIP_STROKE_EDGES
         # F1 (host design): the switch-frame park 521 (505-541) and the travel
-        # window, quiet 769-801, failing outside 745-825.
+        # window, quiet 765-801 (S - 521 inside 244-280), failing outside 745-825.
         assert krabby_mcu.CAL_KNEE_STROKE_EDGES == 785
         assert krabby_mcu.CAL_KNEE_SWITCH_PARK_EDGES == 521
         assert krabby_mcu.CAL_KNEE_SWITCH_BAND_EDGES == (505, 541)
-        assert krabby_mcu.CAL_KNEE_TRAVEL_QUIET == (769, 801)
+        assert krabby_mcu.CAL_KNEE_TRAVEL_QUIET == (765, 801)
         assert krabby_mcu.CAL_KNEE_TRAVEL_LIMITS == (745, 825)
 
 
@@ -449,7 +448,7 @@ class TestCalLineClassification:
             ("CAL FRONT JOINT FLKL min=-776 max=0 edges", "running"),
             ("CAL FRONT KNEE FLKL home=-1000 sw=-215 travel=785 park=-264 pwm=128 (FL 785)", "running"),
             ("CAL FRONT KNEE FLKL sweep fromSwitch=521..524", "running"),
-            ("CAL FRONT WARN FLKL travel 755 edges, outside FL 769-801: T and Neutral off by 30", "running"),
+            ("CAL FRONT WARN FLKL travel 755 edges, outside FL 765-801: T and Neutral off by 30", "running"),
             ("CAL FRONT PARK FLKL hall=-234 fromSwitch=521 target=-234 (FL values)", "running"),
             ("CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)", "running"),
             ("CAL FRONT JOINT FLHL min=0 max=1069 edges (extend switch-verified)", "running"),
@@ -551,7 +550,7 @@ HALL_FAIL_LINES = [
     "CAL FRONT FAIL FLHL lost counts: switch at 14 edges, expected 0",
     "CAL FRONT FAIL FLKL at -300 edges, outside its park band -280..-244",
     "CAL FRONT FAIL FLKL stopped 40 edges short of its park at -264: obstacle?",
-    "CAL FRONT FAIL FLKL travel 685 edges, outside FL 745-825: check its curl end",
+    "CAL FRONT FAIL FLKL stroke 685 edges (FL 745-825): obstacle or bind at its curl end?",
     "CAL FRONT FAIL FLKL home changed during its park: run C again",
     "CAL FRONT FAIL FLKL stuck after 771 edges, switch open: extend switch before the stop?",
     "CAL FRONT FAIL FLHL not back at its curl switch (hall=212): jog it home",

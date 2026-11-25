@@ -589,7 +589,7 @@ static void test_constants_match_the_agreed_tuning()
     TEST_ASSERT_EQUAL_INT(280, CAL_KNEE_PARK_BAND_MAX_EDGES);
     // F1 (host design, 2026-11-25): the knee parks in its switch frame, 521
     // toward curl from its switch (505-541; hollow 593, 553-628), and its
-    // travel is quiet within 769-801 and fails outside 745-825.
+    // travel is quiet within 765-801 (S - 521 inside 244-280) and fails outside 745-825.
     TEST_ASSERT_EQUAL_INT(785, CAL_KNEE_STROKE_EDGES);
     TEST_ASSERT_EQUAL_INT(521, CAL_KNEE_SWITCH_PARK_EDGES);
     TEST_ASSERT_EQUAL_INT(505, CAL_KNEE_SWITCH_BAND_MIN_EDGES);
@@ -597,8 +597,7 @@ static void test_constants_match_the_agreed_tuning()
     TEST_ASSERT_EQUAL_INT(593, CAL_KNEE_HOLLOW_SWITCH_PARK_EDGES);
     TEST_ASSERT_EQUAL_INT(553, CAL_KNEE_HOLLOW_SWITCH_BAND_MIN_EDGES);
     TEST_ASSERT_EQUAL_INT(628, CAL_KNEE_HOLLOW_SWITCH_BAND_MAX_EDGES);
-    TEST_ASSERT_EQUAL_INT(16, CAL_KNEE_TRAVEL_QUIET_EDGES);
-    TEST_ASSERT_EQUAL_INT(769, CAL_KNEE_TRAVEL_QUIET_MIN_EDGES);
+    TEST_ASSERT_EQUAL_INT(765, CAL_KNEE_TRAVEL_QUIET_MIN_EDGES);
     TEST_ASSERT_EQUAL_INT(801, CAL_KNEE_TRAVEL_QUIET_MAX_EDGES);
     TEST_ASSERT_EQUAL_INT(745, CAL_KNEE_TRAVEL_MIN_EDGES);
     TEST_ASSERT_EQUAL_INT(825, CAL_KNEE_TRAVEL_MAX_EDGES);
@@ -890,7 +889,7 @@ static void test_every_failure_reason_fits_the_leader_echo()
         {LegCalibrationFailure::PartnerNotCurled, JointSensor::Hall, 0, 0,
          "FRKL partner not proven curled"},
         {LegCalibrationFailure::KneeTravelOutOfRange, JointSensor::Hall, 685, 0,
-         "FRKL travel 685 edges, outside FL 745-825: check its curl end"},
+         "FRKL stroke 685 edges (FL 745-825): obstacle or bind at its curl end?"},
         {LegCalibrationFailure::KneeFrameMoved, JointSensor::Hall, 0, 0,
          "FRKL home changed during its park: run C again"},
         {LegCalibrationFailure::StuckMidStroke, JointSensor::Hall, 771, 1,
@@ -3230,25 +3229,38 @@ std::string kneeLine(int stopAt, int travel, int park)
 // F1 (host design of 2026-11-25): the knee parks in its switch frame, 521
 // toward curl from the switch its uncurl proved, so a home short of its stop
 // no longer moves the park. Its travel S (home to switch) is judged at the
-// uncurl: 30 short (755) WARNs (T and Neutral off by 30) and still parks at
-// its true 264 (fromSwitch 521; extension 736 = 1000 - 264) and sweeps
-// normally; 60 or 100 short (725, 685) fail at the switch, before the park:
+// uncurl: 24 or 30 short (761, 755) WARNs (T and Neutral off by 24, 30) and
+// still parks at its true 264 (fromSwitch 521; extension 736 = 1000 - 264) and
+// sweeps normally; 60 or 100 short (725, 685) fail at the switch, before the park:
 // the hip is never driven out after its curl, nothing is saved, and the
 // knee's home is cleared (kept only as a rerun's reference).
 static void test_table_safe_knee_travel_window_on_blocked_knees()
 {
+    for (int block : {24, 30})
     {
         FakePlant plant;
         LegCalibration calibration;
-        startBlockedKneeSweep(calibration, plant, 30);
-        runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() { return calibration.currentLeg() != 0; });
+        startBlockedKneeSweep(calibration, plant, block);
+        int furthestKnee = 0;
+        while (calibration.isRunning() && calibration.currentLeg() == 0)
+        {
+            tick(calibration, plant, CAL_DEFAULT_PWM);
+            if (plant.pwm[1] > 0 && plant.extension[2] > furthestKnee) furthestKnee = plant.extension[2];
+        }
         TEST_ASSERT_TRUE_MESSAGE(calibration.isRunning(), plant.output.last().c_str());
-        TEST_ASSERT_TRUE(plant.output.has(kneeLine(970, 755, -234)));
-        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT WARN FLKL travel 755 edges, outside FL 769-801: T and Neutral off by 30"));
-        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT PARK FLKL hall=-234 fromSwitch=521 target=-234 (FL values)"));
+        const int travel = CAL_KNEE_STROKE_EDGES - block;
+        const std::string park = std::to_string(521 - travel);
+        TEST_ASSERT_TRUE(plant.output.has(kneeLine(1000 - block, travel, 521 - travel)));
+        const std::string warn = "CAL FRONT WARN FLKL travel " + std::to_string(travel) +
+            " edges, outside FL 765-801: T and Neutral off by " + std::to_string(block);
+        TEST_ASSERT_TRUE_MESSAGE(plant.output.has(warn), warn.c_str());
+        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT PARK FLKL hall=" + park + " fromSwitch=521 target=" + park +
+                                          " (FL values)"));
+        // Held at its true 264 out of its stop (extension 736) through the sweep.
+        TEST_ASSERT_EQUAL_INT(1000 - CAL_KNEE_PARK_EDGES, furthestKnee);
         TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL uncurl hall=840 travel=840"));
         TEST_ASSERT_TRUE(plant.output.has("CAL FRONT KNEE FLKL sweep fromSwitch=521..521"));
-        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FLKL min=-755 max=0 edges"));
+        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FLKL min=-" + std::to_string(travel) + " max=0 edges"));
         TEST_ASSERT_EQUAL_INT(1, plant.output.count("CAL FRONT WARN"));
     }
     for (int block : {60, 100})
@@ -3271,8 +3283,8 @@ static void test_table_safe_knee_travel_window_on_blocked_knees()
                                             " travel=-" + std::to_string(travel) + " by=switch").empty());
         const std::vector<std::string> lines = plant.output.lines();
         TEST_ASSERT_EQUAL_STRING(kneeLine(1000 - block, travel, 521 - travel).c_str(), lines[lines.size() - 2].c_str());
-        const std::string fail = "CAL FRONT FAIL FLKL travel " + std::to_string(travel) +
-            " edges, outside FL 745-825: check its curl end";
+        const std::string fail = "CAL FRONT FAIL FLKL stroke " + std::to_string(travel) +
+            " edges (FL 745-825): obstacle or bind at its curl end?";
         TEST_ASSERT_EQUAL_STRING(fail.c_str(), lines.back().c_str());
         const std::vector<std::string> expected = {
             "CAL FRONT MOVE FLKL curl", "CAL FRONT MOVE FLHL curl", "CAL FRONT MOVE FLKL curl",
@@ -3293,8 +3305,8 @@ static void test_table_safe_knee_travel_window_on_blocked_knees()
     }
 }
 
-// The travel window's edges: under 745 and over 825 fail before the park; 745-768
-// and 802-825 WARN and park; 769-801 park silently. The park is always 521 from
+// The travel window's edges: under 745 and over 825 fail before the park; 745-764
+// and 802-825 WARN and park; 765-801 (S - 521 inside 244-280) park silently. The park is always 521 from
 // the switch (its home frame -S + 521), and on the hollow stand 593.
 static void test_table_safe_knee_travel_window_boundaries()
 {
@@ -3304,7 +3316,7 @@ static void test_table_safe_knee_travel_window_boundaries()
         uint8_t options;
         int verdict;  // 0 quiet, 1 WARN, 2 FAIL
     } cases[] = {
-        {744, 0, 2}, {745, 0, 1}, {768, 0, 1}, {769, 0, 0}, {801, 0, 0}, {802, 0, 1}, {825, 0, 1}, {826, 0, 2},
+        {744, 0, 2}, {745, 0, 1}, {764, 0, 1}, {765, 0, 0}, {801, 0, 0}, {802, 0, 1}, {825, 0, 1}, {826, 0, 2},
         {755, CAL_OPT_HOLLOW_STAND, 1}, {785, CAL_OPT_HOLLOW_STAND, 0},
     };
     for (const auto &entry : cases)
@@ -3321,13 +3333,13 @@ static void test_table_safe_knee_travel_window_boundaries()
         const std::string label = std::to_string(entry.travel) + (hollow ? " hollow" : "");
         TEST_ASSERT_TRUE_MESSAGE(plant.output.has(kneeLine(1000, entry.travel, park)), label.c_str());
         const std::string warn = "CAL FRONT WARN FLKL travel " + std::to_string(entry.travel) +
-            " edges, outside FL 769-801: T and Neutral off by " + std::to_string(785 - entry.travel);
+            " edges, outside FL 765-801: T and Neutral off by " + std::to_string(785 - entry.travel);
         TEST_ASSERT_EQUAL_MESSAGE(entry.verdict == 1, plant.output.has(warn), label.c_str());
         if (entry.verdict == 2)
         {
             assertFailure(calibration, LegCalibrationFailure::KneeTravelOutOfRange);
-            const std::string fail = "CAL FRONT FAIL FLKL travel " + std::to_string(entry.travel) +
-                " edges, outside FL 745-825: check its curl end";
+            const std::string fail = "CAL FRONT FAIL FLKL stroke " + std::to_string(entry.travel) +
+                " edges (FL 745-825): obstacle or bind at its curl end?";
             TEST_ASSERT_EQUAL_STRING(fail.c_str(), plant.output.last().c_str());
             TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT PARK"));
             continue;
@@ -3787,7 +3799,7 @@ static void test_sweep_uncurl_must_travel_the_minimum_stroke()
             ? LegCalibrationFailure::BarelyMoved : LegCalibrationFailure::KneeTravelOutOfRange);
         TEST_ASSERT_EQUAL_STRING(travel < CAL_HALL_MIN_STROKE_EDGES
             ? "CAL FRONT FAIL FLKL barely moved (449 edges) at PWM 128: check hall wiring or raise speed"
-            : "CAL FRONT FAIL FLKL travel 450 edges, outside FL 745-825: check its curl end",
+            : "CAL FRONT FAIL FLKL stroke 450 edges (FL 745-825): obstacle or bind at its curl end?",
             sweep.plant.output.last().c_str());
         TEST_ASSERT_FALSE(sweep.plant.homed[2]);
         TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT PARK"));

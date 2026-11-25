@@ -23,8 +23,7 @@
 //   its home is proven before the park counts from it, also for a SWEEP run
 //   on its own); knee -> uncurl end (its switch: the switch frame, a raw
 //   count; its travel S from its home is judged, KNEE line, quiet within
-//   CAL_KNEE_TRAVEL_QUIET_EDGES of 785, a WARN out to 745-825, a failure
-//   beyond); knee -> park (by count to CAL_KNEE_SWITCH_PARK_EDGES from that
+//   765-801, a WARN out to 745-825, a failure beyond); knee -> park (by count to CAL_KNEE_SWITCH_PARK_EDGES from that
 //   switch, then checked inside its band, in the switch frame); hip -> sweep
 //   (by count to CAL_HIP_SWEEP_EDGES with the knee held parked: any end
 //   before it, or the knee leaving its band, is an obstacle, and the hip
@@ -486,14 +485,14 @@ inline void printLegCalibrationFailureReason(
             out.printFlash(KRABBY_FLASH_LITERAL(" and its knee must both be hall encoders"));
             return;
         case LegCalibrationFailure::KneeTravelOutOfRange:
-            // value: the knee's home-to-switch travel.
-            out.printFlash(KRABBY_FLASH_LITERAL(" travel "));
+            // value: the knee's home-to-switch travel (its stroke as measured).
+            out.printFlash(KRABBY_FLASH_LITERAL(" stroke "));
             out.printNumber(value);
-            out.printFlash(KRABBY_FLASH_LITERAL(" edges, outside FL "));
+            out.printFlash(KRABBY_FLASH_LITERAL(" edges (FL "));
             out.printNumber(CAL_KNEE_TRAVEL_MIN_EDGES);
             out.printChar('-');
             out.printNumber(CAL_KNEE_TRAVEL_MAX_EDGES);
-            out.printFlash(KRABBY_FLASH_LITERAL(": check its curl end"));
+            out.printFlash(KRABBY_FLASH_LITERAL("): obstacle or bind at its curl end?"));
             return;
         case LegCalibrationFailure::KneeFrameMoved:
             out.printFlash(KRABBY_FLASH_LITERAL(" home changed during its park: run C again"));
@@ -1811,7 +1810,7 @@ private:
     // (FL 785)" (park in the home frame, as the PARK line's hall=), then judges
     // its travel S: outside CAL_KNEE_TRAVEL_MIN/MAX_EDGES the pass fails before
     // the park; outside the quiet band "WARN <j> travel <S> edges, outside FL
-    // 769-801: T and Neutral off by <785 - S>". Returns false when the pass
+    // 765-801: T and Neutral off by <785 - S>". Returns false when the pass
     // failed.
     bool checkKneeTravel(LegCalibrationPlant &plant, int32_t endPos)
     {
