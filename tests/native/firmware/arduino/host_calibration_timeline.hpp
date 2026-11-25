@@ -10,10 +10,19 @@
 // parked by a PWM 200 curl sits deeper than PWM 80 reaches, and a hip with its
 // knee curled stops where the curled tibia meets the body (a violation).
 // Every rod also drives its board's IS pin as the 2026-11-24 end-current runs
-// measured: 0 with EN low, a running level while driven, the joint's
-// switch-open level once driven back into its retracted end (the actuator's
-// limit switch), and a rising level pressed into an extended end (the knee's
-// compliant leg stop, its taper zone, or the body).
+// measured: 0 with EN low; the joint's switch-open level (the IS channel's own
+// offset) once a limit switch has opened, at its retracted end and at a hip's
+// extended end, where the motor no longer conducts; and while the motor
+// conducts, that offset plus an increment that grows with |PWM| (so the start
+// of the ramp reads near the offset, where the end detector takes its floor):
+// a running increment while the rod moves, a larger one pressed into a knee's
+// compliant leg stop (rising over its taper zone), the body, an obstacle, or
+// while stalled mid-stroke.
+//
+// The table-safe envelope (2026-11-24 fix round, FL geometry, firmware frame):
+// a hall hip goes above 560 edges only with its knee parked in its band, never
+// past its 840-edge sweep plus coast, and never to its extend switch on a
+// solid stand; checked at every pin write and every plant step.
 //
 // The sim's three boards share one pin map; PinStateModel tags each write with
 // the board whose firmware made it and gives each board its own analog inputs
@@ -72,22 +81,67 @@ constexpr double kSpecKneeSpringMaxEdges = 9.0;
 // no feedback). At PWM 80 that was 36 / 45. Its hip is not proven curled: the
 // knee nudge is the one move allowed before that.
 constexpr double kSpecBlindKneeNudgeMaxEdges = 95.0;
-// The hip verification nudge: out at most this long (ramp included).
+// The hip verification nudge: out at most this long (ramp included); a hip
+// nudge that has counted no edge (at most 1) stops this long after it started.
 constexpr uint32_t kSpecHipNudgeMaxMs = 2000;
-// The end detector (2026-11-24): a drive into a limit switch stops at most this
-// long after the rod reaches it, one into a mechanical stop at most this long
-// after it, and a press of a joint already at its end at most this long.
-constexpr uint32_t kSpecSwitchStopMaxMs = 250;
+constexpr uint32_t kSpecHipNudgeBlindMs = 1000;
+// A nudge, hip or knee, never ramps past PWM 128 (CAL_HIP_NUDGE_MAX_PWM and
+// CAL_KNEE_NUDGE_MAX_PWM follow CAL_DEFAULT_PWM), whatever the C pwm.
+constexpr int kSpecNudgeMaxPwm = 128;
+// The end detector (2026-11-24 fix round). A switch end is decided only once
+// the current shows the switch-open signature: its last 6 samples (50 ms each)
+// flat and within 1.5 counts of the drive's floor. When the rod reaches its
+// switch the motor stops conducting; its current falls to the switch-open
+// level over about 3 samples (150 ms, CAL_END_OPEN_SETTLE_SAMPLES); then 6
+// flat samples take 300 ms, and the decision waits for the next sample close
+// (up to 50 ms) and its loop. So a drive into a limit switch stops at most
+// 150 + 300 + 50 + 50 = 550 ms after the rod reaches it (the switch has
+// already cut the motor: this bounds the drive, not a press), and no sooner
+// than the 6 flat samples, 300 ms. The plant's switch ends stop 435-475 ms
+// after arrival (the robot: about 0.4-0.5 s). The old 250 ms bound (a 12%
+// drop over 3 samples) no longer holds by design.
+constexpr uint32_t kSpecSwitchStopMaxMs = 550;
+constexpr uint32_t kSpecSwitchStopMinMs = 300;
+// A drive into a mechanical stop (a knee's leg stop, or an obstacle on a knee
+// curl): the stop rule needs 3 samples in a row slow and hot, its speed window
+// spans 4 samples, so at most 400 ms after reaching it (unchanged).
 constexpr uint32_t kSpecMechanicalStopMaxMs = 400;
+// A hip extend into an obstacle (its sweep: the hip's own end is a limit
+// switch, so the stop rule also waits until the count has been still 5
+// samples, for the switch to show its drop first): the count still 5 samples
+// (250 ms), by when the 3-sample slow-and-hot streak has also built (its speed
+// window spans 4 samples), plus the sample close (50 ms) and a two-sample
+// allowance for the current's rise (100 ms): 400 ms. The plant's obstacle
+// stops 305 ms after contact.
+constexpr uint32_t kSpecHipObstacleStopMaxMs = 400;
+// A press of a joint already at its end lasts at most this long (the unarmed
+// stall: 1 s of drive, then a 50 ms sample and the loop), unchanged.
 constexpr uint32_t kSpecPressMaxMs = 1100;
 // A drive that reached its end within 1.2 s of its start (it started 0-130
 // edges from it: no running phase, or one learned in the end approach) stops
 // at most this long after reaching it, by a signature or by the plain stall
-// (no edge for 1 s), and the run goes on (never "stuck mid-stroke").
+// (no edge for 1 s; on a switch-end drive with the switch-open signature), and
+// the run goes on (never "stuck mid-stroke").
 constexpr uint32_t kSpecEarlyEndStopMaxMs = 1150;
-// The owner's fixed hip sweep: a hall hip uncurls this many edges from its curl
-// end, never to where its curled tibia meets the body.
-constexpr double kSpecHipSweepEdges = 700.0;
+// The table-safe SWEEP (calibration_constants.h, fix round 2026-11-24): a hall
+// hip sweeps by count to 840 edges with its knee parked 264 edges out of its
+// curl stop (firmware -264), inside 244-280 out ([-280, -244]); its saved range
+// is [0, 1069], its curl switch to its extend switch (derived, never sought on
+// a solid stand). Up to 560 edges a hip may move with its knee anywhere; above
+// it only with the knee parked (the schedule's interlock).
+constexpr double kSpecHipSweepEdges = 840.0;
+constexpr int kSpecHipStrokeEdges = 1069;
+constexpr double kSpecKneeParkEdges = 264.0;
+constexpr double kSpecKneeParkBandMinEdges = 244.0;
+constexpr double kSpecKneeParkBandMaxEdges = 280.0;
+constexpr double kSpecHipAnyKneeMaxEdges = 560.0;
+// How far a hip may coast past its 840-edge sweep. The schedule's worst case
+// tolerates 27 counts of overshoot past its own 864 target (the table rule at
+// 891), so 840 + 27 = 867 keeps the 24 edges between 840 and 864 as margin. The
+// firmware checks the count once per loop and cuts the drive at once: the
+// plant's fastest hip (PWM 150, 2 edges per count) moves 6 edges in a 5 ms
+// tick, and the robot-like hip coasts 2.
+constexpr double kSpecHipSweepCoastEdges = 27.0;
 
 constexpr int kBoards = 3;
 constexpr int kJoints = 6;
@@ -115,11 +169,23 @@ constexpr double kKneeComplianceEdges = 17.0;
 constexpr double kKneeCompliancePwm = 120.0;
 // Travel after a drive stops runs at this rate (counts per ms).
 constexpr double kAfterStopCountsPerMs = 0.1;
-// Hall hips set up by setHallRods: a stroke longer than the reach with the knee
-// curled, and the curled tibia meeting the body at 941 edges (fact 2: FLHL
-// stopped at 941 with its knee 24 edges off its curl end, 1003 curled tight).
-constexpr double kHallHipStrokeEdges = 1200.0;
+// Hall hips (setHallRods, makeRobotLikeHip): FLHL's stroke, curl switch to
+// extend switch, 1069-1070 edges 3 of 3 (2026-11-24), longer than its reach
+// with the knee curled: the curled tibia meets the body at 941 edges (fact 2:
+// FLHL stopped at 941 with its knee 24 edges off its curl end, 1003 curled tight).
+constexpr double kHallHipStrokeEdges = 1069.0;
 constexpr double kBodyContactEdges = 941.0;
+// IS levels are given at this PWM; while the motor conducts, the increment over
+// the switch-open level scales with |PWM| (a running or stalled motor draws
+// about in proportion to its drive).
+constexpr double kIsReferencePwm = 128.0;
+// A stall mid-stroke without a switch drop wobbles (FRHL at 128: 17-31 counts
+// over a running level of 16, 2026-11-24): a square wave of this period.
+constexpr uint32_t kStallWobblePeriodMs = 300;
+// A rod driven into a limit switch: its current falls from the running level
+// to the switch-open level over about 3 samples (CAL_END_OPEN_SETTLE_SAMPLES'
+// measurement), linearly here.
+constexpr uint32_t kSwitchFallMs = 150;
 
 // Every board's sim actuators use the same pins: PWM_R, PWM_L, EN, POT, IS per slot.
 struct JointPins
@@ -195,15 +261,32 @@ struct Rod
     double springOutEdges = 0.0;
     // Any rod keeps going this many edges in its drive's direction once it stops.
     double coastEdges = 0.0;
-    // IS ADC while driven: running, driven into the retracted end (its limit
-    // switch opens: the joint's switch-open level, FL hips 7-8, FRHL 11), and
-    // pressed into an extended end (knee leg stop 13-24, 2026-11-24).
+    // IS ADC (2026-11-24): the switch-open level, the IS channel's offset read
+    // whenever EN is high and the motor does not conduct (an open limit
+    // switch: FL hips and knees 7-8, FRHL 11); and, at kIsReferencePwm, the
+    // running level (FL 10-17) and the level pressed into an end or stalled
+    // (knee leg stop 13-24). Below that PWM the increment over the switch-open
+    // level shrinks in proportion, so the ramp starts near the offset.
     double isRun = 12.0;
     double isSwitchOpen = 8.0;
     double isStall = 20.0;
+    // Its limit switches never open (bypassed): at a switch end the motor
+    // keeps conducting and presses, at the stall level.
+    bool switchBypassed = false;
     // A hip whose knee is at its curl end cannot extend more than this many
     // edges from its curl end: the curled tibia meets the body (0: never).
     double bodyContactEdges = 0.0;
+    // An obstacle this many edges out of the retracted end stops the rod's
+    // extension, a mechanical stop pressed at the stall level (0: none).
+    double obstacleEdges = 0.0;
+    // Lack of force on the curl: a curl drive cannot bring the rod closer to
+    // its curl end than this many edges out (0: never). Held there the motor
+    // conducts at the stall level, wobbling by stallWobble counts (no switch
+    // drop), or, with stallLooksOpen, reads flat at its switch-open level: the
+    // worst case, a stall the current cannot tell from an open switch.
+    double curlStallEdges = 0.0;
+    double stallWobble = 4.0;
+    bool stallLooksOpen = false;
 
     // Motion state (Timeline): drive time since this drive started, whether
     // it started at the curl end, travel still to come after a stop (counts),
@@ -251,6 +334,23 @@ struct Rod
     }
     // Edges out of its curl end (negative: pushed deeper into it).
     double edgesOut(int joint) const { return curlSign(joint) * (curlEnd(joint) - position) * edgesPerCount; }
+    // Where an obstacle stops its extension (HUGE_VAL: none).
+    double obstaclePosition() const { return obstacleEdges > 0.0 ? low + obstacleEdges / edgesPerCount : HUGE_VAL; }
+    // Where a curl drive runs out of force; whether motion of motionSign (+1
+    // extends) from here is stopped by it (a curl from that point or further
+    // out), and whether the rod sits held there.
+    double curlStallPosition(int joint) const
+    {
+        return curlEnd(joint) - curlSign(joint) * curlStallEdges / edgesPerCount;
+    }
+    bool isCurlStallAhead(int joint, int motionSign) const
+    {
+        return curlStallEdges > 0.0 && motionSign == curlSign(joint) && edgesOut(joint) >= curlStallEdges - 1e-6;
+    }
+    bool isHeldByCurlStall(int joint, int motionSign) const
+    {
+        return isCurlStallAhead(joint, motionSign) && edgesOut(joint) <= curlStallEdges + 1e-6;
+    }
 };
 
 // FLKL as measured on 2026-11-23: a 776-edge stroke with its hip curled; at PWM
@@ -274,11 +374,11 @@ inline void makeRobotLikeKnee(Rod &rod)
     rod.coastEdges = 1.0;
 }
 
-// FLHL as measured on 2026-11-23: about 45 edges/s uncurling and 25 curling at
-// PWM 80, back exactly to its curl end (limit switch); with its knee curled the
-// tibia meets the body at 941 edges, short of the hip's own end; stored
-// curled; its nudge breaks free in about 0.45 s (24 edges at about 1.3 s); it
-// coasts 2 edges.
+// FLHL as measured on 2026-11-23/24: about 45 edges/s uncurling and 25 curling
+// at PWM 80, back exactly to its curl end (limit switch); its stroke 1069
+// edges switch to switch; with its knee curled the tibia meets the body at 941
+// edges, short of the hip's own end; stored curled; its nudge breaks free in
+// about 0.45 s (24 edges at about 1.3 s); it coasts 2 edges.
 inline void makeRobotLikeHip(Rod &rod)
 {
     rod.sensor = RodSensor::Hall;
@@ -325,6 +425,9 @@ public:
     // the shipped default (every C command run); set false for a strict run
     // (startCalibration with options 0).
     bool kneeNudgeOption = kSpecDefaultKneeNudge;
+    // The run uses CAL_OPT_HOLLOW_STAND (a build opt-in, off by default): only
+    // then may a hip reach its extend switch.
+    bool hollowStandOption = false;
     // |PWM| limit a calibration drive may use; 0 disables the PWM checks.
     int requestedPwm = 0;
     std::vector<Move> moves;
@@ -360,8 +463,9 @@ public:
     }
 
     // Sets every hip and knee of boards [firstBoard, lastBoard] to a hall rod.
-    // Hips get a stroke longer than their reach with the knee curled, where the
-    // curled tibia meets the body (call after setting edgesPerCount).
+    // Hips get FLHL's 1069-edge stroke, longer than their reach with the knee
+    // curled, where the curled tibia meets the body (call after setting
+    // edgesPerCount). Knees keep their stroke (700 counts by default).
     void setHallRods(int firstBoard, int lastBoard)
     {
         for (int board = firstBoard; board <= lastBoard; ++board)
@@ -408,6 +512,10 @@ public:
                 deadBPhase_[board][joint] = false;
                 furthestOut_[board][joint] = 0.0;
                 bodyContactFlagged_[board][joint] = false;
+                envelopeFlagged_[board][joint] = 0;
+                switchArrivalMs_[board][joint] = 0;
+                isNudgeMove_[board][joint] = false;
+                wasParkedAtStart_[board][joint] = false;
             }
         }
         nudge_ = PendingNudge();
@@ -436,13 +544,39 @@ public:
         for (int board = 0; board < kBoards; ++board)
             for (int joint = 0; joint < kJoints; ++joint)
             {
+                const bool wasAtSwitch = isAtOpenSwitch(board, joint);
                 moveRod(board, joint, dtMs);
+                if (!wasAtSwitch && isAtOpenSwitch(board, joint)) switchArrivalMs_[board][joint] = nowMs();
                 countEdges(board, joint);
                 const double out = rods[board][joint].edgesOut(joint);
                 if (out > furthestOut_[board][joint]) furthestOut_[board][joint] = out;
                 noteEndReached(board, joint);
             }
+        for (int board = 0; board < kBoards; ++board) checkEnvelope(board);
         publishSensors();
+    }
+
+    // A knee's edges out of its curl stop under the calibration PWM, the end a
+    // calibration curl homes it at (a compliant knee's is deeper at more PWM).
+    double kneeParkOutEdges(int board, int knee) const
+    {
+        const Rod &rod = rods[board][knee];
+        const int pwm = requestedPwm > 0 ? requestedPwm : static_cast<int>(kIsReferencePwm);
+        return (rod.extendedEnd(knee, pwm) - rod.position) * rod.edgesPerCount;
+    }
+
+    // The knee sits in its park band, 244-280 edges out of its curl stop
+    // (firmware [-280, -244]). The firmware measures from its home, set where
+    // a calibration curl stopped: on a tapered knee up to the rod's at-end
+    // tolerance short of the stop, so the outer edge is widened by that
+    // (2 + taper edges; the result stays inside the schedule's worst-case knee
+    // tolerance during the sweep, 224-304 out).
+    bool isKneeInParkBand(int board, int knee) const
+    {
+        const Rod &rod = rods[board][knee];
+        const double out = kneeParkOutEdges(board, knee);
+        return out >= kSpecKneeParkBandMinEdges - kAtEndTolerance &&
+               out <= kSpecKneeParkBandMaxEdges + rod.atEndTolerance() * rod.edgesPerCount;
     }
 
     // End-detector checks made (drives that ran into a limit switch, into a
@@ -452,6 +586,16 @@ public:
     int stopEndsChecked() const { return endChecks_[1]; }
     int pressesChecked() const { return endChecks_[2]; }
     int earlyEndsChecked() const { return endChecks_[3]; }
+    int hipObstaclesChecked() const { return endChecks_[4]; }
+    // The longest delay seen per check, in ms: a switch stop, a mechanical
+    // stop, a press (from the drive's start), an early end, a hip obstacle.
+    uint32_t switchStopPeakMs() const { return endPeakMs_[0]; }
+    uint32_t mechanicalStopPeakMs() const { return endPeakMs_[1]; }
+    uint32_t pressPeakMs() const { return endPeakMs_[2]; }
+    uint32_t earlyEndPeakMs() const { return endPeakMs_[3]; }
+    uint32_t hipObstaclePeakMs() const { return endPeakMs_[4]; }
+    // The quickest switch stop after arrival (0: none checked).
+    uint32_t switchStopFastestMs() const { return switchFastestMs_; }
 
     // Forget EEPROM changes so far (boot and role election write EEPROM too).
     void resetEepromTracking()
@@ -536,15 +680,45 @@ private:
         return rod.low + rod.bodyContactEdges / rod.edgesPerCount;
     }
 
+    // Where the rod's extension under a drive of |pwm| stops: its extended end
+    // (a hip's extend switch, a knee's leg stop, deeper at more PWM when
+    // compliant), the body, or an obstacle.
+    double extendLimit(int board, int joint, int pwmMagnitude) const
+    {
+        const Rod &rod = rods[board][joint];
+        return std::min(std::min(rod.extendedEnd(joint, pwmMagnitude), bodyContactPosition(board, joint)),
+                        rod.obstaclePosition());
+    }
+
+    // Whether the rod's extended end at `limit` is a hip's extend switch (not
+    // the body or an obstacle short of it).
+    bool isExtendSwitch(int board, int joint, double limit) const
+    {
+        return isHip(joint) && limit >= rods[board][joint].high - 1e-9;
+    }
+
+    // Whether the rod's present drive holds it at a limit switch that opens
+    // (its retracted end, or a hip's extend switch; not a bypassed one).
+    bool isAtOpenSwitch(int board, int joint) const
+    {
+        const Rod &rod = rods[board][joint];
+        const int drive = drive_[board][joint];
+        if (drive == 0 || rod.switchBypassed) return false;
+        const int magnitude = drive < 0 ? -drive : drive;
+        const int sign = (drive > 0 ? 1 : -1) * (rod.motorReversed ? -1 : 1);
+        if (sign < 0) return rod.position <= rod.low + 1e-9;
+        const double limit = extendLimit(board, joint, magnitude);
+        return isExtendSwitch(board, joint, limit) && rod.position >= limit - 1e-9;
+    }
+
     // Whether the rod sits at the end its drive pushes it into: its retracted
     // end (a limit switch) or its extended end under that drive (a mechanical
-    // stop or the body).
+    // stop, a hip's extend switch, the body or an obstacle).
     bool isAtDriveEnd(int board, int joint, int drive) const
     {
         const Rod &rod = rods[board][joint];
         if (drive < 0) return rod.position <= rod.low + 1e-9;
-        const double end = std::min(rod.extendedEnd(joint, drive), bodyContactPosition(board, joint));
-        return rod.position >= end - 1e-9;
+        return rod.position >= extendLimit(board, joint, drive) - 1e-9;
     }
 
     // The end-detector checks apply to calibration drives of a hall rod whose
@@ -570,9 +744,11 @@ private:
     // At a move's stop: a press of a joint already at its end lasts at most
     // kSpecPressMaxMs; a drive that ran (over 1.2 s before reaching its end, so
     // the end detector had armed) stops within kSpecSwitchStopMaxMs of a limit
-    // switch and kSpecMechanicalStopMaxMs of a mechanical stop, and one that
-    // reached its end sooner within kSpecEarlyEndStopMaxMs. A knee whose drive
-    // stopped in its taper zone, short of the stop, stopped in time.
+    // switch (a retracted end, a hip's extend switch), kSpecMechanicalStopMaxMs
+    // of a knee's mechanical stop and kSpecHipObstacleStopMaxMs of an obstacle
+    // on a hip extend, and one that reached its end sooner within
+    // kSpecEarlyEndStopMaxMs. A knee whose drive stopped in its taper zone,
+    // short of the stop, stopped in time. The longest such delay is kept.
     void checkEndStop(int board, int joint, int previous, const Move &move, uint32_t now)
     {
         const uint32_t reached = reachedMs_[board][joint];
@@ -583,13 +759,14 @@ private:
         if (pressed)
         {
             ++endChecks_[2];
+            notePeak(2, now - move.startMs);
             if (now - move.startMs > kSpecPressMaxMs) violation(board, joint, "pressed its end longer than 1100 ms");
             return;
         }
+        const Rod &rod = rods[board][joint];
         if (reached == 0)
         {
-            const Rod &rod = rods[board][joint];
-            const double end = std::min(rod.extendedEnd(joint, move.peakMagnitude), bodyContactPosition(board, joint));
+            const double end = extendLimit(board, joint, move.peakMagnitude);
             if (previous > 0 && rod.kneeTaper && now - move.startMs >= 1200 &&
                 (end - rod.position) * rod.edgesPerCount < rod.taperEdges)
                 ++endChecks_[1];
@@ -598,20 +775,75 @@ private:
         if (reached - move.startMs < 1200)
         {
             ++endChecks_[3];
+            notePeak(3, now - reached);
             if (now - reached > kSpecEarlyEndStopMaxMs)
                 violation(board, joint, "drove on past an end it reached within 1.2 s");
             return;
         }
-        if (previous < 0)
+        const bool atSwitch = previous < 0 || isExtendSwitch(board, joint, extendLimit(board, joint, move.peakMagnitude));
+        if (atSwitch)
         {
             ++endChecks_[0];
+            notePeak(0, now - reached);
             if (now - reached > kSpecSwitchStopMaxMs) violation(board, joint, "drove on past its limit switch");
+            if (now - reached < kSpecSwitchStopMinMs)
+                violation(board, joint, "switch end decided before its switch-open signature could show");
+        }
+        else if (isHip(joint))
+        {
+            ++endChecks_[4];
+            notePeak(4, now - reached);
+            if (now - reached > kSpecHipObstacleStopMaxMs) violation(board, joint, "drove on into an obstacle");
         }
         else
         {
             ++endChecks_[1];
+            notePeak(1, now - reached);
             if (now - reached > kSpecMechanicalStopMaxMs) violation(board, joint, "drove on past its mechanical stop");
         }
+    }
+
+    void notePeak(int kind, uint32_t ms)
+    {
+        if (ms > endPeakMs_[kind]) endPeakMs_[kind] = ms;
+        if (kind == 0 && (switchFastestMs_ == 0 || ms < switchFastestMs_)) switchFastestMs_ = ms;
+    }
+
+    // The table-safe envelope of each hall leg on a quadrature board, during
+    // calibration drives (operator jogs and T are not calibration): a hip
+    // driven out above 560 edges only with its knee in its park band; a knee
+    // that sat in its band never driven out of it while its hip is above 560;
+    // a hip never past its sweep plus coast, and never at its extend switch on
+    // a solid stand. Each kind is reported once per move of the joint.
+    void checkEnvelope(int board)
+    {
+        if (requestedPwm <= 0 || isOperatorJog_ || !quadrature[board]) return;
+        for (int leg = 0; leg < 2; ++leg)
+        {
+            const int hip = 3 * leg + 1;
+            const int knee = hip + 1;
+            const Rod &hipRod = rods[board][hip];
+            if (hipRod.sensor != RodSensor::Hall) continue;
+            const double hipOut = hipRod.edgesOut(hip);
+            const bool kneeParked = isKneeInParkBand(board, knee);
+            const int hipDrive = drive_[board][hip];
+            if (hipDrive != 0 && hipDrive * curlSign(hip) < 0 && hipOut > kSpecHipAnyKneeMaxEdges && !kneeParked)
+                flagEnvelope(board, hip, 1, "hip above 560 edges with its knee outside its park band");
+            if (drive_[board][knee] != 0 && wasParkedAtStart_[board][knee] && !kneeParked &&
+                hipOut > kSpecHipAnyKneeMaxEdges)
+                flagEnvelope(board, knee, 1, "knee left its park band with its hip above 560 edges");
+            if (hipOut > kSpecHipSweepEdges + kSpecHipSweepCoastEdges)
+                flagEnvelope(board, hip, 2, "hip beyond its 840-edge sweep");
+            if (!hollowStandOption && hipRod.position >= hipRod.high - 1e-9)
+                flagEnvelope(board, hip, 4, "hip at its extend switch on a solid stand");
+        }
+    }
+
+    void flagEnvelope(int board, int joint, int bit, const char *what)
+    {
+        if ((envelopeFlagged_[board][joint] & bit) != 0) return;
+        envelopeFlagged_[board][joint] |= bit;
+        violation(board, joint, what);
     }
 
     // A hip driven into the body with its knee curled: a violation, once per drive.
@@ -622,10 +854,23 @@ private:
         violation(board, joint, "hip drove its curled tibia into the body");
     }
 
+    // Where motion of motionSign (+1 extends) under |pwm| stops: the rod's end
+    // in that direction, or its curl stall point when that lies ahead.
+    double motionLimit(int board, int joint, int motionSign, int pwmMagnitude) const
+    {
+        const Rod &rod = rods[board][joint];
+        double end = motionSign < 0 ? rod.low : extendLimit(board, joint, pwmMagnitude);
+        if (rod.isCurlStallAhead(joint, motionSign))
+            end = motionSign < 0 ? std::max(end, rod.curlStallPosition(joint))
+                                 : std::min(end, rod.curlStallPosition(joint));
+        return end;
+    }
+
     // Undriven: coast and spring-out still to come, at kAfterStopCountsPerMs,
-    // stopping at the rod's end in that direction: `low` when retracting; when
-    // extending, its extended end under the last drive (or the body), unless it
-    // already sits deeper (a knee parked by a harder curl stays there).
+    // stopping at the rod's end in that direction: `low` (or its curl stall
+    // point) when retracting; when extending, its extended end under the last
+    // drive (or the body, or an obstacle), unless it already sits deeper (a
+    // knee parked by a harder curl stays there).
     void settleRod(int board, int joint, uint32_t dtMs)
     {
         Rod &rod = rods[board][joint];
@@ -635,10 +880,9 @@ private:
                                                   : std::max(-limit, rod.pendingTravel);
         rod.pendingTravel -= step;
         double target = rod.position + step;
-        const double end = step < 0
-            ? rod.low
-            : std::max(rod.position, std::min(rod.extendedEnd(joint, rod.lastDriveMagnitude),
-                                              bodyContactPosition(board, joint)));
+        const int sign = step < 0 ? -1 : 1;
+        const double stop = motionLimit(board, joint, sign, rod.lastDriveMagnitude);
+        const double end = sign < 0 ? std::min(rod.position, stop) : std::max(rod.position, stop);
         if (step < 0 ? target <= end : target >= end)
         {
             target = end;
@@ -668,11 +912,12 @@ private:
         if (rod.motorReversed) velocity = -velocity;
         if (velocity < 0)
         {
-            if (rod.position > rod.low) rod.position = std::max(rod.low, rod.position + velocity * dtMs);
+            const double end = motionLimit(board, joint, -1, magnitude);
+            if (rod.position > end) rod.position = std::max(end, rod.position + velocity * dtMs);
             return;
         }
         const double contact = bodyContactPosition(board, joint);
-        const double end = std::min(rod.extendedEnd(joint, magnitude), contact);
+        const double end = motionLimit(board, joint, 1, magnitude);
         if (rod.position >= end)  // pushed into its end: no motion, no pull-back
         {
             noteBodyContact(board, joint, contact);
@@ -717,28 +962,52 @@ private:
         krabby::sim::hallSimAddEdges(board, slot, static_cast<int32_t>(sign * steps));
     }
 
-    // The rod's IS reading under its board's present drive (see Rod::isRun).
+    // The rod's IS reading under its board's present drive (see Rod::isRun):
+    // the switch-open level where a limit switch has opened (the motor no
+    // longer conducts), else that level plus an increment in proportion to
+    // |PWM|: running, rising over a knee's taper zone, or pressed (an end that
+    // is not a switch, a rod that cannot move, a stall mid-stroke).
     int currentReading(int board, int joint) const
     {
         const Rod &rod = rods[board][joint];
         const int drive = drive_[board][joint];
         if (drive == 0 || rod.isDeadMotor) return 0;
+        const int magnitude = drive < 0 ? -drive : drive;
         int sign = drive > 0 ? 1 : -1;
+        const bool isHeld = rod.isStuck || sign == rod.stallSign ||
+                            (rod.driveFromCurlEnd && sign != curlSign(joint) && rod.drivenMs <= rod.breakawayMs);
         if (rod.motorReversed) sign = -sign;
-        double level = rod.isRun;
-        if (sign < 0)
+        const double scale = magnitude / kIsReferencePwm;
+        const double running = rod.isSwitchOpen + (rod.isRun - rod.isSwitchOpen) * scale;
+        const double pressed = rod.isSwitchOpen + (rod.isStall - rod.isSwitchOpen) * scale;
+        double level = running;
+        if (isAtOpenSwitch(board, joint))
         {
-            if (rod.position <= rod.low + 1e-9) level = rod.isSwitchOpen;
+            // Driven into it during this drive: the fall from the running level.
+            const uint32_t arrived = switchArrivalMs_[board][joint];
+            const uint32_t since = nowMs() - arrived;
+            level = rod.isSwitchOpen;
+            if (arrived != 0 && since < kSwitchFallMs)
+                level += (running - rod.isSwitchOpen) * (1.0 - static_cast<double>(since) / kSwitchFallMs);
         }
-        else
+        else if ((sign < 0 && rod.position <= rod.low + 1e-9) ||
+                 (sign > 0 && rod.position >= extendLimit(board, joint, magnitude) - 1e-9))
         {
-            const int magnitude = drive < 0 ? -drive : drive;
-            const double end = std::min(rod.extendedEnd(joint, magnitude), bodyContactPosition(board, joint));
-            const double edgesLeft = (end - rod.position) * rod.edgesPerCount;
-            if (edgesLeft <= 1e-9)
-                level = rod.isStall;
-            else if (rod.kneeTaper && isKnee(joint) && edgesLeft < rod.taperEdges)
-                level = rod.isRun + (rod.isStall - rod.isRun) * (1.0 - edgesLeft / rod.taperEdges);
+            level = pressed;  // a bypassed switch, a knee's leg stop, the body, an obstacle
+        }
+        else if (rod.isHeldByCurlStall(joint, sign))
+        {
+            const bool high = (nowMs() / (kStallWobblePeriodMs / 2)) % 2 != 0;
+            level = rod.stallLooksOpen ? rod.isSwitchOpen : pressed + (high ? rod.stallWobble : -rod.stallWobble);
+        }
+        else if (isHeld)
+        {
+            level = pressed;
+        }
+        else if (sign > 0 && rod.kneeTaper && isKnee(joint))
+        {
+            const double edgesLeft = (extendLimit(board, joint, magnitude) - rod.position) * rod.edgesPerCount;
+            if (edgesLeft < rod.taperEdges) level = running + (pressed - running) * (1.0 - edgesLeft / rod.taperEdges);
         }
         return static_cast<int>(level + 0.5);
     }
@@ -822,6 +1091,7 @@ private:
         const int previous = drive_[board][joint];
         const uint32_t now = nowMs();
         drive_[board][joint] = pwm;
+        if (previous == 0 || pwm == 0 || (pwm > 0) != (previous > 0)) switchArrivalMs_[board][joint] = 0;
         changes.push_back(DriveChange{now, board, joint, pwm});
         noteRodDrive(board, joint, previous, pwm);
 
@@ -861,6 +1131,9 @@ private:
 
         if (openMove_[board][joint] < 0)
         {
+            envelopeFlagged_[board][joint] = 0;
+            wasParkedAtStart_[board][joint] = isKnee(joint) && isKneeInParkBand(board, joint);
+            isNudgeMove_[board][joint] = false;
             if (!isOperatorJog_) checkMoveStart(board, joint, sign, now);
             // At its end under the calibration PWM: a compliant knee parked
             // by a softer curl is not yet at the end this drive reaches.
@@ -876,13 +1149,26 @@ private:
             Move &move = moves[static_cast<size_t>(openMove_[board][joint])];
             if (magnitude > move.peakMagnitude) move.peakMagnitude = magnitude;
         }
+        if (requestedPwm > 0 && !isAllowed && !isOperatorJog_ && isNudgeMove_[board][joint] &&
+            magnitude > kSpecNudgeMaxPwm)
+            violation(board, joint, "nudge PWM above 128");
+        checkEnvelope(board);
     }
 
-    // A hip moves only with its knee curled (its last move was to the curl end
-    // and it is there); a knee leaves its curl end only with its hip curled, or,
-    // with CAL_OPT_KNEE_NUDGE, as a bounded nudge followed directly by its curl.
+    // A knee leaves its curl end only with its hip proven curled (its last move
+    // was to the curl end and it is there), or, with CAL_OPT_KNEE_NUDGE, as a
+    // bounded nudge followed directly by its curl; a knee curl (toward its stop)
+    // is free, as the firmware allows. Hips are held to the table-safe envelope
+    // (checkEnvelope) instead of a partner rule: up to 560 edges any knee will
+    // do. A hall hip leaving its curl end with its knee not parked is its
+    // verification nudge (the sweep needs the knee parked), capped at PWM 128,
+    // as is the knee nudge.
     void checkMoveStart(int board, int joint, int sign, uint32_t now)
     {
+        if (isHip(joint) && sign != curlSign(joint) && quadrature[board] &&
+            rods[board][joint].sensor == RodSensor::Hall && rods[board][joint].isAtCurlEnd(joint) &&
+            !isKneeInParkBand(board, joint + 1))
+            isNudgeMove_[board][joint] = true;
         if (nudge_.awaitsCurl)
         {
             nudge_.awaitsCurl = false;
@@ -893,15 +1179,13 @@ private:
             if (nudged.deadA)
             {
                 if (endedOut > kSpecBlindKneeNudgeMaxEdges + kSpecKneeSpringMaxEdges)
-                    violation(nudge_.board, nudge_.joint, "blind knee nudge ended more than 58 edges out");
+                    violation(nudge_.board, nudge_.joint, "blind knee nudge ended more than 104 edges out");
             }
             else if (endedOut > kSpecKneeNudgeMaxEdges + kSpecKneeSpringMaxEdges)
             {
                 violation(nudge_.board, nudge_.joint, "knee nudge ended more than 25 edges out");
             }
         }
-        if (isHip(joint) && !isPartnerCurled(board, joint + 1))
-            violation(board, joint, "hip driven while its knee is not curled");
         if (isKnee(joint) && sign != curlSign(joint) && !isPartnerCurled(board, joint - 1))
         {
             if (!kneeNudgeOption)
@@ -909,6 +1193,7 @@ private:
                 violation(board, joint, "knee uncurled while its hip is not curled");
                 return;
             }
+            isNudgeMove_[board][joint] = true;
             nudge_.isOpen = true;
             nudge_.board = board;
             nudge_.joint = joint;
@@ -932,7 +1217,7 @@ private:
             if (rods[board][joint].deadA)
             {
                 if (moved > kSpecBlindKneeNudgeMaxEdges)
-                    violation(board, joint, "blind knee nudge moved more than 49 edges");
+                    violation(board, joint, "blind knee nudge moved more than 95 edges");
             }
             else if (moved > kSpecKneeNudgeMaxEdges)
             {
@@ -957,7 +1242,13 @@ private:
     bool bodyContactFlagged_[kBoards][kJoints] = {};
     uint32_t reachedMs_[kBoards][kJoints] = {};
     bool pressAtStart_[kBoards][kJoints] = {};
-    int endChecks_[4] = {};
+    int envelopeFlagged_[kBoards][kJoints] = {};    // envelope kinds reported in this move
+    uint32_t switchArrivalMs_[kBoards][kJoints] = {};  // when the drive reached its open switch (0: not)
+    bool isNudgeMove_[kBoards][kJoints] = {};       // the open move is a verification nudge
+    bool wasParkedAtStart_[kBoards][kJoints] = {};  // a knee in its park band as its move began
+    int endChecks_[5] = {};
+    uint32_t endPeakMs_[5] = {};
+    uint32_t switchFastestMs_ = 0;
     unsigned char eepromSnapshot_[kBoards][kCalDataBytes];
     PendingNudge nudge_;
     bool isFrozen_ = false;
@@ -974,30 +1265,49 @@ struct ExpectedMove
     int sign;
 };
 
-inline void appendSeek(std::vector<ExpectedMove> &out, int board)
+// SEEK, per leg: knee curl, hip curl, knee curl again (R3: proven with its hip curled).
+inline void appendSeekLeg(std::vector<ExpectedMove> &out, int board, int leg)
 {
-    for (int leg = 0; leg < 2; ++leg)
-    {
-        const int hip = 3 * leg + 1;
-        const int knee = 3 * leg + 2;
-        out.push_back({board, knee, curlSign(knee)});
-        out.push_back({board, hip, curlSign(hip)});
-    }
+    const int hip = 3 * leg + 1;
+    const int knee = 3 * leg + 2;
+    out.push_back({board, knee, curlSign(knee)});
+    out.push_back({board, hip, curlSign(hip)});
+    out.push_back({board, knee, curlSign(knee)});
 }
 
-inline void appendSweep(std::vector<ExpectedMove> &out, int board)
+inline void appendSeek(std::vector<ExpectedMove> &out, int board)
 {
-    for (int leg = 0; leg < 2; ++leg)
+    for (int leg = 0; leg < 2; ++leg) appendSeekLeg(out, board, leg);
+}
+
+// SWEEP of one leg. tableSafe (a hall hip): knee curl, hip curl, knee uncurl
+// (to its switch), knee park (a curl-direction drive to -264), hip sweep (an
+// uncurl to 840), hip curl, knee curl. A pot hip's leg keeps the earlier
+// order: knee curl, hip curl, hip uncurl, hip curl, knee uncurl, knee curl.
+inline void appendSweepLeg(std::vector<ExpectedMove> &out, int board, int leg, bool tableSafe)
+{
+    const int hip = 3 * leg + 1;
+    const int knee = 3 * leg + 2;
+    out.push_back({board, knee, curlSign(knee)});
+    out.push_back({board, hip, curlSign(hip)});
+    if (tableSafe)
     {
-        const int hip = 3 * leg + 1;
-        const int knee = 3 * leg + 2;
-        out.push_back({board, knee, curlSign(knee)});
-        out.push_back({board, hip, curlSign(hip)});
-        out.push_back({board, hip, -curlSign(hip)});
-        out.push_back({board, hip, curlSign(hip)});
         out.push_back({board, knee, -curlSign(knee)});
         out.push_back({board, knee, curlSign(knee)});
+        out.push_back({board, hip, -curlSign(hip)});
+        out.push_back({board, hip, curlSign(hip)});
+        out.push_back({board, knee, curlSign(knee)});
+        return;
     }
+    out.push_back({board, hip, -curlSign(hip)});
+    out.push_back({board, hip, curlSign(hip)});
+    out.push_back({board, knee, -curlSign(knee)});
+    out.push_back({board, knee, curlSign(knee)});
+}
+
+inline void appendSweep(std::vector<ExpectedMove> &out, int board, bool tableSafe)
+{
+    for (int leg = 0; leg < 2; ++leg) appendSweepLeg(out, board, leg, tableSafe);
 }
 
 // A joint's verification: a curl that shows no motion, the nudge out, the curl back.
