@@ -62,6 +62,9 @@ NEUTRAL_NOTE_S = 10.0  # how long the Neutral result stays on the status line
 CALIBRATION_RUNNING_NOTE = (
     "Calibrate: a run is still in progress - wait for it to end, or press Hold All"
 )
+NEUTRAL_DURING_CALIBRATION_NOTE = (
+    "Neutral: a calibration run is in progress - wait for it to end, or press Hold All"
+)
 
 # Calibrate dialog (Mega path). The curl directions quoted here come from
 # firmware.krabby_mcu.curl_button(), which mirrors calibration_constants.h.
@@ -879,8 +882,16 @@ class KrabbyTestGUI(tk.Tk):
             self._status_var.set(text)
 
     def _neutral(self):
-        """Send 0.5 to every hip and knee that has a position; yaws are never sent."""
+        """Send 0.5 to every hip and knee that has a position; yaws are never sent.
+
+        Refused while a calibration run sent from this window is in progress
+        (no robot end line and no Hold All yet): its targets would move joints
+        the run is driving or has parked.
+        """
         if not self._connected:
+            return
+        if self._calibration_in_progress():
+            self._show_note(NEUTRAL_DURING_CALIBRATION_NOTE)
             return
         cmds, skipped = self._mcu.neutral_targets(0.5)
         if cmds:

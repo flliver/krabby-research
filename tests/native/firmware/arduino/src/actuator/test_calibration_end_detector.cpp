@@ -466,7 +466,7 @@ static void test_fl_end_test_goldens()
 // Every later start of a real mid-stroke stall is stuck: the drive started
 // `cut` full-PWM samples later in the same approach, then held 3 s at the stall.
 // No start point may home a hip there.
-void assertEveryLaterStartIsStuck(const char *name, int minimumCuts)
+void assertEveryLaterStartIsStuck(const char *name, int expectedCuts)
 {
     const RobotEndMove &move = robotMove(name);
     const std::vector<RobotEndSample> raw = rawSamples(move);
@@ -482,7 +482,7 @@ void assertEveryLaterStartIsStuck(const char *name, int minimumCuts)
         assertKind(CalibrationEnd::Stuck, got, label.c_str());
         ++cuts;
     }
-    TEST_ASSERT_TRUE_MESSAGE(cuts >= minimumCuts, name);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(expectedCuts, cuts, name);
 }
 
 // The FL hip curl at PWM 80 that stalled at 841 (clearance-FL-173941#12): its
@@ -491,7 +491,7 @@ void assertEveryLaterStartIsStuck(const char *name, int minimumCuts)
 // Still and was homed there.
 static void test_pwm80_stall_at_841_every_later_start_is_stuck()
 {
-    assertEveryLaterStartIsStuck("clearance-FL-173941#12", 280);
+    assertEveryLaterStartIsStuck("clearance-FL-173941#12", 281);
 }
 
 // V1/R1: the FRHL curl at PWM 128 from the body (clearance-FR-115750#7) stalled
@@ -545,13 +545,19 @@ static void test_stalls_started_from_rest_under_load_are_stuck()
 }
 
 // Every later start of every real limit-switch end in the logs (47 ends: hip
-// curls, knee uncurls and hip extends, PWM 80-150) homes at the switch: Switch
-// or the switch-open Still, decided at the count where the joint stopped, never
-// stuck (F2, V3). Over 10,000 replays.
+// curls, knee uncurls and hip extends, PWM 80-150) homes at the switch, at the
+// count where the joint stopped, never stuck (F2, V3): 10,353 replays. Each of
+// the 47 as recorded ends Switch. A later start may end Still instead (1,440 of
+// them): one cut in so close to the switch that the drive never runs (or arms
+// only in its own deceleration) has no running level to see the switch's
+// current drop against, so it is homed by the switch-open signature alone,
+// which every one of them shows (a stall without it is Stuck).
 static void test_every_later_start_of_a_real_switch_end_homes_at_the_switch()
 {
     int ends = 0;
     int replays = 0;
+    int switches = 0;
+    int stills = 0;
     for (size_t m = 0; m < kRobotEndMoveCount; ++m)
     {
         const RobotEndMove &base = kRobotEndMoves[m];
@@ -567,14 +573,27 @@ static void test_every_later_start_of_a_real_switch_end_homes_at_the_switch()
             CalibrationEndDetector detector;
             const Outcome got = replaySamples(base, robotEndReplaySamples(later, true), detector);
             const std::string label = moveLabel(base, got, (" from +" + std::to_string(cut)).c_str());
+            if (cut == 0)
+                assertKind(CalibrationEnd::Switch, got, label.c_str());
             TEST_ASSERT_TRUE_MESSAGE(got.kind == CalibrationEnd::Switch || got.kind == CalibrationEnd::Still,
                                      label.c_str());
+            if (got.kind == CalibrationEnd::Still)
+            {
+                TEST_ASSERT_TRUE_MESSAGE(detector.isSwitchOpen(), label.c_str());
+                ++stills;
+            }
+            else
+            {
+                ++switches;
+            }
             TEST_ASSERT_EQUAL_INT_MESSAGE(later.back().e, got.edges, label.c_str());
             ++replays;
         }
     }
     TEST_ASSERT_EQUAL_INT(47, ends);
-    TEST_ASSERT_TRUE(replays > 10000);
+    TEST_ASSERT_EQUAL_INT(10353, replays);
+    TEST_ASSERT_EQUAL_INT(8913, switches);
+    TEST_ASSERT_EQUAL_INT(1440, stills);
 }
 
 // V3: two real limit-switch ends at PWM 120 that sat one sample or one count

@@ -731,6 +731,51 @@ class TestNeutralButton:
         gui._mcu.send_command_joints.assert_not_called()
 
 
+class TestNeutralDuringCalibration:
+    """Host check of 78e18136 (e): Neutral is refused while a C sent from this
+    window has no robot end line and no Hold All: its targets would move joints
+    the run is driving or has parked."""
+
+    def _running(self, monkeypatch, lines=()):
+        gui = _neutral_gui({"FLHL": 0.5, "FLKL": 0.5}, [])
+        gui._mcu.recent_cal_lines.return_value = list(lines)
+        monkeypatch.setattr(app, "ask_calibration_settings", Mock(return_value=CalibrationChoice(128, None)))
+        gui._calibrate()
+        gui._mcu.send_command_calibrate.assert_called_once_with(128, None)
+        return gui
+
+    def test_refused_while_a_run_is_in_progress(self, monkeypatch):
+        gui = self._running(monkeypatch)
+        gui._mcu.recent_cal_lines.return_value = ["CAL ROBOT START pwm=128 passes=SEEK,SWEEP"]
+        gui._neutral()
+        gui._mcu.neutral_targets.assert_not_called()
+        gui._mcu.send_command_joints.assert_not_called()
+        assert gui._status_var.get() == app.NEUTRAL_DURING_CALIBRATION_NOTE
+        assert "Hold All" in app.NEUTRAL_DURING_CALIBRATION_NOTE
+        assert gui._neutral_until > time.time()
+
+    @pytest.mark.parametrize(
+        "end",
+        ["CAL ROBOT DONE", "CAL ROBOT FAIL FRONT: FLKL no motion", "CAL ROBOT ABORTED H"],
+    )
+    def test_sent_once_the_run_has_ended(self, monkeypatch, end):
+        gui = self._running(monkeypatch)
+        gui._mcu.recent_cal_lines.return_value = [end]
+        gui._neutral()
+        gui._mcu.send_command_joints.assert_called_once_with({"FLHL": 0.5, "FLKL": 0.5})
+
+    def test_sent_after_hold_all(self, monkeypatch):
+        gui = self._running(monkeypatch)
+        gui._hold_all()
+        gui._neutral()
+        gui._mcu.send_command_joints.assert_called_once_with({"FLHL": 0.5, "FLKL": 0.5})
+
+    def test_no_run_sent_from_this_window_does_not_block(self):
+        gui = _neutral_gui({"FLHL": 0.5}, [])
+        gui._neutral()
+        gui._mcu.send_command_joints.assert_called_once_with({"FLHL": 0.5})
+
+
 class TestCalStatus:
     def test_empty_when_no_line(self):
         assert cal_status_text(None) == ("", "")

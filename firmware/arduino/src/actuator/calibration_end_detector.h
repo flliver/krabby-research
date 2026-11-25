@@ -90,10 +90,12 @@
 //     ends Still, the plain stall, on an extend drive (a knee's leg stop: an
 //     obstacle on a knee curl looks the same), and on a switch-end drive only
 //     with switchOpen, else Stuck.
-// So a stall is taken as an end without a signature only on an extend drive:
-// a knee curl (an obstacle there looks like the leg stop) or a hip sweep,
-// which the sequencer then treats as an obstacle. The robot traces this was
-// checked against (2026-11-23/24) are named in the native test.
+// So a stall is taken as an end without a signature only on a knee curl (an
+// obstacle there looks like the leg stop). A hip extend's end is a switch: a
+// stall there without a signature is Stuck, and the sequencer treats any end
+// of a hip sweep before its target, of any kind, as an obstacle. The
+// robot traces this was checked against (2026-11-23/24) are named in the
+// native test.
 
 // The detector's current from a smoothed IS reading (avgIS): round(10 * avgIS),
 // clamped to [0, 65535].
