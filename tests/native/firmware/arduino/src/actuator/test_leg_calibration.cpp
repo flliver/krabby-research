@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <functional>
 #include <sstream>
@@ -72,10 +73,34 @@ struct FakeOutput final : public CalibrationTextSink
         return all.empty() ? std::string() : all.back();
     }
 
-    // An END line exactly `line` plus the end detector's " by=<by> cur=a/b".
+    // An END line exactly `line` plus the end detector's " by=<by> cur=a/b",
+    // then on a drive into a limit switch (a retract, a hip extend) " floor=f".
     bool hasEnd(const std::string &line, const char *by) const
     {
         const std::string prefix = line + " by=" + by + " cur=";
+        for (const std::string &candidate : lines())
+        {
+            if (candidate.compare(0, prefix.size(), prefix) != 0) continue;
+            std::string rest = candidate.substr(prefix.size());
+            const size_t floorAt = rest.find(" floor=");
+            if (floorAt != std::string::npos)
+            {
+                const std::string floor = rest.substr(floorAt + 7);
+                if (floor.empty() || floor.find_first_not_of("0123456789") != std::string::npos) return false;
+                rest = rest.substr(0, floorAt);
+            }
+            const size_t slash = rest.find('/');
+            if (slash == std::string::npos || slash == 0 || slash + 1 == rest.size()) return false;
+            return rest.find_first_not_of("0123456789/") == std::string::npos;
+        }
+        return false;
+    }
+
+    // An END line exactly `line` plus a switch-end drive's plain stall at the
+    // switch-open level: " open=<current>/<floor>".
+    bool hasOpenEnd(const std::string &line) const
+    {
+        const std::string prefix = line + " open=";
         for (const std::string &candidate : lines())
         {
             if (candidate.compare(0, prefix.size(), prefix) != 0) continue;
@@ -107,13 +132,19 @@ struct Drive
 // plant interface: on a build without quadrature every kind is Pot.
 //
 // Motor current (tenths of an IS count, motorCurrentTenths), as measured on the
-// robot (2026-11-24): 0 undriven; currentRun while driven (also while stuck,
-// stalled by stallSign or breaking free: a stall with no signature); driven to
-// retract at `low` (the actuator's limit switch opens): currentOpen; driven to
-// extend at `high` (the leg's mechanical stop): currentStall. A rod with
-// taperEdges > 0 has a compliant stop: over its last taperEdges before `high`
-// it slows in proportion and its current ramps from currentRun to
-// currentStall. currentNoise adds a seeded uniform +-noise to every driven read.
+// robot (2026-11-24, fix round). Undriven: 0. At a limit switch the motor no
+// longer conducts and the IS reads its offset, currentOpen, flat: a rod driven
+// to retract at `low`, and one driven to extend at `high` when extendSwitch is
+// set (a hall hip's extend switch). Otherwise the motor conducts and the level
+// grows with |pwm| from that offset (so the early ramp reads near it, which is
+// the end detector's floor): running, currentOpen + (currentRun - currentOpen)
+// x |pwm| / CAL_DEFAULT_PWM. Stalled (stuck, blocked by stallSign, breaking
+// free, or pressed at `high` without a switch: a knee's stop, an obstacle) the
+// same scaling to currentStall, plus a wobble of +-currentWobble in 100 ms
+// halves (a stalled motor's current is never flat). A rod with taperEdges > 0
+// has a compliant stop: over its last taperEdges before `high` it slows in
+// proportion and its current ramps from running to stalled. currentNoise adds
+// a seeded uniform +-noise to every read while the motor conducts.
 struct FakePlant final : public LegCalibrationPlant
 {
     uint32_t now = 0;
@@ -141,7 +172,12 @@ struct FakePlant final : public LegCalibrationPlant
     int currentOpen[6] = {75, 75, 75, 75, 75, 75};
     int currentRun[6] = {110, 110, 110, 110, 110, 110};
     int currentStall[6] = {170, 170, 170, 170, 170, 170};
+    int currentWobble[6] = {10, 10, 10, 10, 10, 10};
+    bool extendSwitch[6] = {};
     int taperEdges[6] = {};
+    // The table-safe envelope check in tick() (off for a test that drives the
+    // knee out of its band on purpose).
+    bool checkEnvelope = true;
     int currentNoise = 0;
     uint32_t noiseSeed = 1;
     int speed = 1;
@@ -166,8 +202,10 @@ struct FakePlant final : public LegCalibrationPlant
     std::vector<uint8_t> clearHomeJoints;
     std::vector<std::pair<uint8_t, JointSensor>> setSensorCalls;
 
-    // Rev 3: hips and knees are hall rods of 1000 edges (hips curl to 0, knees
-    // to 1000), every kind starts Unknown with no limits.
+    // Rev 3: hips and knees are hall rods (hips curl to 0, knees to 1000). A
+    // knee's stroke is 1000 edges, its uncurl end a limit switch, its curl end
+    // the leg's stop. A hip's stroke is FL's CAL_HIP_STROKE_EDGES, a limit
+    // switch at each end. Every kind starts Unknown with no limits.
     void useHall()
     {
         quadrature = true;
@@ -179,7 +217,8 @@ struct FakePlant final : public LegCalibrationPlant
             if (joint % 3 == 0) continue;
             hallRod[joint] = true;
             low[joint] = 0;
-            high[joint] = 1000;
+            high[joint] = joint % 3 == 1 ? CAL_HIP_STROKE_EDGES : 1000;
+            extendSwitch[joint] = joint % 3 == 1;
         }
     }
 
@@ -259,13 +298,20 @@ struct FakePlant final : public LegCalibrationPlant
     {
         if (pwm[joint] == 0) return 0;
         const int direction = pwm[joint] > 0 ? 1 : -1;
-        int value = currentRun[joint];
-        if (direction < 0 && extension[joint] <= low[joint])
-            value = currentOpen[joint];
-        else if (direction > 0 && extension[joint] >= high[joint])
-            value = currentStall[joint];
+        if ((direction < 0 && extension[joint] <= low[joint]) ||
+            (direction > 0 && extendSwitch[joint] && extension[joint] >= high[joint]))
+            return static_cast<uint16_t>(currentOpen[joint]);  // switch open: flat offset
+        const int magnitude = std::abs(pwm[joint]);
+        const int running = currentOpen[joint] + (currentRun[joint] - currentOpen[joint]) * magnitude / CAL_DEFAULT_PWM;
+        const int stalled = currentOpen[joint] + (currentStall[joint] - currentOpen[joint]) * magnitude / CAL_DEFAULT_PWM;
+        const int wobble = (now / 100) % 2 == 0 ? currentWobble[joint] : -currentWobble[joint];
+        const bool blocked = stuck[joint] || direction == stallSign[joint] ||
+            (direction == breakawaySign[joint] && now - driveStartMs[joint] < breakawayMs[joint]);
+        int value = running;
+        if (blocked || (direction > 0 && extension[joint] >= high[joint]))
+            value = stalled + wobble;
         else if (direction > 0 && high[joint] - extension[joint] < taperEdges[joint])
-            value = currentRun[joint] + (currentStall[joint] - currentRun[joint]) *
+            value = running + (stalled - running) *
                 (taperEdges[joint] - (high[joint] - extension[joint])) / taperEdges[joint];
         if (currentNoise > 0)
         {
@@ -335,8 +381,13 @@ struct FakePlant final : public LegCalibrationPlant
 };
 
 // One 10 ms tick, checking the safety invariants: one joint at a time, never a
-// yaw, never above the requested PWM; a hip moves only with its knee curled; a
-// knee leaves its curl end only with its hip curled, or as a CAL_OPT_KNEE_NUDGE nudge.
+// yaw, never above the requested PWM; a hip moves only with its knee curled or
+// parked, and sweeps only with it parked; a knee moves without its hip curled
+// only on a curl of a SEEK or of SWEEP step 0 (not a park), or as a
+// CAL_OPT_KNEE_NUDGE nudge. On a table-safe SWEEP the table-safe envelope
+// (FW2 spec, FL model) holds: a hall hip above 560 edges has its knee inside
+// its park band, and it never goes beyond its 840-edge sweep plus 27 edges of
+// coast (unless the hollow-stand option is set).
 void tick(LegCalibration &calibration, FakePlant &plant, int requestedPwm, uint32_t tickMs = 10)
 {
     plant.advance(tickMs);
@@ -349,11 +400,36 @@ void tick(LegCalibration &calibration, FakePlant &plant, int requestedPwm, uint3
         if (plant.pwm[joint] == 0) continue;
         TEST_ASSERT_TRUE(std::abs(plant.pwm[joint]) <= requestedPwm);
         if (isLegCalibrationHip(joint))
-            TEST_ASSERT_TRUE(calibration.isJointCurled(joint + 1));
-        else if (!calibration.isCurrentMoveCurl() &&
-                 !(calibration.moveStage() == LegCalibrationMoveStage::NudgeOut &&
-                   (calibration.options() & CAL_OPT_KNEE_NUDGE) != 0))
-            TEST_ASSERT_TRUE(calibration.isJointCurled(joint - 1));
+        {
+            const uint8_t kneeBit = static_cast<uint8_t>(1U << (joint + 1));
+            TEST_ASSERT_TRUE(calibration.isJointCurled(joint + 1) || (calibration.parkedMask() & kneeBit) != 0);
+            if (calibration.moveStage() == LegCalibrationMoveStage::Normal &&
+                calibration.currentAction() == LegCalibrationAction::Sweep)
+                TEST_ASSERT_TRUE((calibration.parkedMask() & kneeBit) != 0);
+        }
+        else if (!calibration.isJointCurled(joint - 1))
+        {
+            const bool nudge = calibration.moveStage() == LegCalibrationMoveStage::NudgeOut &&
+                               (calibration.options() & CAL_OPT_KNEE_NUDGE) != 0;
+            const bool freeCurl = calibration.isCurrentMoveCurl() &&
+                                  calibration.currentAction() == LegCalibrationAction::Seek &&
+                                  (calibration.currentPass() == CAL_PASS_SEEK || calibration.currentLegStep() == 0);
+            TEST_ASSERT_TRUE(nudge || freeCurl);
+        }
+    }
+    if (!plant.checkEnvelope || !plant.quadrature || calibration.currentPass() != CAL_PASS_SWEEP)
+        return;
+    const bool hollow = (calibration.options() & CAL_OPT_HOLLOW_STAND) != 0;
+    for (uint8_t hip : {1, 4})
+    {
+        if (plant.kind[hip] != JointSensor::Hall || !plant.homed[hip]) continue;
+        const int x = plant.position(hip);
+        if (!hollow) TEST_ASSERT_TRUE_MESSAGE(x <= CAL_HIP_SWEEP_EDGES + 27, std::to_string(x).c_str());
+        if (x <= 560) continue;
+        const uint8_t knee = static_cast<uint8_t>(hip + 1);
+        TEST_ASSERT_TRUE(plant.homed[knee]);
+        TEST_ASSERT_TRUE_MESSAGE(isLegCalibrationParkInBand(plant.position(knee), hollow),
+                                 std::to_string(plant.position(knee)).c_str());
     }
 }
 
@@ -443,7 +519,8 @@ void tearDown() {}
 static void test_constants_match_the_agreed_tuning()
 {
     TEST_ASSERT_EQUAL_INT(128, CAL_DEFAULT_PWM);
-    TEST_ASSERT_EQUAL_INT(40, CAL_PWM_MIN);
+    // Owner decision F4 (2026-11-24): below about 110 drives stall mid-stroke.
+    TEST_ASSERT_EQUAL_INT(110, CAL_PWM_MIN);
     TEST_ASSERT_EQUAL_INT(150, CAL_PWM_MAX);
     TEST_ASSERT_EQUAL_INT(5, CAL_PWM_RAMP_STEP);
     TEST_ASSERT_EQUAL_UINT32(20, CAL_PWM_RAMP_INTERVAL_MS);
@@ -467,10 +544,27 @@ static void test_constants_match_the_agreed_tuning()
     // From the on-robot measurement of 2026-11-23 (one knee: stroke 776 edges).
     TEST_ASSERT_EQUAL_INT(450, CAL_HALL_MIN_STROKE_EDGES);
     TEST_ASSERT_EQUAL_INT(1500, CAL_HALL_MAX_STROKE_EDGES);
-    // The owner's fixed 70% hip sweep (a curled tibia meets the body at 941-1003).
-    TEST_ASSERT_EQUAL_INT(700, CAL_HIP_SWEEP_EDGES);
+    // The table-safe SWEEP (FL's measured geometry, fix round 2026-11-24): the
+    // knee parks 264 out of its stop (band 244-280), the hip sweeps by count to
+    // 840 and must re-home within 10 edges; its saved range is FL's 1069-edge
+    // stroke; the hollow-stand option parks at 192 (157-232) and must find the
+    // extend switch within 20 edges of 1069.
+    TEST_ASSERT_EQUAL_INT(840, CAL_HIP_SWEEP_EDGES);
+    TEST_ASSERT_EQUAL_INT(1069, CAL_HIP_STROKE_EDGES);
+    TEST_ASSERT_EQUAL_INT(20, CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES);
+    TEST_ASSERT_EQUAL_INT(10, CAL_HIP_REHOME_TOLERANCE_EDGES);
+    TEST_ASSERT_EQUAL_INT(264, CAL_KNEE_PARK_EDGES);
+    TEST_ASSERT_EQUAL_INT(244, CAL_KNEE_PARK_BAND_MIN_EDGES);
+    TEST_ASSERT_EQUAL_INT(280, CAL_KNEE_PARK_BAND_MAX_EDGES);
+    TEST_ASSERT_EQUAL_INT(192, CAL_KNEE_HOLLOW_PARK_EDGES);
+    TEST_ASSERT_EQUAL_INT(157, CAL_KNEE_HOLLOW_BAND_MIN_EDGES);
+    TEST_ASSERT_EQUAL_INT(232, CAL_KNEE_HOLLOW_BAND_MAX_EDGES);
+    TEST_ASSERT_EQUAL_UINT(0x02, CAL_OPT_HOLLOW_STAND);
+    TEST_ASSERT_EQUAL_UINT(CAL_OPT_KNEE_NUDGE, CAL_DEFAULT_OPTIONS);  // hollow stand off by default
     TEST_ASSERT_EQUAL_INT(24, CAL_HIP_NUDGE_EDGES);
     TEST_ASSERT_EQUAL_UINT32(2000, CAL_HIP_NUDGE_MAX_MS);
+    TEST_ASSERT_EQUAL_INT(128, CAL_HIP_NUDGE_MAX_PWM);
+    TEST_ASSERT_EQUAL_UINT32(1000, CAL_HIP_NUDGE_BLIND_MS);
     TEST_ASSERT_EQUAL_INT(12, CAL_KNEE_NUDGE_EDGES);
     TEST_ASSERT_EQUAL_UINT32(1000, CAL_KNEE_NUDGE_MAX_MS);
     TEST_ASSERT_EQUAL_INT(128, CAL_KNEE_NUDGE_MAX_PWM);
@@ -479,100 +573,197 @@ static void test_constants_match_the_agreed_tuning()
     TEST_ASSERT_EQUAL_INT(-1, ACTUATOR_HALL_EXTEND_COUNT_SIGN);
 }
 
+// One leg's steps (joint offset within the leg: 1 hip, 2 knee). SEEK: knee
+// curl, hip curl, knee curl (R3). SWEEP of a hall-hip leg, table-safe: knee
+// curl, hip curl, knee uncurl, knee park, hip sweep, hip curl (completes the
+// hip), knee curl (completes the knee). SWEEP of a pot-hip leg: the earlier
+// six steps. The SEEK table does not depend on tableSafe.
 static void test_step_tables_follow_curl_first_order()
 {
-    TEST_ASSERT_EQUAL_UINT(4, legCalibrationStepCount(CAL_PASS_SEEK));
-    TEST_ASSERT_EQUAL_UINT(12, legCalibrationStepCount(CAL_PASS_SWEEP));
-    const uint8_t seekJoints[] = {2, 1, 5, 4};
-    for (uint8_t step = 0; step < 4; ++step)
+    using A = LegCalibrationAction;
+    TEST_ASSERT_EQUAL_UINT(3, legCalibrationLegStepCount(CAL_PASS_SEEK, false));
+    TEST_ASSERT_EQUAL_UINT(3, legCalibrationLegStepCount(CAL_PASS_SEEK, true));
+    TEST_ASSERT_EQUAL_UINT(7, legCalibrationLegStepCount(CAL_PASS_SWEEP, true));
+    TEST_ASSERT_EQUAL_UINT(6, legCalibrationLegStepCount(CAL_PASS_SWEEP, false));
+    const uint8_t seekJoints[] = {2, 1, 2};
+    for (bool tableSafe : {false, true})
+        for (uint8_t step = 0; step < 3; ++step)
+        {
+            const LegCalibrationStep entry = legCalibrationStep(CAL_PASS_SEEK, step, tableSafe);
+            TEST_ASSERT_EQUAL_UINT(seekJoints[step], entry.joint);
+            TEST_ASSERT_TRUE(entry.curl);
+            TEST_ASSERT_FALSE(entry.completesJoint);
+            TEST_ASSERT_EQUAL_INT(static_cast<int>(A::Seek), static_cast<int>(entry.action));
+        }
+    const uint8_t safeJoints[] = {2, 1, 2, 2, 1, 1, 2};
+    const bool safeCurl[] = {true, true, false, true, false, true, true};
+    const bool safeCompletes[] = {false, false, false, false, false, true, true};
+    const A safeAction[] = {A::Seek, A::Seek, A::Seek, A::Park, A::Sweep, A::Seek, A::Seek};
+    for (uint8_t step = 0; step < 7; ++step)
     {
-        const LegCalibrationStep entry = legCalibrationStep(CAL_PASS_SEEK, step);
-        TEST_ASSERT_EQUAL_UINT(seekJoints[step], entry.joint);
-        TEST_ASSERT_TRUE(entry.curl);
-        TEST_ASSERT_FALSE(entry.completesJoint);
+        const LegCalibrationStep entry = legCalibrationStep(CAL_PASS_SWEEP, step, true);
+        const std::string label = "table-safe step " + std::to_string(step);
+        TEST_ASSERT_EQUAL_UINT_MESSAGE(safeJoints[step], entry.joint, label.c_str());
+        TEST_ASSERT_EQUAL_MESSAGE(safeCurl[step], entry.curl, label.c_str());
+        TEST_ASSERT_EQUAL_MESSAGE(safeCompletes[step], entry.completesJoint, label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(safeAction[step]), static_cast<int>(entry.action),
+                                      label.c_str());
     }
-    const uint8_t sweepJoints[] = {2, 1, 1, 1, 2, 2, 5, 4, 4, 4, 5, 5};
-    const bool sweepCurl[] = {true, true, false, true, false, true, true, true, false, true, false, true};
-    const bool sweepCompletes[] = {false, false, false, true, false, true, false, false, false, true, false, true};
-    for (uint8_t step = 0; step < 12; ++step)
+    const uint8_t potJoints[] = {2, 1, 1, 1, 2, 2};
+    const bool potCurl[] = {true, true, false, true, false, true};
+    const bool potCompletes[] = {false, false, false, true, false, true};
+    for (uint8_t step = 0; step < 6; ++step)
     {
-        const LegCalibrationStep entry = legCalibrationStep(CAL_PASS_SWEEP, step);
-        TEST_ASSERT_EQUAL_UINT(sweepJoints[step], entry.joint);
-        TEST_ASSERT_EQUAL(sweepCurl[step], entry.curl);
-        TEST_ASSERT_EQUAL(sweepCompletes[step], entry.completesJoint);
+        const LegCalibrationStep entry = legCalibrationStep(CAL_PASS_SWEEP, step, false);
+        const std::string label = "pot-hip step " + std::to_string(step);
+        TEST_ASSERT_EQUAL_UINT_MESSAGE(potJoints[step], entry.joint, label.c_str());
+        TEST_ASSERT_EQUAL_MESSAGE(potCurl[step], entry.curl, label.c_str());
+        TEST_ASSERT_EQUAL_MESSAGE(potCompletes[step], entry.completesJoint, label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(A::Seek), static_cast<int>(entry.action), label.c_str());
     }
+    // The two SWEEP orders agree up to the hip's curl (the sequencer picks the
+    // order at step 2, once the hip's kind is known).
+    for (uint8_t step = 0; step < 2; ++step)
+    {
+        TEST_ASSERT_EQUAL_UINT(legCalibrationStep(CAL_PASS_SWEEP, step, true).joint,
+                               legCalibrationStep(CAL_PASS_SWEEP, step, false).joint);
+        TEST_ASSERT_TRUE(legCalibrationStep(CAL_PASS_SWEEP, step, false).curl);
+    }
+    TEST_ASSERT_EQUAL_UINT(5, legCalibrationKneeOf(4));
+    TEST_ASSERT_EQUAL_UINT(2, legCalibrationKneeOf(2));
+    TEST_ASSERT_EQUAL_INT(-264, legCalibrationParkTarget(false));
+    TEST_ASSERT_EQUAL_INT(-192, legCalibrationParkTarget(true));
+    TEST_ASSERT_TRUE(isLegCalibrationParkInBand(-280, false) && isLegCalibrationParkInBand(-244, false));
+    TEST_ASSERT_FALSE(isLegCalibrationParkInBand(-281, false) || isLegCalibrationParkInBand(-243, false));
+    TEST_ASSERT_TRUE(isLegCalibrationParkInBand(-232, true) && isLegCalibrationParkInBand(-157, true));
+    TEST_ASSERT_FALSE(isLegCalibrationParkInBand(-233, true) || isLegCalibrationParkInBand(-156, true));
     TEST_ASSERT_EQUAL_INT(-1, legCalibrationPwmSign(1, true));
     TEST_ASSERT_EQUAL_INT(1, legCalibrationPwmSign(1, false));
     TEST_ASSERT_EQUAL_INT(1, legCalibrationPwmSign(5, true));
     TEST_ASSERT_EQUAL_INT(-1, legCalibrationPwmSign(5, false));
 }
 
-// Every joint, curl and uncurl, nudge or not, option on and off, every mask.
+// Every joint, curl and uncurl, nudge or not, every action, option on and off,
+// every curled mask and every parked mask. A hip: its sweep only with its knee
+// parked; any other uncurl (a pot hip's) only with its knee curled; a curl,
+// return, retract or nudge with its knee curled or parked. A knee: a curl is
+// free unless it is a park or the knee is parked; a park, an uncurl and a curl
+// back from the park need the hip curled; a nudge needs the option (or the hip).
 static void test_partner_ready_table()
 {
+    using A = LegCalibrationAction;
     for (uint8_t joint = 0; joint < 6; ++joint)
     {
         const uint8_t hipBit = static_cast<uint8_t>(1U << ((joint / 3) * 3 + 1));
         const uint8_t kneeBit = static_cast<uint8_t>(1U << ((joint / 3) * 3 + 2));
-        for (unsigned mask = 0; mask < 64; ++mask)
-            for (int curl = 0; curl < 2; ++curl)
-                for (int nudge = 0; nudge < 2; ++nudge)
-                    for (int option = 0; option < 2; ++option)
-                    {
-                        bool expected;
-                        if (joint % 3 == 1)
-                            expected = (mask & kneeBit) != 0;
-                        else if (curl)
-                            expected = true;
-                        else if (nudge && option)
-                            expected = true;
-                        else
-                            expected = (mask & hipBit) != 0;
-                        TEST_ASSERT_EQUAL(expected, legCalibrationPartnerReady(
-                            static_cast<uint8_t>(mask), joint, curl != 0, nudge != 0,
-                            option ? CAL_OPT_KNEE_NUDGE : 0));
-                    }
+        for (unsigned curled = 0; curled < 64; ++curled)
+            for (unsigned parked = 0; parked < 64; ++parked)
+                for (A action : {A::Seek, A::Park, A::Sweep})
+                    for (int curl = 0; curl < 2; ++curl)
+                        for (int nudge = 0; nudge < 2; ++nudge)
+                            for (int option = 0; option < 2; ++option)
+                            {
+                                const bool hipCurled = (curled & hipBit) != 0;
+                                const bool kneeCurled = (curled & kneeBit) != 0;
+                                const bool kneeParked = (parked & kneeBit) != 0;
+                                bool expected;
+                                if (joint % 3 == 1)
+                                {
+                                    if (action == A::Sweep)
+                                        expected = kneeParked;
+                                    else if (!curl && !nudge)
+                                        expected = kneeCurled;
+                                    else
+                                        expected = kneeCurled || kneeParked;
+                                }
+                                else if (curl && action != A::Park && !kneeParked)
+                                    expected = true;
+                                else if (nudge && option)
+                                    expected = true;
+                                else
+                                    expected = hipCurled;
+                                TEST_ASSERT_EQUAL(expected, legCalibrationPartnerReady(
+                                    static_cast<uint8_t>(curled), static_cast<uint8_t>(parked), joint,
+                                    curl != 0, nudge != 0, action, option ? CAL_OPT_KNEE_NUDGE : 0));
+                            }
     }
-    // Spelled out: a hip never moves, even as a nudge, without its curled knee.
-    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x02, 1, true, false, CAL_OPT_KNEE_NUDGE));
-    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 4, false, true, CAL_OPT_KNEE_NUDGE));
-    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x20, 4, false, true, 0));
+    // Spelled out. A hip's sweep needs its knee parked: curled is not enough.
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x04, 0x00, 1, false, false, A::Sweep, 0));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x00, 0x04, 1, false, false, A::Sweep, 0));
+    // A pot hip's uncurl needs its knee curled: parked is not enough.
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 0x04, 1, false, false, A::Seek, 0));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x04, 0x00, 1, false, false, A::Seek, 0));
+    // A hip curl (its return after the sweep, a retract) or nudge: knee curled or parked.
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x00, 0x20, 4, true, false, A::Seek, 0));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x00, 0x20, 4, false, true, A::Seek, 0));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x20, 0x00, 4, false, true, A::Seek, 0));
+    // A hip never moves, even as a nudge, with its knee neither curled nor parked.
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x02, 0x00, 1, true, false, A::Seek, CAL_OPT_KNEE_NUDGE));
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 0x00, 4, false, true, A::Seek, CAL_OPT_KNEE_NUDGE));
+    // A knee curls freely, unless it is parked (its curl back from the park) or
+    // the drive is its park: those need its hip curled.
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x00, 0x00, 2, true, false, A::Seek, 0));
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 0x04, 2, true, false, A::Seek, 0));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x02, 0x04, 2, true, false, A::Seek, 0));
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 0x00, 2, true, false, A::Park, CAL_OPT_KNEE_NUDGE));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x02, 0x00, 2, true, false, A::Park, 0));
     // A knee leaves its curl end before its hip only as an opted-in nudge.
-    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 2, false, true, 0));
-    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 2, false, false, CAL_OPT_KNEE_NUDGE));
-    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x00, 2, false, true, CAL_OPT_KNEE_NUDGE));
-    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x02, 2, false, false, 0));
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 0x00, 2, false, true, A::Seek, 0));
+    TEST_ASSERT_FALSE(legCalibrationPartnerReady(0x00, 0x00, 2, false, false, A::Seek, CAL_OPT_KNEE_NUDGE));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x00, 0x00, 2, false, true, A::Seek, CAL_OPT_KNEE_NUDGE));
+    TEST_ASSERT_TRUE(legCalibrationPartnerReady(0x02, 0x00, 2, false, false, A::Seek, 0));
 }
 
 // Every reason fits CAL_ROBOT_REASON_MAX_CHARS with a 4-character joint name,
-// PWM 150 and 5-digit signed numbers, in every unit and direction.
+// PWM 150 and 5-digit signed numbers, in every unit and direction. value2 takes
+// every value the sequencer passes for it: StrokeShort's saved stroke (any
+// int16), SweepShort's sweep target (840, or 1089 for the hollow stand),
+// LostCounts' expected switch (0 or 1069), KneeOutOfBand's band flag (0 or 1),
+// ParkShort's park target (-264 or -192). SweepShort's own number is the
+// shortfall of a sweep that ended before its target, having started at its
+// home (more than 11 edges back would have failed WrongDirection first):
+// 1 .. target + 11.
 static void test_every_failure_reason_fits_the_leader_echo()
 {
-    const LegCalibrationFailure failures[] = {
-        LegCalibrationFailure::PotNotConnected, LegCalibrationFailure::NoEndOfTravel,
-        LegCalibrationFailure::BarelyMoved, LegCalibrationFailure::NotAtCurlEnd,
-        LegCalibrationFailure::WrongDirection, LegCalibrationFailure::PotWrongWay,
-        LegCalibrationFailure::NoFeedback, LegCalibrationFailure::NoMotorCurrent,
-        LegCalibrationFailure::NoMotion, LegCalibrationFailure::ShortOfCurlEnd,
-        LegCalibrationFailure::NoCurlBack, LegCalibrationFailure::StrokeOutOfRange, LegCalibrationFailure::StrokeShort,
-        LegCalibrationFailure::SweepShort, LegCalibrationFailure::StuckMidStroke,
-        LegCalibrationFailure::PartnerNotCurled, LegCalibrationFailure::Aborted,
+    using F = LegCalibrationFailure;
+    const F failures[] = {
+        F::PotNotConnected, F::NoEndOfTravel, F::BarelyMoved, F::NotAtCurlEnd, F::WrongDirection,
+        F::PotWrongWay, F::NoFeedback, F::NoMotorCurrent, F::NoMotion, F::ShortOfCurlEnd,
+        F::NoCurlBack, F::StrokeOutOfRange, F::StrokeShort, F::SweepShort, F::StuckMidStroke,
+        F::PartnerNotCurled, F::Aborted, F::LostCounts, F::KneeOutOfBand, F::ParkShort,
+        F::NotRetracted, F::TableSafeNeedsHall,
     };
     const JointSensor kinds[] = {JointSensor::Unknown, JointSensor::Pot, JointSensor::Hall};
+    const int sweepTargets[] = {CAL_HIP_SWEEP_EDGES, CAL_HIP_STROKE_EDGES + CAL_HIP_EXTEND_SWITCH_TOLERANCE_EDGES};
     size_t longest = 0;
-    for (LegCalibrationFailure failure : failures)
-        for (JointSensor kind : kinds)
-            for (int curl = 0; curl < 2; ++curl)
-                for (int32_t value : {-99999, 99999})
-                {
-                    FakeOutput out;
-                    printLegCalibrationFailureReason(out, failure, "FRKL", kind, curl != 0,
-                        failure == LegCalibrationFailure::Aborted ? 'H' : value, -32768, CAL_PWM_MAX);
-                    TEST_ASSERT_TRUE(out.text.size() > 4);
-                    TEST_ASSERT_TRUE(out.text.size() <= CAL_ROBOT_REASON_MAX_CHARS);
-                    if (out.text.size() > longest) longest = out.text.size();
-                }
-    TEST_ASSERT_EQUAL_UINT(77, longest);
+    for (F failure : failures)
+    {
+        std::vector<int> seconds = {0};
+        if (failure == F::StrokeShort) seconds = {-32768, 32767};
+        if (failure == F::SweepShort) seconds = {sweepTargets[0], sweepTargets[1]};
+        if (failure == F::LostCounts) seconds = {0, CAL_HIP_STROKE_EDGES};
+        if (failure == F::KneeOutOfBand) seconds = {0, 1};
+        if (failure == F::ParkShort) seconds = {legCalibrationParkTarget(false), legCalibrationParkTarget(true)};
+        for (int value2 : seconds)
+        {
+            std::vector<int32_t> values = {-99999, 99999};
+            if (failure == F::SweepShort) values = {1, value2 + CAL_HALL_DETECT_EDGES - 1};
+            for (JointSensor kind : kinds)
+                for (int curl = 0; curl < 2; ++curl)
+                    for (int32_t value : values)
+                    {
+                        FakeOutput out;
+                        printLegCalibrationFailureReason(out, failure, "FRKL", kind, curl != 0,
+                            failure == F::Aborted ? 'H' : value, value2, CAL_PWM_MAX);
+                        TEST_ASSERT_TRUE(out.text.size() > 4);
+                        TEST_ASSERT_TRUE_MESSAGE(out.text.size() <= CAL_ROBOT_REASON_MAX_CHARS, out.text.c_str());
+                        if (out.text.size() > longest) longest = out.text.size();
+                    }
+        }
+    }
+    // The hollow-stand SweepShort at its longest ("... 1100 edges short of its
+    // 1089-edge sweep: obstacle? check its home") is exactly the limit.
+    TEST_ASSERT_EQUAL_UINT(78, longest);
 
     FakeOutput none;
     printLegCalibrationFailureReason(none, LegCalibrationFailure::None, "FRKL", JointSensor::Hall,
@@ -614,8 +805,22 @@ static void test_every_failure_reason_fits_the_leader_echo()
          "FRKL stroke 1501 edges, outside 450-1500"},
         {LegCalibrationFailure::StrokeShort, JointSensor::Hall, 849, 1000,
          "FRKL stroke 849 edges, saved 1000: obstacle?"},
-        {LegCalibrationFailure::SweepShort, JointSensor::Hall, 280, 0,
-         "FRKL stopped 280 edges short of its 700-edge sweep: obstacle?"},
+        {LegCalibrationFailure::SweepShort, JointSensor::Hall, 280, 840,
+         "FRKL stopped 280 edges short of its 840-edge sweep: obstacle? check its home"},
+        {LegCalibrationFailure::LostCounts, JointSensor::Hall, 15, 0,
+         "FRKL lost counts: switch at 15 edges, expected 0"},
+        {LegCalibrationFailure::LostCounts, JointSensor::Hall, 1000, 1069,
+         "FRKL lost counts: switch at 1000 edges, expected 1069"},
+        {LegCalibrationFailure::KneeOutOfBand, JointSensor::Hall, -300, 0,
+         "FRKL at -300 edges, outside its park band -280..-244"},
+        {LegCalibrationFailure::KneeOutOfBand, JointSensor::Hall, -150, 1,
+         "FRKL at -150 edges, outside its park band -232..-157"},
+        {LegCalibrationFailure::ParkShort, JointSensor::Hall, 150, -264,
+         "FRKL stopped 150 edges short of its park at -264: obstacle?"},
+        {LegCalibrationFailure::NotRetracted, JointSensor::Hall, 412, 0,
+         "FRKL not back at its curl switch (hall=412): jog it home"},
+        {LegCalibrationFailure::TableSafeNeedsHall, JointSensor::Hall, 0, 0,
+         "FRKL and its knee must both be hall encoders"},
         {LegCalibrationFailure::StuckMidStroke, JointSensor::Hall, 771, 0,
          "FRKL stuck mid-stroke after 771 edges at PWM 150: raise PWM or check load"},
         {LegCalibrationFailure::PartnerNotCurled, JointSensor::Hall, 0, 0,
@@ -642,7 +847,7 @@ static void test_hall_run_lines_use_only_known_event_words()
     runToEnd(calibration, plant, CAL_DEFAULT_PWM);
     assertCompleted(calibration);
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLHL nudge"));
-    const char *known[] = {"PASS ", "PASS_DONE ", "MOVE ", "END ", "SENSOR ", "HOME ", "WARN ", "JOINT "};
+    const char *known[] = {"PASS ", "PASS_DONE ", "MOVE ", "END ", "SENSOR ", "HOME ", "WARN ", "JOINT ", "PARK "};
     for (const std::string &line : plant.output.lines())
     {
         TEST_ASSERT_EQUAL_INT(0, line.compare(0, 10, "CAL FRONT "));
@@ -655,10 +860,17 @@ static void test_hall_run_lines_use_only_known_event_words()
             TEST_ASSERT_TRUE(event.compare(0, std::string(reserved).size(), reserved) != 0);
         if (event.compare(0, 5, "MOVE ") == 0)
         {
-            const std::string direction = event.substr(event.rfind(' ') + 1);
-            TEST_ASSERT_TRUE(direction == "curl" || direction == "uncurl" || direction == "nudge");
+            // "MOVE <j> curl|uncurl|nudge", then " park" (a knee's park), " sweep"
+            // (a hip's table-safe sweep) or " retract" (a hip after an obstacle).
+            const std::string rest = event.substr(event.find(' ', 5) + 1);
+            TEST_ASSERT_TRUE_MESSAGE(rest == "curl" || rest == "uncurl" || rest == "nudge" ||
+                                         rest == "curl park" || rest == "uncurl sweep" || rest == "curl retract",
+                                     line.c_str());
         }
     }
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLKL curl park"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLHL uncurl sweep"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT PARK FLKL hall=-264 target=-264 (FL values)"));
 }
 
 static void test_full_run_curls_then_sweeps_and_saves_hips_and_knees_only()
@@ -675,9 +887,11 @@ static void test_full_run_curls_then_sweeps_and_saves_hips_and_knees_only()
     runToEnd(calibration, plant, CAL_DEFAULT_PWM);
 
     assertCompleted(calibration);
+    // SEEK per leg: knee, hip, knee again (R3). A pot leg's SWEEP keeps the
+    // earlier six steps (no park, no table-safe sweep).
     const std::vector<std::string> expectedMoves = {
-        "CAL FRONT MOVE FLKL curl", "CAL FRONT MOVE FLHL curl",
-        "CAL FRONT MOVE FRKL curl", "CAL FRONT MOVE FRHL curl",
+        "CAL FRONT MOVE FLKL curl", "CAL FRONT MOVE FLHL curl", "CAL FRONT MOVE FLKL curl",
+        "CAL FRONT MOVE FRKL curl", "CAL FRONT MOVE FRHL curl", "CAL FRONT MOVE FRKL curl",
         "CAL FRONT MOVE FLKL curl", "CAL FRONT MOVE FLHL curl",
         "CAL FRONT MOVE FLHL uncurl", "CAL FRONT MOVE FLHL curl",
         "CAL FRONT MOVE FLKL uncurl", "CAL FRONT MOVE FLKL curl",
@@ -730,7 +944,8 @@ static void test_ramp_climbs_from_zero_and_never_exceeds_requested_pwm()
 {
     FakePlant plant;
     LegCalibration calibration;
-    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, 83, 0));
+    // 113: the lowest valid PWMs are 110-150; 113 is not a multiple of the step.
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, 113, 0));
     TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationMovePhase::Ramp),
         static_cast<int>(calibration.movePhase()));
     TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationMoveStage::Normal),
@@ -748,12 +963,12 @@ static void test_ramp_climbs_from_zero_and_never_exceeds_requested_pwm()
         plant.advance(CAL_PWM_RAMP_INTERVAL_MS);
         calibration.update(plant);
     }
-    TEST_ASSERT_EQUAL_UINT(17, plant.drives.size());
+    TEST_ASSERT_EQUAL_UINT(23, plant.drives.size());
     for (size_t i = 0; i + 1 < plant.drives.size(); ++i)
         TEST_ASSERT_EQUAL_INT(CAL_PWM_RAMP_STEP * static_cast<int>(i + 1), plant.drives[i].pwm);
-    TEST_ASSERT_EQUAL_INT(83, plant.drives.back().pwm);
-    TEST_ASSERT_EQUAL_INT(83, calibration.rampPwm());
-    runToEnd(calibration, plant, 83);
+    TEST_ASSERT_EQUAL_INT(113, plant.drives.back().pwm);
+    TEST_ASSERT_EQUAL_INT(113, calibration.rampPwm());
+    runToEnd(calibration, plant, 113);
     TEST_ASSERT_EQUAL_INT(0, plant.saves);
 }
 
@@ -787,7 +1002,7 @@ static void test_seek_only_never_saves_and_sweep_only_does()
     TEST_ASSERT_EQUAL_INT(0, seekPlant.saves);
     TEST_ASSERT_TRUE(seekPlant.storedJoints.empty());
     TEST_ASSERT_EQUAL_STRING("CAL FRONT PASS_DONE SEEK", seekPlant.output.last().c_str());
-    TEST_ASSERT_EQUAL_UINT(4, moveLines(seekPlant.output).size());
+    TEST_ASSERT_EQUAL_UINT(6, moveLines(seekPlant.output).size());  // 3 per leg
 
     FakePlant sweepPlant;
     LegCalibration sweep;
@@ -807,12 +1022,18 @@ static void test_invalid_requests_and_options_do_not_start()
     TEST_ASSERT_FALSE(calibration.start(plant, CAL_PASS_ALL, CAL_PWM_MAX + 1, 0));
     TEST_ASSERT_FALSE(calibration.start(plant, 0, CAL_DEFAULT_PWM, 0));
     TEST_ASSERT_FALSE(calibration.start(plant, 0x04 | CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
-    TEST_ASSERT_FALSE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0x02));
+    TEST_ASSERT_FALSE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0x04));
     TEST_ASSERT_FALSE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0x80 | CAL_OPT_KNEE_NUDGE));
     TEST_ASSERT_TRUE(plant.output.text.empty());
     TEST_ASSERT_EQUAL_INT(0, plant.stopAllCount);
     TEST_ASSERT_FALSE(calibration.isRunning());
     TEST_ASSERT_TRUE(isValidCalibrationRequest(CAL_PASS_SWEEP, CAL_PWM_MAX));
+    // PWM below 110 is rejected (F4); 110 and the hollow-stand option are accepted.
+    for (int pwm : {40, 80, 100, 109})
+        TEST_ASSERT_FALSE(calibration.start(plant, CAL_PASS_SEEK, pwm, 0));
+    TEST_ASSERT_TRUE(plant.output.text.empty());
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, 110, CAL_OPT_KNEE_NUDGE | CAL_OPT_HOLLOW_STAND));
+    TEST_ASSERT_EQUAL_UINT(CAL_OPT_ALL, calibration.options());
 }
 
 // The options reach the run; start() without options uses the shipped default.
@@ -887,13 +1108,13 @@ static void test_uncurl_that_barely_moves_fails()
     plant.minStop[1] = 100;  // measured retracted limit: the hip rests at its curl end
     plant.limitsValid[1] = true;
     LegCalibration calibration;
-    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SWEEP, 90, 0));
-    runToEnd(calibration, plant, 90);
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SWEEP, CAL_PWM_MIN, 0));
+    runToEnd(calibration, plant, CAL_PWM_MIN);
     assertFailure(calibration, LegCalibrationFailure::BarelyMoved);
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL curl pot=100 travel=0"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL uncurl pot=100 travel=0"));
     TEST_ASSERT_TRUE(plant.output.has(
-        "CAL FRONT FAIL FLHL barely moved (0 counts) at PWM 90: check pot wiring or raise speed"));
+        "CAL FRONT FAIL FLHL barely moved (0 counts) at PWM 110: check pot wiring or raise speed"));
     TEST_ASSERT_EQUAL_INT(0, plant.saves);
     TEST_ASSERT_TRUE(plant.storedJoints.empty());
     // A pot failure leaves homes alone.
@@ -995,7 +1216,7 @@ static void test_abort_keeps_hall_homes()
     LegCalibration calibration;
     seekHall(calibration, plant);
     TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SWEEP, CAL_DEFAULT_PWM, 0));
-    runUntilStep(calibration, plant, 2);  // hip uncurling
+    runUntilStep(calibration, plant, 4);  // hip sweeping, its knee parked
     for (int i = 0; i < 50; ++i) tick(calibration, plant, CAL_DEFAULT_PWM);
     TEST_ASSERT_TRUE(plant.pwm[1] > 0);
     TEST_ASSERT_TRUE(calibration.abort(plant, 'H'));
@@ -1248,8 +1469,9 @@ static void test_sweep_never_saves_a_span_below_the_minimum_travel()
 // ---------------------------------------------------------------- hall joints
 
 // All-hall board: Unknown joints become Hall on their first 12 edges, curls
-// home them, and SWEEP saves canonical ranges: a hip's fixed sweep
-// [0, CAL_HIP_SWEEP_EDGES] (its rod reaches 1000), a knee's stroke [-S, 0].
+// home them, and the table-safe SWEEP saves canonical ranges: a hip's derived
+// [0, CAL_HIP_STROKE_EDGES] (it sweeps only to CAL_HIP_SWEEP_EDGES, its knee
+// parked), a knee's stroke [-S, 0].
 static void test_hall_full_run_homes_and_saves_canonical_strokes()
 {
     FakePlant plant;
@@ -1278,16 +1500,25 @@ static void test_hall_full_run_homes_and_saves_canonical_strokes()
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLKL count=-1000"));
     TEST_ASSERT_TRUE(plant.output.hasEnd("CAL FRONT END FLHL curl hall=0 travel=-500", "switch"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLHL count=0"));
-    // SWEEP after SEEK: steps 0 and 1 rest at their homes (a press: no
-    // running phase, a plain stall, no token), no new HOME.
+    // The SEEK's second knee curl and SWEEP steps 0 and 1 rest at their homes
+    // (a press: no running phase, a plain stall; the hip's at its switch-open
+    // level), no new HOME.
+    TEST_ASSERT_EQUAL_INT(2, plant.output.count("CAL FRONT END FLKL curl hall=0 travel=0"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLKL curl hall=0 travel=0"));
+    TEST_ASSERT_TRUE(plant.output.hasOpenEnd("CAL FRONT END FLHL curl hall=0 travel=0"));
     TEST_ASSERT_EQUAL_INT(4, plant.output.count("CAL FRONT HOME"));
-    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL uncurl hall=700 travel=700"));
-    TEST_ASSERT_TRUE(plant.output.hasEnd("CAL FRONT END FLHL curl hall=0 travel=-700", "switch"));
-    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)"));
-    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FRHL min=0 max=700 edges (fixed sweep)"));
     TEST_ASSERT_TRUE(plant.output.hasEnd("CAL FRONT END FLKL uncurl hall=-1000 travel=-1000", "switch"));
-    TEST_ASSERT_TRUE(plant.output.hasEnd("CAL FRONT END FLKL curl hall=0 travel=1000", "stop"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLKL curl hall=-264 travel=736"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT PARK FLKL hall=-264 target=-264 (FL values)"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL uncurl hall=840 travel=840"));
+    TEST_ASSERT_TRUE(plant.output.hasEnd("CAL FRONT END FLHL curl hall=0 travel=-840", "switch"));
+    TEST_ASSERT_TRUE(plant.output.has(
+        "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"));
+    TEST_ASSERT_TRUE(plant.output.has(
+        "CAL FRONT JOINT FRHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"));
+    // The knee's curl back from its park (264 edges at 400 edges/s arms only in
+    // its end approach: a stop or the short curl's plain stall).
+    TEST_ASSERT_FALSE(plant.output.find("CAL FRONT END FLKL curl hall=0 travel=264").empty());
     TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT FAIL"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FLKL min=-1000 max=0 edges"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FRKL min=-1000 max=0 edges"));
@@ -1296,13 +1527,15 @@ static void test_hall_full_run_homes_and_saves_canonical_strokes()
     for (uint8_t joint : {1, 4})
     {
         TEST_ASSERT_EQUAL_INT(0, plant.minStop[joint]);
-        TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, plant.maxStop[joint]);
+        TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, plant.maxStop[joint]);
     }
     for (uint8_t joint : {2, 5})
     {
         TEST_ASSERT_EQUAL_INT(-1000, plant.minStop[joint]);
         TEST_ASSERT_EQUAL_INT(0, plant.maxStop[joint]);
     }
+    TEST_ASSERT_EQUAL_UINT(0, calibration.parkedMask());
+    TEST_ASSERT_EQUAL_UINT(0, calibration.switchVerifiedMask());
     for (uint8_t joint : {0, 3})
     {
         TEST_ASSERT_EQUAL_INT(static_cast<int>(JointSensor::Unknown), static_cast<int>(plant.kind[joint]));
@@ -1566,25 +1799,37 @@ static void test_hall_curl_without_motion_at_its_home()
 
 // The default path (knee nudge on): a hip or knee homed this boot and now held
 // more than the tolerance short of its home by something on its curl side shows
-// no motion. It fails ShortOfCurlEnd before any nudge, so no return re-homes it
-// at the obstacle and its partner never moves next to it.
+// no motion. It fails before any nudge, so no return re-homes it at the
+// obstacle and its partner never moves next to it. A knee (and a hip whose
+// stalled current happens to sit flat at its switch-open level: only the
+// counts tell) fails ShortOfCurlEnd; a hip whose stalled current is raised and
+// wobbling (no switch-open signature) fails stuck mid-stroke first.
 static void test_curl_without_motion_short_of_a_home_proven_this_boot_fails()
 {
-    for (uint8_t joint : {static_cast<uint8_t>(1), static_cast<uint8_t>(2)})
+    for (int variant = 0; variant < 3; ++variant)
     {
+        const uint8_t joint = variant == 0 ? 2 : 1;
+        const bool flat = variant == 1;
         FakePlant plant;
         LegCalibration calibration;
         seekHall(calibration, plant);
         const bool hip = joint == 1;
         plant.extension[joint] = hip ? 100 : 900;  // 100 edges uncurled
         plant.stallSign[joint] = hip ? -1 : +1;    // blocked toward its curl end only
+        if (flat)
+        {
+            plant.currentStall[joint] = plant.currentOpen[joint];
+            plant.currentWobble[joint] = 0;
+        }
         const size_t drivesBefore = plant.drives.size();
         const size_t homesBefore = plant.setHomeJoints.size();
         TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, CAL_DEFAULT_OPTIONS));
         runToEnd(calibration, plant, CAL_DEFAULT_PWM);
-        assertFailure(calibration, LegCalibrationFailure::ShortOfCurlEnd);
+        const bool stuck = hip && !flat;
+        assertFailure(calibration, stuck ? LegCalibrationFailure::StuckMidStroke : LegCalibrationFailure::ShortOfCurlEnd);
         const std::string expected = std::string("CAL FRONT FAIL ") + plant.names[joint] +
-            " stopped 100 edges short of its curl end";
+            (stuck ? " stuck mid-stroke after 0 edges at PWM 128: raise PWM or check load"
+                   : " stopped 100 edges short of its curl end");
         TEST_ASSERT_EQUAL_STRING(expected.c_str(), plant.output.last().c_str());
         TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT MOVE FLHL nudge"));
         TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT MOVE FLKL nudge"));
@@ -1622,20 +1867,23 @@ static void test_hip_nudge_by_edges_then_return_homes_it()
             }
         }
     }
-    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL curl hall=0 travel=0 pot=12"));
+    TEST_ASSERT_TRUE(plant.output.hasOpenEnd("CAL FRONT END FLHL curl hall=0 travel=0 pot=12"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLHL nudge"));
     TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationMovePhase::Nudge), static_cast<int>(phaseAtStop));
     TEST_ASSERT_TRUE(nudgeStop - nudgeStart < CAL_HIP_NUDGE_MAX_MS);
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT SENSOR FLHL hall"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL nudge hall=24 travel=24"));
-    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL curl hall=0 travel=-24"));
+    // The return, unarmed (24 edges), ends as a plain stall at the switch-open level.
+    TEST_ASSERT_TRUE_MESSAGE(plant.output.hasOpenEnd("CAL FRONT END FLHL curl hall=0 travel=-24"),
+                             plant.output.text.c_str());
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLHL count=0"));
     TEST_ASSERT_TRUE(calibration.isJointCurled(1));
     TEST_ASSERT_EQUAL_INT(0, plant.extension[1]);
 }
 
-// Slow hip (PWM 40, 10 edges/s): the nudge ends on its 2 s cap with 12 or more
-// edges, which is evidence; the return proves the end.
+// Slow hip (10 edges/s at the lowest PWM): the nudge counts edges, so it is
+// not blind and ends on its 2 s cap with 12 or more edges, which is evidence;
+// the return proves the end.
 static void test_hip_nudge_by_timeout_with_evidence()
 {
     FakePlant plant;
@@ -1644,19 +1892,29 @@ static void test_hip_nudge_by_timeout_with_evidence()
     plant.moveEvery[1] = 10;
     LegCalibration calibration;
     TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_PWM_MIN, 0));
-    runUntil(calibration, plant, CAL_PWM_MIN, [&]() {
-        return calibration.moveStage() == LegCalibrationMoveStage::Return;
-    });
+    uint32_t firstOut = 0, lastOut = 0;
+    while (calibration.isRunning() && calibration.moveStage() != LegCalibrationMoveStage::Return)
+    {
+        tick(calibration, plant, CAL_PWM_MIN);
+        if (plant.pwm[1] > 0)
+        {
+            if (firstOut == 0) firstOut = plant.now;
+            lastOut = plant.now;
+        }
+    }
     const long out = plant.output.valueAfter("CAL FRONT END FLHL nudge", "travel");
     TEST_ASSERT_TRUE(out >= CAL_HALL_DETECT_EDGES && out < CAL_HIP_NUDGE_EDGES);
     TEST_ASSERT_EQUAL_INT(1, plant.output.count("CAL FRONT SENSOR FLHL hall"));
+    // It counted edges, so the blind stop at 1 s does not apply: on to its 2 s cap.
+    TEST_ASSERT_EQUAL_UINT32(CAL_HIP_NUDGE_MAX_MS - CAL_PWM_RAMP_INTERVAL_MS - 10, lastOut - firstOut);
     runUntil(calibration, plant, CAL_PWM_MIN, [&]() { return calibration.currentStep() >= 2; });
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLHL count=0"));
     TEST_ASSERT_TRUE(calibration.isRunning());
 }
 
-// No edges at all (hall A dead): the nudge ends on its cap without evidence,
-// the return still drives the hip back blind, then the pass fails.
+// No edges at all (hall A dead): the nudge stops CAL_HIP_NUDGE_BLIND_MS after
+// it started (R4: not on to its 2 s cap) without evidence, the return still
+// drives the hip back blind, then the pass fails.
 static void test_hip_nudge_without_evidence_returns_blind_then_fails()
 {
     FakePlant plant;
@@ -1665,7 +1923,7 @@ static void test_hip_nudge_without_evidence_returns_blind_then_fails()
     plant.hallDead[1] = true;
     LegCalibration calibration;
     TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
-    // Out until the 2 s cap (ramp included), then driven back before the FAIL.
+    // Out until the 1 s blind stop (ramp included), then driven back before the FAIL.
     uint32_t firstOut = 0, lastOut = 0, firstBack = 0, lastBack = 0;
     while (calibration.isRunning())
     {
@@ -1687,8 +1945,8 @@ static void test_hip_nudge_without_evidence_returns_blind_then_fails()
         plant.output.last().c_str());
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL nudge hall=0 travel=0 pot=12"));
     TEST_ASSERT_TRUE(firstOut > 0 && firstBack > lastOut);
-    // Driven out from the first ramp step until the 2 s cap from nudge start.
-    TEST_ASSERT_EQUAL_UINT32(CAL_HIP_NUDGE_MAX_MS - CAL_PWM_RAMP_INTERVAL_MS - 10, lastOut - firstOut);
+    // Driven out from the first ramp step until the blind stop, 1 s from nudge start.
+    TEST_ASSERT_EQUAL_UINT32(CAL_HIP_NUDGE_BLIND_MS - CAL_PWM_RAMP_INTERVAL_MS - 10, lastOut - firstOut);
     // The blind return drives CAL_STALL_WINDOW_MS longer than the nudge did
     // (that is the unarmed return's minimum: hips curl back slower than they
     // uncurl), and not much longer.
@@ -1831,22 +2089,44 @@ static void test_hip_nudge_return_short_or_without_motion_fails()
             TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLHL count=-40"));
         }
     }
-    // Stuck on the way back: no motion.
-    FakePlant plant;
-    plant.useHall();
-    plant.extension[1] = 0;
-    LegCalibration calibration;
-    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
-    runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() {
-        return calibration.moveStage() == LegCalibrationMoveStage::Return;
-    });
-    plant.stuck[1] = true;
-    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
-    assertFailure(calibration, LegCalibrationFailure::NoCurlBack);
-    TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL curled back only 0 edges after its nudge",
-        plant.output.last().c_str());
-    TEST_ASSERT_TRUE(plant.homeLost[1] == false);  // never homed: nothing to lose
-    TEST_ASSERT_FALSE(plant.homed[1]);
+    // Stuck on the way back: no motion. Its stalled current (raised, wobbling:
+    // no switch-open signature) fails it stuck mid-stroke; one that happens to
+    // sit flat at the switch-open level passes the detector and fails on its
+    // lack of motion back. Either way it is not homed.
+    for (bool flat : {false, true})
+    {
+        FakePlant plant;
+        plant.useHall();
+        plant.extension[1] = 0;
+        LegCalibration calibration;
+        TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
+        runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() {
+            return calibration.moveStage() == LegCalibrationMoveStage::Return;
+        });
+        plant.stuck[1] = true;
+        if (flat)
+        {
+            plant.currentStall[1] = plant.currentOpen[1];
+            plant.currentWobble[1] = 0;
+        }
+        runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+        if (flat)
+        {
+            assertFailure(calibration, LegCalibrationFailure::NoCurlBack);
+            TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL curled back only 0 edges after its nudge",
+                plant.output.last().c_str());
+        }
+        else
+        {
+            assertFailure(calibration, LegCalibrationFailure::StuckMidStroke);
+            TEST_ASSERT_EQUAL_STRING(
+                "CAL FRONT FAIL FLHL stuck mid-stroke after 0 edges at PWM 128: raise PWM or check load",
+                plant.output.last().c_str());
+        }
+        TEST_ASSERT_TRUE(plant.homeLost[1] == false);  // never homed: nothing to lose
+        TEST_ASSERT_FALSE(plant.homed[1]);
+        TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT HOME FLHL"));
+    }
 }
 
 // Hall evidence and wrong way during the nudge and the return.
@@ -2098,11 +2378,11 @@ static void test_knee_nudge_without_edges_below_the_default_pwm_names_the_speed(
     plant.extension[2] = 1000;
     plant.stuck[2] = true;
     LegCalibration calibration;
-    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, 50, CAL_DEFAULT_OPTIONS));
-    runToEnd(calibration, plant, 50);
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_PWM_MIN, CAL_DEFAULT_OPTIONS));
+    runToEnd(calibration, plant, CAL_PWM_MIN);
     assertFailure(calibration, LegCalibrationFailure::NoFeedback);
     TEST_ASSERT_EQUAL_STRING(
-        "CAL FRONT FAIL FLKL no feedback at PWM 50: check sensor cable, or calibrate at PWM 128",
+        "CAL FRONT FAIL FLKL no feedback at PWM 110: check sensor cable, or calibrate at PWM 128",
         plant.output.last().c_str());
     for (const Drive &drive : plant.drives) TEST_ASSERT_EQUAL_UINT(2, drive.joint);
 }
@@ -2544,8 +2824,15 @@ static void test_classification_at_the_nudge_and_the_return()
         return other.moveStage() == LegCalibrationMoveStage::Return;
     });
     mixed.countBias[1] = -11;  // the return counts back to within 1 edge of its start
+    // The return drives back at twice the nudge's speed, so the rod reaches its
+    // curl end and shows its switch-open current before the return's minimum
+    // drive time (the nudge's) is up: the detector then ends it as a plain
+    // stall and the classification decides.
+    mixed.moveEvery[1] = 1;
     runToEnd(other, mixed, CAL_DEFAULT_PWM);
-    TEST_ASSERT_TRUE(mixed.output.has("CAL FRONT SENSOR FLHL pot (was hall)"));
+    TEST_ASSERT_TRUE_MESSAGE(mixed.output.has("CAL FRONT SENSOR FLHL pot (was hall)"), mixed.output.text.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(LegCalibrationFailure::NoFeedback), static_cast<int>(other.failure()),
+                                  mixed.output.text.c_str());
     assertFailure(other, LegCalibrationFailure::NoFeedback);
 }
 
@@ -2568,44 +2855,109 @@ struct HallSweep
     void finish() { runToEnd(calibration, plant, CAL_DEFAULT_PWM); }
 };
 
-// A hall hip's SWEEP uncurl is a fixed sweep: it stops once it has made
-// CAL_HIP_SWEEP_EDGES drive edges from its curl end, long before its rod's end
-// (1000 here: with its knee curled a real hip would press the tibia into the
-// body first) and without a stall window. Its saved range is [0, 700] whatever
-// an earlier SWEEP saved: no stroke check or stroke WARN applies to a hall hip.
-// The knee still sweeps its full stroke.
-static void test_hall_hip_sweep_stops_at_its_fixed_target()
+// Output lines from index `from` on (a later run's lines).
+std::vector<std::string> linesFrom(const FakeOutput &output, size_t from)
+{
+    const std::vector<std::string> all = output.lines();
+    return std::vector<std::string>(all.begin() + static_cast<long>(from < all.size() ? from : all.size()), all.end());
+}
+
+int countFrom(const FakeOutput &output, size_t from, const std::string &prefix)
+{
+    int result = 0;
+    for (const std::string &line : linesFrom(output, from))
+        result += line.compare(0, prefix.size(), prefix) == 0;
+    return result;
+}
+
+// The table-safe SWEEP of a hall leg (fix round 2026-11-24): knee curl, hip
+// curl, knee uncurl to its switch, knee park by count to -264 (PARK line, FL
+// values), hip sweep by count to 840 with the knee held parked (driven for its
+// 840 edges only, not into a stall), hip curl back to its switch (re-homed
+// within 10 edges), knee curl back from its park. The hip saves the derived
+// [0, 1069] whatever an earlier SWEEP saved (no stroke check or stroke WARN
+// applies to a hall hip); the knee saves its full stroke. The knee is parked
+// (parkedMask) from its park until it is driven again, never curled meanwhile.
+static void test_hall_table_safe_sweep_parks_the_knee_and_sweeps_by_count()
 {
     HallSweep sweep;
     sweep.plant.speed = 1;                // 100 edges/s
-    sweep.plant.limitsValid[1] = true;    // an older record's full stroke
+    sweep.plant.limitsValid[1] = true;    // an older record's [0, 1000]
     sweep.plant.maxStop[1] = 1000;
+    const std::vector<std::string> before = sweep.plant.output.lines();
+    size_t mark = 0;  // the SWEEP's PASS line (start() printed its first MOVE)
+    while (mark < before.size() && before[mark] != "CAL FRONT PASS SWEEP pwm=128") ++mark;
+    TEST_ASSERT_TRUE(mark < before.size());
     int furthest = 0;
     uint32_t firstOut = 0;
     uint32_t lastOut = 0;
-    while (sweep.calibration.isRunning() && sweep.calibration.currentStep() < 4)
+    int sweepLoops = 0;
+    while (sweep.calibration.isRunning() && sweep.calibration.currentLeg() == 0)
     {
         tick(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM);
+        const LegCalibration &c = sweep.calibration;
         if (sweep.plant.pwm[1] > 0)
         {
             if (firstOut == 0) firstOut = sweep.plant.now;
             lastOut = sweep.plant.now;
         }
         if (sweep.plant.extension[1] > furthest) furthest = sweep.plant.extension[1];
+        if (c.currentLeg() != 0) break;
+        TEST_ASSERT_TRUE(c.isTableSafeLeg() || c.currentLegStep() < 2);
+        const uint8_t legStep = c.currentLegStep();
+        if (legStep == 4 || legStep == 5)
+        {
+            // Parked from its park until it is driven again, and not curled.
+            TEST_ASSERT_EQUAL_UINT(0x04, c.parkedMask());
+            TEST_ASSERT_FALSE(c.isJointCurled(2));
+        }
+        if (legStep <= 3 || sweep.plant.pwm[2] != 0) TEST_ASSERT_EQUAL_UINT(0, c.parkedMask());
+        if (legStep == 4)
+        {
+            ++sweepLoops;
+            TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationAction::Sweep), static_cast<int>(c.currentAction()));
+            TEST_ASSERT_EQUAL_UINT(4, c.currentStep());
+            TEST_ASSERT_EQUAL_UINT(1, c.currentJoint());
+        }
+        if (legStep == 3)
+            TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationAction::Park), static_cast<int>(c.currentAction()));
     }
+    TEST_ASSERT_TRUE(sweepLoops > 0);
+    const std::vector<std::string> expectedMoves = {
+        "CAL FRONT MOVE FLKL curl", "CAL FRONT MOVE FLHL curl", "CAL FRONT MOVE FLKL uncurl",
+        "CAL FRONT MOVE FLKL curl park", "CAL FRONT MOVE FLHL uncurl sweep", "CAL FRONT MOVE FLHL curl",
+        "CAL FRONT MOVE FLKL curl",
+    };
+    std::vector<std::string> moves;
+    for (const std::string &line : linesFrom(sweep.plant.output, mark))
+        if (line.find(" MOVE FL") != std::string::npos) moves.push_back(line);
+    TEST_ASSERT_EQUAL_UINT(expectedMoves.size(), moves.size());
+    for (size_t i = 0; i < moves.size(); ++i)
+        TEST_ASSERT_EQUAL_STRING(expectedMoves[i].c_str(), moves[i].c_str());
+    // The sweep stopped by count at its target (no coast in this plant).
     TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, furthest);
-    // Driven for the 700 edges only (7 s at 100 edges/s), not into a stall.
-    TEST_ASSERT_TRUE_MESSAGE(lastOut - firstOut <= 7000, std::to_string(lastOut - firstOut).c_str());
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLHL uncurl hall=700 travel=700"));
-    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLHL curl hall=0 travel=-700", "switch"));
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)"));
+    // Driven for the 840 edges only (8.4 s at 100 edges/s), not into a stall.
+    TEST_ASSERT_TRUE_MESSAGE(lastOut - firstOut <= 8400, std::to_string(lastOut - firstOut).c_str());
+    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLKL uncurl hall=-1000 travel=-1000", "switch"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLKL curl hall=-264 travel=736"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT PARK FLKL hall=-264 target=-264 (FL values)"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLHL uncurl hall=840 travel=840"));
+    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLHL curl hall=0 travel=-840", "switch"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has(
+        "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"));
+    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLKL curl hall=0 travel=264", "stop"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLKL min=-1000 max=0 edges"));
     TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT WARN"));
     sweep.finish();
     assertCompleted(sweep.calibration);
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT PARK FRKL hall=-264 target=-264 (FL values)"));
+    TEST_ASSERT_EQUAL_UINT(0, sweep.calibration.parkedMask());
     TEST_ASSERT_EQUAL_INT(0, sweep.plant.minStop[1]);
-    TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, sweep.plant.maxStop[1]);
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLKL min=-1000 max=0 edges"));
+    TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, sweep.plant.maxStop[1]);
+    TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, sweep.calibration.stagedMax(1));
     TEST_ASSERT_EQUAL_INT(-1000, sweep.plant.minStop[2]);
+    TEST_ASSERT_EQUAL_INT(0, sweep.plant.maxStop[2]);
+    TEST_ASSERT_EQUAL_UINT(0, sweep.calibration.switchVerifiedMask());
 }
 
 // The settled reading of a hip stopped at its sweep target may relax an edge
@@ -2614,50 +2966,281 @@ static void test_hall_hip_sweep_target_survives_relaxation()
 {
     HallSweep sweep;
     runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
-        return sweep.calibration.currentStep() == 2 &&
+        return sweep.calibration.currentStep() == 4 &&
                sweep.calibration.movePhase() == LegCalibrationMovePhase::Settle;
     });
     TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, sweep.plant.extension[1]);
     sweep.plant.countBias[1] += 2;  // the count rises: 2 edges back
     sweep.finish();
     assertCompleted(sweep.calibration);
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLHL uncurl hall=698 travel=698"));
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLHL uncurl hall=838 travel=838"));
+    TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT WARN"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has(
+        "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"));
 }
 
-// An obstacle stops the hip before its sweep target: the pass fails naming the
-// shortfall, the hip's home is no longer trusted, its knee never uncurls and
-// nothing is saved. A hip that does not move at all is the whole sweep short.
-static void test_hall_hip_sweep_short_of_its_target_fails()
+// R3: a knee curled first while its hip rests extended may stop on the body
+// (here 150 edges short of its stop). The SEEK curls it again once its hip is
+// curled: it goes deeper, its home moves there with a WARN, and it is proven
+// at its real stop.
+static void test_seek_second_knee_curl_rehomes_a_knee_stopped_on_the_body()
 {
-    for (int reach : {420, 0})
+    FakePlant plant;
+    plant.useHall();
+    plant.high[2] = 850;  // the body, while the hip rests extended
+    LegCalibration calibration;
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
+    runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() { return calibration.currentJoint() == 1; });
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLKL count=-850"));
+    plant.high[2] = 1000;  // the hip curls: the body is out of the knee's way
+    runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() { return calibration.currentLeg() == 1; });
+    TEST_ASSERT_TRUE(calibration.isRunning());
+    const std::vector<std::string> expected = {
+        "CAL FRONT MOVE FLKL curl", "CAL FRONT MOVE FLHL curl", "CAL FRONT MOVE FLKL curl"};
+    const std::vector<std::string> moves = moveLines(plant.output);
+    TEST_ASSERT_TRUE(moves.size() >= 3);
+    for (size_t i = 0; i < 3; ++i) TEST_ASSERT_EQUAL_STRING(expected[i].c_str(), moves[i].c_str());
+    TEST_ASSERT_FALSE(plant.output.find("CAL FRONT END FLKL curl hall=150 travel=150").empty());
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT WARN FLKL home moved 150 edges"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLKL count=-1000"));
+    TEST_ASSERT_EQUAL_INT(-1000, plant.home[2]);
+    TEST_ASSERT_TRUE(calibration.isJointCurled(1));
+    TEST_ASSERT_TRUE(calibration.isJointCurled(2));
+    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+    assertCompleted(calibration);
+    TEST_ASSERT_EQUAL_INT(1, plant.output.count("CAL FRONT WARN"));
+}
+
+// The knee's park is a curl-direction drive that stops at -264. Any detector
+// end before that is an obstacle: ParkShort, the knee left out (WARN), and the
+// hip never sweeps. The settled park must lie inside [-280, -244]: a coast of
+// 20 past the target (or a relaxation of 16 back) is accepted, 21 (or 17) and
+// a large coast fail KneeOutOfBand.
+static void test_knee_park_short_or_out_of_band_fails()
+{
+    {
+        HallSweep sweep;
+        runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
+            return sweep.calibration.currentAction() == LegCalibrationAction::Park;
+        });
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.extension[2]);  // at its uncurl switch
+        sweep.plant.high[2] = 600;  // something in the way, 400 out
+        sweep.finish();
+        assertFailure(sweep.calibration, LegCalibrationFailure::ParkShort);
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT WARN FLKL left out at -400 edges: jog it to its curl end",
+            lines[lines.size() - 2].c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLKL stopped 136 edges short of its park at -264: obstacle?",
+            lines.back().c_str());
+        TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLKL curl hall=-400 travel=600", "stop"));
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT PARK"));
+        TEST_ASSERT_FALSE(sweep.plant.output.has("CAL FRONT MOVE FLHL uncurl sweep"));
+        TEST_ASSERT_EQUAL_UINT(0, sweep.calibration.parkedMask());
+        TEST_ASSERT_TRUE(sweep.plant.homeLost[2]);
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.saves);
+    }
+    const struct
+    {
+        int springOut;
+        int settled;
+        bool fails;
+    } cases[] = {
+        {20, -244, false}, {21, -243, true}, {60, -204, true}, {-16, -280, false}, {-17, -281, true},
+    };
+    for (const auto &entry : cases)
+    {
+        HallSweep sweep;
+        sweep.plant.springSign[2] = 1;  // the knee coasts (or relaxes) after a curl-direction stop
+        sweep.plant.springOut[2] = entry.springOut;
+        runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
+            return sweep.calibration.currentStep() > 3 || !sweep.calibration.isRunning();
+        });
+        const std::string park = "CAL FRONT PARK FLKL hall=" + std::to_string(entry.settled) +
+            " target=-264 (FL values)";
+        if (!entry.fails)
+        {
+            TEST_ASSERT_TRUE_MESSAGE(sweep.calibration.isRunning(), sweep.plant.output.last().c_str());
+            TEST_ASSERT_TRUE_MESSAGE(sweep.plant.output.has(park), park.c_str());
+            TEST_ASSERT_EQUAL_UINT(0x04, sweep.calibration.parkedMask());
+            continue;
+        }
+        assertFailure(sweep.calibration, LegCalibrationFailure::KneeOutOfBand);
+        const std::string fail = "CAL FRONT FAIL FLKL at " + std::to_string(entry.settled) +
+            " edges, outside its park band -280..-244";
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        TEST_ASSERT_EQUAL_STRING(fail.c_str(), lines.back().c_str());
+        const std::string warn = "CAL FRONT WARN FLKL left out at " + std::to_string(entry.settled) +
+            " edges: jog it to its curl end";
+        TEST_ASSERT_EQUAL_STRING(warn.c_str(), lines[lines.size() - 2].c_str());
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT PARK"));
+        TEST_ASSERT_FALSE(sweep.plant.output.has("CAL FRONT MOVE FLHL uncurl sweep"));
+        TEST_ASSERT_EQUAL_UINT(0, sweep.calibration.parkedMask());
+    }
+}
+
+// Any detector end of the sweep before 840 is an obstacle: WARN, the hip
+// retracts to its curl switch ("curl retract"), and the pass fails, with no
+// retry and the knee left parked. A stop (the current rises, here 600 and 420
+// out) or a stall where it never moved (0) fails SweepShort and keeps the
+// hip's home for its later curls; an extend switch found before 840 (the
+// current drops to the switch-open level, 700 out) fails LostCounts, which
+// drops the kept home.
+static void test_hall_hip_sweep_obstacle_retracts_then_fails()
+{
+    for (int reach : {600, 420, 0})
     {
         HallSweep sweep;
         sweep.plant.high[1] = reach;
+        sweep.plant.extendSwitch[1] = false;  // an obstacle, not the switch
+        runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() { return sweep.calibration.currentStep() >= 4; });
+        const size_t drivesAtSweep = sweep.plant.drives.size();
         sweep.finish();
+        const std::string label = "reach " + std::to_string(reach) + "\n" + sweep.plant.output.text;
         assertFailure(sweep.calibration, LegCalibrationFailure::SweepShort);
-        const std::string expected = "CAL FRONT FAIL FLHL stopped " + std::to_string(CAL_HIP_SWEEP_EDGES - reach) +
-            " edges short of its 700-edge sweep: obstacle?";
-        TEST_ASSERT_EQUAL_STRING(expected.c_str(), sweep.plant.output.last().c_str());
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        const std::string fail = "CAL FRONT FAIL FLHL stopped " + std::to_string(CAL_HIP_SWEEP_EDGES - reach) +
+            " edges short of its 840-edge sweep: obstacle? check its home";
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(fail.c_str(), lines.back().c_str(), label.c_str());
+        const std::string warn = "CAL FRONT WARN FLHL stopped at " + std::to_string(reach) + " edges: retracting";
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(warn.c_str(), lines[lines.size() - 4].c_str(), label.c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT MOVE FLHL curl retract", lines[lines.size() - 3].c_str());
         const std::string end = "CAL FRONT END FLHL uncurl hall=" + std::to_string(reach) +
             " travel=" + std::to_string(reach);
-        // An obstacle after a running phase is a stop signature; a hip that
-        // never ran ends as a plain stall.
-        TEST_ASSERT_TRUE_MESSAGE(reach > 0 ? sweep.plant.output.hasEnd(end, "stop") : sweep.plant.output.has(end),
-                                 sweep.plant.output.text.c_str());
+        // An obstacle after a running phase is a stop; a hip that never ran
+        // shows no switch-open current: stuck. The retract ends at the switch.
+        TEST_ASSERT_TRUE_MESSAGE(sweep.plant.output.hasEnd(end, reach > 0 ? "stop" : "stuck"), label.c_str());
+        const std::string back = "CAL FRONT END FLHL curl hall=0 travel=" + std::to_string(-reach);
+        TEST_ASSERT_TRUE_MESSAGE(reach > 0 ? sweep.plant.output.hasEnd(back, "switch")
+                                           : sweep.plant.output.hasOpenEnd(back), label.c_str());
+        TEST_ASSERT_EQUAL_INT(1, sweep.plant.output.count("CAL FRONT MOVE FLHL uncurl sweep"));
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT WARN FLHL left out"));
+        TEST_ASSERT_FALSE(drovePartnerAfter(sweep.plant, drivesAtSweep, 2));
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.extension[1]);
         TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
-        TEST_ASSERT_FALSE(sweep.plant.output.has("CAL FRONT MOVE FLKL uncurl"));
+        TEST_ASSERT_EQUAL_UINT(0x02, sweep.calibration.keptHomeMask() & 0x02);
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.saves);
+    }
+    {
+        HallSweep sweep;
+        sweep.plant.high[1] = 700;  // an extend switch where the counts do not put it
+        sweep.finish();
+        assertFailure(sweep.calibration, LegCalibrationFailure::LostCounts);
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL lost counts: switch at 700 edges, expected 1069",
+            lines.back().c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT WARN FLHL stopped at 700 edges: retracting", lines[lines.size() - 4].c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT MOVE FLHL curl retract", lines[lines.size() - 3].c_str());
+        TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLHL uncurl hall=700 travel=700", "switch"));
+        TEST_ASSERT_EQUAL_INT(1, sweep.plant.output.count("CAL FRONT MOVE FLHL uncurl sweep"));
+        TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
+        TEST_ASSERT_EQUAL_UINT(0, sweep.calibration.keptHomeMask() & 0x02);
         TEST_ASSERT_EQUAL_INT(0, sweep.plant.saves);
     }
 }
 
-// A pot hip (here a proven pot on a quadrature board) keeps the full sweep to
-// its uncurl end and saves its pot range.
+// The knee must stay inside its park band for the whole sweep (checked every
+// loop): a knee drifting out stops the sweep at once, the hip retracts, and the
+// pass fails naming the knee.
+static void test_knee_leaving_its_band_during_the_sweep_fails()
+{
+    HallSweep sweep;
+    sweep.plant.checkEnvelope = false;  // the knee leaves its band on purpose
+    runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
+        return sweep.plant.pwm[1] > 0 && sweep.plant.extension[1] >= 300;
+    });
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationAction::Sweep),
+        static_cast<int>(sweep.calibration.currentAction()));
+    sweep.plant.countBias[2] += 30;  // the knee's count drifts 30 out: -294
+    tick(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM);
+    TEST_ASSERT_EQUAL_INT(static_cast<int>(LegCalibrationMovePhase::Settle),
+        static_cast<int>(sweep.calibration.movePhase()));
+    const int stoppedAt = sweep.plant.extension[1];
+    TEST_ASSERT_TRUE(stoppedAt >= 300 && stoppedAt <= 308);
+    sweep.finish();
+    assertFailure(sweep.calibration, LegCalibrationFailure::KneeOutOfBand);
+    const std::vector<std::string> lines = sweep.plant.output.lines();
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLKL at -294 edges, outside its park band -280..-244",
+        lines.back().c_str());
+    const std::string warn = "CAL FRONT WARN FLHL stopped at " + std::to_string(stoppedAt) + " edges: retracting";
+    TEST_ASSERT_EQUAL_STRING(warn.c_str(), lines[lines.size() - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT MOVE FLHL curl retract", lines[lines.size() - 3].c_str());
+    TEST_ASSERT_EQUAL_INT(0, sweep.plant.extension[1]);
+    TEST_ASSERT_TRUE(sweep.plant.homeLost[2]);
+    TEST_ASSERT_EQUAL_STRING("FLKL at -294 edges, outside its park band -280..-244",
+        reasonOf(sweep.calibration).c_str());
+}
+
+// A retract that cannot get back to its curl switch (the hip frozen 300 out:
+// the sweep itself ended on the stop rule, its current raised) fails
+// NotRetracted, with the hip left out.
+static void test_hip_sweep_retract_that_cannot_get_home_fails()
+{
+    HallSweep sweep;
+    sweep.plant.speed = 1;
+    runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
+        return sweep.plant.pwm[1] > 0 && sweep.plant.extension[1] >= 300;
+    });
+    sweep.plant.stuck[1] = true;
+    sweep.finish();
+    assertFailure(sweep.calibration, LegCalibrationFailure::NotRetracted);
+    const std::vector<std::string> lines = sweep.plant.output.lines();
+    TEST_ASSERT_TRUE_MESSAGE(sweep.plant.output.hasEnd("CAL FRONT END FLHL uncurl hall=300 travel=300", "stop"),
+                             sweep.plant.output.text.c_str());
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT WARN FLHL stopped at 300 edges: retracting"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT MOVE FLHL curl retract"));
+    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLHL curl hall=300 travel=0", "stuck"));
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT WARN FLHL left out at 300 edges: jog it to its curl end",
+        lines[lines.size() - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL not back at its curl switch (hall=300): jog it home",
+        lines.back().c_str());
+    TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
+    TEST_ASSERT_EQUAL_INT(0, sweep.plant.saves);
+}
+
+// After its sweep the hip curls back to its curl switch, which must read within
+// CAL_HIP_REHOME_TOLERANCE_EDGES (10) of its home either way: 10 short is
+// accepted (home kept), 10 deeper re-homes; 11 or 15 off either way is lost
+// counts, which drops the hip's home without keeping it (keptHomeMask).
+static void test_hip_curl_back_must_rehome_within_its_tolerance()
+{
+    for (int at : {10, -10, 11, -11, 15})
+    {
+        HallSweep sweep;
+        sweep.runToStep(5);  // hip curling back from 840
+        TEST_ASSERT_EQUAL_UINT(1, sweep.calibration.currentJoint());
+        sweep.plant.low[1] = at;  // its curl switch now reads `at`
+        const size_t homesBefore = sweep.plant.setHomeJoints.size();
+        sweep.runToStep(6);
+        const std::string label = "switch at " + std::to_string(at);
+        if (at >= -CAL_HIP_REHOME_TOLERANCE_EDGES && at <= CAL_HIP_REHOME_TOLERANCE_EDGES)
+        {
+            TEST_ASSERT_TRUE_MESSAGE(sweep.calibration.isRunning(), label.c_str());
+            TEST_ASSERT_TRUE(sweep.calibration.isJointCurled(1));
+            TEST_ASSERT_EQUAL_UINT_MESSAGE(homesBefore + (at < 0 ? 1 : 0), sweep.plant.setHomeJoints.size(),
+                                           label.c_str());
+            TEST_ASSERT_EQUAL_INT(at < 0 ? -at : 0, sweep.plant.home[1]);
+            continue;
+        }
+        assertFailure(sweep.calibration, LegCalibrationFailure::LostCounts);
+        const std::string fail = "CAL FRONT FAIL FLHL lost counts: switch at " + std::to_string(at) +
+            " edges, expected 0";
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(fail.c_str(), sweep.plant.output.last().c_str(), label.c_str());
+        TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
+        TEST_ASSERT_EQUAL_UINT_MESSAGE(0, sweep.calibration.keptHomeMask(), label.c_str());
+        TEST_ASSERT_EQUAL_UINT(homesBefore, sweep.plant.setHomeJoints.size());
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.saves);
+    }
+}
+
+// A pot hip (here a proven pot on a quadrature board) keeps the earlier
+// six-step SWEEP: its full sweep to its uncurl end, no park, and its pot range
+// saved. Leg B's hall hip takes the table-safe order.
 static void test_pot_hip_keeps_the_full_sweep()
 {
     FakePlant plant;
     plant.useHall();
     plant.hallRod[1] = false;
+    plant.extendSwitch[1] = false;
     plant.kind[1] = JointSensor::Pot;
     plant.low[1] = 100;
     plant.high[1] = 900;
@@ -2668,8 +3251,41 @@ static void test_pot_hip_keeps_the_full_sweep()
     assertCompleted(calibration);
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL uncurl pot=900 travel=800"));
     TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FLHL min=100 max=900"));
-    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT JOINT FRHL min=0 max=700 edges (fixed sweep)"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLHL uncurl"));
+    TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT MOVE FLKL curl park"));
+    TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT PARK FLKL"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLKL uncurl"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FRKL curl park"));
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FRHL uncurl sweep"));
+    TEST_ASSERT_TRUE(plant.output.has(
+        "CAL FRONT JOINT FRHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"));
     TEST_ASSERT_EQUAL_INT(900, plant.maxStop[1]);
+    TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, plant.maxStop[4]);
+}
+
+// A hall hip whose knee is not a hall encoder has no table-safe park: the pass
+// fails at SWEEP step 2, before the knee leaves its curl end.
+static void test_table_safe_sweep_needs_a_hall_knee()
+{
+    FakePlant plant;
+    plant.useHall();
+    plant.hallRod[2] = false;
+    plant.kind[2] = JointSensor::Pot;
+    plant.low[2] = 100;
+    plant.high[2] = 900;
+    plant.extension[2] = 500;
+    LegCalibration calibration;
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_ALL, CAL_DEFAULT_PWM, 0));
+    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+    assertFailure(calibration, LegCalibrationFailure::TableSafeNeedsHall);
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL and its knee must both be hall encoders",
+        plant.output.last().c_str());
+    TEST_ASSERT_EQUAL_UINT(CAL_PASS_SWEEP, calibration.currentPass());
+    TEST_ASSERT_EQUAL_UINT(2, calibration.currentLegStep());
+    TEST_ASSERT_EQUAL_STRING("FLHL and its knee must both be hall encoders", reasonOf(calibration).c_str());
+    TEST_ASSERT_FALSE(plant.output.has("CAL FRONT MOVE FLKL uncurl"));
+    TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT MOVE FLHL uncurl"));
+    TEST_ASSERT_EQUAL_INT(0, plant.saves);
 }
 
 // A knee uncurl must travel the minimum stroke.
@@ -2680,7 +3296,7 @@ static void test_sweep_uncurl_must_travel_the_minimum_stroke()
         HallSweep sweep;
         sweep.plant.speed = 1;
         sweep.plant.low[2] = 1000 - travel;
-        sweep.runToStep(5);
+        sweep.runToStep(3);
         if (travel < CAL_HALL_MIN_STROKE_EDGES)
         {
             assertFailure(sweep.calibration, LegCalibrationFailure::BarelyMoved);
@@ -2698,22 +3314,35 @@ static void test_sweep_uncurl_must_travel_the_minimum_stroke()
     }
 }
 
+// The hip's curl back after its sweep (step 5) and the knee's from its park
+// (step 6) must each come back to a home proven this run, and the hip must
+// leave its sweep end by the minimum stroke.
 static void test_sweep_curl_back_must_leave_the_uncurl_end_with_its_home()
 {
+    for (bool flat : {false, true})
     {
+        // The hip cannot come back. Its stalled current is raised and wobbling
+        // (stuck mid-stroke) or, as it happens, flat at the switch-open level
+        // (a plain stall with no motion: not at its curl end).
         HallSweep sweep;
-        sweep.runToStep(3);
-        sweep.plant.stuck[1] = true;  // cannot come back
+        sweep.runToStep(5);
+        sweep.plant.stuck[1] = true;
+        if (flat)
+        {
+            sweep.plant.currentStall[1] = sweep.plant.currentOpen[1];
+            sweep.plant.currentWobble[1] = 0;
+        }
         sweep.finish();
-        assertFailure(sweep.calibration, LegCalibrationFailure::NotAtCurlEnd);
-        TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL did not reach its curl end (hall=700)",
+        assertFailure(sweep.calibration, flat ? LegCalibrationFailure::NotAtCurlEnd : LegCalibrationFailure::StuckMidStroke);
+        TEST_ASSERT_EQUAL_STRING(flat ? "CAL FRONT FAIL FLHL did not reach its curl end (hall=840)"
+                                      : "CAL FRONT FAIL FLHL stuck mid-stroke after 0 edges at PWM 128: raise PWM or check load",
             sweep.plant.output.last().c_str());
         TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
-        TEST_ASSERT_FALSE(sweep.plant.output.has("CAL FRONT MOVE FLKL uncurl"));
+        TEST_ASSERT_EQUAL_UINT(5, sweep.calibration.currentLegStep());  // the knee stays parked
     }
     {
         HallSweep sweep;
-        sweep.runToStep(3);
+        sweep.runToStep(5);
         sweep.plant.clearHome(1);  // a guard cleared the home meanwhile
         sweep.finish();
         assertFailure(sweep.calibration, LegCalibrationFailure::NotAtCurlEnd);
@@ -2724,36 +3353,38 @@ static void test_sweep_curl_back_must_leave_the_uncurl_end_with_its_home()
         // The hip's curl back must leave its sweep end by the minimum stroke.
         HallSweep sweep;
         sweep.plant.speed = 1;
-        sweep.runToStep(3);
+        sweep.runToStep(5);
         sweep.plant.low[1] = CAL_HIP_SWEEP_EDGES - CAL_HALL_MIN_STROKE_EDGES + 1;
         sweep.finish();
         assertFailure(sweep.calibration, LegCalibrationFailure::NotAtCurlEnd);
-        TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL did not reach its curl end (hall=251)",
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL did not reach its curl end (hall=391)",
             sweep.plant.output.last().c_str());
     }
 }
 
-static void test_sweep_curl_back_short_of_its_home_fails()
+// The knee's curl back from its park: 40 edges short of its home is accepted,
+// 41 fails, before leg B moves.
+static void test_sweep_knee_curl_back_short_of_its_home_fails()
 {
-    for (int end : {40, 41})
+    for (int end : {960, 959})
     {
         HallSweep sweep;
-        sweep.runToStep(3);
-        sweep.plant.low[1] = end;
-        sweep.finish();
-        if (end == 41)
+        sweep.runToStep(6);  // knee curling back from its park
+        TEST_ASSERT_EQUAL_UINT(2, sweep.calibration.currentJoint());
+        sweep.plant.high[2] = end;
+        const size_t drivesBefore = sweep.plant.drives.size();
+        sweep.runToStep(7);
+        if (end == 959)
         {
             assertFailure(sweep.calibration, LegCalibrationFailure::ShortOfCurlEnd);
-            TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL stopped 41 edges short of its curl end",
+            TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLKL stopped 41 edges short of its curl end",
                 sweep.plant.output.last().c_str());
-            TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
+            TEST_ASSERT_TRUE(sweep.plant.homeLost[2]);
+            TEST_ASSERT_FALSE(drovePartnerAfter(sweep.plant, drivesBefore, 5));
+            continue;
         }
-        else
-        {
-            assertCompleted(sweep.calibration);
-            // Short within tolerance: the home stays; a hip's range is its fixed sweep.
-            TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)"));
-        }
+        TEST_ASSERT_TRUE(sweep.calibration.isRunning());
+        TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLKL min=-1000 max=0 edges"));
     }
 }
 
@@ -2769,7 +3400,7 @@ static void test_sweep_stroke_out_of_range()
         sweep.plant.speed = 1;
         sweep.plant.home[2] = -980;
         sweep.plant.low[2] = 1000 - 460;
-        sweep.runToStep(5);
+        sweep.runToStep(3);
         TEST_ASSERT_EQUAL_INT(-1000, sweep.plant.home[2]);
         TEST_ASSERT_EQUAL_INT(-460, sweep.calibration.stagedMin(2));
         sweep.plant.high[2] = 980;
@@ -2782,7 +3413,7 @@ static void test_sweep_stroke_out_of_range()
     {
         HallSweep sweep;
         sweep.plant.low[2] = 1000 - stroke;
-        sweep.runToStep(6);
+        sweep.runToStep(7);
         if (stroke > CAL_HALL_MAX_STROKE_EDGES)
         {
             assertFailure(sweep.calibration, LegCalibrationFailure::StrokeOutOfRange);
@@ -2824,13 +3455,13 @@ static void test_sweep_stroke_against_the_saved_stroke()
         sweep.plant.minStop[2] = -entry.saved;
         sweep.plant.maxStop[2] = 0;
         sweep.plant.low[2] = 1000 - entry.stroke;
-        sweep.runToStep(6);
+        sweep.runToStep(7);
         if (entry.fails)
         {
             assertFailure(sweep.calibration, LegCalibrationFailure::StrokeShort);
             TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLKL stroke 849 edges, saved 1000: obstacle?",
                 sweep.plant.output.last().c_str());
-            TEST_ASSERT_EQUAL_INT(1, sweep.plant.output.count("CAL FRONT MOVE FRKL curl"));  // SEEK's only
+            TEST_ASSERT_EQUAL_INT(2, sweep.plant.output.count("CAL FRONT MOVE FRKL curl"));  // the SEEK's two
             continue;
         }
         TEST_ASSERT_TRUE(sweep.calibration.isRunning());
@@ -2841,46 +3472,389 @@ static void test_sweep_stroke_against_the_saved_stroke()
     }
 }
 
-// A curl back that ends deeper than the home re-homes there. A hip keeps its
-// fixed range; a knee's stroke is measured to its new home.
+// A curl back that ends deeper than the home re-homes there: a hip within its
+// re-home tolerance (8 deeper) keeps its derived range; a knee's stroke is
+// measured to its new home (50 deeper).
 static void test_sweep_deeper_curl_back_rehomes_and_recomputes_the_stroke()
 {
     HallSweep sweep;
-    sweep.runToStep(3);
-    sweep.plant.low[1] = -50;
-    sweep.runToStep(4);
-    TEST_ASSERT_TRUE(sweep.calibration.isRunning());
-    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLHL curl hall=-50 travel=-750", "switch"));
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)"));
-    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT HOME FLHL count=50"));
-    TEST_ASSERT_EQUAL_INT(50, sweep.plant.home[1]);
     sweep.runToStep(5);
-    sweep.plant.high[2] = 1050;  // the knee curls back 50 deeper than its home
+    sweep.plant.low[1] = -8;
     sweep.runToStep(6);
-    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLKL curl hall=50 travel=1050", "stop"));
+    TEST_ASSERT_TRUE(sweep.calibration.isRunning());
+    TEST_ASSERT_TRUE(sweep.plant.output.hasEnd("CAL FRONT END FLHL curl hall=-8 travel=-848", "switch"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has(
+        "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)"));
+    TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT HOME FLHL count=8"));
+    TEST_ASSERT_EQUAL_INT(8, sweep.plant.home[1]);
+    sweep.plant.high[2] = 1050;  // the knee curls back 50 deeper than its home
+    sweep.runToStep(7);
+    TEST_ASSERT_FALSE_MESSAGE(sweep.plant.output.find("CAL FRONT END FLKL curl hall=50 travel=314").empty(),
+                              sweep.plant.output.text.c_str());
     TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT JOINT FLKL min=-1050 max=0 edges"));
     TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT HOME FLKL count=-1050"));
     sweep.finish();
     assertCompleted(sweep.calibration);
     TEST_ASSERT_EQUAL_INT(-1050, sweep.calibration.stagedMin(2));
     TEST_ASSERT_EQUAL_INT(0, sweep.calibration.stagedMax(2));
-    TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, sweep.plant.maxStop[1]);
+    TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, sweep.plant.maxStop[1]);
     TEST_ASSERT_EQUAL_INT(-1050, sweep.plant.minStop[2]);
 }
 
-// A failed hall joint loses its home; a joint that did not fail keeps it.
+// A failed hall joint loses its home (kept as the reference of its later curls:
+// keptHomeMask); a joint that did not fail keeps its home. Here the knee cannot
+// curl back from its park: 264 edges short.
 static void test_fail_clears_only_the_failed_hall_home()
 {
     HallSweep sweep;
-    sweep.runToStep(5);  // knee curling back
+    sweep.runToStep(6);  // knee curling back from its park
     sweep.plant.stallSign[2] = 1;
     sweep.finish();
-    assertFailure(sweep.calibration, LegCalibrationFailure::NotAtCurlEnd);
+    assertFailure(sweep.calibration, LegCalibrationFailure::ShortOfCurlEnd);
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLKL stopped 264 edges short of its curl end",
+        sweep.plant.output.last().c_str());
     TEST_ASSERT_FALSE(sweep.plant.homed[2]);
     TEST_ASSERT_TRUE(sweep.plant.homeLost[2]);
     TEST_ASSERT_TRUE(sweep.plant.homed[1]);
     TEST_ASSERT_EQUAL_UINT(1, sweep.plant.clearHomeJoints.size());
     TEST_ASSERT_EQUAL_UINT(2, sweep.plant.clearHomeJoints[0]);
+    TEST_ASSERT_EQUAL_UINT(0x04, sweep.calibration.keptHomeMask());
+    TEST_ASSERT_EQUAL_INT(-1000, sweep.calibration.keptHome(2));
+}
+
+// The hollow-stand option (a build opt-in): the knee parks at -192 and the hip
+// sweeps on to its extend switch. Found within 20 edges of 1069 (here 1049 and
+// 1080) it is switch-verified and saved where it was found; at 1048 or 1000 the
+// hip retracts and the pass fails lost counts; with no switch by 1089 likewise.
+static void test_hollow_stand_sweep_finds_the_extend_switch()
+{
+    const uint8_t options = CAL_OPT_KNEE_NUDGE | CAL_OPT_HOLLOW_STAND;
+    for (int at : {1049, 1080})
+    {
+        HallSweep sweep(options);
+        sweep.plant.high[1] = at;
+        sweep.plant.high[4] = at;
+        int furthest = 0;
+        while (sweep.calibration.isRunning())
+        {
+            tick(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM);
+            if (sweep.plant.extension[1] > furthest) furthest = sweep.plant.extension[1];
+        }
+        const std::string label = "switch at " + std::to_string(at) + "\n" + sweep.plant.output.text;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(LegCalibrationOutcome::Completed),
+                                      static_cast<int>(sweep.calibration.outcome()), label.c_str());
+        TEST_ASSERT_EQUAL_INT(at, furthest);
+        TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT PARK FLKL hall=-192 target=-192 (FL values)"));
+        TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLKL curl hall=-192 travel=808"));
+        const std::string end = "CAL FRONT END FLHL uncurl hall=" + std::to_string(at) + " travel=" + std::to_string(at);
+        TEST_ASSERT_TRUE_MESSAGE(sweep.plant.output.hasEnd(end, "switch"), label.c_str());
+        const std::string joint = "CAL FRONT JOINT FLHL min=0 max=" + std::to_string(at) +
+            " edges (extend switch-verified)";
+        TEST_ASSERT_TRUE_MESSAGE(sweep.plant.output.has(joint), label.c_str());
+        TEST_ASSERT_EQUAL_UINT(0x12, sweep.calibration.switchVerifiedMask());
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.minStop[1]);
+        TEST_ASSERT_EQUAL_INT(at, sweep.plant.maxStop[1]);
+        TEST_ASSERT_EQUAL_INT(at, sweep.plant.maxStop[4]);
+    }
+    for (int at : {1048, 1000})
+    {
+        HallSweep sweep(options);
+        sweep.plant.high[1] = at;
+        sweep.finish();
+        assertFailure(sweep.calibration, LegCalibrationFailure::LostCounts);
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        const std::string fail = "CAL FRONT FAIL FLHL lost counts: switch at " + std::to_string(at) +
+            " edges, expected 1069";
+        TEST_ASSERT_EQUAL_STRING(fail.c_str(), lines.back().c_str());
+        const std::string warn = "CAL FRONT WARN FLHL stopped at " + std::to_string(at) + " edges: retracting";
+        TEST_ASSERT_EQUAL_STRING(warn.c_str(), lines[lines.size() - 4].c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT MOVE FLHL curl retract", lines[lines.size() - 3].c_str());
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.extension[1]);
+        TEST_ASSERT_EQUAL_UINT(0, sweep.calibration.switchVerifiedMask());
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.saves);
+    }
+    {
+        HallSweep sweep(options);
+        sweep.plant.speed = 1;
+        sweep.plant.high[1] = 1200;  // no switch where the counts put it
+        sweep.finish();
+        assertFailure(sweep.calibration, LegCalibrationFailure::LostCounts);
+        TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT END FLHL uncurl hall=1089 travel=1089"));
+        TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT WARN FLHL stopped at 1089 edges: retracting"));
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL lost counts: switch at 1089 edges, expected 1069",
+            sweep.plant.output.last().c_str());
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.extension[1]);
+    }
+}
+
+// A run aborted while the hip is out on its sweep, or the knee out on its
+// park, says which joint is left out and where; an abort during the hip's
+// curl back (a seek) does not.
+static void test_abort_during_the_sweep_or_park_warns_the_joint_is_out()
+{
+    {
+        HallSweep sweep;
+        sweep.runToStep(4);
+        for (int i = 0; i < 50; ++i) tick(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM);
+        TEST_ASSERT_TRUE(sweep.plant.pwm[1] > 0);
+        const int at = sweep.plant.position(1);
+        TEST_ASSERT_TRUE(at > 0 && at < CAL_HIP_SWEEP_EDGES);
+        TEST_ASSERT_TRUE(sweep.calibration.abort(sweep.plant, 'H'));
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        const std::string warn = "CAL FRONT WARN FLHL left out at " + std::to_string(at) +
+            " edges: jog it to its curl end";
+        TEST_ASSERT_EQUAL_STRING(warn.c_str(), lines[lines.size() - 2].c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT ABORTED H", lines.back().c_str());
+        TEST_ASSERT_TRUE(sweep.plant.homed[1] && sweep.plant.homed[2]);
+    }
+    {
+        HallSweep sweep;
+        sweep.runToStep(3);
+        for (int i = 0; i < 50; ++i) tick(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM);
+        TEST_ASSERT_TRUE(sweep.plant.pwm[2] > 0);
+        const int at = sweep.plant.position(2);
+        TEST_ASSERT_TRUE(sweep.calibration.abort(sweep.plant, 'J'));
+        const std::vector<std::string> lines = sweep.plant.output.lines();
+        const std::string warn = "CAL FRONT WARN FLKL left out at " + std::to_string(at) +
+            " edges: jog it to its curl end";
+        TEST_ASSERT_EQUAL_STRING(warn.c_str(), lines[lines.size() - 2].c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL FRONT ABORTED J", lines.back().c_str());
+    }
+    {
+        HallSweep sweep;
+        sweep.runToStep(5);
+        for (int i = 0; i < 50; ++i) tick(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM);
+        TEST_ASSERT_TRUE(sweep.plant.pwm[1] < 0);
+        TEST_ASSERT_TRUE(sweep.calibration.abort(sweep.plant, 'H'));
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.output.count("CAL FRONT WARN"));
+    }
+}
+
+// ------------------------------------------------- kept home and V1 (no home on a stall)
+
+// V1: a hall hip that is homed and then fails (here stuck mid-stroke) keeps its
+// home as the reference of its later curls (keptHomeMask, keptHome), across
+// start(). A rerun with the hip resting 878 edges short of it (as FRHL on the
+// body, 2026-11-24) whose curl shows no motion fails "878 short" with no HOME
+// and no nudge, even when its stalled current sits flat at the switch-open
+// level. A rerun with the hip back at its home re-homes it and drops the kept
+// home.
+static void test_kept_home_judges_the_rerun_curls_of_a_failed_hall_hip()
+{
+    FakePlant plant;
+    LegCalibration calibration;
+    seekHall(calibration, plant);
+    TEST_ASSERT_EQUAL_UINT(0, calibration.keptHomeMask());
+    plant.extension[1] = 300;
+    plant.stuck[1] = true;
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
+    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+    assertFailure(calibration, LegCalibrationFailure::StuckMidStroke);
+    TEST_ASSERT_FALSE(plant.homed[1]);
+    TEST_ASSERT_EQUAL_UINT(0x02, calibration.keptHomeMask());
+    TEST_ASSERT_EQUAL_INT(0, calibration.keptHome(1));
+
+    plant.extension[1] = 878;
+    plant.currentStall[1] = plant.currentOpen[1];  // flat at the switch-open level
+    plant.currentWobble[1] = 0;
+    size_t mark = plant.output.lines().size();
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, CAL_DEFAULT_OPTIONS));
+    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+    assertFailure(calibration, LegCalibrationFailure::ShortOfCurlEnd);
+    TEST_ASSERT_EQUAL_STRING("CAL FRONT FAIL FLHL stopped 878 edges short of its curl end",
+        plant.output.last().c_str());
+    TEST_ASSERT_TRUE(plant.output.hasOpenEnd("CAL FRONT END FLHL curl hall=878 travel=0"));
+    TEST_ASSERT_EQUAL_INT(0, countFrom(plant.output, mark, "CAL FRONT HOME FLHL"));
+    TEST_ASSERT_EQUAL_INT(0, countFrom(plant.output, mark, "CAL FRONT MOVE FLHL nudge"));
+    TEST_ASSERT_FALSE(plant.homed[1]);
+    TEST_ASSERT_EQUAL_UINT(0x02, calibration.keptHomeMask());
+
+    plant.extension[1] = 0;
+    plant.stuck[1] = false;
+    plant.currentStall[1] = 170;
+    plant.currentWobble[1] = 10;
+    mark = plant.output.lines().size();
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, CAL_DEFAULT_OPTIONS));
+    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+    assertCompleted(calibration);
+    TEST_ASSERT_EQUAL_INT(1, countFrom(plant.output, mark, "CAL FRONT HOME FLHL count=0"));
+    TEST_ASSERT_EQUAL_INT(0, countFrom(plant.output, mark, "CAL FRONT MOVE FLHL nudge"));
+    TEST_ASSERT_TRUE(plant.homed[1]);
+    TEST_ASSERT_EQUAL_UINT(0, calibration.keptHomeMask());
+}
+
+// V1 without a kept home (a fresh boot): a hip curl whose stall shows no
+// switch-open current (raised above the drive's floor and wobbling) is never
+// taken as its home, however it got there: a short curl that moved 30 edges
+// and stalled, a press of a hip resting mid-stroke (no nudge follows), and a
+// nudge's return that came back 14 edges and stalled 40 short of where it
+// started (inside the curl-end tolerance). Each fails stuck mid-stroke with no
+// HOME line, before the knee moves again.
+static void test_hip_stall_without_switch_open_current_is_never_homed()
+{
+    for (int path = 0; path < 3; ++path)
+    {
+        FakePlant plant;
+        plant.useHall();
+        if (path == 0)
+        {
+            plant.extension[1] = 340;
+            plant.moveEvery[1] = 2;  // 50 edges/s: it stalls before it arms
+        }
+        else if (path == 1)
+        {
+            plant.extension[1] = 500;
+            plant.stallSign[1] = -1;  // resting mid-stroke, blocked toward curl
+        }
+        else
+        {
+            plant.extension[1] = 0;  // at its curl switch: press, nudge, return
+        }
+        LegCalibration calibration;
+        TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
+        if (path == 1)
+            runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() { return calibration.currentJoint() == 1; });
+        size_t drivesAtStall = 0;
+        if (path == 0)
+        {
+            runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() { return plant.pwm[1] < 0 && plant.extension[1] <= 310; });
+            plant.stuck[1] = true;
+        }
+        else if (path == 2)
+        {
+            runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() {
+                return calibration.moveStage() == LegCalibrationMoveStage::NudgeOut &&
+                       calibration.movePhase() == LegCalibrationMovePhase::Settle;
+            });
+            plant.extension[1] += 30;  // pushed out further while settling: 54 out
+            runUntil(calibration, plant, CAL_DEFAULT_PWM, [&]() {
+                return calibration.moveStage() == LegCalibrationMoveStage::Return && plant.pwm[1] < 0 &&
+                       plant.extension[1] <= 40;
+            });
+            plant.stuck[1] = true;
+        }
+        drivesAtStall = plant.drives.size();
+        runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+        const std::string label = "path " + std::to_string(path) + "\n" + plant.output.text;
+        assertFailure(calibration, LegCalibrationFailure::StuckMidStroke);
+        const int edges = path == 0 ? 30 : path == 1 ? 0 : 14;
+        const std::string fail = "CAL FRONT FAIL FLHL stuck mid-stroke after " + std::to_string(edges) +
+            " edges at PWM 128: raise PWM or check load";
+        TEST_ASSERT_EQUAL_STRING_MESSAGE(fail.c_str(), plant.output.last().c_str(), label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(0, plant.output.count("CAL FRONT HOME FLHL"), label.c_str());
+        TEST_ASSERT_EQUAL_INT(path == 2 ? 1 : 0, plant.output.count("CAL FRONT MOVE FLHL nudge"));
+        TEST_ASSERT_FALSE(plant.homed[1]);
+        TEST_ASSERT_FALSE(calibration.isJointCurled(1));
+        TEST_ASSERT_EQUAL_UINT(0, calibration.keptHomeMask());
+        TEST_ASSERT_FALSE_MESSAGE(drovePartnerAfter(plant, drivesAtStall, 2), label.c_str());
+        std::string end;  // the last hip curl END: the stalled drive's
+        for (const std::string &line : plant.output.lines())
+            if (line.compare(0, 23, "CAL FRONT END FLHL curl") == 0) end = line;
+        TEST_ASSERT_TRUE_MESSAGE(end.find(" by=stuck cur=") != std::string::npos, end.c_str());
+    }
+}
+
+// R4: a hip nudge never ramps past CAL_HIP_NUDGE_MAX_PWM (C 150 nudges at 128)
+// while its curls run at 150; a blind hip nudge (no edge) stops 1 s after it
+// started, not at its 2 s cap, and is driven back.
+static void test_hip_nudge_is_capped_and_a_blind_one_stops_at_one_second()
+{
+    {
+        FakePlant plant;
+        plant.useHall();
+        plant.extension[1] = 0;  // parked curled: press, nudge, return
+        plant.moveEvery[1] = 3;
+        LegCalibration calibration;
+        TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_PWM_MAX, 0));
+        int peakOut = 0;
+        int peakCurl = 0;
+        while (calibration.isRunning() && calibration.currentStep() < 2)
+        {
+            tick(calibration, plant, CAL_PWM_MAX);
+            if (plant.pwm[1] > peakOut) peakOut = plant.pwm[1];
+            if (-plant.pwm[1] > peakCurl) peakCurl = -plant.pwm[1];
+        }
+        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT MOVE FLHL nudge"));
+        TEST_ASSERT_EQUAL_INT(CAL_HIP_NUDGE_MAX_PWM, peakOut);
+        TEST_ASSERT_EQUAL_INT(CAL_PWM_MAX, peakCurl);
+        TEST_ASSERT_TRUE(plant.output.has("CAL FRONT HOME FLHL count=0"));
+    }
+    {
+        FakePlant plant;
+        plant.useHall();
+        plant.extension[1] = 0;
+        plant.hallDead[1] = true;
+        LegCalibration calibration;
+        TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_SEEK, CAL_PWM_MAX, 0));
+        uint32_t firstOut = 0, lastOut = 0, firstBack = 0;
+        int peakOut = 0;
+        while (calibration.isRunning())
+        {
+            tick(calibration, plant, CAL_PWM_MAX);
+            if (plant.pwm[1] > 0)
+            {
+                if (firstOut == 0) firstOut = plant.now;
+                lastOut = plant.now;
+                if (plant.pwm[1] > peakOut) peakOut = plant.pwm[1];
+            }
+            if (plant.pwm[1] < 0 && lastOut != 0 && firstBack == 0) firstBack = plant.now;
+        }
+        TEST_ASSERT_EQUAL_UINT32(CAL_HIP_NUDGE_BLIND_MS - CAL_PWM_RAMP_INTERVAL_MS - 10, lastOut - firstOut);
+        TEST_ASSERT_EQUAL_INT(CAL_HIP_NUDGE_MAX_PWM, peakOut);
+        TEST_ASSERT_TRUE(firstBack > lastOut);
+        TEST_ASSERT_EQUAL_INT(0, plant.extension[1]);  // driven back to its curl end
+        assertFailure(calibration, LegCalibrationFailure::NoFeedback);
+    }
+}
+
+// END line tokens: a detector end on a drive into a limit switch adds the
+// drive's floor (" by=switch cur=<a>/<b> floor=<f>", the current at the switch
+// within 1.5 counts of the floor); an extend drive's end does not; a switch-end
+// drive's plain stall at the switch-open level adds " open=<current>/<floor>",
+// and a switch-end stall without it is stuck (" by=stuck ... floor=<f>").
+static void test_end_lines_carry_the_floor_and_the_open_level()
+{
+    FakePlant plant;
+    plant.useHall();
+    LegCalibration calibration;
+    TEST_ASSERT_TRUE(calibration.start(plant, CAL_PASS_ALL, CAL_DEFAULT_PWM, 0));
+    runToEnd(calibration, plant, CAL_DEFAULT_PWM);
+    assertCompleted(calibration);
+    const std::string hip = plant.output.find("CAL FRONT END FLHL curl hall=0 travel=-500 by=switch cur=");
+    TEST_ASSERT_FALSE_MESSAGE(hip.empty(), plant.output.text.c_str());
+    long current = 0, reference = 0, floor = 0;
+    TEST_ASSERT_EQUAL_INT_MESSAGE(3, std::sscanf(hip.c_str(),
+        "CAL FRONT END FLHL curl hall=0 travel=-500 by=switch cur=%ld/%ld floor=%ld", &current, &reference, &floor),
+        hip.c_str());
+    TEST_ASSERT_EQUAL_INT(75, current);
+    TEST_ASSERT_TRUE(reference > current);
+    TEST_ASSERT_TRUE_MESSAGE(floor > 0 && current <= floor + 15, hip.c_str());
+    const std::string knee = plant.output.find("CAL FRONT END FLKL curl hall=1000 travel=500 by=stop cur=");
+    TEST_ASSERT_FALSE(knee.empty());
+    TEST_ASSERT_TRUE(knee.find(" floor=") == std::string::npos);
+    TEST_ASSERT_TRUE(knee.find(" open=") == std::string::npos);
+    // The SWEEP's press of the hip at its switch: the whole drive at the offset.
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLHL curl hall=0 travel=0 open=75/75"));
+    // A knee press (an extend drive) prints neither.
+    TEST_ASSERT_TRUE(plant.output.has("CAL FRONT END FLKL curl hall=0 travel=0"));
+
+    FakePlant blocked;
+    blocked.useHall();
+    blocked.stallSign[1] = -1;
+    LegCalibration other;
+    TEST_ASSERT_TRUE(other.start(blocked, CAL_PASS_SEEK, CAL_DEFAULT_PWM, 0));
+    runToEnd(other, blocked, CAL_DEFAULT_PWM);
+    assertFailure(other, LegCalibrationFailure::StuckMidStroke);
+    // Never homed (and still Unknown: no edges): its hall frame reads the raw
+    // count, 500 out, and the line carries its pot pin's reading.
+    const std::string stuck = blocked.output.find("CAL FRONT END FLHL curl hall=500 travel=0 pot=12 by=stuck cur=");
+    TEST_ASSERT_FALSE_MESSAGE(stuck.empty(), blocked.output.text.c_str());
+    TEST_ASSERT_EQUAL_INT_MESSAGE(3, std::sscanf(stuck.c_str(),
+        "CAL FRONT END FLHL curl hall=500 travel=0 pot=12 by=stuck cur=%ld/%ld floor=%ld", &current, &reference,
+        &floor),
+        stuck.c_str());
+    TEST_ASSERT_EQUAL_INT(floor, reference);  // an unarmed stall is judged against the floor
+    TEST_ASSERT_TRUE_MESSAGE(current > floor + 15, stuck.c_str());
 }
 
 // --------------------------------------------------------- robot-log replays
@@ -3068,7 +4042,7 @@ static void test_replay_run1_flkl_curl()
 
 // Run 1, FLHL curl (log 14884-15135), after the FLKL curl above: hall within
 // 0.6 s; the switch end is called after the recorded count stopped (it moved
-// up to the recorded EN drop) and within 0.4 s of it; the probe's
+// up to the recorded EN drop) and within 0.5 s of it; the probe's
 // "open" is not consulted; no NotAtCurlEnd and no FAIL.
 static void test_replay_run1_flhl_curl()
 {
@@ -3088,7 +4062,10 @@ static void test_replay_run1_flhl_curl()
     TEST_ASSERT_EQUAL_UINT(1, result.stalls.size());
     const std::string detail = "stall=" + std::to_string(result.stalls.front()) + " stopped=" +
                                std::to_string(stoppedMs) + "\n" + plant.output.text;
-    TEST_ASSERT_TRUE_MESSAGE(result.stalls.front() > stoppedMs && result.stalls.front() <= stoppedMs + 400,
+    // The switch end now also needs the switch-open signature: CAL_END_OPEN_SAMPLES
+    // (6, 300 ms) currents flat at the floor. This model drops the current 150 ms
+    // after the count stops, so the call comes up to 500 ms after it.
+    TEST_ASSERT_TRUE_MESSAGE(result.stalls.front() > stoppedMs && result.stalls.front() <= stoppedMs + 500,
                              detail.c_str());
     TEST_ASSERT_TRUE(plant.output.find("CAL FRONT END FLHL curl").find(" by=switch cur=") != std::string::npos);
     TEST_ASSERT_FALSE(result.failedWhileRecording);
@@ -3160,7 +4137,7 @@ static void test_end_detector_runs_on_hall_drives_only()
 }
 
 // A full hall SEEK + SWEEP at 100 edges/s: every drive that runs into an
-// actuator limit switch (hip curl, knee uncurl) stops at most 200 ms after the
+// actuator limit switch (hip curl, knee uncurl) stops at most 350 ms after the
 // rod reaches it, every knee curl at most 350 ms after the leg stop; a press of
 // a joint already at its end drives at most 1.05 s (was about 3 s).
 static void test_hall_ends_stop_the_drive_promptly()
@@ -3217,11 +4194,14 @@ static void test_hall_ends_stop_the_drive_promptly()
     TEST_ASSERT_EQUAL_INT(0, plant.output.count("CAL FRONT FAIL"));
     // SEEK: 2 hip curls; SWEEP: 2 hip curls back, 2 knee uncurls.
     TEST_ASSERT_EQUAL_INT(6, switches);
-    // SEEK: 2 knee curls; SWEEP: 2 knee curls back.
+    // SEEK: 2 first knee curls; SWEEP: 2 knee curls back from the park.
     TEST_ASSERT_EQUAL_INT(4, stops);
-    // SWEEP steps 0 and 1 of each leg.
-    TEST_ASSERT_EQUAL_INT(4, presses);
-    TEST_ASSERT_TRUE_MESSAGE(worstSwitch <= 200, std::to_string(worstSwitch).c_str());
+    // SEEK: each leg's second knee curl; SWEEP: steps 0 and 1 of each leg. (The
+    // park and the sweep stop by count, at no end.)
+    TEST_ASSERT_EQUAL_INT(6, presses);
+    // A switch end needs the switch-open signature: CAL_END_OPEN_SAMPLES (6,
+    // 300 ms) currents flat at the floor after the switch opens.
+    TEST_ASSERT_TRUE_MESSAGE(worstSwitch <= 350, std::to_string(worstSwitch).c_str());
     TEST_ASSERT_TRUE_MESSAGE(worstStop <= 350, std::to_string(worstStop).c_str());
     TEST_ASSERT_TRUE_MESSAGE(worstPress <= 1050, std::to_string(worstPress).c_str());
 }
@@ -3229,7 +4209,7 @@ static void test_hall_ends_stop_the_drive_promptly()
 // Stuck mid-stroke: a stall with no end signature after a running phase fails
 // the pass before the partner joint moves, the joint's hall home is cleared and
 // nothing is saved. A knee uncurl (FRKL at 771 edges, 18 short of its switch as
-// on 2026-11-24), a hip curl and a hip sweep.
+// on 2026-11-24) and a hip curl. A hip sweep's stuck is an obstacle instead.
 static void test_stuck_mid_stroke_fails_the_pass()
 {
     {
@@ -3274,20 +4254,32 @@ static void test_stuck_mid_stroke_fails_the_pass()
         TEST_ASSERT_FALSE(plant.homed[1]);
     }
     {
-        // Hip sweep frozen 300 edges out: stuck, not "short of its sweep".
+        // Hip sweep frozen 300 edges out (its current raised: the stop rule),
+        // which on the table-safe sweep is an obstacle like any end before its
+        // target, not "stuck mid-stroke". The hip retracts (here it comes free)
+        // and the pass fails short of its sweep; the knee stays parked.
         HallSweep sweep;
         sweep.plant.speed = 1;
         runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
             return sweep.plant.pwm[1] > 0 && sweep.plant.extension[1] >= 300;
         });
         sweep.plant.stuck[1] = true;
+        const size_t before = sweep.plant.drives.size();
+        runUntil(sweep.calibration, sweep.plant, CAL_DEFAULT_PWM, [&]() {
+            return sweep.calibration.moveStage() == LegCalibrationMoveStage::Retract;
+        });
+        sweep.plant.stuck[1] = false;
         sweep.finish();
-        assertFailure(sweep.calibration, LegCalibrationFailure::StuckMidStroke);
+        assertFailure(sweep.calibration, LegCalibrationFailure::SweepShort);
+        TEST_ASSERT_TRUE_MESSAGE(sweep.plant.output.hasEnd("CAL FRONT END FLHL uncurl hall=300 travel=300", "stop"),
+                             sweep.plant.output.text.c_str());
+        TEST_ASSERT_TRUE(sweep.plant.output.has("CAL FRONT WARN FLHL stopped at 300 edges: retracting"));
         TEST_ASSERT_EQUAL_STRING(
-            "CAL FRONT FAIL FLHL stuck mid-stroke after 300 edges at PWM 128: raise PWM or check load",
+            "CAL FRONT FAIL FLHL stopped 540 edges short of its 840-edge sweep: obstacle? check its home",
             sweep.plant.output.last().c_str());
         TEST_ASSERT_TRUE(sweep.plant.homeLost[1]);
-        TEST_ASSERT_FALSE(sweep.plant.output.has("CAL FRONT MOVE FLKL uncurl"));
+        TEST_ASSERT_FALSE(drovePartnerAfter(sweep.plant, before, 2));
+        TEST_ASSERT_EQUAL_INT(0, sweep.plant.extension[1]);
     }
 }
 
@@ -3329,8 +4321,9 @@ static void test_compliant_stops_and_noisy_current_complete_the_run()
         const std::string label = "seed " + std::to_string(seed) + "\n" + plant.output.text;
         TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(LegCalibrationOutcome::Completed),
                                       static_cast<int>(calibration.outcome()), label.c_str());
-        // Per knee: the SEEK curl, the SWEEP press (step 0) and the curl back.
-        TEST_ASSERT_EQUAL_INT_MESSAGE(6, plant.output.count("CAL FRONT END FLKL curl") +
+        // Per knee: the SEEK curl and its second curl (a press), the SWEEP press
+        // (step 0), the park (a curl-direction drive) and the curl back.
+        TEST_ASSERT_EQUAL_INT_MESSAGE(10, plant.output.count("CAL FRONT END FLKL curl") +
                                              plant.output.count("CAL FRONT END FRKL curl"), label.c_str());
         for (uint8_t knee : {2, 5})
         {
@@ -3338,7 +4331,9 @@ static void test_compliant_stops_and_noisy_current_complete_the_run()
             TEST_ASSERT_TRUE_MESSAGE(home <= 1000 && home >= 990, label.c_str());
             TEST_ASSERT_TRUE_MESSAGE(plant.minStop[knee] <= -980 && plant.maxStop[knee] == 0, label.c_str());
         }
-        // Signature ends: 4 hip curls and 2 knee uncurls by switch, 4 knee curls by stop.
+        // Signature ends: 2 SEEK hip curls, 2 hip curls back from the sweep and 2
+        // knee uncurls by switch (the SWEEP's hip presses are plain stalls at the
+        // switch-open level), 4 knee curls by stop.
         int switches = 0, stops = 0;
         for (const std::string &line : plant.output.lines())
         {
@@ -3428,17 +4423,29 @@ int main()
     RUN_TEST(test_rail_flip_is_not_pot_evidence);
     RUN_TEST(test_pot_evidence_is_the_snapshots_not_the_smoothed_reading);
     RUN_TEST(test_classification_at_the_nudge_and_the_return);
-    RUN_TEST(test_hall_hip_sweep_stops_at_its_fixed_target);
+    RUN_TEST(test_hall_table_safe_sweep_parks_the_knee_and_sweeps_by_count);
     RUN_TEST(test_hall_hip_sweep_target_survives_relaxation);
-    RUN_TEST(test_hall_hip_sweep_short_of_its_target_fails);
+    RUN_TEST(test_seek_second_knee_curl_rehomes_a_knee_stopped_on_the_body);
+    RUN_TEST(test_knee_park_short_or_out_of_band_fails);
+    RUN_TEST(test_hall_hip_sweep_obstacle_retracts_then_fails);
+    RUN_TEST(test_knee_leaving_its_band_during_the_sweep_fails);
+    RUN_TEST(test_hip_sweep_retract_that_cannot_get_home_fails);
+    RUN_TEST(test_hip_curl_back_must_rehome_within_its_tolerance);
     RUN_TEST(test_pot_hip_keeps_the_full_sweep);
+    RUN_TEST(test_table_safe_sweep_needs_a_hall_knee);
     RUN_TEST(test_sweep_uncurl_must_travel_the_minimum_stroke);
     RUN_TEST(test_sweep_curl_back_must_leave_the_uncurl_end_with_its_home);
-    RUN_TEST(test_sweep_curl_back_short_of_its_home_fails);
+    RUN_TEST(test_sweep_knee_curl_back_short_of_its_home_fails);
     RUN_TEST(test_sweep_stroke_out_of_range);
     RUN_TEST(test_sweep_stroke_against_the_saved_stroke);
     RUN_TEST(test_sweep_deeper_curl_back_rehomes_and_recomputes_the_stroke);
     RUN_TEST(test_fail_clears_only_the_failed_hall_home);
+    RUN_TEST(test_hollow_stand_sweep_finds_the_extend_switch);
+    RUN_TEST(test_abort_during_the_sweep_or_park_warns_the_joint_is_out);
+    RUN_TEST(test_kept_home_judges_the_rerun_curls_of_a_failed_hall_hip);
+    RUN_TEST(test_hip_stall_without_switch_open_current_is_never_homed);
+    RUN_TEST(test_hip_nudge_is_capped_and_a_blind_one_stops_at_one_second);
+    RUN_TEST(test_end_lines_carry_the_floor_and_the_open_level);
     RUN_TEST(test_replay_run1_flkl_curl);
     RUN_TEST(test_replay_run1_flhl_curl);
     RUN_TEST(test_replay_run2_flkl_curl);
