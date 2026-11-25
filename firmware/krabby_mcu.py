@@ -86,8 +86,8 @@ CAL_PASS_NAMES = (CAL_PASS_SEEK, CAL_PASS_SWEEP)  # run order when both are requ
 CAL_KNEE_PARK_EDGES = 264
 CAL_KNEE_PARK_BAND_MIN_EDGES = 244
 CAL_KNEE_PARK_BAND_MAX_EDGES = 280
-# FL's knee stroke, curl stop (its PWM 200 park) to switch. Before its park a
-# table-safe knee whose stroke from its home is more than
+# FL's knee stroke, curl stop to switch. Before its park a table-safe knee
+# whose stroke from its home is more than
 # CAL_KNEE_STROKE_SHORT_MAX_EDGES short of it fails: its home is short of its
 # curl stop (an obstacle or a bind there).
 CAL_KNEE_STROKE_EDGES = 785

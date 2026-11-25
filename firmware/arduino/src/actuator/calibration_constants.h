@@ -117,18 +117,19 @@ static constexpr int CAL_KNEE_PARK_EDGES = 264;
 static constexpr int CAL_KNEE_PARK_BAND_MIN_EDGES = 244;
 static constexpr int CAL_KNEE_PARK_BAND_MAX_EDGES = 280;
 // The knee's stroke, its curl stop to its switch: FL measured 785 on
-// 2026-11-24 from its deepest (PWM 200) park. The park is counted from the
-// knee's home, so a knee homed d edges short of that stop (an obstacle or a
-// bind at its curl end) measures CAL_KNEE_STROKE_EDGES - d from its home to its
+// 2026-11-24 (schedule k1). The park is counted from the knee's home, so a
+// knee homed d edges short of its stop (an obstacle or a bind at its curl
+// end) measures CAL_KNEE_STROKE_EDGES - d from its home to its
 // switch and parks d edges further out than its home says. Before its park the
 // table-safe SWEEP fails a knee whose home-to-switch stroke is under
 // CAL_KNEE_STROKE_MIN_EDGES (d over CAL_KNEE_STROKE_SHORT_MAX_EDGES); the hip
-// has not moved then. Why 24 and not the band's own 16: a healthy knee at the
-// calibration PWM already stops short of its PWM 200 park (17 edges at PWM 80
-// on 2026-11-23, so the host plant's FL knee reads 768; on the end test at
-// 128 its long presses stopped 775-779 from its switch, and the firmware's
-// Stop homes after the re-curls land 0-7 short of a press: about 768-779 at
-// the guard), so 16 would fail healthy knees. 24 keeps the true park at most
+// has not moved then. Why 24 and not the band's own 16: the stop is
+// compliant, so where a healthy knee stops depends on the drive (a PWM 200
+// curl parks FLKL 17 edges deeper than PWM 80 reaches, 2026-11-23: the host
+// plant's FL knee, its 785 counted from that park, reads 768 at the guard; on
+// the end test at 128 its long presses stopped 775-779 from its switch, and
+// the firmware's Stop homes after the re-curls land 0-7 short of a press:
+// about 768-779), so 16 would fail healthy knees. 24 keeps the true park at most
 // 288 out: the band's 280 is the knee-map-spread worst case, the schedule's
 // own assumptions keep margin to 292, and at 304 the toe is still 1.3 in off
 // the floor (table-safe-schedule check, point 3). The hollow stand's band
