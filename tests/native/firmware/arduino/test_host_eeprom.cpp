@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstring>
+#include <string>
 
 namespace {
 
@@ -228,7 +229,7 @@ static void test_quadrature_board_round_trips_kinds_and_strokes()
     board.manager.initAll();
     board.acts[1]->setSensor(JointSensor::Hall);
     board.acts[1]->minStop = 0;
-    board.acts[1]->maxStop = CAL_HIP_SWEEP_EDGES;  // a hall hip's fixed sweep
+    board.acts[1]->maxStop = CAL_HIP_STROKE_EDGES;  // a hall hip's derived stroke
     board.acts[2]->setSensor(JointSensor::Hall);
     board.acts[2]->minStop = -700;
     board.acts[2]->maxStop = 0;
@@ -241,7 +242,11 @@ static void test_quadrature_board_round_trips_kinds_and_strokes()
     reloaded.manager.initAll();
     reloaded.manager.loadCalibration();
     TEST_ASSERT_EQUAL_INT(static_cast<int>(JointSensor::Hall), static_cast<int>(reloaded.acts[1]->sensor));
-    TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, reloaded.acts[1]->maxStop);
+    TEST_ASSERT_EQUAL_INT(0, reloaded.acts[1]->minStop);
+    TEST_ASSERT_EQUAL_INT(1069, reloaded.acts[1]->maxStop);
+    // The derived stroke is flagged on every load: it was never found by a switch.
+    TEST_ASSERT_NOT_NULL(std::strstr(reloaded.out.output.c_str(),
+        "Calibration joint FLHY extend derived (1069 edges): not switch-verified\n"));
     TEST_ASSERT_EQUAL_INT(-700, reloaded.acts[2]->minStop);
     TEST_ASSERT_EQUAL_INT(static_cast<int>(JointSensor::Pot), static_cast<int>(reloaded.acts[4]->sensor));
     TEST_ASSERT_EQUAL_INT(200, reloaded.acts[4]->minStop);
@@ -251,6 +256,55 @@ static void test_quadrature_board_round_trips_kinds_and_strokes()
     reloaded.acts[1]->setHome();
     TEST_ASSERT_EQUAL_CHAR('E', reloaded.acts[1]->sensorStateCode());
     TEST_ASSERT_EQUAL_FLOAT(0.0f, reloaded.acts[1]->getPos());
+}
+
+// A saved hall hip record is valid only as [0, N] with 1049 <= N <= 1089 (its
+// derived stroke 1069 within the 20-edge tolerance); only exactly 1069 is
+// flagged as not switch-verified. The old fixed sweep [0, 700] is invalid.
+static void test_hall_hip_record_validity_follows_the_derived_stroke()
+{
+    struct Case
+    {
+        int hi;
+        bool valid;
+        bool derivedLine;
+    };
+    const Case cases[] = {
+        {1069, true, true},
+        {1049, true, false},
+        {1089, true, false},
+        {1048, false, false},
+        {1090, false, false},
+        {700, false, false},
+    };
+    for (const Case &c : cases)
+    {
+        krabby::sim::resetHostSim();
+        krabby::sim::hallSimSetQuadrature(0, true);
+        HostBoard board;
+        board.manager.initAll();
+        board.acts[1]->setSensor(JointSensor::Hall);
+        board.acts[1]->minStop = 0;
+        board.acts[1]->maxStop = c.hi;
+        board.manager.saveCalibration();
+
+        HostBoard reloaded;
+        reloaded.manager.initAll();
+        reloaded.manager.loadCalibration();
+        const std::string output = reloaded.out.output;
+        const std::string label = "hi=" + std::to_string(c.hi) + "\n" + output;
+        TEST_ASSERT_EQUAL_INT_MESSAGE(c.valid ? c.hi : 0, reloaded.acts[1]->maxStop, label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(static_cast<int>(c.valid ? JointSensor::Hall : JointSensor::Unknown),
+            static_cast<int>(reloaded.acts[1]->sensor), label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(c.valid ? 0 : 1,
+            std::strstr(output.c_str(), "Calibration joint FLHY invalid: defaults\n") != nullptr ? 1 : 0,
+            label.c_str());
+        TEST_ASSERT_EQUAL_INT_MESSAGE(c.derivedLine ? 1 : 0,
+            std::strstr(output.c_str(),
+                "Calibration joint FLHY extend derived (1069 edges): not switch-verified\n") != nullptr
+                ? 1 : 0,
+            label.c_str());
+    }
 }
 
 int main()
@@ -264,5 +318,6 @@ int main()
     RUN_TEST(test_actuator_manager_save_and_load_calibration);
     RUN_TEST(test_v1_record_migrates_without_quadrature_and_is_ignored_with_it);
     RUN_TEST(test_quadrature_board_round_trips_kinds_and_strokes);
+    RUN_TEST(test_hall_hip_record_validity_follows_the_derived_stroke);
     return UNITY_END();
 }

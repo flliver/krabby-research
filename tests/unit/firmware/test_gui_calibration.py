@@ -208,13 +208,17 @@ class TestCalibrateExplanationEncoders:
         assert "homed with Curl only after every power-up before Neutral works" in text
         assert "Curl only" in text and "saved" in text  # Curl only still saves nothing
 
-    def test_no_instruction_to_jog_the_knees_first(self):
+    def test_no_instruction_to_jog_before_curl_only_or_the_nudge(self):
         # The knee nudge is the shipped default: nothing is jogged before Curl only.
-        text = CALIBRATE_EXPLANATION.lower()
-        assert "jog" not in text
+        text = " ".join(CALIBRATE_EXPLANATION.lower().split())
         assert "off its curl end" not in text
         assert "half a second" not in text
         assert "on its retract button" not in text
+
+    def test_before_you_start_jog_hips_inside_560_and_knees_to_curl(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert "jog every hip inside 0-560 counts and every knee to its curl end" in text
+        assert "HOME line" in text and "limit switch" in text
 
     def test_parked_hips_and_knees_are_nudged_and_checked(self):
         text = CALIBRATE_EXPLANATION
@@ -228,12 +232,37 @@ class TestCalibrateExplanationEncoders:
         assert "mm" not in text
         assert "millimet" not in text.lower()
 
-    def test_hips_sweep_about_70_percent_and_knees_their_full_stroke(self):
+    def test_seek_order_is_knee_hip_knee_again(self):
         text = " ".join(CALIBRATE_EXPLANATION.split())
-        assert "Each hip goes out about 70% (700 hall counts) and back" in text
-        assert "not to full extension, because a curled tibia meets the body" in text
-        assert "Each knee goes fully out and back" in text
-        assert f"({app.CAL_HIP_SWEEP_EDGES} hall counts)" in text
+        assert "one leg at a time: knee, then hip, then the knee again" in text
+        assert "The second knee curl is the proven one" in text
+
+    def test_sweep_order_is_table_safe(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert (
+            "knee curl, hip curl (home 0), knee uncurl to its switch, knee park "
+            f"{app.CAL_KNEE_PARK_EDGES} counts out of its curl stop, hip sweep to "
+            f"{app.CAL_HIP_SWEEP_EDGES} hall counts with the knee held there, hip back to "
+            "its curl switch" in text
+        )
+        assert (app.CAL_KNEE_PARK_EDGES, app.CAL_HIP_SWEEP_EDGES) == (264, 840)
+        assert "within 10 counts of 0, else counts were lost" in text
+        assert text.endswith("nothing for the board in progress.")
+        assert "knee curl. The hip moves past 560 counts only with its knee parked" in text
+        assert "no automatic retry" in text
+
+    def test_old_sweep_claims_are_gone(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert "70%" not in text and "700" not in text
+        assert "Each hip goes out" not in text
+
+    def test_hip_extend_limit_is_derived_not_switch_verified(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert "never sought on a solid stand" in text
+        assert f"derived ({app.CAL_HIP_STROKE_EDGES} hall counts" in text
+        assert app.CAL_HIP_STROKE_EDGES == 1069
+        assert "not switch-verified" in text
+        assert "Every leg uses the front-left leg's values" in text
 
     def test_knee_spring_after_its_nudge_is_expected(self):
         text = " ".join(CALIBRATE_EXPLANATION.split())
@@ -249,11 +278,28 @@ class TestCalibrateExplanationEncoders:
         text = " ".join(CALIBRATE_EXPLANATION.split())
         assert f"Use the default speed (PWM {app.CAL_DEFAULT_PWM})" in text
         assert app.CAL_DEFAULT_PWM == 128
-        assert "ends are found from motor current and motion" in text
-        assert "below about PWM 110 a joint may stall short of its end" in text
-        assert "stops it as stuck mid-stroke" in text
-        assert "its ends are found by stall alone" in text
+        assert f"the range is {app.CAL_PWM_MIN}-{app.CAL_PWM_MAX}" in text
+        assert "PWM 80 stalled mid-stroke with no current signature" in text
+        assert f"nothing below {app.CAL_PWM_MIN} is accepted" in text
         assert 'If a knee stops with "curled back only", run Curl only again.' in text
+        # The old low-speed advice is gone.
+        assert "PWM 40-50" not in text
+        assert "its ends are found by stall alone" not in text
+
+    def test_end_detection_claims_are_corrected(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert "(every hip curl, every knee uncurl, the hip's extended end)" in text
+        assert "ends only when the motor current is flat at its switch-open level" in text
+        assert "any stall without that signature stops the run as stuck mid-stroke" in text
+        assert "A knee curl ends at its compliant leg stop" in text
+        assert "an obstacle on a knee curl looks the same" in text
+        assert "A hip sweep treats any stall as an obstacle" in text
+        assert "never taken as an end" not in text
+
+    def test_recovery_after_a_stuck_hip(self):
+        text = " ".join(CALIBRATE_EXPLANATION.split())
+        assert "never rerun at 128: jog the hip to its curl end, or rerun at 150" in text
+        assert "more than 40 counts short of it fails instead of homing there" in text
 
     def test_run_stops_and_names_a_joint_that_shows_no_movement(self):
         text = CALIBRATE_EXPLANATION
@@ -285,9 +331,9 @@ class _DialogHarness(CalibrateDialog):
 
 class TestCalibrateDialogLogic:
     def test_default_speed_constant(self):
-        assert (CAL_DEFAULT_PWM, CAL_PWM_MIN, CAL_PWM_MAX) == (128, 40, 150)
+        assert (CAL_DEFAULT_PWM, CAL_PWM_MIN, CAL_PWM_MAX) == (128, 110, 150)
 
-    @pytest.mark.parametrize("text,expected", [("80", 80), (" 40", 40), ("150", 150)])
+    @pytest.mark.parametrize("text,expected", [("110", 110), (" 128", 128), ("150", 150)])
     def test_valid_speed_closes_with_result(self, text, expected):
         dialog = _DialogHarness(text)
         dialog._on_start()
@@ -295,7 +341,7 @@ class TestCalibrateDialogLogic:
         assert dialog.destroyed
         assert dialog._error_var.get() == ""
 
-    @pytest.mark.parametrize("text", ["", "abc", "39", "151", "-80", "80.5", "0"])
+    @pytest.mark.parametrize("text", ["", "abc", "109", "80", "40", "151", "-80", "120.5", "0"])
     def test_invalid_speed_stays_open_with_error(self, text):
         dialog = _DialogHarness(text)
         dialog._on_start()
@@ -305,31 +351,31 @@ class TestCalibrateDialogLogic:
         assert str(CAL_PWM_MAX) in dialog._error_var.get()
 
     def test_cancel(self):
-        dialog = _DialogHarness("80")
+        dialog = _DialogHarness("128")
         dialog.result = CalibrationChoice(99, None)
         dialog._on_cancel()
         assert dialog.result is None
         assert dialog.destroyed
 
     def test_curl_only_ticked_yields_seek(self):
-        dialog = _DialogHarness("60", curl_only=True)
+        dialog = _DialogHarness("130", curl_only=True)
         dialog._on_start()
-        assert dialog.result == CalibrationChoice(60, "SEEK")
+        assert dialog.result == CalibrationChoice(130, "SEEK")
         assert dialog.destroyed
 
     def test_curl_only_unticked_yields_the_full_run(self):
-        dialog = _DialogHarness("60", curl_only=False)
+        dialog = _DialogHarness("130", curl_only=False)
         dialog._on_start()
-        assert dialog.result == CalibrationChoice(60, None)
+        assert dialog.result == CalibrationChoice(130, None)
 
     def test_cancel_with_curl_only_ticked_returns_nothing(self):
-        dialog = _DialogHarness("60", curl_only=True)
+        dialog = _DialogHarness("130", curl_only=True)
         dialog._on_cancel()
         assert dialog.result is None
         assert dialog.destroyed
 
     def test_invalid_speed_with_curl_only_ticked_stays_open(self):
-        dialog = _DialogHarness("10", curl_only=True)
+        dialog = _DialogHarness("80", curl_only=True)
         dialog._on_start()
         assert dialog.result is None
         assert not dialog.destroyed
@@ -420,20 +466,20 @@ class TestCalibrateButton:
     def test_sends_chosen_speed(self, monkeypatch):
         gui = _gui()
         monkeypatch.setattr(
-            app, "ask_calibration_settings", lambda parent: CalibrationChoice(60, None)
+            app, "ask_calibration_settings", lambda parent: CalibrationChoice(130, None)
         )
         gui._calibrate()
-        gui._mcu.send_command_calibrate.assert_called_once_with(60, None)
-        assert build_calibrate_command(60, None) == "C 60"
+        gui._mcu.send_command_calibrate.assert_called_once_with(130, None)
+        assert build_calibrate_command(130, None) == "C 130"
 
     def test_curl_only_sends_seek(self, monkeypatch):
         gui = _gui()
         monkeypatch.setattr(
-            app, "ask_calibration_settings", lambda parent: CalibrationChoice(60, "SEEK")
+            app, "ask_calibration_settings", lambda parent: CalibrationChoice(130, "SEEK")
         )
         gui._calibrate()
-        gui._mcu.send_command_calibrate.assert_called_once_with(60, "SEEK")
-        assert build_calibrate_command(60, "SEEK") == "C SEEK 60"
+        gui._mcu.send_command_calibrate.assert_called_once_with(130, "SEEK")
+        assert build_calibrate_command(130, "SEEK") == "C SEEK 130"
 
     def test_default_speed_is_offered_as_128(self, monkeypatch):
         gui = _gui()
@@ -456,7 +502,7 @@ class TestCalibrateButton:
 
     def test_not_connected_does_not_even_ask(self, monkeypatch):
         gui = _gui(connected=False)
-        ask = Mock(return_value=CalibrationChoice(80, None))
+        ask = Mock(return_value=CalibrationChoice(128, None))
         monkeypatch.setattr(app, "ask_calibration_settings", ask)
         gui._calibrate()
         ask.assert_not_called()
@@ -466,7 +512,7 @@ class TestCalibrateButton:
         gui = _gui()
         gui._mcu.send_command_calibrate.side_effect = ValueError("bad speed")
         monkeypatch.setattr(
-            app, "ask_calibration_settings", lambda parent: CalibrationChoice(80, None)
+            app, "ask_calibration_settings", lambda parent: CalibrationChoice(128, None)
         )
         shown = Mock()
         monkeypatch.setattr(app.messagebox, "showerror", shown)
@@ -500,7 +546,7 @@ class TestCalibrateWhileARunIsInProgress:
         gui._mcu.recent_cal_lines.return_value = lines
         return gui
 
-    def _start(self, gui, monkeypatch, choice=CalibrationChoice(80, "SEEK")):
+    def _start(self, gui, monkeypatch, choice=CalibrationChoice(128, "SEEK")):
         ask = Mock(return_value=choice)
         monkeypatch.setattr(app, "ask_calibration_settings", ask)
         gui._calibrate()
@@ -510,12 +556,12 @@ class TestCalibrateWhileARunIsInProgress:
         gui = self._gui([])
         self._start(gui, monkeypatch)
         gui._mcu.recent_cal_lines.return_value = [
-            "CAL ROBOT START pwm=80 passes=SEEK",
+            "CAL ROBOT START pwm=128 passes=SEEK",
             "CAL FRONT MOVE FLKL curl",
         ]
         ask = self._start(gui, monkeypatch)
         ask.assert_not_called()
-        gui._mcu.send_command_calibrate.assert_called_once_with(80, "SEEK")
+        gui._mcu.send_command_calibrate.assert_called_once_with(128, "SEEK")
         assert gui._status_var.get() == app.CALIBRATION_RUNNING_NOTE
         assert "Hold All" in app.CALIBRATION_RUNNING_NOTE
         assert gui._neutral_until > time.time()
@@ -751,7 +797,7 @@ class TestCalStatus:
         gui._cal_var = _FakeStringVar()
         gui._cal_label = _FakeWidget()
         gui._mcu.recent_cal_lines = lambda: [
-            "CAL ROBOT START pwm=80 passes=SEEK,SWEEP",
+            "CAL ROBOT START pwm=128 passes=SEEK,SWEEP",
             "CAL FRONT MOVE FLKL curl",
         ]
         gui._update_cal_status()

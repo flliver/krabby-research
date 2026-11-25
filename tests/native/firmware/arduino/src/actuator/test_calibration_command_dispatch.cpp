@@ -81,7 +81,7 @@ struct FakeBoard
     }
 };
 
-const ActuatorCalibrationRequest kSweep100 = {CAL_PASS_SWEEP, 100};
+const ActuatorCalibrationRequest kSweep120 = {CAL_PASS_SWEEP, 120};
 
 }  // namespace
 
@@ -108,20 +108,20 @@ static void test_leader_run_starts_the_robot_and_never_the_board_directly()
         FakeBoard board;
         RobotCalibration robot;
         FakeSink out;
-        dispatchActuatorCalibrationCommand(role, ActuatorCalibrationCommandKind::Run, kSweep100, out,
+        dispatchActuatorCalibrationCommand(role, ActuatorCalibrationCommandKind::Run, kSweep120, out,
             robot, hooks, board);
         TEST_ASSERT_TRUE(robot.isActive());
-        TEST_ASSERT_EQUAL_STRING("CAL ROBOT START pwm=100 passes=SWEEP\n", hooks.usb.text.c_str());
+        TEST_ASSERT_EQUAL_STRING("CAL ROBOT START pwm=120 passes=SWEEP\n", hooks.usb.text.c_str());
         TEST_ASSERT_EQUAL_STRING("H\n", hooks.left.text.c_str());
         TEST_ASSERT_EQUAL_UINT(1, hooks.localStarts.size());
         TEST_ASSERT_TRUE(board.starts.empty());
         TEST_ASSERT_TRUE(out.text.empty());
 
         // A second C while it runs is the robot's BUSY.
-        dispatchActuatorCalibrationCommand(role, ActuatorCalibrationCommandKind::Run, kSweep100, out,
+        dispatchActuatorCalibrationCommand(role, ActuatorCalibrationCommandKind::Run, kSweep120, out,
             robot, hooks, board);
         TEST_ASSERT_EQUAL_STRING(
-            "CAL ROBOT START pwm=100 passes=SWEEP\nCAL ROBOT BUSY\n", hooks.usb.text.c_str());
+            "CAL ROBOT START pwm=120 passes=SWEEP\nCAL ROBOT BUSY\n", hooks.usb.text.c_str());
         TEST_ASSERT_EQUAL_UINT(1, hooks.localStarts.size());
     }
 }
@@ -132,17 +132,17 @@ static void test_follower_run_starts_its_own_passes_or_answers_busy()
     FakeBoard board;
     RobotCalibration robot;
     FakeSink out;
-    dispatchActuatorCalibrationCommand(ROLE_LEFT, ActuatorCalibrationCommandKind::Run, kSweep100, out,
+    dispatchActuatorCalibrationCommand(ROLE_LEFT, ActuatorCalibrationCommandKind::Run, kSweep120, out,
         robot, hooks, board);
     TEST_ASSERT_FALSE(robot.isActive());
     TEST_ASSERT_EQUAL_UINT(1, board.starts.size());
     TEST_ASSERT_EQUAL_UINT(CAL_PASS_SWEEP, board.starts[0].first);
-    TEST_ASSERT_EQUAL_INT(100, board.starts[0].second);
+    TEST_ASSERT_EQUAL_INT(120, board.starts[0].second);
     TEST_ASSERT_TRUE(out.text.empty());
     TEST_ASSERT_TRUE(hooks.usb.text.empty());
     TEST_ASSERT_TRUE(hooks.left.text.empty());  // followers never forward
 
-    dispatchActuatorCalibrationCommand(ROLE_LEFT, ActuatorCalibrationCommandKind::Run, kSweep100, out,
+    dispatchActuatorCalibrationCommand(ROLE_LEFT, ActuatorCalibrationCommandKind::Run, kSweep120, out,
         robot, hooks, board);
     TEST_ASSERT_EQUAL_STRING("CAL LEFT BUSY\n", out.text.c_str());
     TEST_ASSERT_EQUAL_UINT(1, board.starts.size());
@@ -151,9 +151,9 @@ static void test_follower_run_starts_its_own_passes_or_answers_busy()
 static void test_invalid_command_reports_usage_and_moves_nothing()
 {
     const std::pair<BoardRole, const char *> cases[] = {
-        {ROLE_FRONT, "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150\n"},
-        {ROLE_UNKNOWN, "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150\n"},
-        {ROLE_RIGHT, "CAL RIGHT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150\n"},
+        {ROLE_FRONT, "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150\n"},
+        {ROLE_UNKNOWN, "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150\n"},
+        {ROLE_RIGHT, "CAL RIGHT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150\n"},
     };
     for (const auto &entry : cases)
     {
@@ -161,7 +161,7 @@ static void test_invalid_command_reports_usage_and_moves_nothing()
         FakeBoard board;
         RobotCalibration robot;
         FakeSink out;
-        dispatchActuatorCalibrationCommand(entry.first, ActuatorCalibrationCommandKind::Invalid, kSweep100,
+        dispatchActuatorCalibrationCommand(entry.first, ActuatorCalibrationCommandKind::Invalid, kSweep120,
             out, robot, hooks, board);
         TEST_ASSERT_EQUAL_STRING(entry.second, out.text.c_str());
         TEST_ASSERT_FALSE(robot.isActive());
@@ -179,7 +179,7 @@ static void test_power_sensor_command_is_not_handled_here()
         FakeBoard board;
         RobotCalibration robot;
         FakeSink out;
-        dispatchActuatorCalibrationCommand(role, ActuatorCalibrationCommandKind::PowerSensor, kSweep100,
+        dispatchActuatorCalibrationCommand(role, ActuatorCalibrationCommandKind::PowerSensor, kSweep120,
             out, robot, hooks, board);
         TEST_ASSERT_TRUE(out.text.empty());
         TEST_ASSERT_TRUE(hooks.usb.text.empty());
@@ -199,7 +199,7 @@ static void test_abort_stops_the_robot_then_the_board()
     TEST_ASSERT_EQUAL_UINT(1, board.aborts.size());
     TEST_ASSERT_TRUE(hooks.usb.text.empty());
 
-    dispatchActuatorCalibrationCommand(ROLE_FRONT, ActuatorCalibrationCommandKind::Run, kSweep100, out,
+    dispatchActuatorCalibrationCommand(ROLE_FRONT, ActuatorCalibrationCommandKind::Run, kSweep120, out,
         robot, hooks, board);
     hooks.left.text.clear();
     abortBoardCalibrationForCommand(robot, hooks, board, 'B');
@@ -227,7 +227,7 @@ static void test_version_query_skips_followers_while_calibrating()
     RobotCalibration robot;
     FakeSink out;
     TEST_ASSERT_TRUE(shouldQueryFollowerVersions(robot));
-    dispatchActuatorCalibrationCommand(ROLE_FRONT, ActuatorCalibrationCommandKind::Run, kSweep100, out,
+    dispatchActuatorCalibrationCommand(ROLE_FRONT, ActuatorCalibrationCommandKind::Run, kSweep120, out,
         robot, hooks, board);
     TEST_ASSERT_FALSE(shouldQueryFollowerVersions(robot));
     robot.abort(hooks, 'H');

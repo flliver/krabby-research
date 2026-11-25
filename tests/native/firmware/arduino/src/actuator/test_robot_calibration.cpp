@@ -127,33 +127,33 @@ static void test_full_robot_run_orders_passes_and_boards()
     FakeHooks hooks;
     RobotCalibration robot;
     TEST_ASSERT_FALSE(robot.isActive());
-    TEST_ASSERT_TRUE(robot.start(hooks, CAL_PASS_ALL, 100));
-    TEST_ASSERT_EQUAL_STRING("CAL ROBOT START pwm=100 passes=SEEK,SWEEP", hooks.usb.lines().front().c_str());
+    TEST_ASSERT_TRUE(robot.start(hooks, CAL_PASS_ALL, 120));
+    TEST_ASSERT_EQUAL_STRING("CAL ROBOT START pwm=120 passes=SEEK,SWEEP", hooks.usb.lines().front().c_str());
     TEST_ASSERT_EQUAL_STRING("H", hooks.left.last().c_str());
     TEST_ASSERT_EQUAL_STRING("H", hooks.right.last().c_str());
     TEST_ASSERT_EQUAL_UINT(1, hooks.localStarts.size());
     TEST_ASSERT_EQUAL_UINT(CAL_PASS_SEEK, hooks.localStarts[0].first);
-    TEST_ASSERT_EQUAL_INT(100, hooks.localStarts[0].second);
+    TEST_ASSERT_EQUAL_INT(120, hooks.localStarts[0].second);
     TEST_ASSERT_EQUAL_INT(static_cast<int>(RobotCalibrationPhase::Local), static_cast<int>(robot.phase()));
     TEST_ASSERT_EQUAL_INT(ROLE_FRONT, robot.currentBoard());
-    TEST_ASSERT_EQUAL_INT(100, robot.pwm());
+    TEST_ASSERT_EQUAL_INT(120, robot.pwm());
     TEST_ASSERT_EQUAL_UINT(CAL_PASS_ALL, robot.passes());
 
     robot.update(hooks);  // still running locally
     TEST_ASSERT_EQUAL_UINT(1, hooks.left.lines().size());
     hooks.now = 5000;
     completeLocal(robot, hooks);
-    TEST_ASSERT_EQUAL_STRING("C SEEK 100", hooks.left.last().c_str());
+    TEST_ASSERT_EQUAL_STRING("C SEEK 120", hooks.left.last().c_str());
     TEST_ASSERT_EQUAL_INT(ROLE_LEFT, robot.currentBoard());
     TEST_ASSERT_EQUAL_UINT32(5000, robot.lastFollowerLineMs());
 
-    robot.onFollowerLine(hooks, ROLE_LEFT, "CAL LEFT PASS SEEK pwm=100");
+    robot.onFollowerLine(hooks, ROLE_LEFT, "CAL LEFT PASS SEEK pwm=120");
     robot.onFollowerLine(hooks, ROLE_RIGHT, "CAL RIGHT PASS_DONE SEEK");
     robot.onFollowerLine(hooks, ROLE_LEFT, "CAL LEFT PASS_DONE SWEEP saved");
     TEST_ASSERT_EQUAL_INT(ROLE_LEFT, robot.currentBoard());
     TEST_ASSERT_EQUAL_UINT(1, hooks.right.lines().size());
     robot.onFollowerLine(hooks, ROLE_LEFT, "CAL LEFT PASS_DONE SEEK");
-    TEST_ASSERT_EQUAL_STRING("C SEEK 100", hooks.right.last().c_str());
+    TEST_ASSERT_EQUAL_STRING("C SEEK 120", hooks.right.last().c_str());
     TEST_ASSERT_EQUAL_INT(ROLE_RIGHT, robot.currentBoard());
     robot.onFollowerLine(hooks, ROLE_RIGHT, "CAL RIGHT PASS_DONE SEEK");
 
@@ -161,11 +161,11 @@ static void test_full_robot_run_orders_passes_and_boards()
     TEST_ASSERT_EQUAL_UINT(CAL_PASS_SWEEP, hooks.localStarts[1].first);
     TEST_ASSERT_EQUAL_UINT(CAL_PASS_SWEEP, robot.currentPass());
     completeLocal(robot, hooks);
-    TEST_ASSERT_EQUAL_STRING("C SWEEP 100", hooks.left.last().c_str());
+    TEST_ASSERT_EQUAL_STRING("C SWEEP 120", hooks.left.last().c_str());
     robot.onFollowerLine(hooks, ROLE_LEFT, "CAL LEFT PASS_DONE SEEK");
     TEST_ASSERT_EQUAL_INT(ROLE_LEFT, robot.currentBoard());
     robot.onFollowerLine(hooks, ROLE_LEFT, "CAL LEFT PASS_DONE SWEEP saved");
-    TEST_ASSERT_EQUAL_STRING("C SWEEP 100", hooks.right.last().c_str());
+    TEST_ASSERT_EQUAL_STRING("C SWEEP 120", hooks.right.last().c_str());
     robot.onFollowerLine(hooks, ROLE_RIGHT, "CAL RIGHT PASS_DONE SWEEP saved");
 
     TEST_ASSERT_FALSE(robot.isActive());
@@ -247,8 +247,20 @@ static void test_busy_and_invalid_requests_are_rejected()
     TEST_ASSERT_FALSE(robot.start(hooks, CAL_PASS_ALL, CAL_PWM_MAX + 1));
     TEST_ASSERT_EQUAL_STRING("CAL ROBOT ERROR invalid request", hooks.usb.last().c_str());
     TEST_ASSERT_FALSE(robot.start(hooks, 0, CAL_DEFAULT_PWM));
+    // The PWM floor is 110: 109 (and the old 40 and 80) is refused, 110 starts.
+    for (const int pwm : {40, 80, 109})
+    {
+        TEST_ASSERT_FALSE(robot.start(hooks, CAL_PASS_ALL, pwm));
+        TEST_ASSERT_EQUAL_STRING("CAL ROBOT ERROR invalid request", hooks.usb.last().c_str());
+    }
     TEST_ASSERT_TRUE(hooks.localStarts.empty());
     TEST_ASSERT_TRUE(hooks.left.text.empty());
+    TEST_ASSERT_TRUE(robot.start(hooks, CAL_PASS_ALL, 110));
+    TEST_ASSERT_EQUAL_INT(110, hooks.localStarts.back().second);
+    TEST_ASSERT_TRUE(robot.abort(hooks, 'H'));
+    hooks.localStarts.clear();
+    hooks.left.text.clear();
+    hooks.right.text.clear();
 
     TEST_ASSERT_TRUE(robot.start(hooks, CAL_PASS_ALL, CAL_DEFAULT_PWM));
     TEST_ASSERT_FALSE(robot.start(hooks, CAL_PASS_ALL, CAL_DEFAULT_PWM));
@@ -285,16 +297,16 @@ static void test_local_failure_fails_the_robot()
 static void test_follower_failure_lines_fail_the_robot()
 {
     const char *const lines[] = {
-        "CAL LEFT FAIL RLHL barely moved (4 counts) at PWM 80: check pot wiring or raise speed",
+        "CAL LEFT FAIL RLHL barely moved (4 counts) at PWM 120: check pot wiring or raise speed",
         "CAL LEFT ABORTED H",
         "CAL LEFT BUSY",
-        "CAL LEFT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150",
+        "CAL LEFT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150",
     };
     const char *const expected[] = {
-        "CAL ROBOT FAIL LEFT: RLHL barely moved (4 counts) at PWM 80: check pot wiring or raise speed",
+        "CAL ROBOT FAIL LEFT: RLHL barely moved (4 counts) at PWM 120: check pot wiring or raise speed",
         "CAL ROBOT FAIL LEFT: ABORTED H",
         "CAL ROBOT FAIL LEFT: BUSY",
-        "CAL ROBOT FAIL LEFT: ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150",
+        "CAL ROBOT FAIL LEFT: ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150",
     };
     for (size_t i = 0; i < 4; ++i)
     {

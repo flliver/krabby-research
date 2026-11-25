@@ -71,6 +71,10 @@ class TestConstantsMatchFirmware:
             ("CAL_HIP_CURL_PWM_SIGN", krabby_mcu.CAL_HIP_CURL_PWM_SIGN),
             ("CAL_KNEE_CURL_PWM_SIGN", krabby_mcu.CAL_KNEE_CURL_PWM_SIGN),
             ("CAL_HIP_SWEEP_EDGES", krabby_mcu.CAL_HIP_SWEEP_EDGES),
+            ("CAL_HIP_STROKE_EDGES", krabby_mcu.CAL_HIP_STROKE_EDGES),
+            ("CAL_KNEE_PARK_EDGES", krabby_mcu.CAL_KNEE_PARK_EDGES),
+            ("CAL_KNEE_PARK_BAND_MIN_EDGES", krabby_mcu.CAL_KNEE_PARK_BAND_MIN_EDGES),
+            ("CAL_KNEE_PARK_BAND_MAX_EDGES", krabby_mcu.CAL_KNEE_PARK_BAND_MAX_EDGES),
             ("CAL_HIP_NUDGE_EDGES", krabby_mcu.CAL_HIP_NUDGE_EDGES),
             ("CAL_KNEE_NUDGE_EDGES", krabby_mcu.CAL_KNEE_NUDGE_EDGES),
             ("CAL_HALL_MIN_STROKE_EDGES", krabby_mcu.CAL_HALL_MIN_STROKE_EDGES),
@@ -81,7 +85,25 @@ class TestConstantsMatchFirmware:
         assert _firmware_constant(name) == value
 
     def test_known_values(self):
-        assert (CAL_PWM_MIN, CAL_PWM_MAX, CAL_DEFAULT_PWM) == (40, 150, 128)
+        # PWM 80 stalls mid-stroke with no current signature (owner decision F4).
+        assert (CAL_PWM_MIN, CAL_PWM_MAX, CAL_DEFAULT_PWM) == (110, 150, 128)
+
+    def test_table_safe_sweep_values(self):
+        # FL's values, used for all six legs: park 264 (band 244-280), sweep 840,
+        # derived stroke 1069. The sweep must stay short of the stroke.
+        assert krabby_mcu.CAL_KNEE_PARK_EDGES == 264
+        assert (
+            krabby_mcu.CAL_KNEE_PARK_BAND_MIN_EDGES,
+            krabby_mcu.CAL_KNEE_PARK_BAND_MAX_EDGES,
+        ) == (244, 280)
+        assert krabby_mcu.CAL_HIP_SWEEP_EDGES == 840
+        assert krabby_mcu.CAL_HIP_STROKE_EDGES == 1069
+        assert (
+            krabby_mcu.CAL_KNEE_PARK_BAND_MIN_EDGES
+            < krabby_mcu.CAL_KNEE_PARK_EDGES
+            < krabby_mcu.CAL_KNEE_PARK_BAND_MAX_EDGES
+        )
+        assert krabby_mcu.CAL_HIP_SWEEP_EDGES < krabby_mcu.CAL_HIP_STROKE_EDGES
 
 
 class TestCurlMapping:
@@ -112,28 +134,28 @@ class TestCurlMapping:
 
 
 class TestValidateCalibrationPwm:
-    @pytest.mark.parametrize("pwm", [40, 80, 150])
+    @pytest.mark.parametrize("pwm", [110, 128, 150])
     def test_accepts_in_range(self, pwm):
         assert validate_calibration_pwm(pwm) == pwm
 
-    @pytest.mark.parametrize("pwm", [39, 151, 0, -80, 255, 10**9])
+    @pytest.mark.parametrize("pwm", [109, 80, 40, 39, 151, 0, -80, 255, 10**9])
     def test_rejects_out_of_range(self, pwm):
         with pytest.raises(ValueError):
             validate_calibration_pwm(pwm)
 
-    @pytest.mark.parametrize("pwm", ["80", 80.0, 80.5, None, True, False, [80]])
+    @pytest.mark.parametrize("pwm", ["120", 120.0, 120.5, None, True, False, [120]])
     def test_rejects_non_integers(self, pwm):
         with pytest.raises(ValueError):
             validate_calibration_pwm(pwm)
 
 
 class TestParseCalibrationPwm:
-    @pytest.mark.parametrize("text,expected", [("80", 80), (" 40 ", 40), ("150", 150)])
+    @pytest.mark.parametrize("text,expected", [("110", 110), (" 128 ", 128), ("150", 150)])
     def test_ok(self, text, expected):
         assert parse_calibration_pwm(text) == expected
 
     @pytest.mark.parametrize(
-        "text", ["", " ", "abc", "8 0", "-80", "+80", "80.0", "39", "151", "0x50", "٨٠"]
+        "text", ["", " ", "abc", "8 0", "-80", "+80", "80.0", "80", "109", "151", "0x50", "٨٠"]
     )
     def test_rejects(self, text):
         with pytest.raises(ValueError):
@@ -145,14 +167,14 @@ class TestBuildCalibrateCommand:
         "pwm,passes,expected",
         [
             (None, None, "C"),
-            (80, None, "C 80"),
+            (110, None, "C 110"),
             (None, "SEEK", "C SEEK"),
             (None, "SWEEP", "C SWEEP"),
-            (80, "SEEK", "C SEEK 80"),
+            (120, "SEEK", "C SEEK 120"),
             (150, "SWEEP", "C SWEEP 150"),
-            (40, "seek", "C SEEK 40"),
-            (60, ("SEEK", "SWEEP"), "C 60"),
-            (60, ["SWEEP", "SEEK"], "C 60"),
+            (110, "seek", "C SEEK 110"),
+            (140, ("SEEK", "SWEEP"), "C 140"),
+            (140, ["SWEEP", "SEEK"], "C 140"),
             (None, ("SEEK",), "C SEEK"),
         ],
     )
@@ -162,16 +184,19 @@ class TestBuildCalibrateCommand:
     @pytest.mark.parametrize("passes", ["ALL", "", "SEEK,SWEEP", (), [], 1, ("SEEK", 2), "YAW"])
     def test_bad_passes(self, passes):
         with pytest.raises(ValueError):
-            build_calibrate_command(80, passes)
+            build_calibrate_command(128, passes)
 
     def test_docstring_examples_use_the_default_speed(self):
         doc = build_calibrate_command.__doc__
         assert "``C 128``" in doc and "``C SEEK 128``" in doc and "``C SWEEP 128``" in doc
         assert " 80``" not in doc
+        assert "110-150" in doc and "40-150" not in doc
 
     def test_bad_pwm(self):
         with pytest.raises(ValueError):
-            build_calibrate_command(39)
+            build_calibrate_command(109)
+        with pytest.raises(ValueError):
+            build_calibrate_command(80)
         with pytest.raises(ValueError):
             build_calibrate_command(151, "SEEK")
 
@@ -185,15 +210,15 @@ class TestSendCommandCalibrate:
 
     def test_with_pwm(self):
         sdk = _sdk()
-        assert sdk.send_command_calibrate(80) == "C 80"
-        sdk.ser.write.assert_called_once_with(b"C 80\n")
+        assert sdk.send_command_calibrate(120) == "C 120"
+        sdk.ser.write.assert_called_once_with(b"C 120\n")
 
     def test_with_pass_and_pwm(self):
         sdk = _sdk()
-        sdk.send_command_calibrate(pwm=60, passes="SWEEP")
-        sdk.ser.write.assert_called_once_with(b"C SWEEP 60\n")
+        sdk.send_command_calibrate(pwm=140, passes="SWEEP")
+        sdk.ser.write.assert_called_once_with(b"C SWEEP 140\n")
 
-    @pytest.mark.parametrize("pwm", [0, 39, 151, 80.0, "80", True])
+    @pytest.mark.parametrize("pwm", [0, 80, 109, 151, 120.0, "120", True])
     def test_invalid_pwm_raises_and_writes_nothing(self, pwm):
         sdk = _sdk()
         with pytest.raises(ValueError):
@@ -203,7 +228,7 @@ class TestSendCommandCalibrate:
     def test_invalid_passes_raises_and_writes_nothing(self):
         sdk = _sdk()
         with pytest.raises(ValueError):
-            sdk.send_command_calibrate(80, "BOGUS")
+            sdk.send_command_calibrate(128, "BOGUS")
         sdk.ser.write.assert_not_called()
 
     def test_validation_happens_even_with_port_closed(self):
@@ -213,7 +238,7 @@ class TestSendCommandCalibrate:
 
     def test_closed_port_sends_nothing(self):
         sdk = _sdk(open_port=False)
-        assert sdk.send_command_calibrate(80) is None
+        assert sdk.send_command_calibrate(128) is None
         sdk.ser.write.assert_not_called()
 
     def test_no_port_sends_nothing(self):
@@ -224,14 +249,14 @@ class TestSendCommandCalibrate:
     def test_clears_previous_run_lines(self):
         sdk = _sdk()
         sdk._record_cal_line("CAL ROBOT DONE")
-        sdk.send_command_calibrate(80)
+        sdk.send_command_calibrate(128)
         assert sdk.latest_cal_line is None
         assert sdk.recent_cal_lines() == []
 
     def test_send_does_not_clear_when_nothing_was_sent(self):
         sdk = _sdk(open_port=False)
         sdk._record_cal_line("CAL ROBOT DONE")
-        sdk.send_command_calibrate(80)
+        sdk.send_command_calibrate(128)
         assert sdk.latest_cal_line == "CAL ROBOT DONE"
 
 
@@ -260,8 +285,8 @@ class TestCalLineCapture:
     def test_cal_lines_are_captured_in_order(self):
         sdk = KrabbyMCUSDK(target=Mock())
         lines = [
-            "CAL ROBOT START pwm=80 passes=SEEK,SWEEP",
-            "CAL FRONT PASS SEEK pwm=80",
+            "CAL ROBOT START pwm=128 passes=SEEK,SWEEP",
+            "CAL FRONT PASS SEEK pwm=128",
             "CAL FRONT MOVE FLKL curl",
             "CAL FRONT END FLKL curl pot=1015 travel=0",
         ]
@@ -391,7 +416,7 @@ class TestCalLineClassification:
         [
             (None, ""),
             ("", ""),
-            ("CAL ROBOT START pwm=80 passes=SEEK,SWEEP", "running"),
+            ("CAL ROBOT START pwm=128 passes=SEEK,SWEEP", "running"),
             ("CAL FRONT MOVE FLKL curl", "running"),
             ("CAL FRONT PASS_DONE SEEK", "running"),
             ("CAL ROBOT DONE", "done"),
@@ -400,7 +425,7 @@ class TestCalLineClassification:
             ("CAL LEFT ABORTED H", "fail"),
             ("CAL ROBOT ABORTED H", "fail"),
             ("CAL ROBOT BUSY", "fail"),
-            ("CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150", "fail"),
+            ("CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150", "fail"),
             ("CAL", "running"),
             # New in the hall-encoder protocol (design 8.1): all read as "running".
             ("CAL FRONT MOVE FLKL nudge", "running"),
@@ -412,7 +437,16 @@ class TestCalLineClassification:
             ("CAL FRONT END FLKL curl hall=0 travel=312", "running"),
             ("CAL FRONT END FLKL curl hall=-3 travel=0 pot=512", "running"),
             ("CAL FRONT JOINT FLKL min=-776 max=0 edges", "running"),
-            ("CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)", "running"),
+            ("CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)", "running"),
+            ("CAL FRONT JOINT FLHL min=0 max=1069 edges (extend switch-verified)", "running"),
+            ("CAL FRONT PARK FLKL hall=-262 target=-264 (FL values)", "running"),
+            ("CAL FRONT MOVE FLKL curl park", "running"),
+            ("CAL FRONT MOVE FLHL uncurl sweep", "running"),
+            ("CAL FRONT MOVE FLHL curl retract", "running"),
+            ("CAL FRONT WARN FLHL stopped at 512 edges: retracting", "running"),
+            ("CAL FRONT WARN FLKL left out at -264 edges: jog it to its curl end", "running"),
+            ("CAL FRONT END FLHL curl hall=0 travel=-840 by=switch cur=75/110 floor=75", "running"),
+            ("CAL FRONT END FLHL curl hall=0 travel=-840 open=75/75", "running"),
         ],
     )
     def test_state(self, line, state):
@@ -426,7 +460,7 @@ class TestCalLineClassification:
             ("CAL ROBOT ABORTED J", True),
             ("CAL ROBOT ERROR invalid request", True),
             ("CAL ROBOT BUSY", False),
-            ("CAL ROBOT START pwm=80 passes=SEEK", False),
+            ("CAL ROBOT START pwm=128 passes=SEEK", False),
             ("CAL ROBOT SKIP LEFT no link", False),
             ("CAL FRONT FAIL FLKL pot not connected", False),
             ("CAL FRONT PASS_DONE SWEEP saved", False),
@@ -443,7 +477,7 @@ class TestCalLineClassification:
         "lines,shown",
         [
             ([], None),
-            (["CAL ROBOT START pwm=80 passes=SEEK", "CAL FRONT MOVE FLKL curl"], "CAL FRONT MOVE FLKL curl"),
+            (["CAL ROBOT START pwm=128 passes=SEEK", "CAL FRONT MOVE FLKL curl"], "CAL FRONT MOVE FLKL curl"),
             # A follower's ABORTED H after the robot end line: the run's result stays.
             (
                 ["CAL LEFT MOVE RLHL curl", "CAL ROBOT FAIL LEFT: no CAL report for 135 s", "CAL LEFT ABORTED H"],
@@ -463,18 +497,18 @@ class TestCalLinesAreNotTelemetry:
     @pytest.mark.parametrize(
         "line",
         [
-            "CAL ROBOT START pwm=80 passes=SEEK,SWEEP",
+            "CAL ROBOT START pwm=128 passes=SEEK,SWEEP",
             "CAL ROBOT SKIP LEFT no link",
-            "CAL FRONT PASS SEEK pwm=80",
+            "CAL FRONT PASS SEEK pwm=128",
             "CAL FRONT MOVE FLKL curl",
             "CAL FRONT END FLKL uncurl pot=210 travel=-805",
             "CAL FRONT JOINT FLKL min=210 max=1015",
             "CAL RIGHT WARN MRKL pot reads lower when extended; position control will "
             "drive it the wrong way (swap the pot's end wires)",
             "CAL LEFT PASS_DONE SWEEP saved",
-            "CAL LEFT FAIL RLHL barely moved (12 counts) at PWM 80: check its pot wiring",
+            "CAL LEFT FAIL RLHL barely moved (12 counts) at PWM 128: check its pot wiring",
             "CAL UNKWN ABORTED H",
-            "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150",
+            "CAL ROBOT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150",
         ],
     )
     def test_not_telemetry(self, line):
@@ -498,7 +532,14 @@ HALL_FAIL_LINES = [
     "CAL FRONT FAIL FLHL stopped 41 counts short of its curl end",
     "CAL FRONT FAIL FLKL stroke 1600 edges, outside 450-1500",
     "CAL FRONT FAIL FLKL stroke 600 edges, saved 776: obstacle?",
-    "CAL FRONT FAIL FLHL stopped 259 edges short of its 700-edge sweep: obstacle?",
+    "CAL FRONT FAIL FLHL stopped 259 edges short of its 840-edge sweep: obstacle? check its home",
+    "CAL FRONT FAIL FLHL lost counts: switch at 1010 edges, expected 1069",
+    "CAL FRONT FAIL FLHL lost counts: switch at 14 edges, expected 0",
+    "CAL FRONT FAIL FLKL at -300 edges, outside its park band -280..-244",
+    "CAL FRONT FAIL FLKL stopped 40 edges short of its park at -264: obstacle?",
+    "CAL FRONT FAIL FLHL not back at its curl switch (hall=212): jog it home",
+    "CAL FRONT FAIL FLHL and its knee must both be hall encoders",
+    "CAL FRONT FAIL FLHL stuck mid-stroke after 612 edges at PWM 150: raise PWM or check load",
     "CAL FRONT FAIL FLHL partner not proven curled",
 ]
 
@@ -532,7 +573,7 @@ class TestHallCalLines:
             "CAL FRONT END FLHL uncurl hall=-812 travel=-812",
             "CAL FRONT END FLKL curl hall=-3 travel=0 pot=512",
             "CAL FRONT JOINT FLKL min=-776 max=0 edges",
-            "CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)",
+            "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)",
         ],
     )
     def test_progress_words_are_running_and_not_an_end(self, line):

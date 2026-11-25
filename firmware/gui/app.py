@@ -10,8 +10,10 @@ from typing import Dict, List, NamedTuple, Optional
 from firmware.krabby_mcu import (
     CAL_DEFAULT_PWM,
     CAL_HIP_NUDGE_EDGES,
+    CAL_HIP_STROKE_EDGES,
     CAL_HIP_SWEEP_EDGES,
     CAL_KNEE_NUDGE_EDGES,
+    CAL_KNEE_PARK_EDGES,
     CAL_PWM_MAX,
     CAL_PWM_MIN,
     DEFAULT_BAUD,
@@ -63,22 +65,35 @@ CALIBRATION_RUNNING_NOTE = (
 
 # Calibrate dialog (Mega path). The curl directions quoted here come from
 # firmware.krabby_mcu.curl_button(), which mirrors calibration_constants.h.
-# The counts quoted here are CAL_HIP_SWEEP_EDGES, CAL_HIP_NUDGE_EDGES and
-# CAL_KNEE_NUDGE_EDGES; the knee nudge is the shipped default (CAL_DEFAULT_OPTIONS).
-# A curled knee springs out 5-9 counts after its nudge stops (measured on FLKL).
+# The counts quoted here are CAL_KNEE_PARK_EDGES, CAL_HIP_SWEEP_EDGES,
+# CAL_HIP_STROKE_EDGES, CAL_HIP_NUDGE_EDGES and CAL_KNEE_NUDGE_EDGES; the knee nudge is
+# the shipped default (CAL_DEFAULT_OPTIONS). A curled knee springs out 5-9 counts after
+# its nudge stops (measured on FLKL).
 CALIBRATE_EXPLANATION = (
     "Calibration finds each hip's and knee's travel limits, moving ONE joint at a "
     "time at a slow, ramped speed. Yaw joints are never moved. Each joint's sensor "
     "(pot or encoder) is detected automatically.\n"
     "\n"
-    "1. Curl: every leg on the whole robot is curled first (knee, then hip; FRONT "
-    "board, then LEFT, then RIGHT). The hip curls on Retract, the knee on Extend.\n"
-    "2. Sweep: only after the whole robot is curled, each hip is tested while its "
-    "knee is curled and each knee while its hip is curled. Each hip goes out about "
-    f"70% ({CAL_HIP_SWEEP_EDGES} hall counts) and back, not to full extension, because "
-    "a curled tibia meets the body; position control then stays inside that 70%. "
-    "Each knee goes fully out and back. A board's limits are saved only when its "
-    "sweep finishes with no problem.\n"
+    "1. Curl: every leg on the whole robot is curled first, one leg at a time: knee, "
+    "then hip, then the knee again (FRONT board, then LEFT, then RIGHT). The hip curls "
+    "on Retract, the knee on Extend. The second knee curl is the proven one: it can "
+    "move the knee's home deeper (a warning says so).\n"
+    "2. Sweep: only after the whole robot is curled, each leg is swept in a table-safe "
+    "order: knee curl, hip curl (home 0), knee uncurl to its switch, knee park "
+    f"{CAL_KNEE_PARK_EDGES} counts out of its curl stop, hip sweep to "
+    f"{CAL_HIP_SWEEP_EDGES} hall counts with the knee held there, hip back to its curl "
+    "switch (it must read within 10 counts of 0, else counts were lost), knee curl. "
+    "The hip moves past 560 counts only with its knee parked. If the hip or the knee "
+    "meets an obstacle, the hip retracts to its curl switch and the run fails, with no "
+    "automatic retry.\n"
+    "The hip's extend limit is never sought on a solid stand. It is derived "
+    f"({CAL_HIP_STROKE_EDGES} hall counts, the front-left leg's stroke) and not "
+    "switch-verified, and the hip is held 10 counts short of it. Every leg uses the "
+    "front-left leg's values: check each leg before you trust a position near its ends. "
+    "A board's limits are saved only when its sweep finishes with no problem.\n"
+    "\n"
+    "Before you start: jog every hip inside 0-560 counts and every knee to its curl "
+    "end. Watch each hip's HOME line: it must follow an end found by its limit switch.\n"
     "\n"
     "Flash all three boards together with the same firmware. The run will not "
     "start while a board has not reported its sensors yet: wait a few seconds "
@@ -97,11 +112,19 @@ CALIBRATE_EXPLANATION = (
     "the run names it. If a knee stops with \"curled back only\", run Curl only "
     "again.\n"
     "\n"
-    f"Use the default speed (PWM {CAL_DEFAULT_PWM}): ends are found from motor current "
-    "and motion; below about PWM 110 a joint may stall short of its end and the run "
-    "stops it as stuck mid-stroke. A joint slower than about 20 counts per second "
-    "(PWM 40-50) never shows a running phase: its ends are found by stall alone, as "
-    "before, and a long pause can then pass for its end.\n"
+    f"Use the default speed (PWM {CAL_DEFAULT_PWM}); the range is {CAL_PWM_MIN}-{CAL_PWM_MAX}. "
+    "PWM 80 stalled mid-stroke with no current signature, so nothing below "
+    f"{CAL_PWM_MIN} is accepted. A drive into a limit switch (every hip curl, every knee "
+    "uncurl, the hip's extended end) ends only when the motor current is flat at its "
+    "switch-open level; any stall without that signature stops the run as stuck "
+    "mid-stroke. A knee curl ends at its compliant leg stop, on a speed collapse with a "
+    "current rise, or on any stall: an obstacle on a knee curl looks the same, which "
+    "the knee's second curl catches. A hip sweep treats any stall as an obstacle.\n"
+    "\n"
+    "After a hip stops as stuck mid-stroke, never rerun at 128: jog the hip to its "
+    "curl end, or rerun at 150. A rerun is checked against the home that hip proved "
+    "earlier; one that ends more than 40 counts short of it fails instead of homing "
+    "there.\n"
     "\n"
     "Run the full calibration with the robot on its stand. Keep the legs clear of "
     "the ground and anything else. Hold All stops everything at once and saves "

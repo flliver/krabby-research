@@ -586,15 +586,16 @@ static void test_set_target_refuses_nan_and_unreadable_and_insets_encoder_target
     makeReadyHall(hip, 0, 1000);
     now = 1234;
     // Hall T stays 8 edges inside minStop (the retracted end: an actuator
-    // limit switch) and 25 inside maxStop (a compliant leg stop or the hip
-    // sweep end).
+    // limit switch) and, inside maxStop, 10 edges for a hip (its extend
+    // switch) or 25 for a knee (a compliant leg stop).
     TEST_ASSERT_EQUAL_INT(8, ACTUATOR_ENC_SWITCH_INSET_EDGES);
     TEST_ASSERT_EQUAL_INT(25, ACTUATOR_ENC_STOP_INSET_EDGES);
+    TEST_ASSERT_EQUAL_INT(10, ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES);
     TEST_ASSERT_TRUE(hip.setTarget(0));
     TEST_ASSERT_EQUAL_INT(8, hip.currentTarget);
     TEST_ASSERT_EQUAL_UINT16(1234, hip.guardMs);
     TEST_ASSERT_TRUE(hip.setTarget(1));
-    TEST_ASSERT_EQUAL_INT(1000 - 25, hip.currentTarget);
+    TEST_ASSERT_EQUAL_INT(1000 - 10, hip.currentTarget);
     TEST_ASSERT_TRUE(hip.setTarget(0.5f));
     TEST_ASSERT_EQUAL_INT(500, hip.currentTarget);
     // The guard window restarts only for a target that reverses the drive: one
@@ -623,14 +624,31 @@ static void test_set_target_refuses_nan_and_unreadable_and_insets_encoder_target
     TEST_ASSERT_TRUE(knee.setTarget(0.5f));
     TEST_ASSERT_EQUAL_INT(-500, knee.currentTarget);
 
-    // The saved hall hip range [0, CAL_HIP_SWEEP_EDGES]: T covers [8, 675].
-    auto sweptHip = makeActuator(0);
-    sweptHip.init();
-    makeReadyHall(sweptHip, 0, CAL_HIP_SWEEP_EDGES);
-    TEST_ASSERT_TRUE(sweptHip.setTarget(0));
-    TEST_ASSERT_EQUAL_INT(8, sweptHip.currentTarget);
-    TEST_ASSERT_TRUE(sweptHip.setTarget(1));
-    TEST_ASSERT_EQUAL_INT(675, sweptHip.currentTarget);
+    // The saved hall hip range [0, CAL_HIP_STROKE_EDGES = 1069]: T covers
+    // [8, 1059], the extend switch left as a hardware backstop. The knee of
+    // the same stroke keeps its own bounds, [-S + 8, -25].
+    TEST_ASSERT_EQUAL_INT(1069, CAL_HIP_STROKE_EDGES);
+    auto strokeHip = makeActuator(0);
+    strokeHip.init();
+    makeReadyHall(strokeHip, 0, CAL_HIP_STROKE_EDGES);
+    TEST_ASSERT_TRUE(strokeHip.isHallHipRange());
+    TEST_ASSERT_TRUE(strokeHip.setTarget(0));
+    TEST_ASSERT_EQUAL_INT(8, strokeHip.currentTarget);
+    TEST_ASSERT_TRUE(strokeHip.setTarget(1));
+    TEST_ASSERT_EQUAL_INT(1059, strokeHip.currentTarget);
+    TEST_ASSERT_TRUE(strokeHip.setTarget(2.0f));  // beyond 1: still clamped
+    TEST_ASSERT_EQUAL_INT(1059, strokeHip.currentTarget);
+    TEST_ASSERT_TRUE(strokeHip.setTarget(-1.0f));
+    TEST_ASSERT_EQUAL_INT(8, strokeHip.currentTarget);
+
+    auto strokeKnee = makeActuator(1);
+    strokeKnee.init();
+    makeReadyHall(strokeKnee, -785, 0);
+    TEST_ASSERT_FALSE(strokeKnee.isHallHipRange());
+    TEST_ASSERT_TRUE(strokeKnee.setTarget(0));
+    TEST_ASSERT_EQUAL_INT(-777, strokeKnee.currentTarget);
+    TEST_ASSERT_TRUE(strokeKnee.setTarget(1));
+    TEST_ASSERT_EQUAL_INT(-25, strokeKnee.currentTarget);
 
     // Pot targets have no inset.
     g_fakeQuadrature = false;
@@ -900,11 +918,11 @@ static void test_quiet_stop_holds_only_its_own_target()
     auto hip = makeActuator(0);
     hip.init();
     hip.setControlConfig(LinearActuator::ControlConfig(255, 10, 20, 10, 2.0f));
-    makeReadyHall(hip, 0, CAL_HIP_SWEEP_EDGES);
-    g_fakeHallCount[0] = -310;  // x = 310
+    makeReadyHall(hip, 0, 1000);
+    g_fakeHallCount[0] = -460;  // x = 460
     now = 0;
-    TEST_ASSERT_TRUE(hip.setTarget(0.5f));  // target 350, error 40: PWM 40
-    TEST_ASSERT_EQUAL_INT(350, hip.currentTarget);
+    TEST_ASSERT_TRUE(hip.setTarget(0.5f));  // target 500, error 40: PWM 40
+    TEST_ASSERT_EQUAL_INT(500, hip.currentTarget);
     for (int i = 0; i < 400 && hip.hasTarget; ++i)
     {
         now += 10;
@@ -922,9 +940,9 @@ static void test_quiet_stop_holds_only_its_own_target()
     TEST_ASSERT_EQUAL_INT8(1, hip.stallLatchSign);
 
     // A farther target the same way drives.
-    TEST_ASSERT_TRUE(hip.setTarget(0.95f));  // target 665, error 355: PWM 150
+    TEST_ASSERT_TRUE(hip.setTarget(0.95f));  // target 950, error 490: PWM 150
     TEST_ASSERT_TRUE(hip.hasTarget);
-    TEST_ASSERT_EQUAL_INT(665, hip.currentTarget);
+    TEST_ASSERT_EQUAL_INT(950, hip.currentTarget);
     TEST_ASSERT_EQUAL_INT8(0, hip.stallLatchSign);
     uint32_t drivenMs = 0;
     for (int i = 0; i < 300 && hip.hasTarget; ++i)
@@ -940,38 +958,42 @@ static void test_quiet_stop_holds_only_its_own_target()
     g_fakeHallCount[0] = 0;
 }
 
-// A hall hip's saved range is its fixed sweep [0, 700], about 70% of its reach:
-// jogged beyond it (it can reach 941-1003 edges with its knee curled) its home
-// is kept. Only past the largest plausible stroke, 1500 edges plus the 60-edge
-// margin, is it a wrong home. A knee keeps the bound of its own stroke.
-static void test_range_guard_lets_a_hip_be_jogged_beyond_its_fixed_sweep()
+// A hall hip's saved range is its whole stroke [0, 1069]: like a knee's it keeps
+// its home out to the range plus the 60-edge margin (it can reach 941-1003
+// edges with its knee curled, inside the stroke) and loses it beyond, whatever
+// its stroke. T keeps 10 edges inside the extend switch.
+static void test_range_guard_uses_a_hips_stroke_plus_margin()
 {
     g_fakeQuadrature = true;
     auto hip = makeActuator(0);
     hip.init();
-    makeReadyHall(hip, 0, CAL_HIP_SWEEP_EDGES);
-    g_fakeHallCount[0] = -1003;  // x = 1003: the body contact
+    makeReadyHall(hip, 0, CAL_HIP_STROKE_EDGES);
+    g_fakeHallCount[0] = -1003;  // x = 1003: the body contact, inside the stroke
     hip.update();
     TEST_ASSERT_EQUAL_CHAR('E', hip.sensorStateCode());
     TEST_ASSERT_EQUAL_UINT8(0, hip.encFlags & ACTUATOR_FLAG_ERR_HOME);
-    // T still keeps to the sweep: 1.0 is 25 edges inside 700.
     TEST_ASSERT_TRUE(hip.setTarget(1.0f));
-    TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES - ACTUATOR_ENC_STOP_INSET_EDGES, hip.currentTarget);
+    TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES - ACTUATOR_ENC_HIP_EXTEND_INSET_EDGES, hip.currentTarget);
     hip.stopMotor();
-    g_fakeHallCount[0] = -(CAL_HALL_MAX_STROKE_EDGES + ACTUATOR_ENC_RANGE_MARGIN_EDGES);
+    g_fakeHallCount[0] = -(CAL_HIP_STROKE_EDGES + ACTUATOR_ENC_RANGE_MARGIN_EDGES);  // x = 1129
     hip.update();
     TEST_ASSERT_EQUAL_CHAR('E', hip.sensorStateCode());
-    g_fakeHallCount[0] -= 1;
+    TEST_ASSERT_EQUAL_UINT8(0, hip.encFlags & ACTUATOR_FLAG_ERR_HOME);
+    g_fakeHallCount[0] -= 1;  // x = 1130: a wrong home
     hip.update();
     TEST_ASSERT_EQUAL_CHAR('x', hip.sensorStateCode());
     TEST_ASSERT_TRUE(hip.encFlags & ACTUATOR_FLAG_ERR_HOME);
 
-    // Any other range keeps its own bound: [0, 701] trips at 762.
+    // Any other range keeps its own bound: [0, 701] trips at 762 (there is no
+    // longer a fixed-sweep range with a wider bound).
     g_fakeHallCount[0] = 0;
     auto other = makeActuator(0);
     other.init();
-    makeReadyHall(other, 0, CAL_HIP_SWEEP_EDGES + 1);
-    g_fakeHallCount[0] = -(CAL_HIP_SWEEP_EDGES + 1 + ACTUATOR_ENC_RANGE_MARGIN_EDGES + 1);
+    makeReadyHall(other, 0, 701);
+    g_fakeHallCount[0] = -(701 + ACTUATOR_ENC_RANGE_MARGIN_EDGES);
+    other.update();
+    TEST_ASSERT_EQUAL_CHAR('E', other.sensorStateCode());
+    g_fakeHallCount[0] -= 1;
     other.update();
     TEST_ASSERT_EQUAL_CHAR('x', other.sensorStateCode());
 }
@@ -1382,10 +1404,10 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
     }
     for (int joint : {1, 4})
     {
-        // A hall hip saves its fixed sweep, not its rod's full stroke.
+        // A hall hip saves its derived stroke, not what its table-safe sweep reached.
         assertKind(JointSensor::Hall, *rig.acts[joint]);
         TEST_ASSERT_EQUAL_INT(0, rig.acts[joint]->minStop);
-        TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, rig.acts[joint]->maxStop);
+        TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, rig.acts[joint]->maxStop);
         TEST_ASSERT_EQUAL_INT(kHallCountOffset, rig.acts[joint]->hallHome);
         TEST_ASSERT_EQUAL_CHAR('E', rig.acts[joint]->sensorStateCode());
     }
@@ -1406,16 +1428,54 @@ static void test_hall_board_calibrates_homes_and_accepts_targets()
     TEST_ASSERT_EQUAL_HEX16(ActuatorManager::CAL_DATA_MAGIC, saved.magic);
     TEST_ASSERT_EQUAL_HEX16(0x0A28, saved.sensorBits);
     TEST_ASSERT_EQUAL_HEX16(ActuatorManager::calDataCheck(saved), saved.check);
-    TEST_ASSERT_EQUAL_INT(CAL_HIP_SWEEP_EDGES, saved.maxVals[1]);
+    TEST_ASSERT_EQUAL_INT(CAL_HIP_STROKE_EDGES, saved.maxVals[1]);
     TEST_ASSERT_EQUAL_INT(-kHallStroke, saved.minVals[2]);
-    TEST_ASSERT_TRUE(contains(rig.output.output, "CAL FRONT JOINT FLHL min=0 max=700 edges (fixed sweep)\n"));
+    TEST_ASSERT_TRUE(contains(rig.output.output, "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)\n"));
+
+    // One leg's moves, in the order the table-safe schedule runs them: SEEK is
+    // knee curl, hip curl, knee curl; SWEEP is knee curl, hip curl, knee uncurl,
+    // knee park (to -264, flagged as FL's values), hip sweep (to 840 edges, by
+    // count), hip curl (which proves the home again and saves the derived
+    // stroke), knee curl (which saves the knee's).
+    static const char *const kFlLegOrder[] = {
+        "CAL FRONT PASS SEEK pwm=128\n",
+        "CAL FRONT MOVE FLKL curl\n",
+        "CAL FRONT MOVE FLHL curl\n",
+        "CAL FRONT MOVE FLKL curl\n",
+        "CAL FRONT MOVE FRKL curl\n",
+        "CAL FRONT PASS_DONE SEEK\n",
+        "CAL FRONT PASS SWEEP pwm=128\n",
+        "CAL FRONT MOVE FLKL curl\n",
+        "CAL FRONT MOVE FLHL curl\n",
+        "CAL FRONT MOVE FLKL uncurl\n",
+        "CAL FRONT MOVE FLKL curl park\n",
+        "CAL FRONT PARK FLKL hall=-262 target=-264 (FL values)\n",
+        "CAL FRONT MOVE FLHL uncurl sweep\n",
+        "CAL FRONT END FLHL uncurl hall=840 travel=840\n",
+        "CAL FRONT MOVE FLHL curl\n",
+        "CAL FRONT JOINT FLHL min=0 max=1069 edges (extend derived from FL, not switch-verified)\n",
+        "CAL FRONT MOVE FLKL curl\n",
+        "CAL FRONT JOINT FLKL min=-1000 max=0 edges\n",
+        "CAL FRONT MOVE FRKL curl\n",
+    };
+    size_t cursor = 0;
+    for (const char *line : kFlLegOrder)
+    {
+        const size_t at = rig.output.output.find(line, cursor);
+        TEST_ASSERT_TRUE_MESSAGE(at != std::string::npos, (std::string("missing in order: ") + line).c_str());
+        cursor = at + 1;
+    }
+    TEST_ASSERT_EQUAL_UINT(2, occurrences(rig.output.output, " curl park\n"));
+    TEST_ASSERT_EQUAL_UINT(2, occurrences(rig.output.output, " uncurl sweep\n"));
+    TEST_ASSERT_FALSE(contains(rig.output.output, "WARN"));
+    TEST_ASSERT_FALSE(contains(rig.output.output, "FAIL"));
 
     rig.output.output.clear();
     Command commands[] = {{"FLHL", 0.5f}, {"FLHY", 0.5f}};
     rig.manager.applyCommands(commands, 2);
     TEST_ASSERT_TRUE(contains(rig.output.output, "ERR T refused FLHY (no position)\n"));
     for (int i = 0; i < 1000; ++i) rig.tick();
-    TEST_ASSERT_INT_WITHIN(60, CAL_HIP_SWEEP_EDGES / 2, rig.acts[1]->getRawPos());
+    TEST_ASSERT_INT_WITHIN(60, CAL_HIP_STROKE_EDGES / 2, rig.acts[1]->getRawPos());
     TEST_ASSERT_FALSE(contains(rig.output.output, "ERR STALL"));
     TEST_ASSERT_EQUAL_INT(0, rig.signedPwm(0));
 }
@@ -1487,10 +1547,13 @@ static void test_calibration_requires_six_actuators_and_an_output()
     rig.manager.setCalibrationOutput(&rig.output, ROLE_LEFT);
     TEST_ASSERT_EQUAL_INT(ROLE_LEFT, rig.manager.calibrationOutputRole());
     TEST_ASSERT_FALSE(rig.manager.startCalibration(CAL_PASS_ALL, CAL_PWM_MAX + 1));
+    TEST_ASSERT_FALSE(rig.manager.startCalibration(CAL_PASS_ALL, CAL_PWM_MIN - 1));  // 109: below the floor
+    TEST_ASSERT_FALSE(rig.manager.startCalibration(CAL_PASS_ALL, 80));               // an old PWM
     TEST_ASSERT_FALSE(rig.manager.startCalibration(CAL_PASS_ALL, CAL_DEFAULT_PWM, 0x80));
+    TEST_ASSERT_EQUAL_INT(110, CAL_PWM_MIN);
     TEST_ASSERT_TRUE(rig.manager.startCalibration(CAL_PASS_SWEEP, CAL_PWM_MIN));
     TEST_ASSERT_EQUAL_UINT8(CAL_DEFAULT_OPTIONS, rig.manager.calibrationSequencer().options());
-    TEST_ASSERT_NOT_NULL(std::strstr(rig.output.output.c_str(), "CAL LEFT PASS SWEEP pwm=40\n"));
+    TEST_ASSERT_NOT_NULL(std::strstr(rig.output.output.c_str(), "CAL LEFT PASS SWEEP pwm=110\n"));
     rig.manager.holdAll();
     TEST_ASSERT_TRUE(rig.manager.startCalibration(CAL_PASS_SEEK, CAL_DEFAULT_PWM, CAL_OPT_KNEE_NUDGE));
     TEST_ASSERT_EQUAL_UINT8(CAL_OPT_KNEE_NUDGE, rig.manager.calibrationSequencer().options());
@@ -1625,11 +1688,11 @@ static void writeRecord(uint16_t magic, const StoredJoint (&joints)[6], uint16_t
     EEPROM.put(EEPROM_ACTUATOR_CAL_ADDR, data);
 }
 
-// As a quadrature build saves it: yaws Unknown, a hall hip's fixed sweep, knees
+// As a quadrature build saves it: yaws Unknown, a hall hip's derived stroke, knees
 // at the shortest and longest plausible strokes, a pot hip on joint 4.
 static const StoredJoint kGoodRecord[6] = {
     {JointSensor::Unknown, 0, 0},
-    {JointSensor::Hall, 0, CAL_HIP_SWEEP_EDGES},
+    {JointSensor::Hall, 0, CAL_HIP_STROKE_EDGES},
     {JointSensor::Hall, -CAL_HALL_MIN_STROKE_EDGES, 0},
     {JointSensor::Unknown, 0, 0},
     {JointSensor::Pot, 50, 950},
@@ -1651,7 +1714,7 @@ static void test_load_v2_record_applies_kinds_limits_and_pin_modes()
     writeRecord(ActuatorManager::CAL_DATA_MAGIC, kGoodRecord);
     rig.manager.loadCalibration();
     assertJoint(*rig.acts[0], JointSensor::Unknown, 0, 0, false);
-    assertJoint(*rig.acts[1], JointSensor::Hall, 0, 700, true);
+    assertJoint(*rig.acts[1], JointSensor::Hall, 0, 1069, true);
     assertJoint(*rig.acts[2], JointSensor::Hall, -450, 0, true);
     assertJoint(*rig.acts[3], JointSensor::Unknown, 0, 0, false);
     assertJoint(*rig.acts[4], JointSensor::Pot, 50, 950, true);
@@ -1663,6 +1726,11 @@ static void test_load_v2_record_applies_kinds_limits_and_pin_modes()
     TEST_ASSERT_EQUAL_CHAR('e', rig.acts[1]->sensorStateCode());  // homes are never stored
     TEST_ASSERT_TRUE(contains(rig.output.output, "Calibration v2 loaded\n"));
     TEST_ASSERT_FALSE(contains(rig.output.output, "invalid"));
+    // The hall hip's 1069 is derived, not found at its switch: loading says so
+    // once (the hip only; the knees carry measured strokes).
+    TEST_ASSERT_EQUAL_UINT(1, occurrences(rig.output.output, "extend derived"));
+    TEST_ASSERT_TRUE(contains(rig.output.output,
+        "Calibration joint FLHL extend derived (1069 edges): not switch-verified\n"));
 
     // Bits value 3 reads as Unknown; a stored Unknown on a pot build is a pot with defaults.
     StoredJoint record[6];
@@ -1670,7 +1738,7 @@ static void test_load_v2_record_applies_kinds_limits_and_pin_modes()
     writeRecord(ActuatorManager::CAL_DATA_MAGIC, record, 0x3 << 4);  // joint 2: 2 | 3 = 3
     rig.manager.loadCalibration();
     assertJoint(*rig.acts[2], JointSensor::Unknown, 0, 0, false);
-    assertJoint(*rig.acts[1], JointSensor::Hall, 0, 700, true);
+    assertJoint(*rig.acts[1], JointSensor::Hall, 0, 1069, true);
 
     g_fakeQuadrature = false;
     CalibrationRig pots;
@@ -1714,17 +1782,20 @@ static void test_load_validates_each_joint()
         {true, 4, {JointSensor::Pot, -1, 900}},
         {true, 4, {JointSensor::Pot, 500, 500}},
         {true, 4, {JointSensor::Pot, 100, 1024}},
-        {true, 0, {JointSensor::Hall, 0, 700}},        // a yaw is never Hall
-        {true, 1, {JointSensor::Hall, 5, 705}},        // hip curl end not at 0
+        {true, 0, {JointSensor::Hall, 0, 1069}},       // a yaw is never Hall
+        {true, 1, {JointSensor::Hall, 5, 1074}},       // hip curl end not at 0
         {true, 2, {JointSensor::Hall, -900, 5}},       // knee curl end not at 0
-        // A hall hip loads only with exactly its fixed sweep: a full-stroke
-        // record from older firmware would let T drive it into the body.
-        {true, 1, {JointSensor::Hall, 0, CAL_HIP_SWEEP_EDGES - 1}},
-        {true, 1, {JointSensor::Hall, 0, CAL_HIP_SWEEP_EDGES + 1}},
+        // A hall hip loads only as [0, N] with N within 20 edges of its derived
+        // stroke 1069: the old fixed-sweep record [0, 700] (and anything else
+        // short of 1049 or past 1089) is invalid and needs a new C.
+        {true, 1, {JointSensor::Hall, 0, 700}},
+        {true, 1, {JointSensor::Hall, 0, 1048}},
+        {true, 1, {JointSensor::Hall, 0, 1090}},
         {true, 1, {JointSensor::Hall, 0, 941}},
+        {true, 1, {JointSensor::Hall, 0, CAL_HALL_MAX_STROKE_EDGES}},
         {true, 2, {JointSensor::Hall, -CAL_HALL_MIN_STROKE_EDGES + 1, 0}},
         {true, 2, {JointSensor::Hall, -CAL_HALL_MAX_STROKE_EDGES - 1, 0}},
-        {false, 1, {JointSensor::Hall, 0, 700}},       // no quadrature halls
+        {false, 1, {JointSensor::Hall, 0, 1069}},      // no quadrature halls
     };
     for (const Case &c : cases)
     {
@@ -1746,6 +1817,55 @@ static void test_load_validates_each_joint()
         TEST_ASSERT_TRUE(contains(rig.output.output, "Calibration v2 loaded\n"));
         const uint8_t other = c.joint == 4 ? 1 : 4;
         TEST_ASSERT_TRUE(rig.acts[other]->encFlags & ACTUATOR_FLAG_LIMITS_VALID);
+    }
+}
+
+// The accepted hall hip strokes are 1049..1089 (1069 plus or minus 20); only
+// exactly 1069 prints "extend derived", a hollow-stand sweep's measured switch
+// within the tolerance does not. Outside the window the joint is invalid.
+static void test_load_hall_hip_window_and_derived_line()
+{
+    struct Case
+    {
+        int hi;
+        bool valid;
+        bool derivedLine;
+    };
+    const Case cases[] = {
+        {1069, true, true},
+        {1049, true, false},
+        {1089, true, false},
+        {1048, false, false},
+        {1090, false, false},
+        {700, false, false},
+        {0, false, false},
+    };
+    for (const Case &c : cases)
+    {
+        setUp();
+        g_fakeQuadrature = true;
+        CalibrationRig rig(true);
+        StoredJoint record[6];
+        std::copy(kGoodRecord, kGoodRecord + 6, record);
+        record[1] = {JointSensor::Hall, 0, c.hi};
+        record[4] = {JointSensor::Hall, 0, c.hi};  // the right hip too
+        writeRecord(ActuatorManager::CAL_DATA_MAGIC, record);
+        rig.manager.loadCalibration();
+        const std::string out = "hi=" + std::to_string(c.hi) + "\n" + rig.output.output;
+        for (int hip : {1, 4})
+        {
+            if (c.valid)
+                assertJoint(*rig.acts[hip], JointSensor::Hall, 0, c.hi, true);
+            else
+                assertJoint(*rig.acts[hip], JointSensor::Unknown, 0, 0, false);
+            const std::string invalid = std::string("Calibration joint ") + rig.names[hip] + " invalid: defaults\n";
+            const std::string derived = std::string("Calibration joint ") + rig.names[hip] +
+                " extend derived (1069 edges): not switch-verified\n";
+            TEST_ASSERT_EQUAL_INT_MESSAGE(c.valid ? 0 : 1, contains(rig.output.output, invalid.c_str()) ? 1 : 0, out.c_str());
+            TEST_ASSERT_EQUAL_INT_MESSAGE(c.derivedLine ? 1 : 0, contains(rig.output.output, derived.c_str()) ? 1 : 0, out.c_str());
+        }
+        // The knees never print it.
+        TEST_ASSERT_EQUAL_UINT(c.derivedLine ? 2 : 0, occurrences(rig.output.output, "extend derived"));
     }
 }
 
@@ -1852,10 +1972,10 @@ static void test_load_without_record_keeps_defaults()
     rig.output.output.clear();
     wide.loadCalibration();
     assertJoint(extra, JointSensor::Pot, 0, 1023, false);
-    assertJoint(*rig.acts[1], JointSensor::Hall, 0, 700, true);
+    assertJoint(*rig.acts[1], JointSensor::Hall, 0, 1069, true);
     StoredJoint bad[6];
     std::copy(kGoodRecord, kGoodRecord + 6, bad);
-    bad[1] = {JointSensor::Hall, 1, 700};
+    bad[1] = {JointSensor::Hall, 1, 1069};
     writeRecord(ActuatorManager::CAL_DATA_MAGIC, bad);
     wide.loadCalibration();
     assertJoint(*rig.acts[1], JointSensor::Unknown, 0, 0, false);
@@ -1970,7 +2090,7 @@ int main()
     RUN_TEST(test_stall_guard_trip_stays_stopped_while_the_same_target_is_resent);
     RUN_TEST(test_quiet_stop_holds_only_its_own_target);
     RUN_TEST(test_range_guard_clears_a_wrong_home);
-    RUN_TEST(test_range_guard_lets_a_hip_be_jogged_beyond_its_fixed_sweep);
+    RUN_TEST(test_range_guard_uses_a_hips_stroke_plus_margin);
     RUN_TEST(test_pot_joint_that_counts_edges_is_demoted);
     RUN_TEST(test_manager_dispatch_hold_and_telemetry);
     RUN_TEST(test_sensor_state_line_on_change_and_period);
@@ -1988,6 +2108,7 @@ int main()
     RUN_TEST(test_load_v2_record_applies_kinds_limits_and_pin_modes);
     RUN_TEST(test_load_rejects_corrupt_v2_records);
     RUN_TEST(test_load_validates_each_joint);
+    RUN_TEST(test_load_hall_hip_window_and_derived_line);
     RUN_TEST(test_load_ignores_a_record_from_a_build_without_halls);
     RUN_TEST(test_load_v1_record_per_build);
     RUN_TEST(test_load_without_record_keeps_defaults);

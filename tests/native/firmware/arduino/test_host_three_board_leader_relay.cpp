@@ -479,16 +479,16 @@ static void test_follower_calibration_outside_a_robot_run_is_held()
 
     pushToLeftFollower("C BOGUS\n");
     const auto rejected = runLoops(3);
-    TEST_ASSERT_TRUE(containsLine(rejected, "CAL LEFT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 40-150"));
+    TEST_ASSERT_TRUE(containsLine(rejected, "CAL LEFT ERROR usage: C [SEEK|SWEEP] [pwm], pwm 110-150"));
     TEST_ASSERT_FALSE(containsLine(rejected, "CAL ROBOT FAIL LEFT: MOVE outside its turn"));
     TEST_ASSERT_EQUAL_INT(0, krabby_host_firmware_calibration_active());
 
-    pushToLeftFollower("C SEEK 80\nC SEEK 80\n");
+    pushToLeftFollower("C SEEK 120\nC SEEK 120\n");
     const auto lines = runLoops(5);
     std::string joined;
     for (const std::string &line : lines) joined += line + "\n";
     static const char *kOrder[] = {
-        "CAL LEFT PASS SEEK pwm=80",
+        "CAL LEFT PASS SEEK pwm=120",
         "CAL LEFT MOVE RLKL curl",
         "CAL ROBOT FAIL LEFT: MOVE outside its turn",  // as soon as the MOVE is forwarded
         "CAL LEFT ABORTED H",

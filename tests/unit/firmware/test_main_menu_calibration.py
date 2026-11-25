@@ -402,12 +402,18 @@ class TestMenuNeutralKey:
         assert "9 is the FULL calibration" in out
         assert "Run 9 only with the robot on its stand" in out
 
-    def test_help_describes_the_fixed_hip_sweep_and_flashing(self, monkeypatch, capsys):
+    def test_help_describes_the_table_safe_sweep_and_flashing(self, monkeypatch, capsys):
         _run_menu(monkeypatch, [lambda m, p: None])
         out = " ".join(capsys.readouterr().out.split())
-        assert "each knee fully out and back with its hip curled" in out
-        assert "each hip out about 70% and back (a curled tibia meets the body" in out
-        assert "end to end" not in out
+        assert "(per leg: knee, hip, knee again)" in out
+        assert (
+            "Each leg: knee curl, hip curl, knee uncurl, knee park 264 counts out, "
+            "hip sweep to 840 with the knee parked, hip back to its curl switch, knee curl."
+        ) in out
+        assert "The hip's extend limit (1069) is derived, not switch-verified." in out
+        assert "PWM 128 (range 110-150)" in out
+        assert "70%" not in out and "end to end" not in out
+        assert "Before 9, jog every hip inside 0-560 and every knee to its curl end." in out
         assert "Flash all three boards together with the same firmware." in out
 
     def test_calibrate_warning_mentions_the_nudge_and_the_stand(self, monkeypatch, capsys):
@@ -419,7 +425,8 @@ class TestMenuNeutralKey:
         assert "nudged out a little and straight back so its sensor can be checked" in out
         assert "(at most 24 hall counts for a hip, 12 for a knee;" in out
         assert "springs out a little more, to about 20" in out
-        assert "Hips go out about 70% and back, knees fully out and back" in out
+        assert "Hips sweep out 840 counts and back with the knee parked." in out
+        assert "70%" not in out
         assert "flash all three boards with the same firmware, or wait" in out
         assert "a few seconds after connecting" in out
         assert "A joint that still" in out and "shows no movement stops the run" in out

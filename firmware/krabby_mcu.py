@@ -63,19 +63,31 @@ JOINT_GROUP_NAMES = (
 # These mirror firmware/arduino/src/actuator/calibration_constants.h. A unit test
 # (tests/unit/firmware/test_krabby_mcu_calibration.py) parses that header and fails
 # if any value below drifts from it.
-CAL_PWM_MIN = 40  # firmware CAL_PWM_MIN: slowest accepted calibration speed
+# firmware CAL_PWM_MIN: slowest accepted calibration speed. Owner decision F4
+# (2026-11-24): PWM 80 stalls mid-stroke with no current signature (FLHL stopped 229
+# edges short of its curl switch), so nothing below 110 is accepted.
+CAL_PWM_MIN = 110
 CAL_PWM_MAX = 150  # firmware CAL_PWM_MAX: fastest accepted calibration speed
 CAL_DEFAULT_PWM = 128  # firmware CAL_DEFAULT_PWM: speed used when none is given
-CAL_PASS_SEEK = "SEEK"  # curl every leg (knee, then hip); saves nothing
-# Exercise each hip and knee, one at a time, and save its limits: a knee over its
-# full stroke with its hip curled; a hall hip out CAL_HIP_SWEEP_EDGES and back.
+CAL_PASS_SEEK = "SEEK"  # curl every leg (knee, hip, knee again); saves nothing
+# Exercise each leg and save its limits. A hall leg runs the table-safe order: knee
+# curl, hip curl, knee uncurl, knee park CAL_KNEE_PARK_EDGES out, hip sweep to
+# CAL_HIP_SWEEP_EDGES with the knee parked, hip back to its curl switch, knee curl.
 CAL_PASS_SWEEP = "SWEEP"
 CAL_PASS_NAMES = (CAL_PASS_SEEK, CAL_PASS_SWEEP)  # run order when both are requested
-# Fixed hall hip sweep (PROVISIONAL, about 70%): with its knee curled, a full hip
-# uncurl presses the curled tibia against the bottom of the robot (FLHL stopped
-# there at 941-1003 edges), so SWEEP takes a hall hip out this many edges and back
-# and saves its range as [0, CAL_HIP_SWEEP_EDGES]. Pot hips still sweep end to end.
-CAL_HIP_SWEEP_EDGES = 700
+# Table-safe sweep of a hall leg (PROVISIONAL: only FL was modelled, every leg uses
+# FL's values). The knee parks CAL_KNEE_PARK_EDGES out of its curl stop (firmware
+# position -264), inside CAL_KNEE_PARK_BAND_MIN_EDGES..CAL_KNEE_PARK_BAND_MAX_EDGES
+# out. With the knee held there the hip sweeps by count to CAL_HIP_SWEEP_EDGES and
+# returns to its curl switch. The hip's extend switch is never sought on a solid
+# stand: at 1069 no knee setting keeps the leg clear of belly, table and floor.
+# The hip's saved range is [0, CAL_HIP_STROKE_EDGES] (FL's switch-to-switch stroke,
+# derived, not switch-verified). Pot hips still sweep end to end.
+CAL_KNEE_PARK_EDGES = 264
+CAL_KNEE_PARK_BAND_MIN_EDGES = 244
+CAL_KNEE_PARK_BAND_MAX_EDGES = 280
+CAL_HIP_SWEEP_EDGES = 840
+CAL_HIP_STROKE_EDGES = 1069
 # Verification nudge bounds in hall edges. A curled knee springs out a few more
 # edges after its nudge stops (5-9 measured), so a knee nudge ends about 18-21 out.
 CAL_HIP_NUDGE_EDGES = 24
@@ -201,7 +213,7 @@ def build_calibrate_command(
     """Wire text (no newline) for the firmware ``C [SEEK|SWEEP] [pwm]`` command.
 
     ``C`` / ``C 128`` run SEEK then SWEEP; ``C SEEK 128`` / ``C SWEEP 128`` run one pass.
-    Raises ValueError for a speed outside 40-150 or an unknown pass.
+    Raises ValueError for a speed outside 110-150 or an unknown pass.
     """
     parts = ["C"]
     chosen = _normalize_calibration_passes(passes)
@@ -589,7 +601,7 @@ class KrabbyMCUSDK:
     ) -> Optional[str]:
         """Start robot calibration: ``C``, ``C 128``, ``C SEEK 128``, ``C SWEEP``, ...
 
-        ``pwm`` is the calibration speed (integer 40-150; None = firmware default 128).
+        ``pwm`` is the calibration speed (integer 110-150; None = firmware default 128).
         ``passes`` is None (SEEK then SWEEP), "SEEK", "SWEEP", or an iterable of those.
         Invalid values raise ValueError before anything is written, even when the port
         is closed. Returns the command text sent, or None if there is no open port.
