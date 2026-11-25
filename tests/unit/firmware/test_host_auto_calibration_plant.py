@@ -13,8 +13,8 @@ three robots:
 Invariants are checked after every firmware loop (the native
 ``test_host_calibration_timeline`` checks them at every pin write).
 
-A hall hip's SWEEP is table-safe: knee curl, hip curl, knee uncurl to its switch,
-knee PARK at -264 (``CAL_KNEE_PARK_EDGES``), hip out ``CAL_HIP_SWEEP_EDGES`` (840)
+A hall hip's SWEEP is table-safe: knee curl, hip curl, knee curl again, knee uncurl
+to its switch, knee PARK at -264 (``CAL_KNEE_PARK_EDGES``), hip out ``CAL_HIP_SWEEP_EDGES`` (840)
 with the knee parked, hip back to its curl switch (re-homed within 10 edges of 0),
 knee curl. It saves the hip as [0, 1069] (``CAL_HIP_STROKE_EDGES``, derived, not
 switch-verified) and the knee as [-S, 0]. A pot hip keeps the old order (hip out to
@@ -184,6 +184,7 @@ def _expected_sweep_moves(config) -> list[str]:
             sweep += [
                 f"{knee} curl",
                 f"{hip} curl",
+                f"{knee} curl",
                 f"{knee} uncurl",
                 f"{knee} curl park",
                 f"{hip} uncurl sweep",
@@ -877,6 +878,44 @@ def test_hip_that_rehomes_within_ten_edges_of_zero_passes(host, shift):
     assert "CAL ROBOT DONE" in run.log
     assert not any(" FAIL " in line for line in run.cal_lines())
     assert (host.actuator_min_stop("FLHL"), host.actuator_max_stop("FLHL")) == (0, CAL_HIP_STROKE_EDGES)
+
+
+@pytest.mark.parametrize("wire", [b"C\n", b"C SEEK\n"])
+def test_a_hip_left_out_past_560_fails_the_next_run_and_nothing_moves(host, wire):
+    """H during the hip's sweep leaves it out (its home is still known): a new C refuses
+    with the HipOut line, drives nothing, and neither the knee nor the hip moves."""
+    config = SimulatedRobotConfig.rev3_hall()
+    run = _Run(host, config)
+    run.boot()
+    run.max_pwm = 128
+    host.serial_usb_rx_write(b"C\n")
+    run.run_until("CAL FRONT MOVE FLHL uncurl sweep")
+    while run.out_edges("FLHL") < 600:
+        run.tick()
+    host.serial_usb_rx_write(b"H\n")
+    run.stopped = True
+    for _ in range(100):
+        run.tick()
+    assert run.violations == []
+    assert "CAL FRONT WARN FLHL left out at 601 edges: jog it to its curl end" in run.log
+    assert "CAL ROBOT ABORTED H" in run.log
+    hip_out = run.out_edges("FLHL")
+    still = {aid: run.travel[aid] for aid in FRONT_ORDER}
+
+    # The next run: nothing may be driven at all (stopped stays set).
+    run.log.clear()
+    host.serial_usb_rx_write(wire)
+    for _ in range(1500):
+        run.tick()
+    assert run.violations == []
+    reason = f"FLHL out at {round(hip_out)} edges: jog it to its curl end first"
+    lines = run.cal_lines()
+    assert f"CAL FRONT FAIL {reason}" in lines
+    assert f"CAL ROBOT FAIL FRONT: {reason}" in lines
+    assert not any(" MOVE " in line for line in lines)
+    assert {aid: run.travel[aid] for aid in FRONT_ORDER} == still
+    assert not host.firmware_calibration_active()
+    assert run.eeprom_magic() != CAL_MAGIC
 
 
 def test_hip_that_rehomes_far_from_zero_has_lost_counts(host):

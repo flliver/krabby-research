@@ -19,7 +19,7 @@ or above ``AUTOCAL_PWM_DRIVE_THRESHOLD`` extends it by one step per firmware loo
   retracted end, or a hall hip driven into its extended end: its extend switch
   too); and ``CAL_PLANT_IS_STALL_ADC`` pressed into an extended end that stops it
   (a knee's leg stop, an ``extend_stops`` obstacle, a stored knee's curl end). The
-  detector's floor is the lowest current of its samples 3..ramp end and a limit
+  detector's floor is the lowest current of its samples 4..ramp end and a limit
   switch end must read flat at most 1.5 counts above it, so the switch-open level
   sits at the bottom of the ramp's levels.
 

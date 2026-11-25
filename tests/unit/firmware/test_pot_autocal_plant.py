@@ -250,7 +250,7 @@ def test_current_sense_levels_follow_the_end_currents_of_2026_11_24():
 
 
 def test_running_current_grows_with_pwm_and_a_limit_switch_end_sits_at_the_floor():
-    # The detector's floor is the lowest current of its samples 3..ramp end (the soft
+    # The detector's floor is the lowest current of its samples 4..ramp end (the soft
     # start, PWM well below the move PWM); a switch end must read flat at most 1.5
     # counts above it, which the switch-open level (below every running level) meets.
     levels = [running_is_adc(pwm) for pwm in (20, 60, 110, 128, 150)]
